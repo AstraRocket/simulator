@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation
+    url: https://astrarocket.github.io/simulator/docs/
+    about: How to use the app: designing, motors, simulations, files & exports.
+  - name: 🛠 Contributing guide
+    url: https://github.com/AstraRocket/simulator/blob/HEAD/CONTRIBUTING.md
+    about: How to report bugs, translate, write documentation and submit changes.

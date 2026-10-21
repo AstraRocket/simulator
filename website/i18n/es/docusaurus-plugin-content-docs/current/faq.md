@@ -1,0 +1,59 @@
+---
+title: "Preguntas frecuentes"
+sidebar_position: 4
+---
+### ¿Esto es OpenRocket? {#is-this-openrocket}
+No: es una aplicación independiente que **ejecuta el motor de física de OpenRocket** en el navegador. Cubre lo esencial, funciona en un teléfono igual que en un ordenador, y lee y escribe los mismos archivos `.ork`. No está afiliada al proyecto OpenRocket.
+
+### ¿Necesito instalar algo? {#do-i-need-to-install-anything}
+No. Es una aplicación web: abre la URL en un navegador moderno. Sin JDK, sin descargas.
+
+### ¿Se suben mis diseños a algún sitio? {#are-my-designs-uploaded-anywhere}
+No. Todo se ejecuta en tu dispositivo. Tus cohetes, tus motores personalizados, tus piezas guardadas, tus materiales y tus lugares de lanzamiento guardados se guardan en el IndexedDB de tu navegador (con localStorage como alternativa), y tus ajustes en su localStorage. Puedes exportar un `.ork` a tu disco. No se envía nada a ningún servidor.
+
+### ¿Mis archivos `.ork` funcionarán en OpenRocket de escritorio? {#will-my-ork-files-work-in-desktop-openrocket}
+Sí: la importación y la exportación son de ida y vuelta con total fidelidad, y un archivo exportado se vuelve a abrir en OpenRocket de escritorio. Hay dos cosas que no pasan: las calcomanías se eliminan al importar, porque sus imágenes se guardan aparte dentro del archivo, y un componente que esta aplicación no admite se omite. El aviso de importación nombra ambas.
+
+### ¿Puedo abrir un archivo de RockSim? {#can-i-open-a-rocksim-file}
+Sí: **menú → Importar → RockSim** lee un `.rkt`, y **Exportar → RockSim** escribe uno. El diseño viaja; los **motores y las condiciones de lanzamiento no**, porque RockSim los guarda con sus simulaciones y no con sus diseños, así que elige un motor después de importar. En [Archivos y exportaciones](./files-and-exports.md#rocksim-rkt) está exactamente qué lleva cada sentido y qué deja atrás.
+
+### ¿Puedo imprimir las piezas en 3D? {#can-i-3d-print-the-parts}
+Sí. Cualquier pieza con un cuerpo sólido real lleva un botón **⬇** en el árbol de componentes que ofrece STL, OBJ, GLB y 3MF, y **menú → Exportar → Impresión 3D (.3mf)** escribe el cohete entero de una vez en un único archivo con un objeto con nombre por pieza. Consulta [Archivos y exportaciones](./files-and-exports.md#exporting-the-whole-rocket-for-3d-printing-3mf).
+
+### ¿Mis unidades aparecen en OpenRocket de escritorio? {#do-my-unit-choices-show-up-in-desktop-openrocket}
+No. Las unidades viven en los ajustes de tu navegador, no en el `.ork`: el archivo no tiene dónde guardarlas, y OpenRocket de escritorio mantiene las suyas en sus preferencias. Tu archivo se abre allí con las unidades de OpenRocket y aquí con las tuyas; el cohete es el mismo en ambos casos. Por la misma razón, tus unidades no te siguen a otro ordenador ni a otro navegador. Consulta **[Ajustes](./settings.md#units)**.
+
+### ¿Por qué la estabilidad es distinta «en plataforma» y «al salir de la guía»? {#why-is-the-stability-different-on-the-pad-vs-at-launcher-exit}
+Cuando el cohete abandona el raíl o la varilla ya pesa algo menos (ha quemado algo de propelente) y su CG se ha desplazado, así que su margen de estabilidad difiere del valor en plataforma con el cohete cargado. El margen al salir de la guía suele ser el más significativo.
+
+### ¿Puedo usar pulgadas o unidades imperiales? {#can-i-use-inches--imperial-units}
+Sí. **Ajustes ▸ Unidades** tiene un botón de **Valores imperiales**, y puedes configurar cada magnitud por separado (longitudes en pulgadas, altitud en pies, masa en onzas, viento en mph, etc.). La unidad impresa junto a cualquier valor también es un selector: haz clic para cambiar ese campo concreto, dejando todo lo demás en tus valores por defecto.
+
+Las unidades solo afectan a lo que se muestra y se escribe: tu diseño se guarda siempre en SI, así que cambiar de unidades nunca modifica un cohete ni cómo se escribe un archivo `.ork`. Consulta **[Ajustes](./settings.md#units)**.
+
+### ¿Funciona sin conexión? {#does-it-work-offline}
+Sí. Tras la primera visita, la aplicación conserva en tu dispositivo tanto la propia aplicación como el motor de física y los dos catálogos, así que se abre y ejecuta una simulación completa sin conexión: útil en un campo de vuelo sin cobertura. Tu navegador también te ofrecerá **instalarla**. Consulta **[Sin conexión e instalación](./offline-and-installing.md)**.
+
+### ¿Qué es la insignia `WASM` / `JS` de la cabecera? {#whats-the-wasm--js-badge-in-the-header}
+Indica qué motor se ha cargado: **WASM** (WebAssembly, el rápido por defecto) o **JS** (JavaScript, la alternativa para navegadores sin soporte de WASM GC). Ambos producen resultados idénticos.
+
+### ¿Sobrevive un material personalizado al guardar en `.ork`? {#does-a-custom-material-survive-saving-to-a-ork}
+Sí, el nombre y la densidad, para todos los materiales que el editor ofrece: el material de volumen de una pieza estructural, el material del filete de una aleta y los materiales de tela y de cuerda de un dispositivo de recuperación. Eso importa sobre todo para los materiales que esta aplicación tiene y OpenRocket de escritorio no, los [adhesivos y los cordones elásticos corregidos](./designing-a-rocket.md#adhesives): el nombre se escribe en el elemento `<material>` del archivo tal y como lo elegiste.
+
+Un material guardado **en este diseño** también viaja con el archivo: está en la lista de materiales propia del archivo, así que OpenRocket de escritorio y esta aplicación en otro equipo lo ofrecen en todas las piezas de ese diseño. Al guardar en `.rkt` o RASAero esa lista no se conserva.
+
+Lo que no viaja es el lugar del material en **tu** lista personalizada de este navegador. Abre ese archivo en otro equipo y la pieza sigue teniendo la densidad correcta con el nombre correcto, pero el material no estará en la lista personalizada de ese navegador hasta que lo añadas allí. Para llevarte la lista entera, usa una copia de seguridad: mira la siguiente pregunta.
+
+### ¿Cómo paso mis materiales, piezas y ubicaciones a otro equipo? {#how-do-i-move-my-materials-parts-and-locations-to-another-computer}
+**Menú → Exportar → Copia de seguridad.** **Guardar copia de seguridad** escribe un archivo `.json` con lo que este navegador guarda aparte de tus diseños: Materiales personalizados, Piezas personalizadas, ubicaciones de lanzamiento, motores importados, plantillas de trayectoria de vuelo (tus propios formatos para la exportación de la trayectoria) y tus ajustes. Desmarca lo que quieras dejar fuera. En el otro navegador, **Menú → Importar → Copia de seguridad** y luego **Abrir copia de seguridad…** muestra lo que contiene el archivo; elige qué traer y pulsa **Restaurar**.
+
+Las listas se combinan: una entrada que coincide con una que ya está la reemplaza (un material por su tipo y nombre, una pieza guardada por su tipo, fabricante y número de pieza) y el resto se añade. Tus ajustes se reemplazan por los del archivo. Cada lista indica cuántas entradas se añadieron, reemplazaron y rechazaron; una entrada se rechaza cuando no se aceptaría si la introdujeras aquí, como un material sin densidad.
+
+Los diseños no van en la copia, porque cada uno se guarda como su propio `.ork`. Tampoco tus claves de API de mapas y meteorología: una copia es un archivo que puedes pasar a otra persona, y las claves son tuyas.
+
+
+### La simulación no bloqueó la aplicación mientras se ejecutaba, ¿es normal? {#the-simulation-didnt-freeze-the-app-while-running-is-that-normal}
+Sí. Las simulaciones de vuelo se ejecutan en un Web Worker en segundo plano, así que la interfaz sigue respondiendo mientras se calcula un vuelo.
+
+### ¿Cómo informo de un fallo o pido una función? {#how-do-i-report-a-bug-or-request-a-feature}
+Consulta la página **[Contribuir](https://github.com/AstraRocket/simulator/blob/HEAD/CONTRIBUTING.md)**: se agradecen informes de fallos, ideas de funciones, traducciones y código.

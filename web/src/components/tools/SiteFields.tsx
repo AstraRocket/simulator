@@ -1,0 +1,86 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useUnits } from '../../prefs/useUnits';
+import type { LaunchConditions } from '../../services/design/orkTree';
+import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
+import { LocationPicker } from '../sim/LocationPicker';
+import { loadSettings } from '../../services/storage/settings';
+import { defaultToolSite } from './remembered';
+import { SiteMapDialog } from '../sim/SiteMapDialog';
+import { QNum } from '../sim/LaunchPanel';
+import { LatLonRows } from '../sim/LatLonRows';
+
+export const toolBtn =
+  'rounded-md bg-raised px-3 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
+
+export interface ToolSite {
+  latitudeDeg: number | null;
+  longitudeDeg: number | null;
+  launchAltitudeM: number | null;
+}
+
+/**
+ * A tool's launch site: a saved location, latitude and longitude, a pick on the
+ * map, and with `elevation`, the site's height (blank for the terrain model's).
+ */
+export function SiteFields({
+  site,
+  onChange,
+  elevation = false,
+}: {
+  site: ToolSite;
+  onChange: (update: (s: ToolSite) => ToolSite) => void;
+  elevation?: boolean;
+}) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  const [mapOpen, setMapOpen] = useState(false);
+  return (
+    <>
+      <LocationPicker
+        launch={site as unknown as LaunchConditions}
+        defaultSite={() => defaultToolSite(loadSettings().launchDefaults)}
+        onChange={(p) =>
+          onChange((s) => ({
+            latitudeDeg: p.latitudeDeg !== undefined ? p.latitudeDeg : s.latitudeDeg,
+            longitudeDeg: p.longitudeDeg !== undefined ? p.longitudeDeg : s.longitudeDeg,
+            launchAltitudeM: p.launchAltitudeM !== undefined ? p.launchAltitudeM : s.launchAltitudeM,
+          }))
+        }
+      />
+      <LatLonRows
+        latitudeDeg={site.latitudeDeg}
+        longitudeDeg={site.longitudeDeg}
+        onChange={(patch) => onChange((s) => ({ ...s, ...patch }))}
+      />
+      {elevation && (
+        <QNum
+          label={t('landing.siteElevation')}
+          field="landingSiteElevation"
+          kind="distance"
+          u={u}
+          stepSi={10}
+          minSi={LAUNCH_SITE_LIMITS.launchAltitudeM.min}
+          maxSi={LAUNCH_SITE_LIMITS.launchAltitudeM.max}
+          placeholder={t('landing.terrain')}
+          hint={t('landing.siteElevationHint')}
+          value={site.launchAltitudeM}
+          onChange={(v) => onChange((s) => ({ ...s, launchAltitudeM: v }))}
+        />
+      )}
+      <button className={`${toolBtn} w-full`} onClick={() => setMapOpen(true)}>
+        <span aria-hidden="true">🗺</span> {t('map.show')}
+      </button>
+      {mapOpen && (
+        <SiteMapDialog
+          latitudeDeg={site.latitudeDeg}
+          longitudeDeg={site.longitudeDeg}
+          // A point on the map has no elevation of its own, and the old
+          // site's is not this one's: blank, the tool takes the terrain's.
+          onPick={(la, lo) => onChange((s) => ({ ...s, latitudeDeg: la, longitudeDeg: lo, launchAltitudeM: null }))}
+          onClose={() => setMapOpen(false)}
+        />
+      )}
+    </>
+  );
+}

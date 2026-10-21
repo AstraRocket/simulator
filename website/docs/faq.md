@@ -1,0 +1,58 @@
+---
+title: "FAQ"
+sidebar_position: 4
+---
+### Is this OpenRocket?
+No: it's an independent app that **runs OpenRocket's physics engine** in the browser. It covers the essentials, works on a phone as well as a desktop, and reads/writes the same `.ork` files. It is not affiliated with the OpenRocket project.
+
+### Do I need to install anything?
+No. It's a web app: open the URL in a modern browser. No JDK, no download.
+
+### Are my designs uploaded anywhere?
+No. Everything runs on your device. Your rockets, custom motors, saved parts, materials and saved launch locations are kept in your browser's IndexedDB (with localStorage as the fallback), and your settings in its localStorage. You can export a `.ork` to your disk. Nothing is sent to a server.
+
+### Will my `.ork` files work in desktop OpenRocket?
+Yes: open and save are full-fidelity round-trips, and a saved file reopens in desktop OpenRocket. Two things do not come across: decals are removed on import, because their images are stored separately in the file, and a component this app does not support is skipped. The import banner names both.
+
+### Can I open a RockSim file?
+Yes: **menu → Import → RockSim** reads a `.rkt`, and **Export → RockSim** writes one. The design comes across; the **motors and launch conditions do not**, because RockSim keeps those with its simulations rather than its designs, so pick a motor after importing. [Files & Exports](./files-and-exports.md#rocksim-rkt) lists exactly what each direction carries and what it leaves behind.
+
+### Can I 3D print the parts?
+Yes. Any part with a real solid body carries a **⬇** button in the component tree offering STL, OBJ, GLB and 3MF, and **menu → Export → 3D print (.3mf)** writes the whole rocket at once as a single file with one named object per part. See [Files & Exports](./files-and-exports.md#exporting-the-whole-rocket-for-3d-printing-3mf).
+
+### Do my unit choices show up in desktop OpenRocket?
+No. Units live in your browser's settings, not in the `.ork`: the file has nowhere to record them, and desktop OpenRocket keeps its own in its preferences. Your file opens there in OpenRocket's units and back here in yours; the rocket is the same either way. For the same reason your units don't follow you to another computer or browser. See **[Settings](./settings.md#units)**.
+
+### Why is the stability different "on the pad" vs "at launcher exit"?
+By the time the rocket leaves the rail or rod it's a little lighter (some propellant burned) and its CG has shifted, so its stability margin differs from the fully loaded on-pad value. The launcher-exit margin is usually the more meaningful number.
+
+### Can I use inches / imperial units?
+Yes. **Settings ▸ Units** has an **Imperial defaults** button, and you can set each quantity separately (lengths in inches, altitude in feet, mass in ounces, wind in mph, and so on). The unit printed next to any value is also a picker: click it to change that one field, leaving everything else on your defaults.
+
+Units only affect what's shown and typed: your design is always stored in SI, so switching units never changes a rocket or how a `.ork` file is written. See **[Settings](./settings.md#units)**.
+
+### Does it work offline?
+Yes. After your first visit the app keeps itself, the physics engine and both catalogs on your device, so it opens and runs a full simulation with no connection: useful at a launch site with no signal. Your browser will also offer to **install** it. See **[Offline & Installing](./offline-and-installing.md)**.
+
+### What's the `WASM` / `JS` badge in the header?
+Which engine backend loaded: **WASM** (WebAssembly, the fast default) or **JS** (JavaScript, the fallback for browsers without WASM GC support). Both produce identical results.
+
+### Does a custom material survive saving to a `.ork`?
+Yes, name and density both, for every material the editor offers one for: the bulk material of a structural part, a fin's fillet material, and a recovery device's canopy and line materials. That matters most for the materials this app has and desktop OpenRocket does not, the [adhesives and the corrected elastic cords](./designing-a-rocket.md#adhesives): the name is written into the file's `<material>` element exactly as you picked it.
+
+A material kept **in this design** also travels with the file: it is in the file's own material list, so desktop OpenRocket and this app on another machine both offer it on every part of that design. A `.rkt` or RASAero save does not carry that list.
+
+What does not travel is the material's place in **your** custom list in this browser. Open that file on another machine and the part is still the right density under the right name, but the material is not in that browser's custom list until you add it there. To bring the whole list along, use a backup: see the next question.
+
+### How do I move my materials, parts and locations to another computer?
+**Menu → Export → Backup.** **Save backup file** writes one `.json` file holding what this browser keeps besides your designs: Custom Materials, Custom Parts, Launch Locations, Imported Motors, Flight Path Templates (your own formats for the flight path export) and your settings. Uncheck any you want to leave out. On the other browser, **Menu → Import → Backup**, then **Open backup file…**, shows what the file holds; pick what to take and press **Restore**.
+
+Lists are merged: an entry that matches one already there replaces it (a material by its type and name, a saved part by its type, maker and part number), and the rest are added. Your settings are replaced by the file's. Each list reports how many entries were added, replaced and refused; an entry is refused when it would not be accepted if you entered it here, such as a material with no density.
+
+Designs are not in the backup, since each one saves as its own `.ork`. Neither are your map and weather API keys: a backup is a file you may hand to someone, and the keys are yours.
+
+### The simulation didn't freeze the app while running: is that normal?
+Yes. Flight simulations run in a background Web Worker, so the UI stays responsive while a flight computes.
+
+### How do I report a bug or request a feature?
+See **[CONTRIBUTING.md](https://github.com/AstraRocket/simulator/blob/HEAD/CONTRIBUTING.md)**: bug reports, feature ideas, translations, and code are all welcome.

@@ -1,0 +1,552 @@
+package info.openrocket.core.masscalc;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+import info.openrocket.core.motor.Motor;
+import info.openrocket.core.motor.MotorConfiguration;
+import info.openrocket.core.rocketcomponent.ComponentAssembly;
+import info.openrocket.core.rocketcomponent.FlightConfiguration;
+import info.openrocket.core.rocketcomponent.InstanceContext;
+import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.simulation.MotorClusterState;
+import info.openrocket.core.util.CoordinateIF;
+import info.openrocket.core.util.Coordinate;
+import info.openrocket.core.util.MathUtil;
+import info.openrocket.core.util.Transformation;
+
+/**
+ * 
+ * @author teyrana (aka Daniel Williams) <equipoise@gmail.com> 
+ *
+ */
+public class MassCalculation {
+
+	/**
+	 * NOTE:  Multiple enums may map to the same settings.  This allows a caller to use the
+	 *     enum which best matches their use case.
+	 */
+	public enum Type {
+		// no motor data, even if the configuration contains active engines
+		STRUCTURE(true, false, false),
+
+		// n.b. 'motor-mass' calculations are to be preferred over 'propellant-mass'
+		// calculations because they are computationally simpler:
+		// not only are they faster, but *slightly* more accurate because of fewer
+		// calculation rounding errors
+		MOTOR(false, true, true),
+
+		BURNOUT(true, true, false),
+
+		LAUNCH(true, true, true);
+
+		public final boolean includesStructure;
+		public final boolean includesMotorCasing;
+		public final boolean includesPropellant;
+		
+		Type( double simulationTime ) {
+			includesStructure = false;
+			includesMotorCasing = true;
+			includesPropellant = true;
+		}
+		
+	    Type( boolean include_structure, boolean include_casing, boolean include_prop) {
+			this.includesStructure = include_structure;
+			this.includesMotorCasing = include_casing;
+			this.includesPropellant = include_prop;
+		}   
+	}
+	
+	// =========== Instance Functions ========================
+	
+	public void merge( final MassCalculation other ) {
+		// Adjust Center-of-mass
+		this.addMass( other.getCM() );
+		this.bodies.addAll( other.bodies );
+	}
+
+	public void addInertia( final RigidBody data ) {
+		this.bodies.add( data );
+	}
+
+	/**
+	 * Scale the mass and moment of inertia of every accumulated body by the given
+	 * non-negative factor.  Used when a mass override covers all subcomponents: the
+	 * geometric mass distribution is preserved but rescaled to the overridden total,
+	 * keeping the moment of inertia consistent with the mass.
+	 *
+	 * @param factor  non-negative scale factor
+	 */
+	void scaleInertia( final double factor ) {
+		for (int i = 0; i < this.bodies.size(); i++)
+			this.bodies.set(i, this.bodies.get(i).scaleMass(factor));
+	}
+
+	public void addMass( final CoordinateIF pointMass ) {
+		if( MIN_MASS > this.centerOfMass.getWeight() ){
+		    this.centerOfMass = pointMass;
+		}else {
+			this.centerOfMass = this.centerOfMass.average( pointMass);
+		}
+	}
+
+	public void addMass(double mass) {
+		this.centerOfMass = this.centerOfMass.setWeight(getMass() + mass);
+	}
+	
+	public MassCalculation copy(final RocketComponent _root, final Transformation _transform){
+		return new MassCalculation( this.type, this.config, this.simulationTime, this.activeMotorList, _root, _transform, this.analysisMap);
+	}
+		
+	public CoordinateIF getCM() {
+		return this.centerOfMass;
+	}
+	
+	public double getMass() {
+		return this.centerOfMass.getWeight();
+	}
+
+	public void setMass(double mass) {
+		this.centerOfMass = this.centerOfMass.setWeight(mass);
+	}
+	
+	public double getLongitudinalInertia() {
+		return this.inertia.Iyy;
+	}
+	
+	public double getRotationalInertia() {
+		return this.inertia.Ixx;
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		
+		MassCalculation other = (MassCalculation) obj;
+		return ((this.centerOfMass.equals(other.centerOfMass)) 
+				&& (this.config.equals( other.config))
+				&& (this.simulationTime == other.simulationTime)
+				&& (this.type == other.type) );
+	}
+	
+	@Override
+	public int hashCode() {
+		return this.centerOfMass.hashCode();
+	}
+
+	public MassCalculation(final Type _type, final FlightConfiguration _config, final double _time,
+						   final Collection<MotorClusterState> _activeMotorList,
+						   final RocketComponent _root, final Transformation _transform,
+						   Map<Integer, CMAnalysisEntry> _map)
+	{
+		type = _type;
+		config = _config;
+		simulationTime = _time;
+		activeMotorList = _activeMotorList;
+		root = _root;
+		transform = _transform;
+		analysisMap = _map;
+
+		reset();
+	}
+	
+	public void setCM( final CoordinateIF newCM ) {
+		this.centerOfMass = newCM;
+	}	
+
+	public void reset(){
+		centerOfMass = Coordinate.ZERO;
+		inertia = RigidBody.EMPTY;
+		bodies.clear();
+	}
+	
+	public int size() {
+		return this.bodies.size();
+	}
+	
+	public String toCMDebug(){ 
+		return String.format("cm= %.6fg@[%.6f,%.6f,%.6f]", centerOfMass.getWeight(), centerOfMass.getX(), centerOfMass.getY(), centerOfMass.getZ());
+	}
+
+//	public String toMOIDebug(){
+//		return String.format("I_cm=[ %.8f, %.8f, %.8f ]", inertia.getIxx(), inertia.getIyy(), inertia.getIzz() ));	 
+//	}
+
+	@Override
+	public String toString() {
+		return this.toCMDebug();
+	}
+
+	
+	// =========== Instance Member Variables ========================
+	
+	private static final double MIN_MASS = MathUtil.EPSILON;
+
+	// === package-private ===
+	final FlightConfiguration config;
+	final double simulationTime;
+	final Collection<MotorClusterState> activeMotorList;
+	final RocketComponent root;
+	final Transformation transform;
+	final Type type;
+	
+	// center-of-mass only.
+	CoordinateIF centerOfMass = Coordinate.ZERO;
+	
+	// center-of-mass AND moment-of-inertia data.
+	RigidBody inertia = RigidBody.EMPTY;
+	
+	// center-of-mass AND moment-of-inertia data.
+	final ArrayList<RigidBody> bodies = new ArrayList<>();
+
+	String prefix = "";
+
+	Map<Integer, CMAnalysisEntry> analysisMap;
+
+	// =========== Private Instance Functions ========================
+
+	private MassCalculation calculateMountData(final MotorConfiguration motorConfig,
+			final MotorClusterState motorState) {
+		if( ! config.isComponentActive(this.root)) {
+			return this;
+		}
+		
+		if( motorConfig.isEmpty() ){
+			return this;
+		}
+		final Motor motor = motorConfig.getMotor();
+
+		// If we don't have any MotorClusterStates,
+		// we're using a synthetic time to do a static analysis.
+		// If we do have MotorClusterStates, we need to adjust
+		// time according to motor ignition time.
+		final double motorTime = motorState == null
+				? simulationTime
+				: motorState.getMotorTime(simulationTime);
+
+		final double mountXPosition = root.getPosition().getX();
+		
+		final int instanceCount = root.getInstanceCount();
+
+		final double motorXPosition = motorConfig.getX();  // location of motor from mount
+		final CoordinateIF[] offsets = root.getInstanceOffsets();
+		
+		double eachMass;
+		double eachCMx;  // CoM from beginning of motor
+		
+		if ( this.type.includesMotorCasing && this.type.includesPropellant ){
+			eachMass = motor.getTotalMass( motorTime );
+			eachCMx = motor.getCMx( motorTime);
+		}else if( this.type.includesMotorCasing ) {
+			eachMass = motor.getTotalMass( Motor.PSEUDO_TIME_BURNOUT );
+			eachCMx = motor.getCMx( Motor.PSEUDO_TIME_BURNOUT );
+		} else {
+			final double eachMotorMass = motor.getTotalMass( motorTime );
+			final double eachMotorCMx = motor.getCMx( motorTime ); // CoM from beginning of motor
+			final double eachCasingMass = motor.getBurnoutMass();
+			final double eachCasingCMx = motor.getBurnoutCGx();
+			
+			eachMass = eachMotorMass - eachCasingMass;
+			eachCMx = (eachMotorCMx*eachMotorMass - eachCasingCMx*eachCasingMass)/eachMass;
+		}
+
+//		System.err.println(String.format("%-40s|Motor: %s....  Mass @%f = %.6f", prefix, motorConfig.toDescription(), motorTime, eachMass ));
+
+
+		// coordinates in rocket frame; Ir, It about CoM.
+		final CoordinateIF clusterLocalCM = new Coordinate( mountXPosition + motorXPosition + eachCMx, 0, 0, eachMass*instanceCount);
+		
+		double clusterBaseIr = motorConfig.getUnitRotationalInertia()*instanceCount*eachMass;
+		
+		double clusterIt = motorConfig.getUnitLongitudinalInertia()*instanceCount*eachMass;
+		
+		// PATCH(offaxis-roll-inertia): every instance gets its parallel-axis
+		// term, not only a multi-motor cluster. Upstream guards this loop with
+		// `if( 1 < instanceCount )` ("more than 1 motor => not at the
+		// centerline"), but one mount can sit off the axis too: InnerTube's
+		// getInstanceOffsets() carries its radial shift at every cluster count,
+		// so with that guard a single motor in a split-cluster tube adds nothing
+		// to roll inertia. clusterLocalCM sits on the mount's parent axis for
+		// every count, so the term about that axis belongs to this body and
+		// rebase() cannot add it twice. A centerline mount has the one offset
+		// (0, 0, 0) and adds exactly 0.0. See patches/LEDGER.md.
+		// The squared distance is summed directly, not via Math.hypot and
+		// Math.pow: JVM hypot (FDLIBM) and TeaVM's disagree by 1 ULP on about
+		// 12% of inputs (see Geo2D), and this runs for every mount, so the JVM
+		// reference and the shipped targets could report different roll inertia
+		// for one off-axis motor. y*y + z*z is identical on all three.
+		double clusterIr = clusterBaseIr; 
+		for( CoordinateIF coord : offsets ){
+			clusterIr += eachMass*(coord.getY()*coord.getY() + coord.getZ()*coord.getZ());
+		}
+		
+		final CoordinateIF clusterCM = transform.transform( clusterLocalCM  );
+		addMass( clusterCM );
+
+		if(null != this.analysisMap) {
+			CMAnalysisEntry entry = analysisMap.get(motor.getDesignation().hashCode());
+			if (null == entry){
+				entry = new CMAnalysisEntry(motor);
+				analysisMap.put(motor.getDesignation().hashCode(), entry);
+			}
+			entry.updateEachMass(eachMass);
+			entry.updateAverageCM(clusterCM);
+		}
+
+		RigidBody clusterMOI = new RigidBody( clusterCM, clusterIr, clusterIt, clusterIt );
+		addInertia( clusterMOI );
+		
+		return this;
+	}
+	
+	/**
+	 * Returns the mass and inertia data for this component and all subcomponents.
+	 * The inertia is returned relative to the CG, and the CG is in the coordinates
+	 * of the specified component, not global coordinates.
+	 *
+	 */
+	/* package-scope */ MassCalculation calculateAssembly(){
+		
+		if (this.type.includesStructure) {
+			MassCalculation structureCalc = this.copy(this.root, this.transform);
+			structureCalc.calculateStructure();
+			this.merge(structureCalc);
+		}
+
+		if (this.type.includesMotorCasing || this.type.includesPropellant) {
+			MassCalculation motorCalc = this.copy(this.root, this.transform);
+			motorCalc.calculateMotors();
+			this.merge(motorCalc);
+		}
+
+		return this;
+	}
+
+	MassCalculation calculateStructure() {
+		final RocketComponent component = this.root;
+		final Transformation parentTransform = this.transform;
+		final int instanceCount = component.getInstanceCount();
+		final CoordinateIF[] allInstanceOffsets = component.getInstanceLocations();
+		final double[] allInstanceAngles = component.getInstanceAngles();
+
+		// vvv DEBUG
+		//if( this.config.isComponentActive(component) ){
+		//	System.err.println(String.format( "%s>>[%s]....", prefix, component.getName()));
+		//}
+
+		if(null != analysisMap) {
+			if (this.config.isComponentActive(component) && (! analysisMap.containsKey(component.hashCode()))){
+				CMAnalysisEntry entry = new CMAnalysisEntry(component);
+				analysisMap.put(component.hashCode(), entry);
+			}
+		}
+
+		// iterate over the aggregated instances for the whole tree.
+		MassCalculation children = this.copy(component, parentTransform );
+		for( int currentInstanceNumber = 0; currentInstanceNumber < instanceCount; ++currentInstanceNumber) {
+			final CoordinateIF currentInstanceOffset = allInstanceOffsets[currentInstanceNumber];
+			final Transformation offsetTransform = Transformation.getTranslationTransform( currentInstanceOffset );
+
+			final double currentInstanceAngle = allInstanceAngles[currentInstanceNumber];
+			final Transformation angleTransform = Transformation.getAxialRotation(currentInstanceAngle);
+
+			final Transformation currentTransform = parentTransform.applyTransformation(offsetTransform)
+														.applyTransformation(angleTransform);
+
+			for (RocketComponent child : component.getChildren()) {
+				// child data, relative to rocket reference frame
+				MassCalculation eachChild = copy(child, currentTransform);
+				
+				eachChild.prefix = prefix + "....";
+				eachChild.calculateStructure(); 
+
+				// accumulate children's data
+				children.merge( eachChild );
+			}
+		}
+		
+		if (this.config.isComponentActive(component) ){
+			CoordinateIF compCM = component.getComponentCG();
+			
+			// mass data for *this component only* in the rocket-frame
+			compCM = parentTransform.transform( compCM.add(component.getPosition()) );
+
+			// setting zero as the CG position means the top of the component, which is component.getPosition()
+			final CoordinateIF compZero = parentTransform.transform( component.getPosition() );
+
+			// Geometric (non-overridden) mass of this component, captured before a
+			// mass override rewrites compCM's weight.  A subcomponent mass override
+			// then rescales the inertia to the overridden mass instead of leaving it
+			// at the geometric value (see below).
+			final double componentGeometricMass = compCM.getWeight();
+			double inertiaMass = componentGeometricMass;
+
+			if (component.isMassOverridden()) {
+				if (!component.isMassive()) {
+					compCM = children.getCM();
+				}
+				compCM = compCM.setWeight(component.getOverrideMass());
+
+				if (component.isSubcomponentsOverriddenMass()) {
+					// The override replaces the mass of this component AND all of its
+					// subcomponents.  Keep the geometric mass *distribution* but
+					// rescale it to the overridden total so the moment of inertia
+					// stays consistent with the mass. Zeroing the mass alone would
+					// leave the inertia of the subcomponents (and of this component)
+					// at its geometric value, so overriding the mass would leave the
+					// rotational/longitudinal inertia unchanged.
+					final double geometricMass = componentGeometricMass + children.getMass();
+					final double scale = geometricMass > MIN_MASS
+							? component.getOverrideMass() / geometricMass
+							: 0.0;
+					children.scaleInertia(scale);
+					children.setCM(children.getCM().setWeight(0));
+					inertiaMass = componentGeometricMass * scale;
+				} 
+				else {
+					// Override applies to this component only; its own inertia
+					// follows the overridden mass.
+					inertiaMass = component.getOverrideMass();
+				}
+			}
+
+			if (component.isCGOverridden()) {
+				compCM = compCM.setX( compZero.getX() + component.getOverrideCGX() );
+
+				if (component.isSubcomponentsOverriddenCG()) {
+					children.setCM(children.getCM().setX(compCM.getX()));
+				}
+			}
+			this.addMass(compCM);
+			
+			if(null != analysisMap && !(component instanceof ComponentAssembly)){
+				final CMAnalysisEntry entry = analysisMap.get(component.hashCode());
+				// For physical components, record only the component and disregard its children.
+				entry.updateEachMass(compCM.getWeight());
+				entry.updateAverageCM(compCM);
+			}
+			
+			final double compIx = component.getRotationalUnitInertia() * inertiaMass;
+			final double compIt = component.getLongitudinalUnitInertia() * inertiaMass;
+			final RigidBody componentInertia = new RigidBody( compCM.setWeight(inertiaMass), compIx, compIt, compIt );
+			this.addInertia( componentInertia );
+			// // vvv DEBUG
+			// if( 0 < compCM.getWeight() ) {
+			// 	System.err.println(String.format( "%s....componentData:            %s", prefix, compCM.toPreciseString() ));
+			// }
+		}
+
+		this.merge( children );
+
+		if (null != analysisMap && this.config.isComponentActive(component) &&
+				component instanceof ComponentAssembly) {
+			// Record the complete structural subtree after its child mass has been merged.
+			final CMAnalysisEntry entry = analysisMap.get(component.hashCode());
+			entry.updateAssemblyMass(this.centerOfMass, component.getInstanceCount());
+		}
+
+		// // vvv DEBUG
+		// if( this.config.isComponentActive(component) && 0 < this.getMass() ) {
+		// 	System.err.println(String.format( "%s....<< return data @ %s:   %s", prefix, component.getName(), this.toCMDebug() ));
+		// }
+		// // ^^^ DEBUG
+		
+		return this;
+	}
+
+	/**
+	 * Calculates motor mass by visiting only active motor mounts.  Each mount's
+	 * instance zero represents one complete cluster at a physical parent instance;
+	 * {@link #calculateMountData(MotorConfiguration, MotorClusterState)} aggregates
+	 * the remaining instances in that cluster.
+	 *
+	 * @return this calculation with all active motor data merged into it
+	 */
+	MassCalculation calculateMotors() {
+		if (activeMotorList == null) {
+			for (MotorConfiguration motorConfig : config.getActiveMotors()) {
+				calculateMotorInstances(motorConfig, null);
+			}
+		} else {
+			for (MotorClusterState motorState : activeMotorList) {
+				calculateMotorInstances(motorState.getConfig(), motorState);
+			}
+		}
+
+		return this;
+	}
+
+	/**
+	 * Adds every parent-instanced cluster for one active motor configuration.
+	 *
+	 * @param motorConfig active motor configuration to add
+	 * @param motorState simulation state, or {@code null} for a static calculation
+	 */
+	private void calculateMotorInstances(final MotorConfiguration motorConfig,
+			final MotorClusterState motorState) {
+		final RocketComponent mount = (RocketComponent) motorConfig.getMount();
+		final List<InstanceContext> contexts = config.getActiveInstances().getInstanceContexts(mount);
+		if (contexts == null) {
+			return;
+		}
+
+		for (InstanceContext context : contexts) {
+			// calculateMountData aggregates all instances belonging to this parent.
+			if (context.instanceNumber != 0) {
+				continue;
+			}
+
+			final MassCalculation motor = copy(mount, context.getParentTransform());
+			motor.calculateMountData(motorConfig, motorState);
+			merge(motor);
+			updateAssemblyMotorMass(mount, motor.getCM());
+		}
+	}
+
+	/**
+	 * Adds a motor cluster's mass and CG to every active ancestor assembly row.
+	 * The optimized motor traversal does not recurse through component assemblies,
+	 * so analysis attribution must be performed explicitly for each motor instance.
+	 *
+	 * @param mount motor mount whose ancestor assemblies receive the contribution
+	 * @param motorCM aggregate motor mass and CG for one physical parent instance
+	 */
+	private void updateAssemblyMotorMass(final RocketComponent mount, final CoordinateIF motorCM) {
+		if (analysisMap == null || motorCM.getWeight() <= MIN_MASS) {
+			return;
+		}
+
+		RocketComponent component = mount.getParent();
+		while (component != null) {
+			if (component instanceof ComponentAssembly && config.isComponentActive(component)) {
+				final CMAnalysisEntry entry = analysisMap.get(component.hashCode());
+				if (entry != null) {
+					entry.updateAssemblyMass(motorCM, component.getInstanceCount());
+				}
+			}
+			component = component.getParent();
+		}
+	}
+	
+	/** 
+	 * MOI Calculation needs to be a two-step process:
+	 * (1) calculate overall Center-of-Mass (CM) first (down inline with data-gathering)
+	 * (2) Move MOIs to CM via parallel axis theorem (this method)
+	 *
+	 * @return freshly calculated Moment-of-Inertia matrix
+	 */
+	/* package-scope */ RigidBody calculateMomentOfInertia() {
+		double Ir=0, It=0;
+		for( final RigidBody eachLocal : this.bodies ){
+			final RigidBody eachGlobal = eachLocal.rebase( this.centerOfMass );
+			Ir += eachGlobal.Ixx;
+			It += eachGlobal.Iyy;
+		}
+		
+		return new RigidBody( centerOfMass, Ir, It, It );
+	}
+
+}

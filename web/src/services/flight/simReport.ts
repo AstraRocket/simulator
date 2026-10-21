@@ -1,0 +1,95 @@
+export type StabilityState = 'ok' | 'under' | 'over';
+
+/** Healthy-band classifier for every on-pad stability readout: under-stable
+ *  (<1 cal), the ok band, or over-stable (>6 cal). The stats strip, the info
+ *  card and the 2D and 3D drawings all color by it, so no two readouts on one
+ *  screen disagree about a design. */
+export function stabilityState(cal: number | null | undefined): StabilityState | null {
+  if (cal == null || !Number.isFinite(cal)) return null;
+  if (cal < 1.0) return 'under';
+  if (cal > 6.0) return 'over';
+  return 'ok';
+}
+
+/** Tailwind text tone for an on-pad stability band. */
+export function stabilityToneOf(state: StabilityState): string {
+  return state === 'ok' ? 'text-ok-400' : state === 'over' ? 'text-warn-400' : 'text-danger-400';
+}
+
+/** The rail-exit margin's bands by sign: stable at 1 cal and up, marginal from
+ *  0, unstable below. The tone and the word both read from here, so a retune
+ *  moves the color and the verdict together. */
+type RailBand = 'stable' | 'marginal' | 'unstable';
+const railBand = (cal: number): RailBand => (cal >= 1 ? 'stable' : cal >= 0 ? 'marginal' : 'unstable');
+const RAIL_TONE: Record<RailBand, string> = {
+  stable: 'text-ok-400',
+  marginal: 'text-warn-400',
+  unstable: 'text-danger-400',
+};
+const RAIL_VERDICT: Record<RailBand, string> = {
+  stable: 'stability.stable',
+  marginal: 'stability.marginal',
+  unstable: 'stability.unstable',
+};
+
+/** Tailwind text tone by margin sign ({@link railBand}).
+ *  For the rail-exit margin, a different quantity with no over-stable reading;
+ *  an on-pad margin is colored by its band ({@link stabilityToneOf}). */
+export function stabilityTone(cal: number): string {
+  return RAIL_TONE[railBand(cal)];
+}
+
+/** i18n key for the rail-exit margin's one-word verdict, in the bands its
+ *  tone ({@link stabilityTone}) uses. */
+export function railVerdictKey(cal: number): string {
+  return RAIL_VERDICT[railBand(cal)];
+}
+
+/** i18n key for the one-word on-pad verdict: the bands of {@link stabilityState},
+ *  with under-stable split by sign into marginal and unstable. */
+export function stabilityVerdictKey(cal: number): string {
+  if (cal > 6) return 'schematic.overStable';
+  return cal >= 1 ? 'stability.stable' : cal >= 0 ? 'stability.marginal' : 'stability.unstable';
+}
+
+/** Engine FlightEvent.Type names worth marking on the flight views → i18n keys. */
+export const EVENT_LABEL: Record<string, string> = {
+  APOGEE: 'flight.apogee',
+  BURNOUT: 'flight.burnout',
+  RECOVERY_DEVICE_DEPLOYMENT: 'flight.deploy',
+  EJECTION_CHARGE: 'flight.ejection',
+  GROUND_HIT: 'flight.landing',
+};
+
+/** Most-significant-first, for keeping the top event when labels cluster in time. */
+export const EVENT_PRIORITY = ['APOGEE', 'BURNOUT', 'RECOVERY_DEVICE_DEPLOYMENT', 'EJECTION_CHARGE', 'GROUND_HIT'];
+
+const DEPLOY = 'RECOVERY_DEVICE_DEPLOYMENT';
+
+/**
+ * Collapse near-coincident event labels so they don't pile up on the flight
+ * chart: events whose x (px) fall within `minGap` merge, keeping the cluster's
+ * highest-{@link EVENT_PRIORITY} type. A recovery deployment is the exception:
+ * it always keeps its own marker, because on a dual-deploy rocket the drogue
+ * fires right at apogee and folding it into the apogee label would hide it.
+ * Same-instant ties order non-deploys first, so an ejection charge folds into
+ * the apogee cluster while the deployment it triggers still stands alone. Returns one entry per surviving label, left→right.
+ */
+export function clusterEventLabels(
+  events: { time: number; type: string }[],
+  xOf: (t: number) => number,
+  minGap = 20,
+): { x: number; type: string }[] {
+  const groups: { x: number; type: string }[] = [];
+  const sorted = [...events].sort((a, b) => a.time - b.time || Number(a.type === DEPLOY) - Number(b.type === DEPLOY));
+  for (const e of sorted) {
+    const x = xOf(e.time);
+    const last = groups[groups.length - 1];
+    if (last && e.type !== DEPLOY && last.type !== DEPLOY && x - last.x < minGap) {
+      if (EVENT_PRIORITY.indexOf(e.type) < EVENT_PRIORITY.indexOf(last.type)) last.type = e.type;
+    } else {
+      groups.push({ x, type: e.type });
+    }
+  }
+  return groups;
+}

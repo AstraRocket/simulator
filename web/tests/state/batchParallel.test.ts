@@ -1,0 +1,370 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// The sim normally runs in a Web Worker pool; stub the client so each call can
+// be held open and released by hand, which is the only way to observe that a
+// batch is in flight all at once rather than one row after another.
+const simulateMock = vi.hoisted(() => vi.fn());
+vi.mock('../../src/engine/simClient', async (orig) => ({
+  ...(await orig<typeof import('../../src/engine/simClient')>()),
+  simulateInWorker: simulateMock,
+}));
+
+import { useWorkspaceStore } from '../../src/state/store';
+import { C6 } from '../../src/engine/api';
+import { findMounts } from '../../src/services/design/treeEdit';
+import { simStatus, type SimPrefs } from '../../src/services/flight/simulations';
+import { asFlown, isStale } from '../testing/flown';
+import type { FlightResult } from '../../src/engine/openRocketEngine';
+// The real class (the mock spreads the actual module), so the store's
+// `instanceof SimCanceledError` check sees the same identity it would in the app.
+import { SimCanceledError } from '../../src/engine/simClient';
+import type { SimCallOptions } from '../../src/engine/simClient';
+import type { SimPayload } from '../../src/engine/simProtocol';
+
+const st = () => useWorkspaceStore.getState();
+/** The default design's one motor mount, which is where a swapped motor goes. */
+const mountId = () => findMounts(st().tree)[0]!.id as string;
+const byName = (n: string) => st().sims.find((x) => x.name === n)!;
+const statusOf = (n: string) => simStatus(byName(n), st().simRuns, st().tree, isStale(byName(n)));
+
+const PREFS = {
+  timeStep: 0.05,
+  maxTime: 1200,
+  maxAngleStep: (3 * Math.PI) / 180,
+  randomSeed: 1,
+  deploymentSpeedWarn: 20,
+  mainHighSpeedWarn: 30.48,
+  mainLowSpeedWarn: 15.24,
+  drogueLowSpeedWarn: 3.048,
+} as SimPrefs;
+
+// The store compares each result against the globals it mirrors, and these runs
+// fly PREFS, so the mirror has to hold PREFS for an installed result to read current.
+beforeEach(() => st().setSimPrefs(PREFS));
+
+const result = (apogee: number) =>
+  ({ summary: { maxAltitude: apogee }, events: [], series: {} }) as unknown as FlightResult;
+
+/** One held-open sim call: its options (for onStart) and its settle handles. */
+interface Call {
+  opts: SimCallOptions;
+  resolve: (r: FlightResult) => void;
+  reject: (e: Error) => void;
+}
+
+/**
+ * The batch runs every row concurrently.
+ *
+ * An `await` per sim inside a `for` loop would fly one row at a time over a pool
+ * of workers, so these assert the store submits them all and lets the transport
+ * decide how many fly at once.
+ */
+describe('a batch over the worker pool', () => {
+  let calls: Call[];
+
+  beforeEach(() => {
+    calls = [];
+    simulateMock.mockReset();
+    // Never settles on its own: the test decides when each flight lands.
+    simulateMock.mockImplementation((_p: SimPayload, opts: SimCallOptions = {}) => {
+      return new Promise<FlightResult>((resolve, reject) => {
+        calls.push({ opts, resolve, reject });
+      });
+    });
+
+    st().setSimsSelected([]);
+    while (st().sims.length > 1) st().deleteSim(st().sims[st().sims.length - 1]!.id);
+    st().renameSim(st().sims[0]!.id, 'A');
+    st().addSim();
+    st().renameSim(st().sims[1]!.id, 'B');
+    st().addSim();
+    st().renameSim(st().sims[2]!.id, 'C');
+    st().commitEdit();
+    useWorkspaceStore.setState({
+      sims: st().sims.map((x) => ({ ...x, result: null })),
+      err: null,
+      simRuns: {},
+    });
+  });
+
+  it('submits every row at once instead of one after another', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    // All three are submitted before any flight comes back.
+    expect(simulateMock).toHaveBeenCalledTimes(3);
+
+    for (const [i, c] of calls.entries()) c.resolve(result(100 + i));
+    await run;
+    expect(byName('A').result?.summary.maxAltitude).toBe(100);
+    expect(byName('C').result?.summary.maxAltitude).toBe(102);
+  });
+
+  it('marks rows queued, then running as each reaches a worker', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    // All three are submitted, so all three are queued; none has been handed to
+    // a worker yet. The table's dot tells queued from running.
+    expect(['A', 'B', 'C'].map(statusOf)).toEqual(['queued', 'queued', 'queued']);
+
+    calls[0]!.opts.onStart?.();
+    calls[1]!.opts.onStart?.();
+    expect(['A', 'B', 'C'].map(statusOf)).toEqual(['running', 'running', 'queued']);
+
+    for (const [i, c] of calls.entries()) c.resolve(result(100 + i));
+    await run;
+    expect(['A', 'B', 'C'].map(statusOf)).toEqual(['upToDate', 'upToDate', 'upToDate']);
+    expect(st().simRuns).toEqual({}); // transient state cleared, not left behind
+  });
+
+  it('installs each result by id, whatever order they land in', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    // Out of order: with a pool the fastest flight finishes first, and nothing
+    // may depend on submission order.
+    calls[2]!.resolve(result(3));
+    calls[0]!.resolve(result(1));
+    calls[1]!.resolve(result(2));
+    await run;
+    expect(byName('A').result?.summary.maxAltitude).toBe(1);
+    expect(byName('B').result?.summary.maxAltitude).toBe(2);
+    expect(byName('C').result?.summary.maxAltitude).toBe(3);
+  });
+
+  it('one failure marks its own row and leaves the rest of the batch alone', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    calls[1]!.reject(new Error('degenerate geometry'));
+    calls[0]!.resolve(result(1));
+    calls[2]!.resolve(result(3));
+    await run;
+
+    expect(statusOf('B')).toBe('failed');
+    expect(byName('B').result).toBeNull();
+    // The other two flew and installed, rather than being taken down with it.
+    expect(statusOf('A')).toBe('upToDate');
+    expect(statusOf('C')).toBe('upToDate');
+    expect(st().err).toContain('degenerate geometry');
+  });
+
+  it('drops every answer when the design changes mid-batch', async () => {
+    const ranOn = st().tree;
+    const run = st().runSims(st().sims.map((x) => x.id));
+    // An edit while the pool is busy: the answers still coming back describe a
+    // rocket that is no longer on screen.
+    useWorkspaceStore.setState({ tree: structuredClone(ranOn) });
+    for (const [i, c] of calls.entries()) c.resolve(result(100 + i));
+    await run;
+    expect(st().sims.every((x) => x.result === null)).toBe(true);
+    useWorkspaceStore.setState({ tree: ranOn });
+  });
+
+  it('clears the busy flag once the whole batch has settled, not the first row', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    expect(st().simBusy).toBe(true);
+    calls[0]!.resolve(result(1));
+    await Promise.resolve();
+    expect(st().simBusy).toBe(true); // two still in the air
+    calls[1]!.resolve(result(2));
+    calls[2]!.resolve(result(3));
+    await run;
+    expect(st().simBusy).toBe(false);
+  });
+});
+
+/** Cancel stops what is still flying and keeps what landed. */
+describe('canceling a batch', () => {
+  let calls: Call[];
+
+  beforeEach(() => {
+    calls = [];
+    simulateMock.mockReset();
+    simulateMock.mockImplementation((_p: SimPayload, opts: SimCallOptions = {}) => {
+      return new Promise<FlightResult>((resolve, reject) => {
+        const c: Call = { opts, resolve, reject };
+        calls.push(c);
+        // The real client rejects with SimCanceledError on abort; the store
+        // has to tell that apart from a genuine failure.
+        opts.signal?.addEventListener('abort', () => reject(new SimCanceledError()));
+      });
+    });
+
+    st().setSimsSelected([]);
+    while (st().sims.length > 1) st().deleteSim(st().sims[st().sims.length - 1]!.id);
+    st().renameSim(st().sims[0]!.id, 'A');
+    st().addSim();
+    st().renameSim(st().sims[1]!.id, 'B');
+    st().commitEdit();
+    useWorkspaceStore.setState({
+      sims: st().sims.map((x) => ({ ...x, result: null })),
+      err: null,
+      simRuns: {},
+    });
+  });
+
+  it('keeps what already landed and clears the rest', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    calls[0]!.resolve(result(42));
+    await Promise.resolve();
+
+    st().cancelRun();
+    await run;
+
+    // Canceling is "stop what is still going", not an undo.
+    expect(byName('A').result?.summary.maxAltitude).toBe(42);
+    expect(byName('B').result).toBeNull();
+    expect(st().simRuns).toEqual({});
+    expect(st().simBusy).toBe(false);
+  });
+
+  it('does not mark a canceled row as failed', async () => {
+    const run = st().runSims(st().sims.map((x) => x.id));
+    st().cancelRun();
+    await run;
+    // The user stopped it; that is not a fault, so no red dot and no banner.
+    expect(statusOf('B')).toBe('notRun');
+    expect(st().err).toBeNull();
+  });
+
+  it('a later run is unaffected by an earlier cancel', async () => {
+    const first = st().runSims([byName('A').id]);
+    st().cancelRun();
+    await first;
+
+    const second = st().runSims([byName('A').id]);
+    calls[calls.length - 1]!.resolve(result(7));
+    await second;
+    expect(byName('A').result?.summary.maxAltitude).toBe(7);
+  });
+});
+
+describe('running everything outdated', () => {
+  beforeEach(() => {
+    simulateMock.mockReset();
+    simulateMock.mockResolvedValue(result(50));
+    st().setSimsSelected([]);
+    while (st().sims.length > 1) st().deleteSim(st().sims[st().sims.length - 1]!.id);
+    st().renameSim(st().sims[0]!.id, 'Fresh');
+    st().addSim();
+    st().renameSim(st().sims[1]!.id, 'Stale');
+    st().addSim();
+    st().renameSim(st().sims[2]!.id, 'NeverFlown');
+    st().commitEdit();
+    useWorkspaceStore.setState({
+      sims: st().sims.map((x) => ({ ...x, result: x.name === 'NeverFlown' ? null : result(1) })),
+      err: null,
+      simRuns: {},
+    });
+    // Fresh was flown on today's inputs; Stale carries no key, so it reads outdated.
+    useWorkspaceStore.setState((s) => ({ sims: s.sims.map((x) => (x.name === 'Fresh' ? asFlown(s, x) : x)) }));
+  });
+
+  it('flies the stale and the never-flown, and leaves the current one alone', async () => {
+    await st().runOutdated();
+    expect(simulateMock).toHaveBeenCalledTimes(2);
+    expect(byName('Stale').result?.summary.maxAltitude).toBe(50);
+    expect(byName('NeverFlown').result?.summary.maxAltitude).toBe(50);
+    expect(byName('Fresh').result?.summary.maxAltitude).toBe(1); // untouched
+  });
+
+  it('ignores the tick boxes', async () => {
+    // "Bring this workspace up to date" is a different question from "fly these
+    // rows", so a selection must not narrow it.
+    st().setSimsSelected([byName('Fresh').id]);
+    await st().runOutdated();
+    expect(simulateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does nothing at all when every row is current', async () => {
+    useWorkspaceStore.setState({
+      sims: st().sims.map((x) => ({ ...x, result: result(1) })),
+    });
+    useWorkspaceStore.setState((s) => ({ sims: s.sims.map((x) => asFlown(s, x)) }));
+    await st().runOutdated();
+    expect(simulateMock).not.toHaveBeenCalled();
+    expect(st().simBusy).toBe(false);
+  });
+});
+
+/**
+ * Editing a simulation while it flies.
+ *
+ * The design has `ranOn`: an answer flown against a tree that has since
+ * changed is discarded. A row's own inputs need the same guard, because the
+ * simulation editor stays open during a run: without the check a result would
+ * overwrite an edit made mid-run and show numbers for conditions the row no
+ * longer has.
+ */
+describe('a simulation edited while it is in the air', () => {
+  let calls: Call[];
+
+  beforeEach(() => {
+    calls = [];
+    simulateMock.mockReset();
+    simulateMock.mockImplementation((_p: SimPayload, opts: SimCallOptions = {}) => {
+      return new Promise<FlightResult>((resolve, reject) => {
+        calls.push({ opts, resolve, reject });
+      });
+    });
+
+    st().setSimsSelected([]);
+    while (st().sims.length > 1) st().deleteSim(st().sims[st().sims.length - 1]!.id);
+    st().renameSim(st().sims[0]!.id, 'A');
+    st().addSim();
+    st().renameSim(st().sims[1]!.id, 'B');
+    st().commitEdit();
+    useWorkspaceStore.setState({
+      sims: st().sims.map((x) => ({ ...x, result: null })),
+      err: null,
+      simRuns: {},
+    });
+  });
+
+  it('drops the answer when its launch conditions changed underneath it', async () => {
+    const target = byName('A').id;
+    const run = st().runSims([target]);
+
+    // Edit the row that is flying. `patchLaunch` hits the active simulation, so
+    // point the editor at it first.
+    st().setActiveId(target);
+    st().patchLaunch({ windAverage: 7 });
+    st().commitEdit();
+
+    calls[0]!.resolve(result(999));
+    await run;
+
+    // The numbers described the wind it no longer has, so they are not kept.
+    expect(byName('A').result).toBeNull();
+    expect(statusOf('A')).toBe('notRun');
+    expect(st().simRuns).toEqual({});
+  });
+
+  it('keeps the answer when the edit landed on a DIFFERENT simulation', async () => {
+    const target = byName('A').id;
+    const run = st().runSims([target]);
+
+    st().setActiveId(byName('B').id);
+    st().patchLaunch({ windAverage: 7 });
+    st().commitEdit();
+
+    calls[0]!.resolve(result(123));
+    await run;
+    // Nothing this flight depends on moved, so it installs as normal.
+    expect(byName('A').result?.summary.maxAltitude).toBe(123);
+    expect(isStale(byName('A'))).toBe(false);
+  });
+
+  it('drops it for a motor swap too, not just launch conditions', async () => {
+    const target = byName('A').id;
+    const run = st().runSims([target]);
+
+    st().setActiveId(target);
+    st().setMountMotor(byName('A').configId, mountId(), { ...C6, designation: 'D12' });
+
+    calls[0]!.resolve(result(500));
+    await run;
+    expect(byName('A').result).toBeNull();
+  });
+
+  it('installs normally when nothing is touched', async () => {
+    const run = st().runSims([byName('A').id]);
+    calls[0]!.resolve(result(77));
+    await run;
+    expect(byName('A').result?.summary.maxAltitude).toBe(77);
+  });
+});

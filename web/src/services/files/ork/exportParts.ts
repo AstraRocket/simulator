@@ -1,0 +1,472 @@
+import type { ComponentNode, ComponentPosition } from '../../../engine/openRocketEngine';
+import { nodeShape, shapeParamDefault } from '../../../tree/shapeProfile';
+import { num, numOpt, str } from '../../../tree/nodeProps';
+import { kernelPresetType } from './presetTypes';
+import { escapeXml } from '../xmlUtil';
+import { uuid } from '../../app/uuid';
+import { COMPONENT_DEFAULTS } from '../../design/componentDefaults';
+import { KERNEL_MATERIALS } from '../../../tree/kernelDefaults';
+import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
+import type { OrkWriter } from './exportWriter';
+import { passthroughOf } from './passthrough';
+import { parseHexColor } from '../../design/colorHex';
+import { INSIDE_COLOR_TYPES, readAppearance, type PartAppearance } from '../../design/appearance';
+import { designSeparation } from '../../flight/flightConfigs';
+
+/**
+ * The element groups more than one .ork component writer shares: material,
+ * axial position, name/id/override header, fin angle and tabs, fillets, packed
+ * size, deployment and separation blocks. Each writes at the depth it is given
+ * and nothing else, so the per-type writers in `exportWriters.ts` read as the
+ * element order the desktop savers use.
+ */
+
+/**
+ * The desktop's stock bulk material, written when a part carries none.
+ *
+ * The same table the editor seeds a new part from, so a part that arrived
+ * without one is saved as the material it was already being weighed with.
+ */
+const CARDBOARD = KERNEL_MATERIALS.bulk;
+
+/**
+ * The `group` attribute for a material's group, in desktop's vocabulary.
+ *
+ * The app keeps the group the material catalog files a material under, which
+ * is desktop's own group name except that desktop writes paper products as
+ * `PaperProducts` (`MaterialGroup.getDatabaseString`). A group desktop has no
+ * name for, such as the catalog's adhesives, is left off: desktop warns
+ * "Illegal material group specified, ignoring." on one it does not know, and
+ * files a material with no group under Other.
+ *
+ * A Map, not a plain object: the group is free text a file carried, and
+ * `constructor` or `__proto__` on a plain object would resolve to an
+ * Object.prototype member and hand `escapeXml` a function.
+ */
+const DESKTOP_GROUPS: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    Metals: 'Metals',
+    Woods: 'Woods',
+    Plastics: 'Plastics',
+    Fabrics: 'Fabrics',
+    Paper: 'PaperProducts',
+    PaperProducts: 'PaperProducts',
+    Foams: 'Foams',
+    Composites: 'Composites',
+    Fibers: 'Fibers',
+    ThreadsLines: 'ThreadsLines',
+    Elastics: 'Elastics',
+    Kevlars: 'Kevlars',
+    Nylons: 'Nylons',
+    Other: 'Other',
+    Custom: 'Custom',
+  }),
+);
+
+/** Desktop's `MaterialGroup` database string for a group, or undefined when desktop has no such group. */
+export function desktopGroup(group: unknown): string | undefined {
+  return typeof group === 'string' ? DESKTOP_GROUPS.get(group) : undefined;
+}
+
+/** ` group="..."` for the group, or nothing when desktop has no such group. */
+function groupAttr(group: unknown): string {
+  const known = desktopGroup(group);
+  return known ? ` group="${escapeXml(known)}"` : '';
+}
+
+/**
+ * ` shearModulus="..."` when the part's material carries one, as upstream's
+ * `materialParam` writes it between the density and the group. Absent stays
+ * absent: desktop's `MaterialSetter` reads the attribute's presence as the
+ * modulus having been set.
+ */
+function shearModulusAttr(node: ComponentNode): string {
+  const v = node['shearModulus'];
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? ` shearModulus="${v}"` : '';
+}
+
+export function material(
+  w: OrkWriter,
+  depth: number,
+  node: ComponentNode,
+  kind: 'bulk' | 'surface' | 'line' = 'bulk',
+  bulkFallback: { name: string; density: number; group: string } = CARDBOARD,
+): void {
+  const { emit } = w;
+  if (kind === 'bulk') {
+    if (typeof node.density === 'number' && node.density > 0) {
+      const name = typeof node['materialName'] === 'string' ? node['materialName'] : 'custom';
+      // The group rides along when the part carries one (readMaterialGroup
+      // reads it for every part), so a desktop material round-trips with its
+      // catalog category.
+      const group = groupAttr(node['materialGroup']);
+      emit(
+        depth,
+        `<material type="bulk" density="${node.density}"${shearModulusAttr(node)}${group}>${escapeXml(name)}</material>`,
+      );
+    } else {
+      emit(
+        depth,
+        `<material type="bulk" density="${bulkFallback.density}" group="${escapeXml(bulkFallback.group)}">` +
+          `${escapeXml(bulkFallback.name)}</material>`,
+      );
+    }
+  } else if (kind === 'surface') {
+    if (typeof node['surfaceDensity'] === 'number') {
+      const name = typeof node['surfaceMaterialName'] === 'string' ? node['surfaceMaterialName'] : 'custom';
+      emit(depth, `<material type="surface" density="${node['surfaceDensity']}">${escapeXml(name)}</material>`);
+    } else {
+      emit(
+        depth,
+        `<material type="surface" density="${KERNEL_MATERIALS.surface.density}" ` +
+          `group="${KERNEL_MATERIALS.surface.group}">${escapeXml(KERNEL_MATERIALS.surface.name)}</material>`,
+      );
+    }
+  } else {
+    if (typeof node['lineDensity'] === 'number') {
+      const name = typeof node['lineMaterialName'] === 'string' ? node['lineMaterialName'] : 'custom';
+      emit(depth, `<material type="line" density="${node['lineDensity']}">${escapeXml(name)}</material>`);
+    } else {
+      emit(
+        depth,
+        `<material type="line" density="${KERNEL_MATERIALS.line.density}" ` +
+          `group="${KERNEL_MATERIALS.line.group}">${escapeXml(KERNEL_MATERIALS.line.name)}</material>`,
+      );
+    }
+  }
+}
+
+export function position(
+  w: OrkWriter,
+  depth: number,
+  node: ComponentNode,
+  dflt: ComponentPosition['method'] = 'top',
+): void {
+  const pos = node.position ?? { method: dflt, offset: 0 };
+  // A position rewritten to the parent frame on load keeps what the file said
+  // (see ComponentPosition.ork). Write the original back so a round-trip is
+  // byte-stable, but only while the user has not moved the part, in which
+  // case the current parent-relative position is the truthful one.
+  const src = pos.ork && pos.method === 'top' && pos.ork.resolved === pos.offset ? pos.ork : pos;
+  w.emit(depth, `<axialoffset method="${src.method}">${src.offset}</axialoffset>`);
+  w.emit(depth, `<position type="${src.method}">${src.offset}</position>`);
+}
+
+export function header(w: OrkWriter, depth: number, node: ComponentNode, fallback: string): void {
+  w.emit(depth, `<name>${escapeXml(node.name ?? fallback)}</name>`);
+  w.emit(depth, `<id>${uuid()}</id>`);
+  if (typeof node['comment'] === 'string' && node['comment']) {
+    w.emit(depth, `<comment>${escapeXml(node['comment'])}</comment>`);
+  }
+  if (typeof node['lineStyle'] === 'string' && node['lineStyle']) {
+    w.emit(depth, `<linestyle>${escapeXml(node['lineStyle'])}</linestyle>`);
+  }
+  presetXml(w, depth, node);
+  appearanceXml(w, depth, node);
+  colorXml(w, depth, node);
+  overrides(w, depth, node);
+  // Whatever the file carried that this app has no model for, back where it was
+  // (services/files/ork/passthrough.ts). Last in the header so it cannot come between
+  // two elements the desktop's own reader expects in order.
+  for (const raw of passthroughOf(node)) w.emit(depth, raw);
+}
+
+/**
+ * The catalog part this component came from, as `RocketComponentSaver` writes
+ * it. Kept only while the component still matches it: `treeEdit` drops the link
+ * the moment a dimension changes, the same way the kernel's setters call
+ * `clearPreset`, so a link can never claim a part number the geometry does not
+ * match.
+ *
+ * Written only with a digest. The desktop's reader treats a preset element without
+ * one as invalid and says so in a dialog ("Invalid ComponentPreset for component
+ * Nose Cone, no digest specified"), so half an element is worse than none: it
+ * buys nothing and costs every reader a warning. The digest is an MD5 the
+ * kernel computes over a preset's own properties (`ComponentPreset.computeDigest`);
+ * the app's catalog carries it per row (`sync-preset-digests.mjs`) and a pick
+ * stamps it on the link (`treeEdit.presetLink`), so a picked part and one an
+ * imported desktop file brought both reach the file. A row the digest step has
+ * not covered goes out with no link.
+ *
+ * The type is the kernel's enum constant, not our row type: see presetTypes.
+ */
+function presetXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const p = node['preset'] as { type?: string; manufacturer?: string; partNo?: string; digest?: string } | undefined;
+  if (!p || typeof p !== 'object' || !p.partNo || !p.digest) return;
+  const attr = (name: string, v: string | undefined) => (v ? ` ${name}="${escapeXml(v)}"` : '');
+  w.emit(
+    depth,
+    `<preset${attr('type', kernelPresetType(p.type))}${attr('manufacturer', p.manufacturer)}` +
+      `${attr('partno', p.partNo)}${attr('digest', p.digest)}/>`,
+  );
+}
+
+/**
+ * The 3D appearance, as 24.12's `RocketComponentSaver.addParams` writes it: the outside
+ * block when the part has one, then on a part with an inside the inside block
+ * with its two flags. Desktop writes the flags only inside that block, so a
+ * part whose inside is on the default saves neither.
+ */
+function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const body = (a: PartAppearance) => {
+    const n = parseHexColor(a.paint)!;
+    w.emit(
+      depth + 1,
+      `<paint red="${(n >> 16) & 255}" green="${(n >> 8) & 255}" blue="${n & 255}" alpha="${a.alpha}"/>`,
+    );
+    w.emit(depth + 1, `<shine>${a.shine}</shine>`);
+    // A newer desktop's flag, which 24.12 reads as an unknown element: written
+    // only when a file brought it in set, so a design that never had it opens
+    // in 24.12 without a warning.
+    if (a.opacityAffectsTexture === true) w.emit(depth + 1, '<opacityaffectstexture>true</opacityaffectstexture>');
+  };
+  const outside = readAppearance(node['appearance']);
+  if (outside) {
+    w.emit(depth, '<appearance>');
+    body(outside);
+    w.emit(depth, '</appearance>');
+  }
+  const inside = INSIDE_COLOR_TYPES.has(node.type) ? readAppearance(node['insideAppearance']) : undefined;
+  if (inside) {
+    w.emit(depth, '<insideappearance>');
+    w.emit(depth + 1, `<edgessameasinside>${node['edgesSameAsInside'] === true}</edgessameasinside>`);
+    // The element is named for the opposite of what it holds: `isSeparateInsideOutside()`.
+    w.emit(depth + 1, `<insidesameasoutside>${node['separateInsideOutside'] === true}</insidesameasoutside>`);
+    body(inside);
+    w.emit(depth, '</insideappearance>');
+  }
+}
+
+/**
+ * A part's own figure color, the one the 2D views draw, as the desktop stores
+ * it: three 0-255 channels on one element, absent when the part takes the
+ * default.
+ */
+function colorXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const n = parseHexColor(node['color']);
+  if (n === null) return;
+  w.emit(depth, `<color red="${(n >> 16) & 255}" green="${(n >> 8) & 255}" blue="${n & 255}"/>`);
+}
+
+// Mass/CG/Cd overrides, exactly as the desktop RocketComponentSaver writes them.
+function overrides(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const sub = (key: string) => (node[key] === true ? 'true' : 'false');
+  if (typeof node['overrideMass'] === 'number') {
+    w.emit(depth, `<overridemass>${node['overrideMass']}</overridemass>`);
+    w.emit(depth, `<overridesubcomponentsmass>${sub('overrideSubcomponentsMass')}</overridesubcomponentsmass>`);
+  }
+  if (typeof node['overrideCGX'] === 'number') {
+    w.emit(depth, `<overridecg>${node['overrideCGX']}</overridecg>`);
+    w.emit(depth, `<overridesubcomponentscg>${sub('overrideSubcomponentsCG')}</overridesubcomponentscg>`);
+  }
+  if (typeof node['overrideCD'] === 'number') {
+    w.emit(depth, `<overridecd>${node['overrideCD']}</overridecd>`);
+    w.emit(depth, `<overridesubcomponentscd>${sub('overrideSubcomponentsCD')}</overridesubcomponentscd>`);
+  }
+}
+
+// Supersonic airfoil section, used by the RASAero export: our extension tags,
+// written only when set (the desktop loader warns-and-continues on them).
+export function airfoilXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const section = node['airfoilSection'];
+  if (typeof section === 'string' && section) {
+    w.emit(depth, `<airfoilsection>${escapeXml(section)}</airfoilsection>`);
+  }
+  for (const [key, tag] of [
+    ['airfoilLeDiamond', 'airfoillediamond'],
+    ['airfoilTeDiamond', 'airfoiltediamond'],
+    ['finLeRadius', 'finleradius'],
+  ] as const) {
+    const v = node[key];
+    if (typeof v === 'number' && v > 0) w.emit(depth, `<${tag}>${v}</${tag}>`);
+  }
+}
+
+/**
+ * A deploy event as the .ork spells it: the kernel enum name lower-cased with
+ * the underscores removed (OpenRocketSaver.enumToXMLName), the only form
+ * DocumentConfig.findEnum matches. The underscored spelling reads on the desktop
+ * as an invalid parameter, and the device keeps its default event.
+ */
+export const deployEventXml = (ev: string): string => ev.replace(/_/g, '');
+
+/** An override that sets at least one field, as a configuration's own parameter does. */
+const holdsOverride = <T extends object>(o: T | null | undefined): o is T =>
+  !!o && Object.values(o).some((v) => v !== undefined);
+
+/**
+ * Per-configuration recovery deployment: when this device opens under each
+ * configuration.
+ *
+ * Every configuration that holds an override for this device gets a block,
+ * as `RecoveryDeviceSaver` writes one for each configuration its parameter set
+ * holds (`!isDefault(fcid)`), and the rest take the bare tags just above.
+ * `isDefault` compares identity, not value, so an override whose values equal
+ * the device's own is still the configuration's: dropped, a later change to
+ * the device's deployment would move that configuration with it. Without the
+ * blocks, saving after opening one configuration would rewrite every
+ * configuration's recovery settings to the opened one's.
+ */
+export function deploymentConfigs(w: OrkWriter, depth: number, node: ComponentNode): void {
+  for (const c of w.writeConfigs) {
+    const o: OrkDeployOverride | undefined = node.id ? c.deployments?.[node.id] : undefined;
+    if (!holdsOverride(o)) continue;
+    w.emit(depth, `<deploymentconfiguration configid="${escapeXml(c.id)}">`);
+    if (o.deployEvent !== undefined)
+      w.emit(depth + 1, `<deployevent>${escapeXml(deployEventXml(o.deployEvent))}</deployevent>`);
+    if (o.deployAltitude !== undefined) w.emit(depth + 1, `<deployaltitude>${o.deployAltitude}</deployaltitude>`);
+    if (o.deployDelay !== undefined) w.emit(depth + 1, `<deploydelay>${o.deployDelay}</deploydelay>`);
+    w.emit(depth, '</deploymentconfiguration>');
+  }
+}
+
+/**
+ * The fin fillet: the glue bead along the root (see readFillet). The node's own
+ * radius and material are written when it has them, so a save cannot delete a
+ * designer's epoxy fillets from their own .ork.
+ *
+ * The Cardboard fallback applies only when the design names no fillet material,
+ * and is not arbitrary: Cardboard at 680 kg/m3 is what the kernel uses for a
+ * fillet with no material (ApplicationPreferences.getDefaultComponentMaterial
+ * for BULK), so the mass this app flies and the mass desktop OpenRocket computes
+ * from the file it writes agree either way.
+ *
+ * The group is written only when the design carries one, the way `material`
+ * above does. Defaulting it to PaperProducts would file a Fiberglass fillet
+ * under paper.
+ */
+export function filletXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  w.emit(depth, `<filletradius>${num(node, 'filletRadius', 0)}</filletradius>`);
+  const density = numOpt(node, 'filletDensity') ?? null;
+  if (density === null || !(density > 0)) {
+    w.emit(
+      depth,
+      `<filletmaterial type="bulk" density="${CARDBOARD.density}" group="${CARDBOARD.group}">${CARDBOARD.name}</filletmaterial>`,
+    );
+    return;
+  }
+  const matName = typeof node['filletMaterialName'] === 'string' ? node['filletMaterialName'] : 'custom';
+  const group = groupAttr(node['filletMaterialGroup']);
+  w.emit(depth, `<filletmaterial type="bulk" density="${density}"${group}>` + `${escapeXml(matName)}</filletmaterial>`);
+}
+
+/**
+ * A fin set's placement around the body. The desktop writes <angleoffset>
+ * and the 15.03-compat <rotation> from the same value (RocketComponentSaver:
+ * both are angleOffset in degrees), so both get the real angle here. Writing it
+ * only into <rotation> would leave a reader that trusts the modern element, as
+ * the desktop does, reading every fin set this app saves as having no rotation.
+ */
+export function finAngleXml(w: OrkWriter, depth: number, node: ComponentNode, method: 'relative' | 'fixed'): void {
+  const deg = (num(node, 'rotation', 0) * 180) / Math.PI;
+  w.emit(depth, `<angleoffset method="${method}">${deg}</angleoffset>`);
+  w.emit(depth, `<rotation>${deg}</rotation>`);
+}
+
+export function finishXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  // finish (like shape/crosssection/cluster below) is file-sourced free
+  // text on import; escape it or a crafted file breaks the re-export.
+  w.emit(depth, `<finish>${escapeXml(str(node, 'finish', 'normal'))}</finish>`);
+}
+
+// Fin tabs, written like the desktop's FinSetSaver: only when both depth
+// and length are nonzero, with the legacy relativeto spelling first
+// (front/center/end, OR 15.03 compat) then the modern one (top/middle/
+// bottom); readers apply the last occurrence.
+export function finTabsXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const h = num(node, 'tabHeight', 0);
+  const len = num(node, 'tabLength', 0);
+  if (h <= 0 || len <= 0) return;
+  const method = typeof node['tabOffsetMethod'] === 'string' ? node['tabOffsetMethod'] : 'middle';
+  const legacy = method === 'top' ? 'front' : method === 'bottom' ? 'end' : 'center';
+  const offset = num(node, 'tabOffset', 0);
+  w.emit(depth, `<tabheight>${h}</tabheight>`);
+  w.emit(depth, `<tablength>${len}</tablength>`);
+  w.emit(depth, `<tabposition relativeto="${legacy}">${offset}</tabposition>`);
+  w.emit(depth, `<tabposition relativeto="${method}">${offset}</tabposition>`);
+}
+
+// The desktop encodes "solid" as <thickness>filled</thickness>.
+export function thicknessXml(w: OrkWriter, depth: number, node: ComponentNode, fb: number): void {
+  w.emit(
+    depth,
+    node['filled'] === true ? '<thickness>filled</thickness>' : `<thickness>${num(node, 'thickness', fb)}</thickness>`,
+  );
+}
+
+/**
+ * A recovery device's packed size, from the node (see readPackedSize). The
+ * MassObject constructor constants are the fallback only when the design
+ * genuinely never said; writing them unconditionally would throw away the packed
+ * length the reader brought in.
+ */
+export function packedXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  w.emit(depth, `<packedlength>${num(node, 'length', COMPONENT_DEFAULTS.recovery.packedLength)}</packedlength>`);
+  // `radius`, not `packedRadius`: the reader puts <packedradius> into `radius`
+  // and the engine bridge reads `radius`. Nothing in the app sets
+  // `packedRadius`, so reading it would write the 12.5 mm fallback on every save.
+  w.emit(depth, packedRadiusXml(node, COMPONENT_DEFAULTS.recovery.packedRadius));
+}
+
+// Engine defaults from Transition.Shape.defaultParameter(); writing any
+// other fallback silently reshapes the nose (haack's default is 0, not 1).
+export function shapeParamXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const dflt = shapeParamDefault(nodeShape(node));
+  w.emit(depth, `<shapeparameter>${num(node, 'shapeParameter', dflt)}</shapeparameter>`);
+}
+
+/**
+ * A packed radius that may be automatic: `auto <value>` when the part's
+ * `radiusAuto` flag is set, the plain number otherwise.
+ *
+ * A packed part takes an automatic radius from the tube it sits in, so `auto`
+ * is a real answer rather than a missing one. Hard-wiring `auto` would throw
+ * away a radius the user set by hand: it would export as automatic and come
+ * back the width of its tube.
+ *
+ * Emitted as `<packedradius>`, in the `auto <value>` form MassObjectSaver writes.
+ */
+export function packedRadiusXml(node: ComponentNode, fallback: number): string {
+  const v = num(node, 'radius', fallback);
+  return `<packedradius>${node['radiusAuto'] === true ? `auto ${v}` : v}</packedradius>`;
+}
+
+export function autoRadius(w: OrkWriter, depth: number, node: ComponentNode, key: string, tag: string): void {
+  // The flag decides, because the value beside it is the resolved number: a
+  // ring that fills its tube carries the bore it filled, and writing that
+  // number would turn a design that follows its tube into one that is pinned
+  // to whatever the tube happened to be. An absent value also means auto,
+  // which is how a tree without the flag spells it.
+  const v = node[key];
+  const auto = node[`${key}Auto`] === true || !(typeof v === 'number' && v > 0);
+  w.emit(depth, `<${tag}>${auto ? 'auto' : v}</${tag}>`);
+}
+
+/**
+ * A stage's (or strap-on booster's) separation: the default params written
+ * bare, then a <separationconfiguration> for each configuration that stages
+ * differently (AxialStageSaver writes the same pair for a lower <stage>, and
+ * only for configurations its parameter set holds an override for).
+ *
+ * A configuration with an override writes it into its block, the design's
+ * values filling what it leaves out, whether or not they differ from the
+ * design's (`isDefault` compares identity); the rest take the bare tags.
+ * Writing the design's for all of them would make every other configuration
+ * lose its own separation settings on save.
+ */
+export function separationXml(w: OrkWriter, depth: number, node: ComponentNode): void {
+  const { separationEvent: ev, separationDelay: delay, separationAltitude: alt } = designSeparation(node);
+  const sep = (d: number, o: OrkSepOverride) => {
+    w.emit(d, `<separationevent>${escapeXml(o.separationEvent ?? ev)}</separationevent>`);
+    w.emit(d, `<separationaltitude>${o.separationAltitude ?? alt}</separationaltitude>`);
+    w.emit(d, `<separationdelay>${o.separationDelay ?? delay}</separationdelay>`);
+  };
+  sep(depth, {});
+  for (const c of w.writeConfigs) {
+    const o: OrkSepOverride | undefined = node.id ? c.separations?.[node.id] : undefined;
+    if (!holdsOverride(o)) continue;
+    w.emit(depth, `<separationconfiguration configid="${escapeXml(c.id)}">`);
+    sep(depth + 1, o);
+    w.emit(depth, '</separationconfiguration>');
+  }
+}

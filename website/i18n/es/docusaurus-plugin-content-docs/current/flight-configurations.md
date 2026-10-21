@@ -1,0 +1,54 @@
+---
+title: "Configuraciones de vuelo"
+sidebar_position: 10
+---
+Una **configuración de vuelo** es una forma de preparar el cohete para volar: un motor en cada soporte, cuándo se abre cada dispositivo de recuperación, cuándo se separa cada propulsor y qué etapas van en el aire. Cada simulación vuela una, y varias simulaciones pueden compartir la misma.
+
+Es el modelo del propio OpenRocket, y es lo que hace que «el mismo cohete con un C6 y con un D12» sean dos preparaciones y no dos diseños. La pestaña **Configuraciones** es donde se crean; la pestaña **Simulaciones** es donde cada ejecución elige una.
+
+## La tabla {#the-table}
+
+Una fila por configuración, una columna por pieza que configura. Las pestañas **Motores**, **Recuperación** y **Separación** sobre la tabla eligen qué piezas muestran las columnas; cada una tiene su propia sección más abajo. Leer una fila dice qué hace esa preparación en todas partes; leer una columna dice qué hace el mismo soporte o el mismo paracaídas en cada preparación, que es la comparación para la que se diseña un cohete por etapas o con racimo de motores.
+
+- **Nueva** añade una configuración con los motores por defecto, aunque ya exista una idéntica: dos configuraciones con los mismos motores pueden ser útiles.
+- **Copiar** duplica la seleccionada, motores incluidos, y coloca la copia junto a ella. La copia de una configuración con nombre lo dice; una sin nombre sigue sin nombre, porque su etiqueta son sus motores.
+- **Eliminar** la quita. Las simulaciones que la vuelan pasan a la primera que quede, así que la aplicación pregunta antes cuando hay alguna. La última configuración no se puede eliminar: cada simulación nombra la que vuela.
+- **Vuelos** cuenta las simulaciones que vuelan cada configuración.
+
+Una configuración sin nombre se etiqueta con sus motores, igual que en el escritorio. Ponle nombre en el editor junto a la tabla cuando los motores no sean lo importante, por ejemplo *Concurso* o *Solo sustentador*.
+
+En pantallas más estrechas las columnas de piezas se ocultan y el editor pasa debajo de la tabla, de modo que en un teléfono todo sigue accesible en un solo panel.
+
+## Motores {#motors}
+
+Una tarjeta por soporte de motor, de punta a cola. **Cambiar…** abre el [selector de motores](./motors.md), 📈 muestra la curva de empuje del motor colocado y **Encendido** indica cuándo se enciende ese motor:
+
+- **Automático** es el patrón de baja y media potencia: la etapa de lanzamiento enciende al despegar y una etapa superior con la carga de eyección de la etapa inferior.
+- **Lanzamiento**, **Eyección de la etapa inferior**, **Fin de combustión de la etapa inferior** y **Nunca**, cada uno con un retardo en segundos (salvo **Nunca**), son lo que necesita un sustentador con electrónica o un encendido en vuelo. Los cinco se ofrecen en todos los soportes, como en el programa de escritorio. **Eyección de la etapa inferior** y **Fin de combustión de la etapa inferior** se disparan desde la etapa situada debajo de la del soporte (un propulsor lateral cuenta), así que en un soporte sin nada debajo nunca se disparan y el motor queda sin encender, igual que con **Nunca**.
+
+La opción bajo el encendido indica a qué configuraciones llega un cambio. **Esta configuración** cambia solo la que estás editando, y es donde empieza la opción cada vez que abres una configuración. **Todas las configuraciones** cambia el encendido de este soporte en todas las configuraciones y además fija el encendido propio del soporte, el **Encendido** del soporte en la pestaña Diseño; **Aplicar a todas las configuraciones** hace eso con el encendido tal como ya está aquí. Un motor nuevo en el soporte, como el que recibe una configuración nueva, se enciende como indica el encendido propio del soporte. **Restablecer encendido** devuelve esta configuración a **Automático** sin retardo. Esto sigue el diálogo de encendido de OpenRocket de escritorio y su botón **Reset ignition**.
+
+Cambiar un motor aquí lo cambia para **todas** las simulaciones que vuelan esta configuración. Eso es lo que significa compartir una preparación, y por eso los motores se editan aquí y en ningún otro sitio: editar los motores en un solo lugar evita que las simulaciones que comparten una preparación no coincidan.
+
+## Recuperación {#recovery}
+
+Cuándo se abre cada dispositivo de recuperación **en este vuelo**. Cada campo toma por defecto el valor del diseño: si lo dejas vacío se aplica el valor de la propia pieza. Ese valor se muestra como marcador de posición, para que el campo muestre el número que el vuelo va a usar de verdad.
+
+La anulación es por campo, así que una configuración puede mover la altitud y dejar el disparador donde lo puso el diseño: «abrir el principal a 150 m en este vuelo» es un campo, no una segunda copia del paracaídas.
+
+Una pieza que alguna configuración abre de otra forma lo indica en el [panel de propiedades](./designing-a-rocket.md) del diseño, nombrando esas configuraciones, de modo que la altitud que se muestra nunca es una que el vuelo no usa.
+
+## Separación {#staging}
+
+Una tarjeta por etapa, se separe o no.
+
+- **Vuela en esta configuración** decide si la etapa va en el vuelo. Una etapa en tierra no aporta masa, ni resistencia, ni motor: el resto del cohete vuela sin ella, que es como se vuela un diseño de dos etapas como su propio sustentador sin borrar el propulsor. Algo tiene que volar, así que la última etapa que queda en el aire no se puede dejar en tierra.
+- **Separación de etapa**, **Retardo de separación** y **Altitud de separación (AGL)** dicen cuándo se separa un propulsor, y toman por defecto el valor del diseño igual que los campos de recuperación. La etapa superior no tiene nada encima de lo que separarse, así que solo muestra la casilla **Vuela en esta configuración**.
+
+## Elegir una para una simulación {#choosing-one-for-a-simulation}
+
+Cada fila de la tabla de [Simulaciones](./running-a-simulation.md) tiene un selector de **Configuración**, y el editor de la simulación tiene el mismo con los motores listados debajo y un botón que abre esta pestaña. Apuntar una fila a otra configuración marca sus resultados como desactualizados, igual que cualquier otro cambio en lo que vuela.
+
+## En el archivo {#in-the-file}
+
+Un `.ork` lleva sus configuraciones, y esta aplicación también: entran todas las que declara el archivo con sus motores, su recuperación, sus etapas y las que deja en tierra. Las simulaciones del propio archivo entran tal como están, cada una con la configuración que nombra; un archivo sin simulaciones recibe una por configuración, para que haya una simulación que ejecutar. Cada una conserva el identificador de configuración del archivo, así que un diseño abierto aquí y guardado de vuelta es el mismo conjunto de configuraciones y no una reescritura. Consulta [Archivos y exportaciones](./files-and-exports.md).

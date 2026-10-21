@@ -1,0 +1,136 @@
+import type { ComponentType } from '../engine/openRocketEngine';
+
+/**
+ * What kind of thing each component type is, in one table.
+ *
+ * One table, so "is this a chain member / an assembly / a fin set" has one answer.
+ * Asked with ad-hoc string tests instead - `type.endsWith('finset')`, a
+ * `new Set(['nosecone', 'bodytube', 'transition'])` literal per module,
+ * `type === 'podset' || type === 'parallelstage'` - nothing ties the copies
+ * together, and adding a component type means finding every one of them by hand.
+ *
+ * Keyed by `ComponentType` and checked with `satisfies`, so a type added to
+ * the union without a row here is a compile error rather than a part that
+ * silently belongs to no family.
+ */
+export type ComponentKind =
+  /** The top-level stage container. */
+  | 'stage'
+  /** Axial chain members: they stack nose to tail and carry the airframe. */
+  | 'chain'
+  /** Fin sets with a flat planform (OpenRocket's `instanceof FinSet`). */
+  | 'planarfin'
+  /** Tube fins: a fin set with no planform (`TubeFinSet extends Tube`). */
+  | 'tubefin'
+  /** Internal structure nested inside a tube. */
+  | 'internal'
+  /** External hardware riding on the airframe surface. */
+  | 'external'
+  /** Recovery devices. */
+  | 'recovery'
+  /** A point mass (or a mass-carrying placeholder). */
+  | 'mass'
+  /** Off-axis assemblies: pod sets and parallel boosters. */
+  | 'assembly';
+
+export const COMPONENT_KIND = {
+  stage: 'stage',
+  nosecone: 'chain',
+  transition: 'chain',
+  bodytube: 'chain',
+  trapezoidfinset: 'planarfin',
+  ellipticalfinset: 'planarfin',
+  freeformfinset: 'planarfin',
+  tubefinset: 'tubefin',
+  innertube: 'internal',
+  tubecoupler: 'internal',
+  centeringring: 'internal',
+  bulkhead: 'internal',
+  engineblock: 'internal',
+  launchlug: 'external',
+  railbutton: 'external',
+  // A camera shroud is external hardware; it is modeled as a mass component
+  // by the kernel, but it rides on the surface (see openRocketEngine.ts).
+  fairing: 'external',
+  parachute: 'recovery',
+  streamer: 'recovery',
+  shockcord: 'recovery',
+  masscomponent: 'mass',
+  podset: 'assembly',
+  parallelstage: 'assembly',
+} as const satisfies Record<ComponentType, ComponentKind>;
+
+/** The component types of one kind, as a narrowed union. */
+export type TypesOfKind<K extends ComponentKind> = {
+  [T in ComponentType]: (typeof COMPONENT_KIND)[T] extends K ? T : never;
+}[ComponentType];
+
+export type ChainType = TypesOfKind<'chain'>;
+export type AssemblyType = TypesOfKind<'assembly'>;
+export type PlanarFinSetType = TypesOfKind<'planarfin'>;
+export type FinSetType = TypesOfKind<'planarfin' | 'tubefin'>;
+
+/** Every component type of the given kinds, derived from the table above. */
+export function typesOfKind<K extends ComponentKind>(...kinds: K[]): ReadonlySet<TypesOfKind<K>> {
+  const wanted = new Set<ComponentKind>(kinds);
+  const out = new Set<TypesOfKind<K>>();
+  for (const [type, kind] of Object.entries(COMPONENT_KIND) as [ComponentType, ComponentKind][]) {
+    if (wanted.has(kind)) out.add(type as TypesOfKind<K>);
+  }
+  return out;
+}
+
+/**
+ * The axial chain members: nose cone, body tube, transition. These stack
+ * sequentially inside a stage (or a pod) and their own `position` is not used
+ * for layout.
+ */
+export const CHAIN_TYPES: ReadonlySet<ChainType> = typesOfKind('chain');
+
+/** Off-axis assemblies (PodSet / ParallelStage). */
+export const ASSEMBLY_TYPES: ReadonlySet<AssemblyType> = typesOfKind('assembly');
+
+/** Fin sets with a flat planform: everything except tube fins. */
+export const PLANAR_FIN_TYPES: ReadonlySet<PlanarFinSetType> = typesOfKind('planarfin');
+
+/** Every fin set, tube fins included. */
+export const FIN_SET_TYPES: ReadonlySet<FinSetType> = typesOfKind('planarfin', 'tubefin');
+
+/**
+ * The guards take a plain `string` on purpose: a node's `type` arrives from a
+ * persisted design or an imported file and may be anything, and a caller
+ * holding a `ComponentType` gets the narrowed type back through the predicate.
+ */
+export const isChainType = (type: string): type is ChainType => (CHAIN_TYPES as ReadonlySet<string>).has(type);
+
+/**
+ * The node key a part keeps its roll about its parent's axis in (radians), for
+ * the parts OpenRocket treats as `AnglePositionable`: fin sets and tube fin sets
+ * keep it as `rotation`, lugs, rail buttons and assemblies as `angleOffset`.
+ * Undefined for a part with no roll of its own.
+ */
+export function rollAngleKey(type: string): 'rotation' | 'angleOffset' | undefined {
+  if ((FIN_SET_TYPES as ReadonlySet<string>).has(type)) return 'rotation';
+  if (type === 'launchlug' || type === 'railbutton' || (ASSEMBLY_TYPES as ReadonlySet<string>).has(type)) {
+    return 'angleOffset';
+  }
+  return undefined;
+}
+
+/**
+ * A part's roll angle: the node's own, or the bridge's default when the node
+ * has none. `ComponentFactory` reads a lug's and a rail button's `angleOffset`
+ * with a default of pi, and every other roll with 0. Undefined for a part with
+ * no roll of its own.
+ *
+ * The stored value is returned as is. The kernel clamps a lug's and a rail
+ * button's angle to [-180, 180] degrees, so this is the angle it flies only
+ * within that range, which the panel and both importers keep.
+ */
+export function rollAngleOf(node: { type: string; [key: string]: unknown }): number | undefined {
+  const key = rollAngleKey(node.type);
+  if (!key) return undefined;
+  const v = node[key];
+  if (typeof v === 'number') return v;
+  return node.type === 'launchlug' || node.type === 'railbutton' ? Math.PI : 0;
+}

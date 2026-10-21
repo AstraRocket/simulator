@@ -1,0 +1,142 @@
+# The mmrocket-sim commit the RASAero-style extensions were last REVIEWED against.
+#
+# NOT an extraction source. Nothing reads this file, no tool clones it, and
+# `extract --check` neither knows nor cares about it - `extract/UPSTREAM` is the
+# only pin that gates anything. This one exists because "what have they changed
+# since we last looked?" had no answer to compute against: the extensions in
+# engine-java (see ATTRIBUTION.md and patches/LEDGER.md) are the original work
+# of mmrocket-sim, they keep developing them, and until 2026-09-22 the only way
+# to find the diff was to hope an old checkout was still lying around on
+# somebody's disk. It was, once. Record the ref instead.
+#
+# Reviewing means: clone or fetch the repo, diff `ref` below against their
+# current head, and look at engine-java/ only. Their packages/app and
+# packages/engine are a separate application that shares none of our code, and
+# the bulk of any delta will be there. What reaches us is
+# engine-java/patches/, engine-java/src/, and patches/LEDGER.md as the
+# explanation of them. Then move the ref here and say in review what was taken
+# and what was skipped.
+#
+# The CARVE-IN commit is not recorded and cannot be recovered: the extensions
+# were brought over around 2026-08-22 (the timestamps in docs/rasaero/diffs/)
+# from a checkout nobody wrote down. This file starts the record from the first
+# review that did.
+#
+# 2026-09-22 (this entry): reviewed 4a9b8f7 (v0.137, 2026-09-21), diffing from
+# c830486 (2026-09-17), which is the oldest state that happened to be on disk
+# rather than a previously reviewed point. 16 commits, 88 files. Five files of
+# shared Java changed and every edit was COMMENT-ONLY. Taken: their correction
+# to the Rogers Kbf note, which called an aft CP shift "a more conservative
+# static margin" when aft RAISES the displayed margin (see the FinSetCalc patch
+# and CHANGELOG). Skipped, as not applicable: their RK4SimulationStepper
+# parallel-stage nozzle correction - we do not carry that patch, have no
+# pressure-thrust half for our drag half to disagree with, and expose
+# nozzleExitDiameter in no UI; and their turbulence-seed documentation fix,
+# whose analogue here ("auto" quietly meaning the constant 42) was already
+# found and fixed in web/src/services/simulations.ts.
+#
+# 2026-09-27: reviewed 76d8035 (v0.142, 2026-09-24), diffing from 4a9b8f7, the
+# previous reviewed point. 439 commits and 440 files, of which 17 files and 11
+# commits are under engine-java. Their five new or changed kernel patches split
+# three ways.
+#
+# TAKEN: the self-intersecting freeform outline. `FreeformFinSet.setPoints`
+# refuses a crossing outline by rolling it back and logging, which through a
+# bridge means flying the CONSTRUCTOR'S DEFAULT FIN - measured here at length
+# 0.325 m / CP 0.2588 m against the drawn outline's 0.300 m / 0.2454 m, with no
+# error anywhere. Their fix and ours are the same shape (a recorded refusal the
+# bridge reads and throws on, a deliberate divergence from desktop's silent
+# substitution); the half of their entry about a TeaVM `%g` crash does not apply,
+# because those two log lines were rebuilt with string concatenation here when
+# the file was first patched for `Geo2D`. See patches/LEDGER.md, "A refused fin
+# outline is no longer flown as the default fin".
+#
+# NOT APPLICABLE: their `BarrowmanCalculator` aft-base nozzle credit and the
+# matching `RK4SimulationStepper` per-stage-instance pressure thrust. Both halves
+# belong to a patch pair we do not carry - this engine rides upstream's own
+# per-motor `MotorConfiguration.nozzleExitDiameter` and
+# `getThrustingNozzleExitArea`, unpatched - so there is nothing here for either
+# correction to land on. Their re-carve of the `FinSetCalc` Kbf comment is the
+# correction this file's 2026-09-22 entry already took.
+#
+# SKIPPED, A DECISION NOT A GAP: `MassCalculation` + `RingComponent`, an off-axis
+# motor mount and its tube carrying their parallel-axis ROLL inertia. The defect
+# is real and is upstream 24.12's, byte for byte: a single inner tube placed off
+# the centerline (the everyday split cluster) contributes no transport term, and
+# a cluster's tubes miss their spread about the mean. Taking it would break the
+# claim this engine is built on - bit-identical to upstream - for an inertia term
+# no view here reports as its own number, so it is recorded as an inherited
+# inaccuracy instead. Revisit if roll rate is ever published as a result.
+#
+# REVERSED THE SAME DAY: TAKEN, on the user's decision, as
+# `PATCH(offaxis-roll-inertia)`. Their files are written against an older
+# kernel and could not be dropped in; the two hunks (the motor guard removed,
+# the tube spread added) were ported onto upstream's current files. Measured on
+# a split pair 15 mm off the axis, upstream's loaded roll inertia was 4.9% under
+# the identical `double` cluster; patched, the two agree to the last digit. See
+# patches/LEDGER.md, "Off-axis tubes and motors carry their roll inertia".
+#
+# NOT TAKEN: their seeded `addWindLevel` (`MultiLevelPinkNoiseWindModel`).
+# Applicable, and not done in this pass. This bridge builds the multi-level
+# model through upstream's unseeded overload, so a flight with turbulent wind
+# levels is not reproducible run to run; the single-level path here has been
+# seeded from `randomSeed` since it was written. Since done: the bridge seeds
+# the multi-level model after its levels are in place (OpenRocketEngine.java,
+# where it builds `MultiLevelPinkNoiseWindModel`).
+#
+# 2026-09-30 to 2026-10-10: reviewed 76d8035 through e9d0c9b6 (v0.171,
+# 2026-10-09) in six windows, one per pull: c035db3, 67530a3, ed94414, 72fd5a7,
+# 37e46cd8, e9d0c9b6.
+#
+# TAKEN: guide-aware launch rod clearance, as an opt-in setting built on a
+# simulation listener (api/GuideClearanceListener.java), not a kernel patch, so
+# the patched-file count did not move. Their bridge's `setLengthUnit`, so the
+# kernel's airframe step warnings compare sizes in the user's length unit.
+#
+# NO ENGINE CHANGE NEEDED: the ed94414 and 72fd5a7 windows touched no
+# engine-java file. In 37e46cd8 (46 engine-java files) their ports of upstream
+# fixes were already in our pin, except OpenRocket PR #3382, which arrived with
+# the 2026-10-07 pin bump. Their consistent CP above 20 degrees angle of attack
+# is their own ruling, not upstream's, and is not taken.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND FIXED HERE: a tube coupler's inner parts
+# in a `.rkt` export; recovery devices that open within 0.2 s counted as one
+# descent step; a deployment after landing ignored by the descent readout;
+# desktop's display names for simulation extensions.
+#
+# OPEN: their SEMROC BTC-20BB [R] mass correction (a971add0, the maker's
+# 0.82 oz against the database's 0.21 oz). Our catalog still carries 0.21 oz.
+#
+# 2026-10-15: reviewed e9d0c9b6 through 362b6c04 (v0.191, 2026-10-14), 364
+# commits, 34 engine-java files.
+#
+# TAKEN: `FlightConfiguration.motors` as a LinkedHashMap. Their DataBranch
+# evidence found same-time IGNITION, BURNOUT and EJECTION_CHARGE events from
+# separate mounts reordering between runs, because the map's key hashes each
+# mount's random UUID. They left it open; it is patched here, in a file that
+# was already a TeaVM patch.
+#
+# NO ENGINE CHANGE NEEDED: OpenRocket PR #2909 (DataBranch read-only views) and
+# the geopotential ISA altitudes (issue #2731, PR #2997) are already in our
+# pin; they gate the second to their non-Classic aero models, and we fly
+# upstream's everywhere. Their build-linearity patches (RocketComponent,
+# FinSetCalc sibling scan, CenteringRing, Rocket stage numbers, a discarding
+# ignoreWarningSet) change no number and matter only at thousands of parts
+# under one parent; not taken. The TubeFinSetCalc NaN format failure does not
+# occur here: our debug line concatenates, it does not format. Their
+# ActiveLengthListener series and their Kbf/Supersonic aero entries are their
+# own features.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND DONE HERE: the mount's own ignition
+# (desktop's `getDefaultMotorConfig()`, the bare `<motormount>` tags) kept on
+# the mount and round-tripped, with desktop's ignition scope and Reset
+# ignition. Tab slots on the fin marking guide, after their tube wraps; their
+# vent and marking holes are not taken, being file metadata desktop drops.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass. Their 9fd9ed20 retires their correction
+# because openrocket-database's semroc.orc gives 0.82 oz; our copy still has
+# 0.21 oz.
+repo    = https://github.com/mtnmanak/mmrocket-sim.git
+ref     = 362b6c0446ff6e8fcfe22863b5d402f521e58bef
+version = 0.191
+dated   = 2026-10-14

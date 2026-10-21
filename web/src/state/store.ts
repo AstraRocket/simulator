@@ -1,0 +1,1891 @@
+import { create } from 'zustand';
+import i18n from '../i18n';
+import { scalePart, scaleRocket, type ScaleOptions, type ScaleScope } from '../tree/scaleRocket';
+import { syncAutoShoulders } from '../services/design/autoShoulder';
+import { defaultRocketTree } from '../services/design/defaultRocket';
+import { launcherKind, withLauncher } from '../services/design/launcher';
+import { buildRocketTree, type StaticInfo } from '../engine/api';
+import type {
+  MotorSpec,
+  RocketTree,
+  ComponentNode,
+  ComponentType as PartType,
+  IgnitionEvent,
+} from '../engine/openRocketEngine';
+import {
+  findNode,
+  findStages,
+  patchChangesNode,
+  updateNode,
+  removeNode,
+  addPart,
+  addStage,
+  moveNode,
+  setStageDrogue,
+} from '../services/design/treeEdit';
+import { canRemove, duplicateNode, pasteNode } from '../services/design/clipboard';
+import { withFilletDefault } from '../services/design/filletDefault';
+import {
+  documentMaterialsOf,
+  withDocumentMaterial,
+  withDocumentMaterials,
+  type DocumentMaterial,
+} from '../services/materials/documentMaterials';
+import {
+  configFor,
+  liveMotors,
+  type DeployOverride,
+  type SepOverride,
+  newFlightConfig,
+  primaryMotor,
+  carryToCopies,
+  reconcileConfigs,
+  ensureConfig,
+  followMountIgnition,
+  mountIgnition,
+  sameIgnition,
+  type FlightConfig,
+  type MountMotor,
+} from '../services/flight/flightConfigs';
+import {
+  launchPatchFor,
+  overLaunchDefaults,
+  type LaunchConditions,
+  type LaunchPatch,
+} from '../services/design/orkTree';
+import type { OrkExportMotor } from '../services/files/orkFile';
+import type { ImportNote } from '../services/files/importNote';
+import type { DesignFormat } from '../services/files/designFile';
+import { repairValues } from '../services/design/repairValues';
+import { withKernelEnds } from '../services/design/autoRadius';
+import {
+  changedPrefKeys,
+  effectivePrefs,
+  freshSeed,
+  isOutdated,
+  newSimulation,
+  resultKey,
+  sameSimInputs,
+  simConditions,
+  simInputs,
+  type Simulation,
+  type SimPrefs,
+  withoutResults,
+  type SimRun,
+} from '../services/flight/simulations';
+import { simulateInWorker, SimTimeoutError, SimCanceledError } from '../engine/simClient';
+import { landingPoint } from '../services/flight/groundTrack';
+import {
+  normalizeSweepSpec,
+  sweepLaunch,
+  sweepPoints,
+  surfaceWind,
+  type DriftSweep,
+  type SweepLanding,
+  type WindSweepSpec,
+} from '../services/flight/windSweep';
+import { loadSettings } from '../services/storage/settings';
+import { defaultMaterialPatch } from '../services/design/materialSlots';
+import { unflyable, unflyableText, designBlocker, designBlockerText } from '../services/flight/runnability';
+import { configPowerClass } from '../services/flight/powerClass';
+import { landingView, planRun, runProblems } from '../services/flight/runPlan';
+import { isComplete } from '../services/flight/requiredLaunch';
+import type { MotorDims } from '../tree/schematicGeometry';
+import { type ConfigsTab } from './tabs';
+import { createViewSlice, type ViewSlice } from './viewSlice';
+import { createFileSlice, type FileSlice } from './fileSlice';
+import { markWritten, voidPendingAutosave } from './writtenWorkspace';
+import { errorText } from '../i18n/keyedError';
+import { flightBranches } from '../services/flight/flightColumns';
+import {
+  configOf,
+  defaultConfig,
+  displayUnits,
+  repairNotes,
+  selectActive,
+  simPrefsOf,
+  type StorageWarningKind,
+} from './workspaceSelectors';
+
+// Defined in a leaf module so fileSlice, which this file builds while it loads,
+// can import them without importing this file at run time; re-exported here for
+// the modules that import them from the store.
+export {
+  configOf,
+  saveFailure,
+  selectActive,
+  selectConfig,
+  selectDesignName,
+  selectShownSim,
+  workspaceSnapshot,
+} from './workspaceSelectors';
+
+type Rocket = ReturnType<typeof buildRocketTree>;
+type LoadedMeta = {
+  name: string;
+  notes: ImportNote[];
+  exportMotors: Record<string, OrkExportMotor>;
+  /** The file's format, which the loaded-design card names. */
+  format?: DesignFormat;
+} | null;
+
+/** One undo/redo checkpoint: the whole editable workspace: the design tree (and
+ *  which part was selected, so undo re-focuses what changed) plus the simulations,
+ *  the active sim, and the flight configurations, all of which persist to the same
+ *  file. Cached flight `result`s are stripped in {@link snap}: they're large,
+ *  recomputable outputs, not edits. */
+type HistoryEntry = {
+  tree: RocketTree;
+  selectedId: string | null;
+  sims: Simulation[];
+  /** The motor loadouts live here, so an undo of a motor change has to restore them. */
+  configs: FlightConfig[];
+  activeId: string;
+  /**
+   * The three fields `deleteSim` prunes alongside `sims`.
+   *
+   * Without them, undoing a delete would bring the row back but not its tick
+   * (so the Run button's count would be wrong) and not its place in `lastRunIds`
+   * (so the Results picker would collapse to a single name even though the run
+   * had flown it).
+   */
+  selectedSimIds: string[];
+  lastRunIds: string[];
+  resultSimId: string | null;
+};
+/** Cap the stack so a long session can't grow memory without bound. */
+const HISTORY_LIMIT = 100;
+
+/** Which configurations an ignition change reaches; see `setMountIgnition`. */
+export type IgnitionScope = 'config' | 'all';
+
+export interface WorkspaceState extends ViewSlice, FileSlice {
+  // --- design ---
+  tree: RocketTree;
+  info: StaticInfo | null;
+  /** Transient failure of the thing the user just did: a bad .ork, a sim that
+   *  threw. Cleared by the next successful rebuild of a design edited since. */
+  err: string | null;
+  /**
+   * Why the design on screen does not build, or null. Owned by the rebuild
+   * effect (useWorkspaceEffects), which sets and clears it on every build.
+   *
+   * Apart from `err` so that a rebuild cannot wipe an action's message: the
+   * engine arriving after an import failed, or a debounced build landing just
+   * after a run reported a fault, would otherwise clear it before it was read.
+   */
+  buildErr: string | null;
+  /**
+   * Values a design arrived with that no value of their quantity can be, pulled
+   * back to the limit on the way in (`design/repairValues`).
+   *
+   * Transient, unlike the import notes beside them in the banner. The repair is
+   * saved with the design, so it is done once and there is nothing left to
+   * report on the next load; a note kept in `loadedMeta` would persist and say
+   * it again forever. Every load path fills this, including the autosaved
+   * session, which has no notes of its own.
+   */
+  repairNotes: string[];
+  /**
+   * Browser storage is not keeping the user's work (quota hit, or IndexedDB
+   * blocked and we are back on the 5 MB localStorage cap).
+   *
+   * A separate slot from `err`, because `err` is cleared by switching designs
+   * and by a successful rebuild after any edit (the rebuild effect keeps it only
+   * while the tree is still the one it was raised on), and this warning has to
+   * outlive both.
+   *
+   * Two slots behind it (`storageNotices`), shown together. A save's own
+   * failure (`full`, `conflict`) is retired by the next save that lands, and a
+   * conflict also by a workspace swap, which points saving at a design this
+   * tab can write. `degraded` and `loadFailed` are facts about this session
+   * that a later save does not undo, and `idbKeyValueStore.markDegraded()` is
+   * one-way and never notifies twice, so a message cleared or overwritten
+   * there would never be raised again.
+   */
+  storageWarning: string | null;
+  /** The save failure's kind when one stands, else the standing notice's. */
+  storageWarningKind: StorageWarningKind | null;
+  storageNotices: { standing: StorageNotice | null; save: StorageNotice | null };
+  selectedId: string | null;
+  /**
+   * Bumped by every selection gesture, including one that picks the part that
+   * was already selected.
+   *
+   * `selectedId` alone cannot carry that: tapping the same part in the drawing
+   * a second time writes the id it already holds, so nothing downstream sees an
+   * event. The component dialog (the editor below the property column's
+   * breakpoint) opens on this rather than on the id, or the part it left
+   * selected when it closed could not be reopened without first selecting
+   * something else.
+   */
+  selectionSeq: number;
+  /**
+   * The part Cut or Copy put aside, with its subtree. Not part of the design or
+   * of undo, and kept across switching designs, so a part can be pasted into
+   * another design as desktop allows.
+   */
+  clipboard: ComponentNode | null;
+  loadedMeta: LoadedMeta;
+  // The live engine handle, set by the rebuild effect; read by the aero sweep,
+  // the dimension fields, the file writers' part figures and the report model.
+  rocket: Rocket | null;
+  // --- history (undo/redo of component edits) ---
+  past: HistoryEntry[];
+  future: HistoryEntry[];
+  // --- simulations ---
+  sims: Simulation[];
+  /**
+   * The flight configurations this design holds - the named motor loadouts each
+   * simulation points at (services/flight/flightConfigs.ts).
+   *
+   * Never empty: a simulation names the configuration it flies, so there is
+   * always one to name.
+   */
+  configs: FlightConfig[];
+  /**
+   * The configuration the Configurations tab is pointed at, or null to follow
+   * the active simulation's.
+   *
+   * Transient, like `selectedId` on the design tree: which row you had
+   * highlighted is not part of the design, and a stored one would outlive the
+   * configuration it names.
+   */
+  selectedConfigId: string | null;
+  /**
+   * Which part of a configuration the tab is showing: its motors, when its
+   * recovery devices open, or when its boosters separate.
+   *
+   * In the store rather than the pane, because the table and the editor beside
+   * it are different components at lg+ (see App.tsx) and both follow it.
+   */
+  configsTab: ConfigsTab;
+  activeId: string;
+  /**
+   * Rows ticked for running, which is a different question from `activeId`.
+   *
+   * `activeId` is the simulation the editor is pointed at - exactly one, always.
+   * This is the set the Run button will fly, and it is normally empty: with
+   * nothing ticked, Run flies the active one, which is what you want when there
+   * is only one simulation or you are iterating on a single setup. Ticking rows
+   * is how you say "these several".
+   */
+  selectedSimIds: string[];
+  /** True while a batch is draining. Coarse on purpose: it gates the UI as a
+   *  whole (the Run button, which becomes Cancel), where per-row detail belongs
+   *  in {@link simRuns}. */
+  simBusy: boolean;
+  /**
+   * Transient per-simulation run state: which rows are queued, which are in the
+   * air, and which threw on the design they were flown against.
+   *
+   * Per-sim rather than a single `runningId` because the worker pool runs
+   * several flights at once. It is deliberately not part of a `Simulation`,
+   * which is persisted: "running" must not survive a reload.
+   *
+   * The failed entries carry their design because useAutoRunOutdated's "auto-run
+   * outdated" re-fires whenever `simBusy` goes false while a result view is open
+   * and there is no result, which is exactly the state a failed run leaves behind,
+   * so a reproducible failure (a sim that times out) would retry without limit.
+   * Recording the design it failed on lets the retry wait for an actual change.
+   */
+  simRuns: Record<string, SimRun>;
+  /**
+   * Which flight the Results tab is showing, chosen from its own picker.
+   *
+   * Null means "whichever simulation is active", the right default: open
+   * Results and you see the row you were just working on, without having
+   * chosen anything.
+   *
+   * Separate from `selectedSimIds` on purpose. The ticks answer "which rows
+   * should Run fly"; this answers "which flight am I reading". They are
+   * different questions asked at different moments, and tying them together
+   * would mean that reading one result silently re-arms the Run button, or that
+   * ticking rows to fly them yanks the charts around.
+   *
+   * An id that no longer names a simulation falls back rather than being pruned,
+   * so deleting a row cannot leave the tab empty mid-read.
+   */
+  resultSimId: string | null;
+  /**
+   * The last finished wind sweep, or null.
+   *
+   * One at a time, workspace-wide, rather than one per simulation. A sweep is a
+   * few dozen flights and answers a question you ask about the row you are
+   * reading right now ("where could this come down today"); keeping a stale one
+   * per row would hold megabytes of landings for rows nobody is looking at, and
+   * would put the reader in front of a picture they did not just ask for. It
+   * carries the simulation and the design it was flown from, so the ground
+   * track can tell "not this flight" from "this flight, but the rocket has
+   * changed since".
+   *
+   * Transient by design: never persisted, and dropped with the workspace.
+   */
+  driftSweep: DriftSweep | null;
+  /**
+   * The sweep in flight: which row, and how far through. Null when none is.
+   *
+   * Progress is counted rather than shown per flight, because the flights are
+   * not rows anybody can see: there is no table of thirty-two swept cells, and
+   * there should not be. "18 of 32" is the whole of what a reader needs.
+   */
+  driftSweepRun: { simId: string; done: number; total: number } | null;
+  /**
+   * The simulations the last run actually flew, in the order they were asked for.
+   *
+   * This, not "every simulation that has a result", is what decides whether the
+   * Results tab shows a plain name or a picker: results persist, so counting
+   * them would put a dropdown on screen for a single run whenever another
+   * simulation had been run earlier. One run, one name.
+   */
+  lastRunIds: string[];
+
+  // --- actions ---
+  setErr: (err: string | null) => void;
+  setBuildErr: (buildErr: string | null) => void;
+  /** Raise (or clear, with null) the persistent storage warning. */
+  setStorageWarning: (msg: string | null, kind?: StorageWarningKind) => void;
+  /** Storage refused a write: raise the clearable "storage full" warning. */
+  warnStorageFull: () => void;
+  /** A save landed: retire a "storage full" or conflict warning, leave the standing ones. */
+  clearSaveWarning: () => void;
+  /**
+   * When the autosave last landed (epoch ms), or null before the first one.
+   *
+   * There is no Save command: editing autosaves on a 500 ms debounce, and
+   * unload writes a synchronous journal. This is what SaveStatus reads to tell
+   * the user that saving is happening at all.
+   */
+  lastSavedAt: number | null;
+  /**
+   * Bumped by a workspace swap that must not autosave: loading a stored design
+   * (boot, File > Open) and starting a blank one (New, deleting the open
+   * design). The autosave effect skips the save the swap would otherwise
+   * schedule (useWorkspaceEffects).
+   *
+   * Writing a just-loaded design back changes nothing but its `updatedAt`, so
+   * the library's "most recently updated" order would mean "most recently
+   * opened". Writing an untouched blank one adds a "Rocket" row to File > Open
+   * for a design nobody made. An import is not quiet: it is its own design,
+   * and the save is what makes its library entry.
+   */
+  quietReplace: number;
+  /** The autosave landed. From useWorkspaceEffects, on a successful write. */
+  markSaved: () => void;
+  applyBuild: (info: StaticInfo | null, rocket: Rocket | null) => void; // from the rebuild effect
+  /**
+   * The global run preferences (Settings > Simulation), mirrored from the
+   * settings so the store can tell whether a result is outdated
+   * ({@link selectOutdated}). Synced by useWorkspaceEffects.
+   */
+  simPrefs: SimPrefs;
+  /** Replace the mirrored globals. A no-op when none of the flight keys moved. */
+  setSimPrefs: (prefs: SimPrefs) => void;
+  hydrate: (w: {
+    tree: RocketTree;
+    sims: Simulation[];
+    configs: FlightConfig[];
+    activeId: string;
+    loadedMeta: LoadedMeta;
+  }) => void;
+
+  /**
+   * Scale the design, or with `scope` only the selected part (with or without
+   * what is inside it), as one undo step. `options` are the Scale dialog's
+   * mass and offset choices (tree/scaleRocket).
+   */
+  scaleDesign: (factor: number, scope?: ScaleScope, options?: ScaleOptions) => void;
+  setSelectedId: (id: string | null) => void;
+  patchSelected: (patch: Partial<ComponentNode>) => void;
+  /**
+   * Run one of the tree-shape actions from services/design/componentActions: convert a
+   * fin set to freeform, split a fin set / pod / booster / cluster, reset a
+   * cluster's spacing. One undo step, and nothing at all when the action says
+   * there was nothing to do. `origins` collects copied parts' ids (see `reid`),
+   * so their per-configuration settings follow them.
+   */
+  applyTreeAction: (change: (tree: RocketTree, origins: Map<string, string>) => RocketTree) => void;
+  /** Dual deployment for one stage: which of its recovery devices is the
+   *  drogue, or `null` for single deployment. One undo step, because it clears
+   *  the rest of the stage in the same breath. */
+  setStageDrogue: (stageId: string, deviceId: string | null) => void;
+  removeSelected: () => void;
+  /** Put the selected part on the clipboard. */
+  copySelected: () => void;
+  /** Copy the selected part, then remove it (not the last stage). */
+  cutSelected: () => void;
+  /** Paste the clipboard at the selection (see services/design/clipboard), selecting the copy. */
+  pasteClipboard: () => void;
+  /** Copy the selected part to the end of its parent, selecting the copy. */
+  duplicateSelected: () => void;
+  addPartToTree: (type: PartType) => void;
+  addStageToTree: () => void;
+  moveSelected: (dir: -1 | 1) => void;
+  updateDesignMeta: (
+    patch: Partial<Pick<RocketTree, 'name' | 'designer' | 'kitName' | 'comment' | 'revision' | 'designType'>>,
+  ) => void;
+  /** Add a material to the design's own list (desktop's document materials); one undo step, none when it is already there. */
+  addDocumentMaterial: (m: DocumentMaterial) => void;
+  /** Finalize the in-flight edit (slider drag / text entry) into one undo entry.
+   *  Called by the editors when an interaction ends (blur / discrete change). */
+  commitEdit: () => void;
+  undo: () => void;
+  redo: () => void;
+
+  setActiveId: (id: string) => void;
+  /** Point the Configurations tab at one configuration; null follows the active simulation. */
+  setSelectedConfigId: (id: string | null) => void;
+  setConfigsTab: (tab: ConfigsTab) => void;
+  /**
+   * Seat a motor in one mount of one flight configuration.
+   *
+   * Every mount goes through this, the first one included: one call, one map, so
+   * nothing can disagree about which motor is where. Every simulation flying
+   * that configuration is aged, because all of them now fly a different motor.
+   */
+  setMountMotor: (configId: string, mountId: string, m: MotorSpec) => void;
+  /**
+   * Set when one mount's motor ignites. `config` changes the one configuration;
+   * `all` changes that mount's motor in every configuration and the mount's own
+   * ignition too, which is desktop's "Change all configurations using the
+   * default ignition event" (IgnitionSelectionDialog).
+   */
+  setMountIgnition: (
+    configId: string,
+    mountId: string,
+    event: IgnitionEvent,
+    delay: number,
+    scope?: IgnitionScope,
+  ) => void;
+  /**
+   * Override one deployment field of one recovery device, in one configuration;
+   * null clears that field so the device's own value on the design applies again.
+   *
+   * Per field, like a simulation's preference overrides: a configuration can
+   * move the altitude and leave the event where the design put it.
+   */
+  setDeployment: <K extends keyof DeployOverride>(
+    configId: string,
+    deviceId: string,
+    key: K,
+    value: DeployOverride[K] | null,
+  ) => void;
+  /**
+   * Override one separation field of one booster, in one configuration; null
+   * clears it so the stage's own value on the design applies again.
+   */
+  setSeparation: <K extends keyof SepOverride>(
+    configId: string,
+    stageId: string,
+    key: K,
+    value: SepOverride[K] | null,
+  ) => void;
+  /**
+   * Fly one stage in this configuration, or leave it on the ground. Refused for
+   * the last stage still flying: a rocket with no stages is not a flight.
+   */
+  setStageFlies: (configId: string, stageId: string, flies: boolean) => void;
+  /** Add an empty-default configuration and select it. */
+  addConfig: () => void;
+  /** Copy one configuration, placing the copy after it, and select it. */
+  copyConfig: (id: string) => void;
+  /**
+   * Write a configuration's name exactly as typed, spaces included, so a
+   * controlled input can be typed into. `commitConfigName` tidies it.
+   */
+  renameConfig: (id: string, name: string) => void;
+  /**
+   * End a name edit: trim the stored name, store an empty one as unnamed
+   * (labeled by its motors), and finalize the edit into one undo step.
+   */
+  commitConfigName: (id: string) => void;
+  /**
+   * Delete a configuration. Refused for the last one, since every simulation
+   * names the configuration it flies. Rows that flew it move to the first
+   * remaining one.
+   */
+  deleteConfig: (id: string) => void;
+  /** Point one simulation at a configuration. */
+  setSimConfig: (simId: string, configId: string) => void;
+  patchLaunch: (p: LaunchPatch) => void;
+  /**
+   * Patch the active simulation's launch conditions alone, as one undo step.
+   *
+   * For surfaces away from the simulation editor (Launch Locations, opened
+   * from the menu), where the "editing N simulations" banner is not on screen
+   * to say that the ticked rows would be written too.
+   */
+  patchActiveLaunch: (p: Partial<LaunchConditions>) => void;
+  addSim: () => void;
+  duplicateSim: (id: string) => void;
+  deleteSim: (id: string) => void;
+  renameSim: (id: string, name: string) => void;
+  /** Override a global run preference for the active sim; null clears the override. */
+  setSimPref: <K extends keyof SimPrefs>(key: K, value: SimPrefs[K] | null) => void;
+  /** Drop every override on the active simulation, so all of them follow the globals again. */
+  clearSimPrefs: () => void;
+  /** Choose which flight the Results tab shows; null follows the active row. */
+  setResultSimId: (id: string | null) => void;
+  /** Tick or untick one row for the next run. */
+  toggleSimSelected: (id: string) => void;
+  /** Tick every row, or none. */
+  setSimsSelected: (ids: string[]) => void;
+  /** Run the active simulation, under the run preferences in `simPrefs`. Resolves with how it came out. */
+  runSim: () => Promise<RunOutcome>;
+  /**
+   * Run these simulations. They fly concurrently over the worker pool. Resolves
+   * with how each requested row came out, by id; an id that names no row is
+   * left out.
+   */
+  runSims: (ids: string[]) => Promise<Record<string, RunOutcome>>;
+  /** Run every simulation whose result is missing or stale. */
+  runOutdated: () => Promise<void>;
+  /** Stop the batch in flight. Rows already finished keep their results. */
+  cancelRun: () => void;
+  /**
+   * Fly a grid of wind conditions around one simulation's own, and keep where
+   * each flight came down. Replaces whatever sweep was held before.
+   */
+  runDriftSweep: (simId: string, spec: WindSweepSpec) => Promise<void>;
+  /** Stop the sweep in flight. Nothing is kept: a part-flown grid is not a region. */
+  cancelDriftSweep: () => void;
+  /** Throw the held sweep away. */
+  clearDriftSweep: () => void;
+}
+
+/**
+ * How one row came out of a run.
+ *
+ * - `landed`: its result is installed and current.
+ * - `failed`: the flight threw or timed out, or the design is blocked.
+ * - `skipped`: refused before flying (no usable motor, launch conditions out of
+ *   bounds).
+ * - `canceled`: the user stopped the batch.
+ * - `dropped`: it flew, but the design or the row changed before it landed, so
+ *   the answer was not installed.
+ * - `busy`: another batch was already running, so nothing was started.
+ *
+ * Every outcome but `landed` leaves the row's previous result, if any, in place,
+ * so a caller that needs fresh numbers has to check for `landed`.
+ */
+export type RunOutcome = 'landed' | 'failed' | 'skipped' | 'canceled' | 'dropped' | 'busy';
+
+/**
+ * The drift sweep, if it was flown for `simId`. One sweep is held workspace-wide,
+ * so it names its flight: drawing another row's landings over this one's track
+ * would be a picture of two different rockets.
+ */
+export const selectDriftSweepFor = (s: WorkspaceState, simId: string): DriftSweep | null =>
+  s.driftSweep && s.driftSweep.simId === simId ? s.driftSweep : null;
+
+/**
+ * Whether a held sweep no longer describes its row: the airframe, the row's own
+ * motor, loadout, launch conditions and overrides, or the global run
+ * preferences have moved since it flew. A sweep for a row that has since been
+ * deleted is stale too, since there is nothing left to compare it against.
+ */
+export const isDriftSweepStale = (s: WorkspaceState, sweep: DriftSweep): boolean => {
+  const sim = s.sims.find((x) => x.id === sweep.simId);
+  if (!sim || sweep.tree !== s.tree) return true;
+  const config = configOf(s.configs, sim);
+  return (
+    !sameSimInputs(sweep.inputs, simInputs(sim, config)) || sweep.key !== resultKey(s.tree, config, sim, s.simPrefs)
+  );
+};
+
+/**
+ * What the Run button will fly: the ticked rows, or the active simulation when
+ * nothing is ticked. One place decides it, so the button's label, its enabled
+ * state and the action itself can never disagree.
+ *
+ * Not for `useWorkspaceStore(selectRunIds)`: it builds a fresh array per call
+ * and zustand compares by reference, so subscribing to it re-renders forever.
+ * Components subscribe to `selectedSimIds` and the active id and derive it.
+ */
+export const selectRunIds = (s: WorkspaceState): string[] =>
+  s.selectedSimIds.length ? s.selectedSimIds : [selectActive(s).id];
+
+/**
+ * What an edit in the right-hand editor applies to: the ticked rows, or the
+ * active simulation when nothing is ticked.
+ *
+ * Deliberately the same rule as {@link selectRunIds}. A tick already means
+ * "these ones" for Run and for Delete; making it mean something else for Edit
+ * would be a third selection concept for the user to hold. The editor says so
+ * in a banner, so a multi-target edit is never silent.
+ *
+ * Same subscription caveat as `selectRunIds`: it builds a fresh array, so
+ * components derive it rather than subscribing to it.
+ */
+const selectEditIds = (s: WorkspaceState): string[] => selectRunIds(s);
+
+/**
+ * The configuration the Configurations tab is editing: the one it has selected,
+ * else the one the active simulation flies.
+ *
+ * Following the active simulation is what makes arriving at the tab show the
+ * setup you were just looking at, rather than an arbitrary row.
+ */
+export const selectEditedConfig = (s: WorkspaceState): FlightConfig => {
+  // A selection whose configuration is gone (an undo of the add that made it)
+  // follows the active simulation too, rather than `configFor`'s first row.
+  const picked = s.selectedConfigId ? s.configs.find((c) => c.id === s.selectedConfigId) : undefined;
+  return picked ?? configFor(s.configs, selectActive(s).configId);
+};
+
+/**
+ * Whether a row's result was flown from inputs other than the current ones: the
+ * design, its configuration, its launch conditions or the run preferences it
+ * reads. Derived on every read rather than stored, so no edit has to remember to
+ * set it. The active row when `sim` is omitted.
+ */
+export const selectOutdated = (s: WorkspaceState, sim: Simulation = selectActive(s)): boolean =>
+  isOutdated(sim, s.tree, configOf(s.configs, sim), s.simPrefs);
+
+/**
+ * True when a sim's last run (the active one by default) threw on the design
+ * that is still loaded.
+ *
+ * Self-expiring by construction: it compares the recorded tree against the
+ * current one, so any edit makes it false again and a retry is allowed:
+ * auto-run must not retry a configuration it already knows fails, but it must
+ * try again the moment the user changes something.
+ */
+export const selectRunFailed = (s: WorkspaceState, sim: Simulation = selectActive(s)): boolean => {
+  const run = s.simRuns[sim.id];
+  return run?.phase === 'failed' && run.tree === s.tree;
+};
+
+/**
+ * Repair a persisted workspace so a stale/partial blob can't blank the app.
+ *
+ * Each launch is merged over the current defaults (a `launch` missing fields
+ * would blank the Launch panel), and a simulation naming a configuration that is
+ * not there is pointed at the first one, the way a stale `activeId` falls back to
+ * the first row.
+ */
+function sanitizeSims(sims: Simulation[], configs: FlightConfig[]): Simulation[] {
+  const launchDefaults = loadSettings().launchDefaults;
+  const known = new Set(configs.map((c) => c.id));
+  const fallback = configs[0]!.id;
+  const safe = (Array.isArray(sims) ? sims : []).filter((s) => s && typeof s.id === 'string');
+  if (!safe.length) return [newSimulation(i18n.t('sims.untitled', { n: 1 }), fallback, launchDefaults)];
+  return safe.map((s) => ({
+    ...s,
+    launch: overLaunchDefaults(launchDefaults, s.launch),
+    configId: known.has(s.configId) ? s.configId : fallback,
+    // Kept, not dropped: flights persist under their own key and are re-attached
+    // by the workspace store before this sees them (workspaceStore.withResults).
+    result: s.result ?? null,
+  }));
+}
+
+/** One storage warning and the condition that raised it. */
+type StorageNotice = { msg: string; kind: StorageWarningKind | null };
+
+/** The shown storage warning for these slots: the standing notice, then the save failure. */
+function storageWarningOf(
+  notices: WorkspaceState['storageNotices'],
+): Pick<WorkspaceState, 'storageWarning' | 'storageWarningKind' | 'storageNotices'> {
+  const shown = [notices.standing, notices.save].filter((n): n is StorageNotice => n !== null);
+  return {
+    storageNotices: notices,
+    storageWarning: shown.length ? shown.map((n) => n.msg).join(' ') : null,
+    storageWarningKind: notices.save?.kind ?? notices.standing?.kind ?? null,
+  };
+}
+
+/**
+ * At least one configuration, always.
+ *
+ * A curve-less motor inside one is kept as-is: the build does not seat it, so it
+ * cannot blank the app, the run stays blocked ("no motor"), and an unresolved
+ * `.ork` motor is never silently replaced with a default. Only a wholly missing
+ * set falls back to a default loadout.
+ */
+function sanitizeConfigs(tree: RocketTree, configs: FlightConfig[]): FlightConfig[] {
+  const safe = (Array.isArray(configs) ? configs : []).filter((c) => c && typeof c.id === 'string' && c.motors);
+  return reconcileConfigs(tree, safe.length ? safe : [defaultConfig(tree)]);
+}
+
+/** Motor case dimensions for the 2D/3D views, one per loaded mount. */
+export function selectMotorDims(tree: RocketTree, config: FlightConfig): MotorDims {
+  const m: MotorDims = {};
+  for (const [id, mm] of liveMotors(tree, config)) {
+    m[id] = { length: mm.spec.length, diameter: mm.spec.diameter, label: mm.spec.designation };
+  }
+  return m;
+}
+
+/** First `label(n)` (n = start, start+1, …) not already used by a sim, so New
+ *  and Duplicate never reuse a name, even after deletions. */
+function uniqueSimName(sims: Simulation[], label: (n: number) => string, start: number): string {
+  const taken = new Set(sims.map((x) => x.name));
+  let n = start;
+  while (taken.has(label(n))) n++;
+  return label(n);
+}
+
+/**
+ * The batch in flight, if any, so `cancelRun` can stop it.
+ *
+ * Module scope rather than store state: it is a handle onto work, not something
+ * anything renders, and an AbortController in the store would be a non-plain
+ * value in a tree that is serialized and compared by identity.
+ */
+let batchAbort: AbortController | null = null;
+
+/**
+ * The wind sweep in flight, if any.
+ *
+ * Its own handle rather than `batchAbort`. A sweep and a normal run are
+ * separate pieces of work with separate Cancel buttons, and sharing one
+ * controller would mean canceling a sweep also kills a batch of simulations
+ * somebody started beside it.
+ */
+let sweepAbort: AbortController | null = null;
+
+/**
+ * A copy of an override map with one key set, or removed when `value` is null.
+ * Removed rather than stored as undefined: overrides are spread or patched over
+ * the design and the global settings, and an explicit `undefined` would shadow
+ * the value underneath with nothing.
+ */
+function withKey<T extends object, K extends keyof T>(obj: T | undefined, key: K, value: T[K] | null): T {
+  const next = { ...obj } as T;
+  if (value === null) delete (next as Record<PropertyKey, unknown>)[key];
+  else next[key] = value;
+  return next;
+}
+
+/**
+ * Whether `withKey(obj, key, value)` would leave `obj` saying what it already
+ * says: the value is already there, or a cleared key is already absent.
+ */
+function holdsKey<T extends object, K extends keyof T>(obj: T | undefined, key: K, value: T[K] | null): boolean {
+  return value === null ? obj?.[key] === undefined : obj?.[key] === value;
+}
+
+/** The map, or undefined when it holds nothing: an empty override map reads as "overridden with nothing". */
+const nonEmpty = <T extends object>(obj: T): T | undefined => (Object.keys(obj).length ? obj : undefined);
+
+/**
+ * The workspace: one store, built from the editing core below plus two slices,
+ * navigation (viewSlice.ts) and files and the design library (fileSlice.ts).
+ *
+ * The design tree, the flight configurations and the simulations stay together
+ * here rather than as slices of their own. One undo entry records all three
+ * (see {@link HistoryEntry}), a result ages on the tree, its configuration and
+ * the run preferences together, and deleting a configuration moves the
+ * simulations that flew it. As separate slices each would read and write the
+ * others' fields.
+ */
+export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
+  // The translator for messages about the design in the workspace, naming its
+  // launcher the way its guides do (services/design/launcher).
+  const launcherT = () =>
+    withLauncher(
+      i18n.t as unknown as (key: string, options?: Record<string, unknown>) => string,
+      launcherKind(get().tree),
+    );
+  /**
+   * Patch every simulation the editor is pointed at: the ticked rows, or the
+   * active one when nothing is ticked (see {@link selectEditIds}).
+   *
+   * The patch is built per simulation rather than passed in whole, because a bulk
+   * edit must merge into each target's own state -- `{...sim.launch, ...p}` off
+   * the active sim would copy the active sim's entire launch block onto the
+   * others and silently flatten every field the user never touched. Built per
+   * target, only the key actually edited moves; everything else stays the
+   * simulation's own.
+   */
+  const patchTargets = (make: (sim: Simulation) => Partial<Simulation>) => {
+    const ids = new Set(selectEditIds(get()));
+    set((s) => ({ sims: s.sims.map((x) => (ids.has(x.id) ? { ...x, ...make(x) } : x)) }));
+  };
+
+  /**
+   * Whether two motor specs are the same motor: every field equal, the curve
+   * arrays sample by sample. A catalog pick builds a new object each time, so
+   * reference equality would call every reseat a change.
+   */
+  const sameMotorSpec = (a: MotorSpec, b: MotorSpec): boolean => {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof MotorSpec)[]);
+    for (const k of keys) {
+      const x = a[k];
+      const y = b[k];
+      if (Array.isArray(x) && Array.isArray(y)) {
+        if (x.length !== y.length || x.some((v, i) => v !== y[i])) return false;
+      } else if (x !== y) return false;
+    }
+    return true;
+  };
+
+  /**
+   * Edit one flight configuration in place.
+   *
+   * Shared by design: a configuration is a setup several simulations can point
+   * at, so changing its motors changes what all of them fly. That is what the
+   * configurations tab is for, and it is why motors are edited there and nowhere
+   * else - two surfaces writing the same loadout under different rules is how
+   * they come to disagree.
+   */
+  const patchConfig = (configId: string, mutate: (c: FlightConfig) => FlightConfig) => {
+    set((s) => {
+      const current = s.configs.find((c) => c.id === configId);
+      if (!current) return {};
+      const edited = mutate(current);
+      if (edited === current) return {};
+      return { configs: s.configs.map((c) => (c.id === configId ? edited : c)) };
+    });
+  };
+
+  // --- undo/redo plumbing ---
+  // A user interaction = one history entry. Continuous edits (slider drag, text
+  // entry) open a transaction on the first change (capturing the pre-edit
+  // snapshot) and are finalized by commitEdit() when the interaction ends;
+  // structural edits (add/remove/move) are atomic and record their own step.
+  let txn: HistoryEntry | null = null;
+  const snap = (): HistoryEntry => {
+    const s = get();
+    // Drop cached flight results: large per-timestep arrays and a recomputable
+    // output, not an edit. Undo/redo restores inputs and leaves sims to re-run.
+    //
+    // Everything else is held by reference. Workspace state is replaced on every
+    // edit and never mutated, so an entry shares whatever the steps around it
+    // did not change: a hundred steps of one field cost a hundred small paths,
+    // not a hundred copies of the design and its thrust curves. Sharing also
+    // keeps identity, so a restored tree is the very object a drift sweep or a
+    // run recorded, and reads as the design it flew.
+    return {
+      tree: s.tree,
+      selectedId: s.selectedId,
+      sims: withoutResults(s.sims),
+      configs: s.configs,
+      activeId: s.activeId,
+      selectedSimIds: s.selectedSimIds,
+      lastRunIds: s.lastRunIds,
+      resultSimId: s.resultSimId,
+    };
+  };
+  /**
+   * Put the recorded inputs back, and carry the live results across.
+   *
+   * History entries hold no results (see {@link snap}), so the live ones are
+   * carried across rather than blanked: an undo of a typo must not throw away
+   * numbers that are still readable. Each carries the key it was flown from, so
+   * it reads outdated against the restored inputs unless they are the ones it
+   * flew.
+   */
+  const restore = (e: HistoryEntry) => {
+    const live = new Map(get().sims.map((x) => [x.id, x]));
+    return {
+      tree: e.tree,
+      selectedId: e.selectedId,
+      sims: e.sims.map((x) => {
+        const held = live.get(x.id);
+        return held?.result
+          ? { ...x, result: held.result, resultKey: held.resultKey, resultLaunch: held.resultLaunch }
+          : x;
+      }),
+      configs: e.configs,
+      activeId: e.activeId,
+      selectedSimIds: e.selectedSimIds,
+      lastRunIds: e.lastRunIds,
+      resultSimId: e.resultSimId,
+    };
+  };
+  const pushPast = (entry: HistoryEntry) =>
+    set((s) => ({ past: [...s.past, entry].slice(-HISTORY_LIMIT), future: [] }));
+  const beginEdit = () => {
+    if (!txn) txn = snap();
+  }; // idempotent: open a txn
+  const commitEdit = () => {
+    if (txn) {
+      pushPast(txn);
+      txn = null;
+    }
+  }; // finalize the open txn
+  const recordStep = () => {
+    commitEdit();
+    pushPast(snap());
+  }; // flush pending, then log this step
+
+  /**
+   * Install a whole-tree edit as one undo step, with the configurations
+   * reconciled to it (a mount or stage can appear or go). The edit is computed
+   * before this runs, so one that throws leaves no empty step behind, and an
+   * edit that returns the tree it was given records nothing. False when nothing
+   * changed.
+   */
+  const commitTree = (
+    next: RocketTree,
+    extra: Partial<WorkspaceState> = {},
+    origins?: ReadonlyMap<string, string>,
+  ): boolean => {
+    const { tree, configs } = get();
+    if (next === tree) return false;
+    recordStep();
+    const carried = origins ? carryToCopies(configs, origins) : configs;
+    set({ tree: next, configs: reconcileConfigs(next, carried), ...extra });
+    return true;
+  };
+
+  /** Replace the design's own material list as one undo step, recording nothing when it is unchanged. */
+  const setDocumentMaterials = (change: (list: DocumentMaterial[]) => DocumentMaterial[]) => {
+    const { tree } = get();
+    const list = documentMaterialsOf(tree);
+    const next = change(list);
+    if (next.length === list.length && next.every((m, i) => m === list[i])) return;
+    beginEdit();
+    set((s) => ({ tree: withDocumentMaterials(s.tree, next) }));
+    commitEdit();
+  };
+
+  const clearHistory = () => {
+    txn = null;
+    set({ past: [], future: [] });
+  }; // on load / new design
+
+  /**
+   * Swap the whole workspace in one `set`, always resetting the transient block.
+   *
+   * `hydrate`, `openOrkFile` and `resetWorkspace` all route through here so the
+   * transient block cannot outlive the design it belongs to: a stale `simRuns`,
+   * `lastRunIds` or `resultSimId` points the Results tab at a run id from the
+   * previous design, a batch still in flight holds `simBusy` on the new one, and
+   * a standing `err` shows the old design's error under the new one. The single
+   * `set` keeps a subscriber from seeing either half alone.
+   *
+   * A batch still running belongs to the old design, so it is canceled here
+   * (its answers would be dropped by the `ranOn` guard anyway). So is an
+   * autosave still pending for it: the timer is cleared only once the effect
+   * re-runs, and firing before that it would write the old design under the
+   * new one's entry.
+   */
+  const replaceWorkspace = (patch: Partial<WorkspaceState> | ((s: WorkspaceState) => Partial<WorkspaceState>)) => {
+    voidPendingAutosave();
+    batchAbort?.abort();
+    batchAbort = null;
+    // A sweep belongs to a simulation of the design being replaced, so it goes
+    // with it rather than being left pointing at an id in the outgoing
+    // workspace.
+    sweepAbort?.abort();
+    sweepAbort = null;
+    set((s) => ({
+      simRuns: {},
+      lastRunIds: [],
+      resultSimId: null,
+      selectedSimIds: [],
+      simBusy: false,
+      driftSweep: null,
+      driftSweepRun: null,
+      err: null,
+      buildErr: null,
+      // Notes about values repaired in the outgoing design. `hydrate` and
+      // `openOrkFile` pass their own; a new blank design has none.
+      repairNotes: [],
+      // A configuration id from the outgoing design; the tab follows the
+      // active simulation of the new one.
+      selectedConfigId: null,
+      // The build, too. `info` and `rocket` describe the design on its way out,
+      // and the rebuild effect only replaces them on its next run, so for one
+      // frame a brand-new blank design would show the previous one's mass, CG and
+      // stability. Cleared here, which is the same state the rebuild effect uses
+      // for "not built yet" (`applyBuild(null, null)`), so the stats read as
+      // pending rather than as someone else's numbers.
+      info: null,
+      rocket: null,
+      // A conflict is about the outgoing design's entry, which another tab
+      // moved on; the incoming design saves on its own claim.
+      ...(s.storageNotices.save?.kind === 'conflict' ? storageWarningOf({ ...s.storageNotices, save: null }) : {}),
+      ...(typeof patch === 'function' ? patch(s) : patch),
+    }));
+  };
+
+  // The app mounts before anything is hydrated, so the default design has to be
+  // a complete workspace: one simulation flying one configuration. A reader that
+  // finds no simulation at all has nothing to fall back to.
+  const tree0 = defaultRocketTree();
+  const config0 = defaultConfig(tree0);
+  const sim0 = newSimulation(i18n.t('sims.untitled', { n: 1 }), config0.id, loadSettings().launchDefaults);
+
+  return {
+    tree: tree0,
+    info: null,
+    err: null,
+    buildErr: null,
+    storageWarning: null,
+    storageWarningKind: null,
+    storageNotices: { standing: null, save: null },
+    lastSavedAt: null,
+    quietReplace: 0,
+    simRuns: {},
+    resultSimId: null,
+    lastRunIds: [],
+    driftSweep: null,
+    driftSweepRun: null,
+    selectedId: null,
+    selectionSeq: 0,
+    clipboard: null,
+    loadedMeta: null,
+    repairNotes: [],
+    rocket: null,
+    past: [],
+    future: [],
+    sims: [sim0],
+    configs: [config0],
+    selectedConfigId: null,
+    configsTab: 'motors',
+    activeId: sim0.id,
+    selectedSimIds: [],
+    simBusy: false,
+    simPrefs: simPrefsOf(loadSettings()),
+    ...createViewSlice(set, get, api),
+    ...createFileSlice({ replaceWorkspace, clearHistory })(set, get, api),
+
+    setErr: (err) => set({ err }),
+    setBuildErr: (buildErr) => set({ buildErr }),
+    setStorageWarning: (msg, kind) =>
+      set((s) => {
+        const notice = msg ? { msg, kind: kind ?? null } : null;
+        // A clear that names no kind clears both slots.
+        if (!notice && !kind) return storageWarningOf({ standing: null, save: null });
+        return storageWarningOf(
+          kind === 'degraded' || kind === 'loadFailed'
+            ? { ...s.storageNotices, standing: notice }
+            : { ...s.storageNotices, save: notice },
+        );
+      }),
+    warnStorageFull: () => get().setStorageWarning(i18n.t('storage.full'), 'full'),
+    clearSaveWarning: () =>
+      set((s) => {
+        const kind = s.storageNotices.save?.kind;
+        return kind === 'full' || kind === 'conflict' ? storageWarningOf({ ...s.storageNotices, save: null }) : {};
+      }),
+    markSaved: () => set({ lastSavedAt: Date.now() }),
+    applyBuild: (info, rocket) => set({ info, rocket }),
+    setSimPrefs: (prefs) => set((s) => (changedPrefKeys(s.simPrefs, prefs).length ? { simPrefs: prefs } : {})),
+    hydrate: (w) => {
+      // A stored workspace is shape-checked before it gets here
+      // (services/storage/workspaceMigrate), so this only has to repair a blob that is
+      // the right shape and still partial.
+      const configs = sanitizeConfigs(w.tree, w.configs);
+      // And the values, which nothing clamped on the way in: a design autosaved
+      // by a build without a given limit, or opened from a file by one, can
+      // carry a density no material has. See `repairValues`.
+      const repaired = repairValues(w.tree);
+      // Transition ends with no radius on record, which a design stored by an
+      // older build can carry, resolved as the bridge flies them (automatic), so
+      // the report drawings, the templates and the printable solids, which read
+      // the tree as given, draw the radius that flies. The flight is the same
+      // either way, so a result current against the stored tree is current
+      // against the resolved one.
+      const fixed = { ...repaired, tree: withKernelEnds(repaired.tree) };
+      const prefs = get().simPrefs;
+      const sims = sanitizeSims(w.sims, configs).map((x) =>
+        fixed.tree !== repaired.tree &&
+        x.resultKey !== undefined &&
+        x.resultKey === resultKey(repaired.tree, configOf(configs, x), x, prefs)
+          ? { ...x, resultKey: resultKey(fixed.tree, configOf(configs, x), x, prefs) }
+          : x,
+      );
+      const activeId = sims.some((s) => s.id === w.activeId) ? w.activeId : sims[0]!.id;
+      // A stored design is a fresh document. Edits made to whatever was on
+      // screen before it arrived (the default rocket, before the boot load
+      // resolves) must not stay undoable over it.
+      clearHistory();
+      replaceWorkspace((s) => ({
+        // Quiet unless a value was repaired. A repaired design differs from the
+        // stored one, and it is the autosave that keeps the repair, so the note
+        // is said once rather than on every load until the next edit.
+        quietReplace: fixed.repaired.length ? s.quietReplace : s.quietReplace + 1,
+        repairNotes: repairNotes(fixed.repaired),
+        tree: fixed.tree,
+        sims,
+        configs,
+        activeId,
+        loadedMeta: w.loadedMeta ?? null,
+      }));
+      // What storage holds, unless a repair changed it (see `writtenWorkspace`).
+      if (!fixed.repaired.length) markWritten(get());
+    },
+
+    // Each structural/field edit reconciles the flight configurations to the new
+    // tree (drop gone mounts, seed a default for new ones) so no loadout can
+    // drift from the mounts. Every configuration, because the mounts belong to
+    // the shared design even though the motors seated in them belong to the
+    // configurations.
+    scaleDesign: (factor, scope = 'rocket', options = {}) => {
+      const { tree, selectedId } = get();
+      if (scope !== 'rocket') {
+        if (!selectedId) return;
+        commitTree(syncAutoShoulders(scalePart(tree, selectedId, factor, scope === 'subtree', options)));
+        return;
+      }
+      // Scaling is the one tree change that does not go through `treeEdit`, so
+      // it re-resolves the shoulders that follow a neighbor itself. It scales
+      // every radius by the same factor, so the numbers already agree; this
+      // guards against a rounding drift that would otherwise persist.
+      // 1x, or a non-positive or non-finite factor, returns the tree unchanged.
+      commitTree(syncAutoShoulders(scaleRocket(tree, factor, options)), { selectedId: null });
+    },
+    setSelectedId: (selectedId) => set((s) => ({ selectedId, selectionSeq: s.selectionSeq + 1 })),
+    patchSelected: (edit) => {
+      const { selectedId, tree, configs } = get();
+      if (!selectedId) return;
+      // A fillet added here starts as epoxy rather than desktop's Cardboard.
+      const patch = withFilletDefault(findNode(tree, selectedId), edit);
+      // Nothing at all when the patch says what the node already says, the way
+      // `applyTreeAction` and `setStageDrogue` below both return on an unchanged
+      // tree. Without it a clamped keystroke would be a full kernel rebuild and an
+      // undo step that changes nothing.
+      if (!patchChangesNode(tree, selectedId, patch)) return;
+      beginEdit();
+      const next = updateNode(tree, selectedId, patch);
+      // Only a change to the motor-mount flag can alter mount topology; a
+      // name/length/color/slider patch can't, so skip the full tree walk on the
+      // hot per-keystroke edit path.
+      const touchesMounts = 'motorMount' in patch;
+      const reconciled = touchesMounts ? reconcileConfigs(next, configs) : configs;
+      // The mount's own ignition reaches the motors still on its old one.
+      const touchesIgnition = 'ignitionEvent' in patch || 'ignitionDelay' in patch;
+      set({
+        tree: next,
+        configs: touchesIgnition
+          ? followMountIgnition(reconciled, selectedId, findNode(tree, selectedId)!, findNode(next, selectedId)!)
+          : reconciled,
+      });
+    },
+    // Splitting a cluster duplicates the tube it is on, mounts included, so the
+    // mount topology really can change here, unlike a field edit.
+    applyTreeAction: (change) => {
+      const origins = new Map<string, string>();
+      void commitTree(change(get().tree, origins), {}, origins);
+    },
+    setStageDrogue: (stageId, deviceId) => {
+      const { tree } = get();
+      const next = setStageDrogue(tree, stageId, deviceId);
+      if (next === tree) return; // already the drogue, or already none
+      // A whole undo step rather than an in-flight edit: this is a discrete
+      // choice that can touch several devices at once, not a slider drag. The
+      // flag changes warnings only, so no mount or simulation reconcile.
+      recordStep();
+      set({ tree: next });
+    },
+    removeSelected: () => {
+      const { selectedId, tree } = get();
+      if (!selectedId) return;
+      commitTree(removeNode(tree, selectedId), { selectedId: null });
+    },
+    copySelected: () => {
+      const { selectedId, tree } = get();
+      const node = selectedId ? findNode(tree, selectedId) : null;
+      if (node) set({ clipboard: structuredClone(node) });
+    },
+    cutSelected: () => {
+      const { selectedId, tree } = get();
+      const node = selectedId ? findNode(tree, selectedId) : null;
+      if (!node || !selectedId || !canRemove(tree, selectedId)) return;
+      set({ clipboard: structuredClone(node) });
+      commitTree(removeNode(tree, selectedId), { selectedId: null });
+    },
+    pasteClipboard: () => {
+      const { clipboard, tree, selectedId, selectionSeq } = get();
+      const done = clipboard ? pasteNode(tree, clipboard, selectedId) : null;
+      if (done) commitTree(done.tree, { selectedId: done.id, selectionSeq: selectionSeq + 1 }, done.origins);
+    },
+    duplicateSelected: () => {
+      const { tree, selectedId, selectionSeq } = get();
+      const done = selectedId ? duplicateNode(tree, selectedId) : null;
+      if (done) commitTree(done.tree, { selectedId: done.id, selectionSeq: selectionSeq + 1 }, done.origins);
+    },
+    addPartToTree: (type) => {
+      const { tree, selectedId, selectionSeq } = get();
+      // Settings ▸ Materials: a new part carries the material the user set for
+      // its type, outright, so it shows in the panel and lands in the .ork.
+      const seed = defaultMaterialPatch(type, loadSettings().defaultMaterials) as Partial<ComponentNode>;
+      const { tree: next, id } = addPart(tree, type, selectedId, seed);
+      // A new part is selected the moment it exists, and that counts as a
+      // selection: on a narrow window it is what opens the editor over it.
+      commitTree(next, { selectedId: id, selectionSeq: selectionSeq + 1 });
+    },
+    addStageToTree: () => {
+      const { tree: next, id } = addStage(get().tree);
+      commitTree(next, { selectedId: id, selectionSeq: get().selectionSeq + 1 });
+    },
+    moveSelected: (dir) => {
+      const { selectedId, tree } = get();
+      if (!selectedId) return;
+      // At either end of its siblings the part has nowhere to go and the tree
+      // comes back unchanged, which is not an undo step.
+      commitTree(moveNode(tree, selectedId, dir));
+    },
+    updateDesignMeta: (patch) => {
+      // Applied in one shot from the Rocket-configuration dialog → one undo step.
+      // OK on an unedited dialog changes nothing, and must not record a step,
+      // clear redo or replace the tree. An absent design type reads as
+      // "original" everywhere (the exporter writes it so), so the dialog's
+      // default for it is not a change either.
+      const { tree } = get();
+      const differs = (Object.keys(patch) as (keyof typeof patch)[]).some((k) =>
+        k === 'designType' ? (patch[k] ?? 'original') !== (tree[k] ?? 'original') : patch[k] !== tree[k],
+      );
+      if (!differs) return;
+      beginEdit();
+      set((s) => ({ tree: { ...s.tree, ...patch } }));
+      commitEdit();
+    },
+    addDocumentMaterial: (m) => setDocumentMaterials((list) => withDocumentMaterial(list, m)),
+    commitEdit,
+    undo: () => {
+      commitEdit(); // fold any in-flight edit into history so it undoes in one step
+      const { past, future } = get();
+      if (!past.length) return;
+      const prev = past[past.length - 1]!;
+      set({ past: past.slice(0, -1), future: [...future, snap()], ...restore(prev) });
+    },
+    redo: () => {
+      // As undo does: an in-flight edit is folded into history first. It is a
+      // new edit, so it clears the redo stack rather than being overwritten by it.
+      commitEdit();
+      const { past, future } = get();
+      if (!future.length) return;
+      const next = future[future.length - 1]!;
+      set({ future: future.slice(0, -1), past: [...past, snap()], ...restore(next) });
+    },
+
+    setActiveId: (activeId) => set({ activeId }), // switching the active sim isn't an edit, so no history
+    setSelectedConfigId: (selectedConfigId) => set({ selectedConfigId }),
+    setConfigsTab: (configsTab) => set({ configsTab }),
+    setMountMotor: (configId, mountId, m) => {
+      // An unknown configuration, or the motor already in the mount, changes
+      // nothing, so it records no undo step and leaves redo alone.
+      const current = get().configs.find((c) => c.id === configId);
+      if (!current) return;
+      const seated = current.motors[mountId];
+      if (seated && sameMotorSpec(seated.spec, m)) return;
+      recordStep();
+      patchConfig(configId, (c) => ({ ...c, motors: { ...c.motors, [mountId]: { ...c.motors[mountId], spec: m } } }));
+    },
+    setMountIgnition: (configId, mountId, event, delay, scope = 'config') => {
+      const target = { ignitionEvent: event, ignitionDelay: delay };
+      const timed = (seated: MountMotor | undefined) => !!seated && sameIgnition(seated, target);
+      if (scope === 'all') {
+        // Every motor on the mount, whatever it had, as the desktop dialog's OK
+        // does (MotorMount.getMotorIterator), plus the mount itself. The mount
+        // is compared as it flies, so absent keys read as automatic with no delay.
+        const { tree, configs } = get();
+        const mount = findNode(tree, mountId);
+        const nodeMoves = !!mount && !sameIgnition(mountIgnition(mount), target);
+        const next = configs.map((c) => {
+          const seated = c.motors[mountId];
+          if (!seated || timed(seated)) return c;
+          return { ...c, motors: { ...c.motors, [mountId]: { ...seated, ...target } } };
+        });
+        if (!nodeMoves && next.every((c, i) => c === configs[i])) return;
+        beginEdit();
+        set({ tree: nodeMoves ? updateNode(tree, mountId, target) : tree, configs: next });
+        return;
+      }
+      // No motor in that mount, or the timing it already has: nothing to
+      // record, so no transaction is opened.
+      const seated = get().configs.find((c) => c.id === configId)?.motors[mountId];
+      if (!seated || timed(seated)) return;
+      beginEdit();
+      patchConfig(configId, (c) => {
+        const seated = c.motors[mountId];
+        if (!seated) return c; // no motor in that mount: nothing to time
+        return { ...c, motors: { ...c.motors, [mountId]: { ...seated, ...target } } };
+      });
+    },
+    setDeployment: (configId, deviceId, key, value) => {
+      // Already so: no step. An empty one clears redo, and the new config
+      // object would read as a changed input and drop a run in flight.
+      const config = get().configs.find((c) => c.id === configId);
+      if (!config || holdsKey(config.deployments?.[deviceId], key, value)) return;
+      beginEdit();
+      patchConfig(configId, (c) => {
+        // Removed, not stored as undefined: a key left holding `undefined` still
+        // counts as an override (`deployOverride`).
+        const device = nonEmpty(withKey(c.deployments?.[deviceId], key, value));
+        // Likewise for the map: no overrides at all means no `deployments`, which
+        // the exporter reads as "this configuration recovers the way the design
+        // says".
+        return { ...c, deployments: nonEmpty(withKey(c.deployments, deviceId, device ?? null)) };
+      });
+    },
+    setSeparation: (configId, stageId, key, value) => {
+      const config = get().configs.find((c) => c.id === configId);
+      if (!config || holdsKey(config.separations?.[stageId], key, value)) return;
+      beginEdit();
+      patchConfig(configId, (c) => {
+        // Same shape as the deployment override above, field by field: an empty
+        // stage entry is removed, and an empty map takes `separations` with it.
+        const stage = nonEmpty(withKey(c.separations?.[stageId], key, value));
+        return { ...c, separations: nonEmpty(withKey(c.separations, stageId, stage ?? null)) };
+      });
+    },
+    setStageFlies: (configId, stageId, flies) => {
+      const s = get();
+      const current = s.configs.find((c) => c.id === configId);
+      if (!current) return;
+      const stages = findStages(s.tree).map((n) => n.id as string);
+      const grounded = new Set(current.grounded ?? []);
+      if (flies) grounded.delete(stageId);
+      else grounded.add(stageId);
+      // Something has to fly. Grounding the last one leaves the builder an empty
+      // rocket, which the kernel refuses. The checkbox of the only flying stage
+      // is disabled and says why (SeparationSection), so this is the guard a
+      // programmatic call cannot get past.
+      if (stages.every((id) => grounded.has(id))) return;
+      const next = stages.filter((id) => grounded.has(id)); // tree order, not click order
+      const before = current.grounded ?? [];
+      // Already so: no change, so no undo step.
+      if (next.length === before.length && next.every((id, i) => id === before[i])) return;
+      recordStep();
+      patchConfig(configId, (c) => ({ ...c, ...(next.length ? { grounded: next } : { grounded: undefined }) }));
+    },
+    addConfig: () => {
+      recordStep();
+      const s = get();
+      // Always a new one, even when an identical loadout is already there: this
+      // is the button that says "another setup", and one that silently selected
+      // an existing row would be a button that does nothing.
+      const made = defaultConfig(s.tree);
+      set({ configs: [...s.configs, made], selectedConfigId: made.id });
+    },
+    copyConfig: (id) => {
+      const s = get();
+      const src = s.configs.find((c) => c.id === id);
+      if (!src) return;
+      recordStep();
+      // Named copies say so; an unnamed one stays unnamed, because its label is
+      // its motor list and "Estes C6 copy" would name a thing nobody named.
+      const copy: FlightConfig = newFlightConfig(
+        { ...src.motors },
+        src.name === null ? null : i18n.t('configs.copyName', { name: src.name }),
+      );
+      // Everything else the configuration overrides comes along too, as
+      // desktop's copy runs copyFlightConfiguration on every configurable
+      // component: a copy made to vary the motor must not quietly differ in
+      // recovery or staging.
+      if (src.deployments) copy.deployments = { ...src.deployments };
+      if (src.separations) copy.separations = { ...src.separations };
+      if (src.grounded) copy.grounded = [...src.grounded];
+      const next = [...s.configs];
+      next.splice(s.configs.findIndex((c) => c.id === id) + 1, 0, copy);
+      set({ configs: next, selectedConfigId: copy.id });
+    },
+    renameConfig: (id, name) => {
+      // Untrimmed while typing: trimming here would eat the space before the
+      // next word reaches the box.
+      const next = name === '' ? null : name;
+      const current = get().configs.find((c) => c.id === id);
+      if (!current || current.name === next) return;
+      beginEdit();
+      set((s) => ({ configs: s.configs.map((c) => (c.id === id ? { ...c, name: next } : c)) }));
+    },
+    commitConfigName: (id) => {
+      const current = get().configs.find((c) => c.id === id);
+      // Empty means unnamed, not a blank name: the label falls back to the motor
+      // list, which is what the desktop shows and what a blank row could not.
+      const tidy = current?.name?.trim() || null;
+      if (current && current.name !== tidy) {
+        beginEdit();
+        set((s) => ({ configs: s.configs.map((c) => (c.id === id ? { ...c, name: tidy } : c)) }));
+      }
+      commitEdit();
+    },
+    deleteConfig: (id) => {
+      const s = get();
+      const rest = s.configs.filter((c) => c.id !== id);
+      if (!rest.length) return; // the last one: every simulation needs one to fly
+      recordStep();
+      // The rows that flew it have to fly something, so they take the first
+      // remaining configuration.
+      const fallback = rest[0]!.id;
+      set({
+        configs: rest,
+        sims: s.sims.map((x) => (x.configId === id ? { ...x, configId: fallback } : x)),
+        selectedConfigId: s.selectedConfigId === id ? fallback : s.selectedConfigId,
+      });
+    },
+    setSimConfig: (simId, configId) => {
+      const s = get();
+      const sim = s.sims.find((x) => x.id === simId);
+      if (!sim || sim.configId === configId || !s.configs.some((c) => c.id === configId)) return;
+      recordStep();
+      set({ sims: s.sims.map((x) => (x.id === simId ? { ...x, configId } : x)) });
+    },
+    patchLaunch: (p) => {
+      // Each row's patch, made once: a row whose patch says what it already
+      // holds is not an edit, and when no row changes there is no step.
+      const ids = new Set(selectEditIds(get()));
+      const patches = new Map<string, Partial<LaunchConditions>>();
+      for (const sim of get().sims) if (ids.has(sim.id)) patches.set(sim.id, launchPatchFor(p, sim.launch, sim.id));
+      const changes = (sim: Simulation) => {
+        const patch = patches.get(sim.id) ?? {};
+        return (Object.keys(patch) as (keyof LaunchConditions)[]).some((k) => patch[k] !== sim.launch[k]);
+      };
+      if (!get().sims.some(changes)) return;
+      beginEdit();
+      patchTargets((sim) => ({ launch: { ...sim.launch, ...patches.get(sim.id) } }));
+    },
+    patchActiveLaunch: (p) => {
+      const active = selectActive(get());
+      // Already so: no step, the way every other edit here treats a no-op.
+      const keys = Object.keys(p) as (keyof LaunchConditions)[];
+      if (keys.every((k) => p[k] === active.launch[k])) return;
+      recordStep();
+      set((s) => ({
+        sims: s.sims.map((x) => (x.id === active.id ? { ...x, launch: { ...x.launch, ...p } } : x)),
+      }));
+    },
+    addSim: () => {
+      // A fresh simulation flies the app default loadout under the user's global
+      // launch defaults (duplicateSim carries an existing setup forward instead).
+      // It joins an existing configuration that already holds that loadout rather
+      // than minting a second identical one.
+      recordStep();
+      const s = get();
+      const name = uniqueSimName(s.sims, (n) => i18n.t('sims.untitled', { n }), s.sims.length + 1);
+      const { configs, id: configId } = ensureConfig(s.configs, defaultConfig(s.tree).motors);
+      const s0 = newSimulation(name, configId, loadSettings().launchDefaults);
+      set({ sims: [...s.sims, s0], configs, activeId: s0.id });
+    },
+    duplicateSim: (id) => {
+      const s = get();
+      const src = s.sims.find((x) => x.id === id);
+      if (!src) return;
+      recordStep();
+      const copy = i18n.t('sims.copyName', { name: src.name });
+      const name = uniqueSimName(s.sims, (n) => (n === 1 ? copy : `${copy} ${n}`), 1);
+      // Carry the whole setup forward: the same flight configuration, and any
+      // per-simulation option overrides. Duplicate exists to vary one thing
+      // against an otherwise identical setup, so anything it silently reset would
+      // be a trap. The copy shares the configuration rather than cloning it: a
+      // configuration is a setup several rows can fly (see `patchConfig`), so a
+      // motor change on the Configurations tab applies to both rows.
+      const s0 = { ...newSimulation(name, src.configId, src.launch), prefs: src.prefs };
+      const next = [...s.sims];
+      next.splice(s.sims.findIndex((x) => x.id === id) + 1, 0, s0);
+      set({ sims: next, activeId: s0.id });
+    },
+    deleteSim: (id) => {
+      const s = get();
+      const rest = s.sims.filter((x) => x.id !== id);
+      if (!rest.length) return;
+      recordStep();
+      set({
+        sims: rest,
+        activeId: id === selectActive(s).id ? rest[0]!.id : s.activeId,
+        // A tick on a simulation that no longer exists would silently pad the
+        // Run button's count and then be skipped.
+        selectedSimIds: s.selectedSimIds.filter((x) => x !== id),
+        // Same for the Results picker: a deleted row must not stay in its list,
+        // and dropping to one leaves a plain name behind.
+        lastRunIds: s.lastRunIds.filter((x) => x !== id),
+        resultSimId: s.resultSimId === id ? null : s.resultSimId,
+      });
+    },
+    renameSim: (id, name) => {
+      const sim = get().sims.find((x) => x.id === id);
+      if (!sim || sim.name === name) return;
+      beginEdit();
+      set((s) => ({ sims: s.sims.map((x) => (x.id === id ? { ...x, name } : x)) }));
+    },
+    setSimPref: (key, value) => {
+      const ids = new Set(selectEditIds(get()));
+      if (get().sims.every((x) => !ids.has(x.id) || holdsKey(x.prefs, key, value))) return;
+      beginEdit();
+      patchTargets((sim) => {
+        // A cleared override is removed, not stored as undefined: `prefs` is
+        // spread over the globals at run time, and an explicit
+        // `timeStep: undefined` would shadow the global with nothing.
+        return { prefs: nonEmpty(withKey(sim.prefs, key, value)) };
+      });
+    },
+    clearSimPrefs: () => {
+      // Nothing to clear anywhere in the selection is not an edit: opening an
+      // empty history entry would make Undo do nothing visible.
+      const ids = new Set(selectEditIds(get()));
+      if (!get().sims.some((x) => ids.has(x.id) && x.prefs)) return;
+      beginEdit();
+      // `undefined`, not `{}`: `prefs` is spread over the globals at run time and
+      // the SimEditor reads "is anything overridden" from its key count, so an
+      // empty object would read as overridden-with-nothing.
+      patchTargets(() => ({ prefs: undefined }));
+    },
+    setResultSimId: (id) => set({ resultSimId: id }),
+    toggleSimSelected: (id) =>
+      set((st) => ({
+        selectedSimIds: st.selectedSimIds.includes(id)
+          ? st.selectedSimIds.filter((x) => x !== id)
+          : [...st.selectedSimIds, id],
+      })),
+    setSimsSelected: (ids) => set({ selectedSimIds: ids }),
+
+    runSim: async () => {
+      const id = selectActive(get()).id;
+      return (await get().runSims([id]))[id] ?? 'skipped';
+    },
+
+    /**
+     * Fly each of these simulations.
+     *
+     * Runs them concurrently: the sim worker pool holds several independent
+     * engine instances, so a batch is bounded by the pool rather than by one
+     * flight after another (`simClient.ts`). Every request is submitted at once
+     * and the pool decides how many are in the air; the rows say which of them
+     * are queued and which are running.
+     *
+     * Order is therefore not guaranteed, and nothing here depends on it. Each
+     * result installs itself by id, and the batch-level reporting waits for the
+     * whole thing to settle.
+     */
+    runSims: async (ids) => {
+      const s = get();
+      // One batch at a time. A second one would take over `batchAbort` and the
+      // `simBusy` flag while the first is still flying: Cancel could no longer
+      // reach the first, and the app would read idle with flights in the air.
+      if (batchAbort) {
+        set({ err: i18n.t('sim.busy') });
+        return Object.fromEntries(
+          ids.filter((id) => s.sims.some((x) => x.id === id)).map((id) => [id, 'busy' as const]),
+        );
+      }
+      // The globals the store mirrors, which are also what `selectOutdated`
+      // compares each result against, so a landed result reads current.
+      const prefs = s.simPrefs;
+      // What flies and what does not is decided before anything is dispatched,
+      // so the queued rows all light up together rather than one at a time.
+      const plan = planRun(ids, s.sims, s.tree, s.configs, s.info?.massEmpty);
+      const outcomes: Record<string, RunOutcome> = {};
+      // What we are about to fly. The awaits below can outlast the design: if the
+      // user edits while the pool is busy, the answers coming back describe a
+      // rocket that no longer exists, and installing them would show numbers for
+      // geometry that is no longer on screen.
+      const ranOn = s.tree;
+      if (plan.failedIds.length) {
+        const failedOn = { phase: 'failed', tree: ranOn } as const;
+        set((st) => ({
+          simRuns: { ...st.simRuns, ...Object.fromEntries(plan.failedIds.map((id) => [id, failedOn])) },
+        }));
+      }
+      if (plan.blocker) {
+        set({ err: designBlockerText(plan.blocker, i18n.t) });
+        for (const id of plan.failedIds) outcomes[id] = 'failed';
+        return outcomes;
+      }
+      const { flying, skipped } = plan;
+      for (const u of skipped) outcomes[u.id] = 'skipped';
+      if (!flying.length) {
+        if (skipped.length) set({ err: runProblems(skipped, [], launcherT(), displayUnits()).join(' ') });
+        return outcomes;
+      }
+      // Failures are collected and reported with the skips once the batch drains
+      // (see runProblems).
+      const failed: { name: string; msg: string }[] = [];
+      /** Patch one row's transient run state, leaving every other row alone. */
+      const setRun = (simId: string, run: SimRun | null) => set((st) => ({ simRuns: withKey(st.simRuns, simId, run) }));
+
+      // One controller for the whole batch: Cancel is "stop what I started",
+      // not "stop this row". Replaced per batch rather than reused, since an
+      // AbortController cannot be un-aborted.
+      const abort = new AbortController();
+      batchAbort = abort;
+      set({ simBusy: true, err: null });
+      for (const { sim } of flying) setRun(sim.id, { phase: 'queued' });
+      try {
+        await Promise.all(
+          flying.map(async ({ sim, launch }) => {
+            // What this row is being flown from. The design has `ranOn`; this is
+            // the same guard per simulation, for the motor, ignition, launch
+            // conditions and run overrides that only this row carries.
+            const config = configOf(get().configs, sim);
+            const flownFrom = simInputs(sim, config);
+            const flownKey = resultKey(ranOn, config, sim, prefs);
+            try {
+              // The sim runs in a Web Worker (its own engine instance), off the main
+              // thread, so a ~500 ms flight never freezes the UI. The worker rebuilds
+              // the rocket from the posted tree/motors, identical to the main-thread
+              // build (buildConfiguredRocket), so the result matches what's on screen.
+              const result = await simulateInWorker(
+                {
+                  tree: ranOn,
+                  config,
+                  // The sim's own overrides win over the global preferences; unset keys
+                  // fall through, so a workspace that never touches them runs on the globals.
+                  options: simConditions(launch, effectivePrefs(prefs, sim.prefs)),
+                  // Sent with each flight: the worker's unit must not depend on
+                  // whether the main-thread build has caught up.
+                  lengthUnit: effectivePrefs(prefs, sim.prefs).lengthUnit,
+                },
+                // Queued and running are different states once there is a pool:
+                // the client says when this one actually reached a worker.
+                { onStart: () => setRun(sim.id, { phase: 'running' }), signal: abort.signal },
+              );
+              // The design moved on mid-batch: this answer describes the old
+              // rocket, so drop it rather than install numbers for geometry that
+              // is no longer on screen. The others in flight do the same.
+              if (get().tree !== ranOn) {
+                setRun(sim.id, null);
+                outcomes[sim.id] = 'dropped';
+                return;
+              }
+              // Same test for this row's own inputs. Editing a simulation's
+              // launch conditions while it flies drops the answer rather than
+              // locking the editor for the duration, which leaves the row where
+              // the edit left it -- outdated, with its previous numbers --
+              // instead of marking it current against conditions it no longer
+              // has.
+              const now = get().sims.find((x) => x.id === sim.id);
+              if (!now || !sameSimInputs(flownFrom, simInputs(now, configOf(get().configs, now)))) {
+                setRun(sim.id, null);
+                outcomes[sim.id] = 'dropped';
+                return;
+              }
+              setRun(sim.id, null);
+              outcomes[sim.id] = 'landed';
+              set((st) => ({
+                sims: st.sims.map((x) =>
+                  x.id === sim.id
+                    ? { ...x, result, resultKey: flownKey, resultLaunch: launch, fileSummary: undefined }
+                    : x,
+                ),
+              }));
+            } catch (e) {
+              // Canceling is not a fault: the row goes back to what it was
+              // (its old result, or nothing) rather than turning red, and the
+              // error banner stays empty. Anything else is a fault.
+              if (e instanceof SimCanceledError) {
+                setRun(sim.id, null);
+                outcomes[sim.id] = 'canceled';
+                return;
+              }
+              // A timeout means the worker was killed mid-hang; show a friendly line
+              // rather than the raw sentinel.
+              const msg = e instanceof SimTimeoutError ? i18n.t('sim.timeout') : errorText(e, i18n.t);
+              setRun(sim.id, { phase: 'failed', tree: ranOn });
+              failed.push({ name: sim.name, msg });
+              outcomes[sim.id] = 'failed';
+            }
+          }),
+        );
+        // A canceled batch says nothing further: the user stopped it, so
+        // neither the skip list nor a jump to the Results tab is wanted.
+        if (abort.signal.aborted) return outcomes;
+        const problems = runProblems(skipped, failed, launcherT(), displayUnits());
+        if (problems.length) set({ err: problems.join(' ') });
+        // Show the run. Every run, one or twelve: running is asking to see the
+        // answer, and having to click over to Results afterward is a step with
+        // nothing behind it.
+        if (get().tree !== ranOn) return outcomes;
+        const landed = flying.map((f) => f.sim.id).filter((id) => get().sims.find((x) => x.id === id)?.result);
+        const show = landingView(landed, selectActive(get()).id);
+        if (show) set({ ...show, view: 'flight', tab: 'results' });
+        return outcomes;
+      } finally {
+        // Only if no later batch has started: a run kicked off while this one
+        // was unwinding owns the flag and the controller now.
+        if (batchAbort === abort) {
+          batchAbort = null;
+          set({ simBusy: false });
+        }
+      }
+    },
+
+    /**
+     * Run everything whose numbers are not current: never flown, or flown
+     * against a design that has since changed.
+     *
+     * Deliberately independent of the tick boxes. "Bring this workspace up to
+     * date" is a different question from "fly these rows", and making it reuse
+     * the selection would mean clearing and restoring whatever the user had
+     * ticked.
+     */
+    runOutdated: async () => {
+      const s = get();
+      const stale = s.sims.filter((x) => !x.result || selectOutdated(s, x)).map((x) => x.id);
+      if (!stale.length) return;
+      await get().runSims(stale);
+    },
+
+    /**
+     * Stop the batch in flight.
+     *
+     * Rows that already landed keep their results: canceling is "stop
+     * starting new ones and drop what is still going", not an undo. A row still
+     * waiting for a worker is simply dropped; one already inside a worker costs
+     * that worker, since a synchronous engine call cannot be interrupted any
+     * other way (the pool spawns a replacement on the next run).
+     */
+    cancelRun: () => {
+      batchAbort?.abort();
+    },
+
+    /**
+     * Fly one simulation over a grid of wind conditions and keep where each
+     * flight came down.
+     *
+     * Everything but the wind is the row's own: the same design, motor loadout,
+     * ignition, rod, site and run preferences. That is what makes the resulting
+     * spread attributable: the landings differ because the wind did, not
+     * because a dozen things did at once.
+     *
+     * Three deliberate departures from {@link WorkspaceState.runSims}:
+     *
+     * - The results are not installed on the row. A swept flight is not the
+     *   simulation's flight; it was flown under conditions the user did not
+     *   type, and writing one back would replace the numbers on their flight
+     *   card with a hypothetical.
+     * - `series: 'summary'`, against `simConditions`'s 'full'. The only thing
+     *   read from a swept flight is where its track ends, and a full series set
+     *   is about 1.5 MB per flight: fifty megabytes for thirty-two flights,
+     *   serialized out of a worker and never read.
+     * - One random seed for the whole grid, minted here when the preferences do
+     *   not pin one. Letting each flight draw its own turbulence would mix the
+     *   scatter the sweep exists to measure with random scatter, and the
+     *   same sweep run twice would draw a different region for no reason the
+     *   reader could see.
+     *
+     * A failed cell is skipped rather than failing the sweep: thirty-one
+     * landings still describe a region, and the count says how many of the
+     * flights asked for actually produced one.
+     */
+    runDriftSweep: async (simId, spec) => {
+      const s = get();
+      const blocker = designBlocker(s.tree);
+      if (blocker) {
+        set({ err: designBlockerText(blocker, i18n.t) });
+        return;
+      }
+      const sim = s.sims.find((x) => x.id === simId);
+      if (!sim) return;
+      // The same one refusal the Run button and the run loop share. A sweep
+      // around conditions this app will not fly is a region it will not stand
+      // behind, and every cell of the grid would be refused individually
+      // anyway.
+      const config = configOf(s.configs, sim);
+      const reason = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
+      if (reason) {
+        set({ err: unflyableText({ id: sim.id, name: sim.name, reason }, launcherT(), displayUnits()) });
+        return;
+      }
+      // Captured, because the narrowing `isComplete` gives is lost the moment
+      // it has to survive into the per-flight closures below.
+      const launch = sim.launch;
+      if (!isComplete(launch)) return;
+
+      const normalized = normalizeSweepSpec(spec);
+      const points = sweepPoints(normalized, surfaceWind(launch).headingDeg);
+      if (!points.length) return;
+
+      // What this sweep is of. The awaits below can outlast any of it, exactly
+      // as a normal batch can, and a region drawn from a rocket that has since
+      // changed is worse than no region.
+      const ranOn = s.tree;
+      const flownFrom = simInputs(sim, config);
+      const flownKey = resultKey(ranOn, config, sim, s.simPrefs);
+      // The row's own overrides win over the globals, exactly as a normal run
+      // resolves them; only then is a missing seed filled in.
+      const runPrefs = effectivePrefs(s.simPrefs, sim.prefs);
+      const seed = runPrefs.randomSeed ?? freshSeed();
+
+      // A sweep supersedes whatever was held: two regions on one plan view
+      // would be unreadable, and the held one answers a question that has just
+      // been asked again.
+      sweepAbort?.abort();
+      const abort = new AbortController();
+      sweepAbort = abort;
+      set({ driftSweep: null, driftSweepRun: { simId, done: 0, total: points.length }, err: null });
+
+      const landings: SweepLanding[] = [];
+      let flown = 0;
+      try {
+        await Promise.all(
+          points.map(async (point) => {
+            try {
+              const result = await simulateInWorker(
+                {
+                  tree: ranOn,
+                  config,
+                  options: {
+                    ...simConditions(sweepLaunch(launch, point), { ...runPrefs, randomSeed: seed }),
+                    series: 'summary',
+                  },
+                  lengthUnit: runPrefs.lengthUnit,
+                },
+                { signal: abort.signal },
+              );
+              // The same unwrapping the flight charts and the ground track use, so
+              // a swept landing lands on the trace it belongs to.
+              const branches = flightBranches(result);
+              let landed = false;
+              branches.forEach((b, i) => {
+                const p = landingPoint(b.series);
+                if (!p) return;
+                landed = true;
+                landings.push({ branch: i, east: p.east, north: p.north, ...point });
+              });
+              if (landed) flown++;
+            } catch {
+              // One refused cell is not a refused sweep. Cancellation lands
+              // here too and is handled by the aborted check below, which
+              // discards the whole part-flown grid.
+            } finally {
+              // Only while this sweep still owns the counter. A second sweep
+              // replaces the first mid-flight (the run button is not gated on
+              // the earlier one draining), and the first's stragglers would
+              // otherwise tick the new one's progress past its own total --
+              // including when it is the same row being re-swept, which is the
+              // common case.
+              if (sweepAbort === abort) {
+                set((st) =>
+                  st.driftSweepRun ? { driftSweepRun: { ...st.driftSweepRun, done: st.driftSweepRun.done + 1 } } : {},
+                );
+              }
+            }
+          }),
+        );
+        // A canceled sweep keeps nothing. Half a grid is not half a region: the
+        // cells arrive in whatever order the pool frees up, so what survives is
+        // an arbitrary subset of the conditions, and a hull drawn around it
+        // would understate the drift by an amount nobody could estimate.
+        if (abort.signal.aborted) return;
+        if (get().tree !== ranOn) return;
+        const now = get().sims.find((x) => x.id === simId);
+        if (!now || !sameSimInputs(flownFrom, simInputs(now, configOf(get().configs, now)))) return;
+        if (resultKey(ranOn, configOf(get().configs, now), now, get().simPrefs) !== flownKey) return;
+        if (!landings.length) {
+          set({ err: i18n.t('sweep.noLandings') });
+          return;
+        }
+        set({
+          driftSweep: {
+            simId,
+            tree: ranOn,
+            inputs: flownFrom,
+            key: flownKey,
+            spec: normalized,
+            asked: points.length,
+            flown,
+            landings,
+          },
+        });
+      } finally {
+        if (sweepAbort === abort) {
+          sweepAbort = null;
+          set({ driftSweepRun: null });
+        }
+      }
+    },
+
+    cancelDriftSweep: () => {
+      sweepAbort?.abort();
+    },
+
+    clearDriftSweep: () => set({ driftSweep: null }),
+  };
+});

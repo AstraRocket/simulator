@@ -1,0 +1,95 @@
+package info.openrocket.core.rocketcomponent;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import info.openrocket.core.util.Transformation;
+
+/**
+ *
+ * @author teyrana (aka Daniel Williams) <equipoise@gmail.com>
+ *
+ */
+// PATCH(astrarrocketjs): ConcurrentHashMap -> LinkedHashMap. Two reasons:
+// (1) TeaVM's classlib needs a plain java.util map here; (2) RocketComponent
+// overrides hashCode() as id.hashCode(), and `id` is a UUID.randomUUID() minted
+// per component in RocketComponent.newID(). So the bucket order is random on
+// every run, not merely per JVM: loading the same design twice in one process
+// iterates differently. (The same hashCode is why getComponentMasses re-sorts
+// into tree order; see OpenRocketEngine.getComponentMassesImpl.) The Barrowman
+// calculators iterate this map when summing per-component aerodynamic forces
+// every simulation step; a varying summation order produces ULP-level differences that
+// chaos-amplify over a flight, making simulations nondeterministic
+// run-to-run (and JVM-vs-TeaVM differential comparison impossible).
+// LinkedHashMap iterates in insertion order (the deterministic tree-walk
+// order) identically on JVM and TeaVM. See patches/LEDGER.md.
+public class InstanceMap extends LinkedHashMap<RocketComponent, ArrayList<InstanceContext>> {
+
+	// =========== Public Functions ========================
+
+	// public InstanceMap() {}
+
+	public int count(final RocketComponent key) {
+		if (containsKey(key)) {
+			return get(key).size();
+		} else {
+			return 0;
+		}
+	}
+
+	public void emplace(final RocketComponent component, int number, final Transformation transform) {
+		emplace(component, number, transform, Transformation.IDENTITY);
+	}
+
+	/**
+	 * Adds a physical component instance and retains the transform of its parent.
+	 *
+	 * @param component component represented by the instance
+	 * @param number instance number relative to its parent
+	 * @param transform transform from component coordinates to rocket coordinates
+	 * @param parentTransform transform from parent coordinates to rocket coordinates
+	 */
+	public void emplace(final RocketComponent component, int number, final Transformation transform,
+			final Transformation parentTransform) {
+		if (!containsKey(component)) {
+			put(component, new ArrayList<>());
+		}
+
+		final InstanceContext context = new InstanceContext(component, number, transform, parentTransform);
+		get(component).add(context);
+	}
+
+	public List<InstanceContext> getInstanceContexts(final RocketComponent key) {
+		return get(key);
+	}
+
+	// this is primarily for debugging.
+	@Override
+	public String toString() {
+		StringBuffer buffer = new StringBuffer();
+		int outerIndex = 0;
+		buffer.append(">> Printing InstanceMap:\n");
+		for (Map.Entry<RocketComponent, ArrayList<InstanceContext>> entry : entrySet()) {
+			final RocketComponent key = entry.getKey();
+			final ArrayList<InstanceContext> contexts = entry.getValue();
+			buffer.append(String.format("....[% 2d]:[%s]\n", outerIndex, key.getName()));
+			outerIndex++;
+
+			int innerIndex = 0;
+			for (InstanceContext ctxt : contexts) {
+				buffer.append(String.format("........[@% 2d][% 2d]  %s\n", innerIndex, ctxt.instanceNumber,
+						ctxt.getLocation().toPreciseString()));
+				innerIndex++;
+			}
+		}
+
+		return buffer.toString();
+	}
+
+	// =========== Instance Member Variables ========================
+
+	// =========== Private Instance Functions ========================
+
+}

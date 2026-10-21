@@ -1,0 +1,217 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
+import { fireEvent, screen } from '@testing-library/react';
+import { FreeformFinEditor } from '../../../src/components/design/FreeformFinEditor';
+import { renderWithProviders } from '../../testing/renderWithProviders';
+
+type Pt = [number, number];
+
+/**
+ * The freeform outline is editable from the keyboard.
+ *
+ * The X/Y inputs render only once a point is selected, so vertices and edge
+ * midpoints need a role, a tabIndex and key handlers of their own. With pointer
+ * selection alone (`startDrag`, `insertAfter`), a keyboard or screen-reader user
+ * could not select a vertex, and therefore could not edit a freeform fin at all.
+ */
+const PTS: Pt[] = [
+  [0, 0],
+  [0.02, 0.03],
+  [0.06, 0],
+];
+
+const show = (points: Pt[] = PTS) => {
+  const onChange = vi.fn();
+  const onCommit = vi.fn();
+  renderWithProviders(<FreeformFinEditor points={points} onChange={onChange} onCommit={onCommit} />);
+  return { onChange, onCommit };
+};
+
+const vertex = (n: number) => screen.getByLabelText(`Outline point ${n}`);
+
+describe('keyboard editing', () => {
+  it('exposes every movable vertex as a focusable control', () => {
+    show();
+    // Point 1 is the root leading edge, fixed at the origin: a marker, not a control.
+    expect(screen.queryByLabelText('Outline point 1')).toBeNull();
+    for (let i = 2; i <= PTS.length; i++) {
+      const v = vertex(i);
+      expect(v.getAttribute('tabindex')).toBe('0');
+      expect(v.getAttribute('role')).toBe('button');
+    }
+  });
+
+  it('selects a vertex on focus, which is what reveals the X/Y inputs', () => {
+    show();
+    // Without focus selection these would never appear for a keyboard user.
+    expect(screen.queryByLabelText('X')).toBeNull();
+    fireEvent.focus(vertex(2));
+    expect(screen.getByLabelText('X')).toBeTruthy();
+    expect(screen.getByLabelText('Y')).toBeTruthy();
+  });
+
+  it.each([
+    ['ArrowRight', 0.021, 0.03],
+    ['ArrowLeft', 0.019, 0.03],
+    ['ArrowUp', 0.02, 0.031],
+    ['ArrowDown', 0.02, 0.029],
+  ])('nudges by 1 mm on %s', (key, x, y) => {
+    const { onChange, onCommit } = show();
+    fireEvent.keyDown(vertex(2), { key });
+    const moved = (onChange.mock.calls[0]![0] as Pt[])[1]!;
+    expect(moved[0]).toBeCloseTo(x, 9);
+    expect(moved[1]).toBeCloseTo(y, 9);
+    // A nudge is a discrete edit, so it closes its own undo entry, unlike a
+    // drag, which closes one on release.
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it('nudges by 10 mm with Shift held', () => {
+    const { onChange } = show();
+    fireEvent.keyDown(vertex(2), { key: 'ArrowRight', shiftKey: true });
+    expect((onChange.mock.calls[0]![0] as Pt[])[1]![0]).toBeCloseTo(0.03, 9);
+  });
+
+  it('keeps the fin above the body, and lets an interior point go forward of the origin', () => {
+    // y >= 0 is the drag path's clamp too. x is not bounded for an interior
+    // point (FreeformFinSet.setPoint takes any x), so a swept-forward leading
+    // edge can be drawn.
+    const { onChange } = show([
+      [0, 0],
+      [0.0005, 0.0005],
+      [0.06, 0],
+    ]);
+    fireEvent.keyDown(vertex(2), { key: 'ArrowLeft' });
+    fireEvent.keyDown(vertex(2), { key: 'ArrowDown' });
+    expect((onChange.mock.calls[0]![0] as Pt[])[1]![0]).toBeCloseTo(-0.0005, 9);
+    expect((onChange.mock.calls[1]![0] as Pt[])[1]![1]).toBe(0);
+  });
+
+  it('keeps the root trailing edge on the body, at or aft of the origin', () => {
+    const { onChange } = show([
+      [0, 0],
+      [0.02, 0.03],
+      [0.0005, 0],
+    ]);
+    fireEvent.keyDown(vertex(3), { key: 'ArrowLeft' });
+    expect((onChange.mock.calls[0]![0] as Pt[])[2]).toEqual([0, 0]);
+  });
+
+  it('deletes the focused vertex, but never below three points', () => {
+    const { onChange } = show();
+    fireEvent.keyDown(vertex(2), { key: 'Delete' });
+    // Three points is the minimum for an outline, so this one is refused.
+    expect(onChange).not.toHaveBeenCalled();
+
+    const four: Pt[] = [...PTS, [0.08, 0.01]];
+    const second = show(four);
+    fireEvent.keyDown(screen.getAllByLabelText('Outline point 2')[1]!, { key: 'Delete' });
+    expect((second.onChange.mock.calls[0]![0] as Pt[]).length).toBe(3);
+  });
+
+  it('inserts a point from an edge midpoint with Enter or Space', () => {
+    const { onChange } = show();
+    fireEvent.keyDown(screen.getByLabelText('Insert a point after 1'), { key: 'Enter' });
+    const next = onChange.mock.calls[0]![0] as Pt[];
+    expect(next).toHaveLength(4);
+    // Midway between points 1 and 2.
+    expect(next[1]![0]).toBeCloseTo(0.01, 9);
+    expect(next[1]![1]).toBeCloseTo(0.015, 9);
+  });
+
+  it('labels the drawing itself for a screen reader', () => {
+    show();
+    expect(screen.getByRole('group', { name: 'Fin outline' })).toBeTruthy();
+  });
+});
+
+/**
+ * The two ends of the root stay on the body, as FreeformFinSet keeps them: the
+ * first point at the origin, the last on the body line, and neither removable.
+ */
+describe('root end points', () => {
+  const FOUR: Pt[] = [
+    [0, 0],
+    [0.02, 0.03],
+    [0.05, 0.03],
+    [0.06, 0],
+  ];
+
+  it('keeps the last point on the body when nudged up', () => {
+    const { onChange } = show(FOUR);
+    fireEvent.keyDown(vertex(4), { key: 'ArrowUp' });
+    fireEvent.keyDown(vertex(4), { key: 'ArrowRight' });
+    expect((onChange.mock.calls[0]![0] as Pt[])[3]).toEqual([0.06, 0]);
+    const moved = (onChange.mock.calls[1]![0] as Pt[])[3]!;
+    expect(moved[0]).toBeCloseTo(0.061, 9);
+    expect(moved[1]).toBe(0);
+  });
+
+  it('disables the Y box for the last point', () => {
+    show(FOUR);
+    fireEvent.focus(vertex(4));
+    expect((screen.getByLabelText('Y') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('X') as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('refuses to delete the last point, from the key or the button', () => {
+    const { onChange } = show(FOUR);
+    fireEvent.keyDown(vertex(4), { key: 'Delete' });
+    expect(onChange).not.toHaveBeenCalled();
+    expect((screen.getByRole('button', { name: 'Remove point' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  /**
+   * The closing edge, from the root trailing edge back to the origin, is the
+   * root on the body. FreeformFinSet.addPoint refuses a point there, and one
+   * appended would become the trailing edge at half the root's length.
+   */
+  it('offers no insert on the closing root edge', () => {
+    show(FOUR);
+    expect(screen.getByLabelText('Insert a point after 3')).toBeTruthy();
+    expect(screen.queryByLabelText('Insert a point after 4')).toBeNull();
+  });
+
+  it('still deletes an interior point', () => {
+    const { onChange } = show(FOUR);
+    fireEvent.keyDown(vertex(3), { key: 'Backspace' });
+    expect((onChange.mock.calls[0]![0] as Pt[]).length).toBe(3);
+  });
+});
+
+/**
+ * A drag has to end on pointercancel as well as pointerup. A touch drag the
+ * browser takes over for scrolling, or a pen lifted out of range, sends
+ * pointercancel instead, and without handling it the vertex stays "held": the
+ * next move anywhere on the outline drags it and the drag's undo entry is never
+ * closed.
+ */
+describe('drag cancellation', () => {
+  it('ends the drag and closes its undo entry on pointercancel', () => {
+    const { onCommit } = show();
+    fireEvent.pointerDown(vertex(2), { pointerId: 1 });
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.pointerCancel(screen.getByRole('group', { name: 'Fin outline' }), { pointerId: 1 });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    // Nothing is held any more: a later release commits nothing further.
+    fireEvent.pointerUp(screen.getByRole('group', { name: 'Fin outline' }), { pointerId: 1 });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * An SVG shape renders no box-shadow, so a Tailwind ring on a marker shows
+ * nothing. Keyboard focus has to be drawn as a stroke.
+ */
+describe('keyboard focus on the outline markers', () => {
+  it('is drawn with a stroke, not a ring', () => {
+    show();
+    const markers = [...document.querySelectorAll('circle[role="button"]')];
+    expect(markers.length).toBeGreaterThan(2);
+    for (const m of markers) {
+      const cls = m.getAttribute('class') ?? '';
+      expect(cls).toMatch(/focus-visible:stroke-ink-strong/);
+      expect(cls).not.toMatch(/ring/);
+    }
+  });
+});

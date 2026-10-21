@@ -1,0 +1,129 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { DESIGN_TYPES } from '../../engine/openRocketEngine';
+import { useWorkspaceStore } from '../../state/store';
+import { Dialog } from '../common/Dialog';
+import { DialogButton } from '../common/DialogButton';
+
+/**
+ * The design-level "Rocket configuration" editor (OpenRocket's dialog of the
+ * same name): design name, designer, kit name, design type, comments and
+ * revision history. These live on the RocketTree and round-trip through .ork
+ * import/export. Applied as one undoable step via
+ * {@link useWorkspaceStore.updateDesignMeta}.
+ *
+ * Mounted only while open (`{open && <RocketConfigDialog />}`): the fields are
+ * seeded from the live design once, in their initializers.
+ */
+export function RocketConfigDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const tree = useWorkspaceStore((s) => s.tree);
+  const updateDesignMeta = useWorkspaceStore((s) => s.updateDesignMeta);
+
+  const [name, setName] = useState(() => tree.name ?? '');
+  const [designer, setDesigner] = useState(() => tree.designer ?? '');
+  const [kitName, setKitName] = useState(() => tree.kitName ?? '');
+  const [designType, setDesignType] = useState<string>(() => tree.designType ?? 'original');
+  const [comment, setComment] = useState(() => tree.comment ?? '');
+  const [revision, setRevision] = useState(() => tree.revision ?? '');
+
+  // Keep an unrecognized imported design-type token selectable so OK can't drop it.
+  const typeOptions = (DESIGN_TYPES as readonly string[]).includes(designType)
+    ? DESIGN_TYPES
+    : [designType, ...DESIGN_TYPES];
+  const typeLabel = (tk: string) => ((DESIGN_TYPES as readonly string[]).includes(tk) ? t(`config.type_${tk}`) : tk);
+
+  const clean = (s: string) => (s.trim() ? s.trim() : undefined);
+  const save = () => {
+    updateDesignMeta({
+      name: name.trim() || undefined,
+      designer: clean(designer),
+      kitName: clean(kitName),
+      designType,
+      comment: clean(comment),
+      revision: clean(revision),
+    });
+    onClose();
+  };
+
+  const label = 'w-28 shrink-0 pt-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted';
+  const field =
+    'min-w-0 flex-1 rounded-md bg-raised px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
+
+  return (
+    <Dialog
+      id="rocketConfig"
+      title={t('config.title')}
+      onClose={onClose}
+      layer="over"
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-2 p-4">
+          <DialogButton onClick={onClose} variant="secondary">
+            {t('common.cancel')}
+          </DialogButton>
+          <DialogButton onClick={save} variant="primary">
+            {t('config.save')}
+          </DialogButton>
+        </div>
+      }
+    >
+      <div className="space-y-3 p-4">
+        <div className="flex gap-3">
+          <label className={label} htmlFor="cfg-name">
+            {t('config.name')}
+          </label>
+          <input id="cfg-name" value={name} onChange={(e) => setName(e.target.value)} className={field} autoFocus />
+        </div>
+        <div className="flex gap-3">
+          <label className={label} htmlFor="cfg-designer">
+            {t('config.designer')}
+          </label>
+          <input id="cfg-designer" value={designer} onChange={(e) => setDesigner(e.target.value)} className={field} />
+        </div>
+        <div className="flex gap-3">
+          <label className={label} htmlFor="cfg-kit">
+            {t('config.kitName')}
+          </label>
+          <input id="cfg-kit" value={kitName} onChange={(e) => setKitName(e.target.value)} className={field} />
+        </div>
+        <div className="flex gap-3">
+          <label className={label} htmlFor="cfg-type">
+            {t('config.designType')}
+          </label>
+          <select id="cfg-type" value={designType} onChange={(e) => setDesignType(e.target.value)} className={field}>
+            {typeOptions.map((tk) => (
+              <option key={tk} value={tk}>
+                {typeLabel(tk)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-3">
+          <label className={label} htmlFor="cfg-comment">
+            {t('config.comments')}
+          </label>
+          <textarea
+            id="cfg-comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={5}
+            className={`${field} resize-y`}
+          />
+        </div>
+        <div className="flex gap-3">
+          <label className={label} htmlFor="cfg-revision">
+            {t('config.revision')}
+          </label>
+          <textarea
+            id="cfg-revision"
+            value={revision}
+            onChange={(e) => setRevision(e.target.value)}
+            rows={3}
+            className={`${field} resize-y`}
+          />
+        </div>
+      </div>
+    </Dialog>
+  );
+}

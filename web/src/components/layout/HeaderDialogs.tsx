@@ -1,0 +1,123 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useWorkspaceStore } from '../../state/store';
+import { selectDesignName } from '../../state/workspaceSelectors';
+import { fireAction } from '../../state/fireAction';
+import { LazyBoundary, lazyNamed } from '../common/ErrorBoundary';
+import { DesignLibraryDialog } from './DesignLibraryDialog';
+import { DesignPropertiesDialog } from './DesignPropertiesDialog';
+import { ExamplesDialog } from './ExamplesDialog';
+import { AboutDialog } from './AboutDialog';
+import { UpdateCheckDialog } from './UpdateCheckDialog';
+// Lazily loaded: it is the only eager holder of `services/report/reportModel`,
+// which `saveOrk` (fileSlice) already imports dynamically to keep the report model
+// out of the main bundle. One static import from a dialog this host mounts
+// eagerly pins the module and everything under it, and the build says so
+// (INEFFECTIVE_DYNAMIC_IMPORT). Nothing needs the report until it is opened.
+const ExportDialog = lazyNamed(() => import('../report/ExportDialog'), 'ExportDialog');
+import { PrintExportDialog } from '../report/PrintExportDialog';
+import { HelpDialog } from './HelpDialog';
+import { PrivacyDialog } from './PrivacyDialog';
+import { SettingsDialog } from './SettingsDialog';
+import { MotorDashboard } from '../sim/MotorDashboard';
+import { LocationsDialog } from '../sim/LocationsDialog';
+import { SavedPartsDialog } from '../design/SavedPartsDialog';
+import { MyMaterialsDialog } from '../design/MyMaterialsDialog';
+import { BackupDialog } from './BackupDialog';
+import { useHelpStore } from '../../state/helpStore';
+import type { HeaderDialog } from './dialogKeys';
+
+/**
+ * The header's dialog host: the open flag of every dialog the bar and its
+ * menu can raise, and the block that mounts each one only while it is open.
+ * `useHeaderDialogs()` returns the opener plus the element to render.
+ *
+ * Help is the one exception to the flag list. It is raised from all over the
+ * app (the Safety card in the results panel, and anything else that wants to
+ * open help on its own topic), so which page it is showing lives in
+ * {@link useHelpStore} instead, and it is mounted here only because the header
+ * is where the app-wide dialogs already are.
+ */
+
+type OpenFlags = Record<HeaderDialog, boolean>;
+
+const NONE_OPEN: OpenFlags = {
+  motors: false,
+  report: false,
+  about: false,
+  updates: false,
+  privacy: false,
+  settings: false,
+  library: false,
+  examples: false,
+  print: false,
+  locations: false,
+  parts: false,
+  materials: false,
+  backup: false,
+  restore: false,
+  saveAs: false,
+};
+
+export function useHeaderDialogs() {
+  const [flags, setFlags] = useState<OpenFlags>(NONE_OPEN);
+  const open = (id: HeaderDialog) => setFlags((f) => ({ ...f, [id]: true }));
+  const close = (id: HeaderDialog) => setFlags((f) => ({ ...f, [id]: false }));
+  return { open, dialogs: <HeaderDialogs flags={flags} onClose={close} /> };
+}
+
+/* Mounted only while open: a closed dialog must run no effects
+   (MotorDashboard would fetch the motor catalog) and keep no state. */
+function HeaderDialogs({ flags, onClose }: { flags: OpenFlags; onClose: (id: HeaderDialog) => void }) {
+  const { t } = useTranslation();
+  const helpPage = useHelpStore((s) => s.page);
+  const closeHelp = useHelpStore((s) => s.closeHelp);
+  const saveDesignAs = useWorkspaceStore((s) => s.saveDesignAs);
+  const designs = useWorkspaceStore((s) => s.designs);
+  // Save As offers the name every export carries: the rocket's own, else the
+  // imported file's, else the default.
+  const designName = useWorkspaceStore(selectDesignName);
+
+  return (
+    <>
+      {flags.motors && <MotorDashboard onClose={() => onClose('motors')} />}
+      {/* No fallback rather than an empty modal frame: a dialog that arrives a
+          beat late reads better than one that flashes a shell first. */}
+      {flags.report && (
+        <LazyBoundary fallback={null}>
+          <ExportDialog onClose={() => onClose('report')} />
+        </LazyBoundary>
+      )}
+      {flags.about && <AboutDialog onClose={() => onClose('about')} />}
+      {flags.updates && <UpdateCheckDialog onClose={() => onClose('updates')} />}
+      {flags.privacy && <PrivacyDialog onClose={() => onClose('privacy')} />}
+      {/* '' is the docs index, so the null check is not a truthiness check.
+          Keyed on the page so that opening Help again on a different topic
+          starts it over rather than leaving the previous page's back stack
+          behind it. */}
+      {helpPage !== null && <HelpDialog key={helpPage} page={helpPage} onClose={closeHelp} />}
+      {flags.settings && <SettingsDialog onClose={() => onClose('settings')} />}
+      {flags.library && <DesignLibraryDialog onClose={() => onClose('library')} />}
+      {flags.examples && <ExamplesDialog onClose={() => onClose('examples')} />}
+      {flags.print && <PrintExportDialog onClose={() => onClose('print')} />}
+      {flags.locations && <LocationsDialog onClose={() => onClose('locations')} />}
+      {flags.parts && <SavedPartsDialog onClose={() => onClose('parts')} />}
+      {flags.materials && <MyMaterialsDialog onClose={() => onClose('materials')} />}
+      {flags.backup && <BackupDialog mode="backup" onClose={() => onClose('backup')} />}
+      {flags.restore && <BackupDialog mode="restore" onClose={() => onClose('restore')} />}
+      {flags.saveAs && (
+        <DesignPropertiesDialog
+          title={t('file.saveAs')}
+          confirmLabel={t('common.save')}
+          initialName={designName}
+          takenNames={designs.map((d) => d.name)}
+          onCancel={() => onClose('saveAs')}
+          onConfirm={(name) => {
+            onClose('saveAs');
+            fireAction(saveDesignAs(name));
+          }}
+        />
+      )}
+    </>
+  );
+}

@@ -1,0 +1,28 @@
+{
+  // The build's own config files: vite.config.ts, vitest.config.ts,
+  // playwright.config.ts and eslint.config.js decide what ships (PWA workbox
+  // globs, __APP_VERSION__, worker format, base path, shard and worker counts).
+  //
+  // `npm run typecheck` runs four projects: `tsconfig.json` (src and tests),
+  // `tsconfig.app.json` (src again, without node's types), `tsconfig.e2e.json`
+  // (the Playwright specs) and this one. A file in none of them is typechecked
+  // by nothing. `allowJs` and `checkJs` are what bring
+  // eslint.config.js in; without them tsc drops a .js include without a warning.
+  // ESLint runs the type-aware set on the three .ts configs; eslint.config.js
+  // gets only js.configs.recommended.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "playwright.config.ts", "eslint.config.js"]
+}

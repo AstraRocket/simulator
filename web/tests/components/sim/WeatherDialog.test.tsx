@@ -1,0 +1,311 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { WeatherDialog } from '../../../src/components/sim/WeatherDialog';
+import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
+import { answer } from '../../testing/openMeteoFixture';
+import { resetWeatherState, setWeatherTransport, ymdInZone } from '../../../src/services/weather/openMeteo';
+import { weatherKeyStore } from '../../../src/services/weather/weatherKey';
+import { launchPatchFor, type LaunchConditions, type LaunchPatch } from '../../../src/services/design/orkTree';
+
+const SITE = {
+  launchRodLengthM: 1,
+  launchRodAngleDeg: 0,
+  windAverage: 0,
+  windStdDev: 0,
+  launchAltitudeM: 1500,
+  latitudeDeg: 40,
+  longitudeDeg: -105,
+  temperatureC: null,
+  pressureHPa: null,
+} as LaunchConditions;
+
+/** Tomorrow on the site's calendar (America/Denver), and an answer from the day before it on. */
+const date = ymdInZone(Date.now() + 86_400_000, 'America/Denver');
+const start = Date.parse(`${date}T00:00:00Z`) / 1000 - 24 * 3600;
+
+let urls: string[] = [];
+
+beforeEach(() => {
+  resetWeatherState();
+  urls = [];
+  setWeatherTransport(((url: string) => {
+    urls.push(url);
+    const body = url.includes('/v1/elevation') ? { elevation: [1510] } : answer(1500, { start, hours: 96 });
+    return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  }) as typeof fetch);
+});
+afterEach(() => {
+  setWeatherTransport(null);
+  weatherKeyStore.write('');
+});
+
+const open = (launch: LaunchConditions = SITE) => {
+  const onChange = vi.fn();
+  const onClose = vi.fn();
+  renderWithProviders(<WeatherDialog launch={launch} onChange={onChange} onClose={onClose} />);
+  fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } });
+  fireEvent.change(screen.getByLabelText('Hour (site time)'), { target: { value: '12' } });
+  return { onChange, onClose };
+};
+
+const fetchIt = async () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Fetch' }));
+  await screen.findByText('Atmosphere aloft');
+};
+
+describe('WeatherDialog', () => {
+  it('prints the wind direction in the angle unit', async () => {
+    seedSettings({ units: { angle: 'rad' } });
+    try {
+      open();
+      await fetchIt();
+      expect(screen.getByText(/ from [\d.,]+ rad, /)).toBeTruthy();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  it('asks for the site first when it has no coordinates', () => {
+    renderWithProviders(
+      <WeatherDialog launch={{ ...SITE, latitudeDeg: null }} onChange={() => {}} onClose={() => {}} />,
+    );
+    expect(screen.getByText('Set the launch site’s latitude and longitude first.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Fetch' })).toBeNull();
+  });
+
+  it('asks for the elevation first when it is blank, rather than fetching for sea level', () => {
+    renderWithProviders(
+      <WeatherDialog launch={{ ...SITE, launchAltitudeM: null }} onChange={() => {}} onClose={() => {}} />,
+    );
+    expect(screen.getByText('Set the launch site’s elevation first.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Fetch' })).toBeNull();
+    // The site line is where a minted 0 m would show.
+    expect(document.body.textContent).not.toMatch(/(^|[^\d.,])0 m/);
+  });
+
+  it('does not fetch on Refresh while the elevation is blank', () => {
+    const stamp = {
+      provider: 'open-meteo' as const,
+      endpoint: 'forecast' as const,
+      date,
+      hour: 9,
+      timezone: 'America/Denver',
+      latitudeDeg: 40,
+      longitudeDeg: -105,
+      elevationM: 1500,
+      validAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString(),
+      groups: ['wind' as const],
+      elevationApplied: false,
+    };
+    renderWithProviders(
+      <WeatherDialog
+        launch={{ ...SITE, launchAltitudeM: null, weatherSource: stamp }}
+        onChange={() => {}}
+        onClose={() => {}}
+        refresh
+      />,
+    );
+    expect(urls).toEqual([]);
+    expect(screen.getByText('Set the launch site’s elevation first.')).toBeTruthy();
+  });
+
+  it('fetches from the free service, shows each value with the credit, and changes nothing yet', async () => {
+    const { onChange } = open();
+    await fetchIt();
+    expect(urls.every((u) => u.startsWith('https://api.open-meteo.com/') && !u.includes('apikey'))).toBe(true);
+    for (const label of ['Temperature', 'Pressure', 'Humidity', 'Wind', 'Atmosphere aloft']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.getByRole('link', { name: 'Weather data by Open-Meteo.com' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('applies only the ticked groups', async () => {
+    const { onChange, onClose } = open();
+    await fetchIt();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Wind' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    const patch = launchPatchFor(onChange.mock.calls[0]![0] as LaunchPatch, SITE, 'row');
+    expect(patch).toMatchObject({ temperatureC: expect.any(Number), pressureHPa: 850, relativeHumidity: 0.4 });
+    expect(patch.atmosphereLevels!.length).toBeGreaterThan(0);
+    expect(patch.windLevels).toBeUndefined();
+    expect(patch.windAverage).toBeUndefined();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  /**
+   * A forecast is for one place and one height: its pressure is corrected to
+   * the site's elevation and its wind levels start above it. Applied to several
+   * simulations at once, only the rows at that site (within the source line's
+   * same-site tolerance) and elevation take it; the others keep their own.
+   */
+  it('applies the forecast only to rows at the fetched site and elevation', async () => {
+    // Asked for at the site's elevation and the terrain's, the service answers both.
+    setWeatherTransport(((url: string) => {
+      const body = url.includes('/v1/elevation')
+        ? { elevation: [1700] }
+        : [answer(1500, { start, hours: 96 }), answer(1700, { start, hours: 96 })];
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    }) as typeof fetch);
+    const { onChange } = open();
+    await fetchIt();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Use the terrain elevation/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    const made = onChange.mock.calls[0]![0] as LaunchPatch;
+    const here = launchPatchFor(made, SITE, 'here');
+    expect(here.launchAltitudeM).toBe(1700);
+    expect(here.weatherSource?.elevationApplied).toBe(true);
+    // A position picked again at the same field, a few meters off.
+    expect(launchPatchFor(made, { ...SITE, latitudeDeg: SITE.latitudeDeg! + 0.0003 }, 'near')).toEqual(here);
+    expect(launchPatchFor(made, { ...SITE, latitudeDeg: SITE.latitudeDeg! + 1 }, 'elsewhere')).toEqual({});
+    expect(launchPatchFor(made, { ...SITE, launchAltitudeM: 20 }, 'lower')).toEqual({});
+  });
+
+  it('says so when some of the simulations being edited are elsewhere', async () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <WeatherDialog launch={SITE} diff={new Set(['latitudeDeg'] as const)} onChange={onChange} onClose={() => {}} />,
+    );
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: date } });
+    fireEvent.change(screen.getByLabelText('Hour (site time)'), { target: { value: '12' } });
+    await fetchIt();
+    expect(screen.getByText(/Only the selected simulations at this site and elevation are changed/)).toBeTruthy();
+  });
+
+  it('stamps what it applied: the date, hour, place, groups and values', async () => {
+    const { onChange } = open();
+    await fetchIt();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Humidity' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    const patch = launchPatchFor(onChange.mock.calls[0]![0] as LaunchPatch, SITE, 'row');
+    const { weatherSource, ...values } = patch;
+    expect(weatherSource).toMatchObject({
+      provider: 'open-meteo',
+      endpoint: 'forecast',
+      date,
+      hour: 12,
+      timezone: 'America/Denver',
+      latitudeDeg: 40,
+      longitudeDeg: -105,
+      elevationM: 1500,
+      groups: ['temperature', 'pressure', 'wind', 'atmosphere'],
+      elevationApplied: false,
+    });
+    expect(weatherSource!.applied).toEqual(values);
+    expect(Date.parse(weatherSource!.validAt)).toBeGreaterThan(0);
+  });
+
+  it('on Refresh, starts from the stamp and fetches at once', async () => {
+    const stamp = {
+      provider: 'open-meteo' as const,
+      endpoint: 'forecast' as const,
+      date,
+      hour: 9,
+      timezone: 'America/Denver',
+      latitudeDeg: 40,
+      longitudeDeg: -105,
+      elevationM: 1500,
+      validAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString(),
+      groups: ['wind' as const],
+      elevationApplied: false,
+    };
+    renderWithProviders(
+      <WeatherDialog launch={{ ...SITE, weatherSource: stamp }} onChange={() => {}} onClose={() => {}} refresh />,
+    );
+    await screen.findByText('Atmosphere aloft');
+    expect((screen.getByLabelText('Hour (site time)') as HTMLSelectElement).value).toBe('9');
+    expect((screen.getByRole('checkbox', { name: 'Wind' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Temperature' }) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('reads visibility in the large unit of the distance unit system', async () => {
+    seedSettings({ units: { distance: 'yd' } });
+    try {
+      open();
+      await fetchIt();
+      // 24,140 m: yards are imperial, so miles.
+      expect(screen.getByText('Visibility').nextElementSibling?.textContent).toBe('15.0 mi');
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  it('drops a request still loading when the date changes', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    setWeatherTransport((async (url: string) => {
+      await gate;
+      const body = url.includes('/v1/elevation') ? { elevation: [1510] } : answer(1500, { start, hours: 96 });
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as typeof fetch);
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch' }));
+    expect(screen.getByRole('button', { name: 'Fetching…' })).toBeTruthy();
+    const next = ymdInZone(Date.now() + 2 * 86_400_000, 'America/Denver');
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: next } });
+    release();
+    await new Promise((r) => setTimeout(r, 30));
+    // The old date's answer does not land under the new date.
+    expect(screen.queryByText('Atmosphere aloft')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Fetch' })).toBeTruthy();
+  });
+
+  it('says when an answer is reused, and Fetch fresh asks Open-Meteo again', async () => {
+    open();
+    await fetchIt();
+    expect(screen.getByText(/^Fetched at /)).toBeTruthy();
+    const asked = () => urls.filter((u) => u.includes('/v1/forecast')).length;
+    expect(asked()).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch' }));
+    await screen.findByText(/^Reused from .*A new request is made after 30 minutes.$/);
+    expect(asked()).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch fresh' }));
+    await screen.findByText(/^Fetched at /, {}, { timeout: 10_000 });
+    expect(asked()).toBe(2);
+  }, 15_000);
+
+  it('uses the paid service when a key is set', async () => {
+    weatherKeyStore.write('paid-key');
+    open();
+    await fetchIt();
+    expect(
+      urls.every((u) => u.startsWith('https://customer-api.open-meteo.com/') && u.endsWith('apikey=paid-key')),
+    ).toBe(true);
+  });
+
+  it('says what went wrong, and that nothing changed', async () => {
+    setWeatherTransport((() => Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch);
+    const { onChange } = open();
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe(
+        'Could not reach Open-Meteo. Your launch conditions are unchanged.',
+      ),
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+/** Pose as offline for one test; jsdom reports online otherwise. */
+const goOffline = () => {
+  Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+  return () => Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+};
+
+describe('WeatherDialog offline', () => {
+  it('grays out Fetch and says why', () => {
+    const back = goOffline();
+    try {
+      open();
+      const fetch = screen.getByRole('button', { name: 'Fetch' }) as HTMLButtonElement;
+      expect(fetch.disabled).toBe(true);
+      expect(fetch.title).toMatch(/offline/i);
+    } finally {
+      back();
+    }
+  });
+});

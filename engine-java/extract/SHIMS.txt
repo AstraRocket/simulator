@@ -1,0 +1,18 @@
+# Upstream classes that a src/shims file SHADOWS, and what that upstream
+# file looked like when the shim was last reviewed (sha256, CRLF-normalized).
+#
+# A shim is the only provider of its fully-qualified name, so a gap between
+# it and the real class is invisible to the compiler and wrong at runtime.
+# It cannot be diffed (162 lines standing in for 2089), so this records
+# instead that upstream has not moved underneath it. When a hash changes,
+# `extract --check` fails: go read what changed in that upstream class,
+# decide whether the shim still matches, then re-bless.
+#
+# Shims with no entry here define a name upstream does not (LongUUID, Geo2D,
+# the RASAero calculators, the Guice stand-ins), so there is nothing to track.
+
+info/openrocket/core/database/Databases.java 29604737dffcbd4fa515339505e6b4ebfd14e0efb940e3a8bdcac358a5eaa107
+info/openrocket/core/document/OpenRocketDocument.java f0f86a6c28d6d8e6fd3dfdf7ba1d7895de0fec00b24a5380452084810a94231e
+info/openrocket/core/document/Simulation.java 90ef0d7ab84d8daaa757bd92fec364ad4d9532679cff07aa1d4707a6bedac24f
+info/openrocket/core/preferences/ApplicationPreferences.java b088387a88a29dd42852cccbfff36bbc1b3ad33e139b4b8e7b5c31615500daeb
+info/openrocket/core/startup/Application.java 9d7d25ea12fb8026bb75af48394b1e6c6663f62ae8e2ff9bb696540c6b112b05

@@ -1,0 +1,22 @@
+dist
+# The build harnesses (scripts/check-*.mjs) build here and remove it when they finish.
+dist-*
+coverage
+playwright-report
+test-results
+package-lock.json
+# The cloned parts database (npm run sync:database): another project's files.
+openrocket-database
+
+# Generated, not authored. Reformatting any of them only makes the next
+# regeneration a huge diff.
+#
+# `public/engine` (the WASM pair) and the `public/data` catalogs are committed for
+# the static host. `public/docs` is the built Docusaurus site: gitignored, and
+# produced by `npm run docs:build` into this tree for the offline Help check and
+# for the deploy.
+public/docs
+public/engine
+public/data/*.generated.json
+public/data/manifest.json
+src/engine/vendor

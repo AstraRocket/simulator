@@ -1,0 +1,1530 @@
+/**
+ * Typed wrapper around the TeaVM-compiled OpenRocket kernel
+ * (vendor/openrocket-engine.mjs, rebuilt via engine-java; see its README).
+ *
+ * Engine invariants: pure SI units (m, kg, s, N), angles in radians.
+ * Documented exceptions: launchLatitude/launchLongitude are degrees.
+ * See engine-java/ for the kernel, shims, patches and differential tests.
+ */
+// Must stay above the engine load: it installs the TeaVM stdout/stderr sinks
+// that the kernel module reads once, as it evaluates. ES modules evaluate in
+// import order, so this eager import must precede the dynamic engine load below
+// (neither backend is imported statically); see kernelLogSink.ts.
+import './kernelLogSink.js';
+import { declaredLength, readStreamWithProgress } from '../services/app/fetchProgress';
+import { nsKey } from '../services/storage/storageKeys';
+import { errorMessage } from '../services/app/errorMessage';
+import { KeyedError, type Keyed } from '../i18n/keyedError';
+import type { DocumentMaterial } from '../services/materials/documentMaterials';
+
+// The WASM-GC engine + its loader live in web/public/engine/ (served verbatim by
+// Vite; a .js in src/ would be run through import-analysis, which warns on the
+// loader's internal dynamic imports). Absent files → clean JS fallback.
+const WASM_URL = `${import.meta.env.BASE_URL}engine/openrocket-engine.wasm`;
+const WASM_RUNTIME_URL = `${import.meta.env.BASE_URL}engine/openrocket-engine.wasm-runtime.js`;
+
+// --- Engine backend ---------------------------------------------------------
+// Both engines are dynamically loaded; neither is in the initial bundle.
+// initEngine() loads the TeaVM WASM-GC build when the browser supports it,
+// otherwise the JS build as a fallback. A WASM load that fails or stalls past
+// its ceiling is abandoned and the JS build fetched as well, so a session can
+// download both. EngineApi is a type-only import (erased at build), so it pulls
+// nothing into the bundle.
+type EngineApi = typeof import('./vendor/openrocket-engine.mjs');
+let active: EngineApi | null = null;
+let initPromise: Promise<'wasm' | 'js'> | null = null;
+
+/** An error envelope's message: the bridge sends a string, and anything else is shown as JSON. */
+const envelopeText = (err: unknown): string => (typeof err === 'string' ? err : JSON.stringify(err));
+
+/** The active engine; throws if initEngine() has not resolved yet. The app mounts
+ *  before it has, so callers on the main thread check `engineStore.phase` rather
+ *  than treating this as unreachable. */
+function eng(): EngineApi {
+  if (!active) {
+    throw new KeyedError('errors.engine.notReady');
+  }
+  return active;
+}
+
+/**
+ * Whether a kernel is loaded. The app mounts before one is (main.tsx), and
+ * work that can finish without the kernel, such as opening a file, asks this
+ * instead of calling in and catching the refusal.
+ */
+export function engineActive(): boolean {
+  return active !== null;
+}
+
+/**
+ * Swap in a stub engine (tests only).
+ *
+ * This module is the one boundary where JS numbers become physics inputs, and
+ * `active` is module-private, so this is the way in for its tests. Same
+ * seam pattern as `__resetIdbForTests` / `setDesignLibrary`. Pass null to
+ * restore the uninitialized state.
+ */
+export function __setEngineForTests(stub: Partial<EngineApi> | null): void {
+  active = stub as EngineApi | null;
+  engineGeneration++; // a different engine means every existing handle is void
+}
+
+/**
+ * How many times the kernel's handle table has been thrown away.
+ *
+ * Every {@link OpenRocketDesign} records the value it was built under, so one
+ * held across a `resetEngine()` can say so instead of addressing whatever now
+ * happens to occupy its number.
+ */
+let engineGeneration = 0;
+
+/** A design used after the engine that built it was reset. */
+export class StaleDesignError extends KeyedError {
+  constructor() {
+    super('errors.engine.staleDesign');
+    this.name = 'StaleDesignError';
+  }
+}
+
+/**
+ * A call into the kernel that threw instead of returning an `{error}` envelope.
+ *
+ * The facade returns `{"error": ...}` from the methods that return a JSON
+ * string, and the readers below check `parsed.error`. But the `void` and
+ * primitive-returning exports (`buildRocket`, `setMotorById`,
+ * `setMotorIgnitionById`, the flag setters, `getWorstThetaDeg`) are
+ * structurally incapable of carrying one: there is nowhere in an `int` or a
+ * `void` to put a message. Unwrapped, they throw raw out of the TeaVM bundle,
+ * and the two targets do not even agree on the shape (the JS build wraps a
+ * native error into a Java RuntimeException, WASM-GC traps straight out).
+ *
+ * `callEngine` gives them the same contract the envelope methods have: one
+ * typed, named error with the failing operation in the message.
+ */
+export class EngineCallError extends Error {
+  readonly engineCause: unknown;
+  /** The standard `Error.cause`, so devtools and error reporters chain it. */
+  readonly cause: unknown;
+
+  constructor(
+    readonly operation: string,
+    engineCause: unknown,
+  ) {
+    const detail = errorMessage(engineCause);
+    super(`engine ${operation} failed: ${detail || '(no message)'}`);
+    this.name = 'EngineCallError';
+    this.engineCause = engineCause;
+    // Assigned rather than passed as `{ cause }`: the build targets ES2020,
+    // whose `Error` constructor has no options bag in the type library.
+    this.cause = engineCause;
+  }
+}
+
+/** Run a kernel call that cannot return an `{error}` envelope. */
+function callEngine<T>(operation: string, fn: () => T): T {
+  try {
+    return fn();
+  } catch (e) {
+    // The app's own refusals (a stale handle, an engine not loaded yet) are
+    // already typed and keyed for the user; do not bury them.
+    if (e instanceof KeyedError) throw e;
+    throw new EngineCallError(operation, e);
+  }
+}
+
+/**
+ * Parse a JSON-string reply from the kernel and unwrap its `{error}` envelope.
+ *
+ * Used by the envelope methods (`getStaticInfo`, `getComponentInfo`,
+ * `getAeroSweep`, `getComponentMasses`, `simulateJson`), so every failure
+ * carries the operation name as an {@link EngineCallError}: an `{error}`
+ * envelope, and a reply that is not JSON at all (which would otherwise throw a
+ * bare `SyntaxError: Unexpected token` from `JSON.parse`). A trap or exception
+ * out of the call itself is wrapped by {@link callEngine}.
+ *
+ * `expectArray` is for `getComponentMasses`, whose success shape is a bare
+ * array with no room for an `error` key.
+ */
+function parseEnvelope<T>(operation: string, raw: string, expectArray = false): T {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new EngineCallError(operation, new Error(`reply is not JSON: ${String(raw).slice(0, 120)}`));
+  }
+  if (expectArray) {
+    if (Array.isArray(parsed)) return parsed as T;
+    const err = (parsed as { error?: unknown } | null)?.error;
+    throw new EngineCallError(operation, new Error(err ? envelopeText(err) : 'unexpected reply shape'));
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    throw new EngineCallError(operation, new Error(`unexpected reply shape: ${String(raw).slice(0, 120)}`));
+  }
+  const err = (parsed as { error?: unknown }).error;
+  if (err) throw new EngineCallError(operation, new Error(envelopeText(err)));
+  return parsed as T;
+}
+
+/**
+ * Dynamically import the JS engine as its own chunk, loaded only when WASM is
+ * unavailable.
+ *
+ * This one is not retryable the way the WASM urls are (see `attemptUrl`): the
+ * specifier has to stay static for the bundler to emit the chunk, so a retry
+ * re-imports the same url and the module registry hands back the same pending
+ * or failed entry. A retry therefore recovers a WASM load, which is the path a
+ * browser that has WASM-GC always takes, and not the fallback on a browser that
+ * does not; {@link engineRetryCanRecover} tells the UI which case it is in.
+ */
+async function loadJsEngine(): Promise<EngineApi> {
+  return await import('./vendor/openrocket-engine.mjs');
+}
+
+/**
+ * The url to ask for on this attempt.
+ *
+ * A retry has to request a different url or it is not a retry. The browser
+ * coalesces a second `<script>` for a src already in flight onto the pending
+ * request, so re-running a runtime load whose fetch has stalled attaches
+ * straight back to the stall and issues no new request at all. The first
+ * attempt is left unadorned so the ordinary path keeps a plain, cacheable url.
+ *
+ * The service worker's precache must ignore the `retry` parameter
+ * (`ignoreURLParametersMatching` in vite.config.ts). Offline, the precache is the
+ * only copy of the engine, and a key that carries the query would miss it, so a
+ * retry would fail where the first attempt worked. Answering from Cache Storage
+ * is not the coalesced network fetch the new url exists to avoid.
+ */
+export function retryUrl(url: string, attempt: number): string {
+  return attempt === 0 ? url : `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
+}
+
+function attemptUrl(url: string): string {
+  return retryUrl(url, initAttempt);
+}
+
+/**
+ * How long the WASM download may go without receiving anything before it is
+ * abandoned for the JS build. A stalled fetch never settles, so without a
+ * ceiling a proxy that holds `.wasm` leaves the app with no engine although the
+ * JS chunk would load. Counted from the last byte rather than the start, so a
+ * slow link that is still moving is not cut off.
+ */
+export const WASM_STALL_MS = 20_000;
+
+/** An abort signal that fires once `ms` pass without a {@link StallWatch.poke}. */
+interface StallWatch {
+  signal: AbortSignal;
+  poke(): void;
+  stop(): void;
+}
+
+function stallWatch(ms: number): StallWatch {
+  const ctl = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const poke = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => ctl.abort(new Error(`WASM download stalled for ${ms} ms`)), ms);
+  };
+  poke();
+  return { signal: ctl.signal, poke, stop: () => clearTimeout(timer) };
+}
+
+/** Load the WASM-GC runtime once (it installs globalThis.TeaVM.wasmGC). */
+function loadWasmRuntime(signal: AbortSignal): Promise<void> {
+  const g = globalThis as unknown as { TeaVM?: { wasmGC?: unknown } };
+  if (g.TeaVM?.wasmGC) return Promise.resolve();
+  // In a Worker there's no `document`, so we can't inject a <script>, and Vite
+  // won't serve a /public file via import(). Fetch the runtime text and import
+  // it through a Blob URL: running the module executes its IIFE, which assigns
+  // globalThis.TeaVM as a side effect (see openrocket-engine.wasm-runtime.js):
+  // no eval, and blob URLs aren't behind Vite's /public wall. Lets WASM also run
+  // inside the sim worker; on any failure tryLoadWasm falls the worker back to JS.
+  if (typeof document === 'undefined') {
+    return fetch(attemptUrl(WASM_RUNTIME_URL), { signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`WASM-GC runtime fetch failed (${r.status})`);
+        return r.text();
+      })
+      .then(async (src) => {
+        const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        try {
+          await import(/* @vite-ignore */ url);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      });
+  }
+  return new Promise<void>((resolve, reject) => {
+    // A <script> cannot be aborted, so a stall rejects the wait instead.
+    if (signal.aborted) return reject(signal.reason as Error);
+    signal.addEventListener('abort', () => reject(signal.reason as Error), { once: true });
+    const s = document.createElement('script');
+    s.src = attemptUrl(WASM_RUNTIME_URL);
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('WASM-GC runtime failed to load'));
+    document.head.appendChild(s);
+  });
+}
+
+/**
+ * Route the WASM kernel's stdout/stderr into the same sink the JS backend uses.
+ * The WASM runtime's default `teavmConsole` writes every char-buffered line
+ * straight to console.log/console.error, so OpenRocket's per-flight INFO spam
+ * ("Starting simulation of branch", "Igniting motor", …) would flood the console,
+ * with stderr landing as console.error. The runtime's `load()` runs
+ * `options.installImports(imports)` after building its defaults, so we replace
+ * `teavmConsole` here with putchar functions that buffer to newline and forward
+ * whole lines to `$rt_putStdoutCustom`/`$rt_putStderrCustom`, the globals
+ * kernelLogSink.ts installs (eager import, so they exist by now). Both backends
+ * then feed the same sink, which drops the lines; the console stays clean.
+ */
+function installKernelConsole(imports: Record<string, unknown>): void {
+  const g = globalThis as Record<string, unknown>;
+  const pump = (globalName: string) => {
+    let buf = '';
+    return (c: number) => {
+      if (c === 10) {
+        const custom = g[globalName];
+        if (typeof custom === 'function') (custom as (s: string) => void)(buf);
+        buf = '';
+      } else {
+        buf += String.fromCharCode(c);
+      }
+    };
+  };
+  imports.teavmConsole = {
+    putcharStdout: pump('$rt_putStdoutCustom'),
+    putcharStderr: pump('$rt_putStderrCustom'),
+  };
+}
+
+/** What the boot splash is waiting on. `downloading` carries byte counts when the
+ *  host declares a length; `starting` is the compile/instantiate step, which has
+ *  no measurable progress but is a large part of the wait on a slow device. */
+export type EngineLoadStatus = { phase: 'downloading'; loaded: number; total: number | null } | { phase: 'starting' };
+
+/**
+ * The WASM backend, or why there is none. `unsupported` means this browser
+ * cannot run it, so a retry would end on the JS build again; `null` is a load
+ * that failed or stalled, which a retry with a new url can recover.
+ */
+async function tryLoadWasm(onStatus?: (s: EngineLoadStatus) => void): Promise<EngineApi | 'unsupported' | null> {
+  if (typeof WebAssembly !== 'object' || typeof WebAssembly.compileStreaming !== 'function') {
+    return 'unsupported';
+  }
+  const watch = stallWatch(WASM_STALL_MS);
+  try {
+    // Load the runtime IIFE (a <script> tag, or a Blob import in a worker); it
+    // installs globalThis.TeaVM.wasmGC.
+    await loadWasmRuntime(watch.signal);
+    watch.poke();
+    const wasmGC = (
+      globalThis as unknown as {
+        TeaVM?: { wasmGC?: { load(src: ArrayBuffer, options?: unknown): Promise<{ exports: unknown }> } };
+      }
+    ).TeaVM?.wasmGC;
+    if (!wasmGC?.load) return null;
+    // Fetch the bytes ourselves and hand them to load(): passing an ArrayBuffer
+    // takes the WebAssembly.compile(bytes) path, sidestepping the runtime's
+    // Node-vs-browser (fs vs fetch) detection entirely. installImports rewires
+    // the kernel's console output into the shared log sink (see above).
+    const res = await fetch(attemptUrl(WASM_URL), { signal: watch.signal });
+    if (!res.ok) return null;
+    watch.poke();
+    // Stream it so the boot splash can show real bytes: this is several
+    // megabytes, the largest thing the app fetches, and on a slow link it is
+    // most of the wait.
+    const streamed = res.body
+      ? await readStreamWithProgress(res.body, declaredLength(res), (p) => {
+          watch.poke();
+          onStatus?.({ phase: 'downloading', ...p });
+        })
+      : null;
+    // `.buffer` is typed ArrayBufferLike (it could be shared in general), but
+    // readStreamWithProgress always allocates a plain ArrayBuffer.
+    const bytes = streamed ? (streamed.buffer as ArrayBuffer) : await res.arrayBuffer();
+    // Compiling is not a network wait, so the stall ceiling ends here.
+    watch.stop();
+    // Bytes are in; compiling and instantiating is the remaining (unmeasurable)
+    // step, and it is slow enough on modest hardware to be worth naming.
+    onStatus?.({ phase: 'starting' });
+    const teavm = await wasmGC.load(bytes, { installImports: installKernelConsole });
+    const exports = teavm.exports as EngineApi;
+    // The @JSExport facade must be callable across the WASM↔JS boundary.
+    if (typeof exports.buildRocket !== 'function') return 'unsupported';
+    return exports;
+  } catch (e) {
+    console.warn('[engine] WASM-GC unavailable, using the JS engine.', e);
+    // A module this browser cannot compile or link (no WASM-GC) fails the same
+    // way on every attempt.
+    return e instanceof WebAssembly.CompileError || e instanceof WebAssembly.LinkError ? 'unsupported' : null;
+  } finally {
+    watch.stop();
+  }
+}
+
+/**
+ * True once WASM is ruled out for this page (forced off, or the browser cannot
+ * run it), which leaves the JS chunk as the only backend. Stays set: neither
+ * reason changes without a reload.
+ */
+let jsOnly = false;
+
+/**
+ * Whether {@link resetEngineInit} followed by {@link initEngine} can recover a
+ * load that failed or stalled. False when the JS chunk is the only backend: its
+ * import url is fixed (see {@link loadJsEngine}), so only a page reload asks for
+ * it again.
+ */
+export function engineRetryCanRecover(): boolean {
+  return !jsOnly;
+}
+
+export type BackendPref = 'wasm' | 'js' | 'auto';
+
+/**
+ * The app-namespaced localStorage key for the backend override.
+ *
+ * Built from `STORAGE_PREFIX` like every other key, so the app has one storage
+ * namespace.
+ */
+export const ENGINE_PREF_KEY = nsKey('engine');
+
+/**
+ * Backend preference. Default is 'auto' → try WASM-GC first, fall back to JS.
+ * WASM-GC runs the vendored kernel (upstream OpenRocket at the commit in
+ * `engine-java/extract/UPSTREAM`, with this repo's patches) bit-identically to
+ * JS, with the WASM-hostile cast in `info.openrocket.core.util.ArrayList.clone()` patched
+ * (upstream's `(ArrayList) super.clone()` throws ClassCastException under
+ * WASM-GC's strict typing; see the patch in engine-java). Overrides for debugging /
+ * unsupported browsers: `?engine=js` (or
+ * `localStorage.setItem(ENGINE_PREF_KEY,'js')`) forces JS;
+ * `?engine=wasm` forces the WASM attempt.
+ *
+ * Main thread only. A worker has no page `location` (its `location` is the
+ * script URL) and no `localStorage`, so this would always answer `auto` there
+ * and a `?engine=js` page would run its sims on WASM anyway. The sim client reads this
+ * and hands the answer to the worker on every request (simProtocol.ts).
+ */
+export function backendPref(): BackendPref {
+  try {
+    const q = new URLSearchParams(location.search).get('engine');
+    if (q === 'wasm' || q === 'js') return q;
+    const ls = localStorage.getItem(ENGINE_PREF_KEY);
+    if (ls === 'wasm' || ls === 'js') return ls;
+  } catch {
+    /* no location/localStorage (SSR/tests/workers) → auto */
+  }
+  return 'auto';
+}
+
+/**
+ * Which attempt is current. Bumped by {@link resetEngineInit} so an abandoned
+ * load cannot install itself later; see there.
+ */
+let initAttempt = 0;
+
+/**
+ * Load the engine backend once: WASM-GC first (unless `?engine=js` forces JS or
+ * the browser lacks WASM), else the JS build as a fallback. Idempotent.
+ * Resolves to which backend is active.
+ *
+ * Engine calls before this resolves throw, so the app treats "no engine yet" as
+ * a state rather than awaiting it: nothing here is on the path to mounting the
+ * UI (see main.tsx), and `state/engineStore.ts` is what the UI reads.
+ *
+ * @param pref the backend preference, when the caller has already resolved it
+ *   (the sim worker gets it from the main thread); else read here.
+ */
+export function initEngine(onStatus?: (s: EngineLoadStatus) => void, pref?: BackendPref): Promise<'wasm' | 'js'> {
+  if (!initPromise) {
+    const mine = initAttempt;
+    initPromise = (async () => {
+      const wasm = (pref ?? backendPref()) === 'js' ? 'unsupported' : await tryLoadWasm(onStatus);
+      if (wasm === 'unsupported') jsOnly = true;
+      else if (wasm) {
+        if (mine === initAttempt) {
+          active = wasm;
+          active.setLengthUnit(lengthUnit);
+        }
+        return 'wasm';
+      }
+      // The JS build is a dynamic import, so the bundler owns the fetch and there
+      // are no byte counts to report; just name the step.
+      onStatus?.({ phase: 'downloading', loaded: 0, total: null });
+      const js = await loadJsEngine();
+      if (mine === initAttempt) {
+        active = js;
+        active.setLengthUnit(lengthUnit);
+      }
+      onStatus?.({ phase: 'starting' });
+      return 'js';
+    })();
+  }
+  return initPromise;
+}
+
+/**
+ * Drop the cached load so the next {@link initEngine} starts over.
+ *
+ * `initPromise` is memoized for the life of the page, and neither failure mode
+ * clears itself: a rejected promise stays rejected, and a fetch that stalls
+ * rather than fails never settles at all. Without this the only way back from a
+ * lost engine download is a page reload.
+ *
+ * The abandoned attempt is still running and can resolve minutes later, which is
+ * why `initAttempt` moves: whichever backend it eventually loads must not
+ * overwrite the one a later attempt already installed. Handles issued by the old
+ * engine are void either way, hence the generation bump.
+ */
+export function resetEngineInit(): void {
+  initAttempt++;
+  initPromise = null;
+  active = null;
+  engineGeneration++;
+}
+
+export type NoseShape = 'ogive' | 'conical' | 'ellipsoid' | 'power' | 'parabolic' | 'haack';
+
+export interface MotorSpec {
+  /**
+   * The name the kernel and a `.ork` match on: the catalog's common name
+   * (`F67`), which is also OpenRocket's own database name.
+   */
+  designation: string;
+  /**
+   * The full manufacturer designation (`F67W`), for display only. Several
+   * motors share a common name (AeroTech's F67C and F67W are both `F67`), so a
+   * label built from `designation` alone cannot tell them apart. Absent when
+   * the catalog row has none or it adds nothing.
+   */
+  code?: string;
+  /** Manufacturer name/abbreviation (display only; the engine ignores it). */
+  manufacturer?: string;
+  diameter: number;
+  length: number;
+  /** Thrust curve: times[i] (s) -> thrusts[i] (N); masses[i] = motor mass (kg) at times[i]. */
+  times: number[];
+  thrusts: number[];
+  masses: number[];
+  /** Motor CG position from its leading end (m). */
+  cgX: number;
+  /** Ejection-charge delay (s). Use {@link PLUGGED_DELAY} for a plugged motor. */
+  ejectionDelay: number;
+  /** Which bundled thrust curve this was built from (e.g. "Certified · RASP"); display only. */
+  curveSrc?: string;
+  /**
+   * Set when the curve is the user's own: an imported `.eng` / `.rse` motor, or
+   * the curve a `.ork` carried. Such a curve is not the catalog's even under a
+   * catalog motor's maker and name, so a save embeds it rather than naming the
+   * catalog motor.
+   */
+  imported?: true;
+  /**
+   * What the motor is, in the catalog's words: single-use, reloadable or
+   * hybrid. Written into an embedded `.rse` as its `Type`; desktop infers the
+   * type from the manufacturer when the attribute is absent. Absent when the
+   * source did not say, and in a workspace saved before it was carried.
+   */
+  type?: MotorType;
+}
+
+/** A motor's type as the catalog, `CustomMotor` and `MotorSpec` spell it. */
+export type MotorType = 'SU' | 'reload' | 'hybrid';
+
+/**
+ * JSON-safe sentinel for a plugged motor (no ejection charge). OpenRocket's
+ * kernel uses `Motor.PLUGGED_DELAY = Double.POSITIVE_INFINITY`, but Infinity
+ * cannot survive JSON (localStorage persistence and the motor cache serialize
+ * it to null), so we store this finite value and map it back to Infinity only
+ * at the kernel boundary; see {@link toKernelDelay}.
+ */
+export const PLUGGED_DELAY = 1e9;
+
+/** Map the stored ejection delay to what the kernel expects (Infinity = plugged). */
+const toKernelDelay = (d: number): number => (d >= PLUGGED_DELAY ? Infinity : d);
+
+export interface SimulationOptions {
+  launchRodLength?: number;
+  /** Radians from vertical. */
+  launchRodAngle?: number;
+  /** Launch-rod compass heading, radians (default π/2). */
+  launchRodDirection?: number;
+  windAverage?: number;
+  windStdDeviation?: number;
+  /** Wind heading, radians. Ignored when windLevels is set. */
+  windDirection?: number;
+  /** Altitude-layered wind (overrides windAverage/StdDev/Direction when non-empty).
+   *  altitude m, speed m/s, direction radians, stddev m/s. Whether the altitude
+   *  is MSL or AGL is `windAltitudeReference`. */
+  windLevels?: { altitude: number; speed: number; direction: number; stddev: number }[];
+  /** What a wind level's altitude is measured from (default 'msl', as the
+   *  kernel's MultiLevelPinkNoiseWindModel constructor sets). windLevels only. */
+  windAltitudeReference?: 'msl' | 'agl';
+  /** Earth model for the trajectory: 'flat' | 'spherical' (default) | 'wgs84'. */
+  geodetic?: 'flat' | 'spherical' | 'wgs84';
+  /** Gravity model: 'wgs' (default, varies with latitude/altitude) | 'constant'. */
+  gravityModel?: 'wgs' | 'constant';
+  /** g in m/s^2 for gravityModel 'constant' (default 9.80665). */
+  constantGravity?: number;
+  /** Max rotation per RK4 step, radians. Default: the kernel's 3 degrees. */
+  maxAngleStep?: number;
+  launchAltitude?: number;
+  /** Launch-site temperature (K). Default: ISA standard. */
+  temperature?: number;
+  /** Launch-site pressure (Pa). Default: ISA standard. */
+  pressure?: number;
+  /** Launch-site relative humidity as a fraction (0..1). Default: ISA standard. */
+  relativeHumidity?: number;
+  /** A forecast atmosphere in place of the standard one above the site:
+   *  altitude m MSL, temperature K, pressure Pa, relativeHumidity a fraction.
+   *  With temperature and pressure also given, the site anchors the profile. */
+  atmosphereLevels?: { altitude: number; temperature: number; pressure: number; relativeHumidity: number }[];
+  /** Degrees (exception to the radians rule: WorldCoordinate's own unit). */
+  launchLatitude?: number;
+  /** Degrees (exception to the radians rule). */
+  launchLongitude?: number;
+  timeStep?: number;
+  maxTime?: number;
+  randomSeed?: number;
+  /**
+   * Recovery-deployment speed thresholds (m/s). These change no physics: they
+   * decide when a flight raises a deployment warning, which comes back in
+   * {@link FlightResult.warnings}.
+   *
+   * Which one applies depends on the stage's recovery layout. A stage with no
+   * drogue is single-deployment and uses `recoverySpeedWarn` alone; a
+   * dual-deployment stage warns on the main being out too fast
+   * (`mainHighSpeedWarn`) or too slow (`mainLowSpeedWarn`) instead, and on its
+   * drogue being out too slow at apogee to inflate (`drogueLowSpeedWarn`).
+   *
+   * Which branch a flight takes is decided by the deploying stage's drogue flag
+   * (the `drogue` key on a parachute or streamer node). Without it the kernel
+   * sees single deployment and the three dual-deployment thresholds cannot fire.
+   *
+   * `drogueLowSpeedWarn` needs a fork patch on top: upstream ships its check
+   * commented out, and PATCH(drogue-low-speed) enables it.
+   */
+  recoverySpeedWarn?: number;
+  mainHighSpeedWarn?: number;
+  mainLowSpeedWarn?: number;
+  drogueLowSpeedWarn?: number;
+  /**
+   * Which launch-guide clearance model to fly. Default false, which is
+   * OpenRocket's own.
+   *
+   * Upstream compares the rocket's travel with the full rod length wherever the
+   * guides actually sit: it computes a lug-aware effective length in
+   * `SimulationStatus` and never reads it at the check. So a lug or rail button
+   * above the rocket's aft end is credited with guided travel it does not have,
+   * and the reported rod-exit speed reads high. Rail buttons are not considered
+   * at all, and the lug search looks at one instance, which on a fore/aft pair
+   * is the forward one.
+   *
+   * Set true and the flight ends its guided phase when the aft-most lug, or a
+   * button line's second-to-last station, leaves the rod. The rocket is
+   * released at that moment as well as reported there, since reporting a
+   * departure the rocket has not made would leave it mechanically constrained
+   * past its own exit.
+   *
+   * It is a choice rather than a fix because the engine is validated
+   * bit-identical to upstream: off, the bridge attaches nothing and the flight
+   * is upstream's exactly. See `api/GuideClearanceListener.java`.
+   */
+  guideAwareRodClearance?: boolean;
+  /**
+   * Series payload mode. 'summary' (the default) returns the 12 friendly-named
+   * arrays plus only the symbol series the app's flight report reads every run
+   * (Pl, θl, Px, Py, dΦ). 'full' additionally returns every series the branch
+   * carries, except tc (wall-clock noise, nondeterministic) and the symbols
+   * duplicating the friendly dozen. Full costs serialization time and
+   * payload: on a C6 flight at a 0.01 s step, about 17% more wall clock and
+   * about 3.6 times the bytes (the measurement is with `series` in
+   * services/flight/simulations.ts).
+   */
+  series?: 'summary' | 'full';
+}
+
+export interface StaticInfo {
+  length: number;
+  /**
+   * The span of the aerodynamic components only (`getLengthAerodynamic`), which
+   * is what {@link StaticInfo.stabilityPercent} is measured against. Not the same
+   * as {@link StaticInfo.length}, which bounds every component including the ones
+   * with no aerodynamic effect.
+   */
+  lengthAerodynamic: number;
+  /** Launch mass (kg); includes the motor when one is set. */
+  mass: number;
+  /** Dry structure mass (kg); no motor. */
+  massEmpty: number;
+  /** Dry structure CG (m from nose tip); no motor. */
+  cgEmpty: number;
+  /** Launch CG (m from nose tip); includes the motor when one is set. */
+  cg: number;
+  cp: number;
+  cna: number;
+  /**
+   * Stability margin in calibers, as OpenRocket's own `CaliberUnit` converts it.
+   *
+   * The engine owns this, and the percentage below, because they are the same
+   * margin (`cp - cg`) over two different denominators - the largest body
+   * diameter, and the aerodynamic length - and neither denominator is anything
+   * this app has. Do not re-derive either one here.
+   */
+  stabilityCalibers: number;
+  /**
+   * The same margin as a percentage of the aerodynamic length, as OpenRocket's
+   * own `PercentageOfLengthUnit` converts it.
+   *
+   * Read from here rather than computed per view as `((cp - cg) / length) * 100`,
+   * which is the right shape over the wrong denominator: `length` bounds every
+   * component, so any design with a non-aerodynamic part outside the aerodynamic
+   * envelope reads a percentage the desktop does not show.
+   */
+  stabilityPercent: number;
+  refDiameter: number;
+  /** Loaded (with-motor) roll moment of inertia, about the long axis (kg·m²). */
+  rollInertia: number;
+  /** Loaded (with-motor) pitch moment of inertia, transverse (kg·m²). */
+  pitchInertia: number;
+  warnings: number;
+  /** Engine warning messages (geometry problems etc.). */
+  warningTexts: string[];
+  /**
+   * Power-off (coast) total drag coefficient at Mach 0.3, not part of the
+   * engine's static JSON; `computeStaticInfo` (services/design/buildRocket.ts)
+   * fills it from a one-point {@link OpenRocketDesign.aeroSweep} so the "all
+   * stats" strip can show it. Undefined if the sweep failed.
+   */
+  cd?: number;
+}
+
+// ---------- Component-tree API ----------
+
+export type ComponentType =
+  | 'stage'
+  | 'nosecone'
+  | 'transition'
+  | 'bodytube'
+  | 'trapezoidfinset'
+  | 'ellipticalfinset'
+  | 'freeformfinset'
+  | 'tubefinset'
+  | 'innertube'
+  | 'tubecoupler'
+  | 'centeringring'
+  | 'bulkhead'
+  | 'engineblock'
+  | 'launchlug'
+  | 'railbutton'
+  // RASAero-scope, and not reachable from the editor. A "camera shroud": an
+  // external faired pod for an onboard camera, carried as an .ork extension
+  // element.
+  //
+  // There is no way to create one: the Add menu (`ADD_GROUPS` in ComponentTree)
+  // never offers it, `defaultNode` has no case, and
+  // `componentFields` gives it no property panel. It only exists in a design
+  // that was loaded from a `.ork` this app itself wrote. The renderers do draw
+  // it, and import/export round-trip it.
+  //
+  // `ComponentFactory` accepts it as a mass-carrying component, so such a file
+  // loads. Its drag is not modeled: there is no lowering to a kernel type.
+  //
+  // Scope: RASAero. See engine-java/ATTRIBUTION.md.
+  | 'fairing'
+  | 'parachute'
+  | 'streamer'
+  | 'shockcord'
+  | 'masscomponent'
+  // Off-axis assemblies (ComponentAssembly): a non-separating pod, or a
+  // separable parallel booster. Nested under a body component, never at the
+  // rocket root. The bridge's ComponentFactory builds both (PodSet /
+  // ParallelStage).
+  | 'podset'
+  | 'parallelstage';
+
+/**
+ * When a mount's motor ignites. "automatic" = launch-stage motors at launch,
+ * upper-stage motors on the ejection charge of the stage below (the low/mid-
+ * power pattern). High-power sustainers use electronics: "burnout" or
+ * "launch" plus a timer delay.
+ */
+export type IgnitionEvent = 'automatic' | 'launch' | 'ejectioncharge' | 'burnout' | 'never';
+
+export interface ComponentPosition {
+  /**
+   * `after` is OpenRocket's AxialMethod.AFTER: the part starts at the aft end
+   * of the previous sibling, with the offset forced to 0
+   * (RocketComponent.setAfter), not the `outerLength + offset`
+   * the enum's own getAsPosition suggests, which that path never reaches.
+   * Sibling-relative, so it is resolved into the parent frame on load; see
+   * resolveFilePositions.
+   *
+   * `absolute` is measured from the rocket's origin, the nose tip, whatever the
+   * parent; every reader resolves it through the parent's rocket-frame start
+   * (`startFromPosition`).
+   */
+  method: 'top' | 'middle' | 'bottom' | 'absolute' | 'after';
+  /** meters, per the method's convention */
+  offset: number;
+  /**
+   * What the imported `.ork` actually said, when a position was rewritten on
+   * load: an `after` resolved to the equivalent `top` offset, `resolved`.
+   *
+   * Rewriting it would also change what we write back out, and `.ork` round-trips
+   * are meant to be byte-stable. So the original is kept here and `orkExport`
+   * restores it, as long as `resolved` still matches the current offset (the
+   * part has not been moved since). A stored design can carry an `absolute` one
+   * too, which is restored the same way.
+   */
+  ork?: { method: 'absolute' | 'after'; offset: number; resolved: number };
+}
+
+/**
+ * A component-tree node. `type` selects the component; the remaining keys are
+ * that type's parameters (SI units, radians; see engine-java ComponentFactory
+ * for the full per-type list). Nodes with an `id` can be addressed later,
+ * e.g. as motor mounts.
+ */
+export interface ComponentNode {
+  type: ComponentType;
+  id?: string;
+  name?: string;
+  /** Bulk material density (kg/m^3). */
+  density?: number;
+  position?: ComponentPosition;
+  children?: ComponentNode[];
+  [param: string]: unknown;
+}
+
+export interface RocketTree {
+  name?: string;
+  /** "Designer" free-text (OpenRocket's Rocket configuration); round-tripped. */
+  designer?: string;
+  /** "Kit name" free-text (the same dialog; `<kitname>` in the file); round-tripped. */
+  kitName?: string;
+  /** Design "Comments" free-text; round-tripped. */
+  comment?: string;
+  /** "Revision history" free-text; round-tripped. */
+  revision?: string;
+  /** Design-type token: original | commercial_kit | clone_kit | upscale_kit |
+   *  downscale_kit | modified_kit | kit_bash (OpenRocket DesignType). */
+  designType?: string;
+  /**
+   * What the stability calibers are measured against: OpenRocket's
+   * `<referencetype>` (maximum | fore | custom) and, for `custom`, the length in
+   * meters. Carried rather than editable - the app measures against the widest
+   * body, which is `maximum` - but a design that says otherwise keeps saying it.
+   */
+  referenceType?: string;
+  customReference?: number;
+  /** Raw `<rocket>` children this app has no model for (ork/passthrough.ts). */
+  xmlExtra?: string[];
+  /** Raw `<openrocket>` children this app has no model for: Photo Studio, the
+   *  document preferences, the custom expressions. */
+  docExtra?: string[];
+  /** The design's own materials, desktop's document material database
+   *  (`<docprefs><docmaterials>`); services/materials/documentMaterials.ts. */
+  documentMaterials?: DocumentMaterial[];
+  components: ComponentNode[];
+}
+
+/** OpenRocket DesignType tokens, in menu order (original first). */
+export const DESIGN_TYPES = [
+  'original',
+  'commercial_kit',
+  'clone_kit',
+  'upscale_kit',
+  'downscale_kit',
+  'modified_kit',
+  'kit_bash',
+] as const;
+
+export interface FlightSummary {
+  maxAltitude: number;
+  maxVelocity: number;
+  maxAcceleration: number;
+  maxMachNumber: number;
+  timeToApogee: number;
+  flightTime: number;
+  groundHitVelocity: number;
+  /** Velocity when clearing the launch rod/rail (m/s). */
+  launchRodVelocity: number;
+  /** Velocity at recovery-device deployment (m/s); null if never deployed. */
+  deploymentVelocity: number | null;
+  /**
+   * Kernel-computed optimum ejection delay (s): coast time from burnout to
+   * ballistic apogee (a deployment-free probe flight, not the deployed
+   * flight's apogee). null when not computable.
+   */
+  optimumDelay: number | null;
+}
+
+export interface FlightEvent {
+  type: string;
+  time: number;
+  /**
+   * Name of the component that raised the event (present for events with a
+   * source, e.g. RECOVERY_DEVICE_DEPLOYMENT carries the parachute's name,
+   * which is how dual-deployment drogue and main are told apart).
+   */
+  source?: string;
+  /**
+   * The app node id of that component, present when the design gave it one.
+   * Unlike `source` it is unique to one part: every unnamed part of a type
+   * flies under the same kernel default name. Absent from a result read from a
+   * file.
+   */
+  sourceId?: string;
+}
+
+export interface FlightSeries {
+  time: number[];
+  altitude: number[];
+  velocity: number[];
+  acceleration: number[];
+  mass: number[];
+  thrust: number[];
+  drag: number[];
+  mach: number[];
+  /** Stability margin (calibers). */
+  stability: number[];
+  cpLocation: number[];
+  cgLocation: number[];
+  /** Angle of attack (rad). */
+  aoa: number[];
+  /**
+   * Symbol-keyed series beyond the friendly-named dozen above. Which symbols
+   * are present depends on {@link SimulationOptions.series}: 'summary' (the
+   * default) carries only Pl, θl, Px, Py, dΦ, the ones the app's flight
+   * report reads every run; 'full' carries every series the branch records
+   * ("Vz", "Cdf", "ρ"…) except tc (wall-clock noise) and the symbols that
+   * would duplicate the friendly dozen ("t", "h"…). NaN/Infinity samples
+   * arrive as null (JSON), hence the (number | null)[] element type; the
+   * named arrays share that wire behavior. Always check for undefined
+   * before use.
+   */
+  [symbol: string]: (number | null)[] | undefined;
+}
+
+/**
+ * One flight branch of a staged rocket: branch 0 is the sustainer stack
+ * (same data as the top-level events/series); each further branch is a
+ * separated booster's own flight: its descent, recovery and ground hit.
+ */
+export interface FlightBranch {
+  /** Stage name from the design ("Sustainer", "Booster"…). */
+  name: string;
+  events: FlightEvent[];
+  series: FlightSeries;
+}
+
+/**
+ * One simulation warning (large AoA, high-speed deployment, no recovery
+ * device…). Absent from a result produced by an engine build without the
+ * warning export.
+ */
+export interface EngineWarning {
+  /**
+   * Stable machine key: the typed Warning subclass name ("LargeAOA",
+   * "HighSpeedDeployment", "EventAfterLanding", "MissingMotor") or the
+   * kernel's l10n key for the singleton warnings ("NO_RECOVERY_DEVICE",
+   * "TUMBLE_UNDER_THRUST", "SUPERSONIC"…); "Other" when neither applies.
+   */
+  key: string;
+  /** Human message incl. source component names (Warning.toString()). */
+  message: string;
+  /** MessagePriority export label. */
+  priority?: 'LOW' | 'NORMAL' | 'HIGH';
+  /**
+   * The app node ids of the warning's source components, for those the design
+   * gave an id; absent when none has one, and from a result read from a file.
+   * The message names its sources, but two unnamed parts share a name.
+   */
+  sourceIds?: string[];
+}
+
+export interface FlightResult {
+  /** Whole-flight summary (branch 0 = the sustainer stack). */
+  summary: FlightSummary;
+  events: FlightEvent[];
+  series: FlightSeries;
+  /** Present only for staged flights that actually separated (≥2 branches). */
+  branches?: FlightBranch[];
+  /**
+   * Simulation warnings (whole flight, not per-branch). Optional: a result
+   * from an engine build without the warning export has none.
+   */
+  warnings?: EngineWarning[];
+  /** The same warnings as plain text, the shape staticInfo() uses. */
+  warningTexts?: string[];
+}
+
+/** Per-component static info (SI), from OpenRocketDesign.componentInfo(). */
+export interface ComponentInfo {
+  /** Component's own length (m). */
+  length: number;
+  /**
+   * The component's own mass (kg), override-aware. For a fin set this is the
+   * mass of all fins combined (OpenRocket semantics, overrides too).
+   */
+  mass: number;
+  /** Mass of the component plus all its children (kg). */
+  sectionMass: number;
+  /** CG measured from the component's own front (m). */
+  cgX: number;
+  /** Absolute position of the component's front from the nose tip (m). */
+  positionX: number;
+  /** A shock cord's cord length as the kernel resolves it, automatic or not (m). */
+  cordLength?: number;
+  /** A parachute's shroud line length as the kernel resolves it, automatic or not (m). */
+  lineLength?: number;
+  /** A recovery device's drag coefficient as the kernel resolves it, automatic or not. */
+  cd?: number;
+}
+
+/** One row of the per-component mass breakdown, in SI. */
+export interface ComponentMass {
+  /** Stable identity, matching `AeroSweep.components[].key`. Empty for the
+   *  motor rows, which have no aerodynamic row to join to. */
+  key?: string;
+  /** Display label. Not unique; see `key`. */
+  name: string;
+  /** Mass of a single instance (kg): one fin of a fin set. */
+  eachMass: number;
+  /** Mass of every instance together (kg). */
+  mass: number;
+  /** CG of the whole set, m from the nose tip. */
+  cg: number;
+}
+
+/** Options for {@link OpenRocketDesign.aeroSweep}; a Mach grid at a fixed angle. */
+export interface AeroSweepOptions {
+  /** First Mach (default 0.05). */
+  machMin?: number;
+  /** Last Mach (default 3.0). */
+  machMax?: number;
+  /** Mach increment (default 0.05). */
+  machStep?: number;
+  /** Angle of attack in degrees (default 0: the zero-alpha drag polar). */
+  aoaDeg?: number;
+  /**
+   * Wind direction about the roll axis, degrees. A rocket is least stable at
+   * some angle, and for a three-fin design that angle is not zero; see
+   * {@link OpenRocketDesign.worstThetaDeg}.
+   */
+  thetaDeg?: number;
+  /**
+   * Roll rate, rad/s. The roll damping coefficient is proportional to it, so it
+   * reads zero for a rocket that is not rolling.
+   */
+  rollRate?: number;
+  /**
+   * Optional Reynolds matching: [mach, altitude m] pairs pin the ISA
+   * atmosphere (hence Re) per Mach point, linearly interpolated: the same
+   * mechanism as RASAero's Mach-Alt table. Absent ⇒ sea level throughout.
+   */
+  machAlt?: [number, number][];
+}
+
+/** One power state's drag coefficients across the Mach grid (index-aligned to `machs`). */
+export interface DragCurve {
+  /** Total CD per Mach. */
+  total: number[];
+  /** Skin-friction CD per Mach. */
+  friction: number[];
+  /** Pressure/wave CD per Mach. */
+  pressure: number[];
+  /** Base CD per Mach (the power-on curve reflects the nozzle-exit reduction). */
+  base: number[];
+}
+
+/**
+ * Drag polar sweep (RASAero-style Aero Plots). A static design property; no
+ * flight required. The underlying method is Extended Barrowman: accurate
+ * subsonic/transonic, approximate above ~Mach 1.5-2. The UI labels the
+ * supersonic region accordingly.
+ */
+export interface AeroSweep {
+  /** Mach grid (x-axis for every curve). */
+  machs: number[];
+  /** Whether any stage sets a nozzle exit diameter (so power-on differs from power-off). */
+  hasNozzle: boolean;
+  /**
+   * How many non-finite readings the kernel met building the per-component
+   * breakdown below.
+   *
+   * Those cells come back `null` rather than 0, because a component that
+   * genuinely generates no normal force also reads 0 and a NaN reported as 0 is
+   * indistinguishable from it while the breakdown stops adding up to the rocket
+   * totals. Any count above zero means the table is incomplete and should say so.
+   * Optional: a kernel build without it omits it.
+   */
+  nonFinite?: number;
+  /**
+   * CP location per Mach (m from the nose tip), at the sweep's angle of attack.
+   * Power state doesn't move CP, so one curve serves both. Feeds the
+   * validation harness and CP-vs-Mach plotting.
+   */
+  cp: number[];
+  /** Normal-force-coefficient slope CNα per Mach (per radian, kernel reference area). */
+  cna: number[];
+  /** Coast (motors off) drag. */
+  powerOff: DragCurve;
+  /** Boost (all stages thrusting) drag; differs from powerOff only when hasNozzle. */
+  powerOn: DragCurve;
+  /**
+   * Per-component power-off breakdown, one entry per aerodynamic component,
+   * index-aligned to `machs`.
+   *
+   * `cd` is always present. The rest come from the same `getForceAnalysis`
+   * call (the one OpenRocket's Component Analysis dialog tabulates) and are
+   * optional, because a kernel build without them omits them; the UI shows the
+   * columns it has data for.
+   */
+  components: {
+    /**
+     * Stable identity for this component: the kernel's own UUID.
+     *
+     * Use this for row keys and for joining to {@link ComponentMass}, not
+     * `name`: nothing forces a part to be renamed, so two unnamed body tubes are
+     * both called "Body tube". Optional because a kernel build without it omits it; fall
+     * back to `name` then.
+     */
+    key?: string;
+    /** Display label. Not unique; see `key`. */
+    name: string;
+    /**
+     * Total drag for this component, counting every instance of it: the
+     * desktop's "Total CD". This is the one that sums to the rocket's drag; a
+     * 3-fin set contributes three fins' worth.
+     */
+    cd: (number | null)[];
+    /** Drag for one instance: the desktop's "Per instance CD". */
+    cdInstance?: (number | null)[];
+    /** How many of this component there are (3 for a 3-fin set). */
+    instances?: number;
+    /**
+     * The kernel's class for this component, e.g. `TrapezoidFinSet`, `BodyTube`.
+     * The roll table needs it: an uncanted fin set reports exactly the numbers a
+     * body tube does, so there is no telling them apart from the values alone.
+     */
+    type?: string;
+    /** Skin-friction share of `cd`. */
+    friction?: (number | null)[];
+    /** Pressure (form) share of `cd`. */
+    pressure?: (number | null)[];
+    /** Base-drag share of `cd`. */
+    base?: (number | null)[];
+    /** This component's contribution to the rocket's normal-force slope. */
+    cna?: (number | null)[];
+    /** This component's own center of pressure (m from the nose tip). */
+    cp?: (number | null)[];
+    /** Roll forcing coefficient; non-zero only for a canted fin set. */
+    rollForce?: (number | null)[];
+    /** Roll damping coefficient. */
+    rollDamp?: (number | null)[];
+  }[];
+}
+
+/**
+ * Guards the motor curve before it crosses into the kernel. TeaVM reports a
+ * non-finite number as an opaque BigInt conversion RangeError from deep inside
+ * the compiled Java, so catching it here is the difference between a message
+ * naming the motor and a design that silently blanks.
+ */
+function assertFiniteCurve(motor: MotorSpec): void {
+  // The scalars cross into the kernel too. `thrustcurve.ts` computes
+  // `length: motor.length / 1000` and
+  // `cgX: cgSamples?.[0]?.[1] ?? motor.length / 2000`, so a catalog row missing
+  // `length` makes both NaN, which would surface as the opaque TeaVM "number NaN
+  // cannot be converted to a BigInt" this guard exists to prevent. And
+  // `toKernelDelay` passes NaN straight through, since `NaN >= PLUGGED_DELAY`
+  // is false.
+  const name = motor.designation;
+  const scalars: [Keyed, number][] = [
+    [{ key: 'errors.motorCurve.whatDiameter' }, motor.diameter],
+    [{ key: 'errors.motorCurve.whatLength' }, motor.length],
+    [{ key: 'errors.motorCurve.whatCg' }, motor.cgX],
+    [{ key: 'errors.motorCurve.whatDelay' }, toKernelDelay(motor.ejectionDelay)],
+  ];
+  for (const [what, v] of scalars) {
+    // The delay may legitimately be Infinity (plugged); the dimensions may not.
+    if (Number.isNaN(v) || (what.key !== 'errors.motorCurve.whatDelay' && !Number.isFinite(v))) {
+      throw new KeyedError('errors.motorCurve.notFinite', { motor: name, what });
+    }
+  }
+  if (motor.diameter <= 0 || motor.length <= 0) {
+    throw new KeyedError('errors.motorCurve.size', { motor: name });
+  }
+
+  const bad = (xs: readonly number[]) => !xs.every((n) => Number.isFinite(n));
+  if (bad(motor.times) || bad(motor.thrusts) || bad(motor.masses)) {
+    throw new KeyedError('errors.motorCurve.nonFinite', { motor: name });
+  }
+  // The three arrays are read in lockstep by the kernel (times[i], thrusts[i],
+  // masses[i]), so a short one would index undefined off the end. The Java
+  // rejects this at the boundary too; this is the JS half of the same guard,
+  // and it names the motor before the kernel is ever entered.
+  if (motor.times.length !== motor.thrusts.length || motor.times.length !== motor.masses.length) {
+    throw new KeyedError('errors.motorCurve.lengths', {
+      motor: name,
+      times: motor.times.length,
+      thrusts: motor.thrusts.length,
+      masses: motor.masses.length,
+    });
+  }
+  // Times must not run backwards: the kernel integrates between consecutive
+  // samples, and a negative interval silently subtracts impulse.
+  for (let i = 1; i < motor.times.length; i++) {
+    if (motor.times[i]! < motor.times[i - 1]!) {
+      throw new KeyedError('errors.motorCurve.backwards', {
+        motor: name,
+        sample: i,
+        before: motor.times[i - 1]!,
+        after: motor.times[i]!,
+      });
+    }
+  }
+  if (motor.masses.some((m) => m < 0)) {
+    throw new KeyedError('errors.motorCurve.negativeMass', { motor: name });
+  }
+  // A motor that weighs nothing for the whole burn is not a motor. The kernel
+  // simulates it happily and returns an optimistic flight, so catch it here:
+  // the real-world source is an .rse whose samples carry no mass attribute.
+  if (motor.masses.length > 0 && motor.masses.every((m) => m === 0)) {
+    throw new KeyedError('errors.motorCurve.noMass', { motor: name });
+  }
+}
+
+/** A rocket design held inside the engine, addressed by handle. */
+export class OpenRocketDesign {
+  private readonly rawHandle: number;
+  /** The engine generation this design was built under; see engineGeneration. */
+  private readonly generation: number;
+
+  private constructor(handle: number) {
+    this.rawHandle = handle;
+    this.generation = engineGeneration;
+  }
+
+  /**
+   * The kernel handle, refused once the engine that issued it has been reset.
+   *
+   * `resetEngine()` frees the whole handle table, and the app calls it before
+   * every rebuild, so a design object outliving one addresses a number that now
+   * belongs to somebody else's rocket. The kernel rejects this too (its counter
+   * does not rewind, so a freed handle stays permanently unknown), but only after
+   * the call has crossed into TeaVM and come back as a message. Catching it here
+   * makes it a typed error, by name, before the boundary. Every `this.handle`
+   * read below goes through this getter, so the call sites need no check of
+   * their own.
+   */
+  private get handle(): number {
+    if (this.generation !== engineGeneration) throw new StaleDesignError();
+    return this.rawHandle;
+  }
+
+  /**
+   * Builds a rocket from an arbitrary component tree.
+   * Give the motor-mount inner tube an `id` and pass it to setMotorById.
+   */
+  static buildTree(tree: RocketTree): OpenRocketDesign {
+    const handle = callEngine('buildRocket', () => eng().buildRocket(JSON.stringify(tree)));
+    return new OpenRocketDesign(handle);
+  }
+
+  /** Attaches a motor to the mount with the given node id (buildTree rockets). */
+  setMotorById(componentId: string, motor: MotorSpec): void {
+    // Reject a malformed curve at the package boundary. A NaN in `masses` would
+    // otherwise surface as TeaVM's internal "The number NaN cannot be converted
+    // to a BigInt", which tells the user nothing and blanks their design; catalog
+    // data with missing weights is the real-world source (see thrustcurve.ts).
+    assertFiniteCurve(motor);
+    callEngine('setMotorById', () =>
+      eng().setMotorById(
+        this.handle,
+        componentId,
+        motor.designation,
+        motor.diameter,
+        motor.length,
+        motor.times,
+        motor.thrusts,
+        motor.masses,
+        motor.cgX,
+        toKernelDelay(motor.ejectionDelay),
+      ),
+    );
+  }
+
+  /**
+   * Leaves one stage on the ground for this flight, or puts it back.
+   *
+   * OpenRocket's stage activeness: a grounded stage contributes no mass, no
+   * aerodynamics and no motor, which is how a two-stage design is flown as its
+   * own sustainer without deleting the booster.
+   */
+  setStageActiveById(componentId: string, active: boolean): void {
+    callEngine('setStageActiveById', () => eng().setStageActiveById(this.handle, componentId, active));
+  }
+
+  /**
+   * Overrides when this mount's motor ignites (call after setMotorById).
+   * Staged rockets: "automatic" is the low/mid-power default; high-power
+   * sustainers are electronics-timed, e.g. ('burnout', 1.0) for booster
+   * burnout + 1 s.
+   */
+  setMotorIgnitionById(componentId: string, event: IgnitionEvent, delayS = 0): void {
+    // Validated here, not just wrapped. The kernel writes the event time
+    // straight into its result JSON, and an Infinity delay would produce
+    // `"time":Infinity` (not valid JSON), so JSON.parse would throw and discard
+    // the whole flight. The kernel guards it too; this keeps the bad value from
+    // crossing the boundary at all, and names the field when it does.
+    if (!Number.isFinite(delayS)) {
+      throw new EngineCallError('setMotorIgnitionById', new Error(`delayS must be finite, got ${delayS}`));
+    }
+    callEngine('setMotorIgnitionById', () => eng().setMotorIgnitionById(this.handle, componentId, event, delayS));
+  }
+
+  /** Length, mass, CG/CP, stability margin, computed at Mach 0.3, AoA 0. */
+  staticInfo(): StaticInfo {
+    // Through callEngine + parseEnvelope like every other reader: a trap out
+    // of the call or a non-JSON reply names the operation too.
+    const raw = callEngine('staticInfo', () => eng().getStaticInfo(this.handle));
+    return parseEnvelope<StaticInfo>('staticInfo', raw);
+  }
+
+  /** Static info for one component, addressed by its tree-node id. */
+  componentInfo(componentId: string): ComponentInfo {
+    const raw = callEngine('componentInfo', () => eng().getComponentInfo(this.handle, componentId));
+    return parseEnvelope<ComponentInfo>('componentInfo', raw);
+  }
+
+  /**
+   * Drag polar sweep (CD vs Mach) with power-off/power-on curves and a
+   * per-component breakdown. Static; no flight needed. See {@link AeroSweep}.
+   */
+  aeroSweep(options: AeroSweepOptions = {}): AeroSweep {
+    const raw = callEngine('aeroSweep', () =>
+      eng().getAeroSweep(
+        this.handle,
+        JSON.stringify({
+          machMin: options.machMin ?? 0.05,
+          machMax: options.machMax ?? 3.0,
+          machStep: options.machStep ?? 0.05,
+          aoaDeg: options.aoaDeg ?? 0,
+          thetaDeg: options.thetaDeg ?? 0,
+          rollRate: options.rollRate ?? 0,
+          machAlt: options.machAlt,
+        }),
+      ),
+    );
+    return parseEnvelope<AeroSweep>('aeroSweep', raw);
+  }
+
+  /**
+   * The wind direction (degrees about the roll axis) that puts the CP furthest
+   * forward, i.e. where this rocket is least stable. The desktop's "Worst"
+   * button. Feed it back in as {@link AeroSweepOptions.thetaDeg}.
+   */
+  worstThetaDeg(mach = 0.3, aoaDeg = 0): number {
+    return callEngine('getWorstThetaDeg', () => eng().getWorstThetaDeg(this.handle, mach, aoaDeg));
+  }
+
+  /**
+   * Per-component mass breakdown. Static (no Mach, no flight), so it is its own
+   * call rather than a field on the aero sweep or on {@link staticInfo}, which
+   * runs on every edit. See {@link ComponentMass}.
+   */
+  componentMasses(): ComponentMass[] {
+    // Same error envelope its sibling accessors check. Cast straight to an
+    // array, a kernel failure would arrive as `{error: "..."}` pretending to be
+    // a ComponentMass[], and `.map()` on it would throw somewhere far from here
+    // with the kernel's actual message thrown away.
+    const raw = callEngine('componentMasses', () => eng().getComponentMasses(this.handle));
+    return parseEnvelope<ComponentMass[]>('componentMasses', raw, true);
+  }
+
+  simulate(options: SimulationOptions = {}): FlightResult {
+    const raw = callEngine('simulate', () =>
+      eng().simulateJson(
+        this.handle,
+        JSON.stringify({
+          rodLength: options.launchRodLength ?? 1.0,
+          rodAngle: options.launchRodAngle ?? 0,
+          rodDirection: options.launchRodDirection,
+          windAverage: options.windAverage ?? 0,
+          windStdDeviation: options.windStdDeviation ?? 0,
+          windDirection: options.windDirection,
+          windLevels: options.windLevels,
+          windAltitudeReference: options.windAltitudeReference,
+          geodetic: options.geodetic,
+          gravityModel: options.gravityModel,
+          constantGravity: options.constantGravity,
+          maxAngleStep: options.maxAngleStep,
+          launchAltitude: options.launchAltitude ?? 0,
+          temperature: options.temperature,
+          pressure: options.pressure,
+          relativeHumidity: options.relativeHumidity,
+          atmosphereLevels: options.atmosphereLevels,
+          launchLatitude: options.launchLatitude,
+          launchLongitude: options.launchLongitude,
+          timeStep: options.timeStep ?? 0.05,
+          maxTime: options.maxTime,
+          randomSeed: options.randomSeed,
+          recoverySpeedWarn: options.recoverySpeedWarn,
+          mainHighSpeedWarn: options.mainHighSpeedWarn,
+          mainLowSpeedWarn: options.mainLowSpeedWarn,
+          drogueLowSpeedWarn: options.drogueLowSpeedWarn,
+          guideAwareRodClearance: options.guideAwareRodClearance,
+          series: options.series,
+        }),
+      ),
+    );
+    const parsed = parseEnvelope<FlightResult>('simulate', raw);
+    // The boundary is where the wire's nulls become the `number[]` the named
+    // series declare; see sanitizeSeries.
+    parsed.series = sanitizeSeries(parsed.series);
+    if (parsed.branches) {
+      for (const b of parsed.branches) b.series = sanitizeSeries(b.series);
+    }
+    return parsed;
+  }
+}
+
+/**
+ * The friendly-named series, which {@link FlightSeries} declares as `number[]`.
+ */
+const NAMED_SERIES = [
+  'time',
+  'altitude',
+  'velocity',
+  'acceleration',
+  'mass',
+  'thrust',
+  'drag',
+  'mach',
+  'stability',
+  'cpLocation',
+  'cgLocation',
+  'aoa',
+] as const;
+
+/**
+ * Make the named series honest `number[]`s.
+ *
+ * The kernel writes NaN and Infinity as JSON `null` (there is no other way),
+ * so `altitude: number[]` could carry nulls that only the index-signature
+ * comment admitted to. A null in `number[]` is the worst of both: `.toFixed`
+ * on it throws, while `Math.max(...)` and arithmetic quietly read it as 0.
+ * Here each becomes `NaN`, which is a number: no consumer typed against
+ * `number[]` can throw on it, `Number.isFinite` (which the chart and the 3D
+ * scene already apply) filters it, and a stat that reads it shows "NaN" rather
+ * than a fabricated zero. The symbol-keyed extras keep their declared
+ * `(number | null)[]`. A series the kernel did not send is left absent.
+ *
+ * Done at the boundary rather than by changing the declared type, because the
+ * consumers of the named dozen are components this module cannot reach into.
+ */
+export function sanitizeSeries(series: FlightSeries): FlightSeries {
+  for (const key of NAMED_SERIES) {
+    const arr = series[key] as unknown[] | undefined;
+    if (!Array.isArray(arr)) continue;
+    for (let i = 0; i < arr.length; i++) {
+      const v = arr[i];
+      if (typeof v !== 'number') arr[i] = NaN;
+    }
+  }
+  return series;
+}
+
+/** The kernel's display length unit; centimeters until the app says otherwise. */
+let lengthUnit = 'cm';
+
+/**
+ * Set the length unit the kernel formats in, which decides when it warns about
+ * an airframe diameter step, gap or overlap: it compares the two values as text
+ * in this unit, as desktop does in its user's unit (`setLengthUnit` on the
+ * bridge). Kept here and applied to an engine as it loads, so the setting holds
+ * whichever engine is running. Formatting only: no computed number reads it.
+ */
+export function setKernelLengthUnit(symbol: string): void {
+  lengthUnit = symbol;
+  active?.setLengthUnit(symbol);
+}
+
+/** The length unit the kernel formats in, carried to the sim workers. */
+export function kernelLengthUnit(): string {
+  return lengthUnit;
+}
+
+/**
+ * The pressure of OpenRocket's standard atmosphere at an altitude (Pa), from
+ * the kernel's own model, or null while the engine is still loading.
+ */
+export function standardPressurePa(altitudeM: number): number | null {
+  if (!active) return null;
+  return callEngine('standardPressure', () => eng().getStandardPressure(altitudeM));
+}
+
+/**
+ * How alike two thrust curves are, 0 to 1, from the kernel's
+ * `MotorCorrelation.similarity` (what desktop's "Hide very similar thrust
+ * curves" compares against 0.95), or null while the engine is still loading.
+ * Curves are `[time s, thrust N]` samples.
+ */
+export function motorSimilarity(a: [number, number][], b: [number, number][]): number | null {
+  if (!active) return null;
+  return callEngine('motorSimilarity', () =>
+    eng().getMotorSimilarity(
+      a.map((p) => p[0]),
+      a.map((p) => p[1]),
+      b.map((p) => p[0]),
+      b.map((p) => p[1]),
+    ),
+  );
+}
+
+/** A thrust curve's statistics as the kernel states them (see {@link motorStatistics}). */
+export interface MotorStatistics {
+  /** Seconds between the crossings of 5% of peak thrust. */
+  burnTime: number;
+  /** Newtons, over that burn. */
+  averageThrust: number;
+  maxThrust: number;
+  /** Newton-seconds. */
+  totalImpulse: number;
+}
+
+/**
+ * A thrust curve's burn time, average and peak thrust and total impulse, as the
+ * kernel computes them for the motor built from it
+ * (`ThrustCurveMotor.computeStatistics`): the burn runs between the crossings
+ * of 5% of peak thrust, not to the last sample. Null while the engine is still
+ * loading, and for a curve the kernel cannot build a motor from (fewer than two
+ * samples, say): such a motor has no statistics to state, and a caller reading
+ * them for a table or a check must not fail the whole design over it. Curves
+ * are `[time s, thrust N]` samples.
+ */
+export function motorStatistics(curve: readonly (readonly [number, number])[]): MotorStatistics | null {
+  if (!active) return null;
+  try {
+    const raw = callEngine('motorStatistics', () =>
+      eng().getMotorStatistics(
+        curve.map((p) => p[0]),
+        curve.map((p) => p[1]),
+      ),
+    );
+    return parseEnvelope<MotorStatistics>('motorStatistics', raw);
+  } catch {
+    return null;
+  }
+}
+
+/** Frees all engine-side objects (all OpenRocketDesign handles become invalid). */
+export function resetEngine(): void {
+  callEngine('reset', () => eng().reset());
+  engineGeneration++;
+}

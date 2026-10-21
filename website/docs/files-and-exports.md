@@ -1,0 +1,299 @@
+---
+title: "Files & Exports"
+sidebar_position: 13
+---
+## Opening and saving `.ork`
+
+AstraRocket reads and writes standard **OpenRocket `.ork`** files, so designs move both ways between it and desktop OpenRocket.
+
+- **Import** (menu → Import → OpenRocket) loads an existing `.ork` at full fidelity: stages, transitions, couplers, rings, bulkheads, and more, not just the simple editor layout. A banner notes anything that couldn't be fully resolved (e.g. an unknown motor). A file whose format version is outside 1.0 to 1.11 gets desktop's own note, "Unsupported document version …, attempting to read file anyway.", and is read anyway. Desktop simulation extensions (air-start, roll control, scripting), plot settings and landing-dispersion settings are not run here, but they are kept, so a save writes them back. The imported rocket becomes its own entry in your saved designs. If one of your saved rockets already has that name (which is what happens when you tweak a design in OpenRocket and import it again), the app asks whether to **overwrite** it or **keep both**, and offers a free name for the new one.
+- **Examples** (menu → Import → Examples) opens one of the [example rockets](./getting-started.md#example-rockets) that ship with the app. It is an import like any other, so what you get is your own unsaved copy, including the question above if you have opened that example before.
+- **Export** (menu → Export → OpenRocket) writes the current design back to a `.ork` file on your device.
+
+**Simulations travel with the file.** A `.ork` keeps every simulation, each with its name, the flight configuration it flies, its launch conditions and the summary of its last result: apogee, the speeds, the times and the optimum delay, as desktop OpenRocket writes them. Desktop opens those figures without re-running. Opening a `.ork` brings its simulations back the same way; one the file had results for shows them in the simulations table marked **From file** until you run it here, and turns **Outdated** as soon as anything it flies changes. A summary has no flight samples, so the charts appear once it has been run. A file with no simulations gets one per flight configuration.
+
+A round-trip through export and import is verified to preserve the physics (mass, CG, CP, stability), and the files re-open in desktop OpenRocket.
+
+## RockSim (`.rkt`)
+
+RockSim designs open and save too, from **menu → Import → RockSim** and **menu → Export → RockSim**. The reader also works off the file's contents rather than its name, so a `.rkt` picked in the OpenRocket dialog still opens.
+
+What comes across: nose cones, body tubes and transitions; inner tubes and motor mounts; centering rings, bulkheads, engine blocks and couplers; trapezoidal, elliptical and freeform fin sets with their cant, rotation and through-the-wall tabs; tube fins; launch lugs; parachutes and streamers; mass objects and shock cords; external pods (a detachable pod comes in as a parallel stage, which flies its own branch); and up to three stages. Dimensions, materials, finishes, placement and measured mass/CG come with them.
+
+What does not:
+
+- **Motors and launch conditions.** RockSim keeps those with its *simulations*, which are a separate object from the design, so an imported rocket arrives with no motor loaded and an exported one leaves without yours. Pick a motor after importing.
+- **Ring tails**, which have no equivalent here.
+- **Subassemblies**, whose contents are merged into the design rather than kept as a group.
+
+Going the other way, RockSim has no element for **rail buttons**. They are left out of the file, and the app tells you which parts were dropped. A strap-on booster goes out as a pod that separates, which is how RockSim and desktop OpenRocket write one, and a set of pods or boosters goes out as one pod per copy.
+
+> **Menu → Open and Save As work on designs saved inside the app** (see [Saved designs](#saved-designs) below); `.ork` files move to and from your disk through **Import** and **Export**.
+
+## Motor files (`.eng` / `.rse`)
+
+A motor the catalog does not carry comes in from a file, through **Import .eng / .rse** in the motor picker. An imported motor carries its own thrust curve, so it needs no lookup and works offline; it is listed in the picker with a ★, is deletable there, and is saved in your browser rather than in the design.
+
+- **`.eng` (RASP)** is the plain-text format nearly every site offers. It gives the designation, diameter, length, delays, propellant and loaded weight, and the thrust curve. The mass at each instant is reconstructed from the thrust curve and the propellant weight, which is what OpenRocket does with a RASP file too.
+- **`.rse` (RockSim)** is XML and carries more: what the motor **is** (single-use, reloadable or **hybrid**), a delay list that can say **plugged**, the motor's real launch CG, and the motor's mass at every sample rather than one number for the whole burn. When a file supplies that mass column, the simulation flies it instead of the reconstruction. A CG column is read at launch only. A `.rse` that asks for its own mass or CG to be recalculated gets the reconstruction anyway, matching OpenRocket.
+
+The format is read from the file's contents, not its name, so a `.rse` saved as `.eng` still works. One `.rse` can hold a whole manufacturer range; every motor in it is imported and the picker says how many arrived.
+
+## Saved designs
+
+The app keeps a library of your rockets in the browser, so you can work on several and switch between them without exporting a file each time.
+
+- **Open…** lists your saved rockets ("My Rockets"), newest first. Pick one to switch to it; you can rename or delete from the same list.
+- **Save As…** stores a copy under a new name, leaving the original as it was. There is no plain **Save**: editing autosaves every half-second, and the header shows when the last save happened.
+- **New** starts a fresh rocket as a separate entry, without touching the one you had open.
+
+> **Saved designs are per-browser and per-device.** The library lives in this browser on this machine: it does not sync, and clearing your browser data removes it (see [Offline & Installing](./offline-and-installing.md)).
+>
+> **`.ork` files are how you sync.** Export to a folder your system already syncs (iCloud Drive, OneDrive, Google Drive, Dropbox) and the design is on your other machines, backed up, and shareable; import it there to keep working. That also works with desktop OpenRocket, since it is the same file format.
+
+## Exporting to RASAero II (`.CDX1`)
+
+**Menu → Export → RASAero II** writes the design as a RASAero II `.CDX1` file, so you can open it in **[RASAero II](https://www.rasaero.com/)** for its own aerodynamic and flight analysis.
+
+RASAero models only the **external aerodynamic shape**, so the export carries the airframe (nose cone, body tubes, transitions / boat tails, fins, and launch lugs) plus the loaded **weight and CG** (written into RASAero's simulation block). Internal parts with no aerodynamic effect (centering rings, bulkheads, shock cords, engine blocks) are dropped; the first two parachutes inside the stages' body tubes become RASAero's two recovery entries, with the deployment of the flight configuration you have selected. A parachute in a nose cone, a transition or a pod is not exported, as in OpenRocket. Dimensions are converted to RASAero's units (inches, pounds, feet, °F).
+
+Because RASAero can't represent every shape, the export **stops with a clear message** rather than write a file RASAero would reject, for example tube or elliptical fins, a non-conical transition, more than one fin set on a tube, a freeform fin that isn't a simple trapezoid, an ogive nose cone with a shape parameter other than 1, a Haack nose cone other than Von Kármán (0) or LV-Haack (0.33), or a parachute that deploys on anything but apogee or an altitude (a new parachute deploys on the motor's ejection charge, so set its deployment first). In those cases, change the design or use `.ork` instead.
+
+## Exporting JSON for Onshape (`.json`)
+
+**Menu → Export → JSON** writes the design as a `.json` file for the **[AstraRocketOnshapeImport](https://cad.onshape.com/documents/8e0814e355abcb7f2e678124/w/e2a90792fddced2ca802f65f/e/6eb2e92aea957e94a813c25e)** custom feature in Onshape, which builds the rocket as parts in a Part Studio. The feature reads the file format of the **[OpenRocket-Onshape](https://github.com/AstraRocket/openrocket-onshape)** project.
+
+To build the rocket in Onshape:
+
+1. Export the design with **Menu → Export → JSON**.
+2. In Onshape, create a new document or open an existing one.
+3. Create a new Part Studio.
+4. If the document does not have the feature yet, add a custom feature and search for **AstraRocketOnshapeImport**.
+5. Import the downloaded `.json` file into the document.
+6. Open the **AstraRocketOnshapeImport** feature in the Part Studio and select the JSON file.
+
+The file holds every part the feature builds: nose cones, transitions, body tubes, all four fin types with tabs, inner tubes, couplers, centering rings, bulkheads, engine blocks, launch lugs, rail buttons, recovery parts and mass components (as packed cylinders), pod sets and boosters, and the motors of the flight configuration you have selected. The values come from the engine:
+
+- Automatic sizes are the ones the design flies, and every part sits where the engine puts it.
+- Nose cone and transition walls are cut the way the engine weighs them, so in Onshape each of those parts has the volume the simulation uses.
+- A packed parachute, streamer, shock cord or mass component gets a density that gives its packed cylinder the mass the simulation uses. Its own material is still in the file.
+- An inner tube cluster is written as one tube per motor, each where the engine puts it.
+- The center of pressure is the engine's static one, the figure the Design tab shows.
+
+The camera shroud is the one part the feature has no builder for. It is left out, and a note says so.
+
+## Exporting the whole rocket for 3D printing (`.3mf`)
+
+**Menu → Export → 3D print (.3mf)** writes every printable part of the design at once. The dialog lists what the design can print, all checked; uncheck anything you do not want. Parachutes, streamers, shock cords, mass components and rail buttons are not listed at all, because they have no solid body to print.
+
+Two options:
+
+- **One file per part (a .zip)**: off by default. Left off, you get a single `.3mf` holding one **named object per part**, which is the point of the format: the slicer's object list reads *Nose cone*, *Body tube*, *Centering ring*, not `part1`, `part2`, `part3`. Turned on, you get a zip of one file per part for a workflow that wants them separate.
+- **Place each part on the build plate**: on by default; each part is moved so it is centered and resting at Z = 0 rather than sitting where it was in the rocket.
+
+Parts keep the **orientation they have in the design**: the rocket's axis runs along X, so bodies arrive lying down. Standing them up would be right for tubes and wrong for every fin and ring, and it would make the 3MF differ from the STL of the same part. Use your slicer's lay-flat or rotate tool to reorient a part.
+
+3MF is also offered per component, beside STL/OBJ/GLB, on the **⬇** button in the tree.
+
+> **Why 3MF rather than STL.** STL holds only triangles: no name, no color, no declared unit, one object per file. 3MF carries all four, so a whole rocket arrives in the slicer already identified.
+
+## Exporting a component as a 3D model or cut file
+
+Export is **per component**, not whole-rocket: in the **Components** tree, every part that has a real shape carries a small **⬇** button that offers the formats appropriate to *that* part. Parts with no printable object (parachutes, streamers, shock cords, mass components, rail buttons) carry no button.
+
+- **3D models (STL, OBJ, GLB, 3MF).** A single, **watertight solid** of the part, built for 3D printing and CAD (STL/OBJ import into any slicer or modeler; GLB also carries a color for viewers; **3MF** carries the part's name, its color and the unit, and is the one to pick if your slicer takes it). Offered for nose cones, transitions, body tubes, inner tubes, launch lugs, tube fins, fin sets, centering rings, bulkheads, couplers and engine blocks. To get the whole rocket at once, see [3D printing the whole rocket](#exporting-the-whole-rocket-for-3d-printing-3mf) above.
+- **DXF 2D cut sheet.** The flat outline of a **plate-cut** part for a laser cutter or CNC router (AutoCAD R12, in millimeters, CUT / REFERENCE layers). Offered only for the parts you actually cut from sheet: **fins, centering rings and bulkheads**. Fin outlines fold in any through-the-wall tab; discs carry the bore and a center cross-hair.
+
+Notes on the 3D geometry:
+
+- STL, OBJ and 3MF are in **millimeters** (the unit slicers and CAD assume). GLB is in **meters**, the unit the glTF format defines, so viewers show the part at its real size. Each part is a **watertight, manifold solid**: a slicer won't reject it.
+- **Tubes are hollow** (real wall thickness), not solid rods; nose cones and transitions include their **shoulders**; a nose/transition/bulkhead is a solid body.
+- A **fin set** exports one fin; a **tube fin set** exports one tube; you print/cut as many as the design has.
+- Filenames are the rocket's name and then the component's (or its type), so the nose cones of two designs do not collide in your downloads folder. See [What a download is called](#what-a-download-is-called).
+
+## Rocket design report (PDF / CSV)
+
+**Menu → Rocket Design Report** opens the **Design Report** dialog to produce a full design report, with the same content as OpenRocket's printout.
+
+Check the elements to include:
+
+- **Design Report**: a schematic of the rocket plus the summary numbers (length, max diameter, empty/loaded mass and CG, CP, fineness, stability in calibers and %, Mach-0.3 drag coefficient, normal-force slope, and pitch/roll inertia), for the whole rocket and each stage.
+- **Parts detail**: per stage, every component with its material, dimensions and mass.
+- **Fin templates**, **Nose cone templates**, **Transition templates**: **1:1** cut/trace outlines (fins fold in any through-the-wall tab), with a cm/inch ruler to verify the print scale. Print at **100% / actual size** (no page scaling).
+- **Fin marking guide**: **1:1** wrap-around strips that say *where around the tube* each part goes, one per body tube that carries a fin set. See [Fin marking guide](#fin-marking-guide) below.
+
+Plus a few options:
+
+- **Motors Summary**: per simulation, a flight summary (apogee, times, and launcher-exit / max / deployment / landing velocities) and a motor table (average and peak thrust, burn time, total impulse, thrust-to-weight, weight, size).
+- **Update simulation data**: re-runs the simulation first so the flight numbers are current (it doesn't change your on-screen view).
+- **Show by stage**: group the summary and parts by stage.
+
+Then choose an output:
+
+- **Save as PDF**: a real PDF file (vector text, tables and 1:1 templates; the schematic is drawn to scale).
+- **Save as CSV**: the design summary as a `Scope, Field, Value, Unit` table (Design / Rocket / per-stage blocks, plus each fin set's root position), for a spreadsheet.
+- **Save parts as CSV**: the component table, one row per part in stage order, with its stage, nesting depth, type, name, material, density, length, outer and inner diameters, fore and aft diameters, thickness and mass, in the report's units. A figure a part does not have is left blank. A parachute's or streamer's canopy and a shock cord's cord are sheet and line materials, so their density goes in the **Surface density** or **Line density** column instead.
+
+**Units** (persisted, next to the other options) picks what the PDF and the CSV are written in: **My default units** follows [Settings ▸ Units](./settings.md#units), or pin the document to **Metric** or **Imperial** so it reads the same whatever units you are working in, which is useful when the report is for someone else. Note that "my default units" means the tab defaults, *not* a unit you have set on an individual field, so a report never mixes units because of per-field choices. The 1:1 templates and the printed scale bar always stay in mm/cm, because they measure the page.
+
+The **Settings** button (persisted) controls the **template fill / border colors**, **paper size** (Letter / A4) and **orientation** (Portrait / Landscape).
+
+### Fin marking guide
+
+The cutting templates give a fin's shape. This gives its **position**: a paper strip you wrap around the body tube to mark where each fin, tube fin, launch lug and rail button goes. It is the only printed aid **tube fins** get at all, since a tube has no outline to cut a template from.
+
+One strip per body tube that carries a fin set, printed 1:1. Everything angular on that tube shares the strip, each an arrow across it under its own name, so the guide answers *where does the lug sit relative to the fins*.
+
+To use one: print at **100% / actual size**, check the ruler, cut the strip out, wrap it around the tube with the **Fore** arrow pointing at the nose and the two ends **butted together, not overlapped**, then mark through each arrow. Rule a line along the tube through each pair of marks; that line is where the part goes.
+
+Some details worth knowing:
+
+- The strip is cut to the circumference **plus one paper thickness** (0.1 mm), because the marks sit on the outside of the wrapped paper rather than on the tube. Without it the ends fall short, and the smaller the tube the more it shows.
+- The **seam** is placed in the widest gap between marks, so nothing you have to mark ends up under the tape.
+- **Canted fins** are marked on the slant, with dashed lines at the root's fore and aft ends and a cross at its center.
+- A fin with a **tab** gets a box on its line for the **slot**, one fin thickness wide. Line the strip's left edge up with the aft end of the fin's root; the box runs from the slot's aft end to its fore end, measured forward from that edge, and both numbers are printed after the fin's name, so a tab longer than the strip is still marked. There is no allowance for glue or cutting. Canted fins get no box, since their slot is not a rectangle on the tube, and neither does a filled tube. Desktop OpenRocket's guide has no slots.
+- A strip too long for the page is **cut into pieces** that butt together and are taped in order, with the joins kept off the marks. Nothing is ever scaled down, because a scaled guide would put the marks in the wrong places. A 4 in tube wraps 320 mm, so it always takes two pieces.
+- A part no strip can carry is **named in a footnote** rather than dropped, so nothing disappears silently: a lug on a nose cone or transition, whose circumference changes along its length, or a lug on a tube with no fin set.
+
+Where the first fin sits around the body is the fin set's **Rotation** field, in the component panel's **Placement** section. A launch lug and a rail button use the same field.
+
+### What a download is called
+
+Every export names its file the same way, because a downloads folder is a flat list shared with everything else your browser saves there. The parts, in reading order:
+
+| The file is | Named | For example |
+| --- | --- | --- |
+| about the rocket | rocket, then what the file is | `Bertha-design.ork`, `Bertha-design.json`, `Bertha-report.pdf`, `Bertha-aero-table.csv`, `Bertha-2d.svg` |
+| about a simulation | rocket, then the run, then what the file is | `Bertha-C6_flight-flight-data.csv`, `Bertha-C6_flight-flight-events.csv`, `Bertha-C6_flight-flight-path.kml` |
+| a printable part | rocket, then the component | `Bertha-Nose_cone.stl` |
+
+A simulation export carries the run's name as well as the rocket's, because a rocket has several simulations and they are the thing being compared. Spaces and characters a filesystem will not take become `_`, and a part with nothing in it drops out, so an unnamed design still produces a usable filename.
+
+The rocket's name is its own name if you set one, otherwise the name of the file it was imported from. Re-saving a design you opened gives the same filename back rather than stacking suffixes, because that name is read from inside the file and never from the filename.
+
+## Exporting data
+
+**Flight and drag data** can be exported as **CSV** for use in a spreadsheet or your own analysis. Columns are in [your chosen units](./settings.md#units) and each header names the unit it carries, so a file stays self-describing; numbers always use `.` as the decimal separator regardless of your app language:
+
+- **Flight data**: the simulated time-history (from the Flight view).
+- **Drag table**: the Cd / breakdown / CP vs Mach data (from the Aero view).
+- **Flight events**: the event timeline, one row per event, from the **CSV** button on the [Flight events](./running-a-simulation.md#flight-events) table. Where the table on screen keeps each event's extras on a line under it, the file gives every one of them its own column: stability, thrust-to-weight, angle of attack, Mach and dynamic pressure, plus the source component and the stage. Most rows leave most of those columns blank: only the rail-departure row has a thrust-to-weight, and an empty cell says it does not have one rather than that it is zero. This is separate from the flight data above, which can already carry the events as comment lines. Comment lines are for reading; this file holds the events as data.
+- **Run table**: every simulation as one row with its configuration, motors, status and results, from **⬇ CSV** in the [simulations](./running-a-simulation.md) toolbar.
+- **Freeform fin points**: a freeform fin set's outline points, from **Export CSV** in its [editor](./designing-a-rocket.md#freeform-fins).
+
+The design report also writes two CSV files, the summary and the parts list; see [Rocket design report](#rocket-design-report-pdf--csv) above.
+
+### Choosing what goes in the flight CSV
+
+The **CSV** button on the Flight view opens an export dialog rather than downloading right away:
+
+- **Variables to export**: everything the run recorded, each with the unit it will be written in. A simulation records every series the engine computes, so this is the full set rather than a chosen handful; series the app has no name for are listed under their kernel symbol. **Select all** and **Select none** select or clear every series, and a count shows how many are selected.
+- **Format settings**: the field separator (comma, semicolon, TAB or SPACE), how many decimal places, and whether to use exponential notation for series that span many magnitudes.
+- **Comments**: whether to head the file with the simulation's name, a line per column describing it, and a line per flight event; plus the character that marks a comment.
+- **Stage to export**: on a staged flight, which branch to write.
+
+Your choices are remembered for the next export.
+
+## Exporting the flight path (KML / GPX / CSV)
+
+After a simulation, the **3D path** view has an **⬇ Export** button that saves the flight's trajectory and ground track for mapping tools:
+
+- **KML**: opens in **Google Earth**, with the flight-path line, the ground track, and labeled waypoints.
+- **GPX**: a standard GPS track (waypoints + track) for GPS tools and mapping apps.
+- **Waypoint CSV**: one row per point of interest (pad, apogee, landing, …) with latitude / longitude.
+
+In the export dialog you choose which **waypoints** to include (pad, liftoff, burnout, apogee, ejection, landing, max velocity, max acceleration), whether to include the **flight-path line** and the **ground track**, how much to thin the path (**keep every Nth point**), and the **altitude / distance units**.
+
+**Presets** (*Drift cast*, *Flight path* and *Landing plots*) set the waypoints, the lines and the placement altitude choices at once; they leave the thinning and the units alone. They only move the controls, so the file contains what the dialog shows, and you can adjust any control afterward. Each preset sets its whole selection, waypoints included: *Landing plots* narrows the waypoints to the landing, and *Drift cast* puts them all back.
+
+The one that matches the controls is highlighted, and a fresh dialog opens on *Flight path*. Because a preset only moves the controls, the highlight clears the moment you change one of the things it covers, and comes back when the controls match that preset again.
+
+**Placement** controls how the track sits on the map:
+
+- **Track altitude from** and **Waypoint altitude from**: two separate choices, because the line and the pins often need different settings. *Automatic* uses sea level when the launch site has a real altitude set and the ground when it is still 0. That default matters: a flight measured from the pad but placed against sea level is buried under the terrain, which is what a launch site at 1200 m would otherwise give you. *Clamped to the ground* lays the track flat on the terrain, the one to pick when the question is what the rocket drifts **over** rather than how high it went. A common pairing is the track at sea level with the pins clamped: the flight drawn in the air, and its labels on the ground.
+- **Draw shadow down to the ground**: a curtain under the track and a plumb line under each pin, so you can read where a point in the air sits on the map. It turns off automatically once both are clamped, since there is no height left to draw. No preset turns it on: under a single pin it marks a position, but under a whole flight path it draws a solid wall that hides the flight. It is most useful for placing one point on the map.
+- **Draw waypoint names on the map**: a near-vertical flight stacks its waypoints into a few hundred meters of screen; turn the names off for bare markers you can click.
+- **Color waypoint pins per stage**: colored pins load an icon from Google's servers, so turn them off for a file that has to render offline.
+
+The **Flight path** group carries two more controls that belong to the lines themselves:
+
+- **Each stage's track starts** (staged flights only): a separated stage's data begins as a copy of the whole stack's, so by default its track starts **at separation** and the shared ascent is drawn once. Choose **on the pad** to have every stage read as a complete flight instead. This also decides where a stage's *max velocity* and *max acceleration* are measured from, so a spent booster reports its own peaks rather than the stack's.
+- **Stage colors…**: one row per stage with three swatches, **Path**, **Ground** and **Pin**, for the flight-path line, the ground track and the waypoint pins. Each is set on its own; changing one never moves another. The path and the pins start on the same palette color desktop OpenRocket and the [flight charts](./views-and-analysis.md#flight-after-a-simulation) give that stage, so a stage keeps its identity between the graph and the map. The ground track starts on a contrasting color from its own palette, because seen from straight above a ground track sits directly beneath its flight path. **OK** applies the colors, **Reset to defaults** puts every swatch back on its palette, and **Cancel** leaves your previous choice alone.
+
+### Summary balloons
+
+Google Earth shows a feature's **description** in a balloon when you click it, and the KML fills three of them:
+
+- **The document** carries the flight summary: the rocket, the motor configuration, the launch site's coordinates and elevation, the peak altitude, velocity and acceleration, the maximum range from the pad, the time to apogee, the flight time, and one line per stage giving that stage's landing coordinates, distance, bearing and time.
+- **Each stage folder** carries that stage's own maximum range, and its landing on one line in the same shape the summary uses: coordinates first, then distance and bearing from the pad, then the time.
+- **Each waypoint** carries the time since liftoff, the altitude above the pad and above sea level on one line, the position as a distance and bearing from the pad, its own coordinates, and, for an ejection, the recovery device that deployed.
+
+**Every coordinate is written `latitude, longitude`, and says so.** A bare pair is ambiguous, and more so in a KML file, whose own coordinate triples are written *longitude* first; at a real launch site both readings can be plausible places. Each pair is therefore tagged `(lat, lon)` and written to six decimals: about 10 cm, and signed decimal degrees, which is exactly what the app's own latitude and longitude fields take, so a coordinate read out of a balloon can be pasted directly back in.
+
+The landing coordinates are the ones you will actually use. A distance and a bearing from the pad are for reading the map; the pair is what you type into a handheld GPS to find the rocket, so every landing line leads with it:
+
+```
+Sod Blaster landing: 30.615051, -97.496600 (lat, lon); 50.0 m at 0° from the pad; T+3.0 s
+```
+
+The clauses are separated by semicolons because the coordinate carries a comma of its own, and every time in the file is written `T+` and to one decimal, so every time uses the same notation.
+
+**Maximum range is not the landing distance.** A rocket can drift downrange under the chute and then partway back, so the farthest point from the pad is often not where it lands. The range is the figure that matters for range safety; where it came down is a separate fact, and both are exported. A stage's range is measured over its whole flight, including the ascent the stages flew bolted together, because the stack's excursion counts against every stage that was part of it.
+
+A line with no value is left out rather than shown empty: there is no configuration line for a rocket with no named configuration, no "above sea level" altitude when the launch site is still at 0 (that height would really be the height above the pad), no recovery device on a pin that is not an ejection, and no landing at all for a run that ended while the rocket was still in the air.
+
+**Summary balloons** turns all of the descriptions off, for a file where they are not wanted. The geometry, the names and the colors are unaffected.
+
+An ejection pin is named for the event, qualified by the device when you gave that device a name: *Drogue Ejection* and *Main Ejection*. That tells the two apart on a dual-deployment flight while keeping the event vocabulary every other pin uses, and on a staged flight it stacks with the stage into *Booster Drogue Ejection*. A device left on its default name adds nothing the balloon's **Device** line does not, so its pin is just **Ejection**.
+
+Every line carries a bold label, so a balloon reads as a list of facts rather than a paragraph. Google Earth adds the feature's name as a heading above it, and a **Directions: To here / From here** pair below it, from its own default balloon template rather than from the file.
+
+Where a balloon opens differs by viewer. Google Earth Pro opens a waypoint balloon when you click the pin in the 3D view, but opens the document and folder balloons only from their names in the **Places** panel. Google Earth for web opens all three from the project panel.
+
+### Naming the export
+
+Several exports opened in one Google Earth session are otherwise indistinguishable: every two-stage design contributes a folder called *Sustainer* and a track called *Sustainer flight path*, and two designs can each have a *Simulation 1*. The **Mission** box names this one: the text is prefixed to the document name, every folder and every track, so *Sod Blaster* gives you *Sod Blaster Sustainer flight path*. A name that already starts with the mission is left alone, so the mission is not repeated.
+
+**Prefix the waypoint names too** extends it to the markers, and is off by default: a near-vertical flight packs every marker into a few screen pixels, where the labels already overlap enough to have a switch of their own (*Draw waypoint names on the map*, above), and longer names only make that worse. Turn it on when two flights' markers genuinely sit on top of each other.
+
+The mission name is **not** remembered between exports: a stale one would quietly mislabel the next file, which is worse than retyping it. The marker checkbox is remembered, because it is a working preference rather than a property of one flight. Neither is stored in your design. The stage colors are remembered between exports too, by stage position: the first stage of the next export gets the colors you gave the first stage, whatever rocket it belongs to.
+
+The coordinates are placed about the simulation's **launch latitude / longitude** (set in the launch conditions) and follow the wind drift, projected with WGS84 degree lengths so a track exported here lands on the same spot as the same flight exported from desktop OpenRocket.
+
+If both coordinates are still zero the position was never filled in, so the export is placed at the **Kennedy Space Center** instead and the dialog shows a warning. Only (0, 0) counts, because it is open ocean; a site on the prime meridian or the equator is a real place and is exported where you put it. Your design is never modified; this only decides what coordinates go into the file.
+
+### The language of the file
+
+The **Language** box, next to the units, writes the export in a language other than the one you are reading the app in. It defaults to *Same as the app*.
+
+It belongs to the file for the same reason the units do: a KML going to somebody else may need to be in their language, whatever language your app is set to. The choice is remembered between exports, and *Same as the app* is remembered too: picking Spanish once and then going back does not quietly leave the next file in Spanish.
+
+It covers everything the export writes: the waypoint names, the *flight path* and *ground track* track names, every line of the balloons, and the default name of a recovery device you never renamed: a parachute you left alone is labeled in the export's language, not in English. What it cannot cover is text you wrote yourself: the mission name, the names you gave your own components, and any prose hardcoded in an imported template, which stays in whatever language its author typed.
+
+### Custom export templates
+
+The three built-in formats are **[Mustache](https://mustache.github.io/) templates**, and you can supply your own:
+
+- **Download template**: save the selected format's template as a starting point.
+- **Import template…**: add a `.mustache` file named `<name>.<ext>.mustache` (e.g. `my-track.kml.mustache`, `waypoints.csv.mustache`). The extension becomes the output file type. Your template appears in the format list, renders against the same flight data, and can be deleted. Imported templates are stored in your browser (nothing is uploaded).
+
+Templates see the flight as a model with the same field names as OpenRocket's desktop export (e.g. `{{title}}`, `{{#branches}}`, `{{#waypoints}}`, `{{latitude}}`, `{{longitude}}`, `{{altitudeMslMeters}}`, `{{#path}}`), so templates written for desktop OpenRocket work here too.
+
+`{{labels.*}}` holds the built-in templates' own strings in the export language (`{{labels.maxAltitude}}`, `{{labels.landing}}`, `{{labels.flightPath}}` and the rest), which is how those templates follow the **Language** box. A phrase whose word order changes between languages is not in there: `{{rangeText}}` on a waypoint, and `{{landingText}}` and `{{landingHeading}}` on a stage, arrive as finished strings, because a template gluing translated fragments together in English order produces English word order in every language. The values behind them are all still on the model, so a template that wants to build its own sentence still can.
+
+The summary values are on the model too. At the top level: `{{maxRange}}` (the farthest any stage got from the pad, in the distance unit), `{{timeToApogee}}` and `{{flightTime}}` (seconds, one decimal), `{{velocityUnit}}` and `{{accelerationUnit}}` (labels for `{{maxVelocity}}` and `{{maxAcceleration}}`, which are always SI), `{{launchLatitudeStr}}`, `{{launchLongitudeStr}}` and `{{launchAltitude}}`, and `{{#includeDescriptions}}` for the balloon switch. Per stage: `{{maxRangeMeters}}` and `{{maxRange}}`, and `{{#hasLanding}}` gating `{{landingDistance}}`, `{{landingBearing}}`, `{{landingTime}}`, `{{landingLatitudeStr}}` and `{{landingLongitudeStr}}`. Each waypoint carries `{{latitudeStr}}` and `{{longitudeStr}}`, the same six-decimal strings.
+
+Two things to know when writing balloons of your own. **Write the HTML pre-escaped**, as `&lt;b&gt;` rather than `<b>`, do not wrap it in `CDATA`, and put the balloon inside `{{#htmlBalloon}}…{{/htmlBalloon}}`, as the built-in template does. A balloon is HTML carried inside XML. A value inside `{{#htmlBalloon}}` is escaped twice, for the HTML and then for the XML, so a rocket named `<b>Fast</b>` shows those characters as text. The pre-escaped markup is escaped once, so it decodes to the tags it means. A value outside `{{#htmlBalloon}}` is escaped for the XML only, so markup in it would render. Inside a `CDATA` block the escapes are not decoded at all: a rocket named `Bill & Ted` would reach the balloon as the literal text `Bill &amp; Ted`, and a name containing `]]>` would close the block early and produce an invalid file. Second, **an empty value and a zero are false**, so `{{#launchAltitudeMeters}}…{{/launchAltitudeMeters}}` makes the line around it disappear when there is nothing to say, rather than printing a label with a blank after it.
+
+## Exporting images
+
+The **2D schematic** can be exported as a drawing:
+
+- **SVG**: a true-scale vector drawing with the design data (prints at 100% scale).
+- **PNG / JPG**: a high-resolution raster image; pick the format and width.
+
+The **3D** view exports drawings too: **⬇ SVG** saves the current view as a flat-shaded vector drawing with the design data (see [3D model](./views-and-analysis.md#3d-model)), and **📷 Image** saves the current view as PNG or JPG at the width you pick, with the design data. Turn the model to the angle you want first; **Fit rocket to frame** moves the camera in so the rocket fills the image.
+
+## Nothing leaves your device
+
+All import/export happens locally in your browser: files are read from and written to your own device, with no upload to any server.

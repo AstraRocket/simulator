@@ -1,0 +1,694 @@
+import { describe, expect, it } from 'vitest';
+import { KERNEL_DEFAULTS, KERNEL_SHAPES, kernelLength } from '../../src/tree/kernelDefaults';
+import { defaultNode } from '../../src/services/design/treeEdit';
+import type { ComponentNode, ComponentType } from '../../src/engine/openRocketEngine';
+import { loadEngine } from '../testing/kernelGeometry';
+
+/** The TeaVM bundle, which is untyped. */
+type Engine = Awaited<ReturnType<typeof loadEngine>>;
+
+/**
+ * Lock `KERNEL_DEFAULTS` to what the kernel actually does.
+ *
+ * The method is deliberately behavioral rather than declarative. There is no
+ * way to ask `ComponentFactory` "what default did you use for bodytube
+ * thickness", and a table that merely *claims* to mirror the Java is a
+ * hand-maintained artifact that can drift unnoticed.
+ *
+ * Each case builds the same component twice through the real engine - once
+ * with the field absent, once with the value from the table - and requires the
+ * observable to be identical.
+ *
+ * **Every case also asserts its own sensitivity**, because "identical" proves
+ * nothing if the observable cannot see the field at all. Component length/mass
+ * would pass a deliberately wrong mass-component radius: a mass component's
+ * mass is an override, so its radius moves neither. Fields like that use a
+ * whole-rocket observable instead: the radius shows up in roll inertia, a pod's
+ * instance count in total mass.
+ */
+
+const NOSE = {
+  type: 'nosecone',
+  id: 'n',
+  shape: 'ogive',
+  length: 0.07,
+  aftRadius: 0.013,
+  thickness: 0.001,
+} as unknown as ComponentNode;
+
+const TUBE = {
+  type: 'bodytube',
+  id: 'host',
+  length: 0.2,
+  outerRadius: 0.013,
+  thickness: 0.0005,
+} as unknown as ComponentNode;
+
+/**
+ * Where the effect of the field shows up. `field` reads the key itself back
+ * from the kernel (getComponentFields), for a field that moves nothing in the
+ * part's or the rocket's figures (an angle, a spacing with one copy).
+ */
+type Scope = 'component' | 'rocket' | 'field';
+
+const build = (engine: Engine, node: ComponentNode, parent: ComponentNode | null) => {
+  engine.reset();
+  const inner = { ...node, id: 'probe' };
+  const components = parent ? [NOSE, { ...parent, children: [inner] }] : [NOSE, inner];
+  return engine.buildRocket(JSON.stringify({ components }));
+};
+
+const observe = (
+  engine: Engine,
+  node: ComponentNode,
+  parent: ComponentNode | null,
+  scope: Scope,
+  field = '',
+): string => {
+  const handle = build(engine, node, parent);
+  if (scope === 'field') {
+    const f = JSON.parse(engine.getComponentFields(handle, 'probe')) as Record<string, unknown>;
+    if (f['error']) throw new Error(`probe failed: ${JSON.stringify(f['error'])}`);
+    return String(f[field]);
+  }
+  if (scope === 'component') {
+    const i = JSON.parse(engine.getComponentInfo(handle, 'probe'));
+    if (i.error) throw new Error(`probe failed: ${i.error}`);
+    // cd, which componentInfo carries for a recovery device, is what flies.
+    return `${i.length}|${i.mass}|${i.sectionMass}|${i.cd ?? ''}`;
+  }
+  const s = JSON.parse(engine.getStaticInfo(handle));
+  if (s.error) throw new Error(`probe failed: ${s.error}`);
+  return `${s.mass}|${s.cg}|${s.rollInertia}|${s.pitchInertia}`;
+};
+
+type Case = [
+  label: string,
+  base: ComponentNode,
+  parent: ComponentNode | null,
+  field: string,
+  expected: number,
+  scope: Scope,
+  /** A different value, used only to prove the observable can see the field. */
+  probeOther: number,
+];
+
+const n = (o: Record<string, unknown>) => o as unknown as ComponentNode;
+
+const CASES: Case[] = [
+  [
+    'masscomponent.radius',
+    n({ type: 'masscomponent', mass: 0.01, length: 0.02 }),
+    TUBE,
+    'radius',
+    KERNEL_DEFAULTS.masscomponent.radius,
+    'rocket',
+    0.01,
+  ],
+  [
+    'railbutton.outerDiameter',
+    n({ type: 'railbutton' }),
+    TUBE,
+    'outerDiameter',
+    KERNEL_DEFAULTS.railbutton.outerDiameter,
+    'component',
+    0.02,
+  ],
+  [
+    'bodytube.thickness',
+    n({ type: 'bodytube', length: 0.2, outerRadius: 0.013 }),
+    null,
+    'thickness',
+    KERNEL_DEFAULTS.bodytube.thickness,
+    'component',
+    0.001,
+  ],
+  [
+    'transition.thickness',
+    n({ type: 'transition', shape: 'conical', length: 0.05, foreRadius: 0.013, aftRadius: 0.019 }),
+    null,
+    'thickness',
+    KERNEL_DEFAULTS.transition.thickness,
+    'component',
+    0.004,
+  ],
+  [
+    'transition.length',
+    n({ type: 'transition', shape: 'conical', foreRadius: 0.013, aftRadius: 0.019 }),
+    null,
+    'length',
+    KERNEL_DEFAULTS.transition.length,
+    'component',
+    0.09,
+  ],
+  [
+    'nosecone.thickness',
+    n({ type: 'nosecone', shape: 'ogive', length: 0.1, aftRadius: 0.013 }),
+    null,
+    'thickness',
+    KERNEL_DEFAULTS.nosecone.thickness,
+    'component',
+    0.004,
+  ],
+  [
+    'nosecone.aftRadius',
+    n({ type: 'nosecone', shape: 'ogive', length: 0.1 }),
+    null,
+    'aftRadius',
+    KERNEL_DEFAULTS.nosecone.aftRadius,
+    'component',
+    0.02,
+  ],
+  [
+    'bulkhead.length',
+    n({ type: 'bulkhead', outerRadius: 0.0125 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.bulkhead.length,
+    'component',
+    0.006,
+  ],
+  [
+    'engineblock.thickness',
+    n({ type: 'engineblock', length: 0.005, outerRadius: 0.0092 }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.engineblock.thickness,
+    'component',
+    0.003,
+  ],
+  [
+    'centeringring.length',
+    n({ type: 'centeringring', outerRadius: 0.0125, innerRadius: 0.0092 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.centeringring.length,
+    'component',
+    0.006,
+  ],
+  [
+    'innertube.thickness',
+    n({ type: 'innertube', length: 0.07, outerRadius: 0.0092 }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.innertube.thickness,
+    'component',
+    0.002,
+  ],
+  [
+    'launchlug.length',
+    n({ type: 'launchlug', outerRadius: 0.0022 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.launchlug.length,
+    'component',
+    0.09,
+  ],
+  [
+    'streamer.stripLength',
+    n({ type: 'streamer', stripWidth: 0.05 }),
+    TUBE,
+    'stripLength',
+    KERNEL_DEFAULTS.streamer.stripLength,
+    'component',
+    0.9,
+  ],
+  [
+    'podset.instanceCount',
+    n({
+      type: 'podset',
+      children: [{ type: 'bodytube', id: 'pb', length: 0.12, outerRadius: 0.009, thickness: 0.0005 }],
+    }),
+    TUBE,
+    'instanceCount',
+    KERNEL_DEFAULTS.podset.instanceCount,
+    'rocket',
+    4,
+  ],
+  [
+    'parallelstage.instanceCount',
+    n({
+      type: 'parallelstage',
+      children: [{ type: 'bodytube', id: 'sb', length: 0.12, outerRadius: 0.009, thickness: 0.0005 }],
+    }),
+    TUBE,
+    'instanceCount',
+    KERNEL_DEFAULTS.parallelstage.instanceCount,
+    'rocket',
+    4,
+  ],
+  [
+    'trapezoidfinset.thickness',
+    n({ type: 'trapezoidfinset', finCount: 3, rootChord: 0.05, tipChord: 0.03, sweep: 0.02, height: 0.03 }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.trapezoidfinset.thickness,
+    'component',
+    0.006,
+  ],
+  [
+    'ellipticalfinset.thickness',
+    n({ type: 'ellipticalfinset', finCount: 3, rootChord: 0.05, height: 0.03 }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.ellipticalfinset.thickness,
+    'component',
+    0.006,
+  ],
+  [
+    'freeformfinset.thickness',
+    n({
+      type: 'freeformfinset',
+      finCount: 3,
+      points: [
+        [0, 0],
+        [0.03, 0.03],
+        [0.05, 0.03],
+        [0.05, 0],
+      ],
+    }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.freeformfinset.thickness,
+    'component',
+    0.006,
+  ],
+  // ---- The per-type lengths and the fin planform defaults ------------------
+  // Every one is read from KERNEL_DEFAULTS and pinned here against the engine, so
+  // no consumer carries a fallback number of its own.
+  [
+    'nosecone.length',
+    n({ type: 'nosecone', shape: 'ogive', aftRadius: 0.013 }),
+    null,
+    'length',
+    KERNEL_DEFAULTS.nosecone.length,
+    'component',
+    0.12,
+  ],
+  [
+    'bodytube.length',
+    n({ type: 'bodytube', outerRadius: 0.013 }),
+    null,
+    'length',
+    KERNEL_DEFAULTS.bodytube.length,
+    'component',
+    0.5,
+  ],
+  [
+    'bodytube.outerRadius',
+    n({ type: 'bodytube', length: 0.2 }),
+    null,
+    'outerRadius',
+    KERNEL_DEFAULTS.bodytube.outerRadius,
+    'component',
+    0.02,
+  ],
+  [
+    'trapezoidfinset.rootChord',
+    n({ type: 'trapezoidfinset', tipChord: 0.03, sweep: 0.02, height: 0.03, thickness: 0.003 }),
+    TUBE,
+    'rootChord',
+    KERNEL_DEFAULTS.trapezoidfinset.rootChord,
+    'component',
+    0.09,
+  ],
+  [
+    'trapezoidfinset.tipChord',
+    n({ type: 'trapezoidfinset', rootChord: 0.05, sweep: 0.02, height: 0.03, thickness: 0.003 }),
+    TUBE,
+    'tipChord',
+    KERNEL_DEFAULTS.trapezoidfinset.tipChord,
+    'component',
+    0.01,
+  ],
+  // Sweep moves the fin's CG, not its area, so only a whole-rocket observable
+  // (cg, pitch inertia) can see it.
+  [
+    'trapezoidfinset.sweep',
+    n({ type: 'trapezoidfinset', rootChord: 0.05, tipChord: 0.03, height: 0.03, thickness: 0.003 }),
+    TUBE,
+    'sweep',
+    KERNEL_DEFAULTS.trapezoidfinset.sweep,
+    'rocket',
+    0.05,
+  ],
+  [
+    'trapezoidfinset.height',
+    n({ type: 'trapezoidfinset', rootChord: 0.05, tipChord: 0.03, sweep: 0.02, thickness: 0.003 }),
+    TUBE,
+    'height',
+    KERNEL_DEFAULTS.trapezoidfinset.height,
+    'component',
+    0.06,
+  ],
+  [
+    'trapezoidfinset.finCount',
+    n({ type: 'trapezoidfinset', rootChord: 0.05, tipChord: 0.03, sweep: 0.02, height: 0.03, thickness: 0.003 }),
+    TUBE,
+    'finCount',
+    KERNEL_DEFAULTS.trapezoidfinset.finCount,
+    'rocket',
+    4,
+  ],
+  [
+    'ellipticalfinset.rootChord',
+    n({ type: 'ellipticalfinset', height: 0.03, thickness: 0.003 }),
+    TUBE,
+    'rootChord',
+    KERNEL_DEFAULTS.ellipticalfinset.rootChord,
+    'component',
+    0.09,
+  ],
+  [
+    'ellipticalfinset.height',
+    n({ type: 'ellipticalfinset', rootChord: 0.05, thickness: 0.003 }),
+    TUBE,
+    'height',
+    KERNEL_DEFAULTS.ellipticalfinset.height,
+    'component',
+    0.06,
+  ],
+  [
+    'ellipticalfinset.finCount',
+    n({ type: 'ellipticalfinset', rootChord: 0.05, height: 0.03, thickness: 0.003 }),
+    TUBE,
+    'finCount',
+    KERNEL_DEFAULTS.ellipticalfinset.finCount,
+    'rocket',
+    4,
+  ],
+  [
+    'freeformfinset.finCount',
+    n({
+      type: 'freeformfinset',
+      thickness: 0.003,
+      points: [
+        [0, 0],
+        [0.02, 0.03],
+        [0.05, 0],
+      ],
+    }),
+    TUBE,
+    'finCount',
+    KERNEL_DEFAULTS.freeformfinset.finCount,
+    'rocket',
+    4,
+  ],
+  [
+    'tubefinset.length',
+    n({ type: 'tubefinset', outerRadius: 0.009 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.tubefinset.length,
+    'component',
+    0.15,
+  ],
+  [
+    'tubefinset.finCount',
+    n({ type: 'tubefinset', length: 0.08 }),
+    TUBE,
+    'finCount',
+    KERNEL_DEFAULTS.tubefinset.finCount,
+    'rocket',
+    4,
+  ],
+  [
+    'innertube.length',
+    n({ type: 'innertube', outerRadius: 0.0092, thickness: 0.0005 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.innertube.length,
+    'component',
+    0.09,
+  ],
+  [
+    'innertube.outerRadius',
+    n({ type: 'innertube', length: 0.07, thickness: 0.0005 }),
+    TUBE,
+    'outerRadius',
+    KERNEL_DEFAULTS.innertube.outerRadius,
+    'component',
+    0.012,
+  ],
+  [
+    'tubecoupler.length',
+    n({ type: 'tubecoupler', outerRadius: 0.0125, thickness: 0.0005 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.tubecoupler.length,
+    'component',
+    0.09,
+  ],
+  [
+    'tubecoupler.thickness',
+    n({ type: 'tubecoupler', length: 0.05, outerRadius: 0.0125 }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.tubecoupler.thickness,
+    'component',
+    0.001,
+  ],
+  [
+    'engineblock.length',
+    n({ type: 'engineblock', outerRadius: 0.0092 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.engineblock.length,
+    'component',
+    0.009,
+  ],
+  [
+    'launchlug.outerRadius',
+    n({ type: 'launchlug', length: 0.05 }),
+    TUBE,
+    'outerRadius',
+    KERNEL_DEFAULTS.launchlug.outerRadius,
+    'component',
+    0.004,
+  ],
+  [
+    'launchlug.thickness',
+    n({ type: 'launchlug', length: 0.05, outerRadius: 0.0022 }),
+    TUBE,
+    'thickness',
+    KERNEL_DEFAULTS.launchlug.thickness,
+    'component',
+    0.0005,
+  ],
+  ['fairing.length', n({ type: 'fairing' }), TUBE, 'length', KERNEL_DEFAULTS.fairing.length, 'component', 0.12],
+  ['fairing.mass', n({ type: 'fairing' }), TUBE, 'mass', KERNEL_DEFAULTS.fairing.mass, 'component', 0.05],
+  // The fairing's radius is max(width, height) / 2, so each is probed with the
+  // other set small enough that it decides the radius, and seen in roll inertia.
+  ['fairing.width', n({ type: 'fairing', height: 0.01 }), TUBE, 'width', KERNEL_DEFAULTS.fairing.width, 'rocket', 0.05],
+  [
+    'fairing.height',
+    n({ type: 'fairing', width: 0.01 }),
+    TUBE,
+    'height',
+    KERNEL_DEFAULTS.fairing.height,
+    'rocket',
+    0.04,
+  ],
+  [
+    'parachute.length',
+    n({ type: 'parachute', diameter: 0.3 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.parachute.length,
+    'component',
+    0.05,
+  ],
+  [
+    'parachute.diameter',
+    n({ type: 'parachute', length: 0.025 }),
+    TUBE,
+    'diameter',
+    KERNEL_DEFAULTS.parachute.diameter,
+    'component',
+    0.5,
+  ],
+  ['parachute.cd', n({ type: 'parachute', length: 0.025 }), TUBE, 'cd', KERNEL_DEFAULTS.parachute.cd, 'component', 1.2],
+  [
+    'parachute.lineLength',
+    n({ type: 'parachute', length: 0.025 }),
+    TUBE,
+    'lineLength',
+    KERNEL_DEFAULTS.parachute.lineLength,
+    'component',
+    0.6,
+  ],
+  [
+    'streamer.length',
+    n({ type: 'streamer', stripWidth: 0.05 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.streamer.length,
+    'component',
+    0.05,
+  ],
+  [
+    'streamer.stripWidth',
+    n({ type: 'streamer', stripLength: 0.5 }),
+    TUBE,
+    'stripWidth',
+    KERNEL_DEFAULTS.streamer.stripWidth,
+    'component',
+    0.1,
+  ],
+  ['shockcord.length', n({ type: 'shockcord' }), TUBE, 'length', KERNEL_DEFAULTS.shockcord.length, 'component', 0.05],
+  [
+    'shockcord.cordLength',
+    n({ type: 'shockcord' }),
+    TUBE,
+    'cordLength',
+    KERNEL_DEFAULTS.shockcord.cordLength,
+    'component',
+    0.6,
+  ],
+  [
+    'masscomponent.length',
+    n({ type: 'masscomponent', mass: 0.01 }),
+    TUBE,
+    'length',
+    KERNEL_DEFAULTS.masscomponent.length,
+    'component',
+    0.04,
+  ],
+  ...(['launchlug', 'railbutton'] as const).flatMap((type): Case[] => {
+    const base = n(type === 'launchlug' ? { type, length: 0.03, outerRadius: 0.004 } : { type, outerDiameter: 0.01 });
+    return [
+      [`${type}.instanceCount`, base, TUBE, 'instanceCount', KERNEL_DEFAULTS[type].instanceCount, 'field', 3],
+      [
+        `${type}.instanceSeparation`,
+        base,
+        TUBE,
+        'instanceSeparation',
+        KERNEL_DEFAULTS[type].instanceSeparation,
+        'field',
+        0.02,
+      ],
+      [`${type}.angleOffset`, base, TUBE, 'angleOffset', KERNEL_DEFAULTS[type].angleOffset, 'field', 1],
+    ];
+  }),
+  [
+    'centeringring.instanceCount',
+    n({ type: 'centeringring', length: 0.003 }),
+    TUBE,
+    'instanceCount',
+    KERNEL_DEFAULTS.centeringring.instanceCount,
+    'field',
+    2,
+  ],
+  [
+    'bulkhead.instanceCount',
+    n({ type: 'bulkhead', length: 0.003 }),
+    TUBE,
+    'instanceCount',
+    KERNEL_DEFAULTS.bulkhead.instanceCount,
+    'field',
+    2,
+  ],
+  [
+    'parachute.lineCount',
+    n({ type: 'parachute', length: 0.025 }),
+    TUBE,
+    'lineCount',
+    KERNEL_DEFAULTS.parachute.lineCount,
+    'field',
+    8,
+  ],
+  ...(['parachute', 'streamer', 'shockcord'] as const).map((type): Case => [
+    `${type}.radius`,
+    n({ type, length: 0.025 }),
+    TUBE,
+    'radius',
+    KERNEL_DEFAULTS[type].radius,
+    'field',
+    0.006,
+  ]),
+  [
+    'masscomponent.mass',
+    n({ type: 'masscomponent', length: 0.02 }),
+    TUBE,
+    'mass',
+    KERNEL_DEFAULTS.masscomponent.mass,
+    'component',
+    0.05,
+  ],
+];
+
+describe('KERNEL_DEFAULTS matches the kernel', () => {
+  it.each(CASES)('%s', async (_label, base, parent, field, expected, scope, probeOther) => {
+    const engine = await loadEngine();
+    const absent = observe(engine, base, parent, scope, field);
+
+    // The observable must be able to see this field, or the assertion below is
+    // vacuous: an observable that looks reasonable can be blind to the field.
+    const other = observe(engine, n({ ...base, [field]: probeOther }), parent, scope, field);
+    expect(other, 'probe cannot observe this field, so the check below proves nothing').not.toBe(absent);
+
+    const declared = observe(engine, n({ ...base, [field]: expected }), parent, scope, field);
+    expect(declared).toBe(absent);
+  });
+});
+
+/**
+ * KERNEL_SHAPES, the same way: a keyless nose cone or transition builds exactly
+ * as the declared shape, and a different shape builds differently.
+ */
+describe('KERNEL_SHAPES matches the kernel', () => {
+  const SHAPE_CASES: [type: keyof typeof KERNEL_SHAPES, base: ComponentNode, other: string][] = [
+    ['nosecone', n({ type: 'nosecone', length: 0.1, aftRadius: 0.013, thickness: 0.001 }), 'conical'],
+    [
+      'transition',
+      n({ type: 'transition', length: 0.05, foreRadius: 0.013, aftRadius: 0.019, thickness: 0.001 }),
+      'ogive',
+    ],
+  ];
+
+  it.each(SHAPE_CASES)('%s', async (type, base, other) => {
+    const engine = await loadEngine();
+    const absent = observe(engine, base, null, 'component');
+    const different = observe(engine, n({ ...base, shape: other }), null, 'component');
+    expect(different, 'probe cannot observe the shape, so the check below proves nothing').not.toBe(absent);
+    expect(observe(engine, n({ ...base, shape: KERNEL_SHAPES[type] }), null, 'component')).toBe(absent);
+  });
+});
+
+describe('defaultNode does not leave a divergent field unset', () => {
+  // With either field omitted, the editor would produce a node whose drawing and
+  // simulation describe different hardware. Setting them explicitly makes the
+  // two agree for a newly created component.
+  it('a mass component carries an explicit radius', () => {
+    expect(defaultNode('masscomponent')['radius']).toBe(KERNEL_DEFAULTS.masscomponent.radius);
+  });
+
+  it('a rail button carries an explicit outer diameter', () => {
+    expect(defaultNode('railbutton')['outerDiameter']).toBe(KERNEL_DEFAULTS.railbutton.outerDiameter);
+  });
+});
+
+describe('every KERNEL_DEFAULTS entry has a behavioral case above', () => {
+  // The table is only as trustworthy as its coverage: a value added to
+  // KERNEL_DEFAULTS without a case here is exactly the hand-asserted number the
+  // file header says this test exists to prevent.
+  it('covers each type.field', () => {
+    const labels = new Set(CASES.map(([label]) => label));
+    const missing: string[] = [];
+    for (const [type, row] of Object.entries(KERNEL_DEFAULTS)) {
+      for (const field of Object.keys(row)) {
+        if (!labels.has(`${type}.${field}`)) missing.push(`${type}.${field}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it('kernelLength reads the same length the table declares', () => {
+    for (const [type, row] of Object.entries(KERNEL_DEFAULTS)) {
+      expect(kernelLength(type as ComponentType)).toBe((row as { length?: number }).length);
+    }
+    // No factory default: RocketComponent.length's initial 0 is the kernel's answer.
+    expect(kernelLength('railbutton')).toBeUndefined();
+    expect(kernelLength('stage')).toBeUndefined();
+  });
+});

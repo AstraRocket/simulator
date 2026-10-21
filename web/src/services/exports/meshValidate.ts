@@ -1,0 +1,230 @@
+import * as THREE from 'three';
+
+/**
+ * Is this geometry actually a solid a slicer can print?
+ *
+ * `countBoundaryEdges` in solidMesh asks one question, "is every edge used
+ * twice", and that question is blind to
+ *
+ * - a cap fanned from a point outside its own loop, whose triangles overlap and
+ *   face opposite ways (a fan always uses each edge twice),
+ * - an empty index, which trivially has no unused edges, so a solid whose every
+ *   triangle was dropped as degenerate would download as an STL with no
+ *   geometry,
+ * - a planform that touches itself at a point, which extrudes to a non-manifold
+ *   pinch where four faces share one vertex.
+ *
+ * This is the one validator every exported solid goes through. Add a check
+ * here, and everything that produces a mesh gets it at once.
+ *
+ * All checks are cheap and topological (O(triangles)); this is not a
+ * self-intersection test, which needs spatial indexing and is not worth it for
+ * the sizes involved.
+ */
+
+type MeshIssueKind =
+  | 'empty'
+  | 'non-finite'
+  | 'degenerate-triangle'
+  | 'repeated-vertex'
+  | 'non-manifold-edge'
+  | 'inconsistent-winding'
+  | 'inside-out';
+
+export interface MeshIssue {
+  kind: MeshIssueKind;
+  /** Human-readable, for tests and debugging; the export only checks whether any issue exists. */
+  detail: string;
+  /** How many times the problem occurs, where counting makes sense. */
+  count?: number;
+}
+
+/** Undirected key for an edge between two vertex indices. */
+export const edgeKey = (a: number, b: number): string => (a < b ? `${a}_${b}` : `${b}_${a}`);
+
+/** Every triangle's three edges of an indexed triangle list, each in its triangle's winding order. */
+export function directedEdges(idx: THREE.BufferAttribute): Array<[number, number]> {
+  const edges: Array<[number, number]> = [];
+  for (let i = 0; i < idx.count; i += 3) {
+    const a = idx.getX(i),
+      b = idx.getX(i + 1),
+      c = idx.getX(i + 2);
+    edges.push([a, b], [b, c], [c, a]);
+  }
+  return edges;
+}
+
+/** How many triangles of an indexed triangle list use each undirected edge. */
+export function undirectedEdgeCounts(idx: THREE.BufferAttribute): Map<string, number> {
+  const count = new Map<string, number>();
+  for (const [u, v] of directedEdges(idx)) {
+    const k = edgeKey(u, v);
+    count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  return count;
+}
+
+/**
+ * Every way `geo` fails to be a closed, consistently oriented, non-degenerate solid.
+ * An empty array means it is one.
+ *
+ * `areaTol` is the smallest triangle area (m^2) that still counts as real. It
+ * should be derived from the model's own size (see {@link meshTolerances}), not
+ * fixed: the same absolute cut that is right for a 70 mm nose cone erases every
+ * triangle of the same cone scaled to 0.2 mm.
+ */
+export function validateSolid(geo: THREE.BufferGeometry, areaTol = 0): MeshIssue[] {
+  const issues: MeshIssue[] = [];
+  const pos = geo.getAttribute('position');
+  const idx = geo.getIndex();
+
+  if (!pos || pos.count === 0 || !idx || idx.count === 0) {
+    return [{ kind: 'empty', detail: 'the solid has no triangles' }];
+  }
+  if (idx.count % 3 !== 0) {
+    issues.push({ kind: 'empty', detail: `index length ${idx.count} is not a whole number of triangles` });
+  }
+
+  let nonFinite = 0;
+  for (let i = 0; i < pos.count; i++) {
+    if (!Number.isFinite(pos.getX(i)) || !Number.isFinite(pos.getY(i)) || !Number.isFinite(pos.getZ(i))) nonFinite++;
+  }
+  if (nonFinite) {
+    issues.push({
+      kind: 'non-finite',
+      detail: `${nonFinite} vertex position(s) are NaN or Infinity`,
+      count: nonFinite,
+    });
+  }
+
+  const a = new THREE.Vector3(),
+    b = new THREE.Vector3(),
+    c = new THREE.Vector3();
+  const ab = new THREE.Vector3(),
+    ac = new THREE.Vector3();
+
+  let degenerate = 0;
+  let repeated = 0;
+  /**
+   * Six times the signed volume, by the divergence theorem.
+   *
+   * The directed-edge count below proves the winding is consistent; it cannot say
+   * which way the surface faces, because flipping every triangle in a closed mesh
+   * flips every directed edge too and the counts come out identical. Without this,
+   * a solid wound entirely inside out would pass every other check, and a slicer
+   * would treat the space outside the part as solid.
+   */
+  let volume6 = 0;
+  /** Directed edge use count, to separate "shared" from "shared the same way". */
+  const directed = new Map<string, number>();
+  const undirected = new Map<string, number>();
+
+  for (let i = 0; i < idx.count - 2; i += 3) {
+    const ia = idx.getX(i),
+      ib = idx.getX(i + 1),
+      ic = idx.getX(i + 2);
+
+    if (ia === ib || ib === ic || ic === ia) {
+      repeated++;
+      continue; // a triangle with a repeated corner has no edges worth counting
+    }
+
+    a.fromBufferAttribute(pos, ia);
+    b.fromBufferAttribute(pos, ib);
+    c.fromBufferAttribute(pos, ic);
+    const area = ab.subVectors(b, a).cross(ac.subVectors(c, a)).length() * 0.5;
+    if (!(area > areaTol)) degenerate++;
+    // a . (b x c), summed. `ab` is scratch reused from the area above, so the
+    // cross is recomputed into it only after the area has been taken.
+    volume6 += a.dot(ab.copy(b).cross(c));
+
+    for (const [u, v] of [
+      [ia, ib],
+      [ib, ic],
+      [ic, ia],
+    ] as const) {
+      directed.set(`${u}>${v}`, (directed.get(`${u}>${v}`) ?? 0) + 1);
+      const k = edgeKey(u, v);
+      undirected.set(k, (undirected.get(k) ?? 0) + 1);
+    }
+  }
+
+  if (repeated) {
+    issues.push({
+      kind: 'repeated-vertex',
+      detail: `${repeated} triangle(s) use the same vertex twice`,
+      count: repeated,
+    });
+  }
+  if (degenerate) {
+    issues.push({
+      kind: 'degenerate-triangle',
+      detail: `${degenerate} triangle(s) have effectively zero area`,
+      count: degenerate,
+    });
+  }
+
+  let open = 0;
+  let overused = 0;
+  for (const n of undirected.values()) {
+    if (n < 2) open++;
+    else if (n > 2) overused++;
+  }
+  if (open || overused) {
+    const parts: string[] = [];
+    if (open) parts.push(`${open} open`);
+    if (overused) parts.push(`${overused} shared by more than two faces`);
+    issues.push({
+      kind: 'non-manifold-edge',
+      detail: `edges not shared by exactly two faces (${parts.join(', ')})`,
+      count: open + overused,
+    });
+  }
+
+  // Orientation: in a consistently wound closed mesh each edge is traversed
+  // once in each direction, so no directed edge may appear twice. This is what
+  // catches a cap whose triangles overlap and face opposite ways, which the
+  // undirected count above cannot see.
+  let flipped = 0;
+  for (const n of directed.values()) if (n > 1) flipped++;
+  if (flipped) {
+    issues.push({
+      kind: 'inconsistent-winding',
+      detail: `${flipped} edge(s) are traversed the same way by two faces, so the surface is not consistently oriented`,
+      count: flipped,
+    });
+  }
+
+  // Which way the surface faces, and only once it is closed and consistent:
+  // signed volume is meaningless on an open shell, and reporting it on top of a
+  // hole would name a second fault for one defect.
+  if (!open && !overused && !flipped && !repeated && !nonFinite && idx.count >= 3 && volume6 < 0) {
+    issues.push({
+      kind: 'inside-out',
+      detail: `the surface is closed and consistently wound but faces INWARD (signed volume ${(volume6 / 6).toExponential(2)})`,
+    });
+  }
+
+  return issues;
+}
+
+/**
+ * Tolerances derived from the model's own size.
+ *
+ * A fixed 1e-6 m weld tolerance and 1e-12 m^2 degeneracy cut are right for a
+ * rocket in meters and catastrophic for the same rocket scaled down: at 0.003x
+ * every triangle of a 70 mm nose cone falls under the area cut, all of them are
+ * dropped, and an empty mesh passes a boundary-edge count. Scaling both with
+ * the bounding-box diagonal keeps the ratio the numbers were chosen for.
+ *
+ * The diagonal is capped at 1 m, so anything 1 m or larger gets the fixed
+ * 1e-6 m / 1e-12 m^2 tolerances and only something smaller gets tighter ones.
+ */
+export function meshTolerances(geo: THREE.BufferGeometry): { weld: number; area: number } {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const diag = box ? box.min.distanceTo(box.max) : 1;
+  const scale = Number.isFinite(diag) && diag > 0 ? Math.min(1, diag) : 1;
+  const weld = 1e-6 * scale;
+  return { weld, area: weld * weld };
+}

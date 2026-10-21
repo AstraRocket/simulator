@@ -1,0 +1,297 @@
+import { describe, it, expect } from 'vitest';
+import { outerProfile, shapeRadius, shapeParamDefault } from '../../src/tree/shapeProfile';
+
+/**
+ * The six profile curves against the kernel's own arithmetic.
+ *
+ * `shapeProfile.test.ts` covers the surrounding behavior - the clip search, the
+ * endpoint, monotonicity, the degenerate parameters - and it cannot fully cover
+ * the shape, because it computes its interior expectations by calling
+ * `shapeRadius`, the function under test. A wrong formula produces a wrong
+ * expectation and the test agrees with itself.
+ *
+ * Replacing each branch in turn with a quarter sine arch (which reaches full
+ * radius at the base and rises monotonically) shows what each file catches:
+ *
+ * | sabotaged | `shapeProfile.test.ts` | this file |
+ * | --- | --- | --- |
+ * | `conical` | catches | catches |
+ * | `ellipsoid` | catches | catches |
+ * | `power` | catches | catches |
+ * | `parabolic` | passes | catches |
+ * | `haack` | catches | catches |
+ *
+ * So `shapeProfile.test.ts` is blind to one shape: `parabolic`, the branch with no
+ * block of its own and no dedicated assertion anywhere. (The ellipsoid one, for
+ * instance, is checked against the virtual nose it was cut from.)
+ *
+ * The circular-expectation problem is independent of that: where
+ * `shapeProfile.test.ts` checks interior points, it computes the expected value
+ * by calling `shapeRadius`. Every expectation here is written out from the Java
+ * instead.
+ *
+ * Transcribed from
+ * `engine-java/src/java/info/openrocket/core/rocketcomponent/Transition.java`. The
+ * formulas, with `t = x / L`:
+ *
+ * | shape | Java body | closed form |
+ * | --- | --- | --- |
+ * | `conical` | `radius * x / length` | `R·t` |
+ * | `ellipsoid` | `x = x*radius/length; sqrt(2*radius*x - x*x)` | `R·√(2t − t²)` |
+ * | `power` | `radius * pow(x/length, param)` | `R·t^p` |
+ * | `parabolic` | `radius * ((2t − p·t²) / (2 − p))` | as written |
+ * | `haack` | `θ = acos(1 − 2t); radius * sqrt((θ − sin(2θ)/2 + p·sin³θ)/π)` | as written |
+ * | `ogive` | a circular arc; see `ogiveJava` below | as written |
+ *
+ * Each is an independent rewrite of the Java, which is the point: if `shapeProfile.ts`
+ * and this file ever disagree, one of them has drifted from the Java and the diff
+ * says which expression to look at. Keeping them textually close to the Java is
+ * deliberate for the same reason - prettier arithmetic here would be a third
+ * version to reconcile.
+ */
+
+const R = 0.05;
+const L = 0.2;
+
+/** `ELLIPSOID.getRadius`: scales x by radius/length, then a sphere of that radius. */
+const ellipsoidJava = (x: number, radius: number, length: number): number => {
+  const u = (x * radius) / length;
+  return Math.sqrt(2 * radius * u - u * u);
+};
+
+/** `POWER.getRadius`. */
+const powerJava = (x: number, radius: number, length: number, param: number): number =>
+  radius * Math.pow(x / length, param);
+
+/** `PARABOLIC.getRadius`. */
+const parabolicJava = (x: number, radius: number, length: number, param: number): number =>
+  radius * ((2 * (x / length) - param * (x / length) ** 2) / (2 - param));
+
+/** `HAACK.getRadius`, including its `param` term. */
+const haackJava = (x: number, radius: number, length: number, param: number): number => {
+  const theta = Math.acos(1 - (2 * x) / length);
+  return radius * Math.sqrt((theta - Math.sin(2 * theta) / 2 + param * Math.sin(theta) ** 3) / Math.PI);
+};
+
+/** `OGIVE.getRadius`: the arc of a circle of radius `Rc` whose center sits at `y0`. */
+const ogiveJava = (x: number, radius: number, length: number, param: number): number => {
+  const Rc = Math.sqrt(
+    ((length ** 2 + radius ** 2) * ((2 - param) * length) ** 2 + (length ** 2 + radius ** 2) * (param * radius) ** 2) /
+      (4 * (param * radius) ** 2),
+  );
+  const Lc = length / param;
+  const y0 = Math.sqrt(Rc * Rc - Lc * Lc);
+  return Math.sqrt(Rc * Rc - (Lc - x) * (Lc - x)) - y0;
+};
+
+/** Interior stations. Not 0 or L: the endpoints are covered in shapeProfile.test.ts. */
+const STATIONS = [0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9];
+
+describe('every curve matches the kernel at interior points', () => {
+  it.each([
+    ['conical', (t: number) => R * t],
+    ['ellipsoid', (t: number) => ellipsoidJava(t * L, R, L)],
+    ['power', (t: number) => powerJava(t * L, R, L, shapeParamDefault('power'))],
+    ['parabolic', (t: number) => parabolicJava(t * L, R, L, shapeParamDefault('parabolic'))],
+    ['haack', (t: number) => haackJava(t * L, R, L, shapeParamDefault('haack'))],
+    ['ogive', (t: number) => ogiveJava(t * L, R, L, shapeParamDefault('ogive'))],
+  ] as const)('%s', (shape, expected) => {
+    const param = shapeParamDefault(shape);
+    for (const t of STATIONS) {
+      // `shapeRadius` takes x in the same units as length, not a fraction of it.
+      expect(shapeRadius(shape, t * L, R, L, param), `${shape} at t=${t}`).toBeCloseTo(expected(t), 9);
+    }
+  });
+});
+
+describe('the curves are distinguishable from each other, and from a wrong one', () => {
+  /**
+   * The substitution used in the table above: a quarter sine arch. It reaches
+   * full radius at the base, rises monotonically, and is not any of these shapes.
+   */
+  const sineArch = (t: number) => R * Math.sin((Math.PI / 2) * t);
+
+  const mid = (shape: string, len = L) => shapeRadius(shape, 0.5 * len, R, len, shapeParamDefault(shape)) / R;
+
+  it('pins each midpoint to the figure the Java gives, as a fraction of R', () => {
+    // Written as literals on purpose. Every other assertion in this file derives its
+    // expectation from a formula, so a mistake copied into both a formula and the
+    // code it checks would still pass; these are the numbers themselves.
+    //
+    // Five of the six are scale-invariant - the fraction of R at the midpoint is the
+    // same whatever the length - because each is `R` times a function of `x/L`.
+    expect(mid('ellipsoid')).toBeCloseTo(0.8660254, 6); // sqrt(3)/2
+    expect(mid('parabolic')).toBeCloseTo(0.75, 6); // (2*0.5 - 0.25) / 1
+    expect(mid('haack')).toBeCloseTo(0.7071068, 6); // sqrt(0.5), param 0
+    expect(mid('conical')).toBeCloseTo(0.5, 6);
+    expect(mid('power')).toBeCloseTo(0.7071068, 6); // sqrt(0.5), param 0.5
+    // The ogive is not, and that is worth a line of its own: it is the arc of a
+    // circle whose radius is computed from both `length` and `radius`, so its
+    // profile depends on the length-to-radius ratio rather than only on `x/L`. At
+    // this fixture's L/R of 4 the midpoint is 0.7614 R; it is 0.7913 at L/R 2 and
+    // 0.7505 at L/R 20, approaching the parabolic as the cone gets slenderer.
+    expect(mid('ogive')).toBeCloseTo(0.7613558, 6);
+  });
+
+  it('is the only shape whose profile depends on the length-to-radius ratio', () => {
+    // Stated as a property rather than left implicit in the number above, because a
+    // reader comparing midpoints across fixtures will otherwise think one of them is
+    // wrong. Also a real guard: a rewrite that normalized the ogive on `x/L` alone
+    // would pass every per-station assertion at one L and fail here.
+    for (const shape of ['conical', 'ellipsoid', 'power', 'parabolic', 'haack'] as const) {
+      expect(mid(shape, 0.1), shape).toBeCloseTo(mid(shape, 1), 6);
+    }
+    expect(Math.abs(mid('ogive', 0.1) - mid('ogive', 1))).toBeGreaterThan(0.03);
+  });
+
+  it('separates ellipsoid from a sine arch', () => {
+    // 0.866 R against 0.707 R: an 18% error at the midpoint of the nose cone, on a
+    // curve that satisfies "full radius at the base" and "monotonic" just as well.
+    // `shapeProfile.test.ts` does catch this particular substitution; what it does
+    // not catch is the same trick on `parabolic`, which is why the sweep above
+    // covers all six rather than only that shape.
+    const ours = shapeRadius('ellipsoid', 0.5 * L, R, L, shapeParamDefault('ellipsoid'));
+    expect(ours).toBeCloseTo(ellipsoidJava(0.5 * L, R, L), 9);
+    expect(Math.abs(ours - sineArch(0.5)) / R).toBeGreaterThan(0.15);
+  });
+
+  it('admits that haack and power are NOT separated by their midpoint alone', () => {
+    // Both read 0.7071 R there, as does the sine arch. Stated rather than left for
+    // someone to discover: a single-station test cannot tell these three apart, and
+    // that is why the interior sweep above walks seven.
+    const haack = shapeRadius('haack', 0.5 * L, R, L, shapeParamDefault('haack'));
+    const power = shapeRadius('power', 0.5 * L, R, L, shapeParamDefault('power'));
+    expect(Math.abs(haack - power) / R).toBeLessThan(0.001);
+    // And that the sweep does separate them, at a station nearer the tip.
+    const t = 0.1;
+    const haackT = shapeRadius('haack', t * L, R, L, shapeParamDefault('haack'));
+    const powerT = shapeRadius('power', t * L, R, L, shapeParamDefault('power'));
+    expect(Math.abs(haackT - powerT) / R).toBeGreaterThan(0.05);
+  });
+
+  it('gives every pair of curves a station where they differ', () => {
+    // A property `shapeProfile.test.ts` does not check: these are six different shapes, so
+    // no two of them may agree everywhere. A copy-paste in the switch that made two
+    // branches identical would pass every other test in both files.
+    const shapes = ['conical', 'ellipsoid', 'power', 'parabolic', 'haack', 'ogive'] as const;
+    const curve = (s: string) => STATIONS.map((t) => shapeRadius(s, t * L, R, L, shapeParamDefault(s)));
+    for (let i = 0; i < shapes.length; i++) {
+      for (let j = i + 1; j < shapes.length; j++) {
+        const a = curve(shapes[i]!);
+        const b = curve(shapes[j]!);
+        const apart = Math.max(...a.map((v, k) => Math.abs(v - b[k]!)));
+        expect(apart / R, `${shapes[i]} vs ${shapes[j]}`).toBeGreaterThan(0.005);
+      }
+    }
+  });
+});
+
+describe('the shape parameter is the one the kernel defaults to', () => {
+  it.each([
+    ['ogive', 1.0],
+    ['power', 0.5],
+    ['parabolic', 1.0],
+    // Zero, and checked because it is the one easy to get wrong. `HAACK` does not
+    // override `defaultParameter()`, so it inherits the base class's `0.0`
+    // (Transition.java:1312), the LD-Haack or Von Karman. Its `maxParameter()` is
+    // 1/3, and that is the number a reader reaches for: writing 1/3 here draws an
+    // LV-Haack instead, and both curves pass every other assertion in this file.
+    ['haack', 0.0],
+    ['conical', 0.0],
+    ['ellipsoid', 0.0],
+  ] as const)('%s defaults to %s', (shape, expected) => {
+    // These decide which member of each family is drawn, so a wrong default is a
+    // wrong curve even with the formula right.
+    expect(shapeParamDefault(shape)).toBeCloseTo(expected, 9);
+  });
+});
+
+/** The profile's radius at one interior station, sampled exactly there. */
+const profileAt = (
+  shape: string,
+  param: number,
+  length: number,
+  foreR: number,
+  aftR: number,
+  x: number,
+  clipped?: boolean,
+): number => {
+  const pts = outerProfile(shape, param, length, foreR, aftR, 4, [x], clipped);
+  return pts.find(([px]) => Math.abs(px - x) < 1e-12)![1];
+};
+
+describe('non-default shape parameters match the kernel at interior points', () => {
+  it.each([
+    ['power', 0.3, (x: number) => powerJava(x, R, L, 0.3)],
+    ['power', 0.8, (x: number) => powerJava(x, R, L, 0.8)],
+    ['parabolic', 0.5, (x: number) => parabolicJava(x, R, L, 0.5)],
+    ['parabolic', 0.75, (x: number) => parabolicJava(x, R, L, 0.75)],
+    ['haack', 1 / 3, (x: number) => haackJava(x, R, L, 1 / 3)],
+    ['haack', 0.15, (x: number) => haackJava(x, R, L, 0.15)],
+    ['ogive', 0.5, (x: number) => ogiveJava(x, R, L, 0.5)],
+    ['ogive', 0.2, (x: number) => ogiveJava(x, R, L, 0.2)],
+  ] as const)('%s at parameter %s', (shape, param, expected) => {
+    for (const t of STATIONS) {
+      expect(shapeRadius(shape, t * L, R, L, param), `${shape} at t=${t}`).toBeCloseTo(expected(t * L), 9);
+      // The nose cone profile carries the parameter through unchanged.
+      expect(profileAt(shape, param, L, 0, R, t * L), `${shape} profile at t=${t}`).toBeCloseTo(expected(t * L), 9);
+    }
+  });
+});
+
+/**
+ * `OGIVE.getRadius` for `length < radius`: "Impossible to calculate ogive for
+ * length < radius, scale instead": `x = x * radius / length; length = radius`,
+ * then the arc as usual.
+ */
+describe('a short ogive is rescaled as the kernel rescales it', () => {
+  const shortL = 0.03; // under R = 0.05
+  it.each([1.0, 0.5])('at parameter %s', (param) => {
+    for (const t of STATIONS) {
+      const x = t * shortL;
+      const want = ogiveJava((x * R) / shortL, R, R, param);
+      expect(shapeRadius('ogive', x, R, shortL, param), `t=${t}`).toBeCloseTo(want, 9);
+    }
+  });
+  it('is not the arc evaluated at the short length', () => {
+    // Guards the rescale itself: without it the midpoint would be the arc at
+    // (x, R, L), a different number.
+    const x = 0.5 * shortL;
+    expect(Math.abs(shapeRadius('ogive', x, R, shortL, 1) - ogiveJava(x, R, shortL, 1))).toBeGreaterThan(0.001);
+  });
+});
+
+/**
+ * `Transition.getRadius` with `isClipped()` false: `r1 + type.getRadius(x,
+ * r2 - r1, length, shapeParameter)`, with the ends swapped and x mirrored when
+ * the fore end is the larger.
+ */
+describe('an unclipped transition matches the kernel at interior points', () => {
+  const r1 = 0.02;
+  const r2 = 0.05;
+  it.each([
+    ['ellipsoid', 0, (x: number) => r1 + ellipsoidJava(x, r2 - r1, L)],
+    ['power', 0.5, (x: number) => r1 + powerJava(x, r2 - r1, L, 0.5)],
+    ['power', 0.3, (x: number) => r1 + powerJava(x, r2 - r1, L, 0.3)],
+    ['haack', 1 / 3, (x: number) => r1 + haackJava(x, r2 - r1, L, 1 / 3)],
+  ] as const)('%s at parameter %s, small end forward', (shape, param, expected) => {
+    for (const t of STATIONS) {
+      expect(profileAt(shape, param, L, r1, r2, t * L, false), `t=${t}`).toBeCloseTo(expected(t * L), 9);
+    }
+  });
+  it.each([
+    ['ellipsoid', 0, (x: number) => r1 + ellipsoidJava(x, r2 - r1, L)],
+    ['haack', 0.2, (x: number) => r1 + haackJava(x, r2 - r1, L, 0.2)],
+  ] as const)('%s at parameter %s, large end forward', (shape, param, expected) => {
+    for (const t of STATIONS) {
+      // x mirrored: the station t from the large end is (1 - t) from the small one.
+      expect(profileAt(shape, param, L, r2, r1, t * L, false), `t=${t}`).toBeCloseTo(expected((1 - t) * L), 9);
+    }
+  });
+  it('differs from the clipped profile, so the flag is read', () => {
+    const x = 0.25 * L;
+    expect(
+      Math.abs(profileAt('ellipsoid', 0, L, r1, r2, x, false) - profileAt('ellipsoid', 0, L, r1, r2, x)),
+    ).toBeGreaterThan(0.001);
+  });
+});

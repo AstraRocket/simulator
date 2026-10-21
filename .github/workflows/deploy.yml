@@ -1,0 +1,112 @@
+name: Deploy
+
+# The master pipeline: build the docs and the app, then publish to Pages.
+#
+# No gate set here: master is reached by merged pull requests, and ci.yml
+# already ran the gate set (gates.yml) on each one's merge result. The build
+# step (npm run build) still typechecks and lints, so a type or lint error stops
+# the publish. A direct push to master, or a PR merged after master moved,
+# publishes without the rest of the gates.
+#
+# Publishes web/dist to GitHub Pages.
+# ONE-TIME SETUP: repo Settings → Pages → Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Least-privilege token for the deploy; allow one concurrent Pages deploy.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The web build plus both Docusaurus locales. Without a cap a hung webpack
+    # compile holds the Pages deployment for the 360-minute default.
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            website/package-lock.json
+
+      - run: npm ci
+
+      # Refresh the About dialog's contributor list from the GitHub API so a newly
+      # merged contributor is credited on the next deploy without a manual commit.
+      # Best-effort: if the API is down or throttled the step is skipped and the
+      # build uses the committed public/data/contributors.generated.json instead.
+      - id: contributors
+        run: npm run sync:contributors
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # continue-on-error hides the difference between "the API was throttled
+      # today" and "this has been broken for months", and nothing else runs this
+      # script, so a silent failure freezes the About dialog's contributor list.
+      # Say so, the way sync-catalogs.yml does.
+      - if: steps.contributors.outcome == 'failure'
+        run: |
+          echo "::warning title=Contributor sync failed::Deployed with the committed contributors.generated.json. If this repeats it is broken, not throttled."
+          echo "### Contributor sync failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed with the committed public/data/contributors.generated.json." >> "$GITHUB_STEP_SUMMARY"
+
+      # Docs are built BEFORE the app and into web/public, so the service worker
+      # precaches them: Help has to work offline, which is much of the point of
+      # the PWA. public/ is copied verbatim into dist by Vite.
+      - name: Install docs deps
+        working-directory: website
+        run: npm ci
+
+      - name: Build docs into the app
+        working-directory: website
+        run: npx docusaurus build --out-dir "$GITHUB_WORKSPACE/web/public/docs"
+        env:
+          DOCS_BASE_URL: /${{ github.event.repository.name }}/docs/
+      # Serve from https://<user>.github.io/<repo>/, so base must be /<repo>/.
+      - run: npm run build
+        env:
+          PAGES_BASE: /${{ github.event.repository.name }}/
+          # Read the motor/component catalogs from the separately published `data`
+          # branch (see sync-catalogs.yml) and nowhere else, so a catalog refresh
+          # goes live without a deploy and the app never shows an older one. This
+          # build leaves its own copy of the two out (vite.config.ts); offline, the
+          # service worker answers from its cached download.
+          VITE_DATA_BASE: https://cdn.jsdelivr.net/gh/${{ github.repository }}@data/
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Just the Pages upload. Short, but it talks to a service, and a hung call to
+    # one is exactly what a cap is for.
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

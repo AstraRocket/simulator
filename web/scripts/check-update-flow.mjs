@@ -1,0 +1,373 @@
+// The service-worker update flow, end to end, against three real builds.
+//
+// The Playwright suite serves one build, so nothing in it can exercise what
+// happens on a deploy: a tab open on the old build must see the new one on a
+// plain reload, be offered it by the toast if it stays open, and come back on it
+// when Reload is clicked. Nothing under vitest can see a worker either. No step
+// here may need a hard reload.
+//
+// This builds version A into its own output directory, serves it, loads it in
+// Chromium until the worker controls the page, and opens a second, uncontrolled
+// first-visit tab. It rebuilds version B into the same directory and expects, in
+// order: the toast's Reload takes the first-visit tab to B; a plain reload
+// shows B; an update check raises the toast; the toast's Reload keeps B on
+// screen; Check for updates says B is current; offline, a reload still boots.
+// Then it rebuilds version C and expects an update nobody answers to be applied
+// once the tab is hidden, and a stale copy of B served again never to be
+// offered or applied. No hard reload anywhere.
+//
+//   npm run e2e:update
+//
+// Exit 0 on success, 1 with the failing step named and a diagnostic of what
+// each layer thought the page was. Three production builds plus a browser: a
+// few minutes.
+import { execFileSync, spawn } from 'node:child_process';
+import { cpSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from '@playwright/test';
+
+// The callbacks handed to page.evaluate() run in the browser; the lint config
+// for scripts/ knows only Node globals.
+/* global document, location, window */
+
+const WEB = fileURLToPath(new URL('..', import.meta.url));
+const VITE = resolve(WEB, 'node_modules/vite/bin/vite.js');
+const OUT = 'dist-update-check';
+// Version B's output, kept to serve again as a CDN node still holding the previous deploy.
+const OUT_B = 'dist-update-check-b';
+const PORT = 4179;
+const URL_ = `http://localhost:${PORT}/`;
+const VERSION_A = '0.0.0-update-a';
+const VERSION_B = '0.0.0-update-b';
+const VERSION_C = '0.0.0-update-c';
+// The app settings blob (services/storage/settings.ts); the same key e2e/base.ts
+// seeds. Spelled out because this is a plain .mjs harness with no TS loader, so it
+// cannot import STORAGE_PREFIX. A mismatch is self-detecting: the app would come up
+// without settings and the check below would fail.
+const SETTINGS_KEY = 'astrarocket:settings:v1';
+
+const log = (...a) => console.log('[update-flow]', ...a);
+const chunkOf = (html) => html.match(/assets\/index-[\w-]+\.js/)?.[0] ?? null;
+
+function build(version) {
+  log(`building ${version}`);
+  execFileSync(process.execPath, [VITE, 'build', '--outDir', OUT, '--emptyOutDir', '--logLevel', 'warn'], {
+    cwd: WEB,
+    stdio: 'inherit',
+    env: { ...process.env, APP_VERSION_OVERRIDE: version },
+  });
+}
+
+async function serve() {
+  const child = spawn(process.execPath, [VITE, 'preview', '--outDir', OUT, '--port', String(PORT), '--strictPort'], {
+    cwd: WEB,
+    stdio: ['ignore', 'ignore', 'inherit'],
+  });
+  for (let i = 0; i < 100; i++) {
+    try {
+      const res = await fetch(URL_);
+      if (res.ok) return child;
+    } catch {
+      // not up yet
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  child.kill();
+  throw new Error('preview server did not come up');
+}
+
+async function main() {
+  build(VERSION_A);
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    // A fresh profile gets the pre-release "work in progress" modal, which sits
+    // above the toast and would swallow the click on Reload. Acknowledge it
+    // the way e2e/base.ts does, so this drives a returning user's tab.
+    const acknowledgeWip = (p) =>
+      p.addInitScript((key) => {
+        let stored = {};
+        try {
+          stored = JSON.parse(localStorage.getItem(key) || '{}') ?? {};
+        } catch {
+          // a corrupt blob; the app discards it too, so start clean
+        }
+        try {
+          localStorage.setItem(key, JSON.stringify({ ...stored, wipAcknowledged: true }));
+        } catch {
+          // about:blank has no storage; the real navigation runs this again
+        }
+      }, SETTINGS_KEY);
+    const page = await browser.newPage();
+    await acknowledgeWip(page);
+
+    // A tab on its first visit, in a context of its own so it shares no worker
+    // with `page`. Its worker installs but never controls it (`clientsClaim` is
+    // off), so the toast's Reload has to work without the library's own reload,
+    // which waits for the new worker to take control and here never sees it.
+    const firstVisit = await (await browser.newContext()).newPage();
+    await acknowledgeWip(firstVisit);
+    const markDocument = (p) =>
+      p.evaluate(() => {
+        window.__stillTheSameDocument = true;
+      });
+    const reloaded = (p) =>
+      p.waitForFunction(() => window.__stillTheSameDocument === undefined, null, { timeout: 60_000 });
+
+    // On failure, say what each layer thinks the page the step drives is: the
+    // server's copy, the copy the worker hands the page, the worker in control,
+    // and what rendered. A bare timeout names none of them.
+    const diagnose = async (p) => {
+      const info = await p.evaluate(
+        async (versions) => {
+          const viaWorker = await fetch(location.href, { cache: 'no-store' }).then((r) => r.text());
+          const reg = await navigator.serviceWorker.getRegistration();
+          const text = document.body.textContent ?? '';
+          return {
+            renderedVersion: versions.find((v) => text.includes(`v${v}`)) ?? null,
+            pageHtml: document.documentElement.outerHTML,
+            viaWorkerHtml: viaWorker,
+            controller: navigator.serviceWorker.controller?.scriptURL ?? null,
+            active: reg?.active?.scriptURL ?? null,
+            waiting: reg?.waiting?.scriptURL ?? null,
+          };
+        },
+        [VERSION_A, VERSION_B, VERSION_C],
+      );
+      const serverHtml = await (await fetch(URL_, { cache: 'no-store' })).text();
+      log(
+        'diagnostics',
+        JSON.stringify(
+          {
+            renderedVersion: info.renderedVersion,
+            pageChunk: chunkOf(info.pageHtml),
+            fetchedThroughWorkerChunk: chunkOf(info.viaWorkerHtml),
+            serverChunk: chunkOf(serverHtml),
+            controller: info.controller,
+            active: info.active,
+            waiting: info.waiting,
+          },
+          null,
+          2,
+        ),
+      );
+    };
+    /** Run one step; `on` is the page it drives, which a failure diagnoses. */
+    const step = async (name, fn, on = page) => {
+      log(name);
+      try {
+        await fn();
+      } catch (e) {
+        await diagnose(on).catch((d) => log('diagnostics unavailable:', d instanceof Error ? d.message : d));
+        throw new Error(`FAILED at "${name}": ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      }
+    };
+
+    await step('load version A and let its worker take the page', async () => {
+      await page.goto(URL_);
+      await page.waitForFunction(() => navigator.serviceWorker.ready.then(() => true), null, { timeout: 60_000 });
+      // A returning user's tab: reload once so the page is controlled by the
+      // worker regardless of how the first install claimed it.
+      await page.reload();
+      await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 60_000 });
+      await page.getByText(`v${VERSION_A}`, { exact: true }).waitFor({ timeout: 60_000 });
+    });
+
+    await step(
+      'open a first-visit tab on version A, which its worker does not control',
+      async () => {
+        await firstVisit.goto(URL_);
+        await firstVisit.waitForFunction(() => navigator.serviceWorker.ready.then(() => true), null, {
+          timeout: 60_000,
+        });
+        await firstVisit.getByText(`v${VERSION_A}`, { exact: true }).waitFor({ timeout: 60_000 });
+        if (await firstVisit.evaluate(() => !!navigator.serviceWorker.controller)) {
+          throw new Error('the first visit is already controlled, so this step would prove nothing');
+        }
+      },
+      firstVisit,
+    );
+
+    build(VERSION_B);
+    cpSync(resolve(WEB, OUT), resolve(WEB, OUT_B), { recursive: true });
+
+    await step(
+      'the toast Reload takes a first-visit tab to version B',
+      async () => {
+        await firstVisit.evaluate(async () => {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (!reg) throw new Error('no registration');
+          await reg.update();
+        });
+        await firstVisit.getByText('A new version is available.').waitFor({ timeout: 60_000 });
+        await markDocument(firstVisit);
+        await firstVisit.getByRole('button', { name: 'Reload', exact: true }).click();
+        await reloaded(firstVisit);
+        await firstVisit.getByText(`v${VERSION_B}`, { exact: true }).waitFor({ timeout: 60_000 });
+      },
+      firstVisit,
+    );
+    await firstVisit.context().close();
+
+    // Page loads are network-first, so an ordinary reload after a deploy lands
+    // on the new build with no toast involved. Answered from the precache, a
+    // reload would keep showing the old build until a hard reload.
+    await step('a plain reload shows version B, before any update prompt', async () => {
+      await page.reload();
+      await page.getByText(`v${VERSION_B}`, { exact: true }).waitFor({ timeout: 60_000 });
+    });
+
+    await step('ask the registration for an update', async () => {
+      await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) throw new Error('no registration');
+        await reg.update();
+      });
+    });
+
+    await step('the toast offers the new version', async () => {
+      await page.getByText('A new version is available.').waitFor({ timeout: 60_000 });
+    });
+
+    // The page already shows B from the plain reload, so its text alone would
+    // pass with a Reload that did nothing; the marker is what proves it reloaded.
+    await step('the toast Reload reloads, and version B stays on screen', async () => {
+      await markDocument(page);
+      await page.getByRole('button', { name: 'Reload', exact: true }).click();
+      await reloaded(page);
+      await page.getByText(`v${VERSION_B}`, { exact: true }).waitFor({ timeout: 60_000 });
+    });
+
+    // The manual check, against a real worker: on the newest build it answers
+    // "up to date", which the timer never says.
+    await step('Check for updates in the menu says the newest build is up to date', async () => {
+      await page.getByRole('button', { name: 'Menu', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Check for updates', exact: true }).click();
+      await page.getByText('You are running the latest version.').waitFor({ timeout: 60_000 });
+      await page.keyboard.press('Escape');
+    });
+
+    // Network-first page loads must not cost the PWA its reason to exist:
+    // with the network gone, a reload still gets the shell (the precached
+    // index.html through the fallback) and the app still boots.
+    await step('offline, a reload still boots the app from the worker', async () => {
+      const failed = [];
+      const errors = [];
+      const onFailed = (r) => failed.push(`${r.method()} ${r.url()} ${r.failure()?.errorText ?? ''}`);
+      const onConsole = (m) => (m.type() === 'error' || m.type() === 'warning') && errors.push(m.text());
+      page.on('requestfailed', onFailed);
+      page.on('console', onConsole);
+      await page.context().setOffline(true);
+      try {
+        // A reload while offline can reject at the navigation layer even when
+        // the worker answered it; what matters is whether the app boots.
+        await page
+          .reload({ waitUntil: 'commit' })
+          .catch((e) => log('reload while offline:', String(e.message).split(/\r?\n/)[0]));
+        await page.getByText(`v${VERSION_B}`, { exact: true }).waitFor({ timeout: 60_000 });
+      } catch (e) {
+        log('offline failed requests:', JSON.stringify(failed.slice(0, 12), null, 2));
+        log('offline console errors:', JSON.stringify(errors.slice(0, 12), null, 2));
+        log(
+          'offline page text:',
+          JSON.stringify((await page.evaluate(() => document.body?.innerText ?? '').catch(() => '')).slice(0, 300)),
+        );
+        throw e;
+      } finally {
+        page.off('requestfailed', onFailed);
+        page.off('console', onConsole);
+        await page.context().setOffline(false);
+      }
+    });
+
+    build(VERSION_C);
+
+    // Under `registerType: 'prompt'` the waiting worker activates only when the
+    // page posts SKIP_WAITING, and `clientsClaim` is off, so a worker nobody
+    // asks for waits for the life of the tab. Dismissing the toast is exactly
+    // that, and without more the tab would stay on the old build until it was
+    // hard-reloaded. So an unanswered update is taken up once the tab is hidden.
+    await step('an update nobody answers is applied once the tab is hidden', async () => {
+      await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) throw new Error('no registration');
+        await reg.update();
+      });
+      await page.getByText('A new version is available.').waitFor({ timeout: 60_000 });
+
+      // Refuse it, the way a user who does not want to be interrupted does.
+      await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
+      await page.getByText('A new version is available.').waitFor({ state: 'hidden', timeout: 30_000 });
+
+      // A marker that cannot survive a navigation, so the assertion below is
+      // about the page having actually reloaded rather than about its text.
+      await markDocument(page);
+
+      // Hide the tab. Playwright cannot set visibilityState, and the code under
+      // test reads exactly that plus the event, so both are supplied here.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      // Nothing is clicked from here. The wait is real time: the threshold is
+      // 30 s and the check polls every 5 s, so this lands around 35 s.
+      await page.waitForFunction(() => window.__stillTheSameDocument === undefined, null, { timeout: 120_000 });
+      await page.getByText(`v${VERSION_C}`, { exact: true }).waitFor({ timeout: 60_000 });
+    });
+
+    // After a deploy, GitHub Pages can serve the previous sw.js from some of its
+    // nodes for minutes. The browser installs any sw.js that differs from the
+    // running one as waiting, older included, and taking it up reloads into the
+    // old build, which finds the new one again: the page cycles. Only a newer
+    // build may be offered or applied (services/app/swBuild.ts).
+    await step('a stale copy of the previous build is never offered or applied', async () => {
+      // Version B's files back on the server, page aside: a node still serving
+      // the previous deploy's sw.js and its assets.
+      cpSync(resolve(WEB, OUT_B), resolve(WEB, OUT), {
+        recursive: true,
+        force: true,
+        filter: (src) => !src.endsWith('index.html'),
+      });
+      await markDocument(page);
+      await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) throw new Error('no registration');
+        await reg.update();
+      });
+      // The browser took it as an update: version B is installed and waiting.
+      await page.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting, null, {
+        timeout: 60_000,
+      });
+      // Hidden past the point where a newer build would be applied unasked (30 s,
+      // polled every 5 s), then back: nothing offered, nothing reloaded.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await new Promise((r) => setTimeout(r, 45_000));
+      if (!(await page.evaluate(() => window.__stillTheSameDocument === true))) {
+        throw new Error('the page reloaded into the older build');
+      }
+      if (await page.getByText('A new version is available.').isVisible()) {
+        throw new Error('the older build was offered as an update');
+      }
+      await page.getByText(`v${VERSION_C}`, { exact: true }).waitFor({ timeout: 10_000 });
+    });
+
+    log(
+      'OK: a plain reload, the toast (on a first visit too) and a dismissed prompt all end on the new build, offline still boots, and a stale older build is never taken up',
+    );
+  } finally {
+    await browser.close();
+    server.kill();
+    rmSync(resolve(WEB, OUT), { recursive: true, force: true });
+    rmSync(resolve(WEB, OUT_B), { recursive: true, force: true });
+  }
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});

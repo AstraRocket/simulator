@@ -1,0 +1,43 @@
+# The OpenRocket source engine-java/src/java was extracted from.
+#
+# `extract --check` is only meaningful against this exact tree: a different
+# upstream reports drift that is really just a version difference.
+#
+# THIS FILE IS THE ONLY COPY OF THE REF. `npm run audit` (engine-java/audit.mjs)
+# reads `ref` and `date` from here, so a bump lands in one place. Two copies
+# with nothing comparing them can drift apart, so do not reintroduce a second one.
+#
+# Everything that NAMES the pinned build reads it from here too, so none of them
+# can drift from the tree that was actually extracted:
+#
+#   engine-java/extract/extract.mjs   clones repo@ref to extract from
+#   web/scripts/sync-examples.mjs     pulls the bundled examples from repo@ref
+#   web/vite.config.ts                bakes ref+date into the app's About dialog
+#   website/docusaurus.config.ts      bakes ref+date into the docs comparison pages
+#
+# The last two are why `date` exists as a FIELD and not just as prose in this
+# header: "which OpenRocket is this?" is a question a reader of the docs asks,
+# and answering it from a hand-typed string somewhere else would be one more
+# copy of a SHA that should only ever have one. Bump `date` with `ref`;
+# `npm run audit` checks it against the pinned commit, so a bump that updates
+# one and forgets the other fails there rather than quietly shipping a wrong
+# date to every reader.
+#
+# Adopting a newer OpenRocket means bumping the ref below, re-running the
+# extraction, and reviewing every line the "patch(es) differ from current
+# upstream" report names. `extract/DIVERGENCE.txt` makes that review a gate
+# rather than a ritual: re-bless it and explain each number that moved.
+#
+# `describe` below is `git describe --tags` of the ref in canonical
+# openrocket/openrocket. The repo is a fork, but the SHA is content-bound and the
+# same commit fetches from canonical openrocket/openrocket, where it is on
+# `unstable`; GitHub serves it from the fork's network even while the fork's own
+# branches are behind. Re-confirm that on every bump: a fork drifting ahead of -
+# or behind - canonical is invisible from inside the fork.
+#
+# What each bump changed, and every golden value it moved, is recorded in
+# patches/LEDGER.md under "Repinned to upstream".
+repo = https://github.com/AstraRocket/openrocket.git
+ref  = 591c5e5f7b7377e48f2bd5e501cef25cdfbd61d8
+date = 2026-10-07
+describe = release-24.12-2312-g591c5e5f7

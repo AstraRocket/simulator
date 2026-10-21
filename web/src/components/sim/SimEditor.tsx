@@ -1,0 +1,407 @@
+import { useId, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useWorkspaceStore, selectActive, selectConfig } from '../../state/store';
+import { launchDiffKeys, prefDiffKeys } from '../../services/flight/simDiff';
+import { configFor, loadoutLabel } from '../../services/flight/flightConfigs';
+import { configPowerClass } from '../../services/flight/powerClass';
+import { useSettings } from '../../state/SettingsProvider';
+import { SIM_BOUNDS } from '../../services/storage/settings';
+import { RunButton } from './RunButton';
+import { useIsDesktop } from '../common/useMediaQuery';
+import { LaunchPanel } from './LaunchPanel';
+import { useLauncherKind } from '../common/useLauncher';
+import { useUnits } from '../../prefs/useUnits';
+import { onSi } from '../../prefs/entryValue';
+import { unitScope } from '../../prefs/units';
+import type { SimPrefs, Simulation } from '../../services/flight/simulations';
+import { clampMaxAngleStep, seedFromInput } from '../../services/flight/simulations';
+import { NumberRow } from '../common/NumberRow';
+import { fmtUpTo } from '../../i18n/format';
+import { SPEED_WARNINGS } from './speedWarnings';
+
+/**
+ * Everything about the selected simulation: its name, the flight configuration
+ * it flies, the launch conditions, and its overrides of the global run
+ * preferences.
+ *
+ * The configuration is picked here and edited in the Configurations tab. A
+ * loadout several simulations share cannot also be editable from one of them
+ * without the two surfaces disagreeing about whether a change is about the row
+ * or about the setup.
+ *
+ * Sits in the Simulations tab's right column at lg+, and inline under the table
+ * on a phone. Reads the store directly, so the same element works in both places.
+ */
+export function SimEditor() {
+  const { t } = useTranslation();
+  const activeId = useWorkspaceStore((s) => selectActive(s).id);
+  const name = useWorkspaceStore((s) => selectActive(s).name);
+  const launch = useWorkspaceStore((s) => selectActive(s).launch);
+  const tree = useWorkspaceStore((s) => s.tree);
+  const config = useWorkspaceStore(selectConfig);
+  const configs = useWorkspaceStore((s) => s.configs);
+  const onRenameSim = useWorkspaceStore((s) => s.renameSim);
+  const setSimConfig = useWorkspaceStore((s) => s.setSimConfig);
+  const setSelectedConfigId = useWorkspaceStore((s) => s.setSelectedConfigId);
+  const setTab = useWorkspaceStore((s) => s.setTab);
+  const onLaunchChange = useWorkspaceStore((s) => s.patchLaunch);
+  const launcher = useLauncherKind();
+  const onCommit = useWorkspaceStore((s) => s.commitEdit);
+
+  const desktop = useIsDesktop();
+
+  // Everything the editor writes to: the ticked rows, or the active simulation
+  // when nothing is ticked. Derived rather than subscribed, because the id list
+  // is rebuilt per call and zustand compares by reference (see selectEditIds).
+  const sims = useWorkspaceStore((s) => s.sims);
+  const selectedIds = useWorkspaceStore((s) => s.selectedSimIds);
+  const targets = useMemo(() => {
+    const ids = new Set(selectedIds.length ? selectedIds : [activeId]);
+    return sims.filter((x) => ids.has(x.id));
+  }, [sims, selectedIds, activeId]);
+  const multi = targets.length > 1;
+
+  // Which fields the targets disagree on, so a bulk edit cannot flatten a value
+  // that is not on screen. Only meaningful for a real multi-selection.
+  const launchDiff = useMemo(() => launchDiffKeys(targets), [targets]);
+  const prefDiff = useMemo(() => prefDiffKeys(targets), [targets]);
+
+  // The class of rocket the targets fly, which sets the launcher angle the
+  // codes allow; null when the targets fly both classes.
+  const dryMass = useWorkspaceStore((s) => s.info?.massEmpty);
+  const powerClass = useMemo(() => {
+    const classes = new Set(targets.map((x) => configPowerClass(tree, configFor(configs, x.configId), dryMass)));
+    return classes.size === 1 ? [...classes][0]! : null;
+  }, [targets, tree, configs, dryMass]);
+
+  /**
+   * A multi-target edit is never silent: the same tick that means "fly these"
+   * means "edit these", so the editor says which it is pointed at and what a
+   * change will touch. It rides in the sticky band beside Run for the reason
+   * Run is sticky at all: the fields it is warning about are further down the
+   * scroll than the warning would otherwise reach.
+   */
+  const banner = multi ? (
+    <p
+      role="status"
+      className="rounded-lg border border-accent-500/30 bg-accent-950/40 px-2 py-1.5 text-xs leading-snug text-accent-200"
+    >
+      {t('sims.editingMany', { count: targets.length })}{' '}
+      <span className="text-accent-300">{t('sims.editingManyHint')}</span>
+    </p>
+  ) : null;
+
+  return (
+    <div className="relative p-3">
+      {/* Run heads this column, above the simulation it flies, and stays there.
+          Everything below it (the configuration, the launch conditions, the run
+          options) is far taller than the column, so without the sticky band the
+          one control you reach for after every edit would scroll away.
+
+          Full-bleed (-mx-3 -mt-3 against the container's p-3) and opaque, so
+          the options pass behind the band rather than beside it; `sticky`
+          pins to the scrolling ancestor, which is the right column in App.
+
+          On a phone this component is inline under the table, so the button
+          stays in the pane's toolbar instead: one instance either way
+          (see useMediaQuery). */}
+      {desktop && (
+        <div className="sticky top-0 z-10 -mx-3 -mt-3 mb-4 space-y-2 border-b border-line/10 bg-canvas p-3">
+          <RunButton />
+          {banner}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {!desktop && banner}
+
+        <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
+          {/* A div, not a <label htmlFor>: the input names itself with
+              aria-label, so the heading needs no id. */}
+          {/* The one field that does not follow the selection: pushing a name
+              across three simulations would leave three rows called the same
+              thing, which is the opposite of what naming is for. */}
+          <div className="mb-1 flex items-baseline gap-2 text-[10px] uppercase tracking-wide text-ink-muted">
+            {t('sims.name')}
+            {multi && <span className="normal-case text-ink-faint">{t('sims.thisOneOnly')}</span>}
+          </div>
+          <input
+            value={name}
+            onChange={(e) => onRenameSim(activeId, e.target.value)}
+            onBlur={onCommit}
+            aria-label={t('sims.rename')}
+            className="w-full rounded-md bg-raised px-2 py-1.5 text-sm font-medium text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+          />
+        </section>
+
+        {/* Which setup this row flies. The motors themselves are in the
+            Configurations tab: one place writes a loadout, and a configuration
+            several rows share cannot be quietly edited from one of them. */}
+        <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
+          <div className="mb-1 flex items-baseline gap-2 text-[10px] uppercase tracking-wide text-ink-muted">
+            {t('configs.name')}
+            {multi && <span className="normal-case text-ink-faint">{t('sims.thisOneOnly')}</span>}
+          </div>
+          <select
+            value={config.id}
+            onChange={(e) => setSimConfig(activeId, e.target.value)}
+            aria-label={t('configs.pick')}
+            className="w-full rounded-md bg-raised px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+          >
+            {configs.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name || loadoutLabel(tree, c) || t('configs.noMotors')}
+              </option>
+            ))}
+          </select>
+          {/* What it actually seats, spelled out: a named configuration says
+              nothing about its motors, and the motors are what the row flies. */}
+          <p className="mt-2 text-xs text-ink-muted">{loadoutLabel(tree, config) || t('configs.noMotors')}</p>
+          <button
+            type="button"
+            onClick={() => {
+              // Open the tab on this configuration rather than wherever it was
+              // left, so the round trip lands on the motors this row flies.
+              setSelectedConfigId(config.id);
+              setTab('configs');
+            }}
+            className="mt-2 rounded-md bg-raised px-3 py-1.5 text-xs font-medium text-ink hover:bg-elevated"
+          >
+            {t('configs.edit')}
+          </button>
+        </section>
+
+        <LaunchPanel
+          launch={launch}
+          onChange={onLaunchChange}
+          onCommit={onCommit}
+          diff={launchDiff}
+          weather
+          launcher={launcher}
+          powerClass={powerClass}
+        />
+        <SimOptions diff={prefDiff} targets={targets} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The time-step stops the slider offers, coarsest to finest, with OpenRocket's
+ * 0.05 s default among them. A slider needs discrete stops because the useful
+ * range spans two orders of magnitude and a linear sweep would spend most of its
+ * travel on values nobody wants.
+ */
+const TIME_STEPS = [0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0.001];
+
+/** The stop closest to a typed value, so the slider tracks the field. */
+const nearestStepIndex = (v: number): number =>
+  TIME_STEPS.reduce((best, s, i) => (Math.abs(s - v) < Math.abs(TIME_STEPS[best]! - v) ? i : best), 0);
+
+/**
+ * Per-simulation overrides of Settings › Simulation: the run options, and the
+ * recovery-deployment speeds that decide when a flight raises a warning.
+ *
+ * Empty means "follow the global value", which is shown as the placeholder, so
+ * the field reads as the number that will actually be used, and clearing it is
+ * how you hand the setting back. OpenRocket carries all of these per simulation
+ * too; ours additionally fall through, rather than being copied at creation, so
+ * changing a global still moves every simulation that never overrode it.
+ */
+function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; targets: readonly Simulation[] }) {
+  const { t } = useTranslation();
+  const { settings, update } = useSettings();
+  const u = useUnits();
+  const prefs = useWorkspaceStore((s) => selectActive(s).prefs);
+  const setSimPref = useWorkspaceStore((s) => s.setSimPref);
+  const clearSimPrefs = useWorkspaceStore((s) => s.clearSimPrefs);
+  const onCommit = useWorkspaceStore((s) => s.commitEdit);
+  const mixedHintId = useId();
+  const g = settings.simulation;
+  // The same FieldUnit the global setting resolves, under the same scope key, so
+  // the two surfaces for this one stored value cannot disagree about its unit.
+  // `angle` offers `rad`, so a hardcoded degree conversion here would show a user
+  // working in radians one surface in degrees and the other in radians.
+  const angle = u.at(unitScope('settings', 'maxAngleStep'), 'angle');
+
+  /** What this simulation actually runs with: its overrides over the globals. */
+  const eff = { ...g, ...(prefs ?? {}) };
+  const mixed = (k: keyof SimPrefs) => diff?.has(k) ?? false;
+  // Across every row the buttons act on, not the active one alone: Reset clears
+  // the overrides of all of them, so it is available when any of them has one.
+  const overridden = targets.some((x) => Object.keys(x.prefs ?? {}).length > 0);
+  // "Save as default" saves one set of values. Rows that run with different
+  // options have no one set to save, and saving the active row's would clear
+  // the others' overrides in favor of values they never had.
+  const mixedOptions = (diff?.size ?? 0) > 0;
+
+  // The four deployment thresholds are speeds, so they follow the user's
+  // velocity unit both ways; the stored value stays SI. `fmt` for the
+  // placeholder rather than the raw number, since the global is SI too.
+  const speed = (si: number | undefined): number | null => (si == null ? null : u.toUi('velocity', si));
+  const onSpeed = (key: (typeof SPEED_WARNINGS)[number]['key']) =>
+    onSi(u.plain('velocity'), (si) => setSimPref(key, si));
+  const vSym = u.sym('velocity');
+  const vStep = u.step('velocity', 1);
+
+  return (
+    <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
+      <div className="mb-2 text-[10px] uppercase tracking-wide text-ink-muted">{t('sims.options')}</div>
+
+      {/* What the kernel is actually running, stated rather than assumed, as the
+          desktop states it. Fixed, not chosen: the bridge always builds a
+          BarrowmanCalculator and the RK4 stepper, and the supersonic-aero
+          extensions the engine can carry are not wired into the web app. */}
+      <dl className="mb-3 space-y-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-xs text-ink-muted">{t('settings.calcMethod')}</dt>
+          <dd className="text-xs text-ink-soft">{t('settings.calcMethodValue')}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-xs text-ink-muted">{t('settings.simMethod')}</dt>
+          <dd className="text-xs text-ink-soft">{t('settings.simMethodValue')}</dd>
+        </div>
+      </dl>
+
+      <div className="space-y-2">
+        <NumberRow
+          label={t('settings.timeStep')}
+          unit={t('units.second')}
+          mixed={mixed('timeStep')}
+          value={prefs?.timeStep ?? null}
+          placeholder={fmtUpTo(g.timeStep, 4)}
+          step={0.01}
+          min={SIM_BOUNDS.timeStep.min}
+          max={SIM_BOUNDS.timeStep.max}
+          onChange={(v) => setSimPref('timeStep', v)}
+          onCommit={onCommit}
+        />
+        <NumberRow
+          label={t('settings.maxTime')}
+          unit={t('units.second')}
+          mixed={mixed('maxTime')}
+          value={prefs?.maxTime ?? null}
+          placeholder={fmtUpTo(g.maxTime, 1)}
+          step={60}
+          min={SIM_BOUNDS.maxTime.min}
+          max={SIM_BOUNDS.maxTime.max}
+          onChange={(v) => setSimPref('maxTime', v)}
+          onCommit={onCommit}
+        />
+        <NumberRow
+          label={t('settings.maxAngleStep')}
+          hint={t('settings.maxAngleStepHint')}
+          unit={angle.sym}
+          // Stored in radians like the kernel's field, edited in the user's angle
+          // unit through `angle` above, not in degrees by assumption.
+          mixed={mixed('maxAngleStep')}
+          // Shown as flown: an override saved outside the kernel's range reads
+          // as the value the run is clamped to.
+          value={prefs?.maxAngleStep == null ? null : angle.toUi(clampMaxAngleStep(prefs.maxAngleStep))}
+          placeholder={fmtUpTo(angle.toUi(g.maxAngleStep), 3)}
+          step={angle.step((0.5 * Math.PI) / 180)}
+          min={angle.toUi(SIM_BOUNDS.maxAngleStep.min)}
+          max={angle.toUi(SIM_BOUNDS.maxAngleStep.max)}
+          onChange={onSi(angle, (si) => setSimPref('maxAngleStep', si))}
+          onCommit={onCommit}
+        />
+        {/* The desktop pairs the time step with a slider, because the useful
+            range is narrow and the consequences of leaving it are not obvious.
+            Same stops it offers, coarsest to finest. */}
+        <input
+          type="range"
+          min={0}
+          max={TIME_STEPS.length - 1}
+          step={1}
+          aria-label={t('settings.timeStepScale')}
+          value={nearestStepIndex(eff.timeStep)}
+          // The step the thumb stands for, not its index among the stops.
+          aria-valuetext={`${fmtUpTo(TIME_STEPS[nearestStepIndex(eff.timeStep)]!, 4)} s`}
+          onChange={(e) => setSimPref('timeStep', TIME_STEPS[Number(e.target.value)]!)}
+          // Pointer, not mouse: a touch drag sends no mouseup, and an undo entry
+          // left open would merge the next unrelated edit into this one.
+          onPointerUp={onCommit}
+          onKeyUp={onCommit}
+          className="w-full accent-accent-500"
+        />
+        <NumberRow
+          label={t('settings.randomSeed')}
+          mixed={mixed('randomSeed')}
+          value={prefs?.randomSeed ?? null}
+          placeholder={g.randomSeed == null ? t('settings.seedAuto') : String(g.randomSeed)}
+          step={1}
+          onChange={(v) => setSimPref('randomSeed', seedFromInput(v))}
+          onCommit={onCommit}
+        />
+      </div>
+
+      {/* The desktop's two buttons. "Reset" drops this simulation's overrides so
+          every field falls back through to the global again; "Save as default"
+          pushes what it is running now into the globals, which is the only way
+          to make a value you arrived at here the starting point for new work. */}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          disabled={!overridden}
+          onClick={() => {
+            clearSimPrefs();
+            onCommit();
+          }}
+          className="flex-1 rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {t('sims.resetToDefault')}
+        </button>
+        <button
+          type="button"
+          disabled={mixedOptions}
+          aria-describedby={mixedOptions ? mixedHintId : undefined}
+          onClick={() => {
+            // Saved as the globals and dropped as overrides: leaving them behind
+            // would pin this simulation to today's numbers, so a later change to
+            // the global would move every other simulation but not this one.
+            update({ simulation: eff });
+            clearSimPrefs();
+            onCommit();
+          }}
+          className="flex-1 rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {t('sims.saveAsDefault')}
+        </button>
+      </div>
+      {mixedOptions && (
+        <p id={mixedHintId} className="mt-1 text-[11px] text-ink-faint">
+          {t('sims.saveAsDefaultMixed')}
+        </p>
+      )}
+
+      {/* The deployment-speed thresholds, per simulation. Which one a flight uses
+          depends on the stage's recovery layout: no drogue is single-deployment
+          and uses the first alone; a drogue makes it dual-deployment and the main
+          is judged against the next two, the drogue against the last. All of them
+          reach the kernel, which is what raises the warnings shown on the Results
+          tab. The last three apply only once a device is marked as a drogue. */}
+      <div className="mt-3 border-t border-line/10 pt-2 text-[10px] uppercase tracking-wide text-ink-muted">
+        {t('settings.warnings')}
+      </div>
+      <div className="mt-2 space-y-2">
+        {SPEED_WARNINGS.map((w) => (
+          <NumberRow
+            key={w.key}
+            label={t(w.label)}
+            hint={t(w.hint)}
+            unit={vSym}
+            mixed={mixed(w.key)}
+            value={speed(prefs?.[w.key])}
+            placeholder={u.fmt('velocity', g[w.key])}
+            step={vStep}
+            min={0}
+            onChange={onSpeed(w.key)}
+            onCommit={onCommit}
+          />
+        ))}
+      </div>
+
+      <p className="mt-2 text-[11px] text-ink-faint">{t('sims.optionsHint')}</p>
+    </section>
+  );
+}

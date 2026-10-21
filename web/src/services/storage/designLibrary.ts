@@ -1,0 +1,372 @@
+// The saved-designs library. Designs are addressable:
+//
+//   <prefix>:designs:index        → DesignMeta[]  (small: id, name, updatedAt)
+//   <prefix>:designs:<id>         → one Workspace blob (the inputs)
+//   <prefix>:designs:<id>:results → that design's flight results
+//   <prefix>:designs:active       → the id currently open
+//
+// The index is deliberately separate from the designs. Autosave runs on a 500 ms
+// debounce while you edit, so it must rewrite one design, not a single document
+// containing every design, which would grow with the library and get rewritten
+// on every keystroke.
+//
+// Flight results are separate for the same reason, one level down. A result is
+// tens of thousands of per-timestep samples; the inputs are a few kilobytes. Held
+// in the one blob, every keystroke's autosave would re-serialize every flight the
+// design has ever run. Split, the inputs stay cheap to write and the results are
+// written only when a run actually produces one (see workspaceStore.save).
+import type { KeyValueStore } from './keyValueStore';
+import { IndexedDbKeyValueStore } from './idbKeyValueStore';
+import { parseJsonList } from './jsonListStore';
+import type { Workspace } from './workspaceStore';
+import type { FlightResult } from '../../engine/openRocketEngine';
+import { nsKey } from './storageKeys';
+import { isFiniteNumber } from '../app/numbers';
+
+/** A design's cached flights, by simulation id. */
+export type StoredResults = Record<string, FlightResult>;
+
+const INDEX_KEY = nsKey('designs:index');
+const ACTIVE_KEY = nsKey('designs:active');
+const designKey = (id: string) => nsKey(`designs:${id}`);
+const resultsKey = (id: string) => nsKey(`designs:${id}:results`);
+
+export interface DesignMeta {
+  id: string;
+  name: string;
+  /** Epoch ms of the last save; the library lists most-recent first. */
+  updatedAt: number;
+  /**
+   * The tab that made the last save, when the save named one.
+   *
+   * An unload journal is replayed over a moved entry only when its own tab is
+   * the one that moved it (see `workspaceStore`). Absent on writes that
+   * name no tab (Save As), which read as "some other tab".
+   */
+  writer?: string;
+}
+
+const isMeta = (v: unknown): v is DesignMeta => {
+  const m = v as DesignMeta | null;
+  return !!m && typeof m.id === 'string' && typeof m.name === 'string' && typeof m.updatedAt === 'number';
+};
+
+/** A summary field the kernel may legitimately leave unset. */
+const isNullableNumber = (v: unknown): boolean => v === null || isFiniteNumber(v);
+
+/**
+ * Is this stored value really a flight result this build can render?
+ *
+ * Deliberately strict about finiteness, not just types: `JSON.stringify` turns
+ * `NaN` and `Infinity` into `null`, so a summary that went through storage can
+ * come back with nulls where numbers belong, and the first `.toFixed()` on one
+ * throws in the middle of an export the user asked for.
+ */
+function isFlightResult(v: unknown): v is FlightResult {
+  // One narrowing to an open record, then plain property reads, so nothing is
+  // asserted to be a FlightResult before it has been checked.
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Record<string, unknown>;
+  const s = r.summary as Record<string, unknown> | undefined;
+  if (!s || typeof s !== 'object') return false;
+  // Finite is required only of the three the exporters format directly with
+  // `.toFixed()`, which is the crash this guard exists to stop. The rest need
+  // only be a number or null: throwing away an otherwise-usable flight because
+  // one peripheral field came back odd would be a worse trade than the bug.
+  for (const k of ['maxAltitude', 'maxVelocity', 'maxAcceleration']) {
+    if (!isFiniteNumber(s[k])) return false;
+  }
+  for (const k of [
+    'maxMachNumber',
+    'timeToApogee',
+    'flightTime',
+    'groundHitVelocity',
+    'launchRodVelocity',
+    'deploymentVelocity',
+    'optimumDelay',
+  ]) {
+    if (!isNullableNumber(s[k])) return false;
+  }
+  const series = r.series as Record<string, unknown> | undefined;
+  if (!series || typeof series !== 'object') return false;
+  for (const k of ['time', 'altitude', 'velocity', 'acceleration']) {
+    if (!Array.isArray(series[k])) return false;
+  }
+  return Array.isArray(r.events);
+}
+
+/** Short, collision-free enough for a per-browser library. */
+export const freshId = () => `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+export class DesignLibrary {
+  constructor(private readonly kv: KeyValueStore = new IndexedDbKeyValueStore()) {}
+
+  // --- index -------------------------------------------------------------
+
+  /** Saved designs, most recently updated first. */
+  async list(): Promise<DesignMeta[]> {
+    return (await this.readIndex()).slice().sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  private async readIndex(): Promise<DesignMeta[]> {
+    // A corrupt index reads as empty; the designs themselves are still addressable.
+    return parseJsonList(await this.kv.get(INDEX_KEY), isMeta);
+  }
+
+  /**
+   * Mutate the index atomically: read, transform and write in one store
+   * transaction.
+   *
+   * A read-then-write with awaited round trips in between is not enough: this is
+   * an installable PWA and IndexedDB is shared across tabs, so two tabs saving
+   * at once both read `[X]`, one writes `[A,X]`, the other writes `[B,X]`, and
+   * one entry is gone. `activeId()` filters against the index, so that design
+   * becomes unreachable and its bytes are orphaned.
+   */
+  private async mutateIndex(fn: (list: DesignMeta[]) => DesignMeta[]): Promise<boolean> {
+    // A corrupt index is rebuilt from this mutation alone.
+    return await this.kv.update(INDEX_KEY, (raw) => JSON.stringify(fn(parseJsonList(raw, isMeta))));
+  }
+
+  // --- active design -----------------------------------------------------
+
+  async activeId(): Promise<string | null> {
+    const id = await this.kv.get(ACTIVE_KEY);
+    if (!id) return null;
+    // An id pointing at a deleted design would strand the app on an empty
+    // workspace it cannot save to.
+    return (await this.readIndex()).some((m) => m.id === id) ? id : null;
+  }
+
+  /**
+   * As `activeId`, but rejects when storage could not be read rather than
+   * answering "no active design". Boot uses it: "none" lets it drop an unload
+   * journal as stale, which on a read that merely failed is the user's last
+   * unsaved work.
+   */
+  async activeIdChecked(): Promise<string | null> {
+    const id = await this.getChecked(ACTIVE_KEY);
+    if (!id) return null;
+    return parseJsonList(await this.getChecked(INDEX_KEY), isMeta).some((m) => m.id === id) ? id : null;
+  }
+
+  private async getChecked(key: string): Promise<string | null> {
+    return this.kv.getChecked ? await this.kv.getChecked(key) : await this.kv.get(key);
+  }
+
+  /** Point the library at a design. False if storage refused the write. */
+  async setActive(id: string): Promise<boolean> {
+    // The boolean is returned, not dropped. `KeyValueStore.set` reports refusal
+    // by returning false rather than throwing, so ignoring it would let a design
+    // switch resolve cleanly on a quota failure: this session would edit the new
+    // design and the next load would reopen the previous one.
+    return await this.kv.set(ACTIVE_KEY, id);
+  }
+
+  // --- designs -----------------------------------------------------------
+
+  async read(id: string): Promise<Workspace | null> {
+    const raw = await this.kv.get(designKey(id));
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as Workspace;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Write a design and stamp its index entry. Returns false if storage refused. */
+  async write(id: string, name: string, w: Workspace, writer?: string): Promise<boolean> {
+    if (!(await this.kv.set(designKey(id), JSON.stringify(w)))) return false;
+    // The index write counts too, even though the design itself is stored:
+    // `activeId()` filters against this index, so a design missing from it is
+    // unreachable. A newly created one would vanish and the next session open
+    // empty over orphaned bytes, and an existing one would stop advancing its
+    // `updatedAt` so the library list silently goes stale. Reporting the failure
+    // lets `workspaceStore.save()` raise "storage full" instead of the user
+    // finding out later.
+    // Strictly later than the stamp being replaced, not merely `Date.now()`.
+    // Two writes inside the same millisecond leave the stamp unchanged, and the
+    // stamp is what tells a second tab that the entry moved under it
+    // (`workspaceStore.save`) and what tells a reload that the library has
+    // passed an unload journal (`Journal` in workspaceStore). A tie reads as
+    // "nothing happened", which is the one answer that is never true after a
+    // write.
+    return await this.mutateIndex((list) => {
+      const prev = list.find((m) => m.id === id);
+      const updatedAt = Math.max(Date.now(), (prev?.updatedAt ?? 0) + 1);
+      return [{ id, name, updatedAt, ...(writer ? { writer } : {}) }, ...list.filter((m) => m.id !== id)];
+    });
+  }
+
+  /**
+   * Write a design only if its index entry has not moved past `seenAt`, the
+   * stamp the caller last saw. `seenAt` null writes unconditionally.
+   *
+   * The compare and the new stamp happen inside the one index transaction, so
+   * two tabs saving the same entry cannot both pass the check: the first to
+   * commit moves the stamp, and the second finds it moved. A check made on an
+   * earlier read, with the write some round trips later, lets both through.
+   * The stamp is claimed before the blob is written for the same reason.
+   *
+   * Once the blob is down the stamp moves again. A reader that lands between
+   * the claim and the blob write (another tab opening the design) can pair the
+   * claimed stamp with the old blob; the second stamp is later than the one it
+   * holds, so its next save is refused rather than writing that old blob back.
+   * Readers take the stamp before the blob for the same reason.
+   *
+   * `updatedAt` is the last stamp this call put on the entry, whenever it put
+   * one, including when the blob write after the claim was refused: the entry
+   * has moved, and the caller is the one that moved it. `name` is used only when the entry
+   * has none (it was removed meanwhile); a rename from the library dialog is
+   * kept. `writer` names the tab making the save (see `DesignMeta.writer`).
+   */
+  async writeIfUnchanged(
+    id: string,
+    name: string,
+    w: Workspace,
+    seenAt: number | null,
+    writer?: string,
+  ): Promise<{ status: 'ok' | 'conflict' | 'refused'; updatedAt?: number }> {
+    let conflict = false;
+    let updatedAt: number | undefined;
+    const claimed = await this.mutateIndex((list) => {
+      const prev = list.find((m) => m.id === id);
+      if (seenAt != null && prev && prev.updatedAt > seenAt) {
+        conflict = true;
+        return list;
+      }
+      // Strictly later than the stamp being replaced; see `write`.
+      updatedAt = Math.max(Date.now(), (prev?.updatedAt ?? 0) + 1);
+      const entry: DesignMeta = { id, name: prev?.name ?? name, updatedAt, ...(writer ? { writer } : {}) };
+      return [entry, ...list.filter((m) => m.id !== id)];
+    });
+    if (conflict) return { status: 'conflict' };
+    if (!claimed || updatedAt === undefined) return { status: 'refused' };
+    if (!(await this.kv.set(designKey(id), JSON.stringify(w)))) return { status: 'refused', updatedAt };
+    // The second stamp, only over this call's own claim: an entry another
+    // writer has moved since is theirs, and the claim is what this call holds.
+    const claim = updatedAt;
+    let settled = claim;
+    const restamped = await this.mutateIndex((list) => {
+      const prev = list.find((m) => m.id === id);
+      if (!prev || prev.updatedAt !== claim) return list;
+      settled = Math.max(Date.now(), claim + 1);
+      return list.map((m) => (m.id === id ? { ...m, updatedAt: settled } : m));
+    });
+    return { status: 'ok', updatedAt: restamped ? settled : claim };
+  }
+
+  /**
+   * Register a new design and make it active. Returns its meta.
+   *
+   * Throws `storage-full` if the write is refused, rather than resolving with a
+   * fabricated meta for a design that was never stored. This is the path taken
+   * by the first save of a session, when there is no other copy yet.
+   *
+   * `id` is the entry to create, chosen by the caller ahead of the write so an
+   * unload journal can name it before it exists (see `workspaceStore`). Creating
+   * an id that is already stored rewrites that entry, so a repeated create of
+   * the same id leaves one design, not two.
+   */
+  async create(name: string, w: Workspace, writer?: string, id: string = freshId()): Promise<DesignMeta> {
+    if (!(await this.write(id, name, w, writer))) throw new Error('storage-full');
+    // Same rule for the pointer: a design that is written and indexed but not
+    // active works for this session and then the next launch opens the
+    // previous one, with the user's new rocket sitting in the library list.
+    //
+    // Roll back before throwing. The caller (workspaceStore.save) still has no
+    // active id, so its next autosave creates again, and a half-done create
+    // that left an indexed design behind would add one identical row to the
+    // library per retry, i.e. one every 500 ms for as long as the pointer
+    // write kept failing.
+    if (!(await this.setActive(id))) {
+      await this.remove(id);
+      throw new Error('storage-full');
+    }
+    const meta = (await this.readIndex()).find((m) => m.id === id);
+    return meta ?? { id, name, updatedAt: Date.now() };
+  }
+
+  /** Rename a design. False if storage refused the write. */
+  async rename(id: string, name: string): Promise<boolean> {
+    // The boolean matters here too: dropping it shows the new name from memory
+    // and the old one next session.
+    return await this.mutateIndex((list) => list.map((m) => (m.id === id ? { ...m, name } : m)));
+  }
+
+  // --- flight results ----------------------------------------------------
+
+  /**
+   * A design's cached flights. Missing, unreadable or malformed reads as
+   * "none" for the entries that fail, keeping the ones that do not.
+   *
+   * Every entry is shape-checked. The inputs go through `migrateWorkspace`;
+   * these values are re-attached to simulations and rendered straight into
+   * charts, CSV and the KML/GPX export, so they need their own check. Two
+   * things would get through otherwise: a blob from a different build shape,
+   * and, less visibly, `NaN`/`Infinity`, which
+   * `JSON.stringify` writes as `null`, so a summary number comes back null and
+   * the first `.toFixed()` on it throws mid-export.
+   */
+  async readResults(id: string): Promise<StoredResults> {
+    const raw = await this.kv.get(resultsKey(id));
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const out: StoredResults = {};
+      for (const [simId, value] of Object.entries(parsed as Record<string, unknown>)) {
+        if (isFlightResult(value)) out[simId] = value;
+      }
+      return out;
+    } catch {
+      return {}; // a truncated blob costs a re-run, not the design
+    }
+  }
+
+  /**
+   * Replace a design's cached flights. An empty map removes the key rather than
+   * storing `{}`, so a design whose results were all invalidated stops occupying
+   * space for them.
+   *
+   * Best-effort by design: unlike the inputs, a result that will not fit is
+   * recomputable, so a refused write is not worth failing a save over.
+   */
+  async writeResults(id: string, results: StoredResults): Promise<boolean> {
+    if (!Object.keys(results).length) {
+      await this.kv.remove(resultsKey(id));
+      return true;
+    }
+    return await this.kv.set(resultsKey(id), JSON.stringify(results));
+  }
+
+  /**
+   * Delete a design. False if the index write was refused, in which case
+   * nothing is deleted.
+   *
+   * The index goes first, and the blobs only if it lands. The other order
+   * would leave the library listing a design whose bytes were gone whenever the
+   * index write was refused (quota, or the degraded localStorage fallback):
+   * `activeId()` would return it, `read()` would return null, and
+   * `workspaceStore.readActive` would throw `unreadable-design`, so the app
+   * would open broken. Orphaned bytes are the better failure: they cost space,
+   * not a working app.
+   */
+  async remove(id: string): Promise<boolean> {
+    if (!(await this.mutateIndex((list) => list.filter((m) => m.id !== id)))) return false;
+    await this.kv.remove(designKey(id));
+    await this.kv.remove(resultsKey(id)); // or the flights outlive their design
+    if ((await this.kv.get(ACTIVE_KEY)) === id) await this.kv.remove(ACTIVE_KEY);
+    return true;
+  }
+}
+
+let library = new DesignLibrary();
+export function getDesignLibrary(): DesignLibrary {
+  return library;
+}
+/** Swap the library (tests, or a different backend). */
+export function setDesignLibrary(next: DesignLibrary): void {
+  library = next;
+}

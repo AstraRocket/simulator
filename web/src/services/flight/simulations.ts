@@ -1,0 +1,515 @@
+// A named simulation = one flight setup over the shared rocket design: the
+// flight configuration it flies + launch conditions + last result. The
+// Simulations tab is a table of these; the active one is the row the editor
+// is pointed at.
+import type { FlightResult, RocketTree, FlightSummary } from '../../engine/openRocketEngine';
+import type { FlightConfig } from './flightConfigs';
+import type { LaunchConditions } from '../design/orkTree';
+import type { CompleteLaunch } from './requiredLaunch';
+import { uuid } from '../app/uuid';
+import { degToRad } from '../../prefs/units';
+import { LAUNCH_SI } from '../../prefs/launchUnits';
+import { stableJson } from '../app/stableJson';
+import { padLevelWind } from './windLevels';
+import { walkNodes } from '../../tree/treeWalk';
+import { isRecoveryDevice } from '../design/treeEdit';
+import { settleLinkedDimensions } from '../design/linkedDimensions';
+
+/**
+ * The default compass heading (degrees) for the launch rod and the wind: due
+ * east, the kernel's own (`SimulationOptions` defaults `launchRodDirection`
+ * and `windDirection` to PI/2). Shared with the launch panel so every
+ * fallback heading reads the same value.
+ */
+export const DEFAULT_HEADING_DEG = 90;
+
+/**
+ * The maximum angle step the kernel flies, in radians: 1 to 20 degrees, the
+ * clamp in `SimulationOptions.setMaximumStepAngle`. The bridge sets the step on
+ * `SimulationConditions`, which has no clamp, so the range is applied here.
+ */
+export const MAX_ANGLE_STEP_RANGE = { min: Math.PI / 180, max: (20 * Math.PI) / 180 } as const;
+
+/** A maximum angle step brought into {@link MAX_ANGLE_STEP_RANGE}. */
+export const clampMaxAngleStep = (rad: number): number =>
+  Math.min(MAX_ANGLE_STEP_RANGE.max, Math.max(MAX_ANGLE_STEP_RANGE.min, rad));
+
+export interface Simulation {
+  id: string;
+  name: string;
+  /**
+   * The flight configuration this simulation flies (services/flight/flightConfigs.ts):
+   * which motor sits in which mount, and when each one ignites.
+   *
+   * A reference, not a copy. Several simulations can name one configuration, so
+   * "C6 sustainer vs. D12 sustainer" is two configurations that rows point at
+   * rather than two duplicated loadouts, and pointing a row at another setup is
+   * one field rather than a motor per mount.
+   */
+  configId: string;
+  launch: LaunchConditions;
+  /** Cached last flight result (null until this simulation has ever been run). */
+  result: FlightResult | null;
+  /**
+   * The result summary a .ork carried for this simulation, until it is flown here.
+   *
+   * A summary, not a flight: the file holds the desktop's ten figures and no
+   * samples, so it fills the simulations table and the run table but no chart.
+   * `key` is the {@link resultKey} of the inputs it was loaded with, or null when
+   * the file itself called it outdated, so it ages exactly as a result does.
+   * The first run of this simulation replaces it.
+   */
+  fileSummary?: { summary: FlightSummary; key: string | null };
+  /**
+   * Parts of the `.ork` simulation this app does not model, as raw XML: desktop
+   * simulation extensions (air-start, roll control, scripts), plot appearance and
+   * landing-dispersion settings. Never run or edited here; written back on save
+   * so a round trip through this app keeps them (services/files/ork/passthrough.ts).
+   */
+  xmlExtra?: string[];
+  /**
+   * What `result` was flown from, as {@link resultKey} wrote it at dispatch.
+   *
+   * Whether the result is outdated is derived from this ({@link isOutdated}),
+   * never stored: an edit leaves the result readable, as OpenRocket does, and the
+   * row reads outdated for as long as the current inputs differ from these.
+   * Being a value rather than a set of object references, it survives a reload,
+   * and an edit undone back to the flown value reads current again.
+   */
+  resultKey?: string;
+  /**
+   * The launch conditions `result` was flown under, as they stood at dispatch.
+   *
+   * `launch` is the row's current conditions, which an edit moves while the
+   * result stays readable. Whatever describes the flight (the launch site under
+   * the ground track, the air the flight met) reads this. When unset, readers
+   * fall back to `launch`.
+   */
+  resultLaunch?: LaunchConditions;
+  /**
+   * Per-simulation overrides of the global run preferences (Settings ›
+   * Simulation). Unset keys fall through to the global value, so a workspace
+   * that never sets one flies on the globals.
+   *
+   * The `.ork` carries the ones desktop keeps per simulation (time step, maximum
+   * time and the four recovery warnings): the writer puts the simulation's own
+   * settings in its conditions, and the reader brings a file's back as overrides
+   * where they differ from the globals. The rest ride on the workspace autosave.
+   */
+  prefs?: Partial<SimPrefs>;
+}
+
+/**
+ * Everything one simulation's flight is computed from, other than the design.
+ *
+ * A run takes a snapshot of these and posts it to a worker; by the time the
+ * answer comes back the user may have changed any of them. Installing it then
+ * would mark the row current while showing numbers from the inputs it replaced,
+ * which is worse than no numbers at all. `runSims` captures this before
+ * dispatch and compares it again at install time, as it does with the design
+ * tree.
+ *
+ * Reference identity is the whole test, and it is enough because every store
+ * action replaces these rather than mutating them (`patchTargets` and
+ * `patchConfig` spread). An edit that happens to restore the same value is
+ * a different object and costs a run, which is the safe direction to be wrong in.
+ */
+export interface SimInputs {
+  /**
+   * The configuration this row flies, by object.
+   *
+   * Covers both halves at once: pointing the row at another setup hands back a
+   * different configuration, and editing the setup replaces the object (every
+   * store action spreads rather than mutating).
+   */
+  config: FlightConfig;
+  launch: LaunchConditions;
+  prefs: Partial<SimPrefs> | undefined;
+}
+
+export function simInputs(sim: Simulation, config: FlightConfig): SimInputs {
+  return { config, launch: sim.launch, prefs: sim.prefs };
+}
+
+/** True when nothing a flight depends on has moved since `a` was captured. */
+export function sameSimInputs(a: SimInputs, b: SimInputs): boolean {
+  return a.config === b.config && a.launch === b.launch && a.prefs === b.prefs;
+}
+
+/**
+ * The run preferences a flight actually reads: the row's own overrides over the
+ * globals. The run and {@link resultKey} both use this, so what a result is
+ * compared against is what it was flown with.
+ */
+export function effectivePrefs(globals: SimPrefs, own: Partial<SimPrefs> | undefined): SimPrefs {
+  return { ...globals, ...own };
+}
+
+const PART_NAME = new Set(['name']);
+/** One key per tree object. A design edit replaces the tree, so every row of every render until then is a cache hit. */
+const treeKeys = new WeakMap<RocketTree, string>();
+
+/**
+ * A key over everything about a design that can change a flight.
+ *
+ * Deliberately narrower than the tree object: the root carries `name`,
+ * `designer`, `comment`, `revision` and `designType`, which are round-tripped to
+ * the `.ork` and touch no physics, and every node carries a `name` that is a
+ * label. So typing a designer name or renaming a part leaves results current.
+ * Recovery devices are the exception: a run names the device each deployment
+ * came from, and the Recovery readout finds its figures by that name, so a
+ * renamed device ages the result rather than silently losing them.
+ *
+ * Everything else is treated as flight-bearing, including fields we may not know
+ * about (`ComponentNode` has an open index signature). That is the safe
+ * direction to be wrong in: a needless invalidation costs a re-run, a missed one
+ * shows numbers for a rocket that no longer exists.
+ */
+export function flightKey(tree: RocketTree): string {
+  let key = treeKeys.get(tree);
+  if (key === undefined) {
+    const deviceNames = [...walkNodes(tree.components)].filter((n) => isRecoveryDevice(n.type)).map((n) => n.name);
+    // Linked dimensions as the kernel builds them: a stored rail button or ring
+    // the load path settles flies the same before and after, so it keys the same.
+    key = stableJson([settleLinkedDimensions(tree).components, deviceNames], PART_NAME);
+    treeKeys.set(tree, key);
+  }
+  return key;
+}
+
+/** The last key per simulation object, with the inputs it was computed from. */
+const resultKeys = new WeakMap<
+  Simulation,
+  { tree: RocketTree; config: FlightConfig; globals: SimPrefs; key: string }
+>();
+
+/**
+ * Everything one row's flight is computed from, as one comparable string: the
+ * design ({@link flightKey}), the configuration (less its id and name), the launch
+ * conditions, and the {@link effectivePrefs}. A row that pins a preference is
+ * unaffected by the global one moving, because its override is what it reads.
+ */
+export function resultKey(tree: RocketTree, config: FlightConfig, sim: Simulation, globals: SimPrefs): string {
+  // Every store update asks every row whether it is outdated, and the key
+  // serializes the configuration's thrust curves. The inputs are replaced, never
+  // mutated, so the same four objects always give the same key.
+  const hit = resultKeys.get(sim);
+  if (hit && hit.tree === tree && hit.config === config && hit.globals === globals) return hit.key;
+  const key = computeResultKey(tree, config, sim, globals);
+  resultKeys.set(sim, { tree, config, globals, key });
+  return key;
+}
+
+function computeResultKey(tree: RocketTree, config: FlightConfig, sim: Simulation, globals: SimPrefs): string {
+  const { id: _id, name: _name, ...flown } = config;
+  const prefs = effectivePrefs(globals, sim.prefs);
+  // Where the weather came from describes the launch, and a profile kept under
+  // the Average model waits to be switched back to; neither is flown.
+  const { weatherSource: _source, keptWindLevels: _kept, ...launch } = sim.launch;
+  return stableJson([flightKey(tree), flown, launch, SIM_PREF_KEYS.map((k) => prefs[k] ?? null)]);
+}
+
+/**
+ * The row has a result, and it was flown from inputs other than the current ones.
+ * A summary read from a file counts as a result here, aging the same way.
+ */
+export function isOutdated(sim: Simulation, tree: RocketTree, config: FlightConfig, globals: SimPrefs): boolean {
+  if (sim.result !== null) return sim.resultKey !== resultKey(tree, config, sim, globals);
+  if (sim.fileSummary) return sim.fileSummary.key !== resultKey(tree, config, sim, globals);
+  return false;
+}
+
+/** The flight the Results tab is drawing. */
+export interface ResultFlight {
+  id: string;
+  name: string;
+  result: FlightResult;
+  /**
+   * The conditions this flight was flown under, carried along rather than read
+   * off the active simulation by whoever draws it.
+   *
+   * The Results picker can be showing a flight from a different row than the
+   * one being edited, so `selectActive(s).launch` is not reliably this flight's
+   * launch site. The ground track draws map imagery at these coordinates, and
+   * imagery centered on someone else's pad is worse than none.
+   */
+  launch: LaunchConditions;
+}
+
+/**
+ * The flight the Results tab shows.
+ *
+ * `chosen` is the Results picker's own selection; null means "whichever
+ * simulation is active", so opening Results reads the row you were just
+ * working on.
+ *
+ * Falls back to the active simulation whenever the choice cannot be honored
+ * (an id that no longer names a row, or one whose run has since been cleared),
+ * because an empty Results tab with a chart frame and no data reads as a bug
+ * rather than as a choice.
+ */
+export function resultFlight(
+  sims: readonly Simulation[],
+  chosen: string | null,
+  activeId: string,
+): ResultFlight | null {
+  const pick = (id: string | null): ResultFlight | null => {
+    const sim = id == null ? undefined : sims.find((x) => x.id === id);
+    return sim?.result
+      ? { id: sim.id, name: sim.name, result: sim.result, launch: sim.resultLaunch ?? sim.launch }
+      : null;
+  };
+  return pick(chosen) ?? pick(activeId);
+}
+
+/** What the simulations table's status dot says about one row. */
+export type SimStatus = 'notRun' | 'queued' | 'running' | 'failed' | 'outdated' | 'upToDate' | 'fromFile';
+
+/**
+ * Transient run state for one simulation, keyed by sim id in the store.
+ *
+ * Per-sim because the worker pool runs several flights at once, and because a
+ * batch of twelve is queued all at once and starts a few at a time: "waiting its
+ * turn" and "in the air" are different things a row has to be able to say.
+ *
+ * `failed` carries the design it failed on, which is what stops auto-run
+ * retrying a configuration already known to fail while still allowing a retry
+ * the moment the design changes (see `selectRunFailed`).
+ */
+export type SimRun = { phase: 'queued' } | { phase: 'running' } | { phase: 'failed'; tree: RocketTree };
+
+/**
+ * The status of one simulation: its live run state if it has one, else what its
+ * stored result says.
+ *
+ * A `failed` entry only counts against the design it was recorded on. On any
+ * other design it is stale, and the row falls back to describing its result.
+ */
+export function simStatus(
+  sim: Simulation,
+  runs: Record<string, SimRun>,
+  tree: RocketTree,
+  outdated: boolean,
+): SimStatus {
+  const run = runs[sim.id];
+  if (run?.phase === 'queued') return 'queued';
+  if (run?.phase === 'running') return 'running';
+  if (run?.phase === 'failed' && run.tree === tree) return 'failed';
+  if (!sim.result) return sim.fileSummary ? (outdated ? 'outdated' : 'fromFile') : 'notRun';
+  return outdated ? 'outdated' : 'upToDate';
+}
+
+/** The i18n key each status reads as. */
+const SIM_STATUS_KEY: Record<SimStatus, string> = {
+  upToDate: 'sims.statusUpToDate',
+  outdated: 'sims.statusOutdated',
+  queued: 'sims.statusQueued',
+  running: 'sims.statusRunning',
+  failed: 'sims.statusFailed',
+  notRun: 'sims.notRun',
+  fromFile: 'sims.statusFromFile',
+};
+
+/**
+ * A status as the reader sees it: the one wording the simulations table and
+ * the run-table CSV share, so the file and the table cannot disagree.
+ */
+export function simStatusLabel(status: SimStatus, t: (key: string) => string): string {
+  return t(SIM_STATUS_KEY[status]);
+}
+
+/**
+ * The simulations with their flight results dropped. A result is tens of
+ * thousands of samples, so the undo history and the persisted design hold the
+ * inputs only.
+ */
+export const withoutResults = (sims: readonly Simulation[]): Simulation[] =>
+  sims.map((s) => ({ ...s, result: null, resultLaunch: undefined }));
+
+/** Globally-unique id for a new simulation: a UUID (like OpenRocket's own ids),
+ *  so ids minted after a reload can't collide with persisted ones. */
+function newSimId(): string {
+  return uuid();
+}
+
+export function newSimulation(name: string, configId: string, launch: LaunchConditions): Simulation {
+  return { id: newSimId(), name, configId, launch, result: null };
+}
+
+/** Global simulation preferences applied to every run (see services/storage/settings.ts). */
+export interface SimPrefs {
+  timeStep: number;
+  maxTime: number;
+  /**
+   * The most the rocket may rotate in one RK4 step, in radians. The stepper
+   * shortens its step to respect it, so a smaller value buys accuracy through a
+   * fast pitch-over without paying for it over the whole coast.
+   */
+  maxAngleStep: number;
+  randomSeed: number | null;
+  /** Recovery-deployment warning thresholds (m/s); see SimulationSettings. */
+  deploymentSpeedWarn: number;
+  mainHighSpeedWarn: number;
+  mainLowSpeedWarn: number;
+  /** Drogue-side minimum, dual deployment only. */
+  drogueLowSpeedWarn: number;
+  /**
+   * Which launch-guide clearance model to fly; see `SimulationSettings`. The
+   * only member of this type that changes the flight rather than a warning
+   * threshold, and the only reason it lives here is that `settings.simulation`
+   * is handed to `runSims` as the prefs whole: there is no per-simulation
+   * control for it, and a design does not carry one.
+   */
+  guideAwareRodClearance: boolean;
+  /**
+   * The user's length unit. The kernel decides its airframe diameter-step, gap
+   * and overlap warnings by comparing lengths as text in this unit, and those
+   * warnings land in the flight, so a unit switch changes what a run records.
+   * Optional because `settings.simulation` does not hold it; the store's copy
+   * always does (`simPrefsOf`).
+   */
+  lengthUnit?: string;
+}
+
+/**
+ * Every {@link SimPrefs} key, at runtime.
+ *
+ * `SimPrefs` is exactly the settings a flight reads, which is what makes it the
+ * right list for deciding whether a saved result still describes the current
+ * ones: `SimulationSettings` also carries `confirmDelete` and `autoRunOutdated`
+ * (interface only) and `railExitVelocityMin` (the rod-exit tile's color, never
+ * passed to the engine), none of which can change a number.
+ *
+ * A type cannot be enumerated at runtime, so this list is hand-written, and a
+ * key added to `SimPrefs` without being added here would never invalidate
+ * results. `EXHAUSTIVE` fails to compile in that case.
+ */
+export const SIM_PREF_KEYS = [
+  'timeStep',
+  'maxTime',
+  'maxAngleStep',
+  'randomSeed',
+  'deploymentSpeedWarn',
+  'mainHighSpeedWarn',
+  'mainLowSpeedWarn',
+  'drogueLowSpeedWarn',
+  'guideAwareRodClearance',
+  'lengthUnit',
+] as const satisfies readonly (keyof SimPrefs)[];
+
+/** Compile-time proof that {@link SIM_PREF_KEYS} names every `SimPrefs` key. */
+type EXHAUSTIVE =
+  Exclude<keyof SimPrefs, (typeof SIM_PREF_KEYS)[number]> extends never
+    ? true
+    : ['SIM_PREF_KEYS is missing', Exclude<keyof SimPrefs, (typeof SIM_PREF_KEYS)[number]>];
+const _exhaustive: EXHAUSTIVE = true;
+void _exhaustive;
+
+/**
+ * Which flight-affecting preferences differ between two sets of globals.
+ *
+ * Compared key by key rather than by identity, because the settings object is
+ * rebuilt on every unrelated change in the same store: switching a unit or a
+ * part color hands out a new `simulation` object holding the same values,
+ * and treating that as an edit would age every result on screen.
+ */
+export function changedPrefKeys(before: SimPrefs, after: SimPrefs): (keyof SimPrefs)[] {
+  return SIM_PREF_KEYS.filter((k) => before[k] !== after[k]);
+}
+
+/**
+ * A fresh seed for the wind turbulence, for when the user has not pinned one.
+ *
+ * This has to be minted here rather than left out of the payload. The engine
+ * bridge reads `JsonLite.dbl(o, "randomSeed", 42)`, and an omitted key is not an
+ * absent seed: it is the constant 42, and every turbulent-wind run of one
+ * flight would come back identical. OpenRocket seeds from
+ * `new Random().nextInt()` when `randomSeedFixed` is false; this is that.
+ *
+ * Signed 32-bit, because the bridge casts to a Java `int`.
+ */
+export const freshSeed = (): number => Math.floor(Math.random() * 2 ** 32) - 2 ** 31;
+
+/**
+ * A typed seed as the seed the bridge flies. Its `(int)` cast truncates toward
+ * zero and saturates at the int range, so 3.7 flies as 3 and 1e12 as
+ * 2147483647; normalizing on entry keeps the field showing the seed flown.
+ */
+export function seedFromInput(v: number | null): number | null {
+  if (v == null || Number.isNaN(v)) return null;
+  return Math.max(-(2 ** 31), Math.min(2 ** 31 - 1, Math.trunc(v)));
+}
+
+/**
+ * Map UI launch conditions (+ global sim prefs) to the engine's simulate()
+ * options (radians, kelvin, Pa).
+ *
+ * Takes a complete launch: the required fields are `number | null` in the
+ * editor, because a cleared field has to be distinguishable from a typed zero,
+ * and the type says that distinction is already resolved by the time anything
+ * reaches the engine. `runSims` refuses an incomplete simulation before it gets
+ * here (see services/flight/runnability), so this never has to invent a value
+ * for a blank (a `v ?? 0` coercion would turn "cleared" into a real zero).
+ */
+export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
+  // "Launch into the wind" aims the rod at the wind heading at the pad,
+  // overriding the manual rod direction. Multilevel wind: the profile read at
+  // the pad's altitude (windLevels.padLevelWind), as upstream's
+  // SimulationOptions.getLaunchRodDirection does.
+  const windDirDeg = padLevelWind(launch)?.headingDeg ?? launch.windDirectionDeg ?? DEFAULT_HEADING_DEG;
+  const rodDirDeg = launch.launchIntoWind ? windDirDeg : (launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG);
+  return {
+    launchRodLength: launch.launchRodLengthM,
+    launchRodAngle: degToRad(launch.launchRodAngleDeg),
+    launchRodDirection: degToRad(rodDirDeg),
+    windAverage: launch.windAverage,
+    windStdDeviation: launch.windStdDev,
+    windDirection: degToRad(launch.windDirectionDeg ?? DEFAULT_HEADING_DEG),
+    windLevels: launch.windLevels?.map((l) => ({
+      altitude: l.altitudeM,
+      speed: l.speed,
+      direction: degToRad(l.directionDeg),
+      stddev: l.stddev,
+    })),
+    windAltitudeReference: launch.windAltitudeReference,
+    geodetic: launch.geodetic,
+    gravityModel: launch.gravityModel,
+    constantGravity: launch.constantGravity,
+    // A stored value can hold a step outside the range the kernel flies.
+    maxAngleStep: prefs?.maxAngleStep == null ? undefined : clampMaxAngleStep(prefs.maxAngleStep),
+    launchAltitude: launch.launchAltitudeM,
+    launchLatitude: launch.latitudeDeg,
+    launchLongitude: launch.longitudeDeg,
+    temperature: launch.temperatureC != null ? LAUNCH_SI.degC.toSi(launch.temperatureC) : undefined,
+    pressure: launch.pressureHPa != null ? LAUNCH_SI.hPa.toSi(launch.pressureHPa) : undefined,
+    // Omitted rather than sent as standard when null: the bridge reads an absent
+    // key as NaN and only leaves ISA when one of the three is actually given.
+    relativeHumidity: launch.relativeHumidity ?? undefined,
+    atmosphereLevels: launch.atmosphereLevels?.length
+      ? launch.atmosphereLevels.map((l) => ({
+          altitude: l.altitudeM,
+          temperature: LAUNCH_SI.degC.toSi(l.temperatureC),
+          pressure: LAUNCH_SI.hPa.toSi(l.pressureHPa),
+          relativeHumidity: l.relativeHumidity,
+        }))
+      : undefined,
+    timeStep: prefs?.timeStep,
+    maxTime: prefs?.maxTime,
+    randomSeed: prefs?.randomSeed ?? freshSeed(),
+    recoverySpeedWarn: prefs?.deploymentSpeedWarn,
+    mainHighSpeedWarn: prefs?.mainHighSpeedWarn,
+    mainLowSpeedWarn: prefs?.mainLowSpeedWarn,
+    drogueLowSpeedWarn: prefs?.drogueLowSpeedWarn,
+    guideAwareRodClearance: prefs?.guideAwareRodClearance,
+    // Every series the branch records, not the friendly dozen. `summary` keeps
+    // 17 of the 69 series the kernel computes either way, and the app can only
+    // plot or export what it asked for; the flight is simulated the same and
+    // only the serialization differs.
+    //
+    // Measured on a C6 flight at a 0.01 s step, three runs each: 509 ms and
+    // 427 KB for `summary` against 596 ms and 1537 KB for `full`. 87 ms is not
+    // worth two thirds of the flight data, and IndexedDB has room for the
+    // payload.
+    series: 'full' as const,
+  };
+}

@@ -1,0 +1,148 @@
+// The OpenRocket physics kernel (the commit pinned in extract/UPSTREAM),
+// compiled by TeaVM into the JS and WASM-GC engines the web app loads.
+plugins {
+    id 'java'
+    id 'org.teavm' version '0.15.0'   // >= 0.15 REQUIRED: 0.10's JS backend inverts NaN comparisons
+}
+
+// "Deprecated Gradle features were used in this build, making it incompatible
+// with Gradle 10" comes from the TeaVM PLUGIN, not from anything here.
+//
+// `--warning-mode all -Dorg.gradle.deprecation.trace=true` traces every one of
+// them to TeaVMPlugin.setupSources (TeaVMPlugin.java:452), which declares the
+// `:sources` variant of each dependency with the multi-string map notation
+// Gradle 9 deprecated and Gradle 10 removes. Our own `dependencies` block uses
+// single-string notation.
+//
+// It cannot be switched off from here. setupSources runs unconditionally when
+// the JS and WASM-GC tasks are REGISTERED, and it feeds the task's own
+// getSourceFiles() input, so the configuration resolves on every build whatever
+// `sourceFilePolicy` or `sourceMap` are set to. Nor is there anywhere to
+// upgrade to: 0.15.0 is the newest teavm-gradle-plugin on Maven Central, and
+// TeaVM's own master still builds that dependency with Map.of("group", ...,
+// "classifier", "sources") at the same TeaVMPlugin.java:452 the trace names, so
+// no fix is merely waiting on a release.
+//
+// The consequence worth remembering: DO NOT bump the wrapper in
+// gradle/wrapper/gradle-wrapper.properties (currently 9.7.1) to Gradle 10 until
+// TeaVM ships a fix, because there this warning becomes a hard error and the
+// engine stops building. Leave the warning visible rather than setting
+// org.gradle.warning.mode=none, which would also hide deprecations that ARE
+// ours to fix.
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src/java'   // OpenRocket sources (already patched per patches/LEDGER.md)
+            srcDir 'src/shims/java'    // replacements for JVM-only surface (e.g. LongUUID)
+            srcDir 'src/api/java'      // @JSExport facade (api.OpenRocketEngine) consumed by web/
+        }
+    }
+    // java.text.Collator stand-in for TeaVM (its class library lacks it). A SEPARATE source set
+    // is required by javac, not the runtime: JPMS forbids declaring java.* in the unnamed module,
+    // so it compiles with --patch-module (below), which can't be mixed with ordinary sources in
+    // one compilation. TeaVM links it; on the JVM parity run the real JDK Collator wins, so it
+    // only shapes the JS build.
+    jdkStubs {
+        java {
+            srcDir 'src/jdkstubs'
+        }
+    }
+}
+
+// The parity scenarios (test/parity/ParityMain.java) compile into EVERY build, and the shipped
+// engine exports them as OpenRocketEngine.runParity(). That is what lets test/parity/parity.mjs
+// run the vendored .mjs and .wasm themselves against the JVM reference: a separate harness build
+// would have a different entry point and reachable set than the binary users get, and
+// fastGlobalAnalysis links by reachability. The cost is the harness's bytes in the shipped
+// engine (about 2%), never executed by the app.
+sourceSets.main.java.srcDir 'test'
+
+// UTF-8, stated rather than inherited. Some sources carry non-ASCII characters
+// inside string literals that ship as constants, and javac otherwise decodes
+// with the platform default, which a `file.encoding` in JAVA_OPTS or GRADLE_OPTS
+// (both forwarded by gradle-exec.mjs) can change. A different decode changes the
+// vendored bytes, and the audit's `committed` step then fails on a binary diff.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+compileJdkStubsJava {
+    // Collator's package (java.text) is patched into java.base.
+    options.compilerArgs += ['--patch-module', "java.base=${file('src/jdkstubs')}"]
+}
+
+dependencies {
+    // Make the stub classes visible to TeaVM's transpiler (it reads bytecode from the
+    // runtime classpath; package names are all that matter to it).
+    implementation files(sourceSets.jdkStubs.output.classesDirs) {
+        builtBy 'compileJdkStubsJava'
+    }
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    // TeaVM-safe slf4j substitution (real slf4j's binding discovery breaks under TeaVM).
+    implementation 'org.teavm:teavm-extras-slf4j:0.15.0'
+    // @JSExport / JS interop annotations for the API facade.
+    implementation 'org.teavm:teavm-jso:0.15.0'
+}
+
+java {
+    toolchain {
+        // 21: the LTS this is built with. TeaVM compiles the bytecode rather
+        // than running it, so the level only has to be one both TeaVM and the
+        // extracted OpenRocket sources accept. The parity harness
+        // (test/parity) is what proves a toolchain change did not move a number.
+        languageVersion = JavaLanguageVersion.of(21)
+        // Pin the VENDOR too, not just the language level.
+        //
+        // The audit's `committed` step (audit.mjs) rebuilds over the vendored
+        // artifacts and fails if a byte changed, so the whole toolchain has to
+        // reproduce bytes. With only a language level, any vendor's JDK 21
+        // qualifies, and a javac codegen difference shows up as a 2.9 MB
+        // unreadable binary diff with no hint that the JDK is the cause.
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+teavm.js {
+    // The facade, in every build: the parity harness is reached through its runParity() export.
+    mainClass = 'api.OpenRocketEngine'
+    obfuscated = false
+    // Native ES module: real named exports. UMD's dynamically-assigned exports are invisible
+    // to bundler static analysis, so the whole engine would be tree-shaken out of prod bundles.
+    moduleType = org.teavm.gradle.api.JSModuleType.ES2015
+    // REQUIRED: TeaVM's devirtualizer miscompiles the kernel: at FlightConfiguration's tree
+    // walk it inlines RocketComponent.getInstanceCount()'s `return 1`, ignoring FinSet's
+    // override (fin contexts collapse 3->1, masses zero), and prunes virtual methods
+    // reached only via map-key dispatch. Do not change without a full re-verification.
+    optimization = org.teavm.gradle.api.OptimizationLevel.NONE
+    // REQUIRED: class-hierarchy analysis. TeaVM's precise flow analysis under-links
+    // virtual-method impls reached via map-key / recursive-walk dispatch.
+    fastGlobalAnalysis = true
+    // NOTE: strict = true is off. Under it, upstream's util.ArrayList.clone throws a
+    // ClassCastException, which patches/ rewrites (see patches/LEDGER.md); turning
+    // strict on needs a full parity re-verification. JS Math transcendentals differ
+    // from Java's by 1-2 ULPs.
+}
+
+// The WASM-GC target: the backend the app loads by default wherever the browser supports it, with
+// the JS build above as the fallback. Both ship, and parity checks both. It mirrors the JS
+// guardrails against the optimizer miscompile (see teavm.js above): change one, change both, and
+// re-verify on both backends. `buildWasmGC` writes to build/generated/teavm/wasm-gc/.
+teavm.wasmGC {
+    mainClass = 'api.OpenRocketEngine'
+    obfuscated = false
+    optimization = org.teavm.gradle.api.OptimizationLevel.NONE
+    fastGlobalAnalysis = true
+}
+
+// JVM reference run of the parity harness; test/parity/parity.mjs compares the TeaVM-JS output
+// against it for bit-identical fidelity.
+tasks.register('parityJvm', JavaExec) {
+    dependsOn 'classes'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'parity.ParityMain'
+}

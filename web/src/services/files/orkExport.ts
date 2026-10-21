@@ -1,0 +1,96 @@
+import { asStageNodes } from '../design/orkTree';
+import { findStages } from '../design/treeEdit';
+import { escapeXml } from './xmlUtil';
+import { uuid } from '../app/uuid';
+import { appName } from '../app/appInfo';
+import type { OrkTreeExportInput } from './orkTypes';
+import { createOrkWriter } from './ork/exportWriter';
+import { motorConfigurationsXml, resolveWriteConfigs } from './ork/exportMotorConfigs';
+import { stageXml } from './ork/exportWriters';
+import { simulationsXml } from './ork/exportSimulation';
+import { designInfoXml } from './ork/exportDesignInfo';
+import { DOC_EXTRA_KEY, ROCKET_EXTRA_KEY, passthroughOf } from './ork/passthrough';
+import { withDocumentMaterialsXml } from './ork/docMaterials';
+import { documentMaterialsOf } from '../materials/documentMaterials';
+
+/**
+ * .ork export: the document frame (declaration, <rocket> header, design
+ * metadata, stages, simulations, design info) assembled from the block writers
+ * under `ork/`. Every component element is written by the per-type table in
+ * `ork/exportWriters.ts`; the flight-configuration table, the simulation block
+ * and the design-info block each have their own module.
+ */
+export function exportOrk({
+  name,
+  tree,
+  launch,
+  simulations,
+  simPrefs,
+  configs,
+  activeConfigId,
+  designInfo,
+  componentInfo,
+}: OrkTreeExportInput): string {
+  const { writeConfigs, defaultId } = resolveWriteConfigs({ configs, activeConfigId });
+  const w = createOrkWriter(writeConfigs, defaultId, componentInfo);
+  const { emit } = w;
+
+  emit(0, "<?xml version='1.0' encoding='utf-8'?>");
+  // The creator is the app's own name (appInfo), not a literal, so it cannot
+  // drift from the app's actual name.
+  emit(0, `<openrocket version="1.10" creator="${escapeXml(appName())}">`);
+  emit(1, '<rocket>');
+  emit(2, `<name>${escapeXml(name)}</name>`);
+  emit(2, `<id>${uuid()}</id>`);
+  emit(2, '<axialoffset method="absolute">0.0</axialoffset>');
+  emit(2, '<position type="absolute">0.0</position>');
+  // Design-level metadata (Rocket configuration): emit only what's set so an
+  // untouched design stays clean; the loader keys on element name, not order.
+  const metaField = (key: 'comment' | 'designer' | 'revision') => {
+    const v = tree[key];
+    if (typeof v === 'string' && v.trim()) emit(2, `<${key}>${escapeXml(v)}</${key}>`);
+  };
+  metaField('comment');
+  metaField('designer');
+  // The tag is `kitname`, as desktop's RocketSaver writes it.
+  if (typeof tree.kitName === 'string' && tree.kitName.trim()) emit(2, `<kitname>${escapeXml(tree.kitName)}</kitname>`);
+  metaField('revision');
+  emit(2, `<designtype>${escapeXml(tree.designType || 'original')}</designtype>`);
+  // Whatever `<rocket>` carried that this app has no model for, before the
+  // structural elements below it (ork/passthrough.ts).
+  for (const raw of passthroughOf(tree, ROCKET_EXTRA_KEY)) emit(2, raw);
+  // Stage nodes at the top level export as sibling <stage> blocks (the
+  // desktop model); a flat tree wraps into one implicit stage.
+  const stageNodes = asStageNodes(tree);
+  // The ids, not just the count: a configuration grounds a stage by node id,
+  // and their order here is the file's stage numbering.
+  motorConfigurationsXml(
+    w,
+    2,
+    findStages(tree).map((n) => n.id),
+  );
+  // The file's own reference, not a constant: a hardcoded `maximum` silently
+  // re-measures a design whose calibers were set against a custom length.
+  // `maximum` is the default, and is what this app itself measures against.
+  emit(2, `<referencetype>${escapeXml(tree.referenceType || 'maximum')}</referencetype>`);
+  if (typeof tree.customReference === 'number' && tree.customReference > 0) {
+    emit(2, `<customreference>${tree.customReference}</customreference>`);
+  }
+  emit(2, '<subcomponents>');
+  for (let i = 0; i < stageNodes.length; i++) {
+    stageXml(w, 3, stageNodes[i]!, i);
+  }
+  emit(2, '</subcomponents>');
+  emit(1, '</rocket>');
+  simulationsXml(w, 1, launch, simulations, simPrefs);
+  designInfoXml(w, 1, designInfo);
+  // Document-level blocks this app has no editor for: the Photo Studio setup,
+  // the design's own preferences and materials, its custom expressions. Last,
+  // which is also where the desktop's own saver writes them.
+  // The design's own materials go back into `<docprefs>` (ork/docMaterials.ts).
+  for (const raw of withDocumentMaterialsXml(passthroughOf(tree, DOC_EXTRA_KEY), documentMaterialsOf(tree))) {
+    emit(1, raw);
+  }
+  emit(0, '</openrocket>');
+  return w.lines.join('\n') + '\n';
+}

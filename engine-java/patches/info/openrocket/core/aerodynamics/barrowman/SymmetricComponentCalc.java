@@ -1,0 +1,823 @@
+/*
+ * MODIFIED for AstraRocket, 2026. This file differs from upstream OpenRocket:
+ * the opt-in RASAero supersonic nose and body aerodynamics, and the
+ * stubbyNoseFloor subsonic pressure-drag floor. Both are the original work of
+ * the mmrocket-sim project and are not part of OpenRocket, and both are
+ * default-off. See engine-java/ATTRIBUTION.md.
+ */
+package info.openrocket.core.aerodynamics.barrowman;
+
+import static info.openrocket.core.models.atmosphere.AtmosphericConditions.GAMMA;
+import static info.openrocket.core.util.MathUtil.pow2;
+import info.openrocket.core.aerodynamics.AerodynamicForces;
+import info.openrocket.core.aerodynamics.BarrowmanCalculator;
+import info.openrocket.core.aerodynamics.FlightConditions;
+import info.openrocket.core.logging.Warning;
+import info.openrocket.core.logging.WarningSet;
+import info.openrocket.core.rocketcomponent.BodyTube;
+import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.rocketcomponent.SymmetricComponent;
+import info.openrocket.core.rocketcomponent.Transition;
+import info.openrocket.core.util.BugException;
+import info.openrocket.core.util.Coordinate;
+import info.openrocket.core.util.CoordinateIF;
+import info.openrocket.core.util.LinearInterpolator;
+import info.openrocket.core.util.MathUtil;
+import info.openrocket.core.util.PolyInterpolator;
+import info.openrocket.core.util.Transformation;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Calculates the aerodynamic properties of a <code>SymmetricComponent</code>.
+ * <p>
+ * CP and CNa are calculated by the Barrowman method extended to account for
+ * body lift
+ * by the method presented by Galejs. Supersonic CNa and CP are assumed to be
+ * the
+ * same as the subsonic values.
+ * 
+ * 
+ * @author Sampo Niskanen <sampo.niskanen@iki.fi>
+ */
+public class SymmetricComponentCalc extends RocketComponentCalc {
+
+	private final static Logger log = LoggerFactory.getLogger(SymmetricComponentCalc.class);
+
+	public static final double BODY_LIFT_K = 1.1;
+
+	private final double length;
+	private final double foreRadius, aftRadius;
+	private final double fineness;
+	private final Transition.Shape shape;
+	private final double param;
+	private final double frontalArea;
+	private final double fullVolume;
+	private final double planformArea, planformCenter;
+	private final double wetArea;
+	private final double sinphi;
+
+	/**
+	 * PATCH (RASAero, see engine-java/patches/LEDGER.md):
+	 * opt-in supersonic aerodynamics. When enabled, a nose component's CNa
+	 * grows with Mach above M1 instead of staying frozen at the slender-body
+	 * value: CNa(M) = CNa_slender * (1 + g*(min(M,5)-1)), with g per nose
+	 * shape (0.10 conical, 0.07 ogive-class). The slopes are bracketed by
+	 * exact Taylor-Maccoll cone / ogive theory (Sims NASA SP-3004 class
+	 * values reach ~1.2-1.4x slender by M4-5) and calibrated against the
+	 * ARCAS (TN D-4013/D-4014) and Basic Finner (DREV-TM-9703) CP/CNa
+	 * anchors - see validation/score.mjs and validation/anchors.json.
+	 * Transitions/boattails keep slender CNa values; their supersonic model is
+	 * wave drag only. Default false ⇒ bit-identical.
+	 */
+	private boolean supersonicAero = false;
+	/** True for a nose-type component (fore radius zero, i.e. the actual tip). */
+	private boolean isNoseShape = false;
+
+	/** PATCH (RASAero): enable the opt-in supersonic aero model. */
+	public void setSupersonicAero(boolean enabled) {
+		this.supersonicAero = enabled;
+	}
+
+	/**
+	 * PATCH (stubby-nose floor): its own opt-in flag, independent of the
+	 * RASAero supersonic/Rogers models; the floor is a standalone correction,
+	 * not part of those. Default false, so with it off this class is
+	 * bit-identical to upstream. See applyStubbyNoseFloor.
+	 */
+	private boolean stubbyNoseFloor = false;
+
+	/** PATCH (stubby-nose floor): enable the stubby-nose subsonic pressure-drag floor. */
+	public void setStubbyNoseFloor(boolean enabled) {
+		this.stubbyNoseFloor = enabled;
+	}
+
+	public SymmetricComponentCalc(RocketComponent c) {
+		super(c);
+		if (!(c instanceof SymmetricComponent)) {
+			throw new IllegalArgumentException("Illegal component type " + c);
+		}
+		SymmetricComponent component = (SymmetricComponent) c;
+
+		length = component.getLength();
+		if (length > 0) {
+			foreRadius = component.getForeRadius();
+			aftRadius = component.getAftRadius();
+		} else { // If length is zero, the component is a disk, i.e. a zero-length tube, so match
+					// the fore and aft diameter
+			final double componentMaxR = Math.max(component.getForeRadius(), component.getAftRadius());
+			foreRadius = aftRadius = componentMaxR;
+		}
+
+		fineness = length / (2 * Math.abs(aftRadius - foreRadius));
+		fullVolume = component.getFullVolume();
+		planformArea = component.getComponentPlanformArea();
+		planformCenter = component.getComponentPlanformCenter();
+
+		wetArea = component.getComponentWetArea();
+
+		// PATCH (RASAero): a nose is a symmetric component whose fore radius is
+		// (essentially) zero. The supersonic CNa growth, the Fleeman ogive wave
+		// drag and the stubby-nose floor apply only to it, never to mid-body
+		// transitions/boattails.
+		isNoseShape = component.getForeRadius() < 1e-9
+				&& component.getAftRadius() > component.getForeRadius();
+
+		if (component instanceof BodyTube) {
+			shape = null;
+			param = 0;
+			frontalArea = 0;
+			sinphi = 0;
+		} else if (component instanceof Transition) {
+			shape = ((Transition) component).getShapeType();
+			param = ((Transition) component).getShapeParameter();
+			frontalArea = Math.abs(Math.PI * (foreRadius * foreRadius - aftRadius * aftRadius));
+
+			double r = component.getRadius(0.99 * length);
+			if (shape.equals(Transition.Shape.OGIVE) && param == 1.0) {
+				sinphi = 0; // special case: tangent ogive
+			} else {
+				sinphi = (aftRadius - r) / MathUtil.hypot(aftRadius - r, 0.01 * length);
+			}
+		} else {
+			throw new UnsupportedOperationException("Unknown component type " +
+					component.getComponentName());
+		}
+	}
+
+	private boolean isTube = false;
+	private double cnaCache = Double.NaN;
+	private double cpCache = Double.NaN;
+
+	/**
+	 * Calculates the non-axial forces produced by the fins (normal and side forces,
+	 * pitch, yaw and roll moments, CP position, CNa).
+	 * <p>
+	 * This method uses the Barrowman method for CP and CNa calculation and the
+	 * extension presented by Galejs for the effect of body lift.
+	 * <p>
+	 * The CP and CNa at supersonic speeds are assumed to be the same as those at
+	 * subsonic speeds.
+	 */
+	@Override
+	public void calculateNonaxialForces(FlightConditions conditions, Transformation transform,
+			AerodynamicForces forces, WarningSet warnings) {
+
+		// Pre-calculate and store the results
+		if (Double.isNaN(cnaCache)) {
+			final double r0 = foreRadius;
+			final double r1 = aftRadius;
+
+			if (MathUtil.equals(r0, r1)) {
+				isTube = true;
+				cnaCache = 0;
+			} else {
+				isTube = false;
+
+				final double A0 = Math.PI * pow2(r0);
+				final double A1 = Math.PI * pow2(r1);
+
+				// This calculation of CNa is based on slender body theory,
+				// which at first glance should not be appropriate
+				// particularly for boattails which one would intuitively
+				// expect would have less effect on stability than
+				// predicted here. However, replacing this code with
+				// the wind tunnel based data from Moore, F. G. and
+				// L. Y. Moore, "Improved Aerodynamics for Configurations
+				// With Boattails", Journal of Spacecraft and Rockets 45(2),
+				// March-April 2008 made almost no difference in CP
+				// calculations.  A short boattail added to the "simple
+				// model rocket" example shows a 1 mm difference between
+				// this code and that result, at the cost of a substantial
+				// increase in code complexity.
+				cnaCache = 2 * (A1 - A0);
+				// System.out.println("cnaCache = " + cnaCache);
+				cpCache = (length * A1 - fullVolume) / (A1 - A0);
+			}
+		}
+
+		CoordinateIF cp;
+
+		// PATCH (RASAero): opt-in supersonic nose CNa growth. The classic kernel
+		// holds body CNa/CP at the slender-body value at every Mach. See the
+		// field javadoc for the model and its calibration.
+		double cnaEff = cnaCache;
+		if (supersonicAero && !isTube && isNoseShape) {
+			double m = conditions.getMach();
+			if (m > 1) {
+				double g = (shape == Transition.Shape.CONICAL) ? 0.10 : 0.07;
+				cnaEff = cnaCache * (1 + g * (Math.min(m, 5) - 1));
+			}
+		}
+
+		// If fore == aft, only body lift is encountered
+		if (isTube) {
+			cp = getLiftCP(conditions, warnings);
+		} else {
+			cp = new Coordinate(cpCache, 0, 0, cnaEff * conditions.getSincAOA() /
+					conditions.getRefArea()).average(getLiftCP(conditions, warnings));
+		}
+
+		forces.setCP(cp);
+		forces.setCN(forces.getCP().getWeight() * conditions.getAOA());
+		forces.setCm(forces.getCN() * cp.getX() / conditions.getRefLength());
+		forces.setCroll(0);
+		forces.setCrollDamp(0);
+		forces.setCrollForce(0);
+		forces.setCside(0);
+		forces.setCyaw(0);
+
+		// Add warning on supersonic flight
+		if (conditions.getMach() > 1.1) {
+			warnings.add(Warning.SUPERSONIC);
+		}
+
+	}
+
+	/**
+	 * Calculate the body lift effect according to Galejs.
+	 */
+	protected CoordinateIF getLiftCP(FlightConditions conditions, WarningSet warnings) {
+
+		/*
+		 * Without this extra multiplier the rocket may become unstable at apogee
+		 * when turning around, and begin oscillating horizontally. During the flight
+		 * of the rocket this has no effect. It is effective only when AOA > 45 deg
+		 * and the velocity is less than 15 m/s.
+		 * 
+		 * TODO: MEDIUM: This causes an anomaly to the flight results with the CP
+		 * jumping at apogee
+		 */
+		double mul = 1;
+		if ((conditions.getMach() < 0.05) && (conditions.getAOA() > Math.PI / 4)) {
+			mul = pow2(conditions.getMach() / 0.05);
+		}
+
+		return new Coordinate(planformCenter, 0, 0, mul * BODY_LIFT_K * planformArea / conditions.getRefArea() *
+				conditions.getSinAOA() * conditions.getSincAOA()); // sin(aoa)^2 / aoa
+	}
+
+	@Override
+	public double calculateFrictionCD(FlightConditions conditions, double componentCf, WarningSet warningSet) {
+		return componentCf * wetArea / conditions.getRefArea();
+	}
+
+	private LinearInterpolator interpolator = null;
+	/** PATCH (RASAero): conical/ogive noses have an analytic branch
+	 * that can be evaluated beyond the interpolator's sampled range. */
+	private boolean analyticNose = false;
+	private double analyticMul = 1.0;
+	/** PATCH (RASAero): tangent/secant-ogive nose wave drag from the Fleeman
+	 * correlation instead of the sinphi-driven branch (see the OGIVE case). */
+	private boolean fleemanNose = false;
+	private double fleemanN = 0;
+
+	@Override
+	public double calculatePressureCD(FlightConditions conditions,
+			double stagnationCD, double baseCD, WarningSet warnings) {
+
+		// Check for simple cases first
+		if (MathUtil.equals(foreRadius, aftRadius))
+			return 0;
+
+		if (length < 0.001) {
+			if (foreRadius < aftRadius) {
+				return stagnationCD * frontalArea / conditions.getRefArea();
+			} else {
+				return baseCD * frontalArea / conditions.getRefArea();
+			}
+		}
+
+		// Boattail drag computed directly from base drag
+		if (aftRadius < foreRadius) {
+			double cdSub;
+			if (fineness >= 3) {
+				cdSub = 0;
+			} else {
+				cdSub = baseCD * frontalArea / conditions.getRefArea();
+				if (fineness > 1) {
+					cdSub *= (3 - fineness) / 2;
+				}
+			}
+			// PATCH (RASAero): the classic model has no wave-drag term for
+			// boattails/reducers; the base-scaled subsonic estimate is used at
+			// every speed. Flag on: supersonic wave drag on the expansion surface
+			// (RASAero's "Other Body Wave Drag" bucket). Real boat-tail drag peaks
+			// just above M1 and decays, so a ramp that tops out at its own upper
+			// end (a linear M0.8 -> M1.5 blend, for example) puts a false peak in
+			// the total-CD curve. The shape used:
+			//   M <= 0.90        classic base-scaled estimate (drag divergence M_D)
+			//   0.90 -> 1.05     smoothstep rise to the peak
+			//   1.05 -> 1.20     plateau at the peak (tunnel band is near-flat)
+			//   M >= 1.20        exact Prandtl-Meyer expansion Cp, monotone
+			//                    decreasing in M, vacuum-limited hypersonically
+			// The expansion is evaluated exactly because the linearized
+			// 2*theta/beta strip value overstates it by a Mach-dependent factor
+			// (for the ARCAS 15 deg turn, exact/linear is 0.66 at M1.2, 0.73 at
+			// M1.8, 0.50 at M4.65).
+			double machB = conditions.getMach();
+			if (!supersonicAero || machB <= BT_ONSET_MACH) {
+				return cdSub;
+			}
+			// Steeper than ~20 deg the boat tail separates and behaves base-like
+			// (Hoerner FDD Ch VI/XVI), so clamp rather than extrapolate PM theory.
+			double theta = Math.min(Math.atan2(foreRadius - aftRadius, length), 0.349);
+			double frontalRatio = frontalArea / conditions.getRefArea();
+			double cdPeak = pmExpansionCp(BT_TRUST_MACH, theta) * frontalRatio;
+			if (machB >= BT_TRUST_MACH) {
+				return pmExpansionCp(machB, theta) * frontalRatio;
+			}
+			if (machB >= BT_PLATEAU_MACH) {
+				return cdPeak;
+			}
+			double t = (machB - BT_ONSET_MACH) / (BT_PLATEAU_MACH - BT_ONSET_MACH);
+			double s = t * t * (3 - 2 * t);
+			return cdSub * (1 - s) + cdPeak * s;
+		}
+
+		// All nose cones and shoulders from pre-calculated and interpolating
+		if (interpolator == null) {
+			calculateNoseInterpolator();
+		}
+
+		// PATCH (RASAero): the interpolators clamp flat beyond their last data
+		// point (M2-4 depending on shape), so wave drag never decays.
+		// Flag on: conical/ogive noses continue on their own analytic branch
+		// (2.1*sinphi^2 + 0.5*sinphi/beta, which has the physical 1/beta decay
+		// and the correct high-M asymptote); table shapes decay with the
+		// Fleeman/Bonney correlation Mach shape (1.59 + 1.83/M^2).
+		double mach = conditions.getMach();
+		double cd;
+		if (supersonicAero && mach > interpolatorMaxMach()) {
+			double mEnd = interpolatorMaxMach();
+			if (fleemanNose) {
+				// PATCH (RASAero): Fleeman ogive nose wave drag,
+				// CD_wave = (1.59 + 1.83/M^2)*(atan(0.5/(l_N/d)))^1.69 referenced
+				// to base area. The 1.59 floor is the hypersonic asymptote, so
+				// this needs no high-Mach fade like the analytic branch below.
+				cd = (1.59 + 1.83 / (mach * mach)) * fleemanN;
+			} else if (analyticNose) {
+				// PATCH (RASAero): the 2.1*sinphi^2 asymptote is a
+				// transonic-range calibration; exact cone solutions and modified
+				// Newtonian theory (Cp_max*sin^2) sit lower at hypersonic Mach.
+				// Fade the coefficient from 2.1 to Cp_max(M) over M4-8.
+				double coeff = 2.1;
+				double t = MathUtil.clamp((mach - 4) / 4, 0, 1);
+				if (t > 0) {
+					coeff = 2.1 * (1 - t) + stagnationCpMax(mach) * t;
+				}
+				cd = analyticMul * (coeff * pow2(sinphi) +
+						0.5 * sinphi / MathUtil.safeSqrt(mach * mach - 1));
+			} else {
+				cd = interpolator.getValue(mEnd) *
+						(1.59 + 1.83 / (mach * mach)) / (1.59 + 1.83 / (mEnd * mEnd));
+			}
+		} else {
+			cd = interpolator.getValue(mach);
+		}
+		return cd * frontalArea / conditions.getRefArea();
+	}
+
+	/**
+	 * PATCH (RASAero): stagnation pressure coefficient behind a
+	 * normal shock (Rayleigh pitot, NACA Report 1135 Eq. 100), the modified-
+	 * Newtonian Cp_max. Limit 1.839 as M → infinity (gamma = 1.4).
+	 */
+	private static double stagnationCpMax(double m) {
+		double m2 = m * m;
+		double a = Math.pow((GAMMA + 1) * (GAMMA + 1) * m2
+				/ (4 * GAMMA * m2 - 2 * (GAMMA - 1)), GAMMA / (GAMMA - 1));
+		double b = (1 - GAMMA + 2 * GAMMA * m2) / (GAMMA + 1);
+		return (2 / (GAMMA * m2)) * (a * b - 1);
+	}
+
+	/** PATCH (RASAero): boat-tail wave-drag band edges. */
+	private static final double BT_ONSET_MACH = 0.90;
+	private static final double BT_PLATEAU_MACH = 1.05;
+	private static final double BT_TRUST_MACH = 1.20;
+	/** Prandtl-Meyer maximum turn angle for gamma = 1.4 (rad). */
+	private static final double NU_MAX = (Math.sqrt(6) - 1) * Math.PI / 2;
+
+	/**
+	 * PATCH (RASAero): Prandtl-Meyer function nu(M) in radians
+	 * (Anderson, Modern Compressible Flow Eq. 4.44), gamma = 1.4 via the
+	 * (gamma+1)/(gamma-1) = 6 form.
+	 */
+	private static double prandtlMeyerNu(double m) {
+		double b2 = m * m - 1;
+		if (b2 <= 0) {
+			return 0;
+		}
+		return Math.sqrt(6) * Math.atan(Math.sqrt(b2 / 6)) - Math.atan(Math.sqrt(b2));
+	}
+
+	/**
+	 * PATCH (RASAero): magnitude of the pressure coefficient behind a
+	 * Prandtl-Meyer expansion of angle theta from free-stream Mach m. Used in
+	 * place of the linearized strip value 2*theta/beta, which overstates the expansion by
+	 * a Mach-dependent factor (25-50 % at M1.8-4.65 for a 15 deg turn).
+	 * <p>
+	 * The inverse nu(M2) = nu2 is solved by a fixed-count bisection (48 halvings
+	 * of [m, 60], no epsilon test) so the JVM and TeaVM-JS execute exactly the
+	 * same operation sequence, the same determinism discipline as kWB1307 and
+	 * stagnationCpMax. Uses only Math.sqrt/atan/pow.
+	 */
+	private static double pmExpansionCp(double m, double theta) {
+		if (m <= 1 || theta <= 0) {
+			return 0;
+		}
+		double nu2 = prandtlMeyerNu(m) + theta;
+		if (nu2 >= NU_MAX - 1e-6) {
+			return 2 / (GAMMA * m * m); // vacuum limit: p2 -> 0
+		}
+		double lo = m;
+		double hi = 60;
+		for (int i = 0; i < 48; i++) {
+			double mid = 0.5 * (lo + hi);
+			if (prandtlMeyerNu(mid) < nu2) {
+				lo = mid;
+			} else {
+				hi = mid;
+			}
+		}
+		double m2 = 0.5 * (lo + hi);
+		double c = (GAMMA - 1) / 2;
+		double pressureRatio = Math.pow((1 + c * m * m) / (1 + c * m2 * m2),
+				GAMMA / (GAMMA - 1));
+		return (2 / (GAMMA * m * m)) * (1 - pressureRatio);
+	}
+
+	/** PATCH (RASAero): last Mach with real data in the interpolator. */
+	private double interpolatorMaxMach() {
+		double[] xs = interpolator.getXPoints();
+		return xs[xs.length - 1];
+	}
+
+	/*
+	 * Experimental values of pressure drag for different nose cone shapes with a
+	 * fineness ratio of 3. The data is taken from 'Collection of Zero-Lift Drag Data on
+	 * Bodies of Revolution from Free-Flight Investigations', NASA TR-R-100, NTRS
+	 * 19630004995,
+	 * page 16.
+	 * 
+	 * This data is extrapolated for other fineness ratios.
+	 */
+
+	// Format: array of {Mach numbers}, array of {Cd values}
+	private static final LinearInterpolator ellipsoidInterpolator = new LinearInterpolator(
+			new double[] { 1.2, 1.25, 1.3, 1.4, 1.6, 2.0, 2.4 },
+			new double[] { 0.110, 0.128, 0.140, 0.148, 0.152, 0.159, 0.162 /* constant */ });
+	private static final LinearInterpolator x14Interpolator = new LinearInterpolator(
+			new double[] { 1.2, 1.3, 1.4, 1.6, 1.8, 2.2, 2.6, 3.0, 3.6 },
+			new double[] { 0.140, 0.156, 0.169, 0.192, 0.206, 0.227, 0.241, 0.249, 0.252 });
+	private static final LinearInterpolator x12Interpolator = new LinearInterpolator(
+			new double[] { 0.925, 0.95, 1.0, 1.05, 1.1, 1.2, 1.3, 1.7, 2.0 },
+			new double[] { 0, 0.014, 0.050, 0.060, 0.059, 0.081, 0.084, 0.085, 0.078 });
+	private static final LinearInterpolator x34Interpolator = new LinearInterpolator(
+			new double[] { 0.8, 0.9, 1.0, 1.06, 1.2, 1.4, 1.6, 2.0, 2.8, 3.4 },
+			new double[] { 0, 0.015, 0.078, 0.121, 0.110, 0.098, 0.090, 0.084, 0.078, 0.074 });
+	private static final LinearInterpolator vonKarmanInterpolator = new LinearInterpolator(
+			new double[] { 0.9, 0.95, 1.0, 1.05, 1.1, 1.2, 1.4, 1.6, 2.0, 3.0 },
+			new double[] { 0, 0.010, 0.027, 0.055, 0.070, 0.081, 0.095, 0.097, 0.091, 0.083 });
+	private static final LinearInterpolator lvHaackInterpolator = new LinearInterpolator(
+			new double[] { 0.9, 0.95, 1.0, 1.05, 1.1, 1.2, 1.4, 1.6, 2.0 },
+			new double[] { 0, 0.010, 0.024, 0.066, 0.084, 0.100, 0.114, 0.117, 0.113 });
+	private static final LinearInterpolator parabolicInterpolator = new LinearInterpolator(
+			new double[] { 0.95, 0.975, 1.0, 1.05, 1.1, 1.2, 1.4, 1.7 },
+			new double[] { 0, 0.016, 0.041, 0.092, 0.109, 0.119, 0.113, 0.108 });
+	private static final LinearInterpolator parabolic12Interpolator = new LinearInterpolator(
+			new double[] { 0.8, 0.9, 0.95, 1.0, 1.05, 1.1, 1.3, 1.5, 1.8 },
+			new double[] { 0, 0.016, 0.042, 0.100, 0.126, 0.125, 0.100, 0.090, 0.088 });
+	private static final LinearInterpolator parabolic34Interpolator = new LinearInterpolator(
+			new double[] { 0.9, 0.95, 1.0, 1.05, 1.1, 1.2, 1.4, 1.7 },
+			new double[] { 0, 0.023, 0.073, 0.098, 0.107, 0.106, 0.089, 0.082 });
+	private static final LinearInterpolator bluntInterpolator = new LinearInterpolator();
+	static {
+		for (double m = 0; m < 3; m += 0.05)
+			bluntInterpolator.addPoint(m, BarrowmanCalculator.calculateStagnationCD(m));
+	}
+
+	/**
+	 * Calculate the LinearInterpolator 'interpolator'. After this call, if can be
+	 * used
+	 * to get the pressure drag coefficient at any Mach number.
+	 * 
+	 * First, the transonic/supersonic region is computed. For conical and ogive
+	 * shapes
+	 * this is calculated directly. For other shapes, the values for fineness-ratio
+	 * 3
+	 * transitions are taken from the experimental values stored above (for
+	 * parameterized
+	 * shapes the values are interpolated between the parameter values). These are
+	 * then
+	 * extrapolated to the current fineness ratio.
+	 * 
+	 * Finally, if the first data points in the interpolator are not zero, the
+	 * subsonic
+	 * region is interpolated in the form Cd = a*M^b + Cd(M=0).
+	 */
+	@SuppressWarnings("null")
+	private void calculateNoseInterpolator() {
+		LinearInterpolator int1 = null, int2 = null;
+		double p = 0;
+
+		interpolator = new LinearInterpolator();
+
+		/*
+		 * Take into account nose cone shape. Conical and ogive generate the
+		 * interpolator directly. Others store a interpolator for fineness ratio 3 into int1,
+		 * or for parameterized shapes store the bounding fineness ratio 3 interpolators
+		 * into int1 and int2 and set 0 <= p <= 1 according to the bounds.
+		 */
+		switch (shape) {
+			case CONICAL:
+				interpolator = calculateOgiveNoseInterpolator(0, sinphi); // param==0 -> conical
+				analyticNose = true; // PATCH (RASAero)
+				analyticMul = 0.72 * pow2(0 - 0.5) + 0.82;
+				break;
+
+			case OGIVE:
+				// PATCH (RASAero): the classic ogive branch builds its whole
+				// supersonic curve from `sinphi`, the surface slope over the aft
+				// 1 % of the shape (see the constructor). For a tangent ogive that
+				// slope is zero or near it (0.00105 ARCAS, 0.00123 RM A53D02), so
+				// the nose wave drag collapses (nose pressure CD 0.00031 at M2 on
+				// the ARCAS nose), and the only supersonic nose pressure left is a
+				// spurious transonic bump (0.058/0.075 at M1.05/1.10 falling to
+				// 0.0006 at M1.3) that the fixed sonic slope 4/(GAMMA+1) drives
+				// through the M1-1.3 cubic between two near-zero endpoints. Flag
+				// on, for nose ogives
+				// that are not cone-like: rebuild the same M1-1.3 bridge around
+				// the Fleeman ogive wave-drag correlation instead, and continue on
+				// it above M1.3 (calculatePressureCD). Conical noses, cone-like
+				// secant ogives (param < 0.35, which route through the same
+				// interpolator with a true cone slope) and every non-nose
+				// transition keep the classic branch.
+				if (supersonicAero && isNoseShape && param >= 0.35) {
+					interpolator = calculateFleemanNoseInterpolator();
+					break;
+				}
+				interpolator = calculateOgiveNoseInterpolator(param, sinphi);
+				analyticNose = true; // PATCH (RASAero)
+				analyticMul = 0.72 * pow2(param - 0.5) + 0.82;
+				break;
+
+			case ELLIPSOID:
+				int1 = ellipsoidInterpolator;
+				break;
+
+			case POWER:
+				if (param <= 0.25) {
+					int1 = bluntInterpolator;
+					int2 = x14Interpolator;
+					p = param * 4;
+				} else if (param <= 0.5) {
+					int1 = x14Interpolator;
+					int2 = x12Interpolator;
+					p = (param - 0.25) * 4;
+				} else if (param <= 0.75) {
+					int1 = x12Interpolator;
+					int2 = x34Interpolator;
+					p = (param - 0.5) * 4;
+				} else {
+					int1 = x34Interpolator;
+					int2 = calculateOgiveNoseInterpolator(0, 1 / MathUtil.safeSqrt(1 + 4 * pow2(fineness)));
+					p = (param - 0.75) * 4;
+				}
+				break;
+
+			case PARABOLIC:
+				if (param <= 0.5) {
+					int1 = calculateOgiveNoseInterpolator(0, 1 / MathUtil.safeSqrt(1 + 4 * pow2(fineness)));
+					int2 = parabolic12Interpolator;
+					p = param * 2;
+				} else if (param <= 0.75) {
+					int1 = parabolic12Interpolator;
+					int2 = parabolic34Interpolator;
+					p = (param - 0.5) * 4;
+				} else {
+					int1 = parabolic34Interpolator;
+					int2 = parabolicInterpolator;
+					p = (param - 0.75) * 4;
+				}
+				break;
+
+			case HAACK:
+				int1 = vonKarmanInterpolator;
+				int2 = lvHaackInterpolator;
+				p = param * 3;
+				break;
+
+			default:
+				throw new UnsupportedOperationException("Unknown transition shape: " + shape);
+		}
+
+		if (p < 0 || p > 1.00001) {
+			throw new BugException("Inconsistent parameter value p=" + p + " shape=" + shape);
+		}
+
+		// Check for parameterized shape and interpolate if necessary
+		if (int2 != null) {
+			LinearInterpolator int3 = new LinearInterpolator();
+			for (double m : int1.getXPoints()) {
+				int3.addPoint(m, p * int2.getValue(m) + (1 - p) * int1.getValue(m));
+			}
+			for (double m : int2.getXPoints()) {
+				int3.addPoint(m, p * int2.getValue(m) + (1 - p) * int1.getValue(m));
+			}
+			int1 = int3;
+		}
+
+		// PATCH (stubby-nose floor): `int1 != null` is exactly the four stored-table
+		// shapes: ELLIPSOID, POWER, PARABOLIC, HAACK. CONICAL and OGIVE build `interpolator`
+		// analytically above and never touch int1. That is the scope of the subsonic
+		// stubby-nose floor at the foot of this method; see applyStubbyNoseFloor.
+		final boolean tableShape = int1 != null;
+
+		// Extrapolate for fineness ratio if necessary
+		if (int1 != null) {
+			double log4 = Math.log(fineness + 1) / Math.log(4);
+			for (double m : int1.getXPoints()) {
+				double stag = bluntInterpolator.getValue(m);
+				// This extrapolation is multiplicative, so it maps a tabulated 0
+				// to 0 at every fineness. It cannot lift a zero, which is why the
+				// floor below is a separate step rather than a change here.
+				interpolator.addPoint(m, stag * Math.pow(int1.getValue(m) / stag, log4));
+			}
+		}
+
+		/*
+		 * Now the transonic/supersonic region is ok. We still need to interpolate
+		 * the subsonic region, if the values are non-zero.
+		 */
+
+		double min = interpolator.getXPoints()[0];
+		double minValue = interpolator.getValue(min);
+
+		double cdMach0 = 0.8 * pow2(sinphi);
+		double minDeriv = (interpolator.getValue(min + 0.01) - minValue) / 0.01;
+
+		// PATCH (stubby-nose floor): upstream has three early `return`s here
+		// (`minValue < 0.001`, then two "should not occur" guards). Guarding the
+		// subsonic fit instead of returning lets the stubby-nose floor below still
+		// run: a stored-table nose starts at drag-divergence Mach with value 0, so
+		// a `minValue < 0.001` return would skip the fit and the floor. The guard
+		// is the exact negation of those returns, so with the floor's opt-in gate
+		// off this is bit-identical to upstream.
+		if (minValue >= 0.001 && cdMach0 < minValue - 0.01 && minDeriv > 0.01) {
+			// Cd = a*M^b + cdMach0
+			final double b = min * minDeriv / (minValue - cdMach0);
+			final double a = (minValue - cdMach0) / Math.pow(min, b);
+
+			for (double m = 0; m < min; m += 0.05) {
+				interpolator.addPoint(m, a * Math.pow(m, b) + cdMach0);
+			}
+		}
+
+		applyStubbyNoseFloor(interpolator, min, tableShape);
+	}
+
+	/**
+	 * Fineness at and above which a nose's shape stops mattering subsonically.
+	 * Centuri TIR-100 section 8 (Mark Mercer's wind-tunnel series on a Centuri
+	 * Javelin, one nose swapped at a time, whole-rocket Cd) measures no
+	 * significant variation across the standard catalog nose shapes from L/D
+	 * 4.0 down to the BC-70's L/D 1.8.
+	 */
+	private static final double STUBBY_NOSE_FINENESS_LIMIT = 1.8;
+
+	/**
+	 * A stubby rounded nose's subsonic pressure drag, as a fraction of a cone of
+	 * the same fineness. Bracketed from measured deltas, not theory: Mercer at
+	 * L/D 0.50 puts a rounded stubby nose at 0.20-0.48 of a real cone, and this
+	 * file's own conical value is itself ~2-4x high at the blunt end, so
+	 * rounded-as-a-fraction-of-this-file's-cone lands near 1/3, which reads 0.123
+	 * at L/D 0.5, where independent CFD puts a stubby nose (~27 % of a
+	 * Cd-0.5 rocket). DeMar (NARAM-37) corroborates the blunt end. Erring high
+	 * charges more drag and predicts less altitude, the safe direction. This is a
+	 * bracket on the endpoint and the shape of the law, never a calibrated curve.
+	 */
+	private static final double STUBBY_NOSE_ROUNDNESS = 1.0 / 3.0;
+
+	/**
+	 * PATCH (stubby-nose floor): add a subsonic pressure-drag floor for a stubby stored-table
+	 * nose (ELLIPSOID, POWER, PARABOLIC, HAACK). Applied as max(existing, floor)
+	 * over the whole subsonic range including the leading tabulated point, so a
+	 * Von Karman at L/D 0.5 does not sit at the floor and then jump at its
+	 * drag-divergence Mach. CONICAL/OGIVE are excluded: a cone's own cdMach0 is
+	 * three times this floor (max() would ignore it), and stubby ogives want
+	 * their own evidence.
+	 *
+	 * Opt-in: gated on its own flag, stubbyNoseFloor (see the field above and
+	 * api.OpenRocketEngine.setStubbyNoseDrag), not on
+	 * `rogersKbf || supersonicAero`, which is a different gate and would make
+	 * this a third physics flag hiding behind the two documented ones. The
+	 * classic model stays bit-identical to desktop with it off.
+	 */
+	private void applyStubbyNoseFloor(LinearInterpolator interpolator, double min, boolean tableShape) {
+		if (!tableShape || !isNoseShape) {
+			return;
+		}
+		if (!stubbyNoseFloor) {
+			return;
+		}
+		if (!(fineness > 0) || fineness >= STUBBY_NOSE_FINENESS_LIMIT) {
+			return;
+		}
+		// 0.8/(1+4f^2) is this file's own conical Newtonian value (cdMach0 with
+		// sinphi^2 = 1/(1+4f^2)); it matches the kernel's isolated-nose pressure
+		// Cd at fineness 5 / 3 / 1 / 0.5 -> 0.007921 / 0.021623 / 0.161170 / 0.400935.
+		double cone = 0.8 / (1 + 4 * fineness * fineness);
+		double taper = 1 - pow2(fineness / STUBBY_NOSE_FINENESS_LIMIT);
+		double floor = STUBBY_NOSE_ROUNDNESS * cone * taper;
+		if (!(floor > 0)) {
+			return;
+		}
+		for (double m = 0; m <= min + 1e-9; m += 0.05) {
+			if (interpolator.getValue(m) < floor) {
+				interpolator.addPoint(m, floor);
+			}
+		}
+		if (interpolator.getValue(min) < floor) {
+			interpolator.addPoint(min, floor);
+		}
+	}
+
+	private static final PolyInterpolator conicalPolyInterpolator = new PolyInterpolator(new double[] { 1.0, 1.3 },
+			new double[] { 1.0, 1.3 });
+
+	private static LinearInterpolator calculateOgiveNoseInterpolator(double param, double sinphi) {
+		LinearInterpolator interpolator = new LinearInterpolator();
+
+		// In the range M = 1 ... 1.3 use polynomial approximation
+		double cdMach1 = sinphi;
+		double cdMach1_3 = 2.1 * pow2(sinphi) + 0.6019 * sinphi;
+
+		double[] poly = conicalPolyInterpolator.interpolator(
+				cdMach1, cdMach1_3,
+				4 / (GAMMA + 1) * (1 - 0.5 * cdMach1), -1.1341 * sinphi);
+
+		// Shape parameter multiplier
+		double mul = 0.72 * pow2(param - 0.5) + 0.82;
+
+		for (double m = 1; m < 1.3001; m += 0.02) {
+			interpolator.addPoint(m, mul * PolyInterpolator.eval(m, poly));
+		}
+
+		// Above M = 1.3 use direct formula
+		for (double m = 1.32; m < 4; m += 0.02) {
+			interpolator.addPoint(m, mul * (2.1 * pow2(sinphi) + 0.5 * sinphi / MathUtil.safeSqrt(m * m - 1)));
+		}
+
+		return interpolator;
+	}
+
+	/**
+	 * PATCH (RASAero): sonic-to-M1.3 bridge slope cap. The classic
+	 * bridge pins the M1 derivative at the transonic-similarity value
+	 * 4/(GAMMA+1)*(1 - cd1/2) ~ 1.65, which for a streamlined nose (cd1 tiny)
+	 * drives the cubic far above both endpoints. Cap it at a multiple of the
+	 * mean M1->M1.3 slope so the transonic overshoot stays inside the TR R-100
+	 * streamlined-nose family ratio (peak ~1.1-1.3x the M1.3 value).
+	 */
+	private static final double CAL_BRIDGE_SLOPE_CAP = 2.0;
+
+	/**
+	 * PATCH (RASAero): M1 - M1.3 bridge built around the Fleeman
+	 * ogive wave-drag correlation, in place of the sinphi-driven ogive bridge for
+	 * tangent/near-tangent nose ogives (see the OGIVE case). Sets
+	 * fleemanNose/fleemanN for the above-table branch.
+	 * <p>
+	 * Source: Fleeman, <i>Tactical Missile Design</i> (AIAA Education Series):
+	 * CD_wave = (1.59 + 1.83/M^2)*(atan(0.5/(l_N/d)))^1.69, base-area
+	 * referenced, ogive family, M >~ 1.2. Same Fleeman/Bonney lineage as the
+	 * table-end decay in calculatePressureCD.
+	 */
+	private LinearInterpolator calculateFleemanNoseInterpolator() {
+		double fn = length / (2 * aftRadius);
+		double mul = 0.72 * pow2(param - 0.5) + 0.82;
+		fleemanNose = true;
+		fleemanN = Math.pow(Math.atan(0.5 / fn), 1.69) * mul;
+
+		double cdMach1_3 = (1.59 + 1.83 / (1.3 * 1.3)) * fleemanN;
+		// Sonic/M1.3 ratio 0.30, the mean of this file's own TR R-100 tables for
+		// the fully streamlined nose family, read at M1.0 vs M1.3: von Karman
+		// 0.027/0.088 = 0.31, LV-Haack 0.024/0.107 = 0.22, parabolic
+		// 0.041/0.116 = 0.35. (The blunter parabolic-1/2 and -3/4 tables sit far
+		// higher, 0.75-1.0, and are not this family.)
+		double cdMach1 = 0.30 * cdMach1_3;
+
+		double d1 = Math.min(4 / (GAMMA + 1) * (1 - 0.5 * cdMach1),
+				CAL_BRIDGE_SLOPE_CAP * (cdMach1_3 - cdMach1) / 0.3);
+		double d2 = -2 * 1.83 / (1.3 * 1.3 * 1.3) * fleemanN;
+
+		double[] poly = conicalPolyInterpolator.interpolator(cdMach1, cdMach1_3, d1, d2);
+		LinearInterpolator interp = new LinearInterpolator();
+		for (double m = 1; m < 1.3001; m += 0.02) {
+			interp.addPoint(m, PolyInterpolator.eval(m, poly));
+		}
+		return interp;
+	}
+
+}

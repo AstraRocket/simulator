@@ -1,0 +1,86 @@
+// What a material is. Types only, no data and no I/O, so anything that merely
+// needs the shape (the store, the picker's props, a settings row) can import it
+// without dragging the catalog in behind it.
+//
+// The catalog itself is a runtime file (public/data/materials.generated.json,
+// written by scripts/sync-materials.mjs) fetched on demand like motors and
+// components (see remoteData.ts). It is not bundled: nothing in src/ holds the
+// table.
+//
+// The engine applies a material by density, so that is all the app needs to
+// reproduce OpenRocket's mass/CG. Densities are SI: bulk kg/m^3, surface
+// kg/m^2, line kg/m.
+
+/** Every material type, in one list: the type, the catalog check and the saved
+ *  default-material keys all read it. */
+const MATERIAL_TYPES = ['bulk', 'surface', 'line'] as const;
+
+export type MaterialType = (typeof MATERIAL_TYPES)[number];
+
+export const isMaterialType = (v: unknown): v is MaterialType => (MATERIAL_TYPES as readonly unknown[]).includes(v);
+
+/**
+ * The one group that is not a material a rocket is built from.
+ *
+ * Every other bulk material in the table is something a part can legitimately
+ * be made of (people build fins from aluminum and nose cones from PLA) so the
+ * app does not presume to filter them, and neither does OpenRocket. Glue is
+ * different: it exists here for fin fillets and nothing is made of it. The
+ * picker uses this to keep it out of the structural lists.
+ */
+export const ADHESIVE_GROUP = 'Adhesives';
+
+export interface Material {
+  name: string;
+  type: MaterialType;
+  /** bulk: kg/m^3 · surface: kg/m^2 · line: kg/m */
+  density: number;
+  /** Upstream MaterialGroup, used to group the picker. */
+  group: string;
+  /** true for user-defined materials; absent/false for built-ins. */
+  custom?: boolean;
+}
+
+/**
+ * Where a catalog row came from. Carried so the drift gate
+ * (`engine-java/extract/extract.mjs --check`) can hold the `upstream` rows to
+ * OpenRocket's own `Databases.java` and leave ours alone. The app itself does
+ * not read it: a material is a name and a density whoever wrote it down.
+ */
+type MaterialKind = 'upstream' | 'adhesive' | 'corrected';
+
+/** A row of the runtime catalog, as sync-materials.mjs writes it. */
+export interface MaterialRow {
+  name: string;
+  type: MaterialType;
+  density: number;
+  group: string;
+  kind: MaterialKind;
+}
+
+const isRow = (v: unknown): v is MaterialRow => {
+  const r = v as Partial<MaterialRow> | null;
+  return (
+    !!r &&
+    typeof r.name === 'string' &&
+    r.name.length > 0 &&
+    isMaterialType(r.type) &&
+    typeof r.density === 'number' &&
+    Number.isFinite(r.density) &&
+    r.density > 0 &&
+    typeof r.group === 'string'
+  );
+};
+
+/**
+ * Shape guard for the fetched catalog.
+ *
+ * Materials are read from the build's own copy only (`BUILD_ONLY` in
+ * `remoteData.ts`), so this guards against a truncated or malformed file in the
+ * build: anything that parses as JSON but is not a list of material rows fails
+ * the load instead of reaching the picker. The density test matters most here,
+ * since a row that got through would be stamped onto a part and flown.
+ */
+export function isMaterialCatalog(v: unknown): v is MaterialRow[] {
+  return Array.isArray(v) && v.length > 0 && v.every(isRow);
+}

@@ -1,0 +1,202 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SimPayload } from '../../../src/engine/simProtocol';
+
+const flown: SimPayload[] = [];
+vi.mock('../../../src/engine/simClient', () => ({
+  simulateInWorker: vi.fn(async (payload: SimPayload) => {
+    flown.push(payload);
+    // Land farther east the stronger the surface wind that hour, so each hour is told apart.
+    const surface = payload.options.windLevels?.[0]?.speed ?? 0;
+    return { series: { Px: [0, surface * 10], Py: [0, 5] } };
+  }),
+}));
+
+const { flyForecastHours, refusalKeys } = await import('../../../src/services/flight/forecastHours');
+const { HOUR_OFFSETS, resetWeatherState, setWeatherTransport } =
+  await import('../../../src/services/weather/openMeteo');
+const { answer } = await import('../../testing/openMeteoFixture');
+
+const start = Date.UTC(2026, 9, 5, 0) / 1000;
+const source = {
+  provider: 'open-meteo' as const,
+  endpoint: 'forecast' as const,
+  date: '2026-10-05',
+  hour: 6,
+  timezone: 'America/Denver',
+  latitudeDeg: 40,
+  longitudeDeg: -105,
+  elevationM: 1500,
+  validAt: new Date((start + 6 * 3600) * 1000).toISOString(),
+  fetchedAt: new Date(start * 1000).toISOString(),
+  groups: ['wind' as const, 'atmosphere' as const],
+  elevationApplied: false,
+};
+const launch = {
+  launchRodLengthM: 1,
+  launchRodAngleDeg: 0,
+  windAverage: 1,
+  windStdDev: 0,
+  launchAltitudeM: 1500,
+  latitudeDeg: 40,
+  longitudeDeg: -105,
+  temperatureC: 20,
+  pressureHPa: 850,
+  weatherSource: source,
+};
+
+beforeEach(() => {
+  flown.length = 0;
+  resetWeatherState();
+  setWeatherTransport(((url: string) => {
+    const body = url.includes('/v1/elevation') ? { elevation: [1500] } : answer(1500, { start, hours: 48 });
+    return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  }) as typeof fetch);
+});
+
+describe('flyForecastHours', () => {
+  it('flies the design under each hour from two before to two after, in order', async () => {
+    const hours = await flyForecastHours(
+      {
+        tree: { components: [] } as never,
+        config: { id: 'c', name: null, motors: {} } as never,
+        launch: launch as never,
+        source,
+        prefs: { randomSeed: 42 } as never,
+        powerClass: 'model',
+      },
+      { now: () => start * 1000 },
+    );
+    expect(hours.map((h) => h.offset)).toEqual([...HOUR_OFFSETS]);
+    expect(hours.map((h) => h.validMs / 1000 - start)).toEqual([4, 5, 6, 7, 8].map((h) => h * 3600));
+    expect(flown).toHaveLength(5);
+    // One seed for every hour, so turbulence does not pass for the wind changing.
+    expect(new Set(flown.map((p) => p.options.randomSeed))).toEqual(new Set([42]));
+    // Only the applied groups are replaced: the wind and the atmosphere aloft, not the site temperature.
+    for (const p of flown) {
+      expect(p.options.windLevels?.length).toBeGreaterThan(1);
+      expect(p.options.atmosphereLevels?.length).toBeGreaterThan(0);
+      expect(p.options.temperature).toBeCloseTo(293.15, 9);
+    }
+    expect(hours[0]!.landings[0]).toEqual({ east: 40, north: 5 });
+  });
+
+  it('leaves out hours the forecast does not hold', async () => {
+    const early = { ...source, validAt: new Date((start + 1 * 3600) * 1000).toISOString(), hour: 1 };
+    const hours = await flyForecastHours(
+      {
+        tree: { components: [] } as never,
+        config: { id: 'c', name: null, motors: {} } as never,
+        launch: { ...launch, weatherSource: early } as never,
+        source: early,
+        prefs: {} as never,
+        powerClass: 'model',
+      },
+      { now: () => start * 1000 },
+    );
+    expect(hours.map((h) => h.offset)).toEqual([-1, 0, 1, 2]);
+  });
+
+  // The worker decides airframe-step warnings in this unit; it must arrive with
+  // each flight rather than be whatever the main thread last built with.
+  it("sends the user's length unit with each flight", async () => {
+    await flyForecastHours(
+      {
+        tree: { components: [] } as never,
+        config: { id: 'c', name: null, motors: {} } as never,
+        launch: launch as never,
+        source,
+        prefs: { lengthUnit: 'in' } as never,
+        powerClass: 'model',
+      },
+      { now: () => start * 1000 },
+    );
+    expect(flown).toHaveLength(5);
+    expect(flown.map((p) => p.lengthUnit)).toEqual(['in', 'in', 'in', 'in', 'in']);
+  });
+
+  it('does not fly an hour outside the safety codes', async () => {
+    const hours = await flyForecastHours(
+      {
+        tree: { components: [] } as never,
+        config: { id: 'c', name: null, motors: {} } as never,
+        launch: { ...launch, launchRodAngleDeg: 25 } as never,
+        source,
+        prefs: {} as never,
+        powerClass: 'highPower',
+      },
+      { now: () => start * 1000 },
+    );
+    expect(flown).toHaveLength(0);
+    expect(hours.map((h) => h.offset)).toEqual([...HOUR_OFFSETS]);
+    for (const h of hours) {
+      expect(h.landings).toEqual([]);
+      expect(h.outsideLimits?.[0]?.field).toBe('rodAngle');
+    }
+  });
+});
+
+describe('flyForecastHours and the class of rocket', () => {
+  it('flies a model rocket at 25 degrees, inside its code', async () => {
+    const hours = await flyForecastHours(
+      {
+        tree: { components: [] } as never,
+        config: { id: 'c', name: null, motors: {} } as never,
+        launch: { ...launch, launchRodAngleDeg: 25 } as never,
+        source,
+        prefs: {} as never,
+        powerClass: 'model',
+      },
+      { now: () => start * 1000 },
+    );
+    expect(flown).toHaveLength(5);
+    expect(hours.every((h) => !h.outsideLimits)).toBe(true);
+  });
+});
+
+describe('flyForecastHours when one hour fails', () => {
+  it('cancels the flights still running, and rejects with that failure', async () => {
+    const { simulateInWorker } = await import('../../../src/engine/simClient');
+    const signals: AbortSignal[] = [];
+    vi.mocked(simulateInWorker).mockImplementation((payload, opts) => {
+      flown.push(payload);
+      const signal = opts?.signal;
+      if (signal) signals.push(signal);
+      if (flown.length === 1) return Promise.reject(new Error('hour failed'));
+      // The others hold their worker until canceled.
+      return new Promise((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('canceled')), { once: true });
+      });
+    });
+    await expect(
+      flyForecastHours(
+        {
+          tree: { components: [] } as never,
+          config: { id: 'c', name: null, motors: {} } as never,
+          launch: launch as never,
+          source,
+          prefs: {} as never,
+          powerClass: 'model',
+        },
+        { now: () => start * 1000 },
+      ),
+    ).rejects.toThrow('hour failed');
+    expect(signals).toHaveLength(5);
+    expect(signals.every((sig) => sig.aborted)).toBe(true);
+  });
+});
+
+describe('refusalKeys', () => {
+  it('names each safety code an hour breaks, and nothing for an hour that flew', () => {
+    const base = { offset: 0, validMs: 0, landings: [] };
+    expect(refusalKeys(base)).toEqual([]);
+    expect(
+      refusalKeys({
+        ...base,
+        outsideLimits: [
+          { field: 'windSpeed', value: 12, limit: 8.9, powerClass: 'model' },
+          { field: 'rodAngle', value: 0.6, limit: 0.52, powerClass: 'model' },
+        ],
+      }),
+    ).toEqual(['env.landing.overWind', 'env.landing.overRodAngle']);
+  });
+});

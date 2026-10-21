@@ -1,0 +1,104 @@
+/** Ambient types for the vendored TeaVM engine artifact (see engine-java/). */
+declare module '*openrocket-engine.mjs' {
+  export function reset(): void;
+  /** Releases one handle; throws for an unknown one. reset() releases them all. */
+  export function free(handle: number): void;
+  export function newRocket(): number;
+  export function buildRocket(treeJson: string): number;
+  export function setMotorById(
+    rocket: number,
+    componentId: string,
+    designation: string,
+    diameter: number,
+    length: number,
+    times: number[],
+    thrusts: number[],
+    masses: number[],
+    cgX: number,
+    ejectionDelay: number,
+  ): void;
+  export function setMotorIgnitionById(
+    rocket: number,
+    componentId: string,
+    ignitionEvent: string,
+    ignitionDelay: number,
+  ): void;
+  export function setStageActiveById(rocket: number, componentId: string, active: boolean): void;
+  export function addNoseCone(
+    rocket: number,
+    length: number,
+    aftRadius: number,
+    thickness: number,
+    shape: string,
+    materialDensity: number,
+  ): number;
+  export function addBodyTube(
+    rocket: number,
+    length: number,
+    outerRadius: number,
+    thickness: number,
+    materialDensity: number,
+  ): number;
+  export function addTrapezoidFins(
+    parent: number,
+    finCount: number,
+    rootChord: number,
+    tipChord: number,
+    sweep: number,
+    height: number,
+    thickness: number,
+    materialDensity: number,
+  ): number;
+  export function addInnerTube(
+    parent: number,
+    length: number,
+    outerRadius: number,
+    thickness: number,
+    materialDensity: number,
+  ): number;
+  export function addParachute(parent: number, diameter: number, dragCoefficient: number): number;
+  export function setMotor(
+    rocket: number,
+    mount: number,
+    designation: string,
+    diameter: number,
+    length: number,
+    times: number[],
+    thrusts: number[],
+    masses: number[],
+    cgX: number,
+    ejectionDelay: number,
+  ): void;
+  export function getStaticInfo(rocket: number): string;
+  export function getComponentInfo(rocket: number, componentId: string): string;
+  export function getComponentGeometry(rocket: number, componentId: string): string;
+  export function getComponentFields(rocket: number, componentId: string): string;
+  export function setShoulderLength(rocket: number, componentId: string, side: string, length: number): string;
+  export function setRogersModifiedBarrowman(rocket: number, enabled: boolean): void;
+  export function setSupersonicAero(rocket: number, enabled: boolean): void;
+  export function runParity(): void;
+  export function simulate(
+    rocket: number,
+    launchRodLength: number,
+    launchRodAngle: number,
+    windAverage: number,
+    windStdDeviation: number,
+    launchAltitude: number,
+    timeStep: number,
+  ): string;
+  export function simulateJson(rocket: number, optionsJson: string): string;
+  export function getAeroSweep(rocket: number, optionsJson: string): string;
+  export function getWorstThetaDeg(rocket: number, mach: number, aoaDeg: number): number;
+  export function getStandardPressure(altitude: number): number;
+  export function setLengthUnit(symbol: string): void;
+  export function getMotorSimilarity(
+    times1: number[],
+    thrusts1: number[],
+    times2: number[],
+    thrusts2: number[],
+  ): number;
+  export function getMotorStatistics(times: number[], thrusts: number[]): string;
+  export function getComponentMasses(rocket: number): string;
+  export function setStubbyNoseDrag(rocket: number, enabled: boolean): void;
+  export function main(): void;
+}

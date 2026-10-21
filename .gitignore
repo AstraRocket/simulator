@@ -1,0 +1,68 @@
+# Gradle (engine-java)
+engine-java/.gradle/
+engine-java/build/
+# The VS Code Java extension compiles the project here in the background.
+engine-java/bin/
+!engine-java/gradle/wrapper/gradle-wrapper.jar
+
+# Node / Vite (web)
+web/node_modules/
+# The community parts database, cloned by `npm run sync:database`: a repository
+# of its own, made again by that script rather than committed here.
+web/openrocket-database/
+web/dist/
+# The build harnesses (web/scripts/check-*.mjs) build here and remove it when they finish.
+web/dist-*/
+*.local
+# TypeScript incremental build state: the typecheck runs `tsc --noEmit` and
+# reads none, and an editor that writes one would make it a diff on every run.
+*.tsbuildinfo
+
+# Docusaurus (website): build output, caches and generated locale files
+website/node_modules/
+website/build/
+website/.docusaurus/
+# Docs built into the app for precaching (see deploy.yml)
+web/public/docs/
+
+# Playwright (web e2e): test output + downloaded browsers, never the specs/config
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/.playwright/
+
+# NOTE: web/src/engine/vendor/openrocket-engine.mjs IS committed. It is the built engine
+# artifact so the web app builds without a JDK (regenerate via engine-java).
+
+# NOTE: web/public/engine/openrocket-engine.wasm (+ its .wasm-runtime.js) ARE
+# committed. The WASM-GC engine is the default backend (JS falls back), so a
+# fresh checkout ships it without a JDK. Regenerate via
+# `node engine-java/build-engine.mjs --wasm`.
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+.claude
+
+# Unanchored: `npx` at the repo root creates a bare node_modules/ (there is no
+# root package.json), and vitest rewrites node_modules/.vite/**/results.json on
+# every local run. With only the web/ and website/ paths listed, those show up as
+# changes after every `npm test`.
+node_modules/
+test-results/
+web/coverage/
+
+# Pinned OpenRocket checkout that `extract --check` fetches for itself
+# (sparse + blobless; keyed to the ref in engine-java/extract/UPSTREAM).
+engine-java/.openrocket-src/
+
+docs/rasaero/diffs/
+
+# The reference harness's own Gradle build (compiles pristine upstream core
+# against its real Maven dependencies; nothing here ships).
+engine-java/reference/.gradle/
+engine-java/reference/build/

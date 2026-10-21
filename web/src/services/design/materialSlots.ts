@@ -1,0 +1,139 @@
+import { KERNEL_MATERIALS } from '../../tree/kernelDefaults';
+import { COMPONENT_DEFAULTS } from './componentDefaults';
+import { isMaterialType, type MaterialType } from '../materials/materialTypes';
+
+/**
+ * What a part is made of by default: which material slots each type has, and
+ * what goes in them when nobody has said.
+ *
+ * Its own module, and a leaf one. `services/materials/materials` reaches the
+ * material catalog, which pulls in the remote-data fetch and the IndexedDB
+ * custom store, and the default rocket is built in
+ * `services/design/defaultRocket`, where none of that belongs. Nothing here
+ * needs a catalog: the three stock materials are the kernel's own and are named
+ * in `tree/kernelDefaults`.
+ */
+
+/**
+ * Which node keys a material of each kind lands on. A part carries up to three
+ * at once (a parachute has a canopy and shroud lines), so the material type is
+ * what decides, not the part.
+ *
+ * Only the bulk material has a `group` key. The `.ork` writer emits the group
+ * attribute for a bulk material and not for the other two, so there is nowhere
+ * for a surface or line group to go.
+ */
+const MATERIAL_KEYS: Record<MaterialType, { name: string; density: string; group?: string }> = {
+  bulk: { name: 'materialName', density: 'density', group: 'materialGroup' },
+  surface: { name: 'surfaceMaterialName', density: 'surfaceDensity' },
+  line: { name: 'lineMaterialName', density: 'lineDensity' },
+};
+
+/**
+ * Which material kinds each part type has a slot for.
+ *
+ * One list, read by Settings ▸ Materials to draw its rows and by
+ * {@link defaultMaterialPatch} to decide what a new part is made of. Most parts
+ * have exactly one; a parachute has two, its canopy and its shroud lines, which
+ * is why this is keyed by the pair rather than by the part.
+ *
+ * A type that is not here has no material at all: a stage, a pod set and a mass
+ * component carry a mass outright rather than a density and a volume.
+ */
+export const MATERIAL_SLOTS: readonly { part: string; material: MaterialType }[] = [
+  { part: 'nosecone', material: 'bulk' },
+  { part: 'bodytube', material: 'bulk' },
+  { part: 'transition', material: 'bulk' },
+  { part: 'trapezoidfinset', material: 'bulk' },
+  { part: 'ellipticalfinset', material: 'bulk' },
+  { part: 'freeformfinset', material: 'bulk' },
+  { part: 'tubefinset', material: 'bulk' },
+  { part: 'innertube', material: 'bulk' },
+  { part: 'tubecoupler', material: 'bulk' },
+  { part: 'centeringring', material: 'bulk' },
+  { part: 'bulkhead', material: 'bulk' },
+  { part: 'engineblock', material: 'bulk' },
+  { part: 'launchlug', material: 'bulk' },
+  { part: 'railbutton', material: 'bulk' },
+  { part: 'parachute', material: 'surface' },
+  { part: 'parachute', material: 'line' },
+  { part: 'streamer', material: 'surface' },
+  { part: 'shockcord', material: 'line' },
+];
+
+/** The settings key for one part type's material of one kind. */
+export const defaultMaterialKey = (partType: string, materialType: MaterialType): string =>
+  `${partType}:${materialType}`;
+
+/** A settings key back into its part type and material type, or null for a key
+ *  {@link defaultMaterialKey} would not write. */
+export function parseDefaultMaterialKey(key: string): { part: string; material: MaterialType } | null {
+  const [part, material, ...rest] = key.split(':');
+  if (rest.length || !part || !/^[a-z]+$/.test(part) || !isMaterialType(material)) return null;
+  return { part, material };
+}
+
+/**
+ * A part whose Java constructor sets its own material rather than taking the
+ * preference default: `RailButton()` is Delrin, not Cardboard
+ * (rocketcomponent/RailButton.java). The kernel flies an unset rail button as
+ * Delrin, so that is what a new one is stamped with.
+ */
+const KERNEL_PART_MATERIALS: Record<
+  string,
+  Partial<Record<MaterialType, { name: string; density: number; group: string }>>
+> = {
+  railbutton: {
+    bulk: {
+      name: COMPONENT_DEFAULTS.railbutton.materialName,
+      density: COMPONENT_DEFAULTS.railbutton.materialDensity,
+      group: COMPONENT_DEFAULTS.railbutton.materialGroup,
+    },
+  },
+};
+
+/**
+ * What to stamp onto a newly added part of `partType`: the user's per-part-type
+ * default (Settings ▸ Materials) where they have set one, and otherwise the
+ * material the kernel would weigh the part with anyway
+ * ({@link KERNEL_MATERIALS}, or the part's own in {@link KERNEL_PART_MATERIALS}).
+ *
+ * The preference is spent here, at creation, as desktop OpenRocket spends its
+ * own: each component's constructor sets the material from the default the
+ * preferences hold for that part type (`getDefaultComponentMaterial` in
+ * ExternalComponent, StructuralComponent, FinSet, RecoveryDevice, Parachute and
+ * ShockCord), so the part carries a real material that shows in the panel and
+ * is written to the `.ork`.
+ *
+ * The kernel fallback is why a new part does not read "Not specified". An unset
+ * material is not a lighter part: the kernel flies it as cardboard (a rail
+ * button as Delrin), ripstop nylon or elastic cord, and the `.ork` writer fills
+ * the same materials in. Stamping it here makes the panel say what the
+ * simulation is using before the save rather than after it, which is also what
+ * the desktop shows: every
+ * OpenRocket component is constructed with one of these, so its own dropdown
+ * never has an empty state to explain.
+ *
+ * Returns `{}` for a type with no material slot at all (a stage, a pod set, a
+ * mass component, which carries a mass outright).
+ */
+export function defaultMaterialPatch(
+  partType: string,
+  defaults: Record<string, { name: string; density: number; group?: string }>,
+): Record<string, string | number> {
+  const patch: Record<string, string | number> = {};
+  for (const { part, material } of MATERIAL_SLOTS) {
+    if (part !== partType) continue;
+    const keys = MATERIAL_KEYS[material];
+    const chosen = defaults[defaultMaterialKey(partType, material)];
+    const kernel = KERNEL_PART_MATERIALS[partType]?.[material] ?? KERNEL_MATERIALS[material];
+    patch[keys.name] = chosen ? chosen.name : kernel.name;
+    patch[keys.density] = chosen ? chosen.density : kernel.density;
+    // The group goes with the material: the kernel's own, or the catalog
+    // group stored with the user's choice, as a material picked in the panel
+    // carries one. A choice stored without a group sets none.
+    const group = chosen ? chosen.group : kernel.group;
+    if (keys.group && group) patch[keys.group] = group;
+  }
+  return patch;
+}

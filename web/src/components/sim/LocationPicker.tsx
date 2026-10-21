@@ -1,0 +1,244 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { LaunchConditions } from '../../services/design/orkTree';
+import { getLaunchLocationStore, locationFrom, type LaunchLocation } from '../../services/storage/launchLocationStore';
+import { loadSettings } from '../../services/storage/settings';
+import { useLocationList } from './useLocationList';
+import { DesignPropertiesDialog } from '../layout/DesignPropertiesDialog';
+import { LocationsDialog } from './LocationsDialog';
+import { PlaceSearchDialog } from './PlaceSearchDialog';
+
+/** The three fields a location sets. */
+type LocationSite = Pick<LaunchConditions, 'latitudeDeg' | 'longitudeDeg' | 'launchAltitudeM'>;
+
+/** The launch defaults from Settings, as a site. */
+const launchDefaultSite = (): LocationSite => {
+  const site = loadSettings().launchDefaults;
+  return { latitudeDeg: site.latitudeDeg, longitudeDeg: site.longitudeDeg, launchAltitudeM: site.launchAltitudeM };
+};
+
+/**
+ * Saved launch locations, at the top of the launch panel's Site group.
+ *
+ * The three site fields (latitude, longitude, elevation) are properties of the
+ * launch field, not of a flight. Without a saved location every new simulation
+ * means retyping coordinates from memory, which is how they come out wrong. A
+ * location is those three plus a name.
+ *
+ * It deliberately excludes the rod, the wind and the atmosphere. Those are conditions on
+ * the day; a location that restored last month's wind would be worse than one that
+ * restored nothing, because it would look authoritative.
+ *
+ * Selecting a location writes through the panel's own `onChange` / `onCommit`, so
+ * applying one is an ordinary edit: undoable, and subject to the same
+ * multi-selection rules as typing the numbers by hand.
+ */
+export function LocationPicker({
+  launch,
+  onChange,
+  onCommit,
+  defaultSite = launchDefaultSite,
+}: {
+  launch: LaunchConditions;
+  onChange: (patch: Partial<LaunchConditions>) => void;
+  onCommit?: () => void;
+  /** The site "Custom location" writes; the launch defaults unless the caller has its own rule. */
+  defaultSite?: () => LocationSite;
+}) {
+  const { t } = useTranslation();
+  const [naming, setNaming] = useState(false);
+  const [managing, setManaging] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Shared with the manage dialog, and ordered: see `useLocationList` for why a
+  // late-landing first read would otherwise empty this dropdown.
+  const { locations: loaded, refresh } = useLocationList();
+  const locations = loaded ?? [];
+
+  // A location with no known elevation leaves the elevation blank: a tool then
+  // takes the terrain model's, and a simulation asks for it before it runs.
+  // Keeping the previous site's elevation would fly the wrong air unannounced.
+  const apply = (location: LaunchLocation) => {
+    onChange({
+      latitudeDeg: location.latitudeDeg,
+      longitudeDeg: location.longitudeDeg,
+      launchAltitudeM: location.launchAltitudeM,
+    });
+    onCommit?.();
+  };
+
+  /**
+   * "Custom location" puts the site back to your launch defaults.
+   *
+   * The select's value is derived from the fields, so the option has to change
+   * them; otherwise React snaps the dropdown straight back to the matching
+   * location and the option reads as broken. Clearing the fields instead would
+   * leave the map with nothing to draw and the Run button refusing, since all
+   * three are required.
+   *
+   * Your defaults are a real place (the Kennedy Space Center as shipped, which
+   * is what `settings.launchDefaults` holds), so the map has somewhere to open
+   * and the fields stay flyable. Read from Settings rather than hardcoded, so
+   * somebody who set their own home field gets that instead of Florida.
+   *
+   * A tool passes its own `defaultSite`, which leaves the elevation to the
+   * terrain model as its other site paths do.
+   *
+   * One undoable edit like any other.
+   */
+  const toDefaultSite = () => {
+    onChange(defaultSite());
+    onCommit?.();
+  };
+
+  const store = async (fn: () => Promise<void>) => {
+    setErr(null);
+    try {
+      await fn();
+      await refresh();
+    } catch {
+      // The store reports a refused write by throwing; told nothing, the user
+      // would see a list that simply does not contain what they just saved.
+      setErr(t('location.saveFailed'));
+    }
+  };
+
+  /**
+   * Which saved location the current fields correspond to, if any.
+   *
+   * Compared on the numbers rather than remembered as a selection: the fields
+   * can be edited directly, imported from a `.ork` or replaced by "use my
+   * location", and a remembered id would keep claiming a location that is not what
+   * is on screen. Matched within 1e-4° (about 11 m) and 0.5 m of elevation, since a
+   * location's stored precision and a typed one need not match bit for bit.
+   */
+  const near = (a: number | null | undefined, b: number, eps: number) => a != null && Math.abs(a - b) < eps;
+  // A location with no elevation matches a blank one, and only that.
+  const sameAlt = (a: number | null | undefined, b: number | null) => (b === null ? a == null : near(a, b, 0.5));
+  const current = locations.find(
+    (p) =>
+      near(launch.latitudeDeg, p.latitudeDeg, 1e-4) &&
+      near(launch.longitudeDeg, p.longitudeDeg, 1e-4) &&
+      sameAlt(launch.launchAltitudeM, p.launchAltitudeM),
+  );
+
+  /**
+   * A location is a place, so it cannot be captured from a half-filled site.
+   *
+   * `locationFrom` has to produce numbers, and both coordinates are required launch
+   * fields, so saving with one blank would mint a location at 0°,0° (the Gulf
+   * of Guinea), which would then apply itself silently every time it was
+   * picked. Saving is refused instead, and the fields are already marked as the
+   * ones to fill.
+   */
+  const savable = launch.latitudeDeg != null && launch.longitudeDeg != null;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1">
+        <select
+          aria-label={t('location.label')}
+          value={current?.id ?? ''}
+          onChange={(e) => {
+            const location = locations.find((p) => p.id === e.target.value);
+            if (location) apply(location);
+            else toDefaultSite();
+          }}
+          className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1.5 text-xs text-ink ring-1 ring-line/10"
+        >
+          {/* Both a state and a choice: it is what the dropdown shows whenever
+              the fields match no saved location, and picking it returns them to
+              your launch defaults. */}
+          <option value="">{t('location.custom')}</option>
+          {locations.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => setSearching(true)}
+          title={t('placeSearch.open')}
+          aria-label={t('placeSearch.open')}
+          className="rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
+        >
+          🔍
+        </button>
+        <button
+          onClick={() => setNaming(true)}
+          disabled={!savable}
+          title={savable ? t('location.save') : t('location.needsSite')}
+          aria-label={t('location.save')}
+          className="rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-40"
+        >
+          💾
+        </button>
+        <button
+          onClick={() => setManaging(true)}
+          disabled={locations.length === 0}
+          title={t('location.manage')}
+          aria-label={t('location.manage')}
+          className="rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-40"
+        >
+          ⚙
+        </button>
+      </div>
+      {/* Always mounted, empty until there is something to say: a live region
+          created together with its text is not announced by most screen
+          readers. */}
+      <p role="status" aria-live="polite" className="text-[11px] leading-snug text-warn-400">
+        {err}
+      </p>
+
+      {naming && (
+        <DesignPropertiesDialog
+          title={t('location.save')}
+          confirmLabel={t('common.save')}
+          initialName={current?.name ?? ''}
+          takenNames={locations.filter((p) => p.id !== current?.id).map((p) => p.name)}
+          onCancel={() => setNaming(false)}
+          onConfirm={(name) => {
+            setNaming(false);
+            // Saving under an existing location's name updates it, rather than
+            // leaving two entries a user cannot tell apart in the dropdown.
+            // Matched without case, as the name dialog's duplicate warning is.
+            const key = name.trim().toLowerCase();
+            const existing = locations.find((p) => p.name.toLowerCase() === key);
+            void store(async () => {
+              const location = locationFrom(name, launch);
+              await getLaunchLocationStore().save(existing ? { ...location, id: existing.id } : location);
+            });
+          }}
+        />
+      )}
+
+      {/* Finding a place is another way to fill the same three fields, so it
+          writes them the way picking a saved location does: one undoable edit. */}
+      {searching && (
+        <PlaceSearchDialog
+          onClose={() => setSearching(false)}
+          onPick={(pick) => {
+            setSearching(false);
+            onChange(pick);
+            onCommit?.();
+          }}
+        />
+      )}
+
+      {/* The shared dialog, also reachable from the menu. It owns its own
+          loading, renaming and deleting, so this only has to say when it is
+          open, hand it the fields "Use" writes, and refresh the dropdown once
+          it closes. */}
+      {managing && (
+        <LocationsDialog
+          onApply={apply}
+          onClose={() => {
+            setManaging(false);
+            void refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}

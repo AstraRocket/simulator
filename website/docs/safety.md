@@ -1,0 +1,86 @@
+---
+title: "Safety"
+sidebar_position: 14
+---
+AstraRocket is a design and simulation tool. It is not a safety authority, and a simulation is not a flight card. This page explains what the numbers mean, what the model does not cover, and what to check before you fly.
+
+## What a simulation result is
+
+Every figure the app produces is **educational and speculative**. It answers "what would this model do under these assumptions". It is not a prediction, not a safety assessment, and not a flight-worthiness certification.
+
+Treat apogee, stability margin, deployment speed, descent rate and landing distance as estimates to design *against*, then verify them against the rocket you actually built and the field you are actually standing on.
+
+## What the model does
+
+The physics is OpenRocket's own core, compiled to run in your browser. Its static figures are checked against the same core running on a JVM and match apart from rounding in the last digit. Its flights agree with that JVM run within a small tolerance, and with unmodified upstream OpenRocket on every flight event. It computes:
+
+- **Aerodynamics** by the Extended Barrowman method, giving CP, drag and stability.
+- **Mass and CG** from each part's geometry times its material density, plus any [overrides](#before-you-fly) you enter.
+- **Flight** as rigid-body motion integrated with RK4, driven by the real thrust curve of the motor you picked.
+- **Atmosphere** as the ISA standard model, your own temperature, pressure and humidity, or a forecast atmosphere that changes with altitude (see [Running a Simulation](./running-a-simulation.md)), with a WGS or constant gravity model and a flat, spherical or WGS84 earth.
+- **Wind** as either a single average with a gust standard deviation, or a multi-level profile that changes with altitude, both carrying pink-noise turbulence.
+
+The app also raises the kernel's own flight warnings: high-speed deployment, a main that opens too fast or too slow, a drogue that opens too slowly, a drogue with no main, no recovery device at all, a deployment while still on the launcher, a tumble while the motor is burning, stages that separate out of order or early, an event after landing, a large angle of attack, and supersonic flight where the aerodynamic method becomes approximate. Check these warnings before you fly.
+
+## What the model does not know
+
+The model does not account for the following:
+
+- **Fin flutter.** There is no aeroelastic model anywhere in the engine. A fin can be perfectly stable in simulation and break off at Mach 0.8 in flight. Fin stiffness, attachment and flutter margin are up to you.
+- **Structural strength.** The rocket is a rigid body. Nothing checks whether the airframe survives max-Q, a hard deployment, or a zipper.
+- **Parachute inflation.** A recovery device's drag switches on at its deployment event, after the delay you set. The canopy's inflation transient and the opening shock load are not computed. The app warns you about a fast deployment instead of telling you what it does to the tube.
+- **Motor variation.** The thrust curve is one certification curve, not your motor on launch day. Lot-to-lot spread, propellant temperature, age and storage all move the real number.
+- **The difference between the model and what you built.** Paint, a glue fillet you did not enter, a heavier nose cone than the material table assumes, a fin set two degrees out of alignment, a chute packed tighter than the bay allows. The simulation flies the design as drawn.
+- **The ground.** No terrain, no obstacles, no trees, no thermals, no ground effect, no launcher friction, and no rocket hanging up on the rail or rod.
+
+## Before you fly
+
+The results pane shows a **Before you fly** card above the numbers with the short version of this page. Click its heading to collapse the explanation. It asks you to acknowledge the notes first, because the collapsed state is remembered and this browser will not show them again. The heading itself never collapses, so the warning stays above the numbers either way.
+
+The most useful step is to simulate the rocket as built rather than as drawn:
+
+1. **Weigh the finished rocket**, ready to fly but without the motor. Select its stage in the component editor (on a single-stage rocket that is the whole thing), enable the **mass override**, and enter the measured figure with "apply to all subcomponents" on.
+2. **Find the balance point.** Balance the rocket on a ruler edge, measure from the nose tip, and enter it as the **CG override**.
+3. **Re-read the stability margin** with those numbers in place. This is the margin that matters. If it moved, your model was wrong about something, and it is worth finding out what.
+4. **Check the launcher exit velocity** in the flight results (the **Rail exit** or **Rod exit** tile, after the design's guides). A rocket that leaves the launcher slowly weathercocks into the wind, and the simulation is least reliable at that point.
+5. **Check the descent rate and the landing speed**, and the ground track for how far downwind it lands. Compare that with the size of your field.
+6. **Re-run after any change**, including a motor swap. Results apply only to the design and conditions they were run with.
+
+The override section carries mass, CG and drag coefficient, each with an "apply to all subcomponents" toggle, matching OpenRocket's behavior. A part inside one of those says so in red ("Mass overridden by Sustainer"), and its own override for that value is locked, as on the desktop, because the outer override already sets it. See [Designing a Rocket](./designing-a-rocket.md).
+
+## The limits the app enforces
+
+Two launch conditions are checked against the **NAR** and **Tripoli** safety codes, and the app will not run a simulation outside them:
+
+- **Launcher angle** (rail or rod) within **30 degrees** of vertical for a model rocket (the NAR Model Rocket Safety Code), and within **20 degrees** for a high power rocket (the NAR High Power Rocket Safety Code and Tripoli's).
+- **Surface wind** at or below **20 mph** (32 km/h).
+
+The app treats a simulation's flight configuration as high power when any motor in it has more than 160 N·s of total impulse (H and up) or more than 80 N of average thrust, when all its motors together hold more than 320 N·s or more than 125 g of propellant, or when the rocket weighs more than 1,500 g at liftoff. Anything else is a model rocket.
+
+Only the wind at the pad is judged, and gusts are deliberately not checked. The reasoning, and what happens to a `.ork` file that arrives outside the limits, is in [Running a Simulation](./running-a-simulation.md#safety-limits).
+
+These are the only two rules the app enforces. They are not a substitute for the codes, which cover far more than the app can see: minimum field dimensions, recovery systems, motor certification, ignition, spectator distances and more.
+
+## Your responsibilities
+
+The app knows nothing about where you are or what you are allowed to do there. You are responsible for:
+
+- Knowing and following the **safety code** you fly under. In the US that is the [NAR safety codes](https://www.nar.org/safety-codes/) (model and high power) or the [Tripoli Unified Safety Code](https://www.tripoli.org/safetycode). Elsewhere, your national body's equivalent.
+- **Airspace rules and waivers** for the altitude you intend to reach. An apogee figure from this app is not a waiver.
+- **Motor purchase, certification, transport and storage law** where you live, and holding the certification level the motor requires.
+- **Permission to launch** on the land you are using.
+- The **range rules** and the **Range Safety Officer**. The RSO's decision overrides anything the app shows.
+
+### Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied, including any warranty of accuracy, merchantability, or fitness for a particular purpose. Simulation results are estimates. They are not a substitute for the applicable safety code, a range safety officer, an airspace waiver, or your own judgment.
+
+**You, and you alone, are responsible for any rocket you build, any motor you use, and any flight you make.** Neither AstraRocket, its contributors, nor the authors of the software it derives from accept any liability for injury, death, property damage, regulatory violations, or any other loss arising from use of this software or reliance on its output, to the fullest extent permitted by law. By using the software you accept this.
+
+## Experimental and research motors
+
+The app models motors from published thrust curves, and can import a curve you measured yourself. It is not a guide to designing, manufacturing, or firing a motor, and nothing in it evaluates whether a motor is safe to build or light. Experimental motor work is hazardous and, in most places, tightly regulated. It belongs with a research organization and the people qualified to supervise it.
+
+## If a number looks wrong
+
+If the app disagrees with desktop OpenRocket, or with a flight you actually flew, that is worth reporting: differences against the desktop program are treated as bugs, because the engine is meant to match it. See [CONTRIBUTING.md](https://github.com/AstraRocket/simulator/blob/HEAD/CONTRIBUTING.md).

@@ -1,0 +1,50 @@
+import { useLauncherT } from '../common/useLauncher';
+import { useUnits } from '../../prefs/useUnits';
+import type { FlightResult } from '../../engine/api';
+import { warningText, warningHelp } from '../../services/app/warningText';
+import { WARNING_ROW, WARNING_TONE } from './warningTone';
+
+/**
+ * What the kernel flagged about this flight: a recovery device out too fast, a
+ * large angle of attack, no recovery device at all.
+ *
+ * This is the other half of the deployment-speed threshold settings: without
+ * it a user would never see what those thresholds produce.
+ */
+export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
+  const t = useLauncherT();
+  const u = useUnits();
+  const warnings = sim?.warnings ?? [];
+  if (!sim || !warnings.length) return null;
+
+  return (
+    <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
+      <div className="mb-2 text-[10px] uppercase tracking-wide text-ink-muted">
+        {t('sim.warnings', { count: warnings.length })}
+      </div>
+      <ul className="space-y-1.5">
+        {warnings.map((w, i) => {
+          // What it means, not just what tripped. A deployment-speed warning
+          // that does not say what a fast deployment does to the airframe is a
+          // number the reader has to already understand in order to act on.
+          const help = warningHelp(w.message, t);
+          return (
+            <li
+              key={`${w.key}-${i}`}
+              className={`${WARNING_ROW} ${WARNING_TONE[w.priority ?? 'NORMAL'] ?? WARNING_TONE.NORMAL}`}
+            >
+              <span aria-hidden>⚠</span>
+              <span className="min-w-0">
+                {/* HIGH is said in words too: the danger color is not the only
+                    thing setting it apart from a note. */}
+                {w.priority === 'HIGH' && <span className="font-semibold">{`${t('sim.warningHigh')} `}</span>}
+                <span className="font-medium">{warningText(w.message, t, (q, si) => u.fmtSym(q, si))}</span>
+                {help && <span className="mt-1 block font-normal leading-snug">{help}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

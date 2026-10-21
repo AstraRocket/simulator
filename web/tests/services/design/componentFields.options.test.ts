@@ -1,0 +1,99 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { DATA_DIR } from '../../testing/dataDir';
+import { FIELDS, type Field } from '../../../src/services/design/componentFields';
+
+/**
+ * Every option in a `select` field has to be given a label.
+ *
+ * `DimensionFields` renders an option as `optLabel(o, t)`, else
+ * `t(`${optI18n}.${o}`)`, else the raw value. The raw value renders as a
+ * dropdown reading `ogive / conical / ellipsoid`, lower case and untranslated,
+ * and nothing else fails, so a field in FIELDS without a label for each of its
+ * options fails here.
+ *
+ * Every locale is read off disk: a key missing in one language renders the
+ * English word inside a translated panel.
+ */
+const LOCALES = ['en', 'de', 'es', 'fr', 'pt-BR', 'pt-PT', 'nl', 'pl', 'ru', 'ja'] as const;
+
+/** The locale files, read the way the app ships them. `DATA_DIR` resolves from
+ *  the repo rather than from `import.meta.url`, which a jsdom-flavored run
+ *  turns into an http URL. */
+const messages = Object.fromEntries(
+  LOCALES.map((l) => [
+    l,
+    JSON.parse(readFileSync(join(DATA_DIR, '..', '..', 'src', 'i18n', 'locales', `${l}.json`), 'utf8')) as Record<
+      string,
+      unknown
+    >,
+  ]),
+) as Record<(typeof LOCALES)[number], Record<string, unknown>>;
+
+const lookup = (locale: (typeof LOCALES)[number], key: string): unknown =>
+  key.split('.').reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], messages[locale]);
+
+const selects = Object.entries(FIELDS).flatMap(([type, fields]) =>
+  fields.filter((f): f is Extract<Field, { kind: 'select' }> => f.kind === 'select').map((f) => ({ type, f })),
+);
+
+describe('select fields', () => {
+  it('has some, or this whole file is passing on an empty list', () => {
+    expect(selects.length).toBeGreaterThan(5);
+  });
+
+  it('gives every one a way to label its options', () => {
+    const bare = selects.filter(({ f }) => !f.optI18n && !f.optLabel).map(({ type, f }) => `${type}.${f.key}`);
+    expect(bare).toEqual([]);
+  });
+
+  it('resolves every option to a string in every locale', () => {
+    const missing: string[] = [];
+    for (const { type, f } of selects) {
+      // An optLabel computes its text in code (the cluster patterns build
+      // theirs from a count), so there is no key to look up.
+      if (!f.optI18n) continue;
+      for (const o of f.options) {
+        for (const locale of LOCALES) {
+          const v = lookup(locale, `${f.optI18n}.${o}`);
+          if (typeof v !== 'string' || !v) missing.push(`${locale}: ${f.optI18n}.${o} (${type}.${f.key})`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it('capitalizes the English option text, the way the field labels are', () => {
+    // A dropdown of lower case enum values under a capitalized label.
+    const lower: string[] = [];
+    for (const { f } of selects) {
+      if (!f.optI18n) continue;
+      for (const o of f.options) {
+        const v = lookup('en', `${f.optI18n}.${o}`);
+        if (typeof v === 'string' && v && v[0] !== v[0]!.toUpperCase()) lower.push(`${f.optI18n}.${o} = ${v}`);
+      }
+    }
+    expect(lower).toEqual([]);
+  });
+});
+
+/**
+ * The Deploy-at select offers every event the kernel can deploy on, read from
+ * the Java enum itself, so a value a desktop file carries always has an option
+ * to show it and a new design can choose it.
+ */
+describe('the deploy event options', () => {
+  it('cover every DeploymentConfiguration.DeployEvent', () => {
+    const java = readFileSync(
+      join(process.cwd(), '../engine-java/src/java/info/openrocket/core/rocketcomponent/DeploymentConfiguration.java'),
+      'utf8',
+    );
+    const body = java.slice(java.indexOf('enum DeployEvent'));
+    const kernel = [...body.matchAll(/^\t\t([A-Z_]+)\(/gm)].map((m) => m[1]!.toLowerCase());
+    expect(kernel.length).toBeGreaterThan(4);
+    const field = FIELDS['parachute']!.find((f: Field) => f.key === 'deployEvent')!;
+    const options = 'options' in field ? (field.options ?? []) : [];
+    expect([...options].sort()).toEqual([...kernel].sort());
+  });
+});

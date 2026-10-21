@@ -1,0 +1,163 @@
+import { test, expect, openTab, ready, runButton, runFlight, importOrk, autosaved } from './base';
+
+/**
+ * The NAR / Tripoli flying limits, on the path that can get around the fields.
+ *
+ * Launch conditions are simulation settings, not design, so a `.ork` carrying
+ * conditions outside the codes is not something to preserve as authored: the
+ * import says so, and the run refuses until they are brought back inside. The
+ * entry fields cap what you can type (see simulations-tab.spec.ts); this is the
+ * case they cannot cover.
+ *
+ * `out-of-limits.ork` is `two-stage.ork` with a 35° rod angle and 15 m/s of
+ * wind. It flies a C6, a model rocket, so the angle is held to the model
+ * code's 30°. The messages quote the reader's units (metric by default), not the
+ * codes' own mph.
+ */
+test('an imported .ork outside the limits is flagged and refused', async ({ page }) => {
+  await page.goto('/');
+  await importOrk(page, 'e2e/fixtures/out-of-limits.ork');
+
+  // The loaded banner lists what is wrong, with the numbers and the rule.
+  // "Launcher", not "Launch rod": this file has neither lugs nor rail buttons,
+  // and the notes name the launcher from the imported design, not from the
+  // default rocket open before it, which has a lug.
+  const banner = page.getByText(/Launcher angle is 35/);
+  await expect(banner).toBeVisible();
+  await expect(page.getByText('Wind speed is 15 m/s')).toBeVisible();
+
+  // And the run is off the table until it is fixed.
+  await openTab(page, 'Simulations');
+  const run = runButton(page);
+  await expect(run).toBeDisabled();
+  // Names the row and gives both reasons with the rule behind each, rather than
+  // a bare "cannot run". The regex has to match the wording this path produces:
+  // a design rejected for a zero dimension (every centering ring importing with no
+  // radius, say) never reaches the launch check at all, which masks the assertion.
+  const notice = page.getByText(/was not run: its launch conditions are outside the safety codes/);
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('above the 30° the NAR Model Rocket Safety Code allows');
+  await expect(notice).toContainText('above the 8.9 m/s the NAR and Tripoli safety codes allow');
+
+  // Bring both back inside and it flies. The fields clamp, so typing anything
+  // over the cap lands exactly on it.
+  await page.getByLabel('Angle', { exact: true }).fill('5');
+  await page.getByLabel('Speed', { exact: true }).fill('3');
+  await expect(run).toBeEnabled();
+  await run.click();
+  await expect(page.getByRole('button', { name: 'Flight', exact: true })).toBeVisible({ timeout: 30_000 });
+});
+
+test('the import notes fold away, and the name is not repeated', async ({ page }) => {
+  await page.goto('/');
+  await importOrk(page, 'e2e/fixtures/out-of-limits.ork');
+
+  // The notes are open on the import that raised them.
+  const note = page.getByText(/Launcher angle is 35/);
+  await expect(note).toBeVisible();
+
+  // And fold away without dismissing the banner, which is the only record of them.
+  const toggle = page.getByRole('button', { name: /import note/ });
+  await toggle.click();
+  await expect(note).toHaveCount(0);
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(note).toBeVisible();
+
+  // The design name lives here, with the ✎ that opens its configuration, and
+  // not in the component tree's header as well.
+  const card = toggle.locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
+  const title = card.getByRole('button', { name: 'Edit rocket configuration' });
+  await expect(title).toBeVisible();
+  await expect(title).toContainText('Two Stage');
+  // And exactly once on the page: the component tree's header does not repeat it.
+  await expect(page.getByRole('button', { name: 'Edit rocket configuration' })).toHaveCount(1);
+});
+
+test('folded notes stay folded across a reload, and a new import opens them', async ({ page }) => {
+  await page.goto('/');
+  await importOrk(page, 'e2e/fixtures/out-of-limits.ork');
+
+  const note = page.getByText(/Launcher angle is 35/);
+  const toggle = page.getByRole('button', { name: /import note/ });
+  await expect(note).toBeVisible();
+  await toggle.click();
+  await expect(note).toHaveCount(0);
+
+  // Folded is a preference, so it outlives the card. Local state would be dropped
+  // every time the card unmounts, and it unmounts on every tab change, every
+  // Close and every reload. Reopening the app on the same design is not a new
+  // import, so the notes stay folded. The stored note is keyed, not the sentence
+  // on screen, so the key is what the autosave has to have written.
+  await autosaved(page, 'limits.rodAngle');
+  await page.reload();
+  await expect(toggle).toBeVisible({ timeout: 20_000 });
+  await expect(note).toHaveCount(0);
+
+  // A new import with notes opens them: they are news on the import that raised
+  // them. The first import is saved, so the same file's name clashes with it;
+  // overwrite, which keeps this about the notes.
+  await importOrk(page, 'e2e/fixtures/out-of-limits.ork', 'overwrite');
+  await expect(note).toBeVisible();
+
+  // Still a toggle, not a one-way door.
+  await toggle.click();
+  await expect(note).toHaveCount(0);
+});
+
+/**
+ * The "Before you fly" card under the run's numbers.
+ *
+ * Every other safety behavior in this file is a refusal: conditions outside the
+ * codes, and no flight. This is the other half, and the one that applies to
+ * every flight that does happen: the numbers are real and the launch is legal,
+ * and they are still a model's answer rather than a flight card. It has to sit
+ * with the measurements, because the moment it matters is the moment they are
+ * being read.
+ */
+test('the run summary carries a safety card linking to the docs', async ({ page }) => {
+  await ready(page);
+  await runFlight(page);
+
+  // The desktop right column and the phone's Results tab each mount a copy of
+  // the summary, so one of the two is always in the document but hidden.
+  const card = page.getByRole('region', { name: 'Before you fly' }).filter({ visible: true });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('not a flight card');
+
+  // The gaps are named. "Results are approximate" tells a reader nothing they
+  // can act on; "fin flutter" sends them to look at their fin attachment.
+  await expect(card).toContainText("RSO's call");
+
+  await expect(card.getByRole('listitem').filter({ hasText: 'Not modeled at all' })).toContainText('Fin flutter');
+
+  // The whole card is a warning, not a note: it carries the shared warn tone
+  // and the ⚠ glyph, because the failures it lists are the ones no number above
+  // will ever mention. Pinned on both, since the glyph is the half that still
+  // works for a reader who cannot use the color.
+  await expect(card).toHaveClass(/(^|\s)bg-warn-/);
+  await expect(card).toContainText('⚠');
+
+  // Above the tiles, not below them: it leads the numbers, because what a
+  // reading is worth is a thing to know before reading it. Folded, the ⚠ and
+  // the words are still the first thing over the measurements.
+  const tiles = page.locator('section[aria-label="Simulation results"]').filter({ visible: true });
+  const cardBox = (await card.boundingBox())!;
+  const tileBox = (await tiles.boundingBox())!;
+  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(tileBox.y);
+
+  /**
+   * And it takes you to the safety notes in the in-app Help. The control is a
+   * button (SimSummary.tsx calls `openHelp('safety')`), not a link, so it is
+   * found by the button role.
+   *
+   * The destination is checked wherever the dialog puts it, because the docs
+   * may not be built (see e2e/help-dialog.spec.ts): with them the frame is
+   * pointed at the page, and without them the dialog offers the very same page
+   * on the docs site. Either one names the slug, and neither needs the build.
+   */
+  await card.getByRole('button', { name: /Read the safety notes/ }).click();
+  const help = page.getByRole('dialog', { name: 'Help' });
+  await expect(help).toBeVisible();
+  await expect(help.locator('iframe[src*="/safety/"], a[href*="/safety"]').first()).toBeAttached();
+});

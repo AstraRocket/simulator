@@ -1,0 +1,171 @@
+---
+title: "Vistas y análisis"
+sidebar_position: 11
+---
+La barra de herramientas del panel central cambia entre vistas, y cada pestaña tiene las suyas. La pestaña **Diseño** tiene **2D**, **3D** y **Aero**. La pestaña **Resultados**, que aparece en cuanto una simulación ha producido un resultado, tiene **Vuelo**, **Ruta 3D**, **Traza en tierra** y **Entorno**.
+
+En un teléfono las vistas de diseño viven en la pestaña **Croquis** y las de vuelo en **Resultados**, que aparece en cuanto una ejecución ha producido uno. La barra de herramientas de cada pestaña ofrece solo sus propias vistas. La barra gira junto con el dibujo, de modo que siempre queda en el lado largo de la pantalla. Consulta [Primeros pasos](./getting-started.md#the-layout).
+
+## Esquema 2D {#2d-schematic}
+
+Una vista lateral a escala del cohete con los marcadores de **CG** (▲) y **CP** (●) y el margen de estabilidad indicado.
+
+- **Calibres**: herramientas de medición que se arrastran. El calibre horizontal mide la distancia entre dos líneas verticales (longitudes); el vertical mide en transversal (diámetros y envergaduras). Las líneas se **ajustan** a los bordes de los componentes.
+- **Reglas**: un marco de medición alrededor del dibujo, con un **interruptor por lado** (arriba / abajo / izquierda / derecha) junto a los botones de CG/CP y **Datos**.
+- **Zoom y desplazamiento**: los botones +/− o la rueda para acercar. Con el dibujo ampliado, arrastra para desplazarte.
+- **Giro**: con el encuadre ajustado, arrastrar el dibujo hacia los lados gira el cohete sobre su eje longitudinal, para ver los juegos de aletas de canto o de frente. El deslizador del borde izquierdo hace lo mismo con cualquier zoom.
+- **Lateral / Trasera**: cambia entre el perfil lateral y una vista posterior (de frente); **Restablecer** recupera el encuadre por defecto.
+
+## Interruptores de vista (2D y 3D) {#view-toggles-2d-and-3d}
+
+Dos botones de la barra controlan lo que se superpone en las vistas **2D** y **3D**:
+
+- **CG / CP**: muestra u oculta los marcadores de **CG / CP / estabilidad** y sus etiquetas.
+- **Datos**: muestra u oculta la tarjeta de vistazo rápido con **longitud · masa · CG · CP · estabilidad** en la esquina superior izquierda (el mismo resumen que la [franja de estadísticas](#reading-the-stats-strip), útil en un teléfono, donde la franja está en la otra pestaña).
+
+## Modelo 3D {#3d-model}
+
+Un modelo 3D interactivo del cohete: órbita a su alrededor para inspeccionar la geometría desde cualquier ángulo.
+
+- **⟲ Restablecer** reajusta la vista actual.
+- **Lateral** y **Trasera** llevan la cámara al perfil lateral o detrás del cohete, donde los clústeres y el número de aletas se ven como están realmente.
+- **Sección** abre el fuselaje por el eje central para mostrar las piezas internas.
+- **Figura** y **Acabado** son dos de los tipos de vista 3D de OpenRocket de escritorio. **Figura**, con la que se abre la vista, dibuja cada pieza con su color de figura y el fuselaje transparente, para que se vean las piezas interiores. **Acabado** dibuja cada pieza con su [apariencia 3D](./designing-a-rocket.md#appearance), opaca salvo que hayas bajado su opacidad. La trayectoria de vuelo 3D muestra siempre el cohete acabado.
+- **⬇ SVG** guarda la vista actual como dibujo vectorial con los datos del diseño, encuadrado como encuadra una imagen **Ajustar el cohete al encuadre**. Cada cara visible se convierte en una forma de sombreado plano, así que el dibujo no tiene brillo ni sombreado suave, y **Sección** no se aplica. Un cohete típico da un archivo de alrededor de 1 MB.
+- **📷 Imagen** guarda la vista actual como PNG o JPG con el ancho que elijas, con los datos del diseño. Gira antes el modelo hasta el ángulo que quieras. **Ajustar el cohete al encuadre**, activado por defecto, acerca la cámara para que el cohete llene la imagen; se mantiene el ángulo de visión.
+
+## Aerodinámica (Aero) {#aerodynamics-aero}
+
+Resistencia y estabilidad frente al número de Mach, para analizar el comportamiento a alta velocidad:
+
+- **Cd vs Mach**: coeficiente de resistencia total en todo el rango de Mach. Aparece una segunda curva **Con empuje** solo si alguna etapa declara un diámetro de salida de tobera (una propiedad del `.ork` importado; no hay campo para ella en el editor). Es la única cifra de este panel que depende del motor (todo lo demás es geometría), así que la barra indica para qué motor se calculó: el que tenga cargado la simulación activa.
+- **Desglose de resistencia**: contribuciones de fricción, presión y base, apiladas. Para el mismo desglose *por pieza*, consulta la pestaña **Por componente** de abajo.
+- **CP vs Mach**: cómo se desplaza el centro de presión con la velocidad. Los botones de la esquina de la tarjeta eligen cómo se lee el eje: tu **unidad de longitud**, **% cuerpo** (un porcentaje de la longitud total del fuselaje, que es hasta dónde del cohete estás mirando) o **% longitud** (un porcentaje de la longitud *aerodinámica*, que es la cifra que da OpenRocket de escritorio). Los dos porcentajes difieren en cualquier diseño que lleve algo fuera de la envolvente aerodinámica: un botón de riel que sobresale, un cordón de choque, una masa de cola; por eso se ofrecen ambos en vez de elegir uno por ti. Una lectura sin longitud por la que dividir no se ofrece en absoluto.
+
+Una fila de **condiciones de vuelo** define con qué se calcula todo el barrido:
+
+- **Áng. ataque**: ángulo de ataque, en tu unidad de ángulo. En 0 el cohete vuela recto; al subirlo, el CP se desplaza.
+- **Dir. viento**: la dirección del viento alrededor del eje de alabeo, en tu unidad de ángulo. **Peor** la fija en el ángulo donde el CP de este cohete queda más adelantado, es decir, donde es *menos* estable: la pregunta de seguridad «¿es estable en cualquier orientación?». En un cohete simétrico de tres aletas el CP no depende de este ángulo y **Peor** devuelve 0; en un diseño de dos aletas o asimétrico importa mucho.
+- **Vel. alabeo**: en tu unidad de velocidad de alabeo, revoluciones por segundo de forma predeterminada (se cambia en **Ajustes ▸ Unidades**). El *amortiguamiento* de alabeo se opone a un alabeo existente, así que esa columna es cero hasta que defines uno.
+- **Altitud**: la altitud a la que se calcula todo el barrido, en tu unidad de altitud. El aire a esa altura fija el número de Reynolds y con él la fricción; 0 es el nivel del mar.
+
+Un conmutador **Gráficas / Por componente** elige qué muestra el panel: las tres curvas o las tablas de abajo. Las tablas informan para un único Mach: lo elige la retícula del cursor en la pestaña **Gráficas**, y también un deslizador que aparece en las dos pestañas y que solo se detiene en los Mach que el barrido calculó de verdad. Ambos comparten el mismo valor, así que al cambiar de pestaña aterrizas en el punto que estabas mirando.
+
+**Resistencia por componente** tabula la resistencia de cada pieza para ese Mach, dividida en **presión / base / fricción**: las mismas cifras que OpenRocket de escritorio muestra en *Component Analysis ▸ Drag characteristics*. Las filas se ordenan de mayor a menor y suman el total del cohete. Las celdas se **sombrean en proporción a su valor**, de modo que las piezas que más resistencia cuestan destacan sin tener que leer todos los números, con la escala debajo de la tabla. Hay dos estilos, que se cambian con los botones junto a la leyenda (o desde **Ajustes ▸ Colores**: es una sola preferencia, así que se define desde cualquiera de los dos sitios y se conserva): *Por magnitud* (el predeterminado) es un solo color que se intensifica con el valor, escalado respecto al mayor de la tabla; *Por calor* es el verde-rojo del escritorio en su propia escala fija de 0 a 1,5 Cd, con texto oscuro sobre celdas claras, para quien esté acostumbrado a leerlo allí. *Por calor* sombrea solo esta tabla de resistencia: su escala es absoluta de Cd, y ni el CNα ni los coeficientes de alabeo están en ella, así que esas tablas quedan sin sombrear con esa opción (el escritorio colorea solo su pestaña de resistencia por el mismo motivo).
+
+Una pieza que existe más de una vez (normalmente un juego de aletas) tiene además una columna **Por unidad** que indica `0,251 × 3`: la resistencia de una aleta y cuántas hay. La columna **Cd** es siempre el total de todas.
+
+**Contribución a la estabilidad** es la tabla complementaria, y la que responde a *por qué el CP está donde está*: el **CNα** de cada pieza (su parte de la pendiente de fuerza normal del cohete) y su propio **CP**. El juego de aletas suele aportar la gran mayoría del CNα (eso es lo que mantiene el CP hacia atrás), mientras que el cono aporta un par de unidades que tiran de él hacia delante. El CP del cohete es la media de las filas ponderada por CNα. Las piezas que no generan fuerza normal, como un tubo recto, se omiten en vez de aparecer como ceros. Cada fila lleva además la **masa** de la pieza (una unidad y todas las unidades) y el CG del conjunto, de modo que las dos mitades de una cuestión de estabilidad quedan juntas. El CP se da de tres maneras: en tu **unidad de longitud**, como **CP (% cuerpo)** sobre la longitud total del fuselaje y como **CP (% longitud)** sobre la longitud aerodinámica, que son los mismos dos porcentajes que ofrece la gráfica de CP vs Mach. No hay que confundir ninguno de los dos con la columna **%** del extremo derecho, que es la parte del CNα del cohete que aporta la pieza, no una posición.
+
+**Dinámica de alabeo** lista todos los juegos de aletas con sus coeficientes de **forzamiento** y **amortiguamiento** de alabeo. Ambos son cero en un cohete que ni está calado ni gira: esa es la respuesta correcta, no una tabla que falta. Da un **Ángulo de inclinación** a un juego de aletas y el forzamiento sube, lo que muestra el efecto del calaje. El amortiguamiento se opone a un alabeo existente, así que necesita el control **Vel. alabeo** de arriba.
+
+**Mach máx.** define hasta dónde llega el barrido: **M1** (el valor por defecto; la mayoría de los cohetes de afición nunca llegan a supersónico, y un barrido más amplio aplasta la parte subsónica de la curva contra el borde izquierdo) o **M2 / M3 / M5** para uno que sí lo haga.
+
+Puedes exportar estos datos como **CSV** (consulta [Archivos y exportaciones](./files-and-exports.md)).
+
+## Vuelo (tras una simulación) {#flight-after-a-simulation}
+
+Un panel de **gráficas de vuelo** a lo largo del tiempo: altitud, velocidad, aceleración, Mach, empuje, resistencia, masa, estabilidad, CP, CG y ángulo de ataque, además de la **presión dinámica**, **q·α** (la presión dinámica por el ángulo de ataque, que es lo que sigue la carga lateral sobre aletas y acopladores) y la **velocidad de alabeo**. Los eventos del vuelo (fin de combustión, apogeo, apertura, aterrizaje) están marcados, lo que responde *cuándo*; la tabla **[Eventos de vuelo](./running-a-simulation.md#flight-events)** del panel de Resultados lee esos mismos eventos como una lista, cada uno con el estado del cohete en ese instante. Elige qué magnitudes se muestran desde la barra de fichas, pasa el cursor para obtener una retícula sincronizada y la lectura de valores en todas las gráficas, y amplía o desplaza el eje temporal (los botones +/−, arrastrando, o con Ctrl / pellizco). **Las magnitudes que elijas se recuerdan**: abre empuje y masa una vez y seguirán abiertas la próxima vez, en este diseño y en cualquier otro. **Velocidad frente a altitud** traza el ascenso y el descenso frente a la altitud en lugar del tiempo; no se amplía con el eje temporal, y el instante de la retícula aparece como un punto sobre la curva. El **⤢** de la esquina de una gráfica la muestra sola a toda la altura del panel, y **⤡** devuelve las demás.
+
+**Elegir qué vuelo**: si ejecutas una sola simulación, el título del panel es simplemente su nombre. Si ejecutas varias a la vez, el título se convierte en un **selector** con esas mismas: púlsalo y elige el vuelo que quieres leer. Se muestra un vuelo cada vez, y la elección se aplica a las cuatro vistas de resultados (las gráficas, la [traza en tierra](#ground-track-after-a-simulation), la trayectoria 3D y el [entorno](#environment-after-a-simulation)), así que al cambiar ves el mismo vuelo lo mires como lo mires.
+
+Este selector es independiente de las casillas de la pestaña Simulaciones, que eligen qué vuela **Ejecutar**, no qué estás leyendo.
+
+**Cohetes por etapas**: cuando un vuelo se separa en más de una etapa, aparece un **selector de etapas** sobre las gráficas. Cada etapa seleccionada se dibuja con su propia línea de color (el ascenso, descenso y aterrizaje propios de un propulsor agotado) compartiendo la escala de cada gráfica, y con la lectura al pasar el cursor y los marcadores de eventos cubriendo todas las etapas mostradas. Deselecciona una etapa para centrarte en el resto.
+
+## Traza en tierra (tras una simulación) {#ground-track-after-a-simulation}
+
+El vuelo visto **desde arriba**: por dónde pasó el cohete sobre el terreno, sin tener en cuenta la altura. La trayectoria 3D muestra *cómo voló*; esta vista muestra *dónde cayó y a qué distancia de la rampa*.
+
+El norte va arriba, la rampa está en el centro y ambos ejes comparten escala, así que el dibujo se lee como un mapa del campo en el que estás. Los **anillos de distancia** aportan la medida, etiquetados en tu unidad de distancia, y cada traza termina en un anillo sobre su punto de aterrizaje. Debajo, cada traza indica **a qué distancia** y **en qué rumbo** aterrizó respecto a la rampa.
+
+Dibuja las mismas trazas que las gráficas de vuelo, así que un vuelo por etapas muestra el descenso propio de cada una: un propulsor agotado suele caer lejos del sustentador.
+
+### El terreno bajo la traza {#the-ground-under-the-track}
+
+La traza puede dibujarse sobre **imágenes aéreas del campo desde el que volaste**, en las coordenadas con las que se simuló ese vuelo.
+
+**Ninguno · Satélite · Callejero** en la esquina elige la capa. Empieza en **Ninguno**, y no se descarga nada hasta que pides el terreno: los anillos y los números son la medida y no dependen de las imágenes. Qué capa eliges se comparte con el [mapa del campo de lanzamiento](./running-a-simulation.md#the-map), y encender o apagar el terreno se mantiene entre esta vista y la trayectoria 3D durante la sesión.
+
+El zoom sigue al vuelo: una deriva de 200 m se dibuja más cerca que una de 5 km. La vista nunca se acerca más de unos **100 m de lado**, por corto que sea el vuelo: con aire en calma el cohete aterriza a unos centímetros de la rampa, así que un aterrizaje sobre la rampa se lee como un punto sobre la rampa.
+
+Las teselas son las mismas que usa el mapa del campo de lanzamiento y se guardan igual, así que un campo que consultaste en casa se sigue dibujando sin cobertura. Un lugar que nunca has visto se dibuja sin ellas, como el gráfico limpio, que sigue siendo una medida correcta: los anillos de distancia no dependen de la imagen. El crédito del proveedor aparece en la esquina siempre que se muestran imágenes, como exigen sus condiciones.
+
+Para llevarte lo mismo fuera de la aplicación, la [exportación de trayectoria](./files-and-exports.md) lo escribe como KML o GPX para Google Earth, y el CSV del vuelo incluye columnas **Este** y **Norte** junto a la altitud.
+
+### La región de deriva (un barrido de viento) {#the-drift-region-a-wind-sweep}
+
+:::warning Experimental
+
+Cada vuelo de un barrido pasa por el mismo núcleo que cualquier otra simulación, así que los aterrizajes individuales son tan buenos como lo son en general los resultados de vuelo de la aplicación. La **región dibujada a su alrededor no se ha contrastado con una recuperación real**.
+
+Léelo como una ayuda para planificar: qué tamaño de campo necesita y, más o menos, en qué dirección habrá que caminar. No es una autorización de seguridad de campo, ni sustituye a las [comprobaciones de seguridad](./safety.md) ni a mirar el campo real.
+
+:::
+
+La traza anterior es dónde cae el cohete con el **único** conjunto de condiciones que escribiste. El viento del día del lanzamiento no se conoce con esa precisión, así que **Deriva**, arriba a la derecha, vuela una **rejilla** de velocidades y rumbos de viento y guarda dónde aterrizó cada vuelo.
+
+Tú defines la rejilla: una velocidad de viento **desde** y **hasta**, cuántas **velocidades** recorrer, cuántos **rumbos** y qué **abanico** de rumbos cubrir (todo el compás, o un arco centrado en el viento que escribiste). Los dos recuentos se multiplican, así que el panel indica cuántos vuelos son antes de ejecutarlos. Vuelan sobre el mismo grupo de workers que usa un lote de simulaciones, varios a la vez, y la cuenta baja según aterrizan; **Cancelar** los detiene.
+
+El resultado dibuja tres cosas en la vista en planta, con el color propio de cada etapa:
+
+- La **envolvente sombreada**: la región exacta de las condiciones voladas. Nada del barrido aterrizó fuera de ella, y esta es la forma que hay que salir a mirar.
+- La **elipse discontinua**: los mismos aterrizajes como un centro, dos ejes y un rumbo, a dos desviaciones típicas. Es la elipse de recuperación de siempre, la versión que cabe en una ficha de vuelo y que se compara entre diseños, motores y días. Con un barrido de todo el compás queda correctamente *dentro* del anillo de aterrizajes y no alrededor.
+- Un **punto por vuelo**, y una cruz en el aterrizaje medio. Donde se agolpan los puntos es donde cae el cohete la mayoría de los días que cubre el barrido.
+
+La lectura bajo el gráfico añade la **banda de distancias** de cada etapa (el más cercano y el más lejano de sus aterrizajes barridos) junto a la distancia y el rumbo del vuelo que ya estabas leyendo.
+
+Todo salvo el viento se mantiene tal y como lo tiene la simulación: el mismo diseño, motor, ignición, guía, emplazamiento y ajustes de ejecución, y una sola semilla de turbulencia para toda la rejilla. Así la dispersión viene solo del viento, y el mismo barrido ejecutado dos veces dibuja la misma región. La banda de velocidad está limitada por el mismo [límite del código de seguridad](./safety.md) que aplica el botón Ejecutar, así que un barrido nunca dibuja terreno al que la aplicación no volará.
+
+Un barrido pertenece al vuelo sobre el que se construyó, y solo se guarda uno a la vez: elige otro vuelo y la región no se dibuja. Si después editas el diseño, el motor o las condiciones de lanzamiento, la región sigue en pantalla con un aviso de que es anterior a lo que se muestra: los aterrizajes siguen describiendo el cohete que los voló. **Borrar** la elimina. Nada de un barrido se guarda con el diseño.
+
+## Ruta 3D (tras una simulación) {#3d-path-after-a-simulation}
+
+La **trayectoria del vuelo en 3D**: el recorrido del cohete por el espacio, incluida la deriva por el viento.
+
+El **plano del suelo puede llevar las mismas imágenes aéreas**, colocadas en las coordenadas del campo de lanzamiento, de modo que la trayectoria se arquea sobre el campo real y no sobre una rejilla vacía. Los mismos botones **Ninguno · Satélite · Callejero** están arriba a la izquierda, empiezan en **Ninguno** y comparten su elección con la traza en tierra y con el mapa del campo de lanzamiento. La imagen cubre algo más allá de lo más lejos que llegó el cohete desde la rampa, no el plano entero, para que un vuelo de trescientos metros no descargue un kilómetro de paisaje a cada lado; la rejilla de referencia continúa más allá de su borde.
+
+Un botón **⬇ Exportar** guarda la trayectoria para herramientas cartográficas como **KML (Google Earth)**, **Traza GPX** o **CSV de puntos**, con opciones sobre qué puntos y líneas incluir, y soporte para tus propias plantillas. Consulta [Archivos y exportaciones](./files-and-exports.md#exporting-the-flight-path-kml--gpx--csv).
+
+### Reproducir el vuelo {#playing-the-flight-back}
+
+La trayectoria 3D reproduce el vuelo en lugar de solo dibujarlo. **▶** (**Reproducir vuelo**) inicia una cuenta atrás (5, 4, 3, 2, 1) y despega; volver a pulsar durante la cuenta atrás la cancela, y durante el vuelo lo pausa. Arrastra la **línea de tiempo** para ir a cualquier instante y elige una **velocidad** de ¼× a 4×. A 1× el vuelo entero se reproduce en 8 segundos, dure lo que dure, a ritmo uniforme en tiempo de vuelo.
+
+Junto al botón de reproducir, **⟲** (**Reiniciar al lanzamiento**) detiene la reproducción y vuelve al despegue, **⟳** (**Repetir reproducción**) vuelve a empezar el vuelo cada vez que termina, y **⊙ Seguir** mantiene la cámara sobre el cohete mientras vuela.
+
+La velocidad con la que arranca una reproducción viene de **[Ajustes ▸ Reproducción](./settings.md#playback)**.
+
+## Entorno (tras una simulación) {#environment-after-a-simulation}
+
+El aire que realmente atravesó el vuelo, tal como lo registró el motor de cálculo en cada paso. El panel de lanzamiento muestra lo que introdujiste; esto muestra en qué se convirtió, incluida la atmósfera estándar cuando dejas en blanco la temperatura y la presión, un perfil de viento medido sobre el suelo convertido en alturas reales y un [pronóstico](./running-a-simulation.md#weather) cuando lo aplicas.
+
+La fila superior da la latitud, la longitud y la altitud del sitio, la fecha y la hora cuando las condiciones vienen de un pronóstico, y el aire cuando se encendió el motor: temperatura, presión, densidad, velocidad del sonido, velocidad del viento y dirección del viento. El aire en calma no tiene dirección, así que se muestra un guion. Cuando las condiciones vienen de [Open-Meteo](./running-a-simulation.md#weather), sigue el crédito CC BY 4.0 de Open-Meteo, con una nota si se ha cambiado un valor o se ha movido el sitio después de aplicarlo.
+
+Cuatro gráficas representan la **velocidad del viento**, la **dirección del viento**, la **temperatura del aire** y la **presión del aire** frente a la altura sobre la plataforma, desde el suelo hasta el apogeo. La subida es la línea brillante. La bajada es la tenue que queda debajo: un cohete bajo un paracaídas pasa por las mismas alturas durante un minuto o más mientras las ráfagas siguen cambiando, así que su viento es una nube densa y no una curva. La temperatura y la presión son las mismas en las dos pasadas, así que ahí las dos líneas se superponen. La línea de la dirección del viento se corta donde cruza el norte en lugar de atravesar la gráfica.
+
+Las gráficas cubren solo las alturas que alcanzó el vuelo. Los valores usan tus unidades, y la densidad se muestra con cuatro cifras significativas para que se lea bien tanto en g/cm³ como en kg/m³.
+
+### Dónde aterrizó {#where-it-landed}
+
+Bajo la fila superior y encima de las gráficas, **Aterrizaje** da dónde bajó cada etapa: su latitud y longitud, y su distancia y rumbo desde la plataforma.
+
+Cuando las condiciones de lanzamiento vienen de un [pronóstico de Open-Meteo](./running-a-simulation.md#weather), **Volar las horas alrededor de este pronóstico** vuela este diseño de nuevo bajo el pronóstico de cada hora, desde dos antes hasta dos después. Todos estos vuelos usan la misma semilla aleatoria, así que solo cambia el tiempo entre ellos. Usan el pronóstico tal como está ahora, que puede haber cambiado desde que se aplicó. Después, un mapa muestra la trayectoria del vuelo desde arriba, un punto donde aterrizó el vuelo de cada hora y la elipse 2σ alrededor de ellos, y una tabla da el aterrizaje de cada hora.
+
+Una hora cuyo viento o ángulo de lanzamiento supera el límite de seguridad no se vuela, igual que una ejecución, y su fila indica cuál. Cuando el resultado de la simulación está desactualizado, el botón se desactiva hasta que vuelvas a ejecutar la simulación, para que las horas se vuelen con el cohete y el sitio actuales. También se desactiva sin conexión a la red.
+
+Sin un pronóstico, la sección explica cómo obtenerlo. Para un cohete no diseñado aquí, el [estimador de aterrizaje](./tools.md#landing-estimator) de la pestaña Herramientas da una estimación a partir de velocidades de descenso escritas.
+
+## Leer la franja de estadísticas {#reading-the-stats-strip}
+
+La franja inferior resume el diseño actual como una cuadrícula de fichas (se pliega con el galón de su cabecera):
+
+- **Longitud**, **Diámetro máx.** y **Esbeltez** (longitud / diámetro).
+- **Masa** y **CG**, cada uno mostrado **vacío / cargado** (en seco y con el motor) en una sola ficha.
+- **CP** (centro de presión).
+- **Masa (recuperación)**: la masa de descenso (masa cargada menos el propelente que se quema). Antes de cargar un motor el recuadro muestra un guion y *carga un motor*; es la masa que el paracaídas baja realmente. El recuadro indica **Masa (Recuperación, est.)** mientras esa cifra es la estimación propia de la aplicación a partir del diseño, y quita la marca cuando una simulación ha desplegado un dispositivo de recuperación y la masa del propio núcleo de simulación la ha sustituido.
+- **Estabilidad**: en **calibres** (en la rampa) y como **% de la longitud**.
+- **Coef. resistencia**: el coeficiente de resistencia en planeo (sin empuje) a Mach 0,3.
+- **Pendiente fuerza normal**: CNα (por radián), la pendiente del coeficiente de fuerza normal de Barrowman a Mach 0,3.
+- **Inercia de cabeceo (cargado)** e **Inercia de alabeo (cargado)**, los momentos de inercia en kg·m².
+
+La ficha de estabilidad se colorea por franjas: por debajo de 1 calibre es poco estable, por encima de 6 es demasiado estable y lo intermedio se muestra como correcto. Muchos aficionados buscan entre 1 y 2 calibres.

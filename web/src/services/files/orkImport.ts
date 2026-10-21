@@ -1,0 +1,250 @@
+import i18n from '../../i18n';
+import { xmlText as text } from './xmlUtil';
+import { syncAutoRadii } from '../design/autoRadius';
+import { findStages } from '../design/treeEdit';
+import type { OrkImportResult } from './orkTypes';
+import { parseOrkXml, unpackOrk } from './ork/importUnpack';
+import { readFlightConfigs, readStageActiveness, type OrkImportContext } from './ork/importConfigs';
+import { readStages } from './ork/importReaders';
+import { KNOWN_DOCUMENT_TAGS, KNOWN_ROCKET_TAGS, readPassthrough } from './ork/passthrough';
+import { takeDocumentMaterials } from './ork/docMaterials';
+import { readLaunchConditions } from './ork/importLaunch';
+import { readSimulations } from './ork/importSimulations';
+import { configNotes, ignoredNotes } from './ork/importNotes';
+import { keyedNote, noteList, type ImportNote } from './importNote';
+import { KeyedError, type Keyed } from '../../i18n/keyedError';
+
+/**
+ * .ork import: unpack and parse the file, pick the flight configuration to
+ * apply, read the stages through the per-tag reader table
+ * (`ork/importReaders.ts`), then the launch conditions and the notes. Each
+ * of those steps has its own module under `ork/`; this is the orchestrator.
+ */
+export function importOrk(data: ArrayBuffer | string): OrkImportResult {
+  const archive = unpackOrk(data);
+  const doc = parseOrkXml(archive.xml);
+  const rocketEl = doc.querySelector('openrocket > rocket');
+  if (!rocketEl) throw new KeyedError('errors.file.notOrk');
+
+  // A file that names no rocket opens under the app's name for an unnamed one,
+  // in the UI language.
+  const name = text(rocketEl, ':scope > name') ?? i18n.t('library.untitled');
+  // Design-level metadata (OpenRocket's Rocket configuration), preserved so a
+  // round-trip export doesn't drop the designer / comments / revision.
+  const designer = text(rocketEl, ':scope > designer') ?? undefined;
+  const kitName = text(rocketEl, ':scope > kitname') ?? undefined;
+  const comment = text(rocketEl, ':scope > comment') ?? undefined;
+  const revision = text(rocketEl, ':scope > revision') ?? undefined;
+  const designType = text(rocketEl, ':scope > designtype')?.toLowerCase() ?? undefined;
+  // What the stability calibers are measured against. Read rather than carried,
+  // because the writer emits a `referencetype` of its own and a hardcoded
+  // `maximum` would bring a design measured against a custom length back
+  // measured against its widest body tube.
+  // Only when it is not the default: `maximum` is what this app measures against
+  // and what the writer emits anyway, so recording it would put the same word on
+  // every tree for nothing.
+  const refType = text(rocketEl, ':scope > referencetype')?.toLowerCase();
+  const referenceType = refType && refType !== 'maximum' ? refType : undefined;
+  const customRef = Number(text(rocketEl, ':scope > customreference'));
+  const customReference = Number.isFinite(customRef) && customRef > 0 ? customRef : undefined;
+  // The two levels above a component that can also carry things we do not model:
+  // `<rocket>` itself, and the document around it (Photo Studio, the document
+  // preferences, the custom expressions). Neither is reachable from the
+  // component-level pass, so each is read here or it would be dropped on save.
+  const rocketExtra = readPassthrough(rocketEl, KNOWN_ROCKET_TAGS);
+  const docEl = doc.querySelector('openrocket');
+  // The design's own materials come out of `<docprefs>` first, so they are
+  // read into the tree rather than carried as raw XML (ork/docMaterials.ts).
+  const docMaterials = docEl ? takeDocumentMaterials(docEl) : { materials: [], skipped: 0 };
+  const docExtra = docEl ? readPassthrough(docEl, KNOWN_DOCUMENT_TAGS) : undefined;
+  const stages = Array.from(rocketEl.querySelectorAll(':scope > subcomponents > stage'));
+  if (stages.length === 0) throw new KeyedError('errors.file.noStage');
+
+  const { configEls, configs, chosenConfigId } = readFlightConfigs(rocketEl);
+  const ctx: OrkImportContext = {
+    configs,
+    chosenConfigId,
+    notes: [],
+    ignored: new Set<string>(),
+    motors: {},
+    motor: undefined,
+    nodeCount: 0,
+  };
+
+  // Read first: it refuses a file with more simulations than the cap before
+  // any other pass walks them.
+  const simulations = readSimulations(doc);
+
+  // A file spells an automatic diameter as `auto`, which the readers turn into
+  // a flag. Resolve it here rather than waiting for the first edit: everything
+  // downstream of an import (the drawing, the mesh, the exports) reads a
+  // plain radius, and an unresolved one would draw at a default nobody chose.
+  const components = syncAutoRadii({ name, components: readStages(ctx, stages) }).components;
+  if (components.every((s) => (s.children ?? []).length === 0)) {
+    throw new KeyedError('errors.file.noComponents');
+  }
+  // Stage activeness, once the tree exists: the file addresses a stage by
+  // number and the configurations address it by node id.
+  readStageActiveness(
+    configEls,
+    configs,
+    findStages({ name, components }).map((n) => n.id as string),
+  );
+  const { notes, ignored } = ctx;
+  notes.push(...versionNotes(doc));
+  notes.push(...ignoredNotes(ignored));
+  notes.push(...configNotes(rocketEl, configs));
+  notes.push(...archiveNotes(doc, archive.dropped));
+  if (docMaterials.skipped) {
+    notes.push(keyedNote('importNote.docMaterialsSkipped', { count: docMaterials.skipped }));
+  }
+
+  const launch = readLaunchConditions(doc);
+
+  return {
+    name,
+    tree: {
+      name,
+      components,
+      ...(designer ? { designer } : {}),
+      ...(kitName ? { kitName } : {}),
+      ...(comment ? { comment } : {}),
+      ...(revision ? { revision } : {}),
+      ...(designType ? { designType } : {}),
+      ...(referenceType ? { referenceType } : {}),
+      ...(customReference !== undefined ? { customReference } : {}),
+      ...(rocketExtra ? { xmlExtra: rocketExtra } : {}),
+      ...(docExtra ? { docExtra } : {}),
+      ...(docMaterials.materials.length ? { documentMaterials: docMaterials.materials } : {}),
+    },
+    motor: ctx.motor,
+    motors: ctx.motors,
+    configs,
+    chosenConfigId,
+    ignored: [...ignored],
+    notes,
+    ...(launch ? { launch } : {}),
+    ...(simulations.length ? { simulations } : {}),
+    ...(archive.motorFiles.length ? { embeddedMotors: archive.motorFiles } : {}),
+  };
+}
+
+/**
+ * The `.ork` format versions this reader takes without a note: 1.0 to 1.10,
+ * which desktop 24.12 reads without a warning (DocumentConfig.SUPPORTED_VERSIONS),
+ * and 1.11, which upstream OpenRocket's reader (the kernel's) adds. A file
+ * outside them, such as one saved by a newer OpenRocket, may carry things this
+ * reader does not know.
+ */
+const SUPPORTED_ORK_VERSIONS: ReadonlySet<string> = new Set([
+  '1.0',
+  '1.1',
+  '1.2',
+  '1.3',
+  '1.4',
+  '1.5',
+  '1.6',
+  '1.7',
+  '1.8',
+  '1.9',
+  '1.10',
+  '1.11',
+]);
+
+/**
+ * Desktop's warning for a format version outside the supported set
+ * (OpenRocketHandler), in its words: the file is still read.
+ */
+function versionNotes(doc: Document): ImportNote[] {
+  const root = doc.querySelector('openrocket');
+  const version = root?.getAttribute('version')?.trim() || null;
+  if (version !== null && SUPPORTED_ORK_VERSIONS.has(version)) return [];
+  const creator = root?.getAttribute('creator')?.trim();
+  if (version && creator) return [keyedNote('importNote.versionUnsupportedBy', { version, creator })];
+  if (version) return [keyedNote('importNote.versionUnsupported', { version })];
+  if (creator) return [keyedNote('importNote.versionMissingBy', { creator })];
+  return [keyedNote('importNote.versionMissing')];
+}
+
+/**
+ * Desktop's names for the simulation extensions it ships, by class name: each
+ * class's `getName()` (core/simulation/extension/example and impl). Air-start,
+ * Java code and scripting names are translated there, so they are keys here;
+ * the rest are English in desktop whatever its language. CSVSave has none of its
+ * own, so desktop shows its class name, as this does for any id not listed here.
+ */
+const EXTENSION_NAMES: Readonly<Record<string, string | { key: string }>> = {
+  AirStart: { key: 'importNote.extensionName.airStart' },
+  RollControl: 'Roll Control',
+  StopSimulation: 'Stop Simulation',
+  PrintSimulation: 'Print Simulation Values',
+  DampingMoment: 'Damping moment coefficient (Cdm) (built-in)',
+  JavaCode: { key: 'importNote.extensionName.javaCode' },
+  ScriptingExtension: { key: 'importNote.extensionName.script' },
+};
+
+/**
+ * An extension's name as desktop shows it, from its id's last segment. A
+ * script names its language, from the extension's `language` entry, with
+ * desktop's default when the file gives none.
+ */
+function extensionName(id: string, el: Element): string | Keyed {
+  const cls = id.trim().split('.').pop() || 'unnamed';
+  // Own keys only: the id comes from the file, and "constructor" must not read Object.prototype.
+  const name = Object.hasOwn(EXTENSION_NAMES, cls) ? EXTENSION_NAMES[cls]! : cls;
+  if (typeof name === 'string') return name;
+  const language =
+    [...el.querySelectorAll(':scope > entry')].find((e) => e.getAttribute('key') === 'language')?.textContent?.trim() ||
+    'JavaScript';
+  return { key: name.key, values: { language } };
+}
+
+/**
+ * What the file carried that this app does not use, said out loud.
+ *
+ * A decal is the one part of an appearance that cannot survive, because its
+ * image is a separate member of the archive that we do not keep.
+ *
+ * Counted off the document rather than reported by the readers, so no state has
+ * to be threaded through every one of them to answer the same question.
+ */
+function archiveNotes(doc: Document, dropped: string[]): ImportNote[] {
+  const out: ImportNote[] = [];
+  const decals = doc.querySelectorAll('decal').length;
+  if (decals) {
+    out.push(keyedNote('importNote.decals', { total: decals }));
+  }
+  const extensions = [
+    ...doc.querySelectorAll(
+      'openrocket > simulations > simulation > extension, openrocket > simulations > simulation > listener',
+    ),
+  ];
+  if (extensions.length) {
+    // Once each: the same extension on several simulations is one name.
+    const seen = new Set<string>();
+    const names = extensions
+      .map((e) => extensionName(e.getAttribute('extensionid') ?? e.textContent ?? '', e))
+      .filter((n) => {
+        const id = JSON.stringify(n);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+    out.push(keyedNote('importNote.extensions', { names: noteList(names) }));
+  }
+  if (dropped.length) {
+    out.push(keyedNote('importNote.notRead', { items: noteList(dropped.slice(0, 6), { more: dropped.length > 6 }) }));
+  }
+  // Whole features rather than fields, so they are named: someone who set a
+  // Photo Studio shot in the desktop should know this app does not show it and
+  // does not discard it either. `<docprefs>` is named only for what is left in
+  // it once its materials are read, since those do have an editor.
+  const docLevel = ['photostudio', 'docprefs', 'datatypes'].filter((t) => {
+    const el = doc.querySelector(`openrocket > ${t}`);
+    return el && (t !== 'docprefs' || el.children.length > 0);
+  });
+  if (docLevel.length) {
+    out.push(keyedNote('importNote.noEditor', { items: noteList(docLevel) }));
+  }
+  return out;
+}

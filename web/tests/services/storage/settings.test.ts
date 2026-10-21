@@ -1,0 +1,356 @@
+import { nsKey } from '../../../src/services/storage/storageKeys';
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach } from 'vitest';
+import { loadSettings, saveSettings, DEFAULT_SETTINGS, SIM_BOUNDS } from '../../../src/services/storage/settings';
+import {
+  MATERIAL_SLOTS,
+  defaultMaterialKey,
+  parseDefaultMaterialKey,
+} from '../../../src/services/design/materialSlots';
+
+const KEY = nsKey('settings:v1');
+
+beforeEach(() => localStorage.clear());
+
+describe('loadSettings', () => {
+  it('returns the defaults when nothing is stored', () => {
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('deep-merges partial simulation prefs over the defaults', () => {
+    localStorage.setItem(KEY, JSON.stringify({ simulation: { timeStep: 0.1 } }));
+    const s = loadSettings();
+    expect(s.simulation.timeStep).toBe(0.1); // overridden
+    expect(s.simulation.maxTime).toBe(DEFAULT_SETTINGS.simulation.maxTime); // default kept
+    expect(s.simulation.confirmDelete).toBe(DEFAULT_SETTINGS.simulation.confirmDelete);
+  });
+
+  // A stored blob never passed through the Settings fields, and a maxTime of a
+  // million is a run nothing can interrupt.
+  it('clamps the solver settings into the range the Settings fields accept', () => {
+    localStorage.setItem(KEY, JSON.stringify({ simulation: { timeStep: 1e-9, maxTime: 1e6, maxAngleStep: 3 } }));
+    const s = loadSettings().simulation;
+    expect(s.timeStep).toBe(SIM_BOUNDS.timeStep.min);
+    expect(s.maxTime).toBe(SIM_BOUNDS.maxTime.max);
+    expect(s.maxAngleStep).toBe(SIM_BOUNDS.maxAngleStep.max);
+  });
+
+  // The bridge reads the seed as a number, so a stored string fails every run
+  // until the seed is retyped.
+  it('falls back for a seed or a flag of the wrong type, and keeps a usable one', () => {
+    const sim = (simulation: unknown) => {
+      localStorage.setItem(KEY, JSON.stringify({ simulation }));
+      return loadSettings().simulation;
+    };
+    const bad = sim({ randomSeed: 'abc', confirmDelete: 'no', autoRunOutdated: 1 });
+    expect(bad.randomSeed).toBeNull();
+    expect(bad.confirmDelete).toBe(DEFAULT_SETTINGS.simulation.confirmDelete);
+    expect(bad.autoRunOutdated).toBe(DEFAULT_SETTINGS.simulation.autoRunOutdated);
+    expect(sim({ randomSeed: 1.7 }).randomSeed).toBe(1);
+    expect(sim({ randomSeed: 2 ** 40 }).randomSeed).toBe(2 ** 31 - 1);
+    const good = sim({ randomSeed: 42, confirmDelete: false, autoRunOutdated: true });
+    expect(good).toMatchObject({ randomSeed: 42, confirmDelete: false, autoRunOutdated: true });
+  });
+
+  it('deep-merges partial phase colors', () => {
+    localStorage.setItem(KEY, JSON.stringify({ phaseColors: { boost: '#000000' } }));
+    const s = loadSettings();
+    expect(s.phaseColors.boost).toBe('#000000');
+    expect(s.phaseColors.coast).toBe(DEFAULT_SETTINGS.phaseColors.coast);
+  });
+
+  it('guards playbackSpeed against a non-number', () => {
+    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 'fast' }));
+    expect(loadSettings().playbackSpeed).toBe(DEFAULT_SETTINGS.playbackSpeed);
+  });
+
+  it('guards playbackSpeed against the non-numbers that ARE numbers', () => {
+    // A stored NaN is the one that hurts: it types as `number`, so only the
+    // finiteness check catches it, and it makes the playback clock never
+    // advance with no way back but clearing storage. JSON has no NaN literal,
+    // which is why each of these has to be written as something JSON can hold.
+    for (const raw of ['{"playbackSpeed":null}', '{"playbackSpeed":0}', '{"playbackSpeed":-2}']) {
+      localStorage.setItem(KEY, raw);
+      expect(loadSettings().playbackSpeed, raw).toBe(DEFAULT_SETTINGS.playbackSpeed);
+    }
+    // Infinity stringifies as null, so the largest finite number stands in for it.
+    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: Number.MAX_VALUE }));
+    expect(loadSettings().playbackSpeed).toBe(10); // clamped, not rejected
+  });
+
+  it('clamps playbackSpeed into the range the player can actually run', () => {
+    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 1000 }));
+    expect(loadSettings().playbackSpeed).toBe(10);
+    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 0.0001 }));
+    expect(loadSettings().playbackSpeed).toBe(0.05);
+    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 2 }));
+    expect(loadSettings().playbackSpeed).toBe(2); // in range, untouched
+  });
+
+  it('drops a partColors value that is not a hex string', () => {
+    // These reach a `style` attribute. Without the filter, a stored object,
+    // array or CSS payload would ride straight through the spread and into the
+    // renderer.
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        partColors: {
+          fins: '#123456',
+          nose: 'red; background: url(http://evil/x)',
+          body: { toString: 'nope' },
+          tubes: ['#fff'],
+          rings: 42,
+          lugs: null,
+          chutes: '#abc',
+        },
+      }),
+    );
+    const c = loadSettings().partColors as Record<string, unknown>;
+    expect(c.fins).toBe('#123456');
+    expect(c.chutes).toBe('#abc'); // 3-digit hex is legitimate
+    for (const k of ['nose', 'body', 'tubes', 'rings', 'lugs']) expect(c[k]).toBeUndefined();
+  });
+
+  it('falls back to defaults on corrupt JSON', () => {
+    localStorage.setItem(KEY, '{not valid');
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('defaults wipAcknowledged to false and round-trips a stored true', () => {
+    expect(loadSettings().wipAcknowledged).toBe(false);
+    localStorage.setItem(KEY, JSON.stringify({ wipAcknowledged: true }));
+    expect(loadSettings().wipAcknowledged).toBe(true);
+  });
+
+  it('keeps a report unit choice, and falls back rather than trusting an unknown one', () => {
+    expect(loadSettings().report.units).toBe('current');
+    localStorage.setItem(KEY, JSON.stringify({ report: { units: 'imperial' } }));
+    expect(loadSettings().report.units).toBe('imperial');
+    // A hand-edited or future-version value must not reach resolveUnitChoice,
+    // where anything unrecognized would silently mean "current" anyway.
+    localStorage.setItem(KEY, JSON.stringify({ report: { units: 'furlongs' } }));
+    expect(loadSettings().report.units).toBe('current');
+  });
+
+  it('defaults the CG/CP marker + info-card toggles to on and round-trips a stored false', () => {
+    expect(loadSettings().showMarkers).toBe(true);
+    expect(loadSettings().showInfoCard).toBe(true);
+    localStorage.setItem(KEY, JSON.stringify({ showMarkers: false, showInfoCard: false }));
+    expect(loadSettings().showMarkers).toBe(false);
+    expect(loadSettings().showInfoCard).toBe(false);
+  });
+
+  it('clamps a stored tree-pane width into the usable range', () => {
+    expect(loadSettings().treePaneWidth).toBe(360);
+    localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 500 }));
+    expect(loadSettings().treePaneWidth).toBe(500);
+    // The value lands in a style attribute, so a hand-edited or corrupted one
+    // must not be able to render a column of 0 or of 90000 pixels: there would
+    // be no way back to the splitter to fix it.
+    localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 0 }));
+    expect(loadSettings().treePaneWidth).toBe(300);
+    localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 90_000 }));
+    expect(loadSettings().treePaneWidth).toBe(640);
+    localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 'wide' }));
+    expect(loadSettings().treePaneWidth).toBe(360);
+    localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: Number.NaN }));
+    expect(loadSettings().treePaneWidth).toBe(360);
+  });
+
+  it('clamps a stored side-pane width, and shares one value across the three columns', () => {
+    expect(loadSettings().sidePaneWidth).toBe(380);
+    localStorage.setItem(KEY, JSON.stringify({ sidePaneWidth: 420 }));
+    expect(loadSettings().sidePaneWidth).toBe(420);
+    localStorage.setItem(KEY, JSON.stringify({ sidePaneWidth: 10 }));
+    expect(loadSettings().sidePaneWidth).toBe(300);
+    localStorage.setItem(KEY, JSON.stringify({ sidePaneWidth: 5000 }));
+    expect(loadSettings().sidePaneWidth).toBe(640);
+    localStorage.setItem(KEY, JSON.stringify({ sidePaneWidth: null }));
+    expect(loadSettings().sidePaneWidth).toBe(380);
+  });
+
+  it('defaults maximizeCenter to off and round-trips a stored true', () => {
+    expect(loadSettings().maximizeCenter).toBe(false);
+    localStorage.setItem(KEY, JSON.stringify({ maximizeCenter: true }));
+    expect(loadSettings().maximizeCenter).toBe(true);
+    localStorage.setItem(KEY, JSON.stringify({ maximizeCenter: 'yes' }));
+    expect(loadSettings().maximizeCenter).toBe(false);
+  });
+
+  it('defaults the import notes to expanded and round-trips a stored false', () => {
+    // Open by default: a note says what a file could not bring across, which is
+    // worth seeing once before it is folded away for good.
+    expect(loadSettings().showImportNotes).toBe(true);
+    localStorage.setItem(KEY, JSON.stringify({ showImportNotes: false }));
+    expect(loadSettings().showImportNotes).toBe(false);
+    // A non-boolean (hand-edited, or a future version's shape) falls back to the
+    // default rather than reaching the card as a truthy string.
+    localStorage.setItem(KEY, JSON.stringify({ showImportNotes: 'no' }));
+    expect(loadSettings().showImportNotes).toBe(true);
+  });
+
+  it('defaults the theme to dark, keeps a stored choice and drops an unknown one', () => {
+    expect(loadSettings().theme).toBe('dark');
+    for (const theme of ['light', 'system', 'daylight'] as const) {
+      localStorage.setItem(KEY, JSON.stringify({ theme }));
+      expect(loadSettings().theme).toBe(theme);
+    }
+    localStorage.setItem(KEY, JSON.stringify({ theme: 'solarized' }));
+    expect(loadSettings().theme).toBe('dark');
+    // The toggle's way back is never daylight itself.
+    localStorage.setItem(KEY, JSON.stringify({ themeBeforeDaylight: 'daylight' }));
+    expect(loadSettings().themeBeforeDaylight).toBe('dark');
+    localStorage.setItem(KEY, JSON.stringify({ themeBeforeDaylight: 'system' }));
+    expect(loadSettings().themeBeforeDaylight).toBe('system');
+  });
+});
+
+describe('saveSettings', () => {
+  it('round-trips through localStorage', () => {
+    const custom = { ...DEFAULT_SETTINGS, playbackSpeed: 2, partColors: { fins: '#123456' } };
+    saveSettings(custom);
+    const s = loadSettings();
+    expect(s.playbackSpeed).toBe(2);
+    expect(s.partColors.fins).toBe('#123456');
+  });
+});
+
+/**
+ * `launchDefaults` reaches simConditions() and then simulate() for every new
+ * simulation, so it is checked on load the same way the `simulation` block
+ * directly above it is, rather than spread-merged unchecked.
+ */
+describe('launchDefaults is validated per field', () => {
+  const load = (launchDefaults: unknown) => {
+    localStorage.setItem(KEY, JSON.stringify({ launchDefaults }));
+    return loadSettings().launchDefaults;
+  };
+
+  it('falls back for a required number that is a string, null or NaN', () => {
+    // NaN cannot survive JSON (it writes as null), so null is what a corrupt
+    // blob actually reads back as, plus a string, which a hand-edit gives.
+    expect(load({ launchRodLengthM: null }).launchRodLengthM).toBe(DEFAULT_SETTINGS.launchDefaults.launchRodLengthM);
+    expect(load({ windAverage: '5' }).windAverage).toBe(DEFAULT_SETTINGS.launchDefaults.windAverage);
+    expect(load({ latitudeDeg: {} }).latitudeDeg).toBe(DEFAULT_SETTINGS.launchDefaults.latitudeDeg);
+  });
+
+  it('keeps a legitimate value, including zero', () => {
+    expect(load({ launchRodAngleDeg: 0 }).launchRodAngleDeg).toBe(0);
+    expect(load({ windAverage: 7.5 }).windAverage).toBe(7.5);
+  });
+
+  it('leaves an absent optional field absent rather than inventing one', () => {
+    expect(load({}).longitudeDeg).toBe(DEFAULT_SETTINGS.launchDefaults.longitudeDeg);
+    expect(load({ longitudeDeg: 12 }).longitudeDeg).toBe(12);
+    expect(load({ longitudeDeg: 'east' }).longitudeDeg).toBe(DEFAULT_SETTINGS.launchDefaults.longitudeDeg);
+  });
+
+  it('keeps null temperature and pressure, which MEAN the ISA standard atmosphere', () => {
+    // The one place null is an answer, not a missing value, so it must survive.
+    expect(load({ temperatureC: null, pressureHPa: null }).temperatureC).toBeNull();
+    expect(load({ temperatureC: null, pressureHPa: null }).pressureHPa).toBeNull();
+    expect(load({ temperatureC: 'warm' }).temperatureC).toBe(DEFAULT_SETTINGS.launchDefaults.temperatureC);
+  });
+
+  it('rejects a geodetic model and a wind profile of the wrong shape', () => {
+    expect(load({ geodetic: 'toroidal' }).geodetic).toBe(DEFAULT_SETTINGS.launchDefaults.geodetic);
+    expect(load({ geodetic: 'wgs84' }).geodetic).toBe('wgs84');
+    expect(load({ windLevels: 'lots' }).windLevels).toBe(DEFAULT_SETTINGS.launchDefaults.windLevels);
+  });
+
+  it('keeps a profile held under the Average model, held to the same rule as a flown one', () => {
+    const kept = [
+      { altitudeM: 0, speed: 3, directionDeg: 90, stddev: 0.3 },
+      { altitudeM: 500, speed: 6, directionDeg: 120, stddev: 1.2 },
+    ];
+    expect(load({ keptWindLevels: kept }).keptWindLevels).toEqual(kept);
+    // A repeated altitude is refused by the kernel once the profile flies again.
+    expect(load({ keptWindLevels: [...kept, { ...kept[0], speed: 9 }] }).keptWindLevels).toEqual(kept);
+    expect(load({ keptWindLevels: 'lots' })).not.toHaveProperty('keptWindLevels');
+    expect(load({ keptWindLevels: [] })).not.toHaveProperty('keptWindLevels');
+  });
+});
+
+describe('loadSettings validates what reaches styles, jsPDF and the CSV writer', () => {
+  it('returns a COPY of the defaults, so a caller patching it cannot rewrite them', () => {
+    const a = loadSettings();
+    expect(a).not.toBe(DEFAULT_SETTINGS);
+    expect(a.simulation).not.toBe(DEFAULT_SETTINGS.simulation);
+    a.simulation.timeStep = 99;
+    expect(loadSettings().simulation.timeStep).toBe(DEFAULT_SETTINGS.simulation.timeStep);
+    localStorage.setItem(KEY, '{not json');
+    const b = loadSettings();
+    expect(b).toEqual(DEFAULT_SETTINGS);
+    expect(b).not.toBe(DEFAULT_SETTINGS);
+  });
+
+  it('applies the hex filter to phaseColors', () => {
+    localStorage.setItem(KEY, JSON.stringify({ phaseColors: { boost: 'url(evil)', coast: '#abc', descent: 7 } }));
+    const s = loadSettings();
+    expect(s.phaseColors.boost).toBe(DEFAULT_SETTINGS.phaseColors.boost);
+    expect(s.phaseColors.coast).toBe('#abc');
+    expect(s.phaseColors.descent).toBe(DEFAULT_SETTINGS.phaseColors.descent);
+  });
+
+  it('falls back on an unknown paper size or orientation', () => {
+    localStorage.setItem(KEY, JSON.stringify({ report: { paper: 'legal', orientation: 'sideways' } }));
+    expect(loadSettings().report.paper).toBe('letter');
+    expect(loadSettings().report.orientation).toBe('portrait');
+    localStorage.setItem(KEY, JSON.stringify({ report: { paper: 'a4', orientation: 'landscape' } }));
+    expect(loadSettings().report.paper).toBe('a4');
+    expect(loadSettings().report.orientation).toBe('landscape');
+  });
+
+  it('forces the flight CSV flags to booleans', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        flightCsv: { exponential: 'false', simDescription: 1, fieldDescriptions: null, flightEvents: false },
+      }),
+    );
+    const c = loadSettings().flightCsv;
+    expect(c.exponential).toBe(DEFAULT_SETTINGS.flightCsv.exponential);
+    expect(c.simDescription).toBe(DEFAULT_SETTINGS.flightCsv.simDescription);
+    expect(c.fieldDescriptions).toBe(DEFAULT_SETTINGS.flightCsv.fieldDescriptions);
+    expect(c.flightEvents).toBe(false);
+  });
+
+  it('reads a stored backslash-t separator as the tab character', () => {
+    localStorage.setItem(KEY, JSON.stringify({ flightCsv: { separator: '\\t' } }));
+    expect(loadSettings().flightCsv.separator).toBe('\t');
+    // Any other separator is kept as written.
+    localStorage.setItem(KEY, JSON.stringify({ flightCsv: { separator: ';' } }));
+    expect(loadSettings().flightCsv.separator).toBe(';');
+  });
+
+  it('falls back for an unusable railExitVelocityMin like the other simulation thresholds', () => {
+    for (const raw of ['"fast"', '0', '-3', 'null']) {
+      localStorage.setItem(KEY, `{"simulation":{"railExitVelocityMin":${raw}}}`);
+      expect(loadSettings().simulation.railExitVelocityMin, raw).toBe(DEFAULT_SETTINGS.simulation.railExitVelocityMin);
+    }
+    localStorage.setItem(KEY, '{"simulation":{"railExitVelocityMin":12}}');
+    expect(loadSettings().simulation.railExitVelocityMin).toBe(12);
+  });
+});
+
+/**
+ * The saved per-part default materials survive a reload for every slot the
+ * Settings dialog offers. The key format is defined in materialSlots; a new
+ * material type or a key change that loadSettings does not follow would drop
+ * the user's saved defaults without a word.
+ */
+describe('default materials across a reload', () => {
+  it('keeps one for every material slot', () => {
+    const stored = Object.fromEntries(
+      MATERIAL_SLOTS.map((s) => [defaultMaterialKey(s.part, s.material), { name: 'Custom', density: 500 }]),
+    );
+    localStorage.setItem(KEY, JSON.stringify({ defaultMaterials: stored }));
+    expect(Object.keys(loadSettings().defaultMaterials).sort()).toEqual(Object.keys(stored).sort());
+  });
+
+  it('reads a key back into its part and material type, and refuses anything else', () => {
+    expect(parseDefaultMaterialKey('parachute:surface')).toEqual({ part: 'parachute', material: 'surface' });
+    expect(parseDefaultMaterialKey('parachute:plastic')).toBeNull();
+    expect(parseDefaultMaterialKey('surface')).toBeNull();
+  });
+});

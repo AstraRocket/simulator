@@ -1,0 +1,368 @@
+import { STORAGE_PREFIX, nsKey } from '../src/services/storage/storageKeys';
+import { test as base, expect, type Locator, type Page } from '@playwright/test';
+
+/** Mirrors `KEY` in src/services/storage/settings.ts. */
+const SETTINGS_KEY = nsKey('settings:v1');
+
+export type WipState = 'acknowledged' | 'shown';
+
+/**
+ * The shared `test`, which arrives with the pre-1.0 work-in-progress notice
+ * already out of the way.
+ *
+ * Handled here rather than per spec with a swallowed
+ *
+ *     page.getByRole('button', { name: 'I understand' })
+ *       .click({ timeout: 10_000 })
+ *       .catch(() => {});
+ *
+ * whose `.catch` turns "the notice would not go away" into a report, twenty steps
+ * later, that some unrelated click was intercepted by `div.fixed.inset-0.z-[60]` -
+ * the notice's backdrop.
+ *
+ * The notice is gated on a stored flag (see WorkInProgressDialog.tsx), so this sets
+ * the flag rather than racing the button, and e2e/wip-gate.spec.ts is the one place
+ * that exercises the gate itself. A spec that wants to see the notice asks for it:
+ *
+ *     test.use({ wip: 'shown' });
+ *
+ * The seed merges into whatever is already stored: it runs on every
+ * navigation, `page.reload()` included, and specs reload to prove a preference
+ * survived. Overwriting the blob would erase what they assert.
+ */
+export const test = base.extend<{ wip: WipState }>({
+  wip: ['acknowledged', { option: true }],
+  // `run`, not Playwright's usual `use`: eslint's react-hooks rule reads a bare
+  // `use(...)` as the React hook and rejects it outside a component.
+  page: async ({ page, wip }, run) => {
+    if (wip === 'acknowledged') {
+      await page.addInitScript((key: string) => {
+        const stored = (): Record<string, unknown> => {
+          try {
+            return (JSON.parse(localStorage.getItem(key) || '{}') as Record<string, unknown>) ?? {};
+          } catch {
+            return {}; // a corrupt blob; the app discards it too, so start clean
+          }
+        };
+        try {
+          localStorage.setItem(key, JSON.stringify({ ...stored(), wipAcknowledged: true }));
+        } catch {
+          // An opaque origin (about:blank) has no usable storage. The real
+          // navigation into the app runs this again, where it does.
+        }
+      }, SETTINGS_KEY);
+    }
+    // Downloads, not the save dialog. Chromium has `showSaveFilePicker`, so the
+    // app would open a dialog nothing can answer here and every export would
+    // wait on it; the download path is what these specs check, and the dialog
+    // has its own unit tests (tests/services/files/saveFile.test.ts). Merged
+    // like the seed above, on every navigation.
+    await page.addInitScript((key: string) => {
+      try {
+        const stored = (JSON.parse(localStorage.getItem(key) || '{}') as Record<string, unknown>) ?? {};
+        localStorage.setItem(key, JSON.stringify({ ...stored, askWhereToSave: false }));
+      } catch {
+        // No usable storage on about:blank, or a corrupt blob the app discards.
+      }
+    }, SETTINGS_KEY);
+    // Map tiles never leave the test runner.
+    //
+    // The map views request real tiles from Esri (URLs built in
+    // services/map/slippyMap.ts). A suite that actually fetched them would be slow, would fail on a machine with no
+    // network, and would put a CI job's worth of load on someone else's tile
+    // servers for pictures nothing asserts against. Every tile is answered
+    // locally with a 1x1 PNG, which is all the component needs to see to
+    // report that imagery loaded.
+    await page.route(/arcgisonline\.com/, (route) =>
+      route.fulfill({ status: 200, contentType: 'image/png', body: PIXEL_PNG }),
+    );
+    await run(page);
+  },
+});
+
+/** A 1x1 transparent PNG, standing in for every map tile. */
+const PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+export { expect };
+export type { Locator, Page } from '@playwright/test';
+
+/**
+ * A diagnostic that does not print on a green run.
+ *
+ * `console.log` in a spec lands in GitHub's annotation stream every time the
+ * suite passes (playwright.config.ts uses the `github` reporter under CI), which
+ * buries a successful run under numbers. A Playwright annotation carries the
+ * same information into the report, where it shows when reading a failure.
+ */
+export const note = (...parts: unknown[]): void => {
+  test.info().annotations.push({
+    type: 'note',
+    description: parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p))).join(' '),
+  });
+};
+
+/**
+ * Wait for the debounced autosave to reach IndexedDB, rather than guessing.
+ *
+ * A fixed sleep before `page.reload()` is a guess at two variable delays (the
+ * autosave debounce plus an async IndexedDB write), and on a loaded machine it
+ * loses. This polls the actual store, so it returns as soon as the write lands
+ * and fails loudly if it never does.
+ *
+ * `needle` is matched against every stored value; `atLeast` counts occurrences,
+ * so "two simulations" can be expressed as a per-simulation marker seen twice.
+ */
+export async function autosaved(page: Page, needle: string, atLeast = 1): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          // The prefix is passed in: this function body is serialized and run in
+          // the page, where a module import does not reach.
+          ([n, db]) =>
+            new Promise<number>((resolve) => {
+              const req = indexedDB.open(db);
+              req.onerror = () => resolve(-1);
+              req.onsuccess = () => {
+                let tx;
+                try {
+                  tx = req.result.transaction('kv', 'readonly');
+                } catch {
+                  return resolve(-1); // store not created yet
+                }
+                const all = tx.objectStore('kv').getAll();
+                all.onerror = () => resolve(-1);
+                all.onsuccess = () =>
+                  resolve(
+                    all.result
+                      .filter((v): v is string => typeof v === 'string')
+                      .reduce((sum, v) => sum + v.split(n).length - 1, 0),
+                  );
+              };
+            }),
+          [needle, STORAGE_PREFIX] as const,
+        ),
+      { timeout: 15_000, message: `autosave never wrote ${atLeast}x ${needle}` },
+    )
+    .toBeGreaterThanOrEqual(atLeast);
+}
+
+/**
+ * Open a workbench tab (Design · Configurations · Simulations · Results · Tools).
+ *
+ * The workbench is tabbed at every width, so the design editor, the simulation
+ * controls and the flight charts are not all on screen at once. A spec that edits a
+ * part and then runs a simulation has to say where it is going.
+ *
+ * Scoped to the desktop strip by its label: the phone's bottom bar carries
+ * overlapping names ("Simulate", "Results") and both are in the DOM at once.
+ */
+export async function openTab(
+  page: Page,
+  name: 'Design' | 'Configurations' | 'Simulations' | 'Results' | 'Tools',
+): Promise<void> {
+  await page.getByRole('navigation', { name: 'Workbench' }).getByRole('button', { name, exact: true }).click();
+}
+
+/**
+ * The primary Run control, which becomes Cancel while a batch is in flight.
+ *
+ * Matched by its exact labels rather than /^Run/: the simulations toolbar has a
+ * "Run outdated (n)" button too, and a loose prefix matches both.
+ */
+export function runButton(page: Page) {
+  return page.getByRole('button', { name: /^(Run flight simulation|Run \d+ simulations|Cancel run)$/ });
+}
+
+/**
+ * Run the active simulation and wait for its result.
+ *
+ * Running lives on the Simulations tab; a finished run moves itself to Results,
+ * which is where the Flight view switch appears. Waiting on that button is
+ * waiting on the result, without a sleep.
+ */
+export async function runFlight(page: Page): Promise<void> {
+  await openTab(page, 'Simulations');
+  await page.getByRole('button', { name: /Run flight simulation/ }).click();
+  await expect(page.getByRole('button', { name: 'Flight', exact: true })).toBeVisible({ timeout: 30_000 });
+}
+
+/**
+ * Load the app, trying again when the connection is refused. With eight
+ * workers the local preview server can refuse one connection and serve the
+ * next; a server that has stopped refuses every try, and the last error is
+ * thrown.
+ */
+async function openApp(page: Page, tries = 3): Promise<void> {
+  for (let i = 1; ; i++) {
+    try {
+      await page.goto('/');
+      return;
+    } catch (e) {
+      if (i >= tries || !String(e).includes('ERR_CONNECTION_REFUSED')) throw e;
+    }
+  }
+}
+
+/**
+ * Open the app and wait for the engine to have run on the default design.
+ *
+ * "L/D" is the unique fineness-tile unit in the statistics strip, so its
+ * presence means the WASM kernel loaded, built the rocket and reported real
+ * numbers. Every spec that clicks into the design needs that first, with one
+ * timeout rather than each spec choosing its own.
+ *
+ * 20 s: the kernel is a multi-megabyte WASM module that is compiled on first
+ * load, and a cold CI runner software-rendering WebGL beside it can take more
+ * than the 5 s default.
+ */
+export async function ready(page: Page): Promise<void> {
+  // Collected for the failure path only. A bare "element(s) not found" here says
+  // nothing about why the numbers never appeared, and there is more than one way
+  // for that to happen: an engine fetch that stalls rather than failing looks
+  // identical to a slow build or a thrown error. The console errors, whether the
+  // root mounted, and the text on screen separate them.
+  const problems: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error') problems.push(`console.error: ${m.text()}`);
+  });
+  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+
+  await openApp(page);
+  try {
+    await expect(page.getByText('L/D', { exact: true })).toBeVisible({ timeout: 20_000 });
+  } catch (err) {
+    const state = await page
+      .evaluate(() => ({
+        mounted: (document.getElementById('root')?.childElementCount ?? 0) > 0,
+        onScreen: document.body.innerText.trim().replace(/\s+/g, ' ').slice(0, 200),
+      }))
+      .catch((e: unknown) => ({ evaluateFailed: String(e) }));
+    throw new Error(
+      `${(err as Error).message}\n\nready() gave up with: ${JSON.stringify({ ...state, problems }, null, 2)}`,
+    );
+  }
+}
+
+/**
+ * Import a fixture `.ork` and wait for the design to land.
+ *
+ * `setInputFiles` returns as soon as the file is handed over; the parse, the
+ * tree swap and the engine rebuild are all async after that. Without a
+ * synchronization point the next click can run against the default rocket, and
+ * the assertion then fails for a reason that has nothing to do with the feature.
+ * The Booster stage is unique to these fixtures, so its appearance in the tree
+ * means the import has actually been applied.
+ *
+ * Waits for the engine to have run on the default design first, so this works
+ * straight after `page.goto` and after `page.reload` alike.
+ *
+ * `clash` is for the case where the library already holds a design of this
+ * file's name - importing the same fixture twice in one test, typically across
+ * a reload. The app asks what to do with it then (see resolveNameClash), and a
+ * helper that did not answer would simply time out behind the dialog.
+ */
+export async function importOrk(page: Page, fixture: string, clash?: NameClash): Promise<void> {
+  await expect(page.getByText('L/D', { exact: true })).toBeVisible({ timeout: 20_000 });
+  // Scoped by `accept`: the header carries one hidden input per readable
+  // format (.ork and .rkt), so a bare `input[type=file]` is ambiguous.
+  await page.locator('input[accept=".ork"]').setInputFiles(fixture);
+  if (clash) await resolveNameClash(page, clash);
+  await expect(page.getByText('Booster').first()).toBeVisible({ timeout: 20_000 });
+}
+
+/** What to do about an imported rocket whose name is already in the library. */
+export type NameClash = 'overwrite' | 'keepBoth';
+
+/**
+ * Answer the "a rocket with this name is already saved" dialog.
+ *
+ * Import gives a rocket its own library entry, so re-importing the same file asks
+ * rather than adding an identical row to File > Open. "Keep both" leads straight
+ * on to the name dialog, whose suggested "… (2)" this accepts.
+ */
+async function resolveNameClash(page: Page, choice: NameClash): Promise<void> {
+  const ask = page.getByRole('alertdialog', { name: 'A rocket with this name is already saved' });
+  await expect(ask).toBeVisible({ timeout: 20_000 });
+  await ask.getByRole('button', { name: choice === 'overwrite' ? 'Overwrite' : 'Keep both' }).click();
+  if (choice === 'keepBoth') {
+    await page.getByRole('dialog', { name: 'Name this rocket' }).getByRole('button', { name: 'Save' }).click();
+  }
+}
+
+/**
+ * Import a fixture `.rkt` and wait for the design to land.
+ *
+ * Waits on the design's name rather than a "Booster" row: the RockSim fixture
+ * is single-stage, and the tree shows a Sustainer whether or not an import
+ * happened, so that is not a synchronization point.
+ */
+export async function importRkt(page: Page, fixture: string, designName: string, clash?: NameClash): Promise<void> {
+  await expect(page.getByText('L/D', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.locator('input[accept=".rkt"]').setInputFiles(fixture);
+  if (clash) await resolveNameClash(page, clash);
+  await expect(page.getByRole('button', { name: 'Edit rocket configuration' })).toContainText(designName, {
+    timeout: 20_000,
+  });
+}
+
+/**
+ * A value that the spec requires to exist, named.
+ *
+ * `noUncheckedIndexedAccess` makes every `rows[0]` and `find()` result
+ * possibly-undefined. A `!` that misses throws
+ * "Cannot read properties of undefined (reading 'indexOf')" from somewhere in
+ * the arithmetic below it; this fails on the line that looked, and says what it
+ * was looking for.
+ */
+export function defined<T>(value: T | undefined | null, what: string): T {
+  expect(value, `${what} was not found`).toBeDefined();
+  expect(value, `${what} was not found`).not.toBeNull();
+  return value as T;
+}
+
+/**
+ * `boundingBox()` that fails on the element, not later.
+ *
+ * Playwright returns null for an element that is not rendered; with a `!` a
+ * hidden pane fails as "Cannot read properties of null (reading 'width')" a few
+ * lines down. The locator's own description goes in the message, so the failure
+ * says which box was missing.
+ */
+export async function box(target: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  const b = await target.boundingBox();
+  if (!b) throw new Error(`${String(target)} has no bounding box: not rendered, or detached`);
+  return b;
+}
+
+/**
+ * The table that a heading introduces.
+ *
+ * The aero tables carry no accessible name of their own (they are a `<table>`
+ * under a `TableHead` `<h3>`, see AeroComponentTables.tsx), and a document index
+ * such as `querySelectorAll('table')[1]` shifts whenever a table is added or a pane
+ * is mounted hidden. The heading is named, and the app renders each table as
+ * the first one after its heading, so this selects by that relationship.
+ */
+export function tableUnder(page: Page, heading: string | RegExp): Locator {
+  return page.getByRole('heading', { name: heading }).locator('xpath=following::table[1]');
+}
+
+/**
+ * The rows of the table under `heading`, as trimmed cell text. Row 0 is the
+ * header row.
+ */
+export async function tableRows(page: Page, heading: string | RegExp): Promise<string[][]> {
+  const table = tableUnder(page, heading);
+  await expect(table, `no table under the "${heading}" heading`).toBeVisible();
+  // The Aero pane recomputes its sweep off the render path and marks itself
+  // aria-busy while it does; a read inside that window sees the previous
+  // sweep's numbers. Wait for the pane to settle before snapshotting.
+  await expect(page.locator('[aria-busy="true"]'), 'a pane was still computing').toHaveCount(0, { timeout: 20_000 });
+  return table.evaluate((t) =>
+    [...t.querySelectorAll('tr')].map((tr) => [...tr.children].map((c) => (c.textContent || '').trim())),
+  );
+}
