@@ -43,3 +43,18 @@ test('the run table downloads every simulation as CSV', async ({ page }) => {
   expect(csv.split('\r\n')[0]).toMatch(/^Simulation,Configuration,Motors,Status,Apogee \(/);
   expect(csv.split('\r\n').filter(Boolean).length).toBeGreaterThan(1);
 });
+
+test('the Results tab does not scroll the page', async ({ page }) => {
+  // The summary column scrolls, and the flight events CSV button in it carries
+  // an absolutely positioned sr-only label. Without a positioned ancestor inside
+  // the scroller that label was laid out against the page at its unscrolled
+  // offset, so the document grew past the viewport and the whole shell scrolled,
+  // header off the top and an empty band under the panes.
+  await page.setViewportSize({ width: 1328, height: 600 });
+  await ready(page);
+  await runFlight(page);
+  await openTab(page, 'Results');
+  await expect(page.getByRole('button', { name: 'Download flight events (.csv)' })).toBeAttached();
+  const m = await page.evaluate(() => ({ sh: document.documentElement.scrollHeight, h: window.innerHeight }));
+  expect(m.sh).toBe(m.h);
+});
