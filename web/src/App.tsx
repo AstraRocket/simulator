@@ -252,12 +252,16 @@ export default function App() {
             Same width as the other right columns, because they share the
             one setting: right columns of different widths read as an accident.
             The tiles are a 2-up grid, which is what SIDE_PANE_MIN protects -
-            narrower and "Static margin @ rail exit" wraps onto several lines. */}
+            narrower and "Static margin @ rail exit" wraps onto several lines.
+            `relative`, like every scrolling column here: an `sr-only` label is
+            absolutely positioned, and without a positioned ancestor inside the
+            scroller it lays out against the page at its unscrolled offset,
+            stretching the document past the viewport so the whole app scrolls. */}
         {tab === 'results' && !maxed && <SideSplitter paneRef={summaryRef} {...side} />}
         <section
           ref={summaryRef}
           style={sideStyle}
-          className={`hidden shrink-0 p-3 lg:h-full lg:overflow-y-auto ${tab === 'results' && !maxed ? 'lg:block' : ''}`}
+          className={`relative hidden shrink-0 p-3 lg:h-full lg:overflow-y-auto ${tab === 'results' && !maxed ? 'lg:block' : ''}`}
           aria-label={t('tabs.results')}
         >
           <div className="space-y-4">
@@ -315,7 +319,9 @@ function RightColumn({ split, style, children }: { split: SideSplit; style: CSSP
   return (
     <>
       <SideSplitter paneRef={ref} {...split} />
-      <section ref={ref} style={style} className="shrink-0 overflow-y-auto lg:h-full">
+      {/* `relative` keeps absolutely positioned descendants (sr-only labels)
+          inside the scroller; see the Results summary column. */}
+      <section ref={ref} style={style} className="relative shrink-0 overflow-y-auto lg:h-full">
         {children}
       </section>
     </>

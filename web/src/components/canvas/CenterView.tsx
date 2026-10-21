@@ -89,7 +89,9 @@ export function CenterView() {
           scrolling: the tiles are a fixed ~300px, which on a 568px-tall phone
           would leave the chart about 90px of a pane it is supposed to fill. */}
       {tab === 'results' && (
-        <div className="max-h-[45%] shrink-0 space-y-3 overflow-y-auto px-3 pt-3 lg:hidden">
+        // `relative` so the CSV button's sr-only label scrolls with this block
+        // instead of stretching the page (see the summary column in App.tsx).
+        <div className="relative max-h-[45%] shrink-0 space-y-3 overflow-y-auto px-3 pt-3 lg:hidden">
           {!desktop && <FlightWarnings sim={result} />}
           <SimSummary sim={result} />
           <FlightEventsTable sim={result} simName={simName} designName={designName} />
