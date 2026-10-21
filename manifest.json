@@ -1,0 +1,14 @@
+{
+  "motors": "091c98bf29f9",
+  "components": "65cf8bbac098",
+  "catalogs": {
+    "motors": {
+      "updated": "2026-10-21",
+      "count": 1156
+    },
+    "components": {
+      "updated": "2026-10-21",
+      "count": 5228
+    }
+  }
+}
