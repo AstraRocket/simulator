@@ -107,6 +107,9 @@ jobs:
           for f in motors.generated.json components.generated.json; do
             if [ -f "$tmp/$f" ]; then cp "$tmp/$f" "$GITHUB_WORKSPACE/web/public/data/$f"; fi
           done
+          # A second copy of the published motors, which the regenerate step
+          # overwrites in public/data: the motor diff below compares against it.
+          if [ -f "$tmp/motors.generated.json" ]; then cp "$tmp/motors.generated.json" "$RUNNER_TEMP/motors.published.json"; fi
           echo "Seeded from the data branch."
 
       # The OpenRocket release and the parts database commit, read from the one
@@ -178,6 +181,15 @@ jobs:
         if: env.TARGET != 'components'
         working-directory: web
         run: npm run sync:motor-digests -- --jar "$OPENROCKET_JAR"
+
+      # Which motors ThrustCurve added, removed or changed since the published
+      # catalog, into the job summary, plus a notice on the run when there are
+      # any. Before the publish, so the list is there even if the publish fails.
+      # Reports, never fails: a change is what this workflow is for.
+      - name: List motor changes
+        if: env.TARGET != 'components'
+        working-directory: web
+        run: npm run diff:motors -- "$RUNNER_TEMP/motors.published.json"
 
       - name: Regenerate components
         if: env.TARGET != 'motors'

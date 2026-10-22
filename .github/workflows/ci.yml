@@ -2,8 +2,9 @@ name: CI
 
 # The PR gate. Triggered by `pull_request` ONLY: opening a PR, and every push
 # to a branch that has one open. There is deliberately no `push` trigger: a
-# push to a branch with no PR runs nothing in CI, and master is reached
-# through a PR, so the merge result this run tests is what master gets.
+# push to a branch with no PR runs nothing in CI, and every branch (dev, beta,
+# hotfix, master) is reached through a PR, so the merge result this run tests
+# is what that branch gets. See "Branches" in docs/DEVELOPER.md.
 # One trigger means no double-firing, so no job here has to detect and skip a
 # duplicate run.
 #
