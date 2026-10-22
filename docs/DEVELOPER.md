@@ -146,6 +146,8 @@ The parts catalog takes both steps, in that order. `sync-components.mjs` reads t
 
 `check:digests` reads both catalogs in `public/data` and fails if either is below its floor. It prints the coverage per type, and adds it to the job summary when it runs in a workflow.
 
+`diff:motors` lists which motors were added, removed or changed between two motor catalogs, matched on the row key, with the fields that changed. The sync workflow runs it against the `data` branch's copy before publishing, so each run's job summary says what ThrustCurve changed, and the run's front page carries a notice with the counts when anything did. Locally, keep a copy of `public/data/motors.generated.json` before a refresh and run `npm run diff:motors -- <that copy>` afterward.
+
 Examples are the one artifact here that is **not** published to the `data` branch: they are pinned to the engine's upstream ref, so they change with a rebuild rather than on a schedule, and they are precached so an example opens offline. Re-run `sync:examples` when bumping `extract/UPSTREAM`; `exampleLibrary.test.ts` fails if the index's ref and `UPSTREAM` disagree.
 
 ## Catalog publishing
@@ -158,9 +160,53 @@ Run a sync locally only if you want the catalogs current in a dev build, or to r
 
 Materials and the contributor list are the exception: the app reads both from its own build, never from the `data` branch (`src/services/app/remoteData.ts`), so they change with a deploy. Materials change with a commit. The Pages deploy re-runs `sync-contributors.mjs` before `npm run build`, so a newly merged contributor is credited automatically on the next deploy to `master`. That step is best-effort (`continue-on-error`) - if the GitHub API is unavailable the build falls back to the committed JSON, which is why the file stays in the repo. Run `npm run sync:contributors` locally only if you want the list current in a dev build.
 
+## Branches
+
+| Branch   | What it is                                      | Site                                              |
+| -------- | ----------------------------------------------- | ------------------------------------------------- |
+| `dev`    | Where development happens. Every PR targets it. | <https://astrarocket.github.io/simulator-dev/>    |
+| `beta`   | A snapshot of `dev` being tested.               | <https://astrarocket.github.io/simulator-beta/>   |
+| `hotfix` | Urgent fixes to what is live, kept off `dev`.   | <https://astrarocket.github.io/simulator-hotfix/> |
+| `master` | What is live.                                   | <https://astrarocket.github.io/simulator/>        |
+
+`master` publishes on every merge (`deploy.yml`). The other three sites are rebuilt by hand (see [Channel sites](#channel-sites)).
+
+A change moves `dev` to `beta` to `master`, one PR per step:
+
+1. **Your branch to `dev`.** Branch from `dev` and open the PR against it. Squash merging is fine here.
+2. **`dev` to `beta`**, when `dev` holds a set of changes worth testing. Once it lands, `beta` is frozen: nothing else goes into it until it is promoted or replaced by the next `dev` to `beta` PR. `dev` keeps moving in the meantime.
+3. **`beta` to `master`**, only once the change has been checked on the beta site.
+
+Merge the promotion PRs (`dev` to `beta`, `beta` to `master`, `hotfix` to `master`) with a regular merge, never squash or rebase. A squashed promotion gives the target branch new copies of changes it already has in another form, so the branches drift apart and every later promotion PR shows old changes again or conflicts.
+
+### Hotfixes
+
+A fix that cannot wait for the next `dev` to `beta` to `master` cycle goes through `hotfix` instead:
+
+1. Bring `hotfix` up to date with `master` (merge `master` into it) before starting, so it holds exactly what is live.
+2. Branch from `hotfix` and open the PR against it.
+3. If the fix is judged worth shipping, PR `hotfix` into `master`. If not, it stays on `hotfix` and goes nowhere.
+4. After it reaches `master`, merge `master` into `beta` and into `dev`, so the next promotion does not undo the fix.
+
+Check a fix on the hotfix site before step 3.
+
+### Channel sites
+
+The dev, beta and hotfix sites are each built by `.github/workflows/channel-deploy.yml` from the branch of the same name. GitHub Pages gives a repository one site, so each lives in its own repository, `AstraRocket/simulator-dev`, `AstraRocket/simulator-beta` and `AstraRocket/simulator-hotfix`, whose only workflow calls `channel-deploy.yml` from a **Run workflow** button. The workflow's header has that caller to copy; it names the channel twice, as the ref the workflow is read from (`@dev`) and as the `channel` input.
+
+To rebuild a site after a merge into its branch, open its repository's Actions tab and press **Run workflow**.
+
+To set up a new one: create the repository, turn on Pages with **GitHub Actions** as the source, and add the caller. Nothing in this repository needs a token for it, since a called workflow runs as its caller.
+
+The build sets `APP_CHANNEL` to the channel. All four sites share the `astrarocket.github.io` origin, so the channel gives each its own storage prefix (`astrarocket-dev:` and so on, `web/src/services/storage/storageKeys.ts`): designs and settings saved on one site never appear on another. It also names the app (`AstraRocket Dev`, `AstraRocket Beta`, `AstraRocket Hotfix`) in the tab title and the installed PWA, and suffixes the version with the channel and the run number (`0.5.1-beta.27`), so a bug report says which site it came from.
+
+### Branch protection
+
+`master` is protected in the repository settings: no direct pushes, and a PR merges only once `CI / verify` passes. That matters because `deploy.yml` publishes every push to `master`, and only a PR runs the gates (see below). `dev`, `beta` and `hotfix` carry the same rule. The full rulesets, including which merge methods each branch allows, are in [`docs/BRANCH_PROTECTION.md`](./BRANCH_PROTECTION.md).
+
 ## Pull requests
 
-Open a PR from your branch to **`master`**. In the description:
+Open a PR from your branch to **`dev`** (or to **`hotfix`** for a hotfix, see [Branches](#branches)). In the description:
 
 1. Which issue it addresses - e.g. "Solves #123, where …".
 2. The underlying cause.
@@ -196,7 +242,7 @@ Each `gates.yml` job restores `node_modules` from a cache keyed on the lockfile 
 
 `gates.yml` is a reusable workflow, which `ci.yml` calls on a PR. Add a gate to `gates.yml`, not to `ci.yml`.
 
-On merge, `deploy.yml` builds the docs and the app and publishes to Pages. It runs no gate set of its own: the PR's run of `ci.yml` tested the merge result. Its `npm run build` is `typecheck`, `lint` and `vite build`, so a type or lint error still stops the publish. A direct push to `master`, or a PR merged after `master` moved, publishes without the rest of the gates.
+A PR into `dev`, `beta`, `hotfix` or `master` runs the same gates. A merge into `dev`, `beta` or `hotfix` publishes nothing by itself (see [Channel sites](#channel-sites)). On a merge into `master`, `deploy.yml` builds the docs and the app and publishes to Pages. It runs no gate set of its own: the PR's run of `ci.yml` tested the merge result. Its `npm run build` is `typecheck`, `lint` and `vite build`, so a type or lint error still stops the publish. A direct push to `master`, or a PR merged after `master` moved, publishes without the rest of the gates.
 
 ## Which kind of test
 

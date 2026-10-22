@@ -77,7 +77,8 @@ const upstream = {
 //   /simulator/        the app
 //   /simulator/docs/   these docs (…/docs/es/ for Spanish)
 // The app these docs belong to: the docs are built into the app at <app>/docs/,
-// so a deploy's DOCS_BASE_URL names it (the beta site's is /simulator-beta/docs/).
+// so a deploy's DOCS_BASE_URL names it (the beta site's is /simulator-beta/docs/, see
+// .github/workflows/channel-deploy.yml).
 // A local build has no deploy, and links to the production app.
 const appUrl = process.env.DOCS_BASE_URL
   ? `https://astrarocket.github.io${process.env.DOCS_BASE_URL.replace(/docs\/$/, '')}`
