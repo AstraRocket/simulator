@@ -7,11 +7,12 @@
  * to appear anywhere - it is the package name and the product name - and only the
  * `prefix:` form is a storage key.
  *
- * The beta site is served from the same origin as production, so it shares
- * localStorage and IndexedDB with it. A beta build therefore takes its own
- * prefix (`astrarocket-beta`): its designs and settings never reach
- * production's, and a beta schema version can never be one production's
- * `indexedDB.open` refuses.
+ * The dev, beta and hotfix sites are served from the same origin as production,
+ * so they share localStorage and IndexedDB with it and with each other. A
+ * channel build therefore takes its own prefix (`astrarocket-dev`,
+ * `astrarocket-beta`, `astrarocket-hotfix`): its designs and settings never
+ * reach another site's, and a newer schema version on a testing site can never
+ * be one production's `indexedDB.open` refuses.
  *
  * `typeof` because the Playwright specs import this in Node, where no build
  * defines the channel; they test the production build.
