@@ -1,11 +1,17 @@
-name: Beta deploy
+name: Channel deploy
 
-# Builds the `beta` branch and publishes it to the beta site,
-# https://astrarocket.github.io/simulator-beta/.
+# Builds one of the testing branches and publishes it to that branch's site:
+#
+#   channel  branch   site
+#   dev      dev      https://astrarocket.github.io/simulator-dev/
+#   beta     beta     https://astrarocket.github.io/simulator-beta/
+#   hotfix   hotfix   https://astrarocket.github.io/simulator-hotfix/
 #
 # Pages publishes to the repository a run belongs to, and each repository has
-# one site, so the beta site is its own repository (AstraRocket/simulator-beta).
-# That repository's workflow calls this one from a "Run workflow" button:
+# one site, so each channel's site is its own repository
+# (AstraRocket/simulator-<channel>). That repository's workflow calls this one
+# from a "Run workflow" button, naming its channel twice: in the ref the
+# workflow is read from, and in the input. For beta:
 #
 #   on:
 #     workflow_dispatch:
@@ -15,26 +21,33 @@ name: Beta deploy
 #     id-token: write
 #   jobs:
 #     deploy:
-#       uses: AstraRocket/simulator/.github/workflows/beta-deploy.yml@beta
+#       uses: AstraRocket/simulator/.github/workflows/channel-deploy.yml@beta
+#       with:
+#         channel: beta
 #
 # A called workflow runs as the caller, so the run, its Pages deployment and
-# github.token all belong to the beta repository; this public repository is only
-# read, which needs no token. `workflow_call` is the only trigger, so nothing in
-# this repository can start it and publish over the production site.
+# github.token all belong to the channel's repository; this public repository is
+# only read, which needs no token. `workflow_call` is the only trigger, so
+# nothing in this repository can start it and publish over the production site.
 #
 # The build matches deploy.yml's, with four differences: the source is this
-# repository's `beta` branch, the base paths name the beta site,
-# APP_CHANNEL=beta gives the app its own storage prefix and labels
-# (vite.config.ts), and there is no contributor sync (see below). The beta site shares the astrarocket.github.io origin with
-# production, which is what the storage prefix is for.
+# repository's branch of the same name as the channel, the base paths name the
+# channel's site, APP_CHANNEL gives the app its own storage prefix and labels
+# (vite.config.ts), and there is no contributor sync (see below). Every channel
+# site shares the astrarocket.github.io origin with production and with each
+# other, which is what the storage prefix is for.
 
 on:
   workflow_call:
     inputs:
-      ref:
-        description: The branch, tag or SHA of AstraRocket/simulator to build.
+      channel:
+        description: dev, beta or hotfix. Names the site, the storage prefix and the default branch.
         type: string
-        default: beta
+        required: true
+      ref:
+        description: The branch, tag or SHA of AstraRocket/simulator to build. Empty builds the channel's own branch.
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -42,7 +55,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: beta-pages
+  group: ${{ inputs.channel }}-pages
   cancel-in-progress: true
 
 jobs:
@@ -55,10 +68,22 @@ jobs:
       run:
         working-directory: web
     steps:
+      # Before anything is built: a misspelled channel would otherwise build the
+      # docs under a base path no site serves before vite.config.ts refuses it.
+      - name: Check the channel
+        working-directory: .
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          case "$CHANNEL" in
+            dev|beta|hotfix) ;;
+            *) echo "::error::channel must be dev, beta or hotfix, not '$CHANNEL'."; exit 1 ;;
+          esac
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: AstraRocket/simulator
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || inputs.channel }}
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -71,7 +96,7 @@ jobs:
       - run: npm ci
 
       # The committed public/data/contributors.generated.json is used as is: the
-      # production deploy keeps it current, and a beta build has no reason to
+      # production deploy keeps it current, and a channel build has no reason to
       # credit anyone differently.
 
       # Docs are built BEFORE the app and into web/public, so the service worker
@@ -84,12 +109,12 @@ jobs:
         working-directory: website
         run: npx docusaurus build --out-dir "$GITHUB_WORKSPACE/web/public/docs"
         env:
-          DOCS_BASE_URL: /simulator-beta/docs/
+          DOCS_BASE_URL: /simulator-${{ inputs.channel }}/docs/
 
       - run: npm run build
         env:
-          PAGES_BASE: /simulator-beta/
-          APP_CHANNEL: beta
+          PAGES_BASE: /simulator-${{ inputs.channel }}/
+          APP_CHANNEL: ${{ inputs.channel }}
           # The same published catalogs as production (see deploy.yml).
           VITE_DATA_BASE: https://cdn.jsdelivr.net/gh/AstraRocket/simulator@data/
 

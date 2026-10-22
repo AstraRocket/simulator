@@ -15,19 +15,29 @@ interface PackageInfo {
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as PackageInfo;
 
 /**
- * The release channel: '' for the production site, 'beta' for the beta site
- * (.github/workflows/beta-deploy.yml). The beta site shares the
- * astrarocket.github.io origin with production, so the channel names its storage
- * (services/storage/storageKeys.ts) and labels the app, the version and the
- * installed PWA, so a person can tell the two apart.
+ * The release channel: '' for the production site, 'dev', 'beta' or 'hotfix'
+ * for that branch's testing site (.github/workflows/channel-deploy.yml). Every
+ * channel site shares the astrarocket.github.io origin with production, so the
+ * channel names its storage (services/storage/storageKeys.ts) and labels the
+ * app, the version and the installed PWA, so a person can tell them apart.
  */
+const CHANNEL_TITLES: Record<string, string> = {
+  '': 'AstraRocket',
+  dev: 'AstraRocket Dev',
+  beta: 'AstraRocket Beta',
+  hotfix: 'AstraRocket Hotfix',
+};
 const channel: string = process.env.APP_CHANNEL?.trim() ?? '';
-if (channel !== '' && channel !== 'beta') throw new Error(`APP_CHANNEL must be '' or 'beta', not '${channel}'`);
+if (!Object.hasOwn(CHANNEL_TITLES, channel)) {
+  throw new Error(`APP_CHANNEL must be '', 'dev', 'beta' or 'hotfix', not '${channel}'`);
+}
+const appTitle: string = CHANNEL_TITLES[channel] ?? 'AstraRocket';
 
 // The version the app reports. Overridable so scripts/check-update-flow.mjs can
 // build two distinguishable versions from one checkout and watch the service
 // worker hand one over to the other. A channel build carries the channel and,
-// in CI, the run number, so a beta bug report names the build it came from.
+// in CI, the run number, so a bug report from a channel site names the build it
+// came from.
 const baseVersion: string = process.env.APP_VERSION_OVERRIDE || pkg.version;
 const runNumber = process.env.GITHUB_RUN_NUMBER;
 const version: string = channel ? `${baseVersion}-${channel}${runNumber ? `.${runNumber}` : ''}` : baseVersion;
@@ -130,7 +140,7 @@ export default defineConfig({
         order: 'pre' as const,
         handler: (html: string) =>
           html
-            .replaceAll('%APP_TITLE%', channel ? 'AstraRocket Beta' : 'AstraRocket')
+            .replaceAll('%APP_TITLE%', appTitle)
             .replaceAll('%STORAGE_PREFIX%', channel ? `astrarocket-${channel}` : 'astrarocket'),
       },
     },
@@ -166,8 +176,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: channel ? 'AstraRocket Beta' : 'AstraRocket',
-        short_name: channel ? 'AstraRocket Beta' : 'AstraRocket',
+        name: appTitle,
+        short_name: appTitle,
         description: 'Design and simulate model rockets in your browser.',
         theme_color: '#0b1020',
         background_color: '#0b1020',
