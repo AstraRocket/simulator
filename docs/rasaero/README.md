@@ -12,7 +12,7 @@ document pulls the physics and the code out on their own so they can be reviewed
   24.12** (`info.openrocket.core.*`). 7 files, ~705 added lines.
 - **Everything is default-OFF / input-gated**: with the flag off (or the input absent) every
   number is bit-identical to stock OpenRocket. Proven two ways: the JVM↔JS parity test
-  (`engine-java/test/parity/parity.mjs`, 359 golden values) and the classic-mode validation scorecard.
+  (`engine-java/test/parity/parity.mjs`, 362 golden values) and the classic-mode validation scorecard.
 
 Authorship of these extensions is recorded in `engine-java/ATTRIBUTION.md`.
 

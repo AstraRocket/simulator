@@ -218,8 +218,13 @@ async function openApp(page: Page, tries = 3): Promise<void> {
  * 20 s: the kernel is a multi-megabyte WASM module that is compiled on first
  * load, and a cold CI runner software-rendering WebGL beside it can take more
  * than the 5 s default.
+ *
+ * The preview server can also refuse a script request after the page itself
+ * loaded. A module that fails to load never loads, so the static `#boot`
+ * splash in index.html stays up for good. That case is reloaded at once rather
+ * than after the 20 s, which would not fit in the test's 30 s.
  */
-export async function ready(page: Page): Promise<void> {
+export async function ready(page: Page, tries = 3): Promise<void> {
   // Collected for the failure path only. A bare "element(s) not found" here says
   // nothing about why the numbers never appeared, and there is more than one way
   // for that to happen: an engine fetch that stalls rather than failing looks
@@ -231,19 +236,36 @@ export async function ready(page: Page): Promise<void> {
   });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
 
-  await openApp(page);
-  try {
-    await expect(page.getByText('L/D', { exact: true })).toBeVisible({ timeout: 20_000 });
-  } catch (err) {
-    const state = await page
-      .evaluate(() => ({
-        mounted: (document.getElementById('root')?.childElementCount ?? 0) > 0,
-        onScreen: document.body.innerText.trim().replace(/\s+/g, ' ').slice(0, 200),
-      }))
-      .catch((e: unknown) => ({ evaluateFailed: String(e) }));
-    throw new Error(
-      `${(err as Error).message}\n\nready() gave up with: ${JSON.stringify({ ...state, problems }, null, 2)}`,
-    );
+  const numbers = page.getByText('L/D', { exact: true });
+  for (let i = 1; ; i++) {
+    const from = problems.length;
+    const refused = () => problems.slice(from).some((p) => p.includes('ERR_CONNECTION_REFUSED'));
+    await openApp(page);
+    try {
+      await expect
+        .poll(
+          async () => {
+            if (await numbers.isVisible()) return 'ready';
+            if (i < tries && refused() && (await page.locator('#boot').count()) > 0) return 'refused';
+            return 'waiting';
+          },
+          { timeout: 20_000, message: "the engine's numbers (L/D) never appeared" },
+        )
+        .not.toBe('waiting');
+      if (await numbers.isVisible()) return;
+    } catch (err) {
+      const state = await page
+        .evaluate(() => ({
+          // The splash is static markup inside #root, so a child there is not
+          // a mount; React replacing #boot is.
+          mounted: !document.getElementById('boot'),
+          onScreen: document.body.innerText.trim().replace(/\s+/g, ' ').slice(0, 200),
+        }))
+        .catch((e: unknown) => ({ evaluateFailed: String(e) }));
+      throw new Error(
+        `${(err as Error).message}\n\nready() gave up with: ${JSON.stringify({ ...state, problems }, null, 2)}`,
+      );
+    }
   }
 }
 

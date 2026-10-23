@@ -15,8 +15,8 @@ Read `engine-java/README.md` and `engine-java/patches/LEDGER.md` first: they exp
 
 | Path                                                                                             | Size                  | Audit it?                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------------------------------------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/java/`                                                                                      | 273 files, ~55k lines | **No, with one exception.** The other 255 files are verbatim upstream. Do not report style, complexity, or design findings against them. The exception: if you find a genuine defect that materially affects THIS app, report it as `UPSTREAM` severity-tagged, with the note that the fix belongs in a patch or upstream, never as an in-place edit to `src/java`. |
-| `patches/`                                                                                       | 18 files, 10.4k lines | **Yes. This is the main event.**                                                                                                                                                                                                                                                                                                                           |
+| `src/java/`                                                                                      | 273 files, ~55k lines | **No, with one exception.** The other 254 files are verbatim upstream. Do not report style, complexity, or design findings against them. The exception: if you find a genuine defect that materially affects THIS app, report it as `UPSTREAM` severity-tagged, with the note that the fix belongs in a patch or upstream, never as an in-place edit to `src/java`. |
+| `patches/`                                                                                       | 19 files, 10.5k lines | **Yes. This is the main event.**                                                                                                                                                                                                                                                                                                                           |
 | `src/api/`                                                                                       | 5 files, ~3.9k lines  | **Yes.** The `@JSExport` facade the browser calls.                                                                                                                                                                                                                                                                                                         |
 | `src/shims/java/`                                                                                | 11 files, ~850 lines  | **Yes.**                                                                                                                                                                                                                                                                                                                                                   |
 | `src/jdkstubs/`                                                                                  | 1 file, 187 lines     | **Yes**, briefly.                                                                                                                                                                                                                                                                                                                                          |
@@ -108,8 +108,8 @@ where a behavior change hides best:
 - `PATCH(drogue-low-speed)` in `BasicEventSimulationEngine`, which the ledger
   describes as uncommenting upstream's own check. Confirm that is what it is.
 
-Cross-checks: every `PATCH(...)` marker in `src/java` (there are 35) should
-resolve to an entry in `patches/LEDGER.md`, and every one of the 18 patch files
+Cross-checks: every `PATCH(...)` marker in `src/java` (there are 36) should
+resolve to an entry in `patches/LEDGER.md`, and every one of the 19 patch files
 should be **load-bearing** by the ledger's own test (`src/java/X.java` differs
 from upstream `X.java`). A patch identical to upstream is a leftover that does
 nothing until someone runs `extract`, at which point it silently swaps itself
@@ -233,7 +233,7 @@ gate's scope covers what it says it covers.
   one-flag way to make a genuine regression disappear. Is there anything that
   makes a golden rewrite visible in review? Should there be?
 - The golden comparison runs against the JVM output only, with tolerance. What
-  tolerance, and is it loose enough to hide a real change? 359 golden lines
+  tolerance, and is it loose enough to hide a real change? 362 golden lines
   covering which physics - is the coverage representative, or does it stop at
   the atmosphere model?
 - `parity.mjs`, `run-target.mjs`, `stdout-sync.mjs`: what happens on a target

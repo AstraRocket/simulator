@@ -57,6 +57,7 @@ public final class ParityMain {
         collatorScenarios();
         uuidScenarios();
         preferencesScenarios();
+        mutableScenarios();
         // Last, so the process-wide state it touches (the UUID counter, the
         // flight order) leaves every earlier line where it was.
         atmosphereProfileScenarios();
@@ -221,6 +222,44 @@ public final class ParityMain {
         line("uuid.spread", msbs.size(), prefixes.size());
         // Exact value, so the two platforms must agree bit for bit.
         System.out.println("uuid.first|" + first);
+    }
+
+    /**
+     * {@code PATCH(teavm-mutable-trace)}: an immuted object refuses a write with
+     * upstream's message and no cause.
+     * <p>
+     * Upstream's {@code Mutable} keeps a {@code Throwable} from the immute() call
+     * and attaches it as the cause; under TeaVM that Throwable is a JS Error that
+     * keeps the finished simulation alive. A cause here means the patch was lost.
+     * The branch case proves the flag is what {@code FlightDataBranch} consults,
+     * and the clone case that a copy keeps the frozen state.
+     */
+    private static void mutableScenarios() {
+        info.openrocket.core.util.Mutable m = new info.openrocket.core.util.Mutable();
+        boolean before = m.isMutable();
+        m.immute();
+        m.immute();
+        info.openrocket.core.util.Mutable copy = m.clone();
+        System.out.println("mutable.state|" + before + "|" + m.isMutable() + "|" + copy.isMutable());
+        mutableRefusal("mutable.check", m::check);
+
+        info.openrocket.core.simulation.FlightDataBranch branch =
+                new info.openrocket.core.simulation.FlightDataBranch("parity",
+                        info.openrocket.core.simulation.FlightDataType.TYPE_TIME);
+        branch.addPoint();
+        branch.setValue(info.openrocket.core.simulation.FlightDataType.TYPE_TIME, 0.0);
+        branch.immute();
+        mutableRefusal("mutable.branch", () -> branch.setValue(
+                info.openrocket.core.simulation.FlightDataType.TYPE_TIME, 1.0));
+    }
+
+    private static void mutableRefusal(String tag, Runnable write) {
+        try {
+            write.run();
+            System.out.println(tag + "|accepted");
+        } catch (IllegalStateException e) {
+            System.out.println(tag + "|" + e.getMessage() + "|cause=" + e.getCause());
+        }
     }
 
     /**

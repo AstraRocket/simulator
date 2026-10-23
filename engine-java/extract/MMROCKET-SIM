@@ -136,7 +136,31 @@
 # OPEN: the SEMROC BTC-20BB [R] mass. Their 9fd9ed20 retires their correction
 # because openrocket-database's semroc.orc gives 0.82 oz; our copy still has
 # 0.21 oz.
+#
+# 2026-10-22: reviewed 362b6c04 through 9979e545 (v0.192 plus 6 commits,
+# 2026-10-22). Through 5d354f96 the engine-java diff is line endings only.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND DONE HERE: document materials, as
+# `<docmaterials>` read/write, the "In this design" picker group and the
+# add-to-database checkbox.
+#
+# TAKEN: their Mutable patch from 103b6f9d, as `PATCH(teavm-mutable-trace)`.
+# Mutable keeps a boolean instead of `new Throwable()`, whose TeaVM JS Error
+# stack held a frozen branch's finished simulation in memory. Same message,
+# no cause; no number moves. See patches/LEDGER.md.
+#
+# NOT TAKEN: their DataBranch patch from the same commit, which stores each
+# column as `double[]` instead of `ArrayList<Double>`. Its saving was measured
+# in a Cloudflare Worker's 128 MiB isolate and depends on their bridge reading
+# the new `getValuesCopy`; it changes a protected field's type and adds public
+# API, a divergence from upstream `unstable` every pin bump would carry.
+#
+# NOTHING TO TAKE: the rest is their headless Cloudflare Worker API, a
+# catalog publish to R2, timing on simulateFile, and BOM and quote literals
+# rewritten as `\u` escapes for an ASCII bundle.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 362b6c0446ff6e8fcfe22863b5d402f521e58bef
-version = 0.191
-dated   = 2026-10-14
+ref     = 9979e54567574349ab7cb179454bb6b866954cd1
+version = 0.192
+dated   = 2026-10-22
