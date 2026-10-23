@@ -1,4 +1,4 @@
-# golden v1 sha256=3e0380888d6a925017fb313e9b9f0cf638a86b924e7e7d0d486036743d4f9226 lines=359 generated=2026-10-04T22:51:59.195Z commit=d038eb3a929d1993037e9e981927d6de8ff7fd53
+# golden v1 sha256=30936de2d57b5b4f2800b6429e1f238840a7990904fc3f21e5613d7ae535c918 lines=362 generated=2026-10-23T01:40:06.767Z commit=41785de633382897c7c40e372de255ece8ee56bf
 # recorded on: win32-x64 openjdk_version_"21.0.12.1"_2026-08-18_LTS
 # The JVM reference output, recorded deliberately with `npm run parity:golden`.
 # parity.mjs re-verifies the sha256 above on every run, so a hand-edited value
@@ -359,6 +359,9 @@ prefs.wind|2.0|0.1|1.5707963267948966|0.2
 prefs.launch|1.0|0.0|1.5707963267948966|0.0|28.61|-80.6
 prefs.atmos|288.15|101325.0|0.0|9.807
 prefs.sim|0.05|1200.0|0.3
+mutable.state|true|false|false
+mutable.check|Object has been made immutable at null|cause=null
+mutable.branch|Object has been made immutable at null|cause=null
 flight.atmo.levels|319.9233035630173|107.47544252400313|7.047576891714013
 flight.atmo.anchored|322.81576216593055|107.90053294256963|7.084124071574663
 flight.atmo.pasttop|319.7708306647565|107.52434922573173|7.040596222433101

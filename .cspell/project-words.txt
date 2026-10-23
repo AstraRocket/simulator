@@ -161,6 +161,7 @@ engineblock
 ents
 EOCD
 ERESOLVE
+esac
 Español
 evts
 extendedisa
@@ -234,6 +235,7 @@ hectopascals
 hexbluntbase
 hideable
 Hoerner
+hotfixes
 hoverable
 HYPERTEK
 idioma
@@ -241,6 +243,8 @@ ignitionconfiguration
 ignitiondelay
 ignitionevent
 iiia
+immute
+immutes
 imperialish
 importt
 indexeddb
@@ -568,6 +572,7 @@ unproject
 unreviewed
 Unrotated
 unrun
+unscrolled
 unstub
 unsub
 untick

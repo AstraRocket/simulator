@@ -54,7 +54,7 @@ diffs remain in `docs/rasaero/diffs/`. `extract --check` now prints both lists
 on every run, so the distinction is visible instead of having to be
 reconstructed.
 
-## The 18 patches
+## The 19 patches
 
 | File (under `info/openrocket/core/`) | Why |
 | --- | --- |
@@ -76,6 +76,7 @@ reconstructed.
 | `util/ArrayList.java` | `clone()` rewritten for WASM-GC (the `ClassCastException` documented beside the `strict` setting in `build.gradle`). |
 | `masscalc/MassCalculation.java` | `PATCH(offaxis-roll-inertia)`: a motor in a single off-axis mount gets its parallel-axis roll inertia. See "Off-axis tubes and motors carry their roll inertia". |
 | `rocketcomponent/RingComponent.java` | `PATCH(offaxis-roll-inertia)`: any off-axis ring (an inner tube alone or clustered, a coupler, an engine block) adds its instances' parallel-axis spread to its roll inertia. Same section. |
+| `util/Mutable.java` | `PATCH(teavm-mutable-trace)`: a boolean instead of a retained `Throwable`. Under TeaVM that Throwable is a JS Error whose captured stack keeps a frozen branch's finished simulation in memory. See "`Mutable` keeps no Throwable". |
 
 Both `LongUUID` files now carry a `PATCH(teavm-uuid)` marker, so the reason no
 longer has to be reverse-engineered from a diff. Every patch in the table now
@@ -1299,3 +1300,47 @@ No shim or example file changed upstream in this range.
   case #3382 changes.
 - **Parity:** JS and WASM agree with the JVM on all 359 lines.
 - **Validation:** classic 9/135 and supersonic 61/135, both at their floors.
+
+## `Mutable` keeps no Throwable - 2026-10-23
+
+`PATCH(teavm-mutable-trace)` in `util/Mutable.java`. Taken from mmrocket-sim
+(`103b6f9d`, see `extract/MMROCKET-SIM`), ported onto our upstream file.
+
+- **Why:** upstream's `immute()` stores `new Throwable()` so a later illegal
+  write can name where the object was frozen. TeaVM compiles a Throwable to a
+  JS Error, and V8 keeps the receivers of every frame on its captured stack
+  alive. `BasicEventSimulationEngine` immutes each finished branch and
+  `FlightData.immute` freezes the rest, so the finished simulation behind a
+  branch (a coast sub-simulation included) cannot be collected while the
+  branch lives. mmrocket-sim measured it from a heap snapshot. On a phone,
+  where the browser kills a tab under memory pressure, that is the case this
+  fixes. The trace carried no Java frames under TeaVM.
+- **Change:** a boolean. `immute()` sets it, repeated calls stay a no-op,
+  `isMutable()` reads it and `clone()` copies it. `check()` throws
+  `IllegalStateException` with upstream's exact message, `"Object has been
+  made immutable at null"` (upstream appends `getMessage()` of a message-less
+  Throwable), and no cause. The missing cause is the one observable change;
+  nothing in the kernel, the bridge or the app reads it.
+- **Divergence:** 27 lines, blessed. Not physics: no number can move.
+- **Golden:** no value moved. Three lines added by `mutableScenarios()`
+  (state across immute and clone, the refusal from `Mutable.check` and from a
+  frozen `FlightDataBranch.setValue`), which print `cause=null`; on upstream's
+  file they print the Throwable, so losing the patch fails the golden.
+  `audit.mjs` now expects 362 lines.
+- **Parity:** JS and WASM agree with the JVM on all 362 lines.
+
+## Four patch headers renamed, re-blessed - 2026-10-23
+
+`aerodynamics/barrowman/FinSetCalc.java`,
+`aerodynamics/barrowman/SymmetricComponentCalc.java`,
+`aerodynamics/BarrowmanDragCalculator.java` and
+`aerodynamics/BarrowmanStabilityCalculator.java`.
+
+- **Why:** this repository started from AstraRocketJs on 2026-10-20, and the
+  `MODIFIED for AstraRocketJs` header comment on each became
+  `MODIFIED for AstraRocket`. The patch hashes in `extract/DIVERGENCE.txt`
+  were the old headers', so `extract --check` reported all four as changed
+  without review.
+- **Change:** comment-only. Line counts (644, 404, 84, 56) and upstream hashes
+  are unchanged; only the patch hashes were re-recorded with `--bless`.
+- **Golden:** no value moved.
