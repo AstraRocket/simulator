@@ -160,7 +160,38 @@
 # rewritten as `\u` escapes for an ASCII bundle.
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-10-23: reviewed 9979e545 through 30640cd8 (v0.192 plus 3 commits,
+# 2026-10-23). No engine-java file changed.
+#
+# NOTHING TO TAKE: a Dependabot bump (eslint, typescript-eslint, @types/node
+# 26.6.5, esbuild, vitest), a hand-run deploy workflow for their API Worker,
+# and a test fix for @types/node 26.6.5 refusing `string | undefined` as
+# readFileSync's options. No test here has that pattern; we are on 24.x.
+#
+# THEIR AUDIT.md (packages/app), CHECKED HERE AND ALREADY COVERED: the .ork
+# zip bomb (importUnpack.ts inflates with byte, member and stall caps), XML
+# nesting depth (importLimits.ts MAX_NESTING_DEPTH), raw `configid` on save
+# (escaped in exportMotorConfigs.ts and exportParts.ts), CSV formula injection
+# (exports/csvCell.ts), and prototype-key lookups (importReaders.ts,
+# rktImport.ts and docMaterials.ts test own keys; there is no RASAero import).
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-10-24: reviewed 30640cd8 through e5ade0a1 (v0.192 plus 3 commits,
+# 2026-10-24). No engine-java file changed.
+#
+# NOTHING TO TAKE: every change serves their headless Cloudflare Worker API and
+# is off by default in their app. A dead-holder watchdog on their `withKernel`
+# lock (a flight killed at the CPU limit never settled the queue, so the next
+# request in that isolate hung), an optional lower inflate cap threaded through
+# their .ork/.rkt readers with a distinct too-large error, a 0.05 s minimum
+# time step for API flights, an 8 MiB body cap, and cpu_ms raised to 300 s. This
+# app has no headless entry point and no kernel lock, and its inflate caps are
+# in importLimits.ts and importUnpack.ts.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 9979e54567574349ab7cb179454bb6b866954cd1
+ref     = e5ade0a159f9f71761a082fdcdc1fb71c12f1a5d
 version = 0.192
-dated   = 2026-10-22
+dated   = 2026-10-24

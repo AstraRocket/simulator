@@ -185,9 +185,11 @@ jobs:
       # Which motors ThrustCurve added, removed or changed since the published
       # catalog, into the job summary, plus a notice on the run when there are
       # any. Before the publish, so the list is there even if the publish fails.
-      # Reports, never fails: a change is what this workflow is for.
+      # Reports, never fails: a change is what this workflow is for, and a
+      # broken report must not hold back the publish after it.
       - name: List motor changes
         if: env.TARGET != 'components'
+        continue-on-error: true
         working-directory: web
         run: npm run diff:motors -- "$RUNNER_TEMP/motors.published.json"
 
