@@ -80,7 +80,10 @@ export function SavedPartEditor({
     setErr(null);
     setSaving(true);
     try {
-      await updateCustomPart(part.id, meta, savedShape(node));
+      const saved = await updateCustomPart(part.id, meta, savedShape(node));
+      // The labels as stored (trimmed, a blank maker filled in), so the editor
+      // compares clean against the part it just wrote.
+      setMeta({ mfr: saved.mfr, partNo: saved.partNo, desc: saved.desc });
       // No onClose: the list refreshes under this pane through the store's
       // change signal, and the part stays selected. Staying put is the point
       // of a master-detail view.

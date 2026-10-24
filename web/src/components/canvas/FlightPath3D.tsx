@@ -328,7 +328,7 @@ export function FlightPath3D({
       <div className="pointer-events-none absolute left-3 top-3 flex gap-3 rounded-lg bg-surface/80 px-3 py-2 text-xs ring-1 ring-line/10">
         <Hud label={t('flight.altitude')} value={`${u.fmtSym('distance', alts[idx] ?? 0)}`} />
         <Hud label={t('flight.velocity')} value={`${u.fmtSym('velocity', vels[idx] ?? 0)}`} />
-        <Hud label={t('flight.time')} value={`${fmtNum(nowT, 1)} s`} />
+        <Hud label={t('flight.time')} value={`${fmtNum(nowT, 1)} ${t('units.second')}`} />
       </div>
       <div className="pointer-events-none absolute right-3 top-3 flex flex-col gap-1 rounded-lg bg-surface/80 px-2 py-1.5 text-[10px] ring-1 ring-line/10">
         <Legend color={phase.boost} label={t('flight.boost')} onChange={setBoost} />
@@ -393,7 +393,7 @@ export function FlightPath3D({
           value={progress}
           aria-label={t('flight.time')}
           // The slider runs 0 to 1; what it stands for is the flight time.
-          aria-valuetext={`${fmtNum(nowT, 1)} s`}
+          aria-valuetext={`${fmtNum(nowT, 1)} ${t('units.second')}`}
           onChange={(e) => {
             setPlaying(false);
             seek(parseFloat(e.target.value));

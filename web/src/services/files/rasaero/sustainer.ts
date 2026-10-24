@@ -8,6 +8,7 @@ import { partLength, startFromPosition } from '../../../tree/position';
 import { trapezoidDims } from '../../../tree/finPlanform';
 import { isFinSet } from '../../../tree/tubefins';
 import { isAssembly } from '../../../tree/assembly';
+import { walkNodes } from '../../../tree/treeWalk';
 import { KeyedError, type Keyed } from '../../../i18n/keyedError';
 import { mathEquals } from '../../motors/mathEquals';
 
@@ -215,6 +216,26 @@ function transitionXml(w: Cdx1Writer, node: ComponentNode, boattail: boolean): v
 }
 
 /**
+ * Refuse a pod set or parallel stage anywhere in the stages.
+ *
+ * Never drop an assembly silently, like the fin cases: a pod or a strap-on
+ * booster is external aerodynamics RASAero's flat part list cannot hold, and a
+ * file that quietly omits it describes a different rocket. The editor mounts
+ * both on a body tube (`canHost`), where the part writers never look, so the
+ * whole tree is searched. Desktop refuses one only as a stage's own child
+ * (`RocketDesignDTO`, RASAeroExport.error33) and leaves one on a tube out.
+ */
+export function refuseAssemblies(stagesIn: readonly ComponentNode[]): void {
+  for (const node of walkNodes(stagesIn.flatMap((st) => st.children ?? []))) {
+    if (isAssembly(node.type)) {
+      throw new KeyedError(node.type === 'podset' ? 'errors.rasaero.noPods' : 'errors.rasaero.noParallel', {
+        name: partName(node),
+      });
+    }
+  }
+}
+
+/**
  * Sustainer chain (flat): every external part in order, advancing the location.
  *
  * The order rules are RASAero's, as the desktop's RocketDesignDTO enforces them:
@@ -224,18 +245,9 @@ function transitionXml(w: Cdx1Writer, node: ComponentNode, boattail: boolean): v
  */
 export function writeSustainerChain(w: Cdx1Writer, sustainer: ComponentNode, stageCount: number): void {
   const chain = (sustainer.children ?? []).filter(
-    (c) => c.type === 'nosecone' || c.type === 'bodytube' || c.type === 'transition' || isAssembly(c.type),
+    (c) => c.type === 'nosecone' || c.type === 'bodytube' || c.type === 'transition',
   );
   chain.forEach((node, i) => {
-    if (isAssembly(node.type)) {
-      // Never drop an assembly silently, like the fin cases: a pod or a
-      // strap-on booster is external aerodynamics RASAero's flat part list
-      // cannot hold, and a file that quietly omits it describes a different
-      // rocket (the desktop refuses these too, RASAeroExport.error33).
-      throw new KeyedError(node.type === 'podset' ? 'errors.rasaero.noPods' : 'errors.rasaero.noParallel', {
-        name: partName(node),
-      });
-    }
     const last = i === chain.length - 1;
     if (i === 0 && node.type !== 'nosecone') {
       throw new KeyedError('errors.rasaero.noseFirst', { name: partName(node) });

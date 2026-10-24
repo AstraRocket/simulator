@@ -383,7 +383,8 @@ const writeParachute: NodeWriter = (w, node, d) => {
   w.emit(d, `<linecount>${num(node, 'lineCount', chute.lineCount)}</linecount>`);
   autoLengthXml(w, d, node, 'lineLength', 'lineLengthAuto', 'linelength', chute.lineLength);
   if (typeof node['lineDensity'] === 'number') {
-    const lname = typeof node['lineMaterialName'] === 'string' ? node['lineMaterialName'] : 'custom';
+    const lname =
+      typeof node['lineMaterialName'] === 'string' && node['lineMaterialName'] ? node['lineMaterialName'] : 'custom';
     w.emit(d, `<linematerial type="line" density="${node['lineDensity']}">${escapeXml(lname)}</linematerial>`);
   } else {
     // The kernel's own line, the row `material` writes under <material>; a
@@ -434,9 +435,14 @@ const assemblyHead = (w: OrkWriter, node: ComponentNode, d: number, fallback: st
   // suppress for assemblies.
   const assembly = node.type === 'podset' ? KERNEL_DEFAULTS.podset : KERNEL_DEFAULTS.parallelstage;
   w.emit(d, `<instancecount>${num(node, 'instanceCount', assembly.instanceCount)}</instancecount>`);
-  const rMethod = node['radiusMethod'] === 'free' ? 'free' : 'relative';
+  // Every method the bridge builds, as the importer reads them back.
+  const rMethod = ['free', 'surface', 'coaxial'].includes(String(node['radiusMethod']))
+    ? String(node['radiusMethod'])
+    : 'relative';
   w.emit(d, `<radiusoffset method="${rMethod}">${num(node, 'radiusOffset', 0)}</radiusoffset>`); // meters
-  const aMethod = node['angleMethod'] === 'fixed' ? 'fixed' : 'relative';
+  const aMethod = ['fixed', 'mirror_xy'].includes(String(node['angleMethod']))
+    ? String(node['angleMethod'])
+    : 'relative';
   // angleOffset is stored in radians → degrees on disk (same as cant).
   w.emit(d, `<angleoffset method="${aMethod}">${(num(node, 'angleOffset', 0) * 180) / Math.PI}</angleoffset>`);
   position(w, d, node, 'bottom');

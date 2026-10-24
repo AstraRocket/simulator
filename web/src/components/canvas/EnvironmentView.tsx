@@ -71,7 +71,7 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
     <div
       role="region"
       aria-label={t('view.environment')}
-      // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the pane scrolls and holds nothing focusable, so without a tab stop the keyboard cannot scroll it
+      // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the pane scrolls, and most of what it shows holds nothing focusable, so without a tab stop the keyboard cannot always scroll it
       tabIndex={0}
       className="h-full space-y-3 overflow-auto p-2"
     >

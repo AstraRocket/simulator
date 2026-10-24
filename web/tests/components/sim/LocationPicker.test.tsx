@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { LocationPicker } from '../../../src/components/sim/LocationPicker';
 import { renderWithProviders } from '../../testing/renderWithProviders';
+import { useConfirmStore } from '../../../src/state/confirmStore';
 import {
   setLaunchLocationStore,
   type LaunchLocation,
@@ -190,6 +191,8 @@ describe('LocationPicker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Home field' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(useConfirmStore.getState().request).not.toBeNull());
+    act(() => useConfirmStore.getState().settle(true));
 
     await waitFor(async () => {
       const list = await setPadThenList();
@@ -206,12 +209,31 @@ describe('LocationPicker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'home FIELD' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(useConfirmStore.getState().request).not.toBeNull());
+    act(() => useConfirmStore.getState().settle(true));
 
     await waitFor(async () => {
       const list = await setPadThenList();
       expect(list).toHaveLength(1);
       expect(list[0]).toMatchObject({ id: 'home', latitudeDeg: 28.6 });
     });
+  });
+
+  it('keeps the other location when the user declines to replace it', async () => {
+    // The fields on screen are not Home field's, so saving under its name
+    // would destroy coordinates that may exist nowhere else.
+    render();
+    await waitFor(() => screen.getByRole('option', { name: 'Home field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Home field' } });
+    expect(screen.getByText('Another location already has this name.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(useConfirmStore.getState().request?.message).toContain('Home field'));
+    act(() => useConfirmStore.getState().settle(false));
+
+    const list = await setPadThenList();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ id: 'home', latitudeDeg: HOME.latitudeDeg });
   });
 
   it('says so when the store refuses the write', async () => {

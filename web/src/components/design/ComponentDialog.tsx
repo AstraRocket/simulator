@@ -43,7 +43,8 @@ export function ComponentDialog() {
 
   return (
     <Dialog id="component-editor" title={t('prop.editTitle')} onClose={() => setOpen(false)}>
-      <PropertyPanel flush {...sel} />
+      {/* Keyed on the part, as in PropertyPane. */}
+      <PropertyPanel key={sel.node.id ?? ''} flush {...sel} />
     </Dialog>
   );
 }

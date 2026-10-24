@@ -36,6 +36,11 @@ export function isMaterial(v: unknown): v is Material {
   return (
     !!m &&
     typeof m.name === 'string' &&
+    // A name, as `isDocumentMaterial` and the catalog rows require: a blank
+    // one could not be picked or told apart. A group may be absent on an
+    // entry an older build stored, but never another type.
+    m.name.trim().length > 0 &&
+    (m.group === undefined || typeof m.group === 'string') &&
     typeof m.density === 'number' &&
     Number.isFinite(m.density) &&
     m.density > 0 &&

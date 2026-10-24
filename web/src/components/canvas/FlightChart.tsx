@@ -172,7 +172,7 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
     keyT == null || !primary
       ? ''
       : crosshairReadout(
-          `${t('flight.time')} ${fmtNum(keyT, 2)} s`,
+          `${t('flight.time')} ${fmtNum(keyT, 2)} ${t('units.second')}`,
           shownMetas
             .filter((m) => !m.xy && !(m.aero && keyT > clipT))
             .map((m) => {
@@ -205,7 +205,7 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{t('flight.title')}</h2>
         <div className="flex items-center gap-2">
           <span className="text-xs tabular-nums text-ink-muted">
-            {t('flight.time')} {fmtNum(hoverT ?? maxT, hoverT != null ? 2 : 1)} s
+            {t('flight.time')} {fmtNum(hoverT ?? maxT, hoverT != null ? 2 : 1)} {t('units.second')}
           </span>
           <span className="sr-only" role="status" aria-live="polite">
             {announcement}

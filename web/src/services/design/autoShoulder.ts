@@ -4,7 +4,7 @@ import { num } from '../../tree/nodeProps';
 import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
 import { mapTreePreserving, type MapContext } from '../../tree/treeWalk';
-import { isZero } from '../motors/mathEquals';
+import { isZero, mathEquals } from '../motors/mathEquals';
 import { symmetricNeighbors, type Neighbors } from './autoRadius';
 
 /**
@@ -154,6 +154,48 @@ export function shoulderSeed(
       if (free(s.thickness)) out[s.thickness] = 0;
       if (free(s.capped)) out[s.capped] = false;
     }
+  }
+  return out;
+}
+
+/**
+ * The shoulders an edit to an end radius cuts back to that end.
+ *
+ * Setting an end's radius sets that end's shoulder again through its clamping
+ * setter (`Transition.setForeRadius` and `setAftRadius` call
+ * `setForeShoulderRadius(getForeShoulderRadius(), doClamping)` and
+ * `setAftShoulderRadius(getAftShoulderRadius())`, Transition.java:121, :232;
+ * a nose cone's base is one of the two). That setter holds the radius to the
+ * end and the shoulder's wall to its radius (Transition.java:446-457, :558-569).
+ * The bridge sets a stated shoulder unclamped, as desktop's loader does, so the
+ * edit has to carry the clamp itself or the part flies a shoulder wider than
+ * the end it stands on.
+ *
+ * Only an edit of the end's own value: a radius that follows a neighbor is not
+ * set through the setter, and a shoulder radius the edit states is left alone.
+ */
+export function endShoulderClamp(
+  before: ComponentNode,
+  after: ComponentNode,
+  edit: Partial<ComponentNode>,
+): Partial<ComponentNode> {
+  const out: Record<string, unknown> = {};
+  for (const s of SHOULDERS[after.type] ?? []) {
+    const endKey = after.type === 'nosecone' || s.side === 1 ? 'aftRadius' : 'foreRadius';
+    if (!(endKey in edit) || s.radius in edit || after[`${endKey}Auto`] === true) continue;
+    const was = before[endKey];
+    const now = after[endKey];
+    // The setter returns before clamping when a fixed end is set to its own value.
+    if (
+      typeof now !== 'number' ||
+      (typeof was === 'number' && mathEquals(was, now) && before[`${endKey}Auto`] !== true)
+    )
+      continue;
+    const end = shoulderEnd(after, s.side);
+    const radius = num(after, s.radius, 0);
+    if (end === null || !(radius > end)) continue;
+    out[s.radius] = end;
+    if (num(after, s.thickness, 0) > end) out[s.thickness] = end;
   }
   return out;
 }

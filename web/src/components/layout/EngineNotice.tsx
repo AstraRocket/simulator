@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useEngineStore } from '../../state/engineStore';
 import { fmtMb } from '../../i18n/format';
+import { keyedText } from '../../i18n/keyedError';
 
 /**
  * The banner that stands in for the numbers while the physics kernel is not
@@ -27,6 +28,7 @@ export function EngineNotice() {
   const reload = useEngineStore((s) => s.reload);
   // A retry that cannot recover this load is not offered; a reload is.
   const needsReload = useEngineStore((s) => s.needsReload);
+  const error = useEngineStore((s) => s.error);
 
   if (phase === 'ready') return null;
 
@@ -76,6 +78,10 @@ export function EngineNotice() {
         <span className="text-xs opacity-90" aria-hidden="true">
           {t('engine.needsIt')}
         </span>
+      )}
+      {/* The reason a failed load gives, for a tester to report. */}
+      {phase === 'failed' && error && (
+        <span className="w-full text-xs opacity-90">{typeof error === 'string' ? error : keyedText(error, t)}</span>
       )}
       {stuck && (
         <button

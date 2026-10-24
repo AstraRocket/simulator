@@ -45,3 +45,20 @@ describe('RangeSlider thumb values', () => {
     }
   });
 });
+
+/** Where the thumbs meet, only the thumb on top can be grabbed by a pointer. */
+describe('RangeSlider stacked thumbs', () => {
+  const z = (name: string) => Number((screen.getByLabelText(name) as HTMLElement).style.zIndex);
+  const render = (low: number, high: number) =>
+    renderWithProviders(<RangeSlider count={5} low={low} high={high} onChange={() => {}} label="Diameter" />);
+
+  it('puts the high thumb on top at the first stop, where the low thumb cannot move', () => {
+    render(0, 0);
+    expect(z('Diameter max')).toBeGreaterThan(z('Diameter min'));
+  });
+
+  it('puts the low thumb on top at the last stop, where the high thumb cannot move', () => {
+    render(4, 4);
+    expect(z('Diameter min')).toBeGreaterThan(z('Diameter max'));
+  });
+});

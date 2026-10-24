@@ -6,7 +6,7 @@ import { liveMotors, type FlightConfig } from '../flight/flightConfigs';
 import { motorStats, type MotorStats } from './rocketReport';
 import { numOpt } from '../../tree/nodeProps';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
-import { finMount, finSpan } from '../../tree/finPlanform';
+import { cantFrontShift, finMount, finSpan } from '../../tree/finPlanform';
 import { parentStartOf } from '../../tree/axialRebase';
 import { axialLength } from '../../tree/position';
 import { walkNodes } from '../../tree/treeWalk';
@@ -428,7 +428,9 @@ export function finSetPositions(
     // 50 mm root it does not have.
     const root = axialLength(n);
     try {
-      const topX = rocket.componentInfo(n.id).positionX;
+      // The kernel locates a canted set by its first fin turned about the
+      // root's midpoint; the marks go at the root's own station.
+      const topX = rocket.componentInfo(n.id).positionX - cantFrontShift(n, root);
       const own = typeof n.name === 'string' ? n.name.trim() : '';
       out.push({ ...(own ? { name: own } : {}), type: String(n.type), topX, bottomX: topX + root });
     } catch {

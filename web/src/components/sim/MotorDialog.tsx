@@ -109,14 +109,14 @@ export function MotorDialog({
   // close) must not be applied to the mount.
   const pickWrite = useLatest();
 
+  // When the published catalog last changed, from its manifest; nothing when the
+  // manifest does not say.
+  const updated = useAsyncLoad(() => catalogInfo('motors'), 'motorsInfo').data?.updated;
   // Opening from a card with a motor already on it pre-selects that motor,
   // highlighted in the list with its curve and delay restored, so "Change..."
   // resumes from the current choice instead of a blank detail pane. Done when
   // the catalog lands: the one moment the list exists and nothing has been
   // clicked yet, so no later click has to know about it.
-  // When the published catalog last changed, from its manifest; nothing when the
-  // manifest does not say.
-  const updated = useAsyncLoad(() => catalogInfo('motors'), 'motorsInfo').data?.updated;
   const { catalog, setCatalog, loading, error, retry } = useCatalog({
     onLoaded: (c) => {
       const m = current && findSeated(c, current);

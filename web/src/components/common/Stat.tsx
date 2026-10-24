@@ -1,4 +1,4 @@
-/** A compact labeled stat tile (value + unit/sub), used by the stability, simulation and tool panels.
+/** A compact labeled stat tile (value + unit/sub), used by the stability badge and the simulation summary.
  *  `card` wraps the tile in its own surface (one card per stat).
  *  `sub` is a node, not just text, so a tile can put a UnitChip in its unit slot
  *  and let the unit be changed from where it is read. */

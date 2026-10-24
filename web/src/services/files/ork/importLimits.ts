@@ -37,7 +37,7 @@ export const MAX_ARCHIVE_TOTAL_BYTES = 128 * 1024 * 1024; // 128 MiB uncompresse
 // to the kernel: the deepest design the cap admits builds, one level more does not.
 export const MAX_NESTING_DEPTH = 29;
 // Flight configurations declared in one file. The desktop tops out in the
-// low tens; this bounds the per-config re-scanning below.
+// low tens; this bounds the per-config re-scanning in ork/importConfigs.ts.
 export const MAX_MOTOR_CONFIGS = 256;
 // Domain ceilings for the counts a file can declare. Every consumer loops on
 // these (a mesh per fin, a shape per instance, a vertex per fin point), so an

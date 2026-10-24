@@ -132,6 +132,24 @@ describe('SettingsProvider with another tab writing', () => {
     expect(written.theme).toBe('light');
   });
 
+  it('keeps a change storage refused, so the next change does not take it back', () => {
+    loadSettings.mockReturnValue({ ...DEFAULT_SETTINGS, theme: 'dark' });
+    localStorage.setItem(KEY, JSON.stringify({ ...DEFAULT_SETTINGS, theme: 'dark' }));
+    let update!: SettingsUpdate;
+    render(
+      <SettingsProvider>
+        <Probe onRender={(c) => (update = c.update)} />
+      </SettingsProvider>,
+    );
+    // Quota: the first write is refused, so storage still says dark.
+    saveSettings.mockReturnValueOnce(false).mockReturnValueOnce(true);
+    act(() => update({ theme: 'light' }));
+    act(() => update({ units: { ...DEFAULT_SETTINGS.units, length: 'in' } }));
+    const written = saveSettings.mock.calls[1]![0] as typeof DEFAULT_SETTINGS;
+    expect(written.theme).toBe('light');
+    expect(written.units.length).toBe('in');
+  });
+
   /**
    * An older build of this PWA can run beside a newer one. Its change must not
    * destroy the preferences the newer build stored under keys it does not know.

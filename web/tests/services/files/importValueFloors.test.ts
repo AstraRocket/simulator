@@ -100,17 +100,17 @@ describe('a .ork cannot state a negative dimension', () => {
     expect(n['radius']).toBe(0);
   });
 
-  it('drops a negative mass or CG override rather than flooring it', () => {
-    // Dropped, not zeroed: an override of zero is a real instruction ("this part
-    // weighs nothing"), and a file that states nonsense asked for no override.
+  it('takes a negative mass or CG override as desktop sets it', () => {
+    // RocketComponent.setOverrideMass stores Math.max(m, 0) (RocketComponent.java:615)
+    // and setOverrideCGX stores the value as given (RocketComponent.java:701).
     const n = nodeOfType(
       `<bodytube><name>B</name><length>0.3</length><radius>0.012</radius>
          <overridemass>-0.5</overridemass><overridecg>-0.1</overridecg>
        </bodytube>`,
       'bodytube',
     );
-    expect(n['overrideMass']).toBeUndefined();
-    expect(n['overrideCGX']).toBeUndefined();
+    expect(n['overrideMass']).toBe(Math.max(-0.5, 0));
+    expect(n['overrideCGX']).toBe(-0.1);
   });
 
   it('keeps a negative Cd override, which RocketComponent.setOverrideCD accepts', () => {

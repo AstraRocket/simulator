@@ -128,10 +128,10 @@ export function SimulationsTable({
             {t('sim.rodExit')} <Unit>{rodExit.sym}</Unit>
           </Th>
           <Th num wide>
-            {t('sim.toApogee')} <Unit>s</Unit>
+            {t('sim.toApogee')} <Unit>{t('units.second')}</Unit>
           </Th>
           <Th num wide>
-            {t('sim.flightTime')} <Unit>s</Unit>
+            {t('sim.flightTime')} <Unit>{t('units.second')}</Unit>
           </Th>
           <Th num wide>
             {t('sim.landing')} <Unit>{landing.sym}</Unit>

@@ -6,7 +6,7 @@ import { saveBlob, exportFilename } from './saveFile';
 import { createCdx1Writer } from './rasaero/units';
 import { designSurface } from './rasaero/surface';
 import { CDX1_ENGINE_EXPORT, stageEngineSlots, type Cdx1ExportEngine } from './rasaero/engines';
-import { writeSustainerChain } from './rasaero/sustainer';
+import { refuseAssemblies, writeSustainerChain } from './rasaero/sustainer';
 import { writeBoosters } from './rasaero/booster';
 import { writeRecovery } from './rasaero/recovery';
 import { writeLaunchSite } from './rasaero/launchSite';
@@ -79,6 +79,7 @@ export function exportCdx1({
 }: Cdx1ExportInput): string {
   const stagesIn = asStageNodes(tree);
   if (stagesIn.length > 3) throw new KeyedError('errors.rasaero.tooManyStages', { max: 3 });
+  refuseAssemblies(stagesIn);
   // A single stage's cell is the whole rocket; any other stage's needs its own
   // cumulative figure, which the whole rocket's mass does not give.
   const cells: readonly (StageLaunch | undefined)[] =

@@ -105,6 +105,22 @@ describe('samplesToMotorSpec', () => {
     ).toThrow(expect.objectContaining({ key: 'errors.thrustcurve.noWeight', values: { motor: 'C6' } }));
   });
 
+  it.each([
+    ['a negative propellant mass', { propWeightG: -5 }],
+    ['a loaded mass of zero', { totalWeightG: 0, propWeightG: 0 }],
+  ])('throws on %s, which would fly a mass that rises or is nothing', (_label, over) => {
+    expect(() =>
+      samplesToMotorSpec(
+        motor(over),
+        [
+          { time: 0, thrust: 1 },
+          { time: 1, thrust: 1 },
+        ],
+        0,
+      ),
+    ).toThrow(expect.objectContaining({ key: 'errors.thrustcurve.badWeight', values: { motor: 'C6' } }));
+  });
+
   it('throws when propellant exceeds loaded mass (negative burnout mass)', () => {
     expect(() =>
       samplesToMotorSpec(

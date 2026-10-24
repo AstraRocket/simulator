@@ -14,27 +14,51 @@ const wf = (name: string) =>
   readFileSync(fileURLToPath(new URL(`../../../.github/workflows/${name}`, import.meta.url)), 'utf8');
 
 describe('CI trigger coverage', () => {
-  it('keeps the full gate set on every pull request', () => {
+  it('runs the gate set on every pull request', () => {
     expect(wf('ci.yml')).toMatch(/on:\s*\n\s*pull_request:/);
     expect(wf('ci.yml')).toContain('uses: ./.github/workflows/gates.yml');
+  });
+
+  it('typechecks the docs site in the gate set', () => {
+    // Docusaurus builds through Babel and checks no types, so the gate set is
+    // the only place a type error in website/ is caught.
+    const site = wf('gates.yml').split(/^ {2}website:s*$/m)[1];
+    expect(site).toBeDefined();
+    expect(site).toMatch(/working-directory: website/);
+    expect(site).toMatch(/- run: npm run typecheck/);
+    const pkg = JSON.parse(
+      readFileSync(fileURLToPath(new URL('../../../website/package.json', import.meta.url)), 'utf8'),
+    ) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts['typecheck']).toBe('tsc');
   });
 });
 
 /**
  * The catalog sync runs when the pipeline changes. Its header states the
  * policy: the Monday schedule, a manual run, and a push to master that changes
- * `web/scripts/**` or the workflow itself, so a pipeline change republishes the
- * catalogs when it lands instead of waiting up to a week. Master only, and
- * those paths only, because the run publishes to the branch the live app
- * reads; a push run carries no `inputs.target`, so the target has to default.
+ * `web/scripts/**`, the workflow itself or the vendored engine, so a pipeline
+ * change republishes the catalogs when it lands instead of waiting up to a
+ * week. The engine measures the volume each stated mass is spread over
+ * (`scripts/lib/presetVolume.mjs`), so a new engine is a new catalog. Master
+ * only, and those paths only, because the run publishes to the branch the live
+ * app reads; a push run carries no `inputs.target`, so the target has to default.
  */
 describe('the catalog sync trigger', () => {
   const sync = wf('sync-catalogs.yml');
 
-  it('runs on a push to master that changes the scripts or the workflow', () => {
+  it('runs on a push to master that changes the scripts, the workflow or the engine', () => {
     expect(sync).toMatch(
-      /^on:\s*\n\s*push:\s*\n\s*branches:\s*\[master\]\s*\n\s*paths:\s*\n\s*- 'web\/scripts\/\*\*'\s*\n\s*- '\.github\/workflows\/sync-catalogs\.yml'\s*\n/m,
+      /^on:\s*\n\s*push:\s*\n\s*branches:\s*\[master\]\s*\n\s*paths:\s*\n\s*- 'web\/scripts\/\*\*'\s*\n\s*- '\.github\/workflows\/sync-catalogs\.yml'\s*\n\s*- 'web\/src\/engine\/vendor\/\*\*'\s*\n/m,
     );
+  });
+
+  it('watches the folder of the engine the volume script loads', () => {
+    const script = readFileSync(fileURLToPath(new URL('../../scripts/lib/presetVolume.mjs', import.meta.url)), 'utf8');
+    const folder = script.match(/new URL\('\.\.\/\.\.\/(src\/engine\/vendor)\/[^']+'/)?.[1];
+    expect(folder).toBe('src/engine/vendor');
+    expect(sync).toContain(`- 'web/${folder}/**'`);
   });
 
   it('keeps the schedule, the manual run and the no-cancel concurrency group', () => {

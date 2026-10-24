@@ -19,6 +19,7 @@ export function DesignPropertiesDialog({
   confirmLabel,
   initialName,
   takenNames = [],
+  duplicateText,
   onCancel,
   onConfirm,
 }: {
@@ -27,6 +28,8 @@ export function DesignPropertiesDialog({
   initialName: string;
   /** Other designs' names, to warn about a duplicate (not to forbid it). */
   takenNames?: string[];
+  /** The duplicate warning, worded for what is being named; a rocket's by default. */
+  duplicateText?: string;
   onCancel: () => void;
   onConfirm: (name: string) => void;
 }) {
@@ -77,7 +80,7 @@ export function DesignPropertiesDialog({
 
       {/* A duplicate name is allowed (designs are keyed by id, not name) but
             two identical rows in the library are confusing, so say so. */}
-      {duplicate && <p className="mt-2 text-xs text-warn-300">{t('library.duplicateName')}</p>}
+      {duplicate && <p className="mt-2 text-xs text-warn-300">{duplicateText ?? t('library.duplicateName')}</p>}
 
       <div className="mt-6 flex justify-end gap-2">
         <DialogButton onClick={onCancel} variant="secondary">

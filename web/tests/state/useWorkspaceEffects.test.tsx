@@ -229,7 +229,7 @@ describe('hydration', () => {
     // effect, and its success path calls `setErr(null)`; a message written
     // there is wiped in the same tick and the user never sees it.
     expect(s().storageWarning).toBeTruthy();
-    expect(s().storageWarningKind).toBe('loadFailed');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(computeStaticInfo).toHaveBeenCalledTimes(1); // the engine still built
 
     // ...and autosave still runs, so work done after the failure is not lost too.
@@ -260,7 +260,7 @@ describe('hydration', () => {
     });
 
     expect(s().tree).toBe(edited);
-    expect(s().storageWarningKind).toBe('loadFailed');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(setActiveId).toHaveBeenCalledWith(null);
     expect(unchangedSinceWrite(s())).toBe(false);
     // So the unload flush writes it, where an untouched default is skipped.
@@ -305,7 +305,7 @@ describe('hydration', () => {
     load.mockResolvedValue({ ...saved(), tree: null });
     await mount();
 
-    expect(s().storageWarningKind).toBe('loadFailed');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(s().tree.name).not.toBe('Restored');
     expect(setActiveId).toHaveBeenCalledWith(null);
   });

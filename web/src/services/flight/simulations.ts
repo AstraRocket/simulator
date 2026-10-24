@@ -157,8 +157,9 @@ const treeKeys = new WeakMap<RocketTree, string>();
  * the `.ork` and touch no physics, and every node carries a `name` that is a
  * label. So typing a designer name or renaming a part leaves results current.
  * Recovery devices are the exception: a run names the device each deployment
- * came from, and the Recovery readout finds its figures by that name, so a
- * renamed device ages the result rather than silently losing them.
+ * came from, and the Recovery readout falls back to that name for a result
+ * stored before deployments carried the device's id, so a renamed device ages
+ * the result rather than silently losing them.
  *
  * Everything else is treated as flight-bearing, including fields we may not know
  * about (`ComponentNode` has an open index signature). That is the safe

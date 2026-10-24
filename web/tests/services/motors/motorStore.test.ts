@@ -155,6 +155,18 @@ describe('isCustomMotor rejects what would reach the kernel broken', () => {
     expect(await survives(good())).toBe(1);
   });
 
+  it('drops a row the .eng and .rse readers would refuse for its size or masses', async () => {
+    // engParser and rseParser refuse a non-positive size, a non-positive loaded
+    // mass and a propellant mass below 0 or above the loaded one; a negative
+    // propellant mass flies a motor that gains mass as it burns.
+    expect(await survives({ ...good(), propWeightG: -1 })).toBe(0);
+    expect(await survives({ ...good(), totalWeightG: 0, propWeightG: 0 })).toBe(0);
+    expect(await survives({ ...good(), propWeightG: 25 })).toBe(0);
+    expect(await survives({ ...good(), diameter: 0 })).toBe(0);
+    expect(await survives({ ...good(), length: -70 })).toBe(0);
+    expect(await survives({ ...good(), propWeightG: 0 })).toBe(1);
+  });
+
   it('drops a row whose delay list, type or source is malformed', async () => {
     // `parseDelays` splits `delayList`; one bad row would take down the picker.
     expect(await survives({ ...good(), delayList: 5 })).toBe(0);

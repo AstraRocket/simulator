@@ -43,6 +43,12 @@ export function repairNode(node: ComponentNode): { node: ComponentNode; repaired
   const repaired: RepairedValue[] = [];
   let out = node;
   for (const [key, { quantity }] of Object.entries(LIMITED)) {
+    // A part still linked to its catalog row carries the density
+    // ComponentPresetFactory spread its stated mass over, which can pass any
+    // real material's (a thin ring tube stating its packaged mass). Changing
+    // the density clears the link (PRESET_SETTERS in treeEdit), so a linked
+    // part's density is the catalog's, and desktop flies it as stated.
+    if (key === 'density' && node['preset']) continue;
     const limit = SI_LIMITS[quantity];
     const v = (node as unknown as Record<string, unknown>)[key];
     if (!limit || typeof v !== 'number' || !Number.isFinite(v)) continue;

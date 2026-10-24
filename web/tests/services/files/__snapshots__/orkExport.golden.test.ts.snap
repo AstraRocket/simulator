@@ -248,7 +248,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <radialdirection>90</radialdirection>
                 <outerradius>0.015</outerradius>
                 <thickness>0.0005</thickness>
-                <clusterconfiguration>2x2</clusterconfiguration>
+                <clusterconfiguration>4-ring</clusterconfiguration>
                 <clusterscale>1.1</clusterscale>
                 <clusterrotation>29.999999999999996</clusterrotation>
                 <maxmotorlength>0.14</maxmotorlength>
@@ -890,7 +890,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <radialdirection>90</radialdirection>
                 <outerradius>0.015</outerradius>
                 <thickness>0.0005</thickness>
-                <clusterconfiguration>2x2</clusterconfiguration>
+                <clusterconfiguration>4-ring</clusterconfiguration>
                 <clusterscale>1.1</clusterscale>
                 <clusterrotation>29.999999999999996</clusterrotation>
                 <maxmotorlength>0.14</maxmotorlength>
@@ -1454,7 +1454,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <radialdirection>90</radialdirection>
                 <outerradius>0.015</outerradius>
                 <thickness>0.0005</thickness>
-                <clusterconfiguration>2x2</clusterconfiguration>
+                <clusterconfiguration>4-ring</clusterconfiguration>
                 <clusterscale>1.1</clusterscale>
                 <clusterrotation>29.999999999999996</clusterrotation>
                 <maxmotorlength>0.14</maxmotorlength>
@@ -2106,7 +2106,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <radialdirection>90</radialdirection>
                 <outerradius>0.015</outerradius>
                 <thickness>0.0005</thickness>
-                <clusterconfiguration>2x2</clusterconfiguration>
+                <clusterconfiguration>4-ring</clusterconfiguration>
                 <clusterscale>1.1</clusterscale>
                 <clusterrotation>29.999999999999996</clusterrotation>
                 <maxmotorlength>0.14</maxmotorlength>
@@ -2878,7 +2878,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                     "type": "centeringring",
                   },
                 ],
-                "cluster": "2x2",
+                "cluster": "4-ring",
                 "clusterRotation": 0.5235987755982988,
                 "clusterScale": 1.1,
                 "density": 680,

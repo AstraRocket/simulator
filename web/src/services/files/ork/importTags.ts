@@ -10,7 +10,8 @@ import { hexOf } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
 import { degToRad } from '../../../prefs/units';
 import { KERNEL_DEPLOYMENT, KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
-import { DEPLOY_EVENTS, SEPARATION_EVENTS } from '../../design/componentFields';
+import { DEPLOY_EVENTS, MASS_COMPONENT_TYPES, SEPARATION_EVENTS } from '../../design/componentFields';
+import { CLUSTER_POINTS } from '../../../tree/cluster';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
 
 /**
@@ -379,6 +380,26 @@ export function crossSectionTag(el: Element, node: ComponentNode, notes: ImportN
   return enumTag(el, 'crosssection', CROSS_SECTIONS, 'importNote.crossSectionUnknown', node, notes);
 }
 
+/** `MassComponent.MassComponentType`, as `ComponentFactory.massComponentTypeOf` accepts it. */
+const MASS_TYPES: ReadonlyMap<string, string> = new Map(MASS_COMPONENT_TYPES.map((s) => [enumToken(s), s]));
+
+/** `ClusterConfiguration.CONFIGURATIONS` by XML name, as the bridge looks them up. */
+const CLUSTERS: ReadonlyMap<string, string> = new Map(Object.keys(CLUSTER_POINTS).map((s) => [enumToken(s), s]));
+
+/** A mass component's `<masscomponenttype>`, or nothing when absent or not a type the kernel has. */
+export function massComponentTypeTag(
+  el: Element,
+  node: ComponentNode,
+  notes: ImportNote[] | undefined,
+): string | undefined {
+  return enumTag(el, 'masscomponenttype', MASS_TYPES, 'importNote.massTypeUnknown', node, notes);
+}
+
+/** An inner tube's `<clusterconfiguration>`, or nothing when absent or not a pattern the kernel has. */
+export function clusterTag(el: Element, node: ComponentNode, notes: ImportNote[] | undefined): string | undefined {
+  return enumTag(el, 'clusterconfiguration', CLUSTERS, 'importNote.clusterUnknown', node, notes);
+}
+
 /**
  * The deploy events the bridge builds (`ComponentFactory.deployEventOf`), each
  * under the token desktop writes and matches (the enum name lower-cased with
@@ -591,15 +612,13 @@ function readAppearances(el: Element, node: ComponentNode): void {
 
 /** Mass / CG / Cd overrides, and the flags that spread them over the subtree. */
 function readOverrides(el: Element, node: ComponentNode): void {
-  // Mass and CG are floored, like the .rkt reader's
-  // `Math.max(0, knownMass / MASS)` and `Math.max(0, knownCg)`. A negative mass
-  // override is not a lighter part: it subtracts from the rocket's total mass,
-  // pulls the CG off the airframe and takes the stability margin with it, and
-  // the override is by definition the figure that wins over everything computed.
+  // As desktop's setters take them: a mass override is held at 0 or more
+  // (`RocketComponent.setOverrideMass`, Math.max(m, 0)) and a CG override is
+  // stored as given (`setOverrideCGX`); only the dialog's spinner floors it.
   const om = numTag(el, 'overridemass', NaN);
-  if (om >= 0) node['overrideMass'] = om;
+  if (Number.isFinite(om)) node['overrideMass'] = Math.max(om, 0);
   const ocg = numTag(el, 'overridecg', NaN);
-  if (ocg >= 0) node['overrideCGX'] = ocg;
+  if (Number.isFinite(ocg)) node['overrideCGX'] = ocg;
   // The Cd override takes any finite value, as `setOverrideCD` and the desktop
   // dialog do: a negative figure offsets drag the rest of the design adds.
   const ocd = numTag(el, 'overridecd', NaN);

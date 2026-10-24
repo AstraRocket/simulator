@@ -299,7 +299,16 @@ export function maxQ(series: FlightSeries | undefined): MaxQPoint | null {
 export function eventRows(result: FlightResult | null | undefined): EventRow[] {
   if (!result) return [];
   const rows: EventRow[] = [];
-  flightBranches(result).forEach((b, i) => {
+  const branches = flightBranches(result);
+  // A booster's branch starts as a copy of the flight up to its separation
+  // (FlightDataBranch's copy constructor carries the events it held), so the
+  // events before then that the sustainer's branch already lists are the same
+  // events, listed once.
+  const eventKey = (e: { type: string; time: number; source?: string }) => `${e.type}|${e.time}|${e.source ?? ''}`;
+  const shared = new Set((branches[0]?.events ?? []).map(eventKey));
+  branches.forEach((b, i) => {
+    const separated =
+      i === 0 ? -Infinity : ((b.events ?? []).find((e) => e.type === 'STAGE_SEPARATION')?.time ?? -Infinity);
     const series = b.series;
     const push = (type: string, time: number, source: string | undefined, q: number | null) => {
       rows.push({
@@ -320,6 +329,7 @@ export function eventRows(result: FlightResult | null | undefined): EventRow[] {
     };
     for (const e of b.events ?? []) {
       if (!Number.isFinite(e.time) || !EVENT_NAME[e.type]) continue;
+      if (i !== 0 && e.time <= separated && shared.has(eventKey(e))) continue;
       push(e.type, e.time, e.source, null);
     }
     if (i !== 0) return;

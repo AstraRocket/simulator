@@ -152,6 +152,11 @@ export function samplesToMotorSpec(
   if (!Number.isFinite(motor.totalWeightG) || !Number.isFinite(motor.propWeightG)) {
     throw new KeyedError('errors.thrustcurve.noWeight', { motor: motor.designation });
   }
+  // A negative propellant mass makes the mass rise over the burn, and a loaded
+  // mass of zero or less leaves nothing to fly; the kernel refuses neither.
+  if (motor.propWeightG < 0 || !(motor.totalWeightG > 0)) {
+    throw new KeyedError('errors.thrustcurve.badWeight', { motor: motor.designation });
+  }
   if (motor.propWeightG > motor.totalWeightG) {
     throw new KeyedError('errors.thrustcurve.propOverTotal', {
       motor: motor.designation,

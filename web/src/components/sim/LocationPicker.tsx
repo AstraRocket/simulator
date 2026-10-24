@@ -4,6 +4,7 @@ import type { LaunchConditions } from '../../services/design/orkTree';
 import { getLaunchLocationStore, locationFrom, type LaunchLocation } from '../../services/storage/launchLocationStore';
 import { loadSettings } from '../../services/storage/settings';
 import { useLocationList } from './useLocationList';
+import { confirm } from '../../state/confirmStore';
 import { DesignPropertiesDialog } from '../layout/DesignPropertiesDialog';
 import { LocationsDialog } from './LocationsDialog';
 import { PlaceSearchDialog } from './PlaceSearchDialog';
@@ -123,6 +124,31 @@ export function LocationPicker({
       sameAlt(launch.launchAltitudeM, p.launchAltitudeM),
   );
 
+  /** Save the fields on screen under `name`. */
+  const saveUnder = async (name: string) => {
+    // Saving under an existing location's name updates it, rather than
+    // leaving two entries a user cannot tell apart in the dropdown. Matched
+    // without case, as the name dialog's duplicate warning is.
+    const key = name.trim().toLowerCase();
+    const existing = locations.find((p) => p.name.toLowerCase() === key);
+    // A location can be the only record of coordinates somebody measured at a
+    // field, so replacing one other than the location on screen asks first.
+    if (
+      existing &&
+      existing.id !== current?.id &&
+      !(await confirm({
+        message: t('location.replaceConfirm', { name: existing.name }),
+        confirmLabel: t('location.replace'),
+        danger: true,
+      }))
+    )
+      return;
+    await store(async () => {
+      const location = locationFrom(name, launch);
+      await getLaunchLocationStore().save(existing ? { ...location, id: existing.id } : location);
+    });
+  };
+
   /**
    * A location is a place, so it cannot be captured from a half-filled site.
    *
@@ -197,18 +223,11 @@ export function LocationPicker({
           confirmLabel={t('common.save')}
           initialName={current?.name ?? ''}
           takenNames={locations.filter((p) => p.id !== current?.id).map((p) => p.name)}
+          duplicateText={t('location.duplicateName')}
           onCancel={() => setNaming(false)}
           onConfirm={(name) => {
             setNaming(false);
-            // Saving under an existing location's name updates it, rather than
-            // leaving two entries a user cannot tell apart in the dropdown.
-            // Matched without case, as the name dialog's duplicate warning is.
-            const key = name.trim().toLowerCase();
-            const existing = locations.find((p) => p.name.toLowerCase() === key);
-            void store(async () => {
-              const location = locationFrom(name, launch);
-              await getLaunchLocationStore().save(existing ? { ...location, id: existing.id } : location);
-            });
+            void saveUnder(name);
           }}
         />
       )}

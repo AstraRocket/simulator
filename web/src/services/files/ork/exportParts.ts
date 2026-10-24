@@ -95,7 +95,7 @@ export function material(
   const { emit } = w;
   if (kind === 'bulk') {
     if (typeof node.density === 'number' && node.density > 0) {
-      const name = typeof node['materialName'] === 'string' ? node['materialName'] : 'custom';
+      const name = typeof node['materialName'] === 'string' && node['materialName'] ? node['materialName'] : 'custom';
       // The group rides along when the part carries one (readMaterialGroup
       // reads it for every part), so a desktop material round-trips with its
       // catalog category.
@@ -113,7 +113,10 @@ export function material(
     }
   } else if (kind === 'surface') {
     if (typeof node['surfaceDensity'] === 'number') {
-      const name = typeof node['surfaceMaterialName'] === 'string' ? node['surfaceMaterialName'] : 'custom';
+      const name =
+        typeof node['surfaceMaterialName'] === 'string' && node['surfaceMaterialName']
+          ? node['surfaceMaterialName']
+          : 'custom';
       emit(depth, `<material type="surface" density="${node['surfaceDensity']}">${escapeXml(name)}</material>`);
     } else {
       emit(
@@ -124,7 +127,10 @@ export function material(
     }
   } else {
     if (typeof node['lineDensity'] === 'number') {
-      const name = typeof node['lineMaterialName'] === 'string' ? node['lineMaterialName'] : 'custom';
+      // Desktop refuses a material with no name ("Illegal material
+      // specification"), and a RockSim cord carries an unnamed line.
+      const name =
+        typeof node['lineMaterialName'] === 'string' && node['lineMaterialName'] ? node['lineMaterialName'] : 'custom';
       emit(depth, `<material type="line" density="${node['lineDensity']}">${escapeXml(name)}</material>`);
     } else {
       emit(
@@ -364,8 +370,9 @@ export function finAngleXml(w: OrkWriter, depth: number, node: ComponentNode, me
 }
 
 export function finishXml(w: OrkWriter, depth: number, node: ComponentNode): void {
-  // finish (like shape/crosssection/cluster below) is file-sourced free
-  // text on import; escape it or a crafted file breaks the re-export.
+  // Escaped like every value a file can carry: the importer checks the
+  // finish against the kernel's names, and escaping keeps a tree from any
+  // other source from breaking the re-export.
   w.emit(depth, `<finish>${escapeXml(str(node, 'finish', 'normal'))}</finish>`);
 }
 
@@ -436,9 +443,11 @@ export function autoRadius(w: OrkWriter, depth: number, node: ComponentNode, key
   // ring that fills its tube carries the bore it filled, and writing that
   // number would turn a design that follows its tube into one that is pinned
   // to whatever the tube happened to be. An absent value also means auto,
-  // which is how a tree without the flag spells it.
+  // which is how a tree without the flag spells it. A stated 0 is written as
+  // 0: desktop reads a number as the value (DocumentConfig's DoubleSetter) and
+  // the bridge flies it fixed, so it is not automatic.
   const v = node[key];
-  const auto = node[`${key}Auto`] === true || !(typeof v === 'number' && v > 0);
+  const auto = node[`${key}Auto`] === true || !(typeof v === 'number' && v >= 0);
   w.emit(depth, `<${tag}>${auto ? 'auto' : v}</${tag}>`);
 }
 

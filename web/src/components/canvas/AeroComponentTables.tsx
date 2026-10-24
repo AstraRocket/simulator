@@ -353,9 +353,9 @@ export function StabilityTable({
             {hasMass && <th className={HEAD}>{t('aero.eachMass', { unit: massUnit })}</th>}
             {hasMass && <th className={HEAD}>{t('aero.totalMass', { unit: massUnit })}</th>}
             {hasMass && <th className={HEAD}>{t('aero.cg', { unit: lengthUnit })}</th>}
-            <th className={HEAD}>CP ({lengthUnit})</th>
-            {hasBodyLen && <th className={HEAD}>CP ({t('aero.pctBody')})</th>}
-            {hasAeroLen && <th className={HEAD}>CP ({t('aero.pctLength')})</th>}
+            <th className={HEAD}>{t('aero.cp', { unit: lengthUnit })}</th>
+            {hasBodyLen && <th className={HEAD}>{t('aero.cp', { unit: t('aero.pctBody') })}</th>}
+            {hasAeroLen && <th className={HEAD}>{t('aero.cp', { unit: t('aero.pctLength') })}</th>}
             <th className={HEAD}>CNα</th>
             <th className={HEAD}>%</th>
           </>

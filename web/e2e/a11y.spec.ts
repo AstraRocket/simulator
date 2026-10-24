@@ -319,6 +319,31 @@ const SCREENS: Scan[] = [
     name: `Results / ${VIEW[view]}`,
     open: (page) => resultView(page, view),
   })),
+  // The alternate layouts a control switches to: the drawing over the whole
+  // window, one flight chart panel alone, and a dialog widened.
+  {
+    name: 'Design / whole window',
+    open: async (page) => {
+      await openTab(page, 'Design');
+      const toggle = page.getByRole('button', { name: 'Expand the drawing to the whole window' });
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    },
+  },
+  {
+    name: 'Results / Flight / one panel',
+    open: async (page) => {
+      await resultView(page, 'flight');
+      await page.getByRole('button', { name: 'Show only this panel' }).first().click();
+    },
+  },
+  {
+    name: 'Settings / widened',
+    open: async (page) => {
+      await dialogTab(page, 'Settings', SETTINGS.general);
+      await page.getByRole('button', { name: 'Make this dialog wider' }).click();
+    },
+  },
   ...keys(TOOL).map((tool): Scan => ({
     name: `Tools / ${TOOL[tool]}`,
     open: (page) => openTool(page, TOOL[tool]),

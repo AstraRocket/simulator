@@ -772,14 +772,13 @@ const readMassObject = (el: Element, parent?: ComponentNode): ComponentNode => {
     // packed length is the real one over the handler's own fudge factor.
     if (len !== undefined) n['length'] = len / CORD_PACKED_RATIO;
     // The cord's own line material, which `readCommon` left on the bulk keys.
-    const lineDensity = typeof n.density === 'number' ? n.density : undefined;
-    if (lineDensity !== undefined) {
-      n['lineDensity'] = lineDensity;
-      n['lineMaterialName'] = n['materialName'];
-    }
-    // With no stated density the cord's material stays as the handler leaves
-    // it, weightless; the mass RockSim states is the override `readCommon`
-    // applied, which is what flies.
+    // With no stated density the cord's line is the one desktop's
+    // MassObjectHandler leaves it, unnamed and weightless, rather than the
+    // kernel's default elastic cord; the mass RockSim states is the override
+    // `readCommon` applied, which is what flies.
+    const stated = typeof n.density === 'number';
+    n['lineDensity'] = stated ? n.density : 0;
+    n['lineMaterialName'] = stated ? n['materialName'] : '';
     delete n.density;
     delete n['materialName'];
     // Packed inside the tube it is stuffed into, as `mapMassObjectAsShockCord`

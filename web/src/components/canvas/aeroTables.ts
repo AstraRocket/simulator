@@ -59,6 +59,9 @@ type Translate = (key: string) => string;
  */
 export function niceName(raw: string, translate?: Translate): string {
   if (translate && isDefaultComponentName(raw)) return componentName(raw, translate);
+  // The bridge sends a renamed part's getName() as typed, dots and capitals
+  // included ("Fins 4.5in", "PayloadBay"); only a bracketed key is rewritten.
+  if (!/^\[[^\]]*\]$/.test(raw)) return raw;
   const m = raw.match(/^\[?([^.\]]+)\.([^.\]]+)\]?$/);
   const cls = m?.[1] ?? raw.replace(/[[\]]/g, '');
   const inst = m?.[2];
@@ -370,6 +373,17 @@ export function machTicks(machMin: number, machMax: number): number[] {
   const ticks = [machMin];
   for (let m = step; m <= machMax + 1e-9; m += step) ticks.push(Number(m.toFixed(2)));
   return ticks;
+}
+
+/**
+ * Decimals a Mach tick is printed with: the axis's own, or as many as the tick
+ * needs to read as itself (to the hundredth). The first tick is the sweep's
+ * first sample, 0.05, which one decimal would round to 0.1 beside the 0.2 tick.
+ */
+export function machTickDigits(m: number, axisDigits: number): number {
+  const text = String(Number(m.toFixed(2)));
+  const dot = text.indexOf('.');
+  return Math.max(axisDigits, dot < 0 ? 0 : text.length - dot - 1);
 }
 
 /**

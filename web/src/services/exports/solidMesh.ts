@@ -423,7 +423,9 @@ function validated(geo: THREE.BufferGeometry | null): THREE.BufferGeometry | nul
  * An app choice, and the only one here: `ComponentFactory` calls
  * `setThickness` on a tube fin set only when the node carries `thickness`;
  * absent the key, the kernel keeps `TubeFinSet.thickness` at `Double.NaN`,
- * and a stated wall is always used as given. There is no kernel number to
+ * and a stated wall is held to the outer radius (`TubeFinSet.setThickness`).
+ * The app's resolver writes the parent's wall onto a tube fin set, so this is
+ * reached only for a tree it has not resolved. There is no kernel number to
  * agree with, and a NaN wall exports nothing at all, so the printable part
  * borrows the inner tube's (the nearest thing the kernel does define for a
  * small hollow tube) rather than an untraceable literal.

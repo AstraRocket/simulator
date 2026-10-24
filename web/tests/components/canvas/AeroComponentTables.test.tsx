@@ -46,6 +46,20 @@ describe('StabilityTable', () => {
     expect(heads).toContain(`CP (${i18n.t('aero.pctLength')})`);
     expect(heads.some((h) => h?.includes('% body'))).toBe(false);
   });
+
+  it("names the CP columns in the reader's language, as the drawings do", async () => {
+    // Russian and Polish have their own letters for the center of pressure.
+    for (const lang of ['ru', 'pl']) {
+      await i18n.changeLanguage(lang);
+      const { unmount } = renderTable();
+      const heads = screen.getAllByRole('columnheader').map((h) => h.textContent);
+      const cp = i18n.t('schematic.cp');
+      expect(cp).not.toBe('CP');
+      expect(heads).toContain(`${cp} (m)`);
+      expect(heads.some((h) => h?.startsWith('CP ('))).toBe(false);
+      unmount();
+    }
+  });
 });
 
 /**

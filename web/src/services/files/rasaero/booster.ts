@@ -6,54 +6,98 @@ import { num } from '../../../tree/nodeProps';
 import { isFinSet } from '../../../tree/tubefins';
 import { isChainType } from '../../../tree/componentKinds';
 import { partLength } from '../../../tree/position';
+import { profileEnds } from '../../../tree/shapeProfile';
+import { mathEquals } from '../../motors/mathEquals';
+
+/** A part's aft radius as the kernel has it: a tube's outer radius, or a cone's aft end. */
+const aftRadius = (node: ComponentNode): number =>
+  node.type === 'bodytube' ? num(node, 'outerRadius', 0.012) : profileEnds(node).aft;
+
+const tubeRadius = (node: ComponentNode): number => num(node, 'outerRadius', 0.012);
+
+const hasFins = (node: ComponentNode): boolean => (node.children ?? []).some((k) => isFinSet(k.type));
 
 /**
- * Boosters (each lower stage) as <Booster> elements. A leading widening
- * transition is the shoulder into the stage above; a trailing narrowing one
- * on the last stage is the boat tail. A RASAero booster has a boat tail only
- * on the last stage (`BoosterDTO`, error32), so a trailing transition on any
- * other stage refuses the export rather than becoming one.
+ * Boosters (each lower stage) as <Booster> elements, held to the rules of
+ * desktop's `BoosterDTO`, so a design that file cannot describe is refused
+ * rather than written as a different booster:
+ *
+ * - the stage starts with a body tube, or with a transition (the shoulder into
+ *   the stage above) followed by one (error11, error12), whose ends meet the
+ *   part above and that tube exactly (error13 to error15);
+ * - consecutive tubes of the first tube's radius are one booster body, and the
+ *   first part after them that is not one ends it: a trailing transition on the
+ *   last stage is its boat tail, and anything else refuses the export (error31,
+ *   error32, "boat tails can only be added to the last stage");
+ * - the body carries the fin set (error16).
+ *
+ * Desktop takes the first fin set it finds and skips the rest; here a second
+ * one, or one on a part outside the body, refuses the export, as the fin cases
+ * of the sustainer do, so no fins are dropped without a word.
  */
 export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
   const { emit } = w;
   for (let i = 1; i < stagesIn.length; i++) {
     const st = stagesIn[i]!;
+    const stage = partName(st);
     const lastStage = i === stagesIn.length - 1;
-    const kids = st.children ?? [];
-    const tubes = kids.filter((c) => c.type === 'bodytube');
-    if (tubes.length === 0) {
-      throw new KeyedError('errors.rasaero.boosterNoTube', { stage: partName(st) });
+    const kids = (st.children ?? []).filter((c) => isChainType(c.type));
+    if (kids.length === 0) throw new KeyedError('errors.rasaero.boosterNoTube', { stage });
+    const first = kids[0]!;
+    if (first.type !== 'bodytube' && first.type !== 'transition') {
+      throw new KeyedError('errors.rasaero.boosterFirstPart', { stage, name: partName(first) });
     }
+
+    let shoulder: ComponentNode | null = null;
+    let firstTube = first;
+    if (first.type === 'transition') {
+      const second = kids[1];
+      if (!second || second.type !== 'bodytube') {
+        throw new KeyedError('errors.rasaero.boosterShoulderTube', { stage, name: partName(first) });
+      }
+      const above = (stagesIn[i - 1]!.children ?? []).filter((c) => isChainType(c.type)).at(-1);
+      const ends = profileEnds(first);
+      if (!above || !mathEquals(ends.fore, aftRadius(above))) {
+        throw new KeyedError('errors.rasaero.boosterShoulderFore', { stage, name: partName(first) });
+      }
+      if (!mathEquals(tubeRadius(second), ends.aft)) {
+        throw new KeyedError('errors.rasaero.boosterShoulderAft', { stage, name: partName(first) });
+      }
+      shoulder = first;
+      firstTube = second;
+    }
+
+    const tubes = [firstTube];
+    let boattail: ComponentNode | null = null;
+    for (let j = kids.indexOf(firstTube) + 1; j < kids.length; j++) {
+      const c = kids[j]!;
+      if (c.type === 'bodytube' && mathEquals(tubeRadius(c), tubeRadius(firstTube))) {
+        tubes.push(c);
+        continue;
+      }
+      const tail = c.type === 'transition' && j === kids.length - 1;
+      if (tail && lastStage) {
+        boattail = c;
+        break;
+      }
+      throw new KeyedError(tail ? 'errors.rasaero.boosterBoattail' : 'errors.rasaero.boosterTubeSize', { stage });
+    }
+
+    const finParents = kids.filter(hasFins);
+    if (finParents.length > 1) throw new KeyedError('errors.rasaero.boosterFins', { stage });
+    // A fin set on the shoulder or the boat tail is not on the body RASAero has.
+    const finParent = finParents.find((p) => tubes.includes(p));
+    if (!finParent) throw new KeyedError('errors.rasaero.boosterNoFins', { stage, name: partName(firstTube) });
+
     const bodyLen = tubes.reduce((s, t) => s + partLength(t), 0);
-    const externals = kids.filter((c) => c.type === 'bodytube' || c.type === 'transition');
-    const first = externals[0];
-    const shoulder =
-      first && first.type === 'transition' && num(first, 'foreRadius', 0) <= num(first, 'aftRadius', 0) ? first : null;
-    const last = externals[externals.length - 1];
-    const trailing =
-      last && last !== shoulder && last.type === 'transition' && num(last, 'foreRadius', 0) > num(last, 'aftRadius', 0)
-        ? last
-        : null;
-    if (trailing && !lastStage) {
-      throw new KeyedError('errors.rasaero.boosterBoattail', { stage: partName(st) });
-    }
-    const boattail = lastStage ? trailing : null;
-    const extraTrans = kids.filter((c) => c.type === 'transition' && c !== shoulder && c !== boattail);
-    if (extraTrans.length > 0) {
-      throw new KeyedError('errors.rasaero.boosterTransitions', { stage: partName(st) });
-    }
     const shoulderLen = shoulder ? num(shoulder, 'length', 0) : 0;
     const btLen = boattail ? num(boattail, 'length', 0) : 0;
-    const finParents = kids.filter((c) => (c.children ?? []).some((k) => isFinSet(k.type)));
-    if (finParents.length > 1) {
-      throw new KeyedError('errors.rasaero.boosterFins', { stage: partName(st) });
-    }
     emit('<Booster>');
     emit('<PartType>Booster</PartType>');
     emit(`<Length>${fmt(bodyLen * IN)}</Length>`);
-    emit(`<Diameter>${fmt(num(tubes[0]!, 'outerRadius', 0.012) * 2 * IN)}</Diameter>`);
+    emit(`<Diameter>${fmt(tubeRadius(firstTube) * 2 * IN)}</Diameter>`);
     emit(
-      `<InsideDiameter>${fmt((shoulder ? num(shoulder, 'foreRadius', 0.012) : num(tubes[0]!, 'outerRadius', 0.012)) * 2 * IN)}</InsideDiameter>`,
+      `<InsideDiameter>${fmt((shoulder ? profileEnds(shoulder).fore : tubeRadius(firstTube)) * 2 * IN)}</InsideDiameter>`,
     );
     emit('<LaunchLugDiameter>0</LaunchLugDiameter>');
     emit('<LaunchLugLength>0</LaunchLugLength>');
@@ -67,17 +111,15 @@ export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
     emit(`<ShoulderLength>${fmt(shoulderLen * IN)}</ShoulderLength>`);
     emit('<NozzleExitDiameter>0</NozzleExitDiameter>');
     emit(`<BoattailLength>${fmt(btLen * IN)}</BoattailLength>`);
-    emit(`<BoattailRearDiameter>${fmt(boattail ? num(boattail, 'aftRadius', 0) * 2 * IN : 0)}</BoattailRearDiameter>`);
-    const finParent = finParents[0] ?? tubes[0]!;
-    // Where the fin set's part starts from the nose tip: the stage's start plus
+    emit(`<BoattailRearDiameter>${fmt(boattail ? profileEnds(boattail).aft * 2 * IN : 0)}</BoattailRearDiameter>`);
+    // Where the fin set's tube starts from the nose tip: the stage's start plus
     // the parts ahead of it in the stage.
-    const ahead = kids.slice(0, kids.indexOf(finParent)).filter((c) => isChainType(c.type));
+    const ahead = kids.slice(0, kids.indexOf(finParent));
     // The booster is one body as long as all its tubes, and RASAero measures
     // the fin's Location from that body's bottom, so the tubes after the one
     // the fins are on lie between them, as desktop's `BoosterDTO` adds them
     // (`finLocationOffset`).
-    const at = tubes.indexOf(finParent);
-    const behind = at < 0 ? 0 : tubes.slice(at + 1).reduce((s, t) => s + partLength(t), 0);
+    const behind = tubes.slice(tubes.indexOf(finParent) + 1).reduce((s, t) => s + partLength(t), 0);
     finXml(w, finParent, w.locM + ahead.reduce((s, c) => s + partLength(c), 0), behind);
     emit('</Booster>');
     w.locM += shoulderLen + bodyLen + btLen;

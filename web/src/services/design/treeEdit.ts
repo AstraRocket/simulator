@@ -18,7 +18,7 @@ import { KeyedError } from '../../i18n/keyedError';
 // Every mutator here ends by resolving the radii and shoulders that follow a
 // neighbor (syncDerived): this is the one door the tree is edited through, so
 // nothing downstream has to know the feature exists.
-import { shoulderSeed, syncAutoShoulders } from './autoShoulder';
+import { endShoulderClamp, shoulderSeed, syncAutoShoulders } from './autoShoulder';
 import { syncAutoRadii } from './autoRadius';
 import {
   findNode as findNodeIn,
@@ -196,8 +196,10 @@ export function updateNode(tree: RocketTree, id: string, patch: Partial<Componen
         const out = nodes.slice();
         const patched = { ...n, ...patch };
         // A shoulder length set from or back to 0 brings its wall, radius and
-        // cap with it, as desktop's setter does.
-        const next = { ...patched, ...shoulderSeed(n, patched, patch, tree.components) };
+        // cap with it, as desktop's setter does, and an end set narrower cuts
+        // its shoulder back to it.
+        const seeded = { ...patched, ...shoulderSeed(n, patched, patch, tree.components) };
+        const next = { ...seeded, ...endShoulderClamp(n, seeded, patch) };
         if (n['preset'] && breaksPreset(n, next, patch)) delete next['preset'];
         out[i] = next;
         return out;
@@ -598,15 +600,19 @@ const DEFAULT_LINE_COUNT = 6;
  * `syncAutoRadii` then resizes it to the bore at the volume the pair packs.
  */
 function parachutePatch(p: ParachuteComponent): Partial<ComponentNode> {
-  const packedLength = p.packedLength ?? null;
-  const packedDiameter = p.packedDiameter ?? null;
+  // Parachute.loadFromPreset takes each of these only when it is above 0 and
+  // falls back to its default otherwise (Parachute.java:233-282).
+  const stated = (v: number | null | undefined): number | null => (typeof v === 'number' && v > 0 ? v : null);
+  const packedLength = stated(p.packedLength);
+  const packedDiameter = stated(p.packedDiameter);
+  const cd = stated(p.cd);
   return {
     name: p.desc ? p.desc : undefined,
     diameter: p.diameter,
-    cd: p.cd ?? DEFAULT_CHUTE_CD,
-    cdAuto: p.cd == null,
-    lineCount: p.lineCount ?? DEFAULT_LINE_COUNT,
-    lineLength: p.lineLength ?? KERNEL_DEFAULTS.parachute.lineLength,
+    cd: cd ?? DEFAULT_CHUTE_CD,
+    cdAuto: cd == null,
+    lineCount: stated(p.lineCount) ?? DEFAULT_LINE_COUNT,
+    lineLength: stated(p.lineLength) ?? KERNEL_DEFAULTS.parachute.lineLength,
     lineLengthAuto: false,
     surfaceMaterialName: p.material ?? KERNEL_MATERIALS.surface.name,
     surfaceDensity: p.materialDensity ?? KERNEL_MATERIALS.surface.density,

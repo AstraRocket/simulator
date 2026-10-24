@@ -50,7 +50,7 @@ function CombineChart({
         width="100%"
         className="mt-2 block max-w-2xl"
         role="img"
-        aria-label={t('dash.combineChartAria', { names: fmtList(usable.map((s) => s.m.designation)) })}
+        aria-label={t('dash.combineChartAria', { names: fmtList(usable.map((s) => s.m.code || s.m.designation)) })}
       >
         <defs>
           <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
@@ -68,7 +68,7 @@ function CombineChart({
             Y={Y}
             color={s.color}
             strokeWidth={1.5}
-            label={labelDirect ? s.m.designation : undefined}
+            label={labelDirect ? s.m.code || s.m.designation : undefined}
             labelLift={4}
             labelClass="text-[8px] font-semibold"
           />
@@ -137,7 +137,10 @@ export function MotorCombinePane({ motors }: { motors: CatalogMotor[] }) {
         <SpecItem label={t('motorDlg.totalImpulse')} value={inUserUnit(u, 'impulse', combined.totalImpulse, 1, 1)} />
         <SpecItem label={t('motorDlg.maxThrust')} value={inUserUnit(u, 'force', combined.peakThrust, 1, 1)} />
         <SpecItem label={t('motorDlg.avgThrust')} value={inUserUnit(u, 'force', kernel?.averageThrust ?? null, 1, 1)} />
-        <SpecItem label={t('motorDlg.burnTime')} value={withFixedUnit(kernel?.burnTime ?? null, 's', 2)} />
+        <SpecItem
+          label={t('motorDlg.burnTime')}
+          value={withFixedUnit(kernel?.burnTime ?? null, t('units.second'), 2)}
+        />
       </dl>
       <p className="mt-2 text-[11px] leading-snug text-ink-faint">{t('dash.combineNote')}</p>
     </div>

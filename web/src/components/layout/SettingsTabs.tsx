@@ -497,10 +497,8 @@ function LaunchDefaults({ launch, onSave }: { launch: CompleteLaunch; onSave: (l
         // From the pending draft, not the rendered one: two patches can land
         // before the next render.
         const from = pending.current ?? shown;
-        const next = withRequiredFrom(
-          { ...from, ...launchPatchFor(patch, from, 'defaults') },
-          DEFAULT_SETTINGS.launchDefaults,
-        );
+        // A required field left blank keeps the value it had.
+        const next = withRequiredFrom({ ...from, ...launchPatchFor(patch, from, 'defaults') }, from);
         pending.current = next;
         setDraft(next);
       }}

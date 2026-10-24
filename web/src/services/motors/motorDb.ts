@@ -6,7 +6,8 @@
 //
 // The catalog is a runtime file fetched through remoteData.ts and memoized for
 // the session. There is no localStorage mirror of it: a catalog-with-curves is
-// too large for that budget, and the bundle is always available offline.
+// too large for that budget. Offline it is the copy the service worker cached
+// (warmCatalogs.ts); a data-host build leaves it out of the precache.
 import { getMotorStore, type CustomMotor } from './motorStore';
 import { MIN_CURVE_SAMPLES } from './motorCurve';
 import { parseEng, totalImpulse } from './engParser';

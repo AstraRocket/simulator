@@ -123,8 +123,7 @@ export function fmtDegrees(u: Pick<Units, 'fmtSym' | 'sym'>, deg: number, degDig
  * writes the second, and a chip's reach stops at its own field.
  *
  * `fmt` is locale-aware (fmtNum) rather than units.ts's plain `fmtSi`, because
- * the decimal separator differs per language; fmtSi stays for export code,
- * which runs outside React and must not depend on the active i18n language.
+ * the decimal separator differs per language.
  */
 export function useUnits(): Units {
   const { settings } = useSettings();

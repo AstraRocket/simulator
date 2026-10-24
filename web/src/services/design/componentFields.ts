@@ -165,7 +165,7 @@ export const DEPLOY_EVENTS = ['apogee', 'ejection', 'altitude', 'launch', 'lower
 
 // What a mass component represents (MassComponent.MassComponentType). Naming
 // only, no physics, and the same strings the .ork carries.
-const MASS_COMPONENT_TYPES = [
+export const MASS_COMPONENT_TYPES = [
   'masscomponent',
   'altimeter',
   'flightcomputer',

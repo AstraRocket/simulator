@@ -1,6 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS, kernelLength } from '../../tree/kernelDefaults';
-import { bodyTubeRadius, num, str } from '../../tree/nodeProps';
+import { bodyTubeRadius, noseConeAftRadius, num, str } from '../../tree/nodeProps';
 import { tubeFinRadius } from '../../tree/tubefins';
 import { DISC_TYPES } from '../files/componentFormats';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
@@ -193,8 +193,8 @@ function partOf(node: ComponentNode | null, type: string): Part {
     Object.assign(
       p,
       n['flipped'] === true
-        ? { fore: r('aftRadius'), aft: 0, foreAuto: auto, aftAuto: false }
-        : { fore: 0, aft: r('aftRadius'), foreAuto: false, aftAuto: auto },
+        ? { fore: noseConeAftRadius(n), aft: 0, foreAuto: auto, aftAuto: false }
+        : { fore: 0, aft: noseConeAftRadius(n), foreAuto: false, aftAuto: auto },
     );
   } else if (type === 'transition') {
     Object.assign(p, {

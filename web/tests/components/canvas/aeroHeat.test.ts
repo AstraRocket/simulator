@@ -125,7 +125,13 @@ describe('niceName', () => {
     expect(niceName('[BodyTube.Upper Airframe]')).toBe('Upper Airframe');
   });
 
-  it('passes through a bare name', () => {
-    expect(niceName('NoseCone')).toBe('Nose Cone');
-  });
+  // A renamed part arrives as the kernel's getName(), exactly as the user typed
+  // it (OpenRocketEngine.getAeroSweep sends c.getName()).
+  it.each(['Fins 4.5in', 'Nose v2.1', 'My.Tube', 'BT-55 2.6in', 'PayloadBay', 'NoseCone'])(
+    'shows the typed name %s as typed',
+    (name) => {
+      expect(niceName(name)).toBe(name);
+      expect(niceName(name, (k) => k)).toBe(name);
+    },
+  );
 });

@@ -273,8 +273,10 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             status={t(railVerdictKey(railMargin))}
           />
         )}
-        {s.optimumDelay != null && <Stat card label={t('sim.optDelay')} value={fmtNum(s.optimumDelay, 1)} sub="s" />}
-        <Stat card label={t('sim.toApogee')} value={fmtNum(s.timeToApogee, 1)} sub="s" />
+        {s.optimumDelay != null && (
+          <Stat card label={t('sim.optDelay')} value={fmtNum(s.optimumDelay, 1)} sub={t('units.second')} />
+        )}
+        <Stat card label={t('sim.toApogee')} value={fmtNum(s.timeToApogee, 1)} sub={t('units.second')} />
         <Stat
           card
           label={t('sim.apogee')}
@@ -312,7 +314,7 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             sub={<UnitChip label={t('sim.landing')} quantity="velocity" scope={unitScope('sim', 'landing')} />}
           />
         )}
-        <Stat card label={t('sim.flightTime')} value={fmtNum(s.flightTime, 1)} sub="s" />
+        <Stat card label={t('sim.flightTime')} value={fmtNum(s.flightTime, 1)} sub={t('units.second')} />
         {Number.isFinite(s.groundHitVelocity) && downrange != null && (
           <Stat
             card

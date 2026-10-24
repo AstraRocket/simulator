@@ -186,6 +186,25 @@ export function startFromPosition(pos: ComponentPosition, childLen: number, pLen
  * parent's rocket-frame start (`startFromPosition`), the editor offers it, and
  * the part keeps its station when its parent moves, as it does in the desktop.
  */
+/**
+ * The parts whose `isAfter()` is false whatever their method: FinSet,
+ * InnerTube, LaunchLug, MassObject (recovery gear, shock cords, mass
+ * components) and TubeFinSet (FinSet.java:159, InnerTube.java:176,
+ * LaunchLug.java:134, MassObject.java:53, TubeFinSet.java:216).
+ */
+const NOT_AFTER: ReadonlySet<string> = new Set([
+  'trapezoidfinset',
+  'ellipticalfinset',
+  'freeformfinset',
+  'innertube',
+  'launchlug',
+  'parachute',
+  'streamer',
+  'shockcord',
+  'masscomponent',
+  'tubefinset',
+]);
+
 export function resolveFilePositions(tree: RocketTree): RocketTree {
   let changed = false;
 
@@ -200,12 +219,15 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
       const pos = positionOf(child);
       if (pos.method === 'after') {
         changed = true;
-        // AxialMethod.AFTER: the aft end of the previous sibling, or 0 for the
-        // first child, and the stored offset is ignored because the kernel
-        // forces it to zero (RocketComponent.setAfter). We use the previous
-        // sibling rather than the previous active one: configuration activity
-        // is not modeled here, and an inactive sibling is rare.
-        const resolved = prevEndRel;
+        // For the parts whose isAfter() is the method's own (RocketComponent):
+        // the aft end of the previous sibling, or 0 for the first child, with
+        // the stored offset ignored because the kernel forces it to zero
+        // (RocketComponent.setAfter). We use the previous sibling rather than
+        // the previous active one: configuration activity is not modeled
+        // here, and an inactive sibling is rare. The parts that override
+        // isAfter() to false take AFTER as a plain method instead: the
+        // parent's aft end plus the offset (AxialMethod.AFTER.getAsPosition).
+        const resolved = NOT_AFTER.has(String(child.type)) ? pLen + pos.offset : prevEndRel;
         next = {
           ...child,
           position: { method: 'top', offset: resolved, ork: { method: 'after', offset: pos.offset, resolved } },

@@ -258,6 +258,37 @@ describe('launchDefaults is validated per field', () => {
     expect(load({ windLevels: 'lots' }).windLevels).toBe(DEFAULT_SETTINGS.launchDefaults.windLevels);
   });
 
+  it('drops a gravity, humidity or wind reference the bridge cannot read', () => {
+    // OpenRocketEngine reads these with JsonLite.dbl and JsonLite.str, which
+    // throw on the wrong type, so one bad stored value would fail every run.
+    const bad = load({
+      gravityModel: 'lunar',
+      constantGravity: 0,
+      relativeHumidity: '50',
+      windAltitudeReference: 'sea',
+    });
+    for (const key of ['gravityModel', 'constantGravity', 'relativeHumidity', 'windAltitudeReference'])
+      expect(bad, key).not.toHaveProperty(key);
+    expect(load({ relativeHumidity: 1.5 })).not.toHaveProperty('relativeHumidity');
+    expect(load({ constantGravity: -9.8 })).not.toHaveProperty('constantGravity');
+  });
+
+  it('keeps a usable gravity, humidity and wind reference', () => {
+    const good = load({
+      gravityModel: 'constant',
+      constantGravity: 9.7,
+      relativeHumidity: 0.5,
+      windAltitudeReference: 'agl',
+    });
+    expect(good).toMatchObject({
+      gravityModel: 'constant',
+      constantGravity: 9.7,
+      relativeHumidity: 0.5,
+      windAltitudeReference: 'agl',
+    });
+    expect(load({ relativeHumidity: null }).relativeHumidity).toBeNull();
+  });
+
   it('keeps a profile held under the Average model, held to the same rule as a flown one', () => {
     const kept = [
       { altitudeM: 0, speed: 3, directionDeg: 90, stddev: 0.3 },

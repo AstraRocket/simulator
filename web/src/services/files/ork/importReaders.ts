@@ -9,9 +9,11 @@ import { clampCount, finiteNum } from './numbers';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_POINTS, MAX_LINE_COUNT, checkDepth, countComponent } from './importLimits';
 import {
   autoRadiusTag,
+  clusterTag,
   crossSectionTag,
   finCountTag,
   isDrogueTag,
+  massComponentTypeTag,
   nonNegTag,
   numTag,
   readAirfoil,
@@ -255,6 +257,23 @@ const readTubeFinset: NodeReader = (ctx, el) => {
   return n;
 };
 
+/**
+ * `RadiusMethod` and `AngleMethod` by the token desktop writes (the enum name
+ * lower-cased, `mirror_xy` with or without its underscore), each to the name
+ * the bridge builds (`ComponentFactory.radiusMethodOf`, `angleMethodOf`).
+ * Anything else reads as relative, desktop's default.
+ */
+const RADIUS_METHODS: ReadonlyMap<string, string> = new Map(
+  ['relative', 'free', 'surface', 'coaxial'].map((m) => [m, m]),
+);
+const ANGLE_METHODS: ReadonlyMap<string, string> = new Map([
+  ['relative', 'relative'],
+  ['fixed', 'fixed'],
+  ['mirrorxy', 'mirror_xy'],
+]);
+const methodOf = (el: Element, methods: ReadonlyMap<string, string>): string =>
+  methods.get((el.getAttribute('method') ?? '').trim().toLowerCase().replace(/_/g, '')) ?? 'relative';
+
 const readInnertube: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'innertube', true);
   const it = COMPONENT_DEFAULTS.innertube;
@@ -262,7 +281,7 @@ const readInnertube: NodeReader = (ctx, el) => {
   n['outerRadius'] = nonNegTag(el, 'outerradius', it.outerRadius);
   n['thickness'] = nonNegTag(el, 'thickness', it.thickness);
   // Cluster (desktop stores rotation in degrees; we keep radians).
-  const cluster = text(el, ':scope > clusterconfiguration');
+  const cluster = clusterTag(el, n, ctx.notes);
   if (cluster && cluster !== 'single') {
     n['cluster'] = cluster;
     n['clusterScale'] = nonNegTag(el, 'clusterscale', 1);
@@ -468,7 +487,7 @@ const readMasscomponent: NodeReader = (ctx, el) => {
   if (!readAutoPackedRadius(el, n)) n['radius'] = nonNegTag(el, 'packedradius', mc.radius);
   // Preserve-through: what kind of mass this is (altimeter, payload…).
   // No mass/CG effect, but the desktop shows it and users set it there.
-  const mct = text(el, ':scope > masscomponenttype');
+  const mct = massComponentTypeTag(el, n, ctx.notes);
   if (mct && mct !== 'masscomponent') n['massComponentType'] = mct;
   // Off-axis placement: <radialposition> (m) + <radialdirection> (deg → rad),
   // only kept when non-zero so a centered mass stays clean.
@@ -493,14 +512,13 @@ const readAssembly =
     const radEl = el.querySelector(':scope > radiusoffset');
     if (radEl) {
       n['radiusOffset'] = finiteNum(radEl.textContent) ?? 0; // meters, no conversion
-      n['radiusMethod'] = (radEl.getAttribute('method') ?? 'relative').toLowerCase() === 'free' ? 'free' : 'relative';
+      n['radiusMethod'] = methodOf(radEl, RADIUS_METHODS);
     }
     const angEl = el.querySelector(':scope > angleoffset');
     if (angEl) {
       n['angleOffset'] = ((finiteNum(angEl.textContent) ?? 0) * Math.PI) / 180; // deg → rad, like cant
       if (asmType === 'parallelstage') {
-        n['angleMethod'] =
-          (angEl.getAttribute('method') ?? 'relative').toLowerCase() === 'fixed' ? 'fixed' : 'relative';
+        n['angleMethod'] = methodOf(angEl, ANGLE_METHODS);
       }
     }
     if (asmType === 'parallelstage') {

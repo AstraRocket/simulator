@@ -5,6 +5,7 @@ import { lerpAt } from '../../services/flight/interpolate';
 import {
   buildLinePath,
   chartDomain,
+  machTickDigits,
   machTicks,
   nearestSampleIndex,
   stackedBands,
@@ -306,7 +307,7 @@ const ChartBody = memo(function ChartBody({
           ))}
       {xTicks.map((m, i) => (
         <text key={i} x={X(m)} y={CHART_H - 5} textAnchor="middle" className="fill-ink-faint text-[9px] tabular-nums">
-          {i === 0 ? `M ${fmtNum(m, machDecimals)}` : fmtNum(m, machDecimals)}
+          {i === 0 ? `M ${fmtNum(m, machTickDigits(m, machDecimals))}` : fmtNum(m, machTickDigits(m, machDecimals))}
         </text>
       ))}
     </>

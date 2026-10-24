@@ -81,15 +81,27 @@ export function SimEditor() {
    * Run is sticky at all: the fields it is warning about are further down the
    * scroll than the warning would otherwise reach.
    */
-  const banner = multi ? (
+  //
+  // Always mounted, empty and out of sight with one target: a live region
+  // created together with its text is not announced (see UpdateToast), and
+  // ticking a second row is exactly when a screen reader has to hear this.
+  const banner = (
     <p
       role="status"
-      className="rounded-lg border border-accent-500/30 bg-accent-950/40 px-2 py-1.5 text-xs leading-snug text-accent-200"
+      className={
+        multi
+          ? 'rounded-lg border border-accent-500/30 bg-accent-950/40 px-2 py-1.5 text-xs leading-snug text-accent-200'
+          : 'sr-only'
+      }
     >
-      {t('sims.editingMany', { count: targets.length })}{' '}
-      <span className="text-accent-300">{t('sims.editingManyHint')}</span>
+      {multi && (
+        <>
+          {t('sims.editingMany', { count: targets.length })}{' '}
+          <span className="text-accent-300">{t('sims.editingManyHint')}</span>
+        </>
+      )}
     </p>
-  ) : null;
+  );
 
   return (
     <div className="relative p-3">
@@ -316,7 +328,7 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
           aria-label={t('settings.timeStepScale')}
           value={nearestStepIndex(eff.timeStep)}
           // The step the thumb stands for, not its index among the stops.
-          aria-valuetext={`${fmtUpTo(TIME_STEPS[nearestStepIndex(eff.timeStep)]!, 4)} s`}
+          aria-valuetext={`${fmtUpTo(TIME_STEPS[nearestStepIndex(eff.timeStep)]!, 4)} ${t('units.second')}`}
           onChange={(e) => setSimPref('timeStep', TIME_STEPS[Number(e.target.value)]!)}
           // Pointer, not mouse: a touch drag sends no mouseup, and an undo entry
           // left open would merge the next unrelated edit into this one.

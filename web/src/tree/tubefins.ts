@@ -8,7 +8,9 @@ import { countOf, numOpt } from './nodeProps';
  * "auto" rule applies: N tubes just touching each other around the body:
  * r = R·sin(π/N) / (1 − sin(π/N)) (TubeFinSet.getOuterRadius). A stored radius
  * is what the bridge passes to `TubeFinSet.setOuterRadius`, which keeps
- * `max(r, 0)` and turns the automatic size off, so a stored zero is a zero.
+ * `max(r, 0)` and turns the automatic size off, so a stored zero is a zero;
+ * with `outerRadiusAuto` beside it the bridge turns the automatic size back
+ * on, and the stored radius does not fly.
  */
 export function tubeFinRadius(node: ComponentNode, bodyRadius: number): number {
   // `numOpt`, not a hand-rolled typeof check: it carries the Number.isFinite

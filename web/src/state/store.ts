@@ -204,8 +204,6 @@ export interface WorkspaceState extends ViewSlice, FileSlice {
    * there would never be raised again.
    */
   storageWarning: string | null;
-  /** The save failure's kind when one stands, else the standing notice's. */
-  storageWarningKind: StorageWarningKind | null;
   storageNotices: { standing: StorageNotice | null; save: StorageNotice | null };
   selectedId: string | null;
   /**
@@ -686,12 +684,11 @@ type StorageNotice = { msg: string; kind: StorageWarningKind | null };
 /** The shown storage warning for these slots: the standing notice, then the save failure. */
 function storageWarningOf(
   notices: WorkspaceState['storageNotices'],
-): Pick<WorkspaceState, 'storageWarning' | 'storageWarningKind' | 'storageNotices'> {
+): Pick<WorkspaceState, 'storageWarning' | 'storageNotices'> {
   const shown = [notices.standing, notices.save].filter((n): n is StorageNotice => n !== null);
   return {
     storageNotices: notices,
     storageWarning: shown.length ? shown.map((n) => n.msg).join(' ') : null,
-    storageWarningKind: notices.save?.kind ?? notices.standing?.kind ?? null,
   };
 }
 
@@ -1016,7 +1013,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     err: null,
     buildErr: null,
     storageWarning: null,
-    storageWarningKind: null,
     storageNotices: { standing: null, save: null },
     lastSavedAt: null,
     quietReplace: 0,

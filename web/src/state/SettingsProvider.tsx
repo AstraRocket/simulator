@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode, useEffect } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode, useEffect, useRef } from 'react';
 import {
   DEFAULT_SETTINGS,
   isSettingsStorageKey,
@@ -67,13 +67,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // whole object is rewritten, so the keys this build does not know (a newer
   // build's) are written back as storage holds them.
   //
+  // A change storage refused (quota) is still on screen, so it is kept here and
+  // laid over storage again by the next change, which would otherwise read the
+  // stored copy without it and silently take it back. A write that lands
+  // carries it, and it is dropped.
+  //
   // Stable identities, so a consumer can list `update` in an effect's deps
   // (or leave it out) without the effect re-running on every settings change.
+  const unsaved = useRef<Partial<Settings>>({});
   const update = useCallback(
     (patch: Partial<Settings>) =>
       setSettings((s) => {
-        const next = { ...(loadStoredSettings() ?? s), ...patch };
-        if (!saveSettings({ ...unknownStoredSettings(), ...next })) reportRefused();
+        const next = { ...(loadStoredSettings() ?? s), ...unsaved.current, ...patch };
+        if (saveSettings({ ...unknownStoredSettings(), ...next })) unsaved.current = {};
+        else {
+          unsaved.current = { ...unsaved.current, ...patch };
+          reportRefused();
+        }
         return next;
       }),
     [],

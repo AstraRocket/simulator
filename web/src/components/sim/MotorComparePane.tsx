@@ -50,7 +50,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
             width="100%"
             className="mt-2 block max-w-xl"
             role="img"
-            aria-label={t('dash.compareChartAria', { names: fmtList(series.map((s) => s.m.designation)) })}
+            aria-label={t('dash.compareChartAria', { names: fmtList(series.map((s) => s.m.code || s.m.designation)) })}
           >
             <ChartAxes dims={dims} tMax={tMax} fMax={fMax} X={X} Y={Y} fScale={u.factor('force')} />
             {/* jscpd:ignore-start -- the combine chart's series props, at this chart's own weights and label sizes */}
@@ -62,7 +62,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
                 Y={Y}
                 color={s.color}
                 strokeWidth={2}
-                label={labelDirect ? s.m.designation : undefined}
+                label={labelDirect ? s.m.code || s.m.designation : undefined}
                 labelLift={5}
                 labelClass="text-[9px] font-semibold"
               />

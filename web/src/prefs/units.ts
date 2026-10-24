@@ -146,11 +146,11 @@ export const UNITS: Record<Quantity, UnitDef[]> = {
   ],
   force: [
     { symbol: 'N', toSI: 1 },
-    { symbol: 'lbf', toSI: 4.4482216 },
+    { symbol: 'lbf', toSI: 4.44822162 },
   ],
   impulse: [
     { symbol: 'N·s', toSI: 1 },
-    { symbol: 'lbf·s', toSI: 4.4482216 },
+    { symbol: 'lbf·s', toSI: 4.44822162 },
   ],
   // Desktop UnitGroup.UNITS_ROLL, unit for unit; SI is rad/s.
   rollRate: [
@@ -328,7 +328,7 @@ export function niceStep(x: number): number {
  * Format an SI value in the selected unit. With `digits`, shows up to that many
  * decimals (trailing zeros stripped); without, a magnitude ladder. Plain ASCII
  * digits; locale-aware display goes through i18n/format's `fmtNum` instead
- * (see prefs/useUnits), so this stays usable from non-React export code.
+ * (see prefs/useUnits).
  */
 export function fmtSi(quantity: Quantity, symbol: string, si: number, digits?: number): string {
   if (si === null || si === undefined || !Number.isFinite(si)) return NO_VALUE;

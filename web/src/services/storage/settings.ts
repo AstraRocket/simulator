@@ -737,6 +737,24 @@ export function settingsFrom(value: unknown): Settings {
       if (l.geodetic !== undefined && !['flat', 'spherical', 'wgs84'].includes(l.geodetic)) {
         l.geodetic = DEFAULT_SETTINGS.launchDefaults.geodetic;
       }
+      // The bridge reads these with typed getters that throw on the wrong type
+      // (JsonLite.dbl, JsonLite.str), and a constant gravity of 0 or less would
+      // fly every run without one. Absent stays absent, as the kernel default.
+      if (l.gravityModel !== undefined && !['wgs', 'constant'].includes(l.gravityModel)) delete l.gravityModel;
+      if (l.constantGravity !== undefined && !(Number.isFinite(l.constantGravity) && l.constantGravity > 0)) {
+        delete l.constantGravity;
+      }
+      const humidity = l.relativeHumidity;
+      if (
+        humidity !== undefined &&
+        humidity !== null &&
+        !(Number.isFinite(humidity) && humidity >= 0 && humidity <= 1)
+      ) {
+        delete l.relativeHumidity;
+      }
+      if (l.windAltitudeReference !== undefined && !['msl', 'agl'].includes(l.windAltitudeReference)) {
+        delete l.windAltitudeReference;
+      }
       // Elements too, not just the array. Everything in this block
       // reaches simConditions() and then simulate() for each new simulation,
       // and `Array.isArray` alone would let a stored

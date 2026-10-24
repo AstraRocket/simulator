@@ -41,7 +41,7 @@ describe('SaveStatus', () => {
   beforeEach(() => {
     stubWidth(true);
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    set({ lastSavedAt: null, storageWarning: null, storageWarningKind: null });
+    set({ lastSavedAt: null, storageWarning: null });
   });
   afterEach(() => vi.useRealTimers());
 
@@ -88,7 +88,7 @@ describe('SaveStatus', () => {
    */
   it('stays quiet while the storage banner is up', () => {
     renderWithProviders(<SaveStatus />);
-    set({ lastSavedAt: Date.now(), storageWarning: 'Browser storage is full.', storageWarningKind: 'full' });
+    set({ lastSavedAt: Date.now(), storageWarning: 'Browser storage is full.' });
     expect(screen.queryByRole('status')).toBeNull();
   });
 });

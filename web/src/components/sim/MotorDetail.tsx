@@ -175,8 +175,8 @@ export function MotorDetail({
         <SpecItem label={t('motorDlg.initialThrust') + '*'} value={q('force', init, 1, 1)} />
         <SpecItem label={t('motorDlg.maxThrust')} value={q('force', max, 1, 1)} />
         <SpecItem label={t('motorDlg.totalImpulse')} value={q('impulse', motor.impulse, 1, 1)} />
-        <SpecItem label={t('motorDlg.burnTime')} value={g(motor.burn, 's', 2)} />
-        <SpecItem label={t('motorDlg.isp') + '*'} value={g(isp, 's', 0)} />
+        <SpecItem label={t('motorDlg.burnTime')} value={g(motor.burn, t('units.second'), 2)} />
+        <SpecItem label={t('motorDlg.isp') + '*'} value={g(isp, t('units.second'), 0)} />
         <SpecItem
           label={t('motorDlg.massFraction') + '*'}
           value={Number.isFinite(massFrac) ? `${fmtNum(massFrac, 0)}%` : NO_VALUE}

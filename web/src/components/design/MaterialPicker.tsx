@@ -119,7 +119,8 @@ export function MaterialPicker({
   // reloaded on the library's change signal.
   const libraryVersion = useSyncExternalStore(onCustomMaterialsChanged, customMaterialsVersion, customMaterialsVersion);
   // The add's store round trip finishes after an await, and selecting a
-  // different component unmounts this picker in between.
+  // different component unmounts this picker in between (the property panel
+  // is keyed on the part).
   const { observe } = useLatest();
   const u = useUnits();
   const quantity = QUANTITY[type];
