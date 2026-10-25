@@ -9,7 +9,7 @@ import { LookMaterial, surfacesOf } from './LookMaterial';
 import { usePieces } from './usePieces';
 import { mergePalette } from '../../services/design/partColors';
 import { useSettings } from '../../state/SettingsProvider';
-import { fmtNum } from '../../i18n/format';
+import { withFixedUnit } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import { EVENT_LABEL } from '../../services/flight/simReport';
 import {
@@ -30,6 +30,9 @@ import { useGroundLayer } from '../common/map/useTileVerdict';
 import { MIN_EXTENT_M } from '../../services/flight/groundTrack';
 import { ColorInput } from '../common/ColorInput';
 import { useSceneColors } from './sceneColors';
+import { PLAYBACK_SPEEDS, playbackLabel } from '../../services/storage/settings';
+import { ToggleButton } from '../common/ToggleButton';
+import { smallButton } from '../common/smallButton';
 
 /**
  * 3D flight path. Draws the real trajectory (Px/Py drift × altitude) as a
@@ -53,7 +56,6 @@ const MODEL_LEN = 1.6; // scene units the rocket model is scaled to; kept small 
 const PLAY_SECONDS = 8; // wall-clock length of a full 1× playback (time-based, so boost isn't slow)
 /** How often the frame loop hands React a progress sample for the HUD/slider. */
 const HUD_INTERVAL_MS = 100;
-const SPEEDS = [0.25, 0.5, 1, 2, 4];
 
 /**
  * How far past the flight's own reach the ground map extends.
@@ -328,7 +330,7 @@ export function FlightPath3D({
       <div className="pointer-events-none absolute left-3 top-3 flex gap-3 rounded-lg bg-surface/80 px-3 py-2 text-xs ring-1 ring-line/10">
         <Hud label={t('flight.altitude')} value={`${u.fmtSym('distance', alts[idx] ?? 0)}`} />
         <Hud label={t('flight.velocity')} value={`${u.fmtSym('velocity', vels[idx] ?? 0)}`} />
-        <Hud label={t('flight.time')} value={`${fmtNum(nowT, 1)} ${t('units.second')}`} />
+        <Hud label={t('flight.time')} value={withFixedUnit(nowT, t('units.second'))} />
       </div>
       <div className="pointer-events-none absolute right-3 top-3 flex flex-col gap-1 rounded-lg bg-surface/80 px-2 py-1.5 text-[10px] ring-1 ring-line/10">
         <Legend color={phase.boost} label={t('flight.boost')} onChange={setBoost} />
@@ -356,7 +358,7 @@ export function FlightPath3D({
         <button
           onClick={handlePlay}
           aria-label={countdown !== null ? t('flight.cancel') : playing ? t('flight.pause') : t('flight.play')}
-          className="shrink-0 rounded-md bg-raised px-2 py-1 text-xs text-ink ring-1 ring-line/10 hover:bg-elevated"
+          className={smallButton('xs', 'ink', 'shrink-0')}
         >
           {countdown !== null ? '✕' : playing ? '⏸' : '▶'}
         </button>
@@ -364,27 +366,27 @@ export function FlightPath3D({
           onClick={handleReset}
           title={t('flight.reset')}
           aria-label={t('flight.reset')}
-          className="shrink-0 rounded-md bg-raised px-2 py-1 text-xs text-ink ring-1 ring-line/10 hover:bg-elevated"
+          className={smallButton('xs', 'ink', 'shrink-0')}
         >
           ⟲
         </button>
-        <button
+        <ToggleButton
+          active={loop}
           onClick={() => setLoop((l) => !l)}
           title={t('flight.loop')}
-          aria-label={t('flight.loop')}
-          aria-pressed={loop}
-          className={`shrink-0 rounded-md px-2 py-1 text-xs ring-1 ring-line/10 ${loop ? 'bg-accent-600 text-on-accent' : 'bg-raised text-ink hover:bg-elevated'}`}
+          label={t('flight.loop')}
+          className="shrink-0 rounded-md px-2 py-1 text-xs ring-1 ring-line/10"
         >
           ⟳
-        </button>
-        <button
+        </ToggleButton>
+        <ToggleButton
+          active={follow}
           onClick={() => setFollow((f) => !f)}
           title={t('flight.follow')}
-          aria-pressed={follow}
-          className={`shrink-0 rounded-md px-2 py-1 text-xs ring-1 ring-line/10 ${follow ? 'bg-accent-600 text-on-accent' : 'bg-raised text-ink hover:bg-elevated'}`}
+          className="shrink-0 rounded-md px-2 py-1 text-xs ring-1 ring-line/10"
         >
           ⊙ {t('flight.follow')}
-        </button>
+        </ToggleButton>
         <input
           type="range"
           min={0}
@@ -393,7 +395,7 @@ export function FlightPath3D({
           value={progress}
           aria-label={t('flight.time')}
           // The slider runs 0 to 1; what it stands for is the flight time.
-          aria-valuetext={`${fmtNum(nowT, 1)} ${t('units.second')}`}
+          aria-valuetext={withFixedUnit(nowT, t('units.second'))}
           onChange={(e) => {
             setPlaying(false);
             seek(parseFloat(e.target.value));
@@ -406,9 +408,9 @@ export function FlightPath3D({
           onChange={(e) => setSpeed(parseFloat(e.target.value))}
           className="shrink-0 rounded-md bg-raised px-1.5 py-1 text-xs text-ink ring-1 ring-line/10"
         >
-          {SPEEDS.map((s) => (
+          {PLAYBACK_SPEEDS.map((s) => (
             <option key={s} value={s}>
-              {s === 0.25 ? '¼×' : s === 0.5 ? '½×' : `${s}×`}
+              {playbackLabel(s)}
             </option>
           ))}
         </select>

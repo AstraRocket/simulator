@@ -37,11 +37,6 @@ const TUBE_WALL = {
   tubecoupler: COMPONENT_DEFAULTS.tubecoupler.thickness,
 } as const;
 
-/** The default wall for a tube type, or the inner tube's for any other (a mount). */
-export function tubeWall(type: unknown): number {
-  return type === 'bodytube' || type === 'tubecoupler' ? TUBE_WALL[type] : TUBE_WALL.innertube;
-}
-
 export interface Tube {
   outerR: number;
   innerR: number;

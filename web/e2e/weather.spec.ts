@@ -117,7 +117,7 @@ test('the forecast shows cloud cover and visibility for the hour, without applyi
   const dialog = page.getByRole('dialog', { name: /weather/i });
   await expect(dialog.getByText('Clouds and visibility (forecast, not applied)')).toBeVisible();
   const row = (name: string) => dialog.locator('dl > div').filter({ hasText: name });
-  await expect(row('Low cloud cover')).toContainText('10 %');
+  await expect(row('Low cloud cover')).toContainText('10%');
   await expect(row('Visibility')).toContainText(/24\.1 km|15\.0 mi/);
   // Nothing to tick: the readouts are information, not something a flight reads.
   await expect(dialog.getByRole('checkbox', { name: /cloud|visibility/i })).toHaveCount(0);

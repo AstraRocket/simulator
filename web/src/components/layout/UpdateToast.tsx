@@ -12,6 +12,7 @@ import {
 import { workInProgress } from '../../state/workInProgress';
 import { useUpdateStore } from '../../state/updateStore';
 import { waitingIsNewer } from '../../services/app/swBuild';
+import { Banner } from '../common/Banner';
 
 /**
  * "A new version is available, reload?" for the service worker.
@@ -280,7 +281,9 @@ function UpdateToastBody({
   // button that looks untouched in that moment reads as one that did nothing.
   const [applying, setApplying] = useState(false);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-accent-500/40 bg-accent-900/60 px-4 py-2 text-sm text-accent-50">
+    // The dismiss ✕ goes once Reload is pressed, with Later: there is nothing
+    // left to put off.
+    <Banner tone="accent" onDismiss={applying ? undefined : onDismiss} dismissLabel={t('update.dismiss')}>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{t('update.available')}</p>
         {/* Which build you are on. The waiting worker does not tell us its own
@@ -302,25 +305,15 @@ function UpdateToastBody({
         )}
         {applying ? t('update.reloading') : t('update.reload')}
       </button>
-      {/* Gone once Reload is pressed: there is nothing left to put off. */}
       {!applying && (
-        <>
-          <button
-            onClick={onLater}
-            title={t('update.laterTitle', { hours: Math.round(UPDATE_SNOOZE_MS / 3_600_000) })}
-            className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-accent-200 hover:text-on-accent"
-          >
-            {t('update.later')}
-          </button>
-          <button
-            onClick={onDismiss}
-            className="shrink-0 rounded-lg px-1 py-1.5 text-accent-300 hover:text-on-accent"
-            aria-label={t('update.dismiss')}
-          >
-            ✕
-          </button>
-        </>
+        <button
+          onClick={onLater}
+          title={t('update.laterTitle', { hours: Math.round(UPDATE_SNOOZE_MS / 3_600_000) })}
+          className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-accent-200 hover:text-on-accent"
+        >
+          {t('update.later')}
+        </button>
       )}
-    </div>
+    </Banner>
   );
 }

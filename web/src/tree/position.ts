@@ -175,6 +175,61 @@ export function startFromPosition(pos: ComponentPosition, childLen: number, pLen
   }
 }
 
+/** A stage laid out by `layStages`: where it starts, how long its chain is, and what `place` returned per member. */
+export interface LaidStage<T> {
+  stage: ComponentNode;
+  start: number;
+  length: number;
+  placed: T[];
+}
+
+/**
+ * Every stage laid out nose to tail, the one walk the layout readers share.
+ *
+ * Stages flatten into one chain whose members stack: their own position field
+ * is not used for layout. `place` gets each stage member with its rocket-frame
+ * start and length. The stage's length is its chain members (`partLength`: a
+ * member with no length key is laid out at the kernel's length for its type).
+ *
+ * The kernel's stage holds body components only (`AxialStage.isCompatible`),
+ * which are the chain members, so a stage child that is not one comes only
+ * from a tree the kernel would refuse. Such a child takes no axial space in the
+ * chain; it is placed by its own position against the stage, so the layout
+ * stays finite while the build reports the problem.
+ */
+export function layStages<T>(
+  tree: RocketTree,
+  place: (n: ComponentNode, start: number, length: number) => T,
+): LaidStage<T>[] {
+  let x = 0;
+  return tree.components.map((stage) => {
+    const kids = stage.type === 'stage' ? (stage.children ?? []) : [stage];
+    const start = x;
+    const length = kids.reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
+    const placed = kids.map((n) => {
+      if (isChainType(n.type)) {
+        const len = partLength(n);
+        const out = place(n, x, len);
+        x += len;
+        return out;
+      }
+      const own = axialLength(n);
+      return place(n, axialStart(n, own, start, length), own);
+    });
+    return { stage, start, length, placed };
+  });
+}
+
+/**
+ * A pod set's or booster's airframe parts stack from its front whatever their
+ * method, as the kernel lays them out (`SymmetricComponent.isAfter()` is always
+ * true); a stated TOP, MIDDLE or BOTTOM offset is ignored. Read from the kernel
+ * in `podLayout.kernel.test.ts`.
+ */
+export function stacksInParent(parent: ComponentNode, child: ComponentNode): boolean {
+  return isAssembly(parent.type) && isChainType(child.type);
+}
+
 /**
  * Rewrites every 'after' position, which only file importers produce, into the
  * equivalent parent-relative 'top' offset.
@@ -212,11 +267,31 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
     if (!parent.children?.length) return parent;
     // Aft end of the previous sibling, in the parent's frame: what 'after' means.
     let prevEndRel = 0;
+    // Where the next airframe part of a pod set or booster starts: they stack.
+    let chained = 0;
     const children = parent.children.map((child) => {
       let next = child;
       // Validated, not cast: a file can carry a string offset or a method the
       // union does not know, and neither must reach the arithmetic below as-is.
       const pos = positionOf(child);
+      if (stacksInParent(parent, child)) {
+        const len = partLength(child);
+        const relStart = chained;
+        chained += len;
+        prevEndRel = relStart + len;
+        if (pos.method === 'after') {
+          changed = true;
+          next = {
+            ...child,
+            position: {
+              method: 'top',
+              offset: relStart,
+              ork: { method: 'after', offset: pos.offset, resolved: relStart },
+            },
+          };
+        }
+        return fixChildren(next, pStart + relStart, len);
+      }
       if (pos.method === 'after') {
         changed = true;
         // For the parts whose isAfter() is the method's own (RocketComponent):
@@ -241,37 +316,12 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
     return { ...parent, children };
   };
 
-  // Stages flatten into one nose-to-tail chain; chain members stack
-  // sequentially (their own position field is not used for layout).
-  //
-  // The kernel's stage holds body components only (`AxialStage.isCompatible`),
-  // which are the chain members, so a stage child that is not one comes only
-  // from a tree the kernel would refuse. Such a child does not consume axial
-  // space in the chain; it is walked with its own extent, anchored where its
-  // position puts it in the stage, so the layout stays finite while the build
-  // reports the problem. Walking it with a parent length of 0 would make
-  // `startFromPosition` resolve a `middle` child to -childLen/2, forward of the
-  // assembly's own nose, so an `after` sibling would chain off a wrong station.
-  let x = 0;
-  const components = tree.components.map((stage) => {
-    const kids = stage.type === 'stage' ? (stage.children ?? []) : [stage];
-    const stageStart = x;
-    // The stage's axial extent is its chain members; that is what an off-axis
-    // child's own `middle`/`bottom` position is measured against.
-    // partLength: a member with no length key is laid out at the kernel's
-    // length for its type, the length it is drawn and flown at.
-    const stageLen = kids.reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
-    const fixedKids = kids.map((n) => {
-      if (isChainType(n.type)) {
-        const len = partLength(n);
-        const fixed = fixChildren(n, x, len);
-        x += len;
-        return fixed;
-      }
-      const own = axialLength(n);
-      return fixChildren(n, axialStart(n, own, stageStart, stageLen), own);
-    });
-    return stage.type === 'stage' ? { ...stage, children: fixedKids } : fixedKids[0]!;
-  });
+  // A stage child that is not a chain member is walked with its own extent
+  // (layStages): walked with a parent length of 0, `startFromPosition` would
+  // resolve a `middle` child to -childLen/2, forward of the assembly's own
+  // nose, so an `after` sibling would chain off a wrong station.
+  const components = layStages(tree, fixChildren).map(({ stage, placed }) =>
+    stage.type === 'stage' ? { ...stage, children: placed } : placed[0]!,
+  );
   return changed ? { ...tree, components } : tree;
 }

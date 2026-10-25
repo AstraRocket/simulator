@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { plainDecimal } from '../../../src/services/files/numberText';
+import { plainDecimal, plainSig } from '../../../src/services/files/numberText';
 
 /**
  * Locale-free decimal text for a file. Each writer picks its precision and what
@@ -20,5 +20,24 @@ describe('plainDecimal', () => {
   it('writes the caller chosen text for a non-finite value', () => {
     expect(plainDecimal(Number.NaN, 6)).toBe('');
     expect(plainDecimal(Number.POSITIVE_INFINITY, 6, '0')).toBe('0');
+  });
+});
+
+describe('plainSig', () => {
+  it('rounds to significant figures as a plain decimal, never an exponent', () => {
+    expect(plainSig(0.425, 4)).toBe('0.425');
+    expect(plainSig(24993, 4)).toBe('24990');
+    expect(plainSig(9.3e-6, 4)).toBe('0.0000093');
+    expect(plainSig(1.23456789e-7, 6)).toBe('0.000000123457');
+  });
+
+  it('writes zero and negative zero as 0', () => {
+    expect(plainSig(0, 4)).toBe('0');
+    expect(plainSig(-0, 6)).toBe('0');
+  });
+
+  it('writes the stand-in the caller gives for a non-finite value', () => {
+    expect(plainSig(Number.NaN, 4)).toBe('');
+    expect(plainSig(Infinity, 4, '0')).toBe('0');
   });
 });

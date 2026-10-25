@@ -11,9 +11,10 @@
 // reproduce OpenRocket's mass/CG. Densities are SI: bulk kg/m^3, surface
 // kg/m^2, line kg/m.
 
-/** Every material type, in one list: the type, the catalog check and the saved
- *  default-material keys all read it. */
-const MATERIAL_TYPES = ['bulk', 'surface', 'line'] as const;
+/** Every material type, in one list: the type, the catalog check, the stored
+ *  custom-list check, the material dialogs and the saved default-material keys
+ *  all read it. */
+export const MATERIAL_TYPES = ['bulk', 'surface', 'line'] as const;
 
 export type MaterialType = (typeof MATERIAL_TYPES)[number];
 

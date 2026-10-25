@@ -1,4 +1,5 @@
 import i18n from '../../i18n';
+import { baseLanguage } from '../../i18n/language';
 
 /**
  * Single source for the app's identity:
@@ -35,7 +36,7 @@ const withTrailingSlash = (url: string): string => url.replace(/\/*$/, '/');
  */
 export const DOC_LOCALES = new Set(['es']);
 export function helpUrlFor(language: string): string {
-  const lang = (language || '').split('-')[0]!.toLowerCase();
+  const lang = baseLanguage(language);
   if (!HELP_URL || !DOC_LOCALES.has(lang)) return HELP_URL;
   return `${withTrailingSlash(HELP_URL)}${lang}/`;
 }
@@ -71,7 +72,7 @@ export function docPageUrl(base: string, page: string): string {
  */
 export function localDocsUrlFor(language: string): string {
   const base = `${withTrailingSlash(import.meta.env.BASE_URL)}docs/`;
-  const lang = (language || '').split('-')[0]!.toLowerCase();
+  const lang = baseLanguage(language);
   return DOC_LOCALES.has(lang) ? `${base}${lang}/` : base;
 }
 

@@ -1,4 +1,13 @@
 import type { LaunchConditions, WindLevel } from '../design/orkTree';
+import { degToRad, radToDeg } from '../../prefs/units';
+
+/**
+ * The default compass heading (degrees) for the launch rod and the wind: due
+ * east, the kernel's own (`SimulationOptions` defaults `launchRodDirection`
+ * and `windDirection` to PI/2). Shared with the launch panel so every
+ * fallback heading reads the same value.
+ */
+export const DEFAULT_HEADING_DEG = 90;
 
 /**
  * What a multilevel wind profile has to be true of before the kernel will take
@@ -85,6 +94,35 @@ export interface PadWind {
  * Upstream's `SimulationOptions.getLaunchRodDirection` reads the launch
  * altitude whatever the reference, which in an AGL profile is a wind aloft.
  */
+/** A horizontal vector, east and north. */
+export interface WindVector {
+  east: number;
+  north: number;
+}
+
+/**
+ * A profile's vector at height `h`, interpolated linearly in its components
+ * between the two levels around it, so a backing or veering wind turns the
+ * short way without the angle wrapping; held at the end values outside the
+ * profile. `levels` must be sorted by altitude and not empty; `vec` reads one
+ * level as a vector, in whatever convention the caller flies.
+ */
+export function vectorAt<L extends { altitudeM: number }>(
+  levels: readonly L[],
+  h: number,
+  vec: (l: L) => WindVector,
+): WindVector {
+  if (h <= levels[0]!.altitudeM) return vec(levels[0]!);
+  const last = levels[levels.length - 1]!;
+  if (h >= last.altitudeM) return vec(last);
+  let i = 0;
+  while (levels[i + 1]!.altitudeM < h) i++;
+  const a = vec(levels[i]!);
+  const b = vec(levels[i + 1]!);
+  const f = (h - levels[i]!.altitudeM) / (levels[i + 1]!.altitudeM - levels[i]!.altitudeM);
+  return { east: a.east + (b.east - a.east) * f, north: a.north + (b.north - a.north) * f };
+}
+
 export function padLevelWind(
   launch: Pick<LaunchConditions, 'windLevels' | 'windAltitudeReference' | 'launchAltitudeM'>,
 ): PadWind | undefined {
@@ -101,17 +139,48 @@ export function padLevelWind(
       : { speedMs: near.speed, headingDeg: norm(near.directionDeg) };
   }
   const lo = levels[i - 1]!;
-  const f = (h - lo.altitudeM) / (near.altitudeM - lo.altitudeM);
-  const vector = (l: WindLevel) => {
-    const rad = (l.directionDeg * Math.PI) / 180;
+  const { east, north } = vectorAt(levels, h, (l) => {
+    const rad = degToRad(l.directionDeg);
     return { east: l.speed * Math.sin(rad), north: l.speed * Math.cos(rad) };
-  };
-  const a = vector(lo);
-  const b = vector(near);
-  const east = a.east + (b.east - a.east) * f;
-  const north = a.north + (b.north - a.north) * f;
+  });
   const speedMs = Math.hypot(east, north);
   // Two winds that cancel leave no heading; the lower level's typed one stands in.
-  const deg = speedMs > 0 ? (Math.atan2(east, north) * 180) / Math.PI : lo.directionDeg;
+  const deg = speedMs > 0 ? radToDeg(Math.atan2(east, north)) : lo.directionDeg;
   return { speedMs, headingDeg: norm(deg) };
+}
+
+/**
+ * The wind at the pad as speed and heading: the profile's at the pad when one
+ * is flown (`padLevelWind`), else the single wind. A negative single wind flies
+ * as its magnitude from the typed heading: the bridge sets the heading after
+ * the speed, which overrides the kernel's flip. A blank speed reads as calm:
+ * the callers (the safety limits, the sweep's centering) never fly from it,
+ * and the run refuses an incomplete launch long before. The one reading of the
+ * pad wind, so the limit, the sweep and the rod's "into the wind" agree.
+ */
+export function surfaceWind(launch: LaunchConditions): { speedMs: number; headingDeg: number } {
+  const pad = padLevelWind(launch);
+  if (pad) return { speedMs: pad.speedMs, headingDeg: pad.headingDeg };
+  return { speedMs: Math.abs(launch.windAverage ?? 0), headingDeg: launch.windDirectionDeg ?? DEFAULT_HEADING_DEG };
+}
+
+/**
+ * One level at altitude 0 carrying the single (average) wind: its speed,
+ * direction and deviation. What turning Multilevel on seeds from the
+ * simulation's own wind, and what a profile reset leaves, as the kernel's
+ * `resetLevels` does through `addInitialLevel`. A blank or unreadable value is
+ * calm air, not a NaN that would fail the level check.
+ */
+export function levelFromAverage(c: {
+  windAverage?: number | null;
+  windStdDev?: number | null;
+  windDirectionDeg?: number | null;
+}): WindLevel {
+  const orZero = (v: number | null | undefined) => (v != null && Number.isFinite(v) ? v : 0);
+  return {
+    altitudeM: 0,
+    speed: orZero(c.windAverage),
+    directionDeg: c.windDirectionDeg ?? DEFAULT_HEADING_DEG,
+    stddev: orZero(c.windStdDev),
+  };
 }

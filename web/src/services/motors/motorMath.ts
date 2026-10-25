@@ -1,4 +1,5 @@
 import type { CatalogMotor } from './motorDb';
+import { CATALOG_TO_SI } from './catalogUnits';
 
 /**
  * Standard gravity, m/s^2: the 1901 General Conference on Weights and Measures
@@ -23,7 +24,8 @@ export type ThrustSample = readonly [number, number];
 export const avgThrustOf = (m: CatalogMotor): number => m.avgThrust ?? (m.burn > 0 ? m.impulse / m.burn : 0);
 
 /** Specific impulse (s): total impulse per unit propellant weight. NaN if the propellant mass is unknown. */
-export const ispOf = (m: CatalogMotor): number => (m.propWeightG ? m.impulse / ((m.propWeightG / 1000) * G0) : NaN);
+export const ispOf = (m: CatalogMotor): number =>
+  m.propWeightG ? m.impulse / (m.propWeightG * CATALOG_TO_SI * G0) : NaN;
 
 /** Propellant mass fraction (%): propellant over loaded mass. NaN if either is unknown. */
 export const massFracOf = (m: CatalogMotor): number => (m.propWeightG && m.mass ? (m.propWeightG / m.mass) * 100 : NaN);
@@ -55,6 +57,17 @@ export function trapezoidImpulse(times: ArrayLike<number>, thrusts: ArrayLike<nu
   return impulse;
 }
 
+/** A spec's parallel `times` and `thrusts` as [t, F] samples, a missing thrust read as 0. */
+export const specSamples = (m: { times: readonly number[]; thrusts: readonly number[] }): [number, number][] =>
+  m.times.map((t, i) => [t, m.thrusts[i] ?? 0]);
+
+/** Total impulse (N·s) of [t, F] samples by the trapezoid rule. */
+export const samplesImpulse = (samples: readonly ThrustSample[]): number =>
+  trapezoidImpulse(
+    samples.map((s) => s[0]),
+    samples.map((s) => s[1]),
+  );
+
 /**
  * What a thrust curve says about itself: total impulse by the trapezoid rule,
  * burn time as the last sample's time, the average over that burn, and the
@@ -66,10 +79,7 @@ export function curveStats(samples: readonly ThrustSample[]): {
   avg: number;
   max: number;
 } {
-  const impulse = trapezoidImpulse(
-    samples.map((s) => s[0]),
-    samples.map((s) => s[1]),
-  );
+  const impulse = samplesImpulse(samples);
   const burn = samples.length ? samples[samples.length - 1]![0] : 0;
   const avg = burn > 0 ? impulse / burn : 0;
   let max = 0;

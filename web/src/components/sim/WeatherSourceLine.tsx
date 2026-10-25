@@ -5,6 +5,7 @@ import { sourceStatus } from '../../services/weather/weatherSource';
 import { formatCoord } from '../../services/map/slippyMap';
 import { fmtSiteTime } from '../../i18n/format';
 import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
+import { smallButton } from '../common/smallButton';
 
 /** How often the "old forecast" check is looked at again. */
 const TICK_MS = 60_000;
@@ -64,10 +65,7 @@ export function WeatherSourceLine({
         </p>
       ))}
       {onRefresh && (
-        <button
-          onClick={onRefresh}
-          className="rounded-md bg-raised px-2 py-1 text-xs font-medium text-accent-300 ring-1 ring-line/10 hover:bg-elevated"
-        >
+        <button onClick={onRefresh} className={smallButton('xs', 'accent')}>
           {t('weather.source.refresh')}
         </button>
       )}

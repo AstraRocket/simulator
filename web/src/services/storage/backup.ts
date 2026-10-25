@@ -10,11 +10,11 @@
 // counted as refused, and nothing else.
 import { APP_VERSION } from '../app/appInfo';
 import { KeyedError } from '../../i18n/keyedError';
-import { isMaterial, getMaterialStore } from '../materials/materialStore';
+import { isMaterial, getMaterialStore, materialId } from '../materials/materialStore';
 import { addCustomMaterials } from '../materials/materials';
 import type { Material } from '../materials/materialTypes';
 import { getPresetStore, isCustomPart, type CustomPart } from '../parts/presetStore';
-import { addSavedParts, customPartToRow } from '../parts/customParts';
+import { addSavedParts, customPartToRow, savedPartKey } from '../parts/customParts';
 import { getLaunchLocationStore, isLocation, type LaunchLocation } from './launchLocationStore';
 import { getMotorStore, isCustomMotor, type CustomMotor } from '../motors/motorStore';
 import { getTemplateStore, isUserTemplate, type UserTemplate } from '../exports/templateStore';
@@ -155,7 +155,8 @@ function usable<T>(raw: unknown[], isItem: (v: unknown) => v is T, idOf: (item: 
   return { items: [...byId.values()], refused };
 }
 
-const materialId = (m: Material) => JSON.stringify([m.type, m.name]);
+/** A material's identity, as the material store keys it. */
+const materialKey = (m: Material) => materialId(m.name, m.type);
 
 /**
  * Merge the chosen libraries of a backup into this browser.
@@ -182,16 +183,16 @@ export async function restoreBackup(
     const raw = backup.entries[lib];
     if (!which.has(lib) || !raw) continue;
     if (lib === 'materials') {
-      const { items, refused } = usable(raw, isMaterial, materialId);
-      const ids = new Set(stored.materials.map(materialId));
-      out.materials = count(items, refused, (m) => ids.has(materialId(m)));
+      const { items, refused } = usable(raw, isMaterial, materialKey);
+      const ids = new Set(stored.materials.map(materialKey));
+      out.materials = count(items, refused, (m) => ids.has(materialKey(m)));
       await addCustomMaterials(items);
     } else if (lib === 'parts') {
       // A part the picker could not list is refused, as saving one is.
       const { items, refused } = usable(
         raw,
         (v): v is CustomPart => isCustomPart(v) && customPartToRow(v) !== null,
-        (p) => JSON.stringify([p.type, p.mfr, p.partNo]),
+        savedPartKey,
       );
       const replaced = await addSavedParts(items);
       out.parts = { added: items.length - replaced, replaced, refused };

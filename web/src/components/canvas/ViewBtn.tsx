@@ -1,3 +1,4 @@
+import { ToggleButton } from '../common/ToggleButton';
 /** Small overlay button for the 2D view presets (Side / Aft / Reset) and the
  *  CG/CP · Info view toggles. */
 export function ViewBtn({
@@ -14,13 +15,23 @@ export function ViewBtn({
   label?: string;
   children: React.ReactNode;
 }) {
+  const shape = 'inline-flex h-7 items-center rounded-md px-2 text-xs font-medium ring-1 ring-line/10';
+  // A toggle takes the shared on and off inks; a one-shot action (Reset) is a
+  // plain button in the off ink.
+  if (active !== undefined) {
+    return (
+      <ToggleButton active={active} onClick={onClick} title={title} label={label} className={shape}>
+        {children}
+      </ToggleButton>
+    );
+  }
   return (
     <button
+      type="button"
       onClick={onClick}
       title={title}
       aria-label={label}
-      aria-pressed={active}
-      className={`inline-flex h-7 items-center rounded-md px-2 text-xs font-medium ring-1 ring-line/10 ${active ? 'bg-accent-600 text-on-accent' : 'bg-raised/90 text-ink'}`}
+      className={`${shape} bg-raised text-ink-soft hover:bg-elevated`}
     >
       {children}
     </button>

@@ -12,8 +12,8 @@ name: Sync Catalogs
 # web/public/data is for dev builds and the tests, and the deployed build leaves
 # it out (vite.config.ts); refresh it by hand (`npm run sync:motors && npm run
 # sync:motor-digests && npm run sync:database && npm run sync:components && npm
-# run sync:preset-digests`, then commit). This workflow deliberately does not
-# touch it.
+# run sync:preset-digests && npm run check:digests`, then commit). This workflow
+# deliberately does not touch it.
 #
 # The materials and contributors files are NOT published here: materials is
 # held to the pinned OpenRocket source by the extraction gate, so it changes
@@ -25,8 +25,10 @@ name: Sync Catalogs
 # has to exist: the deployed app has no other copy of the two catalogs.
 #
 # It runs on the Monday schedule, by hand, and on a push to master that changes
-# web/scripts/** or this file, so a pipeline change republishes the catalogs
-# when it lands instead of waiting out the schedule.
+# web/scripts/**, this file or the vendored engine, so a pipeline change
+# republishes the catalogs when it lands instead of waiting out the schedule.
+# The engine is one of its inputs: the density of every part that states a mass
+# is that mass over the volume the engine measures (scripts/lib/presetVolume.mjs).
 
 on:
   push:
@@ -34,6 +36,7 @@ on:
     paths:
       - 'web/scripts/**'
       - '.github/workflows/sync-catalogs.yml'
+      - 'web/src/engine/vendor/**'
   schedule:
     # Mondays 06:00 UTC. Scheduled runs always use the default branch (master).
     - cron: '0 6 * * 1'

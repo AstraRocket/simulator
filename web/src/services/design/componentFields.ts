@@ -6,6 +6,7 @@ import type { IgnitionEvent } from '../../engine/openRocketEngine';
 import { KERNEL_DEPLOYMENT } from '../../tree/kernelDefaults';
 import { RAIL_BUTTON_BOUNDS, RAIL_BUTTON_FALLBACK, RING_BOUNDS, type DimensionBounds } from './linkedDimensions';
 import { num } from '../../tree/nodeProps';
+import { shapeOptions } from '../../tree/shapeProfile';
 
 /**
  * The component field table: which properties each component type exposes,
@@ -129,7 +130,9 @@ export type Field = FieldFlags &
     | { key: string; label: string; kind: 'mass' } // stored kg, shown in units.mass
     | { key: string; label: string; kind: 'count' }
     | { key: string; label: string; kind: 'distance'; step?: number } // stored m, shown in units.distance
-    | { key: string; label: string; kind: 'number'; step?: number; unit?: string }
+    // `unitKey` is the i18n key of a fixed unit (`units.second`), so the symbol
+    // is the reader's own.
+    | { key: string; label: string; kind: 'number'; step?: number; unitKey?: string }
     | { key: string; label: string; kind: 'angle'; step?: number } // stored radians, shown in units.angle
     | { key: string; label: string; kind: 'bool' }
     // Free text, a paragraph rather than a line: OpenRocket gives every
@@ -150,7 +153,6 @@ export type Field = FieldFlags &
 
 // The real OpenRocket shape vocabulary: matches the engine (shapeOf), the
 // drawing (shapeProfile), and the parts catalog. Not 'elliptical'/'powerseries'.
-const NOSE_SHAPES = ['ogive', 'conical', 'ellipsoid', 'power', 'parabolic', 'haack'];
 
 // Recovery-device deployment triggers: the kernel DeployEvent vocabulary
 // (ComponentFactory.deployEventOf). The .ork file spells them with the
@@ -383,7 +385,14 @@ const MOTOR_MOUNT: Field[] = [
     optI18n: 'ignition',
     section: 'motor',
   },
-  { key: 'ignitionDelay', label: 'ignitionDelay', kind: 'number', unit: 's', step: 0.5, section: 'motor' },
+  {
+    key: 'ignitionDelay',
+    label: 'ignitionDelay',
+    kind: 'number',
+    unitKey: 'units.second',
+    step: 0.5,
+    section: 'motor',
+  },
 ];
 
 // `rotation` is a fin set's base rotation: where its first fin sits around the
@@ -432,7 +441,7 @@ const SEPARATION_FIELDS: Field[] = [
     options: SEPARATION_EVENTS,
     optI18n: 'separationEvent',
   },
-  { key: 'separationDelay', label: 'separationDelay', kind: 'number', unit: 's', step: 0.5 },
+  { key: 'separationDelay', label: 'separationDelay', kind: 'number', unitKey: 'units.second', step: 0.5 },
   { key: 'separationAltitude', label: 'separationAltitude', kind: 'distance', step: 10 },
 ];
 
@@ -448,7 +457,7 @@ const DEPLOY_FIELDS: Field[] = [
     fallback: KERNEL_DEPLOYMENT.deployEvent,
   },
   { key: 'deployAltitude', label: 'deployAltitude', kind: 'distance', step: 10 },
-  { key: 'deployDelay', label: 'deployDelay', kind: 'number', unit: 's', step: 0.5 },
+  { key: 'deployDelay', label: 'deployDelay', kind: 'number', unitKey: 'units.second', step: 0.5 },
 ];
 
 /**
@@ -470,7 +479,7 @@ const RAW_FIELDS: Record<string, Field[]> = {
   // Separation only, shown for a non-first stage (see the render guard).
   stage: SEPARATION_FIELDS,
   nosecone: [
-    { key: 'shape', label: 'shape', kind: 'select', options: NOSE_SHAPES, optI18n: 'noseShape' },
+    { key: 'shape', label: 'shape', kind: 'select', options: shapeOptions('nosecone'), optI18n: 'noseShape' },
     // Only meaningful for the shapes whose profile it actually controls
     // (ogive/power/parabolic/haack); filtered at render by shapeUsesParameter.
     { key: 'shapeParameter', label: 'shapeParameter', kind: 'number', step: 0.05 },
@@ -508,7 +517,7 @@ const RAW_FIELDS: Record<string, Field[]> = {
       key: 'shape',
       label: 'shape',
       kind: 'select',
-      options: ['conical', 'ogive', 'ellipsoid', 'power', 'parabolic', 'haack'],
+      options: shapeOptions('transition'),
       optI18n: 'noseShape',
     },
     // Same as the nose cone: a transition offers the same four parametric

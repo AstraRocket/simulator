@@ -29,6 +29,22 @@ export function peakOf(xs: readonly number[], ys: readonly number[]): { value: n
   return best < 0 ? null : { value: ys[best]!, at: xs[best]! };
 }
 
+/**
+ * The peak across several lines (every shown stage): the largest magnitude of
+ * any, sign kept, or null when none has a sample. What a panel header shows
+ * with no crosshair, so the time panels and the velocity-altitude panel agree.
+ */
+export function peakAcross(
+  lines: readonly { xs: readonly number[]; ys: readonly number[] }[],
+): { value: number; at: number } | null {
+  let best: { value: number; at: number } | null = null;
+  for (const l of lines) {
+    const p = peakOf(l.xs, l.ys);
+    if (p && (!best || Math.abs(p.value) > Math.abs(best.value))) best = p;
+  }
+  return best;
+}
+
 /** The smallest and largest sample, or null for no samples. */
 export function rangeOf(ys: readonly number[]): { min: number; max: number } | null {
   if (!ys.length) return null;
@@ -61,7 +77,7 @@ export function crosshairReadout(
 }
 
 /** "Booster: …" when there are several stages, the bare part when there is one. */
-const perStage = (stages: readonly SummaryStage[], part: (s: SummaryStage) => string): string =>
+const perStage = <S extends { name: string }>(stages: readonly S[], part: (s: S) => string): string =>
   stages.length === 1 ? part(stages[0]!) : fmtList(stages.map((s) => `${s.name}: ${part(s)}`));
 
 /**
@@ -127,8 +143,7 @@ export function velocityAltitudeSummary(
       ? t('flight.summaryVelocityAltitude', { velocity: fmt.velocity(p.value), altitude: fmt.altitude(p.at) })
       : t('flight.summaryNoData');
   };
-  const list = stages.length === 1 ? part(stages[0]!) : fmtList(stages.map((s) => `${s.name}: ${part(s)}`));
-  return `${label}: ${list}`;
+  return `${label}: ${perStage(stages, part)}`;
 }
 
 /** A chart against Mach (drag or CP): each curve's peak and the Mach number it occurs at. */
@@ -140,7 +155,7 @@ export function machSeriesSummary(
   machs: readonly number[],
   series: readonly { name: string; values: readonly number[] }[],
 ): string {
-  const parts = series.map((se) => {
+  const part = (se: { values: readonly number[] }) => {
     const xs: number[] = [];
     const ys: number[] = [];
     se.values.forEach((v, i) => {
@@ -150,10 +165,9 @@ export function machSeriesSummary(
       }
     });
     const p = peakOf(xs, ys);
-    const text = p
+    return p
       ? t('aero.summaryPeakMach', { value: valueIn(p.value, digits, unit), mach: fmtNum(p.at, 2) })
       : t('flight.summaryNoData');
-    return series.length === 1 ? text : `${se.name}: ${text}`;
-  });
-  return `${title}: ${fmtList(parts)}`;
+  };
+  return `${title}: ${perStage(series, part)}`;
 }

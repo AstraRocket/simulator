@@ -6,6 +6,8 @@ import i18n from '../../i18n';
 import { KeyedError } from '../../i18n/keyedError';
 import { fmtList, fmtNum, fmtUpTo, ladderDigits, withUnit } from '../../i18n/format';
 import { staticInfoRows } from '../report/designInfo';
+import { fixedDecimal } from '../files/numberText';
+import { canvas2d } from './offscreenRaster';
 
 /**
  * 2D/3D image export with a data header, the drawings an L3 / Tripoli
@@ -18,7 +20,7 @@ export interface ExportData {
   name: string;
   info: StaticInfo | null;
   units: UnitSelection;
-  /** Full span diameter incl. fins/pods (m), from the 2D view's measure. */
+  /** Full span diameter incl. fins, lugs, rail buttons and pods (m), from `rocketSpanM`. */
   spanM?: number;
   withMotors: boolean;
   appVersion: string;
@@ -157,7 +159,7 @@ export function schematicSvg(
     inner = inner.split(v).join(val);
   }
   inner = bakeTokens(inner);
-  const mm = (px: number) => `${((px / pxPerM) * 1000).toFixed(2)}mm`;
+  const mm = (px: number) => `${fixedDecimal((px / pxPerM) * 1000, 2)}mm`;
   return svgWithHeader(inner, viewW, viewH, d, mm);
 }
 
@@ -168,6 +170,14 @@ export function schematicSvg(
  * (millimeters for the 2D schematic, which is drawn to scale; pixels for the
  * 3D model, which is not).
  */
+/** The header band's type size, line height, lines and height, for a drawing `widthPx` wide. */
+function headerBand(widthPx: number, d: ExportData): { fs: number; lineH: number; lines: string[]; headerH: number } {
+  const fs = headerFontPx(widthPx);
+  const lineH = Math.round(fs * 1.45);
+  const lines = dataHeaderLines(d);
+  return { fs, lineH, lines, headerH: lineH * (lines.length + 1) };
+}
+
 export function svgWithHeader(
   inner: string,
   viewW: number,
@@ -177,10 +187,7 @@ export function svgWithHeader(
 ): string {
   // Header band: proportional to drawing width so it stays readable at any
   // physical size (a 4 m rocket printed 1:1 gets 4 m of banner).
-  const fs = headerFontPx(viewW);
-  const lineH = Math.round(fs * 1.45);
-  const lines = dataHeaderLines(d);
-  const headerH = lineH * (lines.length + 1);
+  const { fs, lineH, lines, headerH } = headerBand(viewW, d);
   const totalH = viewH + headerH;
 
   const header = lines
@@ -234,20 +241,13 @@ export function svgToImage(svgString: string, widthPx = 3840, format: ImageForma
     img.onload = () => {
       try {
         const ratio = img.naturalHeight / Math.max(1, img.naturalWidth);
-        const canvas = document.createElement('canvas');
-        canvas.width = widthPx;
-        canvas.height = Math.round(widthPx * ratio);
-        const c = canvas.getContext('2d');
-        if (!c) {
-          reject(new KeyedError('errors.export.imageTooLarge'));
-          return;
-        }
+        const { canvas, ctx: c } = canvas2d(widthPx, Math.round(widthPx * ratio));
         c.fillStyle = '#ffffff';
         c.fillRect(0, 0, canvas.width, canvas.height);
         c.drawImage(img, 0, 0, canvas.width, canvas.height);
         encodeCanvas(canvas, format).then(resolve, reject);
-      } catch {
-        reject(new KeyedError('errors.export.imageTooLarge'));
+      } catch (e) {
+        reject(e instanceof KeyedError ? e : new KeyedError('errors.export.imageTooLarge'));
       } finally {
         URL.revokeObjectURL(url);
       }
@@ -274,21 +274,14 @@ export function snapshotWithHeader(
   format: ImageFormat = 'png',
 ): Promise<Blob> {
   const w = glCanvas.width;
-  const fs = headerFontPx(w);
-  const lineH = Math.round(fs * 1.45);
-  const lines = dataHeaderLines(d);
-  const headerH = lineH * (lines.length + 1);
-
-  const canvas = document.createElement('canvas');
-  let c: CanvasRenderingContext2D | null;
+  const { fs, lineH, lines, headerH } = headerBand(w, d);
+  let made: ReturnType<typeof canvas2d>;
   try {
-    canvas.width = w;
-    canvas.height = headerH + glCanvas.height;
-    c = canvas.getContext('2d');
-  } catch {
-    c = null;
+    made = canvas2d(w, headerH + glCanvas.height);
+  } catch (e) {
+    return Promise.reject(e instanceof Error ? e : new KeyedError('errors.export.imageTooLarge'));
   }
-  if (!c) return Promise.reject(new KeyedError('errors.export.imageTooLarge'));
+  const { canvas, ctx: c } = made;
   c.fillStyle = '#ffffff';
   c.fillRect(0, 0, canvas.width, canvas.height);
   c.fillStyle = '#20242c';

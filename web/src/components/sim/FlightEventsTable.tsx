@@ -10,6 +10,8 @@ import { unitScope } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
 import { UnitChip } from '../common/UnitChip';
 import { componentName } from '../../services/app/warningText';
+import { CardGroup } from '../common/CardGroup';
+import { smallButton } from '../common/smallButton';
 
 /**
  * The flight as a list you can read down: every event, when it happened, and
@@ -90,15 +92,16 @@ export function FlightEventsTable({
   if (!sim || !rows.length) return null;
 
   return (
-    <section aria-label={t('flight.events')} className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-ink-muted">{t('flight.events')}</span>
-        {/* The file carries every extra as its own column, where the table puts
-            them on a sub-line - a spreadsheet wants a rectangle it can sort,
-            and it has no narrow column to respect. It writes the settings-level
-            units rather than this table's own chips, the way every other export in
-            the app does: a file outlives the session and often goes to
-            somebody else. */}
+    <CardGroup
+      title={t('flight.events')}
+      region
+      // The file carries every extra as its own column, where the table puts
+      // them on a sub-line - a spreadsheet wants a rectangle it can sort,
+      // and it has no narrow column to respect. It writes the settings-level
+      // units rather than this table's own chips, the way every other export in
+      // the app does: a file outlives the session and often goes to
+      // somebody else.
+      aside={
         <button
           onClick={() =>
             download(
@@ -108,14 +111,15 @@ export function FlightEventsTable({
             )
           }
           title={t('flight.eventsCsv')}
-          className="shrink-0 rounded-md bg-raised px-2 py-1 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
+          className={smallButton('chip', 'ink', 'shrink-0')}
         >
           {/* The visible short label stays out of the name, which is the full
               one: the Results tab has another CSV button. */}
           <span aria-hidden>⬇</span> <span aria-hidden>CSV</span>
           <span className="sr-only">{t('flight.eventsCsv')}</span>
         </button>
-      </div>
+      }
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -183,6 +187,6 @@ export function FlightEventsTable({
           ))}
         </table>
       </div>
-    </section>
+    </CardGroup>
   );
 }

@@ -1,3 +1,5 @@
+import { degToRad } from '../../prefs/units';
+
 /**
  * Turn a kernel warning message into something a person can read.
  *
@@ -196,7 +198,7 @@ function inReaderUnits(text: string, format: WarningValueFormat | undefined): st
   if (!format) return text;
   return text
     .replace(KERNEL_SPEED, (_m, v: string) => `(${format('velocity', Number(v))})`)
-    .replace(KERNEL_ANGLE, (_m, v: string) => `(${format('angle', (Number(v) * Math.PI) / 180)})`);
+    .replace(KERNEL_ANGLE, (_m, v: string) => `(${format('angle', degToRad(Number(v)))})`);
 }
 
 /**

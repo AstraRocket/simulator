@@ -1,6 +1,6 @@
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { resolveFilePositions } from '../../tree/position';
-import { loadoutLabel, newFlightConfig, reconcileConfig, type FlightConfig } from '../flight/flightConfigs';
+import { configLabel, newFlightConfig, reconcileConfig, type FlightConfig } from '../flight/flightConfigs';
 import { newSimulation, resultKey, type Simulation, type SimPrefs } from '../flight/simulations';
 import type { LoadedOrk } from './loadOrk';
 import { overLaunchDefaults, type LaunchConditions } from '../design/orkTree';
@@ -10,19 +10,26 @@ import type { DesignFormat } from './designFile';
 
 /** The workspace slices a loaded .ork maps onto: the design tree, its flight
  *  configurations, its simulations, and the round-trip export metadata. */
+/**
+ * What a loaded file leaves behind beside the design: its name, the notes from
+ * reading it, the motors to write back on export, and its format. Held by the
+ * store and persisted with the workspace, so the one shape is declared here.
+ */
+export interface LoadedMeta {
+  name: string;
+  notes: ImportNote[];
+  exportMotors: Record<string, OrkExportMotor>;
+  /** The file's format, which the loaded-design card names. */
+  format?: DesignFormat;
+}
+
 export interface WiredOrk {
   tree: RocketTree;
   configs: FlightConfig[];
   sims: Simulation[];
   /** The simulation flying the configuration the file marks default. */
   activeId: string;
-  loadedMeta: {
-    name: string;
-    notes: ImportNote[];
-    exportMotors: Record<string, OrkExportMotor>;
-    /** The file's format, which the loaded-design card names. */
-    format?: DesignFormat;
-  };
+  loadedMeta: LoadedMeta;
 }
 
 /**
@@ -130,7 +137,7 @@ function ownPrefs(file: Partial<SimPrefs>, globals: SimPrefs | undefined): Parti
  * motors and a file may name two the same.
  */
 function simName(tree: RocketTree, config: FlightConfig, fallback: string, taken: Set<string>): string {
-  const base = config.name || loadoutLabel(tree, config) || fallback;
+  const base = configLabel(tree, config) || fallback;
   let name = base;
   for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
   taken.add(name);

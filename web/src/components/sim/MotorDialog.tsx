@@ -12,8 +12,6 @@ import { CatalogLoading, CatalogError } from '../common/CatalogLoading';
 import { MotorDetail } from './MotorDetail';
 import { keyOf } from '../../services/motors/motorKey';
 import { useCatalog } from './useCatalog';
-import { catalogInfo } from '../../services/app/remoteData';
-import { useAsyncLoad } from '../common/useAsyncLoad';
 import {
   ClassChips,
   DiameterRange,
@@ -33,6 +31,11 @@ import { useFilePick } from '../common/useFilePick';
 import { ToggleButton } from '../common/ToggleButton';
 import { confirm } from '../../state/confirmStore';
 import { ImportedStar } from './ImportedStar';
+import { motorName } from '../../services/motors/motorName';
+import { roundTo } from '../../services/app/numbers';
+import { toCatalogMm } from '../../services/motors/catalogUnits';
+import { DialogButton } from '../common/DialogButton';
+import { MotorSearch, useCatalogInfo } from './MotorPanelParts';
 
 /** The delay a motor with no delay data starts at (a common mid-range charge). */
 const DEFAULT_DELAY = 3;
@@ -56,7 +59,7 @@ function findSeated(catalog: CatalogMotor[], cur: MotorSpec): CatalogMotor | und
   if (named.length <= 1) return named[0];
   // The catalog states a diameter to a tenth of a millimeter (the 10.5 mm
   // Apogee motors), so the seated motor is matched at the same precision.
-  const mm = Math.round(cur.diameter * 10000) / 10;
+  const mm = roundTo(toCatalogMm(cur.diameter), 1);
   const byBore = named.filter((m) => m.diameter === mm);
   const pool = byBore.length ? byBore : named;
   return (cur.curveSrc && pool.find((m) => m.curves?.some((c) => c.src === cur.curveSrc))) || pool[0];
@@ -111,7 +114,7 @@ export function MotorDialog({
 
   // When the published catalog last changed, from its manifest; nothing when the
   // manifest does not say.
-  const updated = useAsyncLoad(() => catalogInfo('motors'), 'motorsInfo').data?.updated;
+  const updated = useCatalogInfo()?.updated;
   // Opening from a card with a motor already on it pre-selects that motor,
   // highlighted in the list with its curve and delay restored, so "Change..."
   // resumes from the current choice instead of a blank detail pane. Done when
@@ -298,14 +301,7 @@ export function MotorDialog({
         >
           <div className="space-y-2 p-3">
             <div className="flex gap-2">
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                autoFocus
-                placeholder={t('motorDlg.searchCode')}
-                aria-label={t('motorDlg.searchCode')}
-                className="min-w-0 flex-1 rounded-lg bg-canvas px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-faint focus:outline-none focus:ring-accent-500"
-              />
+              <MotorSearch value={text} onChange={setText} className="min-w-0 py-2" />
               <button
                 onClick={motorFile.pick}
                 className="shrink-0 rounded-lg bg-raised px-3 py-2 text-xs font-medium text-ink hover:bg-elevated"
@@ -369,7 +365,7 @@ export function MotorDialog({
                     >
                       <span className="min-w-0">
                         {m.custom && <ImportedStar />}
-                        <span className="font-medium text-ink-strong">{m.code || m.designation}</span>
+                        <span className="font-medium text-ink-strong">{motorName(m)}</span>
                         <span className="ml-2 text-xs text-ink-faint">{m.manufacturer}</span>
                         {!m.custom && !hasCurve(m) && (
                           <span
@@ -383,7 +379,7 @@ export function MotorDialog({
                       <span className="shrink-0 text-xs tabular-nums text-ink-muted">
                         {isLoading
                           ? t('motorDlg.loading')
-                          : `${u.fmtSym('impulse', m.impulse, m.impulse < 10 ? 1 : 0)} · ${u.fmtSym('motorDimensions', m.diameter / 1000, 0)}`}
+                          : `${u.fmtSym('impulse', m.impulse)} · ${u.fmtSym('motorDimensions', m.diameter / 1000)}`}
                       </span>
                     </button>
                     {m.custom && (
@@ -431,13 +427,15 @@ export function MotorDialog({
               />
               <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line/10 p-2">
                 <DelayControl motor={shown} delay={delay} onDelay={setDelay} />
-                <button
+                <DialogButton
+                  variant="primary"
+                  size="sm"
+                  className="shrink-0"
                   onClick={() => pick(shown, curveIdx)}
                   disabled={loadingKey !== null}
-                  className="shrink-0 rounded-lg bg-accent-600 px-5 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-raised disabled:text-ink-faint"
                 >
                   {loadingKey !== null ? t('motorDlg.loading') : t('motorDlg.select')}
-                </button>
+                </DialogButton>
               </div>
             </>
           ) : (

@@ -7,9 +7,16 @@ export function useLauncherKind(): LauncherKind | null {
   return useWorkspaceStore((s) => launcherKind(s.tree));
 }
 
-/** `t`, naming the launcher the way the design on screen does. */
-export function useLauncherT() {
+/**
+ * `t`, naming the launcher the way the design on screen does, or as `kind`
+ * says when the caller knows better (a tree of its own, or null for the
+ * neutral word in the Settings copy).
+ */
+export function useLauncherT(kind: LauncherKind | null | 'design' = 'design') {
   const { t } = useTranslation();
-  const kind = useLauncherKind();
-  return withLauncher(t as unknown as (key: string, options?: Record<string, unknown>) => string, kind);
+  const onScreen = useLauncherKind();
+  return withLauncher(
+    t as unknown as (key: string, options?: Record<string, unknown>) => string,
+    kind === 'design' ? onScreen : kind,
+  );
 }

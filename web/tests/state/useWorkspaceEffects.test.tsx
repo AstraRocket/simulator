@@ -877,6 +877,21 @@ describe('a hydrate does not re-stamp the design', () => {
     }
   };
 
+  // The header's save status reports that saving happens, so a write that
+  // landed when the tab was hidden counts as much as the debounced autosave.
+  it('records a save the hidden tab made', async () => {
+    load.mockResolvedValue(saved());
+    await mount();
+    act(() => useWorkspaceStore.setState({ lastSavedAt: null }));
+    act(() => s().addPartToTree('bodytube'));
+    await hideTab();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(save).toHaveBeenCalled();
+    expect(s().lastSavedAt).not.toBeNull();
+  });
+
   // A tab switch is not an edit: after New it would create a library entry
   // for a design nobody touched, and after a load it would re-stamp one only
   // opened. Neither the async save nor the journal runs.

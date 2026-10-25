@@ -10,25 +10,17 @@ import { uuid } from '../app/uuid';
 import { degToRad } from '../../prefs/units';
 import { LAUNCH_SI } from '../../prefs/launchUnits';
 import { stableJson } from '../app/stableJson';
-import { padLevelWind } from './windLevels';
+import { DEFAULT_HEADING_DEG, surfaceWind } from './windLevels';
 import { walkNodes } from '../../tree/treeWalk';
 import { isRecoveryDevice } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
-
-/**
- * The default compass heading (degrees) for the launch rod and the wind: due
- * east, the kernel's own (`SimulationOptions` defaults `launchRodDirection`
- * and `windDirection` to PI/2). Shared with the launch panel so every
- * fallback heading reads the same value.
- */
-export const DEFAULT_HEADING_DEG = 90;
 
 /**
  * The maximum angle step the kernel flies, in radians: 1 to 20 degrees, the
  * clamp in `SimulationOptions.setMaximumStepAngle`. The bridge sets the step on
  * `SimulationConditions`, which has no clamp, so the range is applied here.
  */
-export const MAX_ANGLE_STEP_RANGE = { min: Math.PI / 180, max: (20 * Math.PI) / 180 } as const;
+export const MAX_ANGLE_STEP_RANGE = { min: degToRad(1), max: degToRad(20) } as const;
 
 /** A maximum angle step brought into {@link MAX_ANGLE_STEP_RANGE}. */
 export const clampMaxAngleStep = (rad: number): number =>
@@ -254,13 +246,17 @@ export function resultFlight(
   chosen: string | null,
   activeId: string,
 ): ResultFlight | null {
-  const pick = (id: string | null): ResultFlight | null => {
-    const sim = id == null ? undefined : sims.find((x) => x.id === id);
-    return sim?.result
-      ? { id: sim.id, name: sim.name, result: sim.result, launch: sim.resultLaunch ?? sim.launch }
-      : null;
-  };
-  return pick(chosen) ?? pick(activeId);
+  const byId = (id: string | null) => (id == null ? undefined : sims.find((x) => x.id === id));
+  // The active row as `selectActive` resolves it, the first row for an id that
+  // is gone, so the charts and the tiles beside them (`selectShownSim`) agree.
+  return toResultFlight(byId(chosen)) ?? toResultFlight(byId(activeId) ?? sims[0]);
+}
+
+/** A simulation's flight as the results views draw it, or null when it has not flown. */
+export function toResultFlight(sim: Simulation | undefined): ResultFlight | null {
+  return sim?.result
+    ? { id: sim.id, name: sim.name, result: sim.result, launch: sim.resultLaunch ?? sim.launch }
+    : null;
 }
 
 /** What the simulations table's status dot says about one row. */
@@ -457,7 +453,7 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
   // overriding the manual rod direction. Multilevel wind: the profile read at
   // the pad's altitude (windLevels.padLevelWind), as upstream's
   // SimulationOptions.getLaunchRodDirection does.
-  const windDirDeg = padLevelWind(launch)?.headingDeg ?? launch.windDirectionDeg ?? DEFAULT_HEADING_DEG;
+  const windDirDeg = surfaceWind(launch).headingDeg;
   const rodDirDeg = launch.launchIntoWind ? windDirDeg : (launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG);
   return {
     launchRodLength: launch.launchRodLengthM,

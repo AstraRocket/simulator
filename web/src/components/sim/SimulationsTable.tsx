@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import type { Simulation, SimPrefs, SimStatus, SimRun } from '../../services/flight/simulations';
 import { isOutdated, simStatus, simStatusLabel } from '../../services/flight/simulations';
 import type { RocketTree } from '../../engine/openRocketEngine';
@@ -7,9 +6,10 @@ import { unitScope } from '../../prefs/units';
 import { fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { warningText } from '../../services/app/warningText';
-import { loadoutLabel, type FlightConfig } from '../../services/flight/flightConfigs';
+import { configLabel, type FlightConfig } from '../../services/flight/flightConfigs';
 import { configOf } from '../../state/store';
-import { launcherKind, withLauncher } from '../../services/design/launcher';
+import { launcherKind } from '../../services/design/launcher';
+import { useLauncherT } from '../common/useLauncher';
 
 /** Dot color per status. Paired with a text label in the cell, never color alone. */
 const TONE: Record<SimStatus, string> = {
@@ -75,11 +75,7 @@ export function SimulationsTable({
   /** Open this simulation's flight on the Results tab. Only rows that have one. */
   onOpenResults: (id: string) => void;
 }) {
-  const { t: plainT } = useTranslation();
-  const t = withLauncher(
-    plainT as unknown as (key: string, options?: Record<string, unknown>) => string,
-    launcherKind(tree),
-  );
+  const t = useLauncherT(launcherKind(tree));
   const u = useUnits();
   // Each column owns its unit, and shares the scope with the summary tiles, so
   // reading apogee in feet there reads in feet here too.
@@ -234,7 +230,7 @@ export function SimulationsTable({
                 >
                   {configs.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name || loadoutLabel(tree, c) || t('configs.noMotors')}
+                      {configLabel(tree, c) || t('configs.noMotors')}
                     </option>
                   ))}
                 </select>

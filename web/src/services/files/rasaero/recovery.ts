@@ -4,6 +4,7 @@ import { num, str } from '../../../tree/nodeProps';
 import { walkNodes } from '../../../tree/treeWalk';
 import { KERNEL_DEFAULTS, KERNEL_DEPLOYMENT } from '../../../tree/kernelDefaults';
 import { KeyedError } from '../../../i18n/keyedError';
+import { notePartName } from '../importNote';
 
 /**
  * Recovery: RASAero's two slots, from the parachutes desktop's exporter reads
@@ -26,7 +27,7 @@ export function writeRecovery(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
     // that never opens.
     if (c && ev !== 'apogee' && ev !== 'altitude') {
       throw new KeyedError('errors.rasaero.chuteEvent', {
-        name: c.name || { key: 'part.parachute' },
+        name: notePartName(c),
         event: { key: `deployEvent.${ev}` },
       });
     }

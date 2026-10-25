@@ -387,7 +387,6 @@ const UNAFFECTED: Record<string, string> = {
       'shape parameter on a transition',
     ].map((flag) => [`${flag} / part fitting`, 'matches the end diameters, which the flag does not move']),
   ),
-  'filled body tube holding a ring / part fitting': "matches the tube's end diameters, which filling it does not move",
   ...Object.fromEntries(
     ['flipped nose cone', 'filled nose cone', 'filled transition', 'filled body tube', 'unclipped transition'].flatMap(
       (flag) => [

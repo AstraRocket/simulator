@@ -1,3 +1,4 @@
+import type { ComponentNode } from '../../engine/openRocketEngine';
 import { KERNEL_MATERIALS } from '../../tree/kernelDefaults';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
 import { isMaterialType, type MaterialType } from '../materials/materialTypes';
@@ -23,11 +24,49 @@ import { isMaterialType, type MaterialType } from '../materials/materialTypes';
  * attribute for a bulk material and not for the other two, so there is nowhere
  * for a surface or line group to go.
  */
-const MATERIAL_KEYS: Record<MaterialType, { name: string; density: string; group?: string }> = {
+export const MATERIAL_KEYS: Readonly<Record<MaterialType, MaterialKeys>> = {
   bulk: { name: 'materialName', density: 'density', group: 'materialGroup' },
   surface: { name: 'surfaceMaterialName', density: 'surfaceDensity' },
   line: { name: 'lineMaterialName', density: 'lineDensity' },
 };
+
+/** The node keys one material lands on. */
+export interface MaterialKeys {
+  name: string;
+  density: string;
+  group?: string;
+}
+
+/** A fin set's fillet, a bulk material of its own under its own keys. */
+export const FILLET_MATERIAL_KEYS: MaterialKeys = {
+  name: 'filletMaterialName',
+  density: 'filletDensity',
+  group: 'filletMaterialGroup',
+};
+
+/** A material as a part states it. */
+export interface StatedMaterial {
+  name: string;
+  density: number;
+  group?: string;
+}
+
+/**
+ * The material a part states under `keys`, as the bridge (`ComponentFactory`)
+ * takes it, or null when it states none: a bulk material (or a fillet) only
+ * from a positive density (`positive`), a surface or line one from any finite
+ * density. A density with no name, or a blank one, is `custom`: desktop refuses
+ * a material with no name ("Illegal material specification"). The one rule the
+ * `.ork`, `.rkt` and Onshape writers read, each keeping its own format detail.
+ */
+export function statedMaterial(node: ComponentNode, keys: MaterialKeys, positive: boolean): StatedMaterial | null {
+  const density = node[keys.density];
+  if (typeof density !== 'number' || !Number.isFinite(density) || (positive && !(density > 0))) return null;
+  const raw = node[keys.name];
+  const name = typeof raw === 'string' && raw.trim() ? raw : 'custom';
+  const group = keys.group ? node[keys.group] : undefined;
+  return { name, density, ...(typeof group === 'string' && group ? { group } : {}) };
+}
 
 /**
  * Which material kinds each part type has a slot for.
@@ -91,6 +130,18 @@ const KERNEL_PART_MATERIALS: Record<
     },
   },
 };
+
+/**
+ * The material a part's own constructor sets, where it is not the preference
+ * default (a rail button is Delrin), or undefined: what a writer falls back to
+ * before {@link KERNEL_MATERIALS} for a part that states none.
+ */
+export function kernelPartMaterial(
+  partType: string,
+  kind: MaterialType,
+): { name: string; density: number; group: string } | undefined {
+  return KERNEL_PART_MATERIALS[partType]?.[kind];
+}
 
 /**
  * What to stamp onto a newly added part of `partType`: the user's per-part-type

@@ -34,7 +34,7 @@ const exportData = {
   withMotors: false,
   appVersion: '0',
   t: (k: string) => k,
-} as unknown as Omit<ExportData, 'spanM'>;
+} as unknown as ExportData;
 
 /**
  * Readouts and controls that follow the user's unit.
@@ -97,7 +97,6 @@ describe('button glyphs are not part of the name', () => {
         scale={1}
         w={100}
         h={100}
-        vHalf={0.1}
         totalLen={1}
         maxR={0.1}
         caliperH={null}

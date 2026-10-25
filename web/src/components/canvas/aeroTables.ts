@@ -3,6 +3,7 @@ import type { AeroSweep, ComponentMass } from '../../engine/openRocketEngine';
 import { polylinePath } from '../common/svgPath';
 import { niceStep } from '../../prefs/units';
 import { componentName, isDefaultComponentName } from '../../services/app/warningText';
+import { roundFixed } from '../../services/app/numbers';
 
 /**
  * The pure half of AeroAnalysis: the cell-shading formulas, the per-table row
@@ -82,7 +83,7 @@ export function altitudeField(factor: number): {
   step: number;
 } {
   const digits = factor < 0.01 ? 2 : 0;
-  const round = (v: number) => Number(v.toFixed(digits));
+  const round = (v: number) => roundFixed(v, digits);
   return {
     toUi: (m) => round(m * factor),
     toSi: (ui) => round(ui) / factor,
@@ -371,19 +372,8 @@ export function stackedBands(
 export function machTicks(machMin: number, machMax: number): number[] {
   const step = machMax <= 1 ? 0.2 : 1;
   const ticks = [machMin];
-  for (let m = step; m <= machMax + 1e-9; m += step) ticks.push(Number(m.toFixed(2)));
+  for (let m = step; m <= machMax + 1e-9; m += step) ticks.push(roundFixed(m, 2));
   return ticks;
-}
-
-/**
- * Decimals a Mach tick is printed with: the axis's own, or as many as the tick
- * needs to read as itself (to the hundredth). The first tick is the sweep's
- * first sample, 0.05, which one decimal would round to 0.1 beside the 0.2 tick.
- */
-export function machTickDigits(m: number, axisDigits: number): number {
-  const text = String(Number(m.toFixed(2)));
-  const dot = text.indexOf('.');
-  return Math.max(axisDigits, dot < 0 ? 0 : text.length - dot - 1);
 }
 
 /**

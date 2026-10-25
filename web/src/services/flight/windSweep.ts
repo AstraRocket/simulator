@@ -1,9 +1,9 @@
 import type { RocketTree } from '../../engine/openRocketEngine';
-import type { LaunchConditions, WindLevel } from '../design/orkTree';
+import type { WindLevel } from '../design/orkTree';
 import type { CompleteLaunch } from './requiredLaunch';
 import { MAX_WIND_SPEED_MS } from './safetyLimits';
-import { padLevelWind } from './windLevels';
-import { DEFAULT_HEADING_DEG, type SimInputs } from './simulations';
+import type { SimInputs } from './simulations';
+import { DEFAULT_HEADING_DEG, surfaceWind } from './windLevels';
 import { hasIntensity, retuneStdDev } from './windTurbulence';
 import { norm360 } from './groundTrack';
 
@@ -236,25 +236,6 @@ export function sweepPoints(spec: WindSweepSpec, baseHeadingDeg: number): SweepP
     for (const headingDeg of sweepHeadings(spec, baseHeadingDeg)) out.push({ speedMs, headingDeg });
   }
   return out;
-}
-
-/**
- * The surface wind a launch block describes: speed and heading at the pad.
- *
- * A multilevel profile read at the pad's altitude, exactly as the safety check
- * reads it, else the single wind. This is what a sweep is centered on and
- * scaled from, because it is the only wind anybody at the field can measure.
- * A negative single wind flies as its magnitude from the typed heading: the
- * bridge sets the heading after the speed, which overrides the kernel's flip.
- */
-export function surfaceWind(launch: LaunchConditions): SweepPoint {
-  const pad = padLevelWind(launch);
-  if (pad) return { speedMs: pad.speedMs, headingDeg: pad.headingDeg };
-  // A blank wind speed is a field the user has not filled in, not still air,
-  // but this is only ever read to propose a grid or to center one, never to fly
-  // anything (the run refuses an incomplete launch long before here), so a
-  // blank proposes the calm-day band rather than refusing to open the panel.
-  return { speedMs: Math.abs(launch.windAverage ?? 0), headingDeg: launch.windDirectionDeg ?? DEFAULT_HEADING_DEG };
 }
 
 /**

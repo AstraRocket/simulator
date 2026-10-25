@@ -1,6 +1,10 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { confirm } from '../../state/confirmStore';
+import { fireAction } from '../../state/fireAction';
+import { Dialog } from './Dialog';
+import { DialogButton } from './DialogButton';
+import { StatusLine } from './StatusLine';
 
 /**
  * The selection of a library dialog whose detail pane is an editor.
@@ -8,11 +12,15 @@ import { confirm } from '../../state/confirmStore';
  * The editor reports whether it holds unsaved edits (`onDirtyChange`), since
  * only the editor owns the draft, and `select` asks before a move would throw
  * them away. It resolves false when the user keeps editing.
+ *
+ * `err` is the dialog's footer line (a refused write). Moving the selection
+ * clears it, since it was about what was selected before.
  */
 export function useGuardedSelection(discardMessage: string) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   // Stable, because the editor passes it to an effect: a new function every
   // render would re-run that effect on every keystroke.
   const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
@@ -24,6 +32,7 @@ export function useGuardedSelection(discardMessage: string) {
       setDirty(false);
     }
     setSelectedId(id);
+    setErr(null);
     return true;
   };
 
@@ -42,7 +51,98 @@ export function useGuardedSelection(discardMessage: string) {
     setSelectedId(id);
   };
 
-  return { selectedId, dirty, select, settle, close, onDirtyChange };
+  return { selectedId, dirty, select, settle, close, onDirtyChange, err, setErr };
+}
+
+/** The editor's half of the guard: report whether the draft differs from what is stored. */
+export function useReportDirty(dirty: boolean, onDirtyChange: (dirty: boolean) => void) {
+  useEffect(() => {
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
+}
+
+/**
+ * The shell of a library dialog: list beside detail, each scrolling itself and
+ * reaching the panel's edges, so the body takes the height and does its own
+ * padding. The height is fixed rather than the viewport's, the way the motor
+ * picker's is: the list is the working surface and should not become a
+ * screen-tall column on a large monitor. Closing asks first when the editor
+ * holds unsaved edits (`close` from `useGuardedSelection`).
+ */
+export function MasterDetailDialog({
+  id,
+  title,
+  onClose,
+  close,
+  actions,
+  err,
+  loading,
+  children,
+}: {
+  id: string;
+  title: string;
+  onClose: () => void;
+  close: (onClose: () => void) => Promise<void>;
+  actions?: ReactNode;
+  /** The footer line: a refused write, or the list failing to load. */
+  err: string | null;
+  /** Before the list has loaded for the first time. */
+  loading: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      id={id}
+      title={title}
+      onClose={() => fireAction(close(onClose))}
+      size="4xl"
+      layout="fill"
+      height={720}
+      actions={actions}
+      footer={<MasterStatus err={err} />}
+    >
+      {loading ? (
+        <p className="grid flex-1 place-items-center p-6 text-sm text-ink-muted">{t('common.loading')}</p>
+      ) : (
+        children
+      )}
+    </Dialog>
+  );
+}
+
+/**
+ * The phone's way back to the list. At `md` and up the list is beside the
+ * editor, so there is nothing to go back to and it hides.
+ */
+export function EditorBack({
+  onBack,
+  label,
+  className = '',
+}: {
+  onBack: () => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onBack}
+      className={`rounded px-1 text-sm text-ink-muted hover:text-ink md:hidden ${className}`}
+      aria-label={label}
+    >
+      ‹
+    </button>
+  );
+}
+
+/** The editor's title, pinned over its scrolling fields with the back control. */
+export function EditorHeading({ onBack, backLabel, title }: { onBack: () => void; backLabel: string; title: string }) {
+  return (
+    <div className="sticky top-0 -mx-4 mb-1 flex items-center gap-2 bg-surface px-4 py-2">
+      <EditorBack onBack={onBack} label={backLabel} />
+      <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{title}</span>
+    </div>
+  );
 }
 
 /**
@@ -114,9 +214,9 @@ export function MasterRow({
  */
 export function MasterStatus({ err }: { err: string | null }) {
   return (
-    <p role="status" aria-live="polite" className="px-4 py-2 text-xs text-warn-400">
+    <StatusLine tone="danger" className="px-4 py-2">
       {err}
-    </p>
+    </StatusLine>
   );
 }
 
@@ -124,6 +224,11 @@ export function MasterStatus({ err }: { err: string | null }) {
  * The editor's action row, pinned under its scrolling fields. Delete sits
  * apart from Save, at the other end of the row, because they are not two
  * grades of the same action. `children` goes between them.
+ *
+ * `err` is the editor's own refused save, beside the buttons it is about. Pass
+ * it (null while there is nothing to say) and the line is always mounted, so
+ * it is announced when the text arrives (see UpdateToast); leave it out when
+ * the dialog's footer reports the editor's writes.
  */
 export function EditorFooter({
   onDelete,
@@ -132,6 +237,7 @@ export function EditorFooter({
   onSave,
   saveDisabled,
   saveTitle,
+  err,
   children,
 }: {
   onDelete?: () => void;
@@ -141,6 +247,7 @@ export function EditorFooter({
   /** Beyond "nothing changed", which always disables Save. */
   saveDisabled?: boolean;
   saveTitle?: string;
+  err?: string | null;
   children?: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -155,21 +262,24 @@ export function EditorFooter({
         </button>
       )}
       {children}
-      <button
-        onClick={onRevert}
-        disabled={!dirty}
-        className="ml-auto rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-40"
-      >
+      {err !== undefined && (
+        <StatusLine tone="danger" className="min-w-0 flex-1 truncate">
+          {err}
+        </StatusLine>
+      )}
+      <DialogButton size="sm" className="ml-auto" onClick={onRevert} disabled={!dirty}>
         {t('common.discard')}
-      </button>
-      <button
+      </DialogButton>
+      <DialogButton
+        variant="primary"
+        size="sm"
+        className="shrink-0"
         onClick={onSave}
         disabled={!dirty || saveDisabled}
         title={saveTitle}
-        className="shrink-0 rounded-lg bg-accent-600 px-5 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-700 disabled:cursor-not-allowed disabled:bg-raised disabled:text-ink-faint"
       >
         {t('common.save')}
-      </button>
+      </DialogButton>
     </div>
   );
 }

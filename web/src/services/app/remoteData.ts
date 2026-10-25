@@ -40,7 +40,7 @@
  * gets paired with a different host's copy of the file.
  */
 
-import { declaredLength, readStreamWithProgress, type TransferProgress } from './fetchProgress';
+import { type TransferProgress, fetchJsonStaged } from './fetchProgress';
 import { errorReason, KeyedError } from '../../i18n/keyedError';
 
 /** The copy that ships inside the build, under the deploy subpath. */
@@ -77,23 +77,6 @@ const MAX_CATALOG_BYTES = 32 * 1024 * 1024; // 32 MiB; the biggest bundled catal
 /** Bytes transferred so far, and the total when the host declared one. */
 export type CatalogProgress = TransferProgress;
 
-/**
- * Parse the body, metering it against {@link MAX_CATALOG_BYTES}.
- *
- * Always streams when a stream is available, progress wanted or not. The
- * `content-length` check in fetchJson only fires when the host declared a
- * length, and a chunked response declares none, so `res.json()` would read it
- * unmetered, which is the case the cap exists for. `manifest()` takes the
- * no-progress path. Falls back to `res.json()` only where there is no stream
- * to read (a stubbed Response in tests).
- */
-async function readJson<T>(res: Response, onProgress?: (p: CatalogProgress) => void): Promise<T> {
-  if (!res.body) return (await res.json()) as T;
-  const report = onProgress ?? (() => {});
-  const bytes = await readStreamWithProgress(res.body, declaredLength(res), report, MAX_CATALOG_BYTES);
-  return JSON.parse(new TextDecoder().decode(bytes)) as T;
-}
-
 /** A download's progress as a whole percent, or null while its size is unknown. */
 export function progressPercent(p: CatalogProgress | null | undefined): number | null {
   return p?.total ? Math.min(100, Math.round((p.loaded / p.total) * 100)) : null;
@@ -121,41 +104,23 @@ export function fetchFailure(e: unknown, timedOut: boolean): KeyedError {
   return new KeyedError('errors.remote.network');
 }
 
-/** fetch + JSON with staged abort timeouts and a size cap, so a hung or
- *  oversized host response can't stall the picker or exhaust memory on parse. */
-async function fetchJson<T>(
+/** A catalog's JSON, staged and capped (`fetchJsonStaged`), its failures keyed as the catalog reports them. */
+function fetchJson<T>(
   url: string,
   ttfbMs: number,
   opts?: RequestInit,
   onProgress?: (p: CatalogProgress) => void,
 ): Promise<T> {
-  const ctrl = new AbortController();
-  let timedOut = false;
-  const expire = () => {
-    timedOut = true;
-    ctrl.abort();
-  };
-  let timer = setTimeout(expire, ttfbMs);
-  try {
-    const res = await fetch(url, { ...opts, signal: ctrl.signal });
-    // Headers are in, so the host is alive: swap the first-byte budget for the
-    // body one. Without this the first-byte budget would also have to cover the
-    // whole download, and a slow link would be cut off mid-transfer.
-    clearTimeout(timer);
-    timer = setTimeout(expire, BODY_TIMEOUT_MS);
-    if (!res.ok) throw new HttpError(res.status);
-    const len = Number(res.headers.get('content-length'));
-    if (Number.isFinite(len) && len > MAX_CATALOG_BYTES) throw new KeyedError('errors.remote.tooLarge');
-    return await readJson<T>(res, onProgress);
-  } catch (e) {
-    // Any refusal aborts the body: a 5xx error page, a CDN's HTML or a reply
-    // over the size cap would otherwise keep downloading after the failure is
-    // reported.
-    ctrl.abort();
-    throw fetchFailure(e, timedOut);
-  } finally {
-    clearTimeout(timer);
-  }
+  return fetchJsonStaged<T>(
+    url,
+    opts ?? {},
+    { ttfbMs, bodyMs: BODY_TIMEOUT_MS, maxBytes: MAX_CATALOG_BYTES, onProgress },
+    {
+      http: (status) => new HttpError(status),
+      tooLarge: () => new KeyedError('errors.remote.tooLarge'),
+      fail: fetchFailure,
+    },
+  );
 }
 
 // Progress is published per catalog rather than returned, because fetchCatalog

@@ -1,6 +1,6 @@
 import type { ComponentNode, ComponentPosition } from '../../../engine/openRocketEngine';
 import { nodeShape, shapeParamDefault } from '../../../tree/shapeProfile';
-import { num, numOpt, str } from '../../../tree/nodeProps';
+import { num, str } from '../../../tree/nodeProps';
 import { kernelPresetType } from './presetTypes';
 import { escapeXml } from '../xmlUtil';
 import { uuid } from '../../app/uuid';
@@ -9,9 +9,10 @@ import { KERNEL_MATERIALS } from '../../../tree/kernelDefaults';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import type { OrkWriter } from './exportWriter';
 import { passthroughOf } from './passthrough';
-import { parseHexColor } from '../../design/colorHex';
+import { parseHexColor, rgbChannels } from '../../design/colorHex';
 import { INSIDE_COLOR_TYPES, readAppearance, type PartAppearance } from '../../design/appearance';
 import { designSeparation } from '../../flight/flightConfigs';
+import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, statedMaterial } from '../../design/materialSlots';
 
 /**
  * The element groups more than one .ork component writer shares: material,
@@ -93,16 +94,17 @@ export function material(
   bulkFallback: { name: string; density: number; group: string } = CARDBOARD,
 ): void {
   const { emit } = w;
+  // What the part states, by the one rule every writer reads (statedMaterial).
+  const stated = statedMaterial(node, MATERIAL_KEYS[kind], kind === 'bulk');
   if (kind === 'bulk') {
-    if (typeof node.density === 'number' && node.density > 0) {
-      const name = typeof node['materialName'] === 'string' && node['materialName'] ? node['materialName'] : 'custom';
+    if (stated) {
       // The group rides along when the part carries one (readMaterialGroup
       // reads it for every part), so a desktop material round-trips with its
       // catalog category.
       const group = groupAttr(node['materialGroup']);
       emit(
         depth,
-        `<material type="bulk" density="${node.density}"${shearModulusAttr(node)}${group}>${escapeXml(name)}</material>`,
+        `<material type="bulk" density="${stated.density}"${shearModulusAttr(node)}${group}>${escapeXml(stated.name)}</material>`,
       );
     } else {
       emit(
@@ -112,12 +114,8 @@ export function material(
       );
     }
   } else if (kind === 'surface') {
-    if (typeof node['surfaceDensity'] === 'number') {
-      const name =
-        typeof node['surfaceMaterialName'] === 'string' && node['surfaceMaterialName']
-          ? node['surfaceMaterialName']
-          : 'custom';
-      emit(depth, `<material type="surface" density="${node['surfaceDensity']}">${escapeXml(name)}</material>`);
+    if (stated) {
+      emit(depth, `<material type="surface" density="${stated.density}">${escapeXml(stated.name)}</material>`);
     } else {
       emit(
         depth,
@@ -126,12 +124,9 @@ export function material(
       );
     }
   } else {
-    if (typeof node['lineDensity'] === 'number') {
-      // Desktop refuses a material with no name ("Illegal material
-      // specification"), and a RockSim cord carries an unnamed line.
-      const name =
-        typeof node['lineMaterialName'] === 'string' && node['lineMaterialName'] ? node['lineMaterialName'] : 'custom';
-      emit(depth, `<material type="line" density="${node['lineDensity']}">${escapeXml(name)}</material>`);
+    // A RockSim cord carries an unnamed line, which statedMaterial names custom.
+    if (stated) {
+      emit(depth, `<material type="line" density="${stated.density}">${escapeXml(stated.name)}</material>`);
     } else {
       emit(
         depth,
@@ -215,11 +210,8 @@ function presetXml(w: OrkWriter, depth: number, node: ComponentNode): void {
  */
 function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
   const body = (a: PartAppearance) => {
-    const n = parseHexColor(a.paint)!;
-    w.emit(
-      depth + 1,
-      `<paint red="${(n >> 16) & 255}" green="${(n >> 8) & 255}" blue="${n & 255}" alpha="${a.alpha}"/>`,
-    );
+    const [r, g, b] = rgbChannels(parseHexColor(a.paint)!);
+    w.emit(depth + 1, `<paint red="${r}" green="${g}" blue="${b}" alpha="${a.alpha}"/>`);
     w.emit(depth + 1, `<shine>${a.shine}</shine>`);
     // A newer desktop's flag, which 24.12 reads as an unknown element: written
     // only when a file brought it in set, so a design that never had it opens
@@ -251,7 +243,8 @@ function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
 function colorXml(w: OrkWriter, depth: number, node: ComponentNode): void {
   const n = parseHexColor(node['color']);
   if (n === null) return;
-  w.emit(depth, `<color red="${(n >> 16) & 255}" green="${(n >> 8) & 255}" blue="${n & 255}"/>`);
+  const [r, g, b] = rgbChannels(n);
+  w.emit(depth, `<color red="${r}" green="${g}" blue="${b}"/>`);
 }
 
 // Mass/CG/Cd overrides, exactly as the desktop RocketComponentSaver writes them.
@@ -343,17 +336,21 @@ export function deploymentConfigs(w: OrkWriter, depth: number, node: ComponentNo
  */
 export function filletXml(w: OrkWriter, depth: number, node: ComponentNode): void {
   w.emit(depth, `<filletradius>${num(node, 'filletRadius', 0)}</filletradius>`);
-  const density = numOpt(node, 'filletDensity') ?? null;
-  if (density === null || !(density > 0)) {
+  const stated = statedMaterial(node, FILLET_MATERIAL_KEYS, true);
+  if (!stated) {
     w.emit(
       depth,
       `<filletmaterial type="bulk" density="${CARDBOARD.density}" group="${CARDBOARD.group}">${CARDBOARD.name}</filletmaterial>`,
     );
     return;
   }
-  const matName = typeof node['filletMaterialName'] === 'string' ? node['filletMaterialName'] : 'custom';
+  // A fillet with an empty name goes out as custom, as every material does:
+  // desktop refuses an empty <filletmaterial>.
   const group = groupAttr(node['filletMaterialGroup']);
-  w.emit(depth, `<filletmaterial type="bulk" density="${density}"${group}>` + `${escapeXml(matName)}</filletmaterial>`);
+  w.emit(
+    depth,
+    `<filletmaterial type="bulk" density="${stated.density}"${group}>` + `${escapeXml(stated.name)}</filletmaterial>`,
+  );
 }
 
 /**

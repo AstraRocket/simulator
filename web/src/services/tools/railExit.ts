@@ -1,6 +1,6 @@
-import { G0 } from '../motors/motorMath';
-import { degToRad } from '../../prefs/units';
-import { thrustAt, type Sample } from '../motors/motorCombine';
+import { G0, curveStats, specSamples } from '../motors/motorMath';
+import { degToRad, radToDeg } from '../../prefs/units';
+import { thrustAt } from '../motors/motorCombine';
 import { finalizeSamples } from '../motors/curveFinalize';
 import { motorStatistics } from '../../engine/openRocketEngine';
 import { lerpAt } from '../flight/interpolate';
@@ -78,7 +78,7 @@ function motorMassAt(m: RailMotor, t: number): number {
  * engine is not loaded or when the kernel refuses the curve.
  */
 function averageThrust(m: RailMotor): number {
-  const curve = finalizeSamples(m.times.map((ti, i): Sample => [ti, m.thrusts[i] ?? 0]));
+  const curve = finalizeSamples(specSamples(m));
   return motorStatistics(curve)?.averageThrust ?? NaN;
 }
 
@@ -101,7 +101,7 @@ interface RailPoint {
 function climb(motor: RailMotor, dryMassKg: number, stop: (s: number, v: number) => boolean): RailPoint | RailFailure {
   // Through the catalog's reader: zero outside the burn, and at a step (two
   // samples at one time) the value going forward from it.
-  const curve = motor.times.map((ti, i): Sample => [ti, motor.thrusts[i] ?? 0]);
+  const curve = specSamples(motor);
   let t = motor.times[0] ?? 0;
   let s = 0;
   let v = 0;
@@ -139,11 +139,12 @@ function railExitWith(input: RailInput, averageThrustN: number): RailExit | Rail
   const weight = liftoffMassKg * G0;
   const at = climb(motor, dryMassKg, (s) => s >= railLengthM);
   if (typeof at === 'string') return at;
-  const curve = motor.times.map((ti, i): Sample => [ti, motor.thrusts[i] ?? 0]);
+  const curve = specSamples(motor);
   return {
     liftoffMassKg,
     thrustToWeightAverage: averageThrustN / weight,
-    thrustToWeightPeak: Math.max(...motor.thrusts) / weight,
+    // A loop, not Math.max(...thrusts), which a long curve overflows the stack with.
+    thrustToWeightPeak: curveStats(curve).max / weight,
     // Over the mass at that moment, not the liftoff mass: the motor has burned
     // some propellant by the time the rocket leaves the rail.
     thrustToWeightAtExit: thrustAt(curve, at.t) / ((dryMassKg + motorMassAt(motor, at.t)) * G0),
@@ -166,7 +167,7 @@ export function railNeededM(motor: RailMotor, dryMassKg: number, minExitMs: numb
 
 /** The angle a rocket leaving the rail at `exitSpeedMs` turns into a crosswind, degrees. */
 export function weathercockDeg(windMs: number, exitSpeedMs: number): number {
-  return (Math.atan2(Math.max(0, windMs), exitSpeedMs) * 180) / Math.PI;
+  return radToDeg(Math.atan2(Math.max(0, windMs), exitSpeedMs));
 }
 
 /** The strongest wind that keeps the weathercock angle at or under the limit, m/s. */

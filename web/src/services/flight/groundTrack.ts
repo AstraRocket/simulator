@@ -1,4 +1,6 @@
 import type { FlightSeries } from '../../engine/openRocketEngine';
+import { radToDeg } from '../../prefs/units';
+import { roundFixed } from '../app/numbers';
 
 /**
  * The flight seen from directly above: where the rocket went over the ground,
@@ -63,7 +65,7 @@ export function trackPoints(series: FlightSeries | undefined): GroundPoint[] {
 export const distanceFromPad = (p: GroundPoint): number => Math.hypot(p.east, p.north);
 
 /** Compass bearing from the pad, degrees clockwise from north (0 = due north). */
-export const bearingFromPad = (p: GroundPoint): number => ((Math.atan2(p.east, p.north) * 180) / Math.PI + 360) % 360;
+export const bearingFromPad = (p: GroundPoint): number => (radToDeg(Math.atan2(p.east, p.north)) + 360) % 360;
 
 /** An angle in degrees wrapped into [0, 360), for a heading of any size or sign. */
 export const norm360 = (deg: number): number => ((deg % 360) + 360) % 360;
@@ -192,6 +194,6 @@ export function rangeRings(extent: number, count = 4): number[] {
   // readable label, rather than depending on its own formatter to hide this.
   const dp = Math.max(0, -exp);
   const out: number[] = [];
-  for (let i = 1; i * step <= extent + 1e-9; i++) out.push(Number((i * step).toFixed(dp)));
+  for (let i = 1; i * step <= extent + 1e-9; i++) out.push(roundFixed(i * step, dp));
   return out;
 }

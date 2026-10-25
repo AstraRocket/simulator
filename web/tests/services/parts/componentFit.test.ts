@@ -106,9 +106,9 @@ describe('fitContextFor', () => {
   });
 
   it('ignores a wall that cannot be a wall', () => {
-    // A thickness of zero, or one at least as big as the radius, is not a bore:
-    // it is a bad value, and `(or - th) * 2` would hand the picker a zero or a
-    // negative target to rank every part against.
+    // A wall at least as big as the radius leaves no bore, and `(or - th) * 2`
+    // would hand the picker a zero or a negative target to rank every part
+    // against.
     const bad = {
       components: [
         {
@@ -150,5 +150,33 @@ describe('fitContextFor on a keyless wall', () => {
       ],
     } as unknown as RocketTree;
     expect(fitContextFor(tree, 'x')!.parentInner).toBeCloseTo(2 * (0.0273 - KERNEL_DEFAULTS.bodytube.thickness), 9);
+  });
+
+  // The bore as the 2D and aft views read it (discGeometry.tubeRadii), which
+  // follows the kernel: a filled tube is solid, and a tube with no radius key
+  // is the one the bridge builds.
+  const inside = (tube: Record<string, unknown>) =>
+    fitContextFor(
+      {
+        components: [
+          {
+            id: 's1',
+            type: 'stage',
+            children: [{ id: 'tube', ...tube, children: [{ id: 'x', type: 'tubecoupler' }] }],
+          },
+        ],
+      } as unknown as RocketTree,
+      'x',
+    )!.parentInner;
+
+  it('offers no bore inside a filled body tube', () => {
+    expect(inside({ type: 'bodytube', outerRadius: 0.0273, thickness: 0.001, filled: true })).toBeUndefined();
+  });
+
+  it('reads a keyless radius as the kernel default', () => {
+    expect(inside({ type: 'bodytube', thickness: 0.001 })).toBeCloseTo(
+      2 * (KERNEL_DEFAULTS.bodytube.outerRadius - 0.001),
+      9,
+    );
   });
 });

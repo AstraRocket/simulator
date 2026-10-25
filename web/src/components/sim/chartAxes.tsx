@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { fmtNum } from '../../i18n/format';
-import { polylinePath } from '../common/svgPath';
+import { fmtNum, shortDigits } from '../../i18n/format';
+import { polylinePath, areaPath } from '../common/svgPath';
+import { seriesColor } from '../common/chartPalette';
+import { hasCurve, type CatalogMotor } from '../../services/motors/motorDb';
 
 // Shared scaffold for the thrust-vs-time charts (MotorDetail's ThrustChart plus
 // the motor dashboard's MotorCombinePane and MotorComparePane): one set of linear
@@ -45,11 +47,12 @@ export const baselineArea = (
   Y: (f: number) => number,
   tMax: number,
 ): string =>
-  pts.length
-    ? `M ${X(0).toFixed(1)} ${Y(0).toFixed(1)} ${pts
-        .map((p) => `L ${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`)
-        .join(' ')} L ${X(tMax).toFixed(1)} ${Y(0).toFixed(1)} Z`
-    : '';
+  areaPath(
+    pts.map((p) => [X(p[0]), Y(p[1])]),
+    Y(0),
+    'space',
+    [X(0), X(tMax)],
+  );
 
 /** Horizontal gridlines with left-edge value labels at `fMax · levels`, plus
  *  bottom-edge time ticks at [0, tMax/2, tMax]: the axis furniture every
@@ -95,7 +98,7 @@ export function ChartAxes({
           textAnchor="middle"
           className="fill-ink-faint text-[9px] tabular-nums"
         >
-          {fmtNum(tt, tt < 10 ? 1 : 0)}
+          {fmtNum(tt, shortDigits(tt))}
         </text>
       ))}
     </>
@@ -149,6 +152,7 @@ export function LegendSwatch({
   width,
   strokeWidth = 2,
   dash,
+  opacity,
   children,
 }: {
   color: string;
@@ -156,6 +160,8 @@ export function LegendSwatch({
   width: number;
   strokeWidth?: number;
   dash?: boolean;
+  /** The line's own opacity, for a series drawn faint. */
+  opacity?: number;
   children: ReactNode;
 }) {
   return (
@@ -169,9 +175,26 @@ export function LegendSwatch({
           stroke={color}
           strokeWidth={String(strokeWidth)}
           strokeDasharray={dash ? '3 2' : undefined}
+          strokeOpacity={opacity}
         />
       </svg>
       {children}
     </span>
   );
+}
+
+/** One motor's line on a thrust chart. */
+export interface MotorSeries {
+  m: CatalogMotor;
+  color: string;
+  pts: [number, number][];
+}
+
+/**
+ * The lines of a thrust chart over several motors: one per motor with a curve,
+ * colored in order among those, so a curveless motor takes no color and the
+ * chart, its legend and any table dots beside it agree on every motor's color.
+ */
+export function seriesFor(motors: readonly CatalogMotor[]): MotorSeries[] {
+  return motors.filter(hasCurve).map((m, i) => ({ m, color: seriesColor(i), pts: m.curves![0]!.samples }));
 }

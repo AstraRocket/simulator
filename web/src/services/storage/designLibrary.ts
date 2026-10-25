@@ -22,6 +22,7 @@ import type { Workspace } from './workspaceStore';
 import type { FlightResult } from '../../engine/openRocketEngine';
 import { nsKey } from './storageKeys';
 import { isFiniteNumber } from '../app/numbers';
+import { shortId } from '../app/uuid';
 
 /** A design's cached flights, by simulation id. */
 export type StoredResults = Record<string, FlightResult>;
@@ -96,7 +97,19 @@ function isFlightResult(v: unknown): v is FlightResult {
 }
 
 /** Short, collision-free enough for a per-browser library. */
-export const freshId = () => `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+export const freshId = () => shortId('d', 6);
+
+/**
+ * A new stamp for an entry: strictly later than the one it replaces (`prev`),
+ * not merely `Date.now()`. See `DesignLibrary.write`.
+ */
+const nextStamp = (prev?: number): number => Math.max(Date.now(), (prev ?? 0) + 1);
+
+/** `list` with `entry` at its head, in place of any entry with its id. */
+const withEntry = (list: DesignMeta[], entry: DesignMeta): DesignMeta[] => [
+  entry,
+  ...list.filter((m) => m.id !== entry.id),
+];
 
 export class DesignLibrary {
   constructor(private readonly kv: KeyValueStore = new IndexedDbKeyValueStore()) {}
@@ -194,8 +207,7 @@ export class DesignLibrary {
     // write.
     return await this.mutateIndex((list) => {
       const prev = list.find((m) => m.id === id);
-      const updatedAt = Math.max(Date.now(), (prev?.updatedAt ?? 0) + 1);
-      return [{ id, name, updatedAt, ...(writer ? { writer } : {}) }, ...list.filter((m) => m.id !== id)];
+      return withEntry(list, { id, name, updatedAt: nextStamp(prev?.updatedAt), ...(writer ? { writer } : {}) });
     });
   }
 
@@ -237,9 +249,8 @@ export class DesignLibrary {
         return list;
       }
       // Strictly later than the stamp being replaced; see `write`.
-      updatedAt = Math.max(Date.now(), (prev?.updatedAt ?? 0) + 1);
-      const entry: DesignMeta = { id, name: prev?.name ?? name, updatedAt, ...(writer ? { writer } : {}) };
-      return [entry, ...list.filter((m) => m.id !== id)];
+      updatedAt = nextStamp(prev?.updatedAt);
+      return withEntry(list, { id, name: prev?.name ?? name, updatedAt, ...(writer ? { writer } : {}) });
     });
     if (conflict) return { status: 'conflict' };
     if (!claimed || updatedAt === undefined) return { status: 'refused' };
@@ -251,7 +262,7 @@ export class DesignLibrary {
     const restamped = await this.mutateIndex((list) => {
       const prev = list.find((m) => m.id === id);
       if (!prev || prev.updatedAt !== claim) return list;
-      settled = Math.max(Date.now(), claim + 1);
+      settled = nextStamp(claim);
       return list.map((m) => (m.id === id ? { ...m, updatedAt: settled } : m));
     });
     return { status: 'ok', updatedAt: restamped ? settled : claim };

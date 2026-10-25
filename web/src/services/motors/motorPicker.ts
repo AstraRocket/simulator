@@ -1,6 +1,8 @@
 // Pure helpers for the motor picker / detail, kept out of the components so
 // they're unit-testable without rendering. No React, no DOM.
-import { tubeWall } from '../design/discGeometry';
+import { tubeRadii } from '../design/discGeometry';
+import type { ComponentNode } from '../../engine/openRocketEngine';
+import { toCatalogMm } from './catalogUnits';
 
 // Standard motor diameters (mm): the stops on the range slider.
 export const STD_DIAMS = [6, 13, 18, 24, 29, 38, 54, 75, 98, 150];
@@ -42,7 +44,9 @@ export interface MountFit {
 
 /**
  * The hole a motor has to go into, from the mount's own node, or null when the
- * tube does not state a diameter.
+ * node is not a tube. The bore is the one the drawings use (`tubeRadii`, which
+ * follows the kernel): a missing radius or wall is the one the bridge builds, a
+ * filled body tube has none, and it never goes below zero.
  *
  * Shared so the motor browser and the file reader judge a fit by the same
  * numbers. The length allowance is the tube plus its overhang, because that is
@@ -51,16 +55,13 @@ export interface MountFit {
  */
 export function mountFit(node: Record<string, unknown>): MountFit | null {
   const finite = (k: string): number | null => (Number.isFinite(node[k]) ? (node[k] as number) : null);
-  const or = finite('outerRadius');
-  if (or == null) return null;
-  // A missing or non-finite wall is the type's kernel default, never 0 (the
-  // bore would be the whole outside) and never NaN (every fit would pass).
-  const th = Number.isFinite(node['thickness']) ? (node['thickness'] as number) : tubeWall(node['type']);
+  const tube = tubeRadii(node as ComponentNode);
+  if (!tube) return null;
   const tubeLen = finite('length');
   const overhang = finite('motorOverhang') ?? 0;
   return {
-    bore: (or - th) * 2 * 1000,
-    ...(tubeLen != null ? { maxLength: (tubeLen + overhang) * 1000 } : {}),
+    bore: toCatalogMm(tube.innerR * 2),
+    ...(tubeLen != null ? { maxLength: toCatalogMm(tubeLen + overhang) } : {}),
   };
 }
 

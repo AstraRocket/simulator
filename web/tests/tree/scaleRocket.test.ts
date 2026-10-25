@@ -462,3 +462,28 @@ describe('scaling a key the part leaves to the kernel', () => {
     expect(kids[1]!['length']).toBeCloseTo(2 * KERNEL_DEFAULTS.parachute.length, 12);
   });
 });
+
+/**
+ * Scaling one part copies only the path to it: an untouched subtree keeps its
+ * identity, as every other tree edit leaves it (`replaceNode`), so a memo keyed
+ * on an untouched part does not rebuild.
+ */
+describe('scalePart shares what it does not touch', () => {
+  it('keeps an untouched subtree the same object', () => {
+    const tree = {
+      name: 'R',
+      components: [
+        {
+          type: 'stage',
+          id: 's',
+          children: [
+            { type: 'bodytube', id: 'a', length: 0.3, outerRadius: 0.02, children: [{ type: 'innertube', id: 'm' }] },
+            { type: 'bodytube', id: 'b', length: 0.3, outerRadius: 0.02 },
+          ],
+        },
+      ],
+    } as unknown as RocketTree;
+    const out = scalePart(tree, 'b', 2, false);
+    expect(out.components[0]!.children![0]).toBe(tree.components[0]!.children![0]);
+  });
+});

@@ -1,8 +1,18 @@
 import { useMemo } from 'react';
 import { useSettings } from '../state/SettingsProvider';
-import { fmtNum, ladderDigits, withUnit } from '../i18n/format';
+import { fmtNum, withUnit } from '../i18n/format';
 import { NO_VALUE } from '../i18n/noValue';
-import { degToRad, niceStep, siToUi, siToUiDelta, uiToSi, unitFor, type Quantity, type UnitSelection } from './units';
+import {
+  degToRad,
+  ladderDigits,
+  niceStep,
+  siToUi,
+  siToUiDelta,
+  uiToSi,
+  unitFor,
+  type Quantity,
+  type UnitSelection,
+} from './units';
 import { siEntry } from './entryValue';
 
 /** Locale-aware formatting with a magnitude ladder when no precision is asked. */
@@ -42,7 +52,7 @@ export interface Units {
    *  without an override of its own follows. */
   all: UnitSelection;
   /** The default symbol for a quantity, e.g. 'cm'. */
-  sym: (q: Quantity) => string;
+  sym: (q: Quantity, scope?: string) => string;
   /** SI → the displayed number. */
   toUi: (q: Quantity, si: number) => number;
   /**
@@ -145,14 +155,14 @@ export function useUnits(): Units {
     const at = (scope: string, q: Quantity): FieldUnit => bind(q, unitFor(units, unitOverrides, q, scope));
     return {
       all: units,
-      sym: (q) => units[q],
-      toUi: (q, si) => siToUi(q, units[q], si),
-      fromUi: (q, ui) => uiToSi(q, units[q], ui),
-      toSi: (q, ui, then) => siEntry(q, units[q], ui, then),
-      fmt: (q, si, digits) => (Number.isFinite(si) ? format(siToUi(q, units[q], si), digits) : NO_VALUE),
-      fmtSym: (q, si, digits) =>
-        withUnit(Number.isFinite(si) ? format(siToUi(q, units[q], si), digits) : NO_VALUE, units[q]),
-      step: (q, si) => niceStep(siToUiDelta(q, units[q], si)),
+      sym: (q, scope) => unitFor(units, unitOverrides, q, scope),
+      // The quantity-wide forms are a field bound to the Settings unit.
+      toUi: (q, si) => bind(q, units[q]).toUi(si),
+      fromUi: (q, ui) => bind(q, units[q]).fromUi(ui),
+      toSi: (q, ui, then) => bind(q, units[q]).toSi(ui, then),
+      fmt: (q, si, digits) => bind(q, units[q]).fmt(si, digits),
+      fmtSym: (q, si, digits) => bind(q, units[q]).fmtSym(si, digits),
+      step: (q, si) => bind(q, units[q]).step(si),
       factor: (q) => siToUiDelta(q, units[q], 1),
       plain: (q) => bind(q, units[q]),
       at,

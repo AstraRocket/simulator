@@ -23,7 +23,16 @@ const launch: LaunchConditions = {
   pressureHPa: null,
 };
 
-const CURVE = { designation: 'C6', times: [0, 1], thrusts: [0, 5], masses: [0.02, 0.01] };
+// A whole motor: the dimensions cross into the kernel with the curve.
+const CURVE = {
+  designation: 'C6',
+  diameter: 0.018,
+  length: 0.07,
+  cgX: 0.035,
+  times: [0, 1],
+  thrusts: [0, 5],
+  masses: [0.02, 0.01],
+};
 
 /**
  * A row, with the motor it is judged by hanging off it.

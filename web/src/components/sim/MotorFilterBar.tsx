@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { loadHideOop, saveHideOop } from './motorPrefs';
 import { useTranslation } from 'react-i18next';
 import { withUnit } from '../../i18n/format';
@@ -9,6 +9,9 @@ import { RangeSlider } from './RangeSlider';
 import { ToggleButton } from '../common/ToggleButton';
 import { UnitBound } from '../common/UnitBound';
 import { CheckMenu } from '../common/CheckMenu';
+import { toggled } from '../../services/app/collections';
+import { usePersistedState } from '../common/usePersistedState';
+import { Check } from '../common/Check';
 
 /**
  * The filter controls the motor picker and the motor dashboard share: the same
@@ -50,9 +53,8 @@ export function useMotorFilter(
   used: ReadonlySet<string> = EMPTY,
 ) {
   const [text, setText] = useState('');
-  const [hideOop, setHideOop] = useState(loadHideOop);
+  const [hideOop, setHideOop] = usePersistedState(loadHideOop, saveHideOop);
   const [hideUsed, setHideUsed] = useState(false);
-  useEffect(() => saveHideOop(hideOop), [hideOop]);
   const [cls, setCls] = useState<string | null>(null);
   const [mfrs, setMfrs] = useState<Set<string>>(() => init.mfrs ?? new Set());
   const [imp, setImp] = useState<ImpulseRange>([null, null]);
@@ -208,12 +210,7 @@ export function ManufacturerMenu({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const toggle = (m: string) => {
-    const n = new Set(mfrs);
-    if (n.has(m)) n.delete(m);
-    else n.add(m);
-    onChange(n);
-  };
+  const toggle = (m: string) => onChange(toggled(mfrs, m));
   return (
     <CheckMenu
       summary={
@@ -321,12 +318,7 @@ function FilterCheck({
   on: boolean;
   onChange: (on: boolean) => void;
 }) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-ink-soft" title={hint}>
-      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="accent-accent-500" />
-      {label}
-    </label>
-  );
+  return <Check checked={on} onChange={onChange} label={label} title={hint} className="text-xs text-ink-soft" />;
 }
 
 /**

@@ -11,10 +11,10 @@ import {
   defaultSweepSpec,
   normalizeSweepSpec,
   sweepFlightCount,
-  surfaceWind,
   type WindSweepSpec,
 } from '../../services/flight/windSweep';
 import type { LaunchConditions } from '../../services/design/orkTree';
+import { surfaceWind } from '../../services/flight/windLevels';
 
 /**
  * The controls for a wind sweep: the grid to fly, and what came of the last one.

@@ -2,7 +2,7 @@ import type { ComponentNode, ComponentType, RocketTree } from '../engine/openRoc
 import { isAssembly } from './assembly';
 import { isChainType } from './componentKinds';
 import { chainOuterRadius, numOpt, positionOf } from './nodeProps';
-import { walkNodes } from './treeWalk';
+import { replaceNode, walkNodes } from './treeWalk';
 import { partLength } from './position';
 import { roundTo } from '../services/app/numbers';
 import { kernelDefault } from './kernelDefaults';
@@ -300,23 +300,16 @@ export function scalePart(
   options: ScaleOptions = {},
 ): RocketTree {
   if (!(factor > 0) || !Number.isFinite(factor) || factor === 1) return tree;
-  let found = false;
   const all = (n: ComponentNode): ComponentNode => {
     const scaled = scaleNode(n, factor, options);
     return n.children ? { ...scaled, children: n.children.map(all) } : scaled;
   };
-  const walk = (nodes: ComponentNode[]): ComponentNode[] =>
-    nodes.map((n) => {
-      if (n.id === id) {
-        found = true;
-        if (withChildren) return all(n);
-        const scaled = scaleNode(n, factor, options);
-        return n.children ? { ...scaled, children: n.children } : scaled;
-      }
-      return n.children ? { ...n, children: walk(n.children) } : n;
-    });
-  const components = walk(tree.components);
-  return found ? { ...tree, components } : tree;
+  const components = replaceNode(tree.components, id, (n) => {
+    if (withChildren) return all(n);
+    const scaled = scaleNode(n, factor, options);
+    return n.children ? { ...scaled, children: n.children } : scaled;
+  });
+  return components === tree.components ? tree : { ...tree, components };
 }
 
 /** Whether a design has a mass anything scales as a typed value: a mass component or a mass override. */

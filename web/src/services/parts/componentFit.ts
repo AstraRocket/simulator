@@ -6,8 +6,8 @@
 // only looks, and it is where every "what is this part actually up against"
 // question is answered once.
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { num, numOpt } from '../../tree/nodeProps';
-import { ringBore, tubeWall } from '../design/discGeometry';
+import { num } from '../../tree/nodeProps';
+import { ringBore, tubeRadii } from '../design/discGeometry';
 import { findNode, findParent } from '../design/treeEdit';
 import { symmetricNeighbors } from '../design/autoRadius';
 import { profileEnds } from '../../tree/shapeProfile';
@@ -27,19 +27,18 @@ function endDiameter(n: ComponentNode, end: 'fore' | 'aft'): number | undefined 
 }
 
 /**
- * Bore of a tube-like component, or undefined when its stated wall leaves none.
+ * Bore of a tube-like component, or undefined when it has none.
  *
  * A body tube carries an outer radius and a wall thickness rather than a bore, so
- * the number a coupler has to fit is not stored but derived here.
+ * the number a coupler has to fit is not stored but derived, by the same reader
+ * the drawings use (`tubeRadii`, which follows the kernel: a filled tube is
+ * solid, a missing radius or wall is the one the bridge builds). A wall at least
+ * as big as the radius, or a solid tube, leaves nothing to fit inside.
  */
 function innerDiameter(n: ComponentNode): number | undefined {
   if (n.type !== 'bodytube' && n.type !== 'tubecoupler' && n.type !== 'innertube') return undefined;
-  const or = numOpt(n, 'outerRadius');
-  // A missing wall is the type's kernel default; a stated one that leaves no
-  // bore (zero, or at least the radius) is a bad value and answers nothing.
-  const th = numOpt(n, 'thickness') ?? tubeWall(n.type);
-  if (or == null || th <= 0 || th >= or) return undefined;
-  return (or - th) * 2;
+  const innerR = tubeRadii(n)?.innerR ?? 0;
+  return innerR > 0 ? innerR * 2 : undefined;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fmtNum } from '../../../src/i18n/format';
+import { fmtNum, tickDigits } from '../../../src/i18n/format';
 import type { AeroSweep, ComponentMass } from '../../../src/engine/openRocketEngine';
 import {
   altitudeField,
@@ -9,7 +9,6 @@ import {
   cpModesFor,
   dragRows,
   dragTotals,
-  machTickDigits,
   machTicks,
   massIndex,
   nearestSampleIndex,
@@ -193,7 +192,7 @@ describe('machTicks', () => {
       [3, 0],
     ] as const) {
       for (const m of machTicks(0.05, max)) {
-        expect(Number(fmtNum(m, machTickDigits(m, axis)))).toBe(m);
+        expect(Number(fmtNum(m, tickDigits(m, axis)))).toBe(m);
       }
     }
   });

@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DialogButton } from './DialogButton';
 
 /**
  * Catches a render-time throw from one part of the app and offers a way out,
@@ -54,12 +55,9 @@ function ErrorFallback({ error }: { error: Error }) {
           the only clue the user can pass on, and on a stale build it names the
           file that went missing. */}
       <p className="max-w-md break-words text-[11px] leading-snug text-ink-faint">{error.message}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-700"
-      >
+      <DialogButton variant="primary" size="sm" onClick={() => window.location.reload()}>
         {t('update.reload')}
-      </button>
+      </DialogButton>
     </div>
   );
 }

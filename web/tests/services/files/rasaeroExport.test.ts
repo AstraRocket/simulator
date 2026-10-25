@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { exportCdx1 } from '../../../src/services/files/rasaeroExport';
+import { IN, fmt } from '../../../src/services/files/rasaero/units';
 import { stageEngineSlots } from '../../../src/services/files/rasaero/engines';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import {
@@ -383,6 +384,79 @@ describe('a trapezoid fin with no sweep key', () => {
     expect(out).toContain(
       `<SweepDistance>${(KERNEL_DEFAULTS.trapezoidfinset.sweep * 39.37).toFixed(4).replace(/0+$/, '')}</SweepDistance>`,
     );
+  });
+});
+
+/**
+ * A dimension with no key is the one the kernel flies and every view draws
+ * (KERNEL_DEFAULTS), not a figure of the RASAero writer's own.
+ */
+/**
+ * A freeform outline is read as the kernel normalizes it (first point moved to
+ * the origin), so a trapezoid the editor let start off the origin still exports.
+ */
+describe('a freeform trapezoid that starts off the origin', () => {
+  it('writes the same fin as one at the origin', () => {
+    const at = (x0: number, y0: number) => {
+      const t = structuredClone(tree);
+      const tube = t.components[0]!.children![1]!;
+      tube.children![0] = {
+        type: 'freeformfinset',
+        id: 'fin',
+        finCount: 3,
+        thickness: 0.003,
+        points: [
+          [x0, y0],
+          [x0 + 0.0254, y0 + 0.0254],
+          [x0 + 0.0508, y0 + 0.0254],
+          [x0 + 0.0508, y0],
+        ],
+        position: { method: 'bottom', offset: 0 },
+      } as never;
+      return exportCdx1({ tree: t, name: 'ff', launchMassKg: 0.45, launchCgM: 0.127 }).match(
+        /<Fin>[\s\S]*?<\/Fin>/,
+      )![0];
+    };
+    expect(at(0.02, 0.005)).toBe(at(0, 0));
+  });
+});
+
+describe('parts with no dimension keys', () => {
+  const inches = (m: number) => fmt(m * IN);
+  const bare = structuredClone(tree);
+  const [nose, tube] = bare.components[0]!.children!;
+  delete nose!['length'];
+  delete nose!['aftRadius'];
+  delete tube!['length'];
+  delete tube!['outerRadius'];
+  const lug = tube!.children![1]!;
+  delete lug['length'];
+  delete lug['outerRadius'];
+  const out = exportCdx1({ tree: bare, name: 'bare', launchMassKg: 0.45, launchCgM: 0.127 });
+  const part = (tag: string) => out.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`))![0];
+
+  it('writes the nose cone the kernel flies', () => {
+    expect(part('NoseCone')).toContain(`<Length>${inches(KERNEL_DEFAULTS.nosecone.length)}</Length>`);
+    expect(part('NoseCone')).toContain(`<Diameter>${inches(2 * KERNEL_DEFAULTS.nosecone.aftRadius)}</Diameter>`);
+  });
+
+  it('writes the body tube and its lug the kernel flies', () => {
+    const body = part('BodyTube');
+    expect(body).toContain(`<Diameter>${inches(2 * KERNEL_DEFAULTS.bodytube.outerRadius)}</Diameter>`);
+    expect(body).toContain(
+      `<LaunchLugDiameter>${inches(2 * KERNEL_DEFAULTS.launchlug.outerRadius)}</LaunchLugDiameter>`,
+    );
+    expect(body).toContain(`<LaunchLugLength>${inches(KERNEL_DEFAULTS.launchlug.length)}</LaunchLugLength>`);
+  });
+
+  it('places the fins against the length the tube is written with', () => {
+    // A fin at the tube's top has its front edge one tube length above the
+    // tube's bottom, which RASAero measures from.
+    const topFin = structuredClone(bare);
+    topFin.components[0]!.children![1]!.children![0]!.position = { method: 'top', offset: 0 };
+    const xml = exportCdx1({ tree: topFin, name: 'bare', launchMassKg: 0.45, launchCgM: 0.127 });
+    const fin = xml.match(/<Fin>[\s\S]*?<\/Fin>/)![0];
+    expect(fin).toContain(`<Location>${inches(KERNEL_DEFAULTS.bodytube.length)}</Location>`);
   });
 });
 

@@ -1,15 +1,16 @@
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
-import { PLUGGED_DELAY, type MotorSpec, type IgnitionEvent } from '../../engine/openRocketEngine';
+import { type MotorSpec, type IgnitionEvent } from '../../engine/openRocketEngine';
 import { MotorDialog } from './MotorDialog';
 import type { MountFit } from '../../services/motors/motorPicker';
 import { MotorSpecDialog } from './MotorSpecDialog';
-import { fmtNum } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import { motorName } from '../../services/motors/motorName';
 import { IGNITION_EVENTS } from '../../services/design/componentFields';
 import type { IgnitionScope } from '../../state/store';
+import { ejectionDelayText } from './motorFormat';
+import { RadioGroup } from '../common/RadioGroup';
 
 /**
  * A motor-mount summary card: the seated motor (designation, dims, delay, curve)
@@ -86,10 +87,7 @@ export function MotorRow({
               </div>
               {hasCurve ? (
                 <div className="mt-0.5 text-xs text-ink-faint">
-                  {t('sims.delay')}{' '}
-                  {motor.ejectionDelay >= PLUGGED_DELAY
-                    ? t('motor.plugged')
-                    : `${fmtNum(motor.ejectionDelay, 1)} ${t('units.second')}`}
+                  {t('sims.delay')} {ejectionDelayText(motor.ejectionDelay, t)}
                   {motor.curveSrc ? <span className="text-ink-muted"> · {motor.curveSrc}</span> : null}
                 </div>
               ) : (
@@ -173,8 +171,6 @@ function IgnitionControl({
 }) {
   const { t } = useTranslation();
   const [scope, setScope] = useState<IgnitionScope>('config');
-  // One radio group per card: several mounts render side by side.
-  const group = useId();
   const isReset = event === 'automatic' && delay === 0;
   return (
     <div className="mt-2 space-y-2 border-t border-line/5 pt-2 text-xs">
@@ -219,21 +215,14 @@ function IgnitionControl({
         )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <legend className="sr-only">{t('sims.ignitionScope')}</legend>
-          {(['config', 'all'] as const).map((s) => (
-            <label key={s} className="flex items-center gap-1 text-ink-soft">
-              <input
-                type="radio"
-                name={group}
-                checked={scope === s}
-                onChange={() => setScope(s)}
-                className="accent-accent-500"
-              />
-              {t(s === 'all' ? 'sims.ignitionAll' : 'sims.ignitionThis')}
-            </label>
-          ))}
-        </fieldset>
+        <RadioGroup
+          layout="inline"
+          legend={t('sims.ignitionScope')}
+          options={['config', 'all'] as const}
+          value={scope}
+          onChange={setScope}
+          fmt={(s) => t(s === 'all' ? 'sims.ignitionAll' : 'sims.ignitionThis')}
+        />
         <button
           type="button"
           disabled={isReset}

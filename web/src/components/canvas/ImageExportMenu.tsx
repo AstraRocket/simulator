@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IMAGE_WIDTHS, type ImageFormat } from '../../services/exports/schematicExport.js';
 import { useMenuPopover } from '../common/useMenuPopover';
+import { token } from '../common/colorTokens';
 
 /** Per-export toggles carried alongside the format/width choice. Nothing here
  *  is persisted: the picker is reopened for every export anyway. */
@@ -69,7 +70,7 @@ export function ImageExportMenu({
             top: '100%',
             marginTop: 4,
             zIndex: 30,
-            background: 'var(--surface-1)',
+            background: token('raised'),
             border: '1px solid var(--border, #444)',
             borderRadius: 6,
             padding: 6,
@@ -87,7 +88,7 @@ export function ImageExportMenu({
             <span
               key={`${fmt}-label`}
               aria-hidden="true"
-              style={{ alignSelf: 'center', padding: '0 6px', color: 'var(--text-muted, #999)' }}
+              style={{ alignSelf: 'center', padding: '0 6px', color: token('ink-muted') }}
             >
               {formatName(fmt)}
             </span>,
@@ -121,7 +122,7 @@ export function ImageExportMenu({
                 marginTop: 2,
                 paddingTop: 5,
                 borderTop: '1px solid var(--border, #444)',
-                color: 'var(--text-muted, #999)',
+                color: token('ink-muted'),
                 cursor: 'pointer',
               }}
               title={t('export.fitFrameHint')}

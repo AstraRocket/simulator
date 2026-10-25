@@ -1,12 +1,11 @@
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
-import { NumberInput } from '../common/NumberInput';
-import { FieldLabel, markRing } from '../common/FieldMark';
+import { FieldLabel } from '../common/FieldMark';
 import { UnitChip } from '../common/UnitChip';
 import { useUnits, type FieldUnit } from '../../prefs/useUnits';
 import { clampEntry } from '../../prefs/entryValue';
-import { unitScope, type Quantity } from '../../prefs/units';
+import { unitScope, type Quantity, degToRad } from '../../prefs/units';
 import { num } from '../../tree/nodeProps';
 import { shapeSelect } from '../../tree/shapeProfile';
 import { FIELDS, type Field, type PanelSection } from '../../services/design/componentFields';
@@ -24,6 +23,8 @@ import { parentRadiusOf } from '../../tree/finPlanform';
 import { PropSection } from './PropSection';
 import { rebaseTabOffset } from '../../tree/axialRebase';
 import { useWorkspaceStore } from '../../state/store';
+import { trimFloatNoise } from '../../services/app/numbers';
+import { NumberWithUnit } from '../common/NumberRow';
 
 /**
  * The kernel's value for an automatic field it resolves itself, while the field
@@ -121,6 +122,17 @@ export function FieldSection({
   );
 }
 
+/**
+ * Patch and close the undo entry in one shot: what a discrete control (a
+ * select, a checkbox, a picker) does, since it finishes the moment it changes.
+ */
+export const commitWith =
+  (onChange: NodeEditProps['onChange'], onCommit?: () => void) =>
+  (patch: Partial<ComponentNode>): void => {
+    onChange(patch);
+    onCommit?.();
+  };
+
 /** What a property panel section edits: the part, and the panel's patch and commit handlers. */
 export interface NodeEditProps {
   node: ComponentNode;
@@ -134,6 +146,16 @@ export interface NodeEditProps {
    * every option.
    */
   stageBelow?: boolean;
+}
+
+/**
+ * What a section of discrete controls edits (pickers, colors, a slider on
+ * release): the part, and the panel's patch that also closes the undo entry,
+ * so every control lands once.
+ */
+export interface CommitEditProps {
+  node: ComponentNode;
+  onCommitChange: (patch: Partial<ComponentNode>) => void;
 }
 
 /**
@@ -168,18 +190,7 @@ export function ShoulderSections({ node, onChange, onCommit }: NodeEditProps) {
   );
 }
 
-export function NumberField({
-  label,
-  unit,
-  value,
-  step,
-  min,
-  max,
-  required,
-  auto,
-  onChange,
-  onCommit,
-}: {
+interface NumberFieldProps {
   label: string;
   unit?: ReactNode;
   value: number;
@@ -199,7 +210,20 @@ export function NumberField({
   auto?: { on: boolean; label: string; title: string; onToggle: (on: boolean) => void };
   onChange: (v: number) => void;
   onCommit?: () => void; // fires on blur; closes the undo entry for this edit
-}) {
+}
+
+export function NumberField({
+  label,
+  unit,
+  value,
+  step,
+  min,
+  max,
+  required,
+  auto,
+  onChange,
+  onCommit,
+}: NumberFieldProps) {
   const { t } = useTranslation();
   // No separate "blank" state to check for: 0 is exactly what is wrong here, so
   // an emptied box and a typed zero collapse into one condition.
@@ -226,25 +250,20 @@ export function NumberField({
     <div className="flex items-center justify-between gap-2">
       <label className="flex min-w-0 flex-1 items-center justify-between gap-2">
         <FieldLabel text={label} required={required} missing={missing} />
-        <span className="flex shrink-0 items-center gap-1">
-          <NumberInput
-            ariaLabel={label}
-            value={Number.isFinite(value) ? value : 0}
-            onChange={write}
-            onCommit={onCommit}
-            step={step}
-            min={min}
-            max={max}
-            disabled={auto?.on}
-            className={markRing(
-              `w-24 rounded-md px-2 py-1 text-right text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${
-                auto?.on ? 'bg-raised/50 text-ink-muted' : 'bg-raised text-ink-strong'
-              }`,
-              missing,
-            )}
-          />
-          {unit && <span className="min-w-10 text-xs text-ink-faint">{unit}</span>}
-        </span>
+        <NumberWithUnit
+          className="shrink-0"
+          unit={unit}
+          missing={missing}
+          fill={auto?.on ? 'bg-raised/50 text-ink-muted' : 'bg-raised text-ink-strong'}
+          ariaLabel={label}
+          value={Number.isFinite(value) ? value : 0}
+          onChange={write}
+          onCommit={onCommit}
+          step={step}
+          min={min}
+          max={max}
+          disabled={auto?.on}
+        />
       </label>
       {/* The switch carries its word on screen, not only in a `title`: on a
           centering ring both diameters have one, and two bare checkboxes read
@@ -297,12 +316,7 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
   // same Length field on the same card, so selecting another must not
   // forget the unit just set on it, but a nose cone's Length is its own.
   const scope = unitScope('prop', node.type, f.key);
-  // Discrete controls finish the moment they change, so patch and close the
-  // undo entry in one shot.
-  const commitChange = (patch: Partial<ComponentNode>) => {
-    onChange(patch);
-    onCommit?.();
-  };
+  const commitChange = commitWith(onChange, onCommit);
   /**
    * Write a converted patch to the node, or nothing at all.
    *
@@ -339,15 +353,9 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
           },
         }
       : {};
-  const numeric = (props: {
-    unit?: ReactNode;
-    value: number;
-    step: number;
-    min?: number;
-    max?: number;
-    auto?: { on: boolean; label: string; title: string; onToggle: (on: boolean) => void };
-    onChange: (v: number) => void;
-  }) => <NumberField label={label} required={f.required} onCommit={onCommit} {...props} />;
+  const numeric = (props: Omit<NumberFieldProps, 'label' | 'required' | 'onCommit'>) => (
+    <NumberField label={label} required={f.required} onCommit={onCommit} {...props} />
+  );
   /** The field's own stored SI number, edited in its unit with a unit chip. */
   const inUnit = (quantity: Quantity, stepSi: number, min?: (fu: FieldUnit) => number, maxSi?: number) => {
     const fu = u.at(scope, quantity);
@@ -439,7 +447,7 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
     case 'number': {
       const { min, max } = fieldRange(node, f);
       return numeric({
-        unit: f.unit,
+        unit: f.unitKey ? t(f.unitKey) : undefined,
         // On Auto, the number the kernel works out (a recovery device's Cd),
         // not the stored one it ignores.
         value: kernelAuto ?? Number(fieldValue(node, f)),
@@ -455,12 +463,7 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
       // The range is converted, not fixed in degrees: a fixed -180 would clamp
       // a radian entry to well inside its legal range.
       const { min, max } = fieldRange(node, f);
-      return inUnit(
-        'angle',
-        ((f.step ?? 5) * Math.PI) / 180,
-        min === undefined ? undefined : (fu) => fu.toUi(min),
-        max,
-      );
+      return inUnit('angle', degToRad(f.step ?? 5), min === undefined ? undefined : (fu) => fu.toUi(min), max);
     }
     case 'bore': {
       // A tube's inner diameter, which is not stored: the node and the `.ork`
@@ -512,7 +515,7 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
         patchNumber(d.write(node, si));
       };
       const value = d.read(node);
-      const bound = (v: number | undefined) => (v === undefined ? undefined : Number((fu ? fu.toUi(v) : v).toFixed(6)));
+      const bound = (v: number | undefined) => (v === undefined ? undefined : trimFloatNoise(fu ? fu.toUi(v) : v));
       return numeric({
         unit: d.quantity ? <UnitChip quantity={d.quantity} scope={scope} /> : undefined,
         value: fu ? fu.toUi(value) : value,

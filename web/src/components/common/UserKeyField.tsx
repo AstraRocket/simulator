@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UserKeyStore } from '../../services/storage/userKey';
+import { StatusLine } from './StatusLine';
 
 /**
  * A field for a key the user enters for a third-party service
@@ -59,9 +60,9 @@ export function UserKeyField({
         />
       </label>
       <p className="text-[11px] leading-snug text-ink-faint">{t(note)}</p>
-      <p role="status" aria-live="polite" className="text-[11px] leading-snug text-warn-400">
+      <StatusLine tone="warn" size="fine">
         {failed ? t(notSaved) : ''}
-      </p>
+      </StatusLine>
     </div>
   );
 }

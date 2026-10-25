@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { piecesBounds, type Piece } from './rocketPieces';
 
 /**
  * Owns the export framing for the 3D image snapshot: the NaN-safe box guard,
@@ -150,4 +151,15 @@ export function exportCamera(box: THREE.Box3, src: THREE.PerspectiveCamera, aspe
   cam.far = Math.max(cam.near * 16, -view.min.z * 1.1);
   cam.updateProjectionMatrix();
   return cam;
+}
+
+/**
+ * The camera an export draws through: a throwaway fitted to the rocket when
+ * `fit` asks for it and the live camera is a perspective one whose box can be
+ * fitted, otherwise the live camera (the on-screen framing).
+ */
+export function exportView(live: THREE.Camera, pieces: Piece[], fit: boolean, aspect: number): THREE.Camera {
+  const src = live as THREE.PerspectiveCamera;
+  const box = fit && src.isPerspectiveCamera ? piecesBounds(pieces) : null;
+  return box && isFittableBox(box) ? exportCamera(box, src, aspect) : live;
 }

@@ -1,5 +1,7 @@
 import type { LaunchConditions } from '../../design/orkTree';
 import { FT, INHG, MPH, fmt, type Cdx1Writer } from './units';
+import { LAUNCH_SI } from '../../../prefs/launchUnits';
+import { siToUi } from '../../../prefs/units';
 
 /**
  * Launch site back to RASAero units (feet / °F / in-Hg / mph). Pressure 0 is
@@ -14,7 +16,9 @@ export function writeLaunchSite(w: Cdx1Writer, launch: Partial<LaunchConditions>
   );
   emit(`<RodAngle>${fmt(launch?.launchRodAngleDeg ?? 0)}</RodAngle>`);
   emit(`<RodLength>${launch?.launchRodLengthM != null ? fmt(launch.launchRodLengthM * FT) : '10'}</RodLength>`);
-  emit(`<Temperature>${launch?.temperatureC != null ? fmt((launch.temperatureC * 9) / 5 + 32) : '59'}</Temperature>`);
+  emit(
+    `<Temperature>${launch?.temperatureC != null ? fmt(siToUi('temperature', '°F', LAUNCH_SI.degC.toSi(launch.temperatureC))) : '59'}</Temperature>`,
+  );
   emit(`<WindSpeed>${fmt((launch?.windAverage ?? 0) * MPH)}</WindSpeed>`);
   emit('</LaunchSite>');
 }

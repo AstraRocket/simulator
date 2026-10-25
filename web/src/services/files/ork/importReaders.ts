@@ -81,8 +81,8 @@ const readCd = (el: Element, n: ComponentNode) => {
     return;
   }
   if (cdText) {
-    const cdv = Number(cdText);
-    if (Number.isFinite(cdv)) n['cd'] = cdv;
+    const cdv = finiteNum(cdText);
+    if (cdv !== undefined) n['cd'] = cdv;
   }
 };
 
@@ -104,18 +104,28 @@ const readNosecone: NodeReader = (ctx, el) => {
   readThicknessOrFilled(el, n, COMPONENT_DEFAULTS.nosecone.thickness);
   n['shape'] = shapeTag(el, n, ctx.notes, 'ogive');
   n['shapeParameter'] = nonNegTag(el, 'shapeparameter', shapeParamDefault(String(n['shape'])));
-  const shR = numTag(el, 'aftshoulderradius', 0);
-  const shL = numTag(el, 'aftshoulderlength', 0);
-  if (shR > 0) n['shoulderRadius'] = shR;
-  if (shL > 0) n['shoulderLength'] = shL;
-  const shT = numTag(el, 'aftshoulderthickness', 0);
-  if (shT > 0) n['shoulderThickness'] = shT;
-  if (text(el, ':scope > aftshouldercapped') === 'true') n['shoulderCapped'] = true;
+  readShoulder(el, n, 'aft', 'shoulder');
   // A flipped nose cone is a tail cone; read so it keeps its orientation
   // through a round trip.
   if (text(el, ':scope > isflipped') === 'true') n['flipped'] = true;
   return n;
 };
+
+/**
+ * One shoulder's `<{side}shoulder*>` tags into the node keys `{key}Radius`,
+ * `Length`, `Thickness` and `Capped`: a nose cone's one (`shoulder`) or a
+ * transition's two. A zero is no shoulder, so it is left unset. A capped
+ * shoulder is closed by a disc of the part's own material.
+ */
+function readShoulder(el: Element, n: ComponentNode, side: 'fore' | 'aft', key: string): void {
+  const r = numTag(el, `${side}shoulderradius`, 0);
+  const l = numTag(el, `${side}shoulderlength`, 0);
+  if (r > 0) n[`${key}Radius`] = r;
+  if (l > 0) n[`${key}Length`] = l;
+  const th = numTag(el, `${side}shoulderthickness`, 0);
+  if (th > 0) n[`${key}Thickness`] = th;
+  if (text(el, `:scope > ${side}shouldercapped`) === 'true') n[`${key}Capped`] = true;
+}
 
 const readTransition: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'transition', false);
@@ -134,20 +144,8 @@ const readTransition: NodeReader = (ctx, el) => {
   // kernel default (clipped, matching the desktop).
   const clip = text(el, ':scope > shapeclipped');
   if (clip === 'true' || clip === 'false') n['clipped'] = clip === 'true';
-  for (const [side, key] of [
-    ['fore', 'foreShoulder'],
-    ['aft', 'aftShoulder'],
-  ] as const) {
-    const r = numTag(el, `${side}shoulderradius`, 0);
-    const l = numTag(el, `${side}shoulderlength`, 0);
-    if (r > 0) n[`${key}Radius`] = r;
-    if (l > 0) n[`${key}Length`] = l;
-    const th = numTag(el, `${side}shoulderthickness`, 0);
-    if (th > 0) n[`${key}Thickness`] = th;
-    // A capped shoulder is closed by a disc of the part's own material. Read
-    // per side, since a transition has two.
-    if (text(el, `:scope > ${side}shouldercapped`) === 'true') n[`${key}Capped`] = true;
-  }
+  readShoulder(el, n, 'fore', 'foreShoulder');
+  readShoulder(el, n, 'aft', 'aftShoulder');
   return n;
 };
 

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useRef } from 'react';
+import { useNativeChange } from './useNativeChange';
 
 /**
  * A color input that commits once, when the picker closes, rather than on every
@@ -29,10 +30,6 @@ export function ColorInput({
   style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  const latest = useRef({ value, onCommit });
-  useLayoutEffect(() => {
-    latest.current = { value, onCommit };
-  });
   // Uncontrolled, re-seeded when the stored value changes from elsewhere. The
   // same element is kept, not remounted, so the native listener below stays
   // attached for every later pick.
@@ -40,15 +37,9 @@ export function ColorInput({
     const el = ref.current;
     if (el && el.value !== value) el.value = value;
   }, [value]);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const commit = () => {
-      if (el.value !== latest.current.value) latest.current.onCommit(el.value);
-    };
-    el.addEventListener('change', commit);
-    return () => el.removeEventListener('change', commit);
-  }, []);
+  useNativeChange(ref, (el) => {
+    if (el.value !== value) onCommit(el.value);
+  });
   return (
     <input
       ref={ref}
@@ -64,5 +55,47 @@ export function ColorInput({
       className={className}
       style={style}
     />
+  );
+}
+
+/**
+ * A labeled color row: the label, then the swatch picker, then `children` (a
+ * hex box, a reset button). A row rather than one big <label>, since the
+ * children are controls of their own and a label binds to one. Only the
+ * controls dim when disabled: a faded label would fall below the text contrast
+ * floor, and the inputs' own state already says so.
+ */
+export function ColorField({
+  label,
+  value,
+  disabled,
+  onCommit,
+  labelClassName,
+  children,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onCommit: (color: string) => void;
+  labelClassName: string;
+  children?: React.ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <label htmlFor={id} className={labelClassName}>
+        {label}
+      </label>
+      <span className="flex items-center gap-2">
+        <ColorInput
+          id={id}
+          value={value}
+          disabled={disabled}
+          onCommit={onCommit}
+          className="h-7 w-10 cursor-pointer rounded-md border border-line/10 bg-raised p-0.5 disabled:cursor-default disabled:opacity-40"
+        />
+        {children}
+      </span>
+    </div>
   );
 }

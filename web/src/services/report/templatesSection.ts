@@ -2,9 +2,8 @@ import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { finPlanformMm, profileMm, type Pt } from './reportGeometry';
 import { finMountOf } from '../../tree/finPlanform';
 import { profileEnds } from '../../tree/shapeProfile';
-import { num } from '../../tree/nodeProps';
-import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
-import { fmtNum } from '../../i18n/format';
+import { noseConeAftRadius } from '../../tree/nodeProps';
+import { fmtNum, partLabel } from '../../i18n/format';
 import { pageFrame, templateFits } from './layout';
 import {
   drawText,
@@ -40,15 +39,13 @@ export function writeTemplatesSection(
   writeRuler(p);
   writeFinTemplates(p, tree, finSets);
   for (const n of noses) {
-    const prof = profileMm(n, 0, num(n, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius));
-    if (prof)
-      template(p, (n.name as string) || t('report.noseCone'), prof.pts, { minX: 0, minY: 0, w: prof.w, h: prof.h });
+    const prof = profileMm(n, 0, noseConeAftRadius(n));
+    if (prof) template(p, partLabel(t, n), prof.pts, { minX: 0, minY: 0, w: prof.w, h: prof.h });
   }
   for (const n of transitions) {
     const { fore, aft } = profileEnds(n);
     const prof = profileMm(n, fore, aft);
-    if (prof)
-      template(p, (n.name as string) || t('report.transition'), prof.pts, { minX: 0, minY: 0, w: prof.w, h: prof.h });
+    if (prof) template(p, partLabel(t, n), prof.pts, { minX: 0, minY: 0, w: prof.w, h: prof.h });
   }
 }
 
@@ -59,7 +56,7 @@ function writeFinTemplates(p: PdfPage, tree: RocketTree, finSets: ComponentNode[
     // the DXF and the STL of the same fin. Without it a 20 mm tab on a 12 mm
     // body would print at full depth.
     const f = finPlanformMm(n, finMountOf(tree, String(n.id)));
-    template(p, `${(n.name as string) || p.t('report.finSet')} × ${f.count}`, f.pts, outlineBox(f.pts));
+    template(p, `${partLabel(p.t, n)} × ${f.count}`, f.pts, outlineBox(f.pts));
   }
 }
 

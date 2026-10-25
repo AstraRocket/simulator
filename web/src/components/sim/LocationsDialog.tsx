@@ -1,17 +1,15 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
-import { fireAction } from '../../state/fireAction';
-import { MasterDetail, MasterRow, MasterStatus, useGuardedSelection } from '../common/MasterDetail';
-import { Dialog } from '../common/Dialog';
+import { MasterDetail, MasterRow, useGuardedSelection, MasterDetailDialog } from '../common/MasterDetail';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
+import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { LocationEditor } from './LocationEditor';
-import { getLaunchLocationStore, type LaunchLocation } from '../../services/storage/launchLocationStore';
+import { getLaunchLocationStore, type LaunchLocation, siteOf } from '../../services/storage/launchLocationStore';
 import { useLocationList } from './useLocationList';
 import { formatCoord } from '../../services/map/slippyMap';
+import { smallButton } from '../common/smallButton';
 
 /**
  * The saved launch locations, listed on the left and edited on the right.
@@ -47,18 +45,13 @@ export function LocationsDialog({
   const patchActiveLaunch = useWorkspaceStore((s) => s.patchActiveLaunch);
   // The launch panel's own altitude unit and scope, so this list reads in feet
   // for somebody who works in feet rather than always in meters.
-  const altUnit = useUnits().at(unitScope('launch', 'altitude'), LAUNCH_SI.distance.q);
+  const altUnit = useUnits().at(unitScope('launch', SITE_ALTITUDE_FIELD), LAUNCH_SI.distance.q);
 
-  const { locations, refresh } = useLocationList();
+  const { locations, error: listError, write } = useLocationList();
   // `null` = nothing selected. A string = that location. `'new'` = the draft.
-  const {
-    selectedId,
-    select: guardedSelect,
-    settle,
-    close: guardedClose,
-    onDirtyChange,
-  } = useGuardedSelection(t('location.discardConfirm'));
-  const [err, setErr] = useState<string | null>(null);
+  const { selectedId, select, settle, close, onDirtyChange, err, setErr } = useGuardedSelection(
+    t('location.discardConfirm'),
+  );
 
   const creating = selectedId === NEW;
   // Resolved from the list rather than held as its own copy, so a save (which
@@ -68,22 +61,7 @@ export function LocationsDialog({
   const selected = creating ? null : ((locations ?? []).find((p) => p.id === selectedId) ?? null);
   const showsDetail = creating || selected !== null;
 
-  /** Move the selection, asking first if it would throw away an edit. */
-  const select = async (id: string | null) => {
-    if (await guardedSelect(id)) setErr(null);
-  };
-
-  const store = async (fn: () => Promise<void>) => {
-    setErr(null);
-    try {
-      await fn();
-      await refresh();
-      return true;
-    } catch {
-      setErr(t('location.saveFailed'));
-      return false;
-    }
-  };
+  const store = (fn: () => Promise<void>) => write(fn, setErr);
 
   const save = async (location: LaunchLocation) => {
     // Save replaces by id, so this is the one call for both editing an
@@ -106,48 +84,33 @@ export function LocationsDialog({
 
   const apply = (location: LaunchLocation) => {
     if (onApply) onApply(location);
-    else
-      patchActiveLaunch({
-        latitudeDeg: location.latitudeDeg,
-        longitudeDeg: location.longitudeDeg,
-        launchAltitudeM: location.launchAltitudeM,
-      });
+    else patchActiveLaunch(siteOf(location));
     onClose();
   };
 
   return (
-    <Dialog
+    <MasterDetailDialog
       id="locations"
       title={t('location.manage')}
-      onClose={() => fireAction(guardedClose(onClose))}
-      size="4xl"
-      // List beside detail, each scrolling itself and reaching the panel's
-      // edges: the body takes the height and does its own padding.
-      layout="fill"
-      // Fixed rather than the viewport's height: the map wants room, and the
-      // list should not become a screen-tall column on a large monitor.
-      height={720}
+      onClose={onClose}
+      close={close}
+      err={err ?? listError}
+      loading={locations === null}
       actions={
         // The only way to add a location from the menu, where no launch field
         // is on screen to capture. From the launch panel the 💾 button is
         // the quicker route, since the numbers are already there.
-        <button
-          onClick={() => void select(NEW)}
-          className="rounded-md bg-raised px-2 py-1 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
-        >
+        <button onClick={() => void select(NEW)} className={smallButton('xs', 'ink')}>
           {t('location.new')}
         </button>
       }
-      footer={<MasterStatus err={err} />}
     >
-      {locations === null ? (
-        <p className="grid flex-1 place-items-center p-6 text-sm text-ink-muted">{t('common.loading')}</p>
-      ) : (
+      {locations && (
         <MasterDetail
           showsDetail={showsDetail}
           hint={t('location.pickHint')}
           list={
-            locations.length === 0 ? (
+            locations.length === 0 && listError === null ? (
               // Reachable from the menu before anything is saved, so it has to
               // say what a location is and where they come from.
               <p className="p-6 text-center text-sm leading-snug text-ink-muted">{t('location.empty')}</p>
@@ -185,7 +148,7 @@ export function LocationsDialog({
           }
         />
       )}
-    </Dialog>
+    </MasterDetailDialog>
   );
 }
 

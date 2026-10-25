@@ -2,9 +2,8 @@ import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { deployOverride, designDeployment, type FlightConfig } from '../../services/flight/flightConfigs';
 import { useWorkspaceStore } from '../../state/store';
-import { OverrideCard, OverrideNumber, OverrideSelect } from './OverrideFields';
+import { OverrideCard, OverrideNumber, OverrideSelect, OverrideAltitude } from './OverrideFields';
 import { useUnits } from '../../prefs/useUnits';
-import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import { fmtUpTo } from '../../i18n/format';
 import { partName } from './ConfigsTable';
@@ -75,19 +74,13 @@ export function DeploymentSection({
           under that event alone, as the property panel and desktop do; a stored
           override survives a trip through another event and is back with it. */}
       {event === 'altitude' && (
-        <OverrideNumber
+        <OverrideAltitude
           name={name}
           label={t('prop.deployAltitude')}
-          value={over?.deployAltitude == null ? null : alt.toUi(over.deployAltitude)}
-          placeholder={alt.fmt(design.deployAltitude)}
-          step={alt.step(10)}
-          // Floored at zero, as the design-side box is by `fieldRange`. `onSi`
-          // does not reject a negative, and a negative deploy altitude never
-          // fires the kernel's altitude trigger, so the design would fly
-          // ballistic under this configuration.
-          min={alt.toUi(0)}
-          unit={alt.sym}
-          onChange={onSi(alt, (si) => setDeployment(config.id, id, 'deployAltitude', si))}
+          si={over?.deployAltitude}
+          designedSi={design.deployAltitude}
+          unit={alt}
+          onChange={(si) => setDeployment(config.id, id, 'deployAltitude', si)}
           onCommit={onCommit}
         />
       )}

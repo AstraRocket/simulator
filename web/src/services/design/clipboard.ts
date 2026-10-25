@@ -1,6 +1,7 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { reid } from './componentActions';
-import { canHost, findNode, findParent, isRecoveryDevice, stageNodes, syncDerived } from './treeEdit';
+import { canHost, findNode, findParent, isRecoveryDevice, syncDerived } from './treeEdit';
+import { stageNodes, lineageOf, walkNodes } from '../../tree/treeWalk';
 
 /**
  * Cut, copy, paste and duplicate on the parts tree, as desktop OpenRocket's
@@ -43,16 +44,7 @@ export function pastePlace(tree: RocketTree, clip: ComponentNode, selectedId: st
 
 /** The stage a node is in (itself, for a stage). */
 function stageOf(tree: RocketTree, id: string): ComponentNode | null {
-  let node = findNode(tree, id);
-  while (node && node.type !== 'stage') node = node.id ? findParent(tree, node.id) : null;
-  return node;
-}
-
-function* walk(nodes: ComponentNode[]): Generator<ComponentNode> {
-  for (const n of nodes) {
-    yield n;
-    if (n.children) yield* walk(n.children);
-  }
+  return lineageOf(tree.components, id).find((n) => n.type === 'stage') ?? null;
 }
 
 /**
@@ -79,8 +71,8 @@ function insertCopy(tree: RocketTree, clip: ComponentNode, place: PastePlace): P
   const id = copy.id as string;
   const stage = stageOf(next, id);
   if (stage?.children) {
-    const copied = new Set([...walk([copy])]);
-    const drogues = [...walk(stage.children)].filter((n) => isRecoveryDevice(n.type) && n['drogue'] === true);
+    const copied = new Set([...walkNodes([copy])]);
+    const drogues = [...walkNodes(stage.children)].filter((n) => isRecoveryDevice(n.type) && n['drogue'] === true);
     if (drogues.some((n) => !copied.has(n)))
       for (const n of drogues) if (copied.has(n)) delete (n as Record<string, unknown>)['drogue'];
   }

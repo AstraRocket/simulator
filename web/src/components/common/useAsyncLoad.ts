@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import i18n from '../../i18n';
 import { errorText } from '../../i18n/keyedError';
+import { useLatestRef } from './useLatestRef';
 
 type Landed<T> = { key: string; attempt: number } & ({ ok: true; data: T } | { ok: false; error: unknown });
 
@@ -29,10 +30,7 @@ export function useAsyncLoad<T>(
   const [landed, setLanded] = useState<Landed<T> | null>(null);
   // The latest callbacks, read when a load lands: callers pass inline closures,
   // and listing them in the effect's deps would reload on every render.
-  const latest = useRef({ load, onLoaded });
-  useLayoutEffect(() => {
-    latest.current = { load, onLoaded };
-  });
+  const latest = useLatestRef({ load, onLoaded });
   useEffect(() => {
     let live = true;
     latest.current
@@ -48,7 +46,7 @@ export function useAsyncLoad<T>(
     return () => {
       live = false;
     };
-  }, [key, attempt, refresh]);
+  }, [key, attempt, refresh, latest]);
   const current = landed !== null && landed.key === key && landed.attempt === attempt ? landed : null;
   return {
     data: current?.ok ? current.data : undefined,

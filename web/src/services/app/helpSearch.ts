@@ -1,4 +1,4 @@
-import { type HelpEntry, fetchHelpDocument, headingLabel, helpTarget, pageTitle } from './helpDocs';
+import { type HelpEntry, fetchHelpDocument, headingLabel, helpTarget, pageTitle, splitPage } from './helpDocs';
 
 /**
  * Search across the docs that ship inside the app, for the Help dialog.
@@ -159,7 +159,7 @@ async function buildIndex(pages: HelpEntry[], language: string): Promise<HelpDoc
   const slugs = new Map<string, string>();
   for (const entry of pages) {
     if (entry.page === null) continue;
-    const slug = entry.page.split('#')[0] ?? '';
+    const { slug } = splitPage(entry.page);
     if (!slugs.has(slug)) slugs.set(slug, entry.label);
   }
 

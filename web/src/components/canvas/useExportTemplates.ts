@@ -6,6 +6,8 @@ import { getTemplateStore, parseTemplateFilename, type UserTemplate } from '../.
 import { useLatest } from '../common/useLatest';
 import { readFileText } from '../../services/files/decodeText';
 import { confirm } from '../../state/confirmStore';
+import { errorText } from '../../i18n/keyedError';
+import i18n from '../../i18n';
 
 /** Prefixes a user template's id in the format select, so it cannot collide with a built-in's. */
 export const USER_PREFIX = 'user:';
@@ -37,7 +39,13 @@ export function useExportTemplates() {
     store
       .list()
       .then((listed) => mine() && setTemplates(listed))
-      .catch(() => mine() && setTemplates([]));
+      // A store that cannot be read is not an empty one: said in the error
+      // line, as the saved-part and location lists say it.
+      .catch((e: unknown) => {
+        if (!mine()) return;
+        setTemplates([]);
+        setError(errorText(e, i18n.t));
+      });
   }, [store, claimWrite]);
 
   // Resolve the current selection to either a built-in format or a user template.

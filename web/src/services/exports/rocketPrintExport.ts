@@ -10,6 +10,8 @@ import { colorForType } from '../design/partColors';
 import { buildThreeMf, THREE_MF_MIME, type ThreeMfPart } from './threeMf';
 import { exportFilename, saveBlob, safeFilename } from '../files/saveFile';
 import { KeyedError } from '../../i18n/keyedError';
+import { partLabel } from '../../i18n/format';
+import i18n from '../../i18n';
 
 /**
  * Whole-rocket 3MF export.
@@ -93,6 +95,10 @@ export async function downloadRocket3mf(
   opts: PrintExportOptions = {},
 ): Promise<PrintExportResult> {
   const { include, separateFiles = false, placeOnPlate = true, labels } = opts;
+  // Its own name, trimmed, then the caller's label, then the translated type
+  // (`partLabel`), never the raw type key.
+  const nameOf = (e: { id: string; name?: string; type: string }): string =>
+    (typeof e.name === 'string' && e.name.trim()) || labels?.[e.id] || partLabel(i18n.t, e);
 
   const built: { part: ThreeMfPart; id: string }[] = [];
   const skipped: string[] = [];
@@ -101,13 +107,13 @@ export async function downloadRocket3mf(
     const node = nodeById(tree, entry.id);
     const geometry = node ? solidFor(tree, node) : null;
     if (!geometry) {
-      skipped.push(entry.name || labels?.[entry.id] || entry.type);
+      skipped.push(nameOf(entry));
       continue;
     }
     built.push({
       id: entry.id,
       part: {
-        name: entry.name || labels?.[entry.id] || entry.type,
+        name: nameOf(entry),
         geometry: makeWatertight(geometry),
         color: colorForType(entry.type),
       },

@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { fmtSig, fmtSiteTime, fmtUpTo, ladderDigits, partLabel, stageLabel, withUnit } from '../../src/i18n/format';
+import {
+  fmtSig,
+  fmtSiteTime,
+  fmtUpTo,
+  ladderDigits,
+  partLabel,
+  stageLabel,
+  tickDigits,
+  fmtPercent,
+  withUnit,
+} from '../../src/i18n/format';
 import { NO_VALUE } from '../../src/i18n/noValue';
 import i18n from '../../src/i18n';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -181,5 +191,58 @@ describe('fmtSiteTime', () => {
     };
     walk(dir);
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * Decimals a tick label needs to read as itself. The schematic ruler steps
+ * 1, 2, 2.5 and 5 at each power of ten, so a 2.5 step needs one decimal its
+ * magnitude would not give it (0, 3, 5, 8 for 0, 2.5, 5, 7.5), and the Mach axis
+ * starts at the sweep's first sample, 0.05.
+ */
+describe('tickDigits', () => {
+  it('gives each nice step the decimals it needs', () => {
+    expect(tickDigits(2.5)).toBe(1);
+    expect(tickDigits(25)).toBe(0);
+    expect(tickDigits(0.25)).toBe(2);
+    expect(tickDigits(0.025, 0, 3)).toBe(3);
+    expect(tickDigits(5)).toBe(0);
+    expect(tickDigits(0.5)).toBe(1);
+  });
+
+  it('never gives fewer than the axis asks for', () => {
+    expect(tickDigits(1, 2)).toBe(2);
+    expect(tickDigits(0.05, 1)).toBe(2);
+  });
+
+  it('reads every multiple of a step exactly', () => {
+    for (const step of [0.25, 2.5, 0.5, 5, 0.2]) {
+      for (let k = 0; k <= 8; k++) {
+        const v = Number((k * step).toFixed(6));
+        expect(Number(v.toFixed(tickDigits(step))), `${k} × ${step}`).toBe(v);
+      }
+    }
+  });
+});
+
+/**
+ * One percent readout everywhere, in the locale's own form: English closes it
+ * up ("12%"), French and German set it off with a no-break space. The weather
+ * dialog wrote "45 %" and the aero tables "12%", in English, side by side.
+ */
+describe('fmtPercent', () => {
+  it('writes a percent the way the locale does', async () => {
+    expect(fmtPercent(12)).toBe('12%');
+    expect(fmtPercent(12.34, 1)).toBe('12.3%');
+    await i18n.changeLanguage('fr');
+    try {
+      expect(fmtPercent(12)).toMatch(/^12\s%$/u);
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
+
+  it('reads the no-value dash for a figure it cannot show', () => {
+    expect(fmtPercent(Number.NaN)).toBe(NO_VALUE);
   });
 });

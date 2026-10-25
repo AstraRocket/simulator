@@ -78,9 +78,13 @@ const { loadOrk } = await import('../../../src/services/files/loadOrk');
 
 // A full curve, because the seating step only hands the kernel a motor it can
 // accept: a curve-less spec is what an unresolved motor looks like, and seating
-// one throws "Too short thrust-curve" (motorCurve.hasUsableCurve).
+// one throws "Too short thrust-curve" (motorCurve.hasUsableCurve). The dimensions
+// are checked with it, as the kernel reads them too.
 const SPEC = {
   designation: 'J350',
+  diameter: 0.038,
+  length: 0.25,
+  cgX: 0.125,
   times: [0, 1, 2, 3],
   thrusts: [0, 420, 380, 0],
   masses: [0.6, 0.5, 0.4, 0.3],

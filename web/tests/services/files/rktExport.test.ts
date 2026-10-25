@@ -427,6 +427,33 @@ describe('exportRkt: a clustered motor mount', () => {
       ],
     } as unknown as RocketTree).xml;
 
+  // A cleared Name field writes `name: ''`, and a member still needs a name.
+  it('names the members of an unnamed mount by its type', () => {
+    const xml = exportRkt('Cluster', {
+      name: 'Cluster',
+      components: [
+        {
+          type: 'stage',
+          id: 's1',
+          name: 'Sustainer',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'tube',
+              name: 'Body',
+              length: 0.4,
+              outerRadius: 0.04,
+              thickness: 0.001,
+              children: [{ ...mount('3-ring'), name: '' }],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree).xml;
+    expect(xml).toContain('<Name>Inner tube #1</Name>');
+    expect(xml).not.toContain('<Name> #1</Name>');
+  });
+
   it('writes one tube per motor, named as the desktop names them', () => {
     const xml = clustered('3-ring');
     for (const n of [1, 2, 3]) expect(xml).toContain(`<Name>Mount #${n}</Name>`);
@@ -1468,5 +1495,37 @@ describe('a fin set with no position', () => {
   it('goes out at the bottom of its parent, as the kernel places it', () => {
     expect(withFins()).toBe(withFins({ method: 'bottom', offset: 0 }));
     expect(withFins()).not.toBe(withFins({ method: 'top', offset: 0 }));
+  });
+});
+
+/**
+ * A fin count is a whole number of fins, read as every other reader of the key
+ * reads it (`countOf`): a stored 4.4, which only a hand-edited file carries,
+ * goes out as the 4 fins the kernel flies, not as "4.4".
+ */
+describe('exportRkt: a fin count', () => {
+  it('writes the whole number of fins the kernel flies', () => {
+    const xml = exportRkt('Fins', {
+      name: 'Fins',
+      components: [
+        {
+          type: 'stage',
+          id: 's1',
+          name: 'Sustainer',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'tube',
+              name: 'Body',
+              length: 0.4,
+              outerRadius: 0.02,
+              thickness: 0.001,
+              children: [{ type: 'trapezoidfinset', id: 'f', name: 'Fins', finCount: 4.4 }],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree).xml;
+    expect(xml).toContain('<FinCount>4</FinCount>');
   });
 });

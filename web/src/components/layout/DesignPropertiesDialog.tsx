@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog } from '../common/Dialog';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
 
 /**
  * Name/rename a saved design. Used by File > Save As... and by Rename in the
@@ -82,14 +82,14 @@ export function DesignPropertiesDialog({
             two identical rows in the library are confusing, so say so. */}
       {duplicate && <p className="mt-2 text-xs text-warn-300">{duplicateText ?? t('library.duplicateName')}</p>}
 
-      <div className="mt-6 flex justify-end gap-2">
+      <DialogActions>
         <DialogButton onClick={onCancel} variant="secondary">
           {t('common.cancel')}
         </DialogButton>
         <DialogButton onClick={submit} disabled={trimmed === ''} variant="primary">
           {confirmLabel}
         </DialogButton>
-      </div>
+      </DialogActions>
     </Dialog>
   );
 }

@@ -173,3 +173,28 @@ describe('SettingsProvider with another tab writing', () => {
     expect(written['theme']).toBe('light');
   });
 });
+
+/** Hands back the whole settings API on every render. */
+function Grab({ onReady }: { onReady: (api: ReturnType<typeof useSettings>) => void }) {
+  onReady(useSettings());
+  return null;
+}
+
+describe('SettingsProvider reset', () => {
+  // Callers patch nested blocks of the live settings, so a reset that handed
+  // out the shared constant would let the next such edit rewrite the defaults.
+  it('installs a copy of the defaults, not the shared constant', () => {
+    loadSettings.mockReturnValue({ ...DEFAULT_SETTINGS });
+    saveSettings.mockReturnValue(true);
+    let api!: ReturnType<typeof useSettings>;
+    render(
+      <SettingsProvider>
+        <Grab onReady={(a) => (api = a)} />
+      </SettingsProvider>,
+    );
+    act(() => api.reset());
+    expect(api.settings).toEqual(DEFAULT_SETTINGS);
+    expect(api.settings).not.toBe(DEFAULT_SETTINGS);
+    expect(api.settings.simulation).not.toBe(DEFAULT_SETTINGS.simulation);
+  });
+});

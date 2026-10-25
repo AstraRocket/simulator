@@ -10,7 +10,7 @@ import { initEngine, resetEngine, setKernelLengthUnit } from './openRocketEngine
 import { buildConfiguredRocket } from '../services/design/buildRocket';
 import type { WorkerReady, WorkerRequest, WorkerResponse } from './simProtocol';
 import { errorMessage } from '../services/app/errorMessage';
-import { errorReason, KeyedError } from '../i18n/keyedError';
+import { errorReason, KeyedError, type Keyed } from '../i18n/keyedError';
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -41,9 +41,7 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       id,
       ok: false,
       error: errorMessage(err),
-      ...(err instanceof KeyedError
-        ? { keyed: err.values ? { key: err.key, values: err.values } : { key: err.key } }
-        : {}),
+      ...(err instanceof KeyedError ? { keyed: errorReason(err) as Keyed } : {}),
       ...(isFatal ? { fatal: isFatal } : {}),
     });
   ready ??= initEngine(undefined, req.engine).then(

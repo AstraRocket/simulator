@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MAX_ZOOM, ZOOM_IDENTITY, type ZoomState } from '../../tree/schematicGeometry';
+import { MAX_ZOOM, ZOOM_IDENTITY, isZoomIdentity, type ZoomState } from '../../tree/schematicGeometry';
 
 /** One click of zoom-in or zoom-out scales the view by this factor. */
 const ZOOM_STEP = 1.5;
@@ -23,7 +23,7 @@ export function ZoomButtons({
   zoomBy: (f: number) => void;
 }) {
   const { t } = useTranslation();
-  const atDefault = zoom.k === 1 && zoom.x === 0 && zoom.y === 0;
+  const atDefault = isZoomIdentity(zoom);
   return (
     <>
       <button

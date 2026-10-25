@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import type { ComponentNode, ComponentPosition } from '../../engine/openRocketEngine';
+import type { ComponentPosition } from '../../engine/openRocketEngine';
 import { UnitChip } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import { PANEL_SCOPE_KEYS } from '../../services/design/componentFields';
-import { FieldRow, NumberField, sectionFields, type NodeEditProps } from './DimensionFields';
+import { FieldRow, NumberField, commitWith, sectionFields, type NodeEditProps } from './DimensionFields';
 import { PropSection } from './PropSection';
 import { useWorkspaceStore } from '../../state/store';
 import { findParent } from '../../services/design/treeEdit';
@@ -33,12 +33,7 @@ export function PlacementSection({ node, onChange, onCommit }: NodeEditProps) {
   const offsetUnit = u.at(offsetScope, 'length');
   // As the kernel places it: a part with no position keeps its constructor's.
   const pos = positionOf(node);
-  // Discrete controls (select / checkbox / pickers) finish the moment they
-  // change, so patch and close the undo entry in one shot.
-  const commitChange = (patch: Partial<ComponentNode>) => {
-    onChange(patch);
-    onCommit?.();
-  };
+  const commitChange = commitWith(onChange, onCommit);
 
   const rotations = sectionFields(node, 'placement');
 

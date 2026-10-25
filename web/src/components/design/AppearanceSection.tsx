@@ -1,6 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { CommitEditProps } from './DimensionFields';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ComponentNode, ComponentType } from '../../engine/openRocketEngine';
+import type { ComponentType } from '../../engine/openRocketEngine';
 import { colorForType, mergePalette } from '../../services/design/partColors';
 import {
   alphaOf,
@@ -14,12 +15,17 @@ import {
 import { hexOf, parseHexColor } from '../../services/design/colorHex';
 import { useSettings } from '../../state/SettingsProvider';
 import { readLineStyle } from '../../services/design/figureStyle';
+import { figureToken } from '../../tree/schematicGeometry';
 import { LineStyleRow } from './LineStyleRow';
 import { PropSection } from './PropSection';
-import { ColorInput } from '../common/ColorInput';
+import { ColorField } from '../common/ColorInput';
 import { Check } from '../common/Check';
 import { NumberInput } from '../common/NumberInput';
 import { Segmented } from '../common/Segmented';
+import { roundTo } from '../../services/app/numbers';
+import { tokenValues } from '../common/colorTokens';
+import { useNativeChange } from '../common/useNativeChange';
+import { PanelButton } from './PanelButton';
 
 /**
  * How the part is drawn, as against what it is: desktop's Appearance tab
@@ -38,14 +44,9 @@ import { Segmented } from '../common/Segmented';
 export function AppearanceSection({
   node,
   onCommitChange,
-}: {
-  node: ComponentNode;
-  /**
-   * Patch and close the undo entry in one shot. Every control here lands once:
-   * a color when its picker closes, a number on blur, a slider on release.
-   */
-  onCommitChange: (patch: Partial<ComponentNode>) => void;
-}) {
+  // Every control here lands once: a color when its picker closes, a number on
+  // blur, a slider on release.
+}: CommitEditProps) {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
   const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
@@ -104,14 +105,9 @@ export function AppearanceSection({
           label={t('prop.useDefaultColor')}
           className="text-xs text-ink-muted"
         />
-        <button
-          type="button"
-          disabled={figureColor === undefined}
-          onClick={saveAsDefault}
-          className="h-7 rounded-md bg-raised px-2 text-xs text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <PanelButton disabled={figureColor === undefined} onClick={saveAsDefault} className="h-7">
           {t('prop.saveAsDefaultStyle')}
-        </button>
+        </PanelButton>
       </div>
       <ColorRow
         label={t('prop.componentColor')}
@@ -176,10 +172,8 @@ export function AppearanceSection({
  */
 function figureDefault(type: ComponentType, saved: string | undefined): string {
   if (saved) return saved;
-  const name = ['nosecone', 'bodytube', 'transition'].includes(type) ? 'sch-shell' : 'sch-part';
-  const raw =
-    typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue(`--c-${name}`);
-  const n = parseHexColor(raw.trim());
+  const name = figureToken(type);
+  const n = parseHexColor(tokenValues()(name));
   return n === null ? colorForType(type) : hexOf(n);
 }
 
@@ -209,7 +203,6 @@ function ColorRow({
   onCommit: (color: string) => void;
 }) {
   const { t } = useTranslation();
-  const id = useId();
   const [draft, setDraft] = useState(value);
   // A new color from elsewhere (the swatch, an undo) replaces the draft.
   const [seen, setSeen] = useState(value);
@@ -223,41 +216,33 @@ function ColorRow({
     else onCommit(hexOf(n));
   };
   return (
-    // Only the controls dim when disabled: a faded label would fall below
-    // the text contrast floor, and the inputs' own state already says so.
-    <div className="flex items-center justify-between gap-3">
-      <label htmlFor={id} className="text-xs text-ink-muted">
-        {label}
-      </label>
-      <span className="flex items-center gap-2">
-        <ColorInput
-          id={id}
-          value={value}
-          disabled={disabled}
-          onCommit={onCommit}
-          className="h-7 w-10 cursor-pointer rounded-md border border-line/10 bg-raised p-0.5 disabled:cursor-default disabled:opacity-40"
-        />
-        <input
-          type="text"
-          value={draft}
-          disabled={disabled}
-          aria-label={`${label}, ${t('prop.hexColor')}`}
-          placeholder={t('prop.hexColor')}
-          spellCheck={false}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitDraft}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitDraft();
-          }}
-          className="w-20 rounded-md bg-raised px-2 py-1 font-mono text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 disabled:bg-raised/50 disabled:text-ink-muted"
-        />
-      </span>
-    </div>
+    <ColorField
+      label={label}
+      value={value}
+      disabled={disabled}
+      onCommit={onCommit}
+      labelClassName="text-xs text-ink-muted"
+    >
+      <input
+        type="text"
+        value={draft}
+        disabled={disabled}
+        aria-label={`${label}, ${t('prop.hexColor')}`}
+        placeholder={t('prop.hexColor')}
+        spellCheck={false}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitDraft}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commitDraft();
+        }}
+        className="w-20 rounded-md bg-raised px-2 py-1 font-mono text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 disabled:bg-raised/50 disabled:text-ink-muted"
+      />
+    </ColorField>
   );
 }
 
 /** Tenths of a percent: what the box shows of a 0-1 value. */
-const pctOf = (v: number) => Math.round(v * 1000) / 10;
+const pctOf = (v: number) => roundTo(v * 100, 1);
 
 /**
  * A 0-1 value as a percentage, as desktop's relative unit shows shine and
@@ -278,23 +263,12 @@ function PercentRow({
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const ref = useRef<HTMLInputElement>(null);
-  const latest = useRef({ value, onCommit });
-  useLayoutEffect(() => {
-    latest.current = { value, onCommit };
+  // Committed once, on release, not on every step of the drag.
+  useNativeChange(ref, (el) => {
+    const v = Number(el.value) / 100;
+    setDrag(null);
+    if (pctOf(v) !== pctOf(value)) onCommit(v);
   });
-  // React's onChange on a range input is the native `input` event, which fires
-  // on every step of a drag; the native `change` fires once, on release.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const commit = () => {
-      const v = Number(el.value) / 100;
-      setDrag(null);
-      if (pctOf(v) !== pctOf(latest.current.value)) latest.current.onCommit(v);
-    };
-    el.addEventListener('change', commit);
-    return () => el.removeEventListener('change', commit);
-  }, []);
   const shown = drag ?? value;
   return (
     <div className="flex items-center justify-between gap-3">

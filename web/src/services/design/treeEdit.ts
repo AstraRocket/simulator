@@ -11,7 +11,7 @@ import { DEFAULT_CHUTE_CD } from '../parts/componentFilter';
 import { presetNode } from '../parts/customParts';
 import { KERNEL_DEFAULTS, KERNEL_MATERIALS } from '../../tree/kernelDefaults.js';
 import { COMPONENT_DEFAULTS } from './componentDefaults.js';
-import { isChainType } from '../../tree/componentKinds';
+import { EXTERNAL_COMPONENT_TYPES, isChainType, type ChainType } from '../../tree/componentKinds';
 import { uuid } from '../app/uuid';
 import { isZero, mathEquals } from '../motors/mathEquals';
 import { KeyedError } from '../../i18n/keyedError';
@@ -24,8 +24,11 @@ import {
   findNode as findNodeIn,
   findSiblings,
   findWithParent,
-  mapTreePreserving,
+  replaceNode,
+  stageNodes,
   walkNodes,
+  lineageOf,
+  collectNodes,
 } from '../../tree/treeWalk';
 import { shapeChange } from '../../tree/shapeProfile';
 import { num } from '../../tree/nodeProps';
@@ -185,37 +188,18 @@ export function patchChangesNode(tree: RocketTree, id: string, patch: Partial<Co
  * mutated, and the result is a distinct object even when `id` is not found.
  */
 export function updateNode(tree: RocketTree, id: string, patch: Partial<ComponentNode>): RocketTree {
-  let found = false;
   let before = undefined as ComponentNode | undefined;
-  const rec = (nodes: ComponentNode[]): ComponentNode[] => {
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i]!;
-      if (n.id === id) {
-        found = true;
-        before = n;
-        const out = nodes.slice();
-        const patched = { ...n, ...patch };
-        // A shoulder length set from or back to 0 brings its wall, radius and
-        // cap with it, as desktop's setter does, and an end set narrower cuts
-        // its shoulder back to it.
-        const seeded = { ...patched, ...shoulderSeed(n, patched, patch, tree.components) };
-        const next = { ...seeded, ...endShoulderClamp(n, seeded, patch) };
-        if (n['preset'] && breaksPreset(n, next, patch)) delete next['preset'];
-        out[i] = next;
-        return out;
-      }
-      if (n.children) {
-        const kids = rec(n.children);
-        if (found) {
-          const out = nodes.slice();
-          out[i] = { ...n, children: kids };
-          return out;
-        }
-      }
-    }
-    return nodes;
-  };
-  const components = rec(tree.components);
+  const components = replaceNode(tree.components, id, (n) => {
+    before = n;
+    const patched = { ...n, ...patch };
+    // A shoulder length set from or back to 0 brings its wall, radius and
+    // cap with it, as desktop's setter does, and an end set narrower cuts
+    // its shoulder back to it.
+    const seeded = { ...patched, ...shoulderSeed(n, patched, patch, tree.components) };
+    const next = { ...seeded, ...endShoulderClamp(n, seeded, patch) };
+    if (n['preset'] && breaksPreset(n, next, patch)) delete next['preset'];
+    return next;
+  });
   const synced = syncDerived({ ...tree, components });
   return before?.['preset'] && !('preset' in patch) ? unlinkMovedShoulder(synced, id, before) : synced;
 }
@@ -232,16 +216,11 @@ const SHOULDER_RADII = ['shoulderRadius', 'foreShoulderRadius', 'aftShoulderRadi
 function unlinkMovedShoulder(tree: RocketTree, id: string, before: ComponentNode): RocketTree {
   const after = findNode(tree, id);
   if (!after?.['preset'] || !SHOULDER_RADII.some((k) => differs(before[k], after[k]))) return tree;
-  const components = mapTreePreserving(
-    tree.components,
-    (n) => {
-      if (n.id !== id) return n;
-      const out = { ...n };
-      delete out['preset'];
-      return out;
-    },
-    'pre',
-  );
+  const components = replaceNode(tree.components, id, (n) => {
+    const out = { ...n };
+    delete out['preset'];
+    return out;
+  });
   return { ...tree, components };
 }
 
@@ -261,9 +240,7 @@ export function addChild(tree: RocketTree, parentId: string, node: ComponentNode
 
 /** All motor-mount nodes in tree order (first = primary). */
 export function findMounts(tree: RocketTree): ComponentNode[] {
-  const out: ComponentNode[] = [];
-  for (const n of walkNodes(tree.components)) if (n.motorMount === true && typeof n.id === 'string') out.push(n);
-  return out;
+  return collectNodes(tree.components, (n) => n.motorMount === true);
 }
 
 /**
@@ -274,11 +251,7 @@ export function findMounts(tree: RocketTree): ComponentNode[] {
  * narrower question the stage's own Recovery section asks.
  */
 export function findRecoveryDevices(tree: RocketTree): ComponentNode[] {
-  const out: ComponentNode[] = [];
-  for (const n of walkNodes(tree.components)) {
-    if (isRecoveryDevice(n.type) && typeof n.id === 'string') out.push(n);
-  }
-  return out;
+  return collectNodes(tree.components, (n) => isRecoveryDevice(n.type));
 }
 
 /**
@@ -291,11 +264,7 @@ export function findRecoveryDevices(tree: RocketTree): ComponentNode[] {
  * why one walk answers for both.
  */
 export function findStages(tree: RocketTree): ComponentNode[] {
-  const out: ComponentNode[] = [];
-  for (const n of walkNodes(tree.components)) {
-    if ((n.type === 'stage' || n.type === 'parallelstage') && typeof n.id === 'string') out.push(n);
-  }
-  return out;
+  return collectNodes(tree.components, (n) => n.type === 'stage' || n.type === 'parallelstage');
 }
 
 /**
@@ -306,13 +275,12 @@ export function findStages(tree: RocketTree): ComponentNode[] {
  * configuration's separation overrides are keyed by.
  */
 export function findSeparators(tree: RocketTree): ComponentNode[] {
-  const out = stageNodes(tree)
-    .filter((n) => typeof n.id === 'string')
-    .slice(1);
-  for (const n of walkNodes(tree.components)) {
-    if (n.type === 'parallelstage' && typeof n.id === 'string') out.push(n);
-  }
-  return out;
+  return [
+    ...stageNodes(tree)
+      .filter((n) => typeof n.id === 'string')
+      .slice(1),
+    ...collectNodes(tree.components, (n) => n.type === 'parallelstage'),
+  ];
 }
 
 /**
@@ -344,17 +312,10 @@ const INTERNAL: ReadonlySet<string> = new Set([
   'masscomponent',
   'fairing',
 ]);
-/** BodyComponent: the airframe chain. */
-const BODY: ReadonlySet<string> = new Set(['nosecone', 'bodytube', 'transition']);
+/** BodyComponent: the airframe chain (`CHAIN_TYPES`), in the Add menu's order. */
+const BODY: ReadonlySet<string> = new Set(['nosecone', 'bodytube', 'transition'] satisfies ChainType[]);
 /** ExternalComponent that is not a BodyComponent: fins, lugs and buttons. */
-const ON_BODY: ReadonlySet<string> = new Set([
-  'trapezoidfinset',
-  'ellipticalfinset',
-  'freeformfinset',
-  'tubefinset',
-  'launchlug',
-  'railbutton',
-]);
+const ON_BODY: ReadonlySet<string> = new Set([...EXTERNAL_COMPONENT_TYPES].filter((t) => !BODY.has(t)));
 const ALL_TYPES: readonly ComponentType[] = [
   'stage',
   ...BODY,
@@ -1113,11 +1074,6 @@ export function defaultNode(type: ComponentType): ComponentNode {
   }
 }
 
-/** Top-level stage nodes, in desktop order ([0] = top sustainer … [last] = bottom booster). */
-export function stageNodes(tree: RocketTree): ComponentNode[] {
-  return tree.components.filter((n) => n.type === 'stage');
-}
-
 /**
  * The recovery devices inside one stage, in tree order.
  *
@@ -1210,10 +1166,10 @@ export function addPart(
   const node = { ...defaultNode(type), ...seed };
   const id = node.id!;
   const stageId = stageNodes(tree)[0]?.id;
-  let host = selectedId ? findNode(tree, selectedId) : null;
-  while (host && !allowedChildren(host.type).includes(type)) {
-    host = host.id ? findParent(tree, host.id) : null;
-  }
+  // The selection, else its nearest ancestor that takes the part.
+  const host = selectedId
+    ? (lineageOf(tree.components, selectedId).find((n) => allowedChildren(n.type).includes(type)) ?? null)
+    : null;
   if (host?.id) return { tree: addChild(tree, host.id, node), id };
   if (!stageId) {
     const next = clone(tree);

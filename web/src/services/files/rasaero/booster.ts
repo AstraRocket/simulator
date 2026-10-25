@@ -2,7 +2,7 @@ import type { ComponentNode } from '../../../engine/openRocketEngine';
 import { IN, fmt, type Cdx1Writer } from './units';
 import { finXml, partName } from './sustainer';
 import { KeyedError } from '../../../i18n/keyedError';
-import { num } from '../../../tree/nodeProps';
+import { bodyTubeRadius } from '../../../tree/nodeProps';
 import { isFinSet } from '../../../tree/tubefins';
 import { isChainType } from '../../../tree/componentKinds';
 import { partLength } from '../../../tree/position';
@@ -11,9 +11,9 @@ import { mathEquals } from '../../motors/mathEquals';
 
 /** A part's aft radius as the kernel has it: a tube's outer radius, or a cone's aft end. */
 const aftRadius = (node: ComponentNode): number =>
-  node.type === 'bodytube' ? num(node, 'outerRadius', 0.012) : profileEnds(node).aft;
+  node.type === 'bodytube' ? bodyTubeRadius(node) : profileEnds(node).aft;
 
-const tubeRadius = (node: ComponentNode): number => num(node, 'outerRadius', 0.012);
+const tubeRadius = bodyTubeRadius;
 
 const hasFins = (node: ComponentNode): boolean => (node.children ?? []).some((k) => isFinSet(k.type));
 
@@ -90,8 +90,8 @@ export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
     if (!finParent) throw new KeyedError('errors.rasaero.boosterNoFins', { stage, name: partName(firstTube) });
 
     const bodyLen = tubes.reduce((s, t) => s + partLength(t), 0);
-    const shoulderLen = shoulder ? num(shoulder, 'length', 0) : 0;
-    const btLen = boattail ? num(boattail, 'length', 0) : 0;
+    const shoulderLen = shoulder ? partLength(shoulder) : 0;
+    const btLen = boattail ? partLength(boattail) : 0;
     emit('<Booster>');
     emit('<PartType>Booster</PartType>');
     emit(`<Length>${fmt(bodyLen * IN)}</Length>`);

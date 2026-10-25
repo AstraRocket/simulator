@@ -5,16 +5,15 @@ import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Bounds } from '@react-three/drei';
 import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
-import { SVG_MIME, type ExportData } from '../../services/exports/schematicExport.js';
+import { type ExportData } from '../../services/exports/schematicExport.js';
 import { mergePalette } from '../../services/design/partColors';
 import { useSettings } from '../../state/SettingsProvider';
 import { ImageExportMenu } from './ImageExportMenu.js';
 import { useUnits } from '../../prefs/useUnits';
 import type { MotorDims } from '../../tree/schematicGeometry';
-import { markerRadius, piecesBounds, type RenderMode } from './rocketPieces';
+import { markerRadius, type RenderMode } from './rocketPieces';
 import { rocketSvg } from './rocketSvgExport';
-import { exportCamera, isFittableBox } from './rocketExportCamera';
-import { download, exportFilename } from '../../services/files/saveFile';
+import { exportView } from './rocketExportCamera';
 import { usePieces } from './usePieces';
 import { AxisCallout, markerTexture } from './rocketCallouts';
 import { StabilityCallout } from './StabilityCallout';
@@ -26,6 +25,7 @@ import { useSceneColors } from './sceneColors';
 import { errorText } from '../../i18n/keyedError';
 import { ViewBtn } from './ViewBtn';
 import { Segmented } from '../common/Segmented';
+import { SvgExportButton } from './SvgExportButton';
 
 /**
  * 3D rocket view (react-three-fiber). Geometry is generated from the
@@ -63,7 +63,7 @@ export function Rocket3D({
    *  mount's aft end, showing through the translucent shell. */
   motors?: MotorDims;
   /** When set, a 📷 image export menu appears. */
-  exportData?: Omit<ExportData, 'spanM'>;
+  exportData?: ExportData;
   /** Two-way selection sync with the component tree / 2D schematic. */
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -83,25 +83,17 @@ export function Rocket3D({
 
   // Hi-res snapshot: the same scene rendered offscreen at
   // the export width, with the on-screen path as the fallback.
-  const snapshot = useRocketExport(r3f, pieces, maxR, exportData, (e) =>
+  const snapshot = useRocketExport(r3f, pieces, exportData, (e) =>
     onError?.(t('export.imageFailed', { message: errorText(e, t) })),
   );
   // The vector export: the same framing as the image export's fit, drawn
   // again as SVG polygons (rocketSvgExport.ts).
-  const svgSnapshot = () => {
+  const svgSnapshot = (data: ExportData) => {
     const st = r3f.current;
-    if (!st || !exportData) return;
-    try {
-      const el = st.gl.domElement;
-      const aspect = (el.clientWidth || el.width || 1) / (el.clientHeight || el.height || 1);
-      const src = st.camera as THREE.PerspectiveCamera;
-      const box = src.isPerspectiveCamera ? piecesBounds(pieces) : null;
-      const cam = box && isFittableBox(box) ? exportCamera(box, src, aspect) : st.camera;
-      const data = { ...exportData, spanM: 2 * maxR };
-      download(exportFilename([data.name, '3d'], 'svg'), rocketSvg(st.scene, cam, aspect, data), SVG_MIME);
-    } catch (e) {
-      onError?.(t('export.svgFailed', { message: errorText(e, t) }));
-    }
+    if (!st) return null;
+    const el = st.gl.domElement;
+    const aspect = (el.clientWidth || el.width || 1) / (el.clientHeight || el.height || 1);
+    return rocketSvg(st.scene, exportView(st.camera, pieces, true, aspect), aspect, data);
   };
   const center = totalLen / 2;
   const camDist = Math.max(totalLen * 1.1, maxR * 6, 0.25);
@@ -188,9 +180,13 @@ export function Rocket3D({
         title={(m) => t(m === 'figure' ? 'view.figureTitle' : 'view.finishedTitle')}
       />
       {exportData && (
-        <button className="file-btn" title={t('export.svgTitle3d')} onClick={svgSnapshot}>
-          <span aria-hidden>⬇</span> SVG
-        </button>
+        <SvgExportButton
+          title={t('export.svgTitle3d')}
+          name={exportData.name}
+          view="3d"
+          build={() => svgSnapshot(exportData)}
+          onError={onError}
+        />
       )}
       {exportData && (
         <ImageExportMenu
@@ -293,7 +289,7 @@ export function Rocket3D({
           maxDistance={camDist * 5}
         />
       </Canvas>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', textAlign: 'center' }}>
+      <p style={{ fontSize: 11, color: token('ink-muted'), margin: '4px 0 0', textAlign: 'center' }}>
         {t('view.dragHint')}
         {showMarkers && (
           <>

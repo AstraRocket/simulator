@@ -36,6 +36,9 @@ export type OrkArchive = {
 /** Whether the bytes start with the gzip signature (`1F 8B`). */
 export const isGzip = (bytes: Uint8Array): boolean => bytes[0] === 0x1f && bytes[1] === 0x8b;
 
+/** A zip archive: the "PK" local file header magic. */
+export const isZip = (bytes: Uint8Array): boolean => bytes[0] === 0x50 && bytes[1] === 0x4b;
+
 /**
  * Compressed bytes handed to an inflater at a time.
  *
@@ -302,7 +305,7 @@ export function unpackOrk(data: ArrayBuffer | string, gunzipped = false): OrkArc
     }
     return unpackOrk(inner.buffer.slice(inner.byteOffset, inner.byteOffset + inner.byteLength) as ArrayBuffer, true);
   }
-  if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
+  if (isZip(bytes)) {
     // A crafted archive (a member that inflates far past what it declares, or
     // thousands of members) would otherwise freeze or exhaust the tab.
     const entries = unzipCapped(bytes);

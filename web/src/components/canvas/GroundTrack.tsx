@@ -9,16 +9,16 @@ import {
   type GroundPoint,
   type GroundTrackLine,
 } from '../../services/flight/groundTrack';
-import { driftRegion, ellipsePolygon, type DriftRegion } from '../../services/flight/driftEllipse';
+import { ellipsePolygon, type DriftRegion, sweepRegions } from '../../services/flight/driftEllipse';
 import { useWorkspaceStore, selectDriftSweepFor } from '../../state/store';
 import type { LaunchConditions } from '../../services/design/orkTree';
 import { DriftSweepPanel } from './DriftSweepPanel';
-import { LINER } from '../common/map/mapStyle';
 import { PlanView } from '../common/map/PlanView';
 import { useGroundLayer } from '../common/map/useTileVerdict';
 import { buildTraces, type ChartFlight } from './FlightChart';
 import { useElementResize } from '../common/useElementResize';
 import { token } from '../common/colorTokens';
+import { LandingRing, LinedTrack, SampleDots, ZoneEllipse } from '../common/map/PlanMarks';
 
 /**
  * The flight from directly above: the path over the ground, the pad at the
@@ -81,19 +81,7 @@ export function GroundTrack({
   const mine = useWorkspaceStore((s) => selectDriftSweepFor(s, flight.id));
   const [sweepOpen, setSweepOpen] = useState(false);
 
-  const regions = useMemo<DriftRegion[]>(() => {
-    if (!mine) return [];
-    const byBranch = new Map<number, GroundPoint[]>();
-    for (const l of mine.landings) {
-      const at = byBranch.get(l.branch);
-      if (at) at.push({ east: l.east, north: l.north });
-      else byBranch.set(l.branch, [{ east: l.east, north: l.north }]);
-    }
-    return [...byBranch.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([branch, points]) => driftRegion(branch, points))
-      .filter((r): r is DriftRegion => r !== null);
-  }, [mine]);
+  const regions = useMemo<DriftRegion[]>(() => (mine ? sweepRegions(mine.landings) : []), [mine]);
 
   /**
    * The ellipse as a polygon, once per region, so the frame math and the drawing
@@ -185,31 +173,8 @@ export function GroundTrack({
                         />
                       )
                     )}
-                    {ell && (
-                      <polygon
-                        points={poly(ell)}
-                        fill="none"
-                        stroke={color}
-                        strokeWidth={1.25}
-                        strokeDasharray="5 4"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    )}
-                    {/* Every swept landing. Small, because the point of them is
-                      the density: where the dots crowd is where the rocket
-                      lands on most of the days this sweep covers. */}
-                    {r.samples.map((p, i) => (
-                      <circle
-                        key={i}
-                        cx={X(p.east)}
-                        cy={Y(p.north)}
-                        r={1.6}
-                        fill={color}
-                        fillOpacity={0.8}
-                        stroke={mapOn ? LINER : 'none'}
-                        strokeWidth={mapOn ? 0.75 : 0}
-                      />
-                    ))}
+                    {ell && <ZoneEllipse points={poly(ell)} color={color} />}
+                    <SampleDots samples={r.samples} color={color} mapOn={mapOn} X={X} Y={Y} />
                     {/* The mean landing, as a cross rather than another dot, so
                       it cannot be misread as one more sample. */}
                     <g stroke={color} strokeWidth={1.5} strokeOpacity={0.9}>
@@ -262,52 +227,17 @@ export function GroundTrack({
         >
           {({ X, Y, poly, mapOn }) => (
             <>
-              {drawn.map((l) => {
-                const points = poly(l.points);
-                return (
-                  <g key={l.key}>
-                    {mapOn && (
-                      <polyline
-                        points={points}
-                        fill="none"
-                        stroke={LINER}
-                        strokeWidth={3.75}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    )}
-                    <polyline
-                      points={points}
-                      fill="none"
-                      stroke={l.color}
-                      strokeWidth={1.75}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  </g>
-                );
-              })}
-              {/* Landing marker per track: a ring, so it reads as a place rather than
-              as another sample on the line. */}
+              {drawn.map((l) => (
+                <g key={l.key}>
+                  <LinedTrack points={poly(l.points)} color={l.color} mapOn={mapOn} />
+                </g>
+              ))}
+              {/* Landing marker per track, drawn after every line so no track
+                  crosses a ring. */}
               {drawn.map((l) =>
                 l.landing ? (
                   <g key={`${l.key}-end`}>
-                    {mapOn && (
-                      <circle
-                        cx={X(l.landing.east)}
-                        cy={Y(l.landing.north)}
-                        r={4}
-                        fill="none"
-                        stroke={LINER}
-                        strokeWidth={4}
-                      />
-                    )}
-                    <circle
-                      cx={X(l.landing.east)}
-                      cy={Y(l.landing.north)}
-                      r={4}
-                      fill="none"
-                      stroke={l.color}
-                      strokeWidth={2}
-                    />
+                    <LandingRing at={l.landing} r={4} color={l.color} mapOn={mapOn} X={X} Y={Y} />
                   </g>
                 ) : null,
               )}

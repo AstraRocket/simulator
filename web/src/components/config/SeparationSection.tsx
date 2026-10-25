@@ -3,9 +3,15 @@ import type { ComponentNode } from '../../engine/openRocketEngine';
 import { designSeparation, type FlightConfig, sepOverride, stageFlies } from '../../services/flight/flightConfigs';
 import { useWorkspaceStore } from '../../state/store';
 import { findStages } from '../../services/design/treeEdit';
-import { OverrideCard, overrideFieldLabel, OverrideNumber, OverrideRow, OverrideSelect } from './OverrideFields';
+import {
+  OverrideCard,
+  overrideFieldLabel,
+  OverrideNumber,
+  OverrideRow,
+  OverrideSelect,
+  OverrideAltitude,
+} from './OverrideFields';
 import { useUnits } from '../../prefs/useUnits';
-import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import { fmtUpTo } from '../../i18n/format';
 import { partName } from './ConfigsTable';
@@ -102,20 +108,13 @@ export function SeparationSection({
               offered under those alone, as the property panel and desktop do; a
               stored override survives a trip through another event. */}
           {event.startsWith('altitude') && (
-            <OverrideNumber
+            <OverrideAltitude
               name={name}
               label={t('prop.separationAltitude')}
-              value={over?.separationAltitude == null ? null : alt.toUi(over.separationAltitude)}
-              placeholder={alt.fmt(design.separationAltitude)}
-              step={alt.step(10)}
-              // Floored at zero, as the design-side box is by `fieldRange` (a
-              // `distance` field is non-negative). `onSi` rejects only a
-              // null or a failed conversion, not a negative, so a typed -150 would
-              // commit and the stage would never separate on altitude under that
-              // one configuration.
-              min={alt.toUi(0)}
-              unit={alt.sym}
-              onChange={onSi(alt, (si) => setSeparation(config.id, id, 'separationAltitude', si))}
+              si={over?.separationAltitude}
+              designedSi={design.separationAltitude}
+              unit={alt}
+              onChange={(si) => setSeparation(config.id, id, 'separationAltitude', si)}
               onCommit={onCommit}
             />
           )}

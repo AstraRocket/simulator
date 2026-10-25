@@ -1,5 +1,6 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import type { RefObject } from 'react';
 import { zoomStep, type ZoomState } from '../../tree/schematicGeometry';
+import { useNativeWheel } from '../common/useNativeWheel';
 
 /**
  * Wheel-zoom about the pointer for an SVG drawing, shared by TreeSchematic and
@@ -8,8 +9,8 @@ import { zoomStep, type ZoomState } from '../../tree/schematicGeometry';
  *
  * A native, non-passive listener: React's onWheel is passive, so the
  * preventDefault that keeps the page from scrolling has to be attached here.
- * Registered once per element; the pointer-to-viewBox mapping is read through
- * a ref so a layout change never re-attaches the listener.
+ * Registered once per element (`useNativeWheel`), so a layout change never
+ * re-attaches the listener.
  *
  * @param toView maps a wheel event's client point to viewBox coordinates,
  *   given the svg's current bounding rect; null when the view is not zoomable.
@@ -20,25 +21,18 @@ export function useWheelZoom(
   toView: ((e: WheelEvent, rect: DOMRect) => { px: number; py: number }) | null,
   opts: { factor: number; max: number },
 ): void {
-  const latest = useRef({ toView, opts });
-  useEffect(() => {
-    latest.current = { toView, opts };
-  });
-  const enabled = toView !== null;
-  useEffect(() => {
-    const svg = ref.current;
-    if (!svg || !enabled) return;
-    const onWheel = (e: WheelEvent) => {
-      const { toView, opts } = latest.current;
-      if (!toView) return;
+  useNativeWheel(
+    ref,
+    (e) => {
+      const svg = ref.current;
+      if (!svg || !toView) return;
       e.preventDefault();
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
       const { px, py } = toView(e, rect);
       const step = e.deltaY < 0 ? opts.factor : 1 / opts.factor;
       setZoom((z) => zoomStep(z, px, py, step, opts.max));
-    };
-    svg.addEventListener('wheel', onWheel, { passive: false });
-    return () => svg.removeEventListener('wheel', onWheel);
-  }, [ref, setZoom, enabled]);
+    },
+    toView !== null,
+  );
 }

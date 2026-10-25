@@ -24,9 +24,7 @@ export function tubeFinRadius(node: ComponentNode, bodyRadius: number): number {
   const n = countOf(node, 'finCount', KERNEL_DEFAULTS.tubefinset.finCount);
   // Kernel rule (TubeFinSet.getOuterRadius): fewer than 3 fins auto-size to
   // the body radius, and n=2 would divide by zero below (sin π/2 = 1).
-  if (n < 3) return bodyRadius;
-  const s = Math.sin(Math.PI / n);
-  return (bodyRadius * s) / (1 - s);
+  return tubeFinMaxRadius(n, bodyRadius) ?? bodyRadius;
 }
 
 /**

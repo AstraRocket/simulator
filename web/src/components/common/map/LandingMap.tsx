@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fmtGroundDistance, type FieldUnit } from '../../prefs/useUnits';
-import { distanceFromPad, trackExtent, type GroundPoint } from '../../services/flight/groundTrack';
-import { ellipsePolygon, type DriftEllipse } from '../../services/flight/driftEllipse';
-import { LINER } from '../common/map/mapStyle';
-import { PlanView } from '../common/map/PlanView';
-import { useGroundLayer } from '../common/map/useTileVerdict';
-import { useElementResize } from '../common/useElementResize';
-import { token } from '../common/colorTokens';
+import { fmtGroundDistance, type FieldUnit } from '../../../prefs/useUnits';
+import { distanceFromPad, trackExtent, type GroundPoint } from '../../../services/flight/groundTrack';
+import { ellipsePolygon, type DriftEllipse } from '../../../services/flight/driftEllipse';
+import { LandingRing, LinedTrack, SampleDots, ZoneEllipse } from './PlanMarks';
+import { PlanView } from './PlanView';
+import { useGroundLayer } from './useTileVerdict';
+import { useElementResize } from '../useElementResize';
+import { token } from '../colorTokens';
 
 /**
  * The landing estimate seen from above: the pad at the center, north up, the
@@ -59,39 +59,17 @@ export function LandingMap({
         ground={ground}
         fmtDist={fmtDist}
         ariaLabel={t('landing.mapLabel', { distance: fmtDist(distanceFromPad(landing)) })}
-        under={({ X, Y, poly }) => (
+        under={({ X, Y, poly, mapOn }) => (
           <>
-            {zone.length > 2 && (
-              <polygon
-                points={poly(zone)}
-                fill={token('warn-500')}
-                fillOpacity={0.12}
-                stroke={token('warn-500')}
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-              />
-            )}
-            {samples.map((p, i) => (
-              <circle key={i} cx={X(p.east)} cy={Y(p.north)} r={1.6} className="fill-warn-300/70" />
-            ))}
+            {zone.length > 2 && <ZoneEllipse points={poly(zone)} color={token('warn-500')} />}
+            <SampleDots samples={samples} color={token('warn-300')} mapOn={mapOn} X={X} Y={Y} />
           </>
         )}
       >
         {({ X, Y, poly, mapOn }) => (
           <>
-            {mapOn && <polyline points={poly(path)} fill="none" stroke={LINER} strokeWidth={3.75} />}
-            <polyline points={poly(path)} fill="none" stroke={token('accent-400')} strokeWidth={1.75} />
-            {mapOn && (
-              <circle cx={X(landing.east)} cy={Y(landing.north)} r={5} fill="none" stroke={LINER} strokeWidth={4} />
-            )}
-            <circle
-              cx={X(landing.east)}
-              cy={Y(landing.north)}
-              r={5}
-              fill="none"
-              stroke={token('accent-400')}
-              strokeWidth={2}
-            />
+            <LinedTrack points={poly(path)} color={token('accent-400')} mapOn={mapOn} />
+            <LandingRing at={landing} r={5} color={token('accent-400')} mapOn={mapOn} X={X} Y={Y} />
           </>
         )}
       </PlanView>

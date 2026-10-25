@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { polylinePath } from '../../../src/components/common/svgPath';
-import { linePath } from '../../../src/components/sim/chartAxes';
+import { areaPath, polylinePath } from '../../../src/components/common/svgPath';
+import { baselineArea, linePath } from '../../../src/components/sim/chartAxes';
 
 describe('polylinePath', () => {
   it('writes either number style', () => {
@@ -61,5 +61,55 @@ describe('linePath', () => {
     );
     expect(d.startsWith('M')).toBe(true);
     expect(d).not.toContain('NaN');
+  });
+});
+
+describe('areaPath', () => {
+  it('closes the line down to the baseline at its first and last points', () => {
+    expect(
+      areaPath(
+        [
+          [1, 5],
+          [2, 3],
+        ],
+        9,
+        'comma',
+      ),
+    ).toBe('M1.0,9.0 L1.0,5.0 L2.0,3.0 L2.0,9.0 Z');
+  });
+
+  it('takes the ends it is given, and skips a non-finite point', () => {
+    expect(
+      areaPath(
+        [
+          [1, 5],
+          [NaN, 4],
+          [2, 3],
+        ],
+        9,
+        'space',
+        [0, 4],
+      ),
+    ).toBe('M 0.0 9.0 L 1.0 5.0 L 2.0 3.0 L 4.0 9.0 Z');
+  });
+
+  // The motor charts' area used to write a NaN point straight into the path,
+  // which drops the whole fill.
+  it('leaves a non-finite sample out of a motor chart area', () => {
+    const d = baselineArea(
+      [
+        [0, 1],
+        [1, NaN],
+        [2, 2],
+      ],
+      (t) => t,
+      (f) => -f,
+      2,
+    );
+    expect(d).not.toContain('NaN');
+  });
+
+  it('draws nothing with no finite point', () => {
+    expect(areaPath([[NaN, 1]], 0)).toBe('');
   });
 });

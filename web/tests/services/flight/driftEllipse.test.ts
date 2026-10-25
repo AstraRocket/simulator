@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  sweepRegions,
   DEFAULT_SIGMA,
   centroid,
   convexHull,
@@ -149,5 +150,24 @@ describe('a stage region', () => {
     expect(r.maxRangeM).toBe(50);
     expect(r.hull).toEqual([p(30, 40)]);
     expect(r.areaM2).toBe(0);
+  });
+});
+
+describe('sweepRegions', () => {
+  it('groups the landings by stage, in branch order, skipping none that landed', () => {
+    const regions = sweepRegions([
+      { branch: 1, east: 10, north: 0 },
+      { branch: 0, east: 0, north: 5 },
+      { branch: 1, east: 20, north: 0 },
+    ]);
+    expect(regions.map((r) => r.branch)).toEqual([0, 1]);
+    expect(regions[1]!.samples).toEqual([
+      { east: 10, north: 0 },
+      { east: 20, north: 0 },
+    ]);
+  });
+
+  it('has no region with no landings', () => {
+    expect(sweepRegions([])).toEqual([]);
   });
 });

@@ -2,10 +2,9 @@ import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectActive, selectConfig } from '../../state/store';
 import { launchDiffKeys, prefDiffKeys } from '../../services/flight/simDiff';
-import { configFor, loadoutLabel } from '../../services/flight/flightConfigs';
+import { configFor, configLabel, loadoutLabel } from '../../services/flight/flightConfigs';
 import { configPowerClass } from '../../services/flight/powerClass';
 import { useSettings } from '../../state/SettingsProvider';
-import { SIM_BOUNDS } from '../../services/storage/settings';
 import { RunButton } from './RunButton';
 import { useIsDesktop } from '../common/useMediaQuery';
 import { LaunchPanel } from './LaunchPanel';
@@ -18,6 +17,9 @@ import { clampMaxAngleStep, seedFromInput } from '../../services/flight/simulati
 import { NumberRow } from '../common/NumberRow';
 import { fmtUpTo } from '../../i18n/format';
 import { SPEED_WARNINGS } from './speedWarnings';
+import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, simOptionUnit } from './simOptionFields';
+import { CardGroup } from '../common/CardGroup';
+import { smallButton } from '../common/smallButton';
 
 /**
  * Everything about the selected simulation: its name, the flight configuration
@@ -162,7 +164,7 @@ export function SimEditor() {
           >
             {configs.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name || loadoutLabel(tree, c) || t('configs.noMotors')}
+                {configLabel(tree, c) || t('configs.noMotors')}
               </option>
             ))}
           </select>
@@ -257,66 +259,40 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
   const vStep = u.step('velocity', 1);
 
   return (
-    <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
-      <div className="mb-2 text-[10px] uppercase tracking-wide text-ink-muted">{t('sims.options')}</div>
-
-      {/* What the kernel is actually running, stated rather than assumed, as the
-          desktop states it. Fixed, not chosen: the bridge always builds a
-          BarrowmanCalculator and the RK4 stepper, and the supersonic-aero
-          extensions the engine can carry are not wired into the web app. */}
+    <CardGroup title={t('sims.options')}>
+      {/* What the kernel is actually running (KERNEL_METHOD_ROWS). */}
       <dl className="mb-3 space-y-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-xs text-ink-muted">{t('settings.calcMethod')}</dt>
-          <dd className="text-xs text-ink-soft">{t('settings.calcMethodValue')}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-xs text-ink-muted">{t('settings.simMethod')}</dt>
-          <dd className="text-xs text-ink-soft">{t('settings.simMethodValue')}</dd>
-        </div>
+        {KERNEL_METHOD_ROWS.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3">
+            <dt className="text-xs text-ink-muted">{t(r.label)}</dt>
+            <dd className="text-xs text-ink-soft">{t(r.value)}</dd>
+          </div>
+        ))}
       </dl>
 
       <div className="space-y-2">
-        <NumberRow
-          label={t('settings.timeStep')}
-          unit={t('units.second')}
-          mixed={mixed('timeStep')}
-          value={prefs?.timeStep ?? null}
-          placeholder={fmtUpTo(g.timeStep, 4)}
-          step={0.01}
-          min={SIM_BOUNDS.timeStep.min}
-          max={SIM_BOUNDS.timeStep.max}
-          onChange={(v) => setSimPref('timeStep', v)}
-          onCommit={onCommit}
-        />
-        <NumberRow
-          label={t('settings.maxTime')}
-          unit={t('units.second')}
-          mixed={mixed('maxTime')}
-          value={prefs?.maxTime ?? null}
-          placeholder={fmtUpTo(g.maxTime, 1)}
-          step={60}
-          min={SIM_BOUNDS.maxTime.min}
-          max={SIM_BOUNDS.maxTime.max}
-          onChange={(v) => setSimPref('maxTime', v)}
-          onCommit={onCommit}
-        />
-        <NumberRow
-          label={t('settings.maxAngleStep')}
-          hint={t('settings.maxAngleStepHint')}
-          unit={angle.sym}
-          // Stored in radians like the kernel's field, edited in the user's angle
-          // unit through `angle` above, not in degrees by assumption.
-          mixed={mixed('maxAngleStep')}
-          // Shown as flown: an override saved outside the kernel's range reads
-          // as the value the run is clamped to.
-          value={prefs?.maxAngleStep == null ? null : angle.toUi(clampMaxAngleStep(prefs.maxAngleStep))}
-          placeholder={fmtUpTo(angle.toUi(g.maxAngleStep), 3)}
-          step={angle.step((0.5 * Math.PI) / 180)}
-          min={angle.toUi(SIM_BOUNDS.maxAngleStep.min)}
-          max={angle.toUi(SIM_BOUNDS.maxAngleStep.max)}
-          onChange={onSi(angle, (si) => setSimPref('maxAngleStep', si))}
-          onCommit={onCommit}
-        />
+        {SIM_OPTION_FIELDS.map((f) => {
+          const fu = simOptionUnit(f, angle, t('units.second'));
+          const own = prefs?.[f.key];
+          return (
+            <NumberRow
+              key={f.key}
+              label={t(f.label)}
+              hint={'hint' in f ? t(f.hint) : undefined}
+              unit={fu.sym}
+              mixed={mixed(f.key)}
+              // Shown as flown: an angle step saved outside the kernel's range
+              // reads as the value the run is clamped to.
+              value={own == null ? null : fu.toUi(f.key === 'maxAngleStep' ? clampMaxAngleStep(own) : own)}
+              placeholder={fmtUpTo(fu.toUi(g[f.key]), f.placeholderDigits)}
+              step={fu.step}
+              min={fu.min}
+              max={fu.max}
+              onChange={fu.entry((si) => setSimPref(f.key, si))}
+              onCommit={onCommit}
+            />
+          );
+        })}
         {/* The desktop pairs the time step with a slider, because the useful
             range is narrow and the consequences of leaving it are not obvious.
             Same stops it offers, coarsest to finest. */}
@@ -359,7 +335,7 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
             clearSimPrefs();
             onCommit();
           }}
-          className="flex-1 rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
+          className={smallButton('row', 'soft', 'flex-1')}
         >
           {t('sims.resetToDefault')}
         </button>
@@ -375,7 +351,7 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
             clearSimPrefs();
             onCommit();
           }}
-          className="flex-1 rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
+          className={smallButton('row', 'soft', 'flex-1')}
         >
           {t('sims.saveAsDefault')}
         </button>
@@ -414,6 +390,6 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
       </div>
 
       <p className="mt-2 text-[11px] text-ink-faint">{t('sims.optionsHint')}</p>
-    </section>
+    </CardGroup>
   );
 }

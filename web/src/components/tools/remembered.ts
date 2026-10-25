@@ -1,5 +1,6 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { LaunchConditions } from '../../services/design/orkTree';
+import { forecastStart } from '../../services/weather/openMeteo';
 import type { ToolSite } from './SiteFields';
 
 /**
@@ -55,4 +56,27 @@ export function useRemembered<T, K extends keyof T>(
 /** A tool's starting site: the launch defaults' coordinates, with the elevation left to the terrain model. */
 export function defaultToolSite(defaults: Pick<LaunchConditions, 'latitudeDeg' | 'longitudeDeg'>): ToolSite {
   return { latitudeDeg: defaults.latitudeDeg, longitudeDeg: defaults.longitudeDeg, launchAltitudeM: null };
+}
+
+/** The fields every forecast tool remembers: where, and the forecast date and hour. */
+export interface ForecastFields {
+  site: ToolSite;
+  date: string;
+  hour: number;
+}
+
+/**
+ * A forecast tool's site, date and hour, each remembered. The defaults are the
+ * launch defaults' coordinates and the next hour, the date and the hour taken
+ * from one instant (`forecastStart`).
+ */
+export function useForecastFields<T extends ForecastFields>(
+  slot: RememberedSlot<T>,
+  defaults: Pick<LaunchConditions, 'latitudeDeg' | 'longitudeDeg'>,
+) {
+  const start = forecastStart();
+  const [site, setSite] = useRemembered(slot, 'site', defaultToolSite(defaults) as T['site']);
+  const [date, setDate] = useRemembered(slot, 'date', start.date as T['date']);
+  const [hour, setHour] = useRemembered(slot, 'hour', start.hour as T['hour']);
+  return { site, setSite, date, setDate, hour, setHour };
 }

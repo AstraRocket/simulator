@@ -37,6 +37,7 @@
     "dupes": "jscpd",
     "e2e": "playwright test",
     "e2e:core": "node scripts/e2e-core.mjs",
+    "e2e:sections": "node scripts/e2e-sections.mjs",
     "e2e:offline-data": "node scripts/check-offline-data.mjs",
     "e2e:offline-help": "node scripts/check-offline-help.mjs",
     "e2e:ui": "playwright test --ui",

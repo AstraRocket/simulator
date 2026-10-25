@@ -1,13 +1,15 @@
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import type { CatalogMotor } from './motorDb';
 import { hasUsableCurve } from './motorCurve';
+import { keyOf } from './motorKey';
 import { cumulativeImpulse } from './motorMath';
 import { getMotorStore, isMotorType, isThrustSampleArray, type CustomMotor } from './motorStore';
-import { declaredLength, readStreamWithProgress } from '../app/fetchProgress';
+import { fetchJsonStaged } from '../app/fetchProgress';
 import { fetchFailure } from '../app/remoteData';
 import { nsKey } from '../storage/storageKeys';
 import { finalizeCurve } from './curveFinalize';
 import { KeyedError } from '../../i18n/keyedError';
+import { isRecord } from '../app/numbers';
 
 /**
  * thrustcurve.org API v1 client (the API answers cross-origin requests). A
@@ -49,65 +51,32 @@ const MAX_RESPONSE_BYTES = 16 * 1024 * 1024; // 16 MiB; motor lists/curves are K
 /** Budget for the body once headers are in, separate from the first-byte one. */
 const BODY_TIMEOUT_MS = 20_000;
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const ctl = new AbortController();
-  // Staged, the way remoteData.fetchJson does it. The first budget covers
-  // time-to-first-byte; once headers are in, the host is alive and the body
-  // gets its own. A single budget spanning both would cut off a slow download.
-  // Set only by a budget running out, so the catch below can tell a timeout
-  // from the abort it does itself on any other failure.
-  let timedOut = false;
-  const expire = () => {
-    timedOut = true;
-    ctl.abort();
-  };
-  let timer = setTimeout(expire, FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${API}/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ctl.signal,
-    });
-    clearTimeout(timer);
-    timer = setTimeout(expire, BODY_TIMEOUT_MS);
-    if (!res.ok) throw new KeyedError('errors.thrustcurve.http', { path, status: res.status });
-    const len = Number(res.headers.get('content-length'));
-    if (Number.isFinite(len) && len > MAX_RESPONSE_BYTES) throw new KeyedError('errors.thrustcurve.tooLarge', { path });
-    // Awaited, not returned: `finally` runs at the `return` statement, so
-    // returning the unawaited promise would clear the abort timer before the
-    // body is read, and a host that sent headers and then stalled would hang the
-    // motor picker forever with no timeout left.
-    //
-    // Streamed rather than res.json() so MAX_RESPONSE_BYTES is enforced on the
-    // bytes received. The content-length check above only fires when the host
-    // declared one; a chunked response declares none and would buffer unbounded.
-    if (!res.body) return await (res.json() as Promise<T>);
-    const bytes = await readStreamWithProgress(res.body, declaredLength(res), () => {}, MAX_RESPONSE_BYTES);
-    return JSON.parse(new TextDecoder().decode(bytes)) as T;
-  } catch (e) {
-    if (timedOut) {
-      // Keep the abort as the cause: without it the original DOMException is
-      // gone and a bug report shows only the friendly text. Assigned after
-      // construction because the ErrorOptions form is ES2022 and the tsconfig
-      // lib is ES2020.
-      const err = new KeyedError('errors.thrustcurve.timeout');
-      (err as { cause?: unknown }).cause = e;
-      throw err;
-    }
-    // Abandon the body of a reply that failed for any other reason: an error
-    // page or an oversized response would otherwise keep streaming until the
-    // body timer fired.
-    ctl.abort();
-    // Keyed, as the catalog fetch reports it: the browser's own text for a
-    // refused connection or a body that is not JSON is English whatever the
-    // app shows. The original stays as the cause.
-    const err = fetchFailure(e, false);
+/**
+ * A thrustcurve.org API call: staged and capped (`fetchJsonStaged`), with its
+ * failures keyed to name the call. A timeout and any other failure keep the
+ * original as the cause, so a bug report still shows it behind the friendly
+ * text (assigned after construction: ErrorOptions is ES2022 and the lib is
+ * ES2020).
+ */
+function post<T>(path: string, body: unknown): Promise<T> {
+  const withCause = (err: KeyedError, e: unknown): KeyedError => {
     if (err !== e) (err as { cause?: unknown }).cause = e;
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+    return err;
+  };
+  return fetchJsonStaged<T>(
+    `${API}/${path}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { ttfbMs: FETCH_TIMEOUT_MS, bodyMs: BODY_TIMEOUT_MS, maxBytes: MAX_RESPONSE_BYTES },
+    {
+      http: (status) => new KeyedError('errors.thrustcurve.http', { path, status }),
+      tooLarge: () => new KeyedError('errors.thrustcurve.tooLarge', { path }),
+      // Keyed, as the catalog fetch reports it: the browser's own text for a
+      // refused connection or a body that is not JSON is English whatever the
+      // app shows.
+      fail: (e, timedOut) =>
+        withCause(timedOut ? new KeyedError('errors.thrustcurve.timeout') : fetchFailure(e, false), e),
+    },
+  );
 }
 
 /**
@@ -218,9 +187,6 @@ export function samplesToMotorSpec(
   };
 }
 
-/** A JSON value that is an object, so reading a property off it cannot throw. */
-const isObject = (v: unknown): v is object => !!v && typeof v === 'object';
-
 /**
  * A search.json hit this module can act on: a string `motorId` (the key the
  * curve is fetched and cached by) and a finite `diameter` (what `pick` sorts
@@ -263,7 +229,7 @@ async function resolveTcMotor(cat: CatalogMotor): Promise<TcMotor> {
       ...query,
       maxResults: 25,
     });
-    if (!isObject(body)) throw new KeyedError('errors.thrustcurve.badData', { motor: cat.designation });
+    if (!isRecord(body)) throw new KeyedError('errors.thrustcurve.badData', { motor: cat.designation });
     const { results } = body as { results?: unknown };
     const hit = pick(Array.isArray(results) ? results.filter(isTcMotor) : []);
     if (hit) return hit;
@@ -282,14 +248,15 @@ const SAMPLE_PREFIX = nsKey(`tc:${CACHE_VERSION}:samples:`);
 const META_PREFIX = nsKey(`tc:${CACHE_VERSION}:meta:`);
 
 /**
- * A catalog row's identity in a cache key: maker, common name, diameter and
- * code, the same four fields `motorKey.keyOf` tells rows apart by. Two rows
- * from one maker under one common name in different diameters, or with
- * different codes, are different motors with different curves, lengths and
- * masses, and must not serve each other's cached entries.
+ * A catalog row's identity in a cache key: `motorKey.keyOf`, the fields the
+ * app tells rows apart by. Two rows from one maker under one common name in
+ * different diameters, or with different codes, are different motors with
+ * different curves, lengths and masses, and must not serve each other's cached
+ * entries. Stored keys separate the fields with `:`, so the separator is
+ * swapped rather than the keys changed (a new key would drop every cached
+ * curve a user has offline).
  */
-const rowKey = (cat: CatalogMotor): string =>
-  `${cat.manufacturer}:${cat.designation}:${cat.diameter}:${cat.code ?? ''}`;
+const rowKey = (cat: CatalogMotor): string => keyOf(cat).split('|').join(':');
 
 /** Stable MotorStore key for a picked motor + delay. */
 function specKey(cat: CatalogMotor, ejectionDelay: number): string {
@@ -363,12 +330,12 @@ async function fetchSamplesCached(motor: TcMotor, cat: CatalogMotor): Promise<Tc
       motorIds: [motor.motorId],
       data: 'samples',
     });
-    if (!isObject(body)) throw new KeyedError('errors.thrustcurve.badData', { motor: cat.designation });
+    if (!isRecord(body)) throw new KeyedError('errors.thrustcurve.badData', { motor: cat.designation });
     // An answer whose `results` is not an array is treated as no data, the same
     // as an empty one, rather than throwing on `find`. An element that is not
     // an object is skipped.
     const results = (body as { results?: unknown }).results;
-    const files = (Array.isArray(results) ? results : []).filter(isObject) as {
+    const files = (Array.isArray(results) ? results : []).filter(isRecord) as {
       format?: unknown;
       samples?: TcSample[];
     }[];

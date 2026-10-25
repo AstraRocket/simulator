@@ -3,11 +3,11 @@ import type { CatalogMotor } from '../../services/motors/motorDb';
 import { useUnits } from '../../prefs/useUnits';
 import { keyOf } from '../../services/motors/motorKey';
 import { ALIGN, heading, type Col } from './motorColumns';
-import { seriesColor } from '../common/chartPalette';
-import { ChartAxes, CHART_HEADROOM, chartScales, LegendSwatch, SeriesPath } from './chartAxes';
-import { hasCurve } from '../../services/motors/motorDb';
+import { ChartAxes, CHART_HEADROOM, chartScales, LegendSwatch, SeriesPath, seriesFor } from './chartAxes';
 import { token } from '../common/colorTokens';
 import { fmtList } from '../../i18n/format';
+import { motorName } from '../../services/motors/motorName';
+import { NoCurveNote } from './MotorPanelParts';
 
 /**
  * The motor dashboard's Compare tool: the checked motors' thrust curves
@@ -18,16 +18,9 @@ import { fmtList } from '../../i18n/format';
 export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; cols: Col[] }) {
   const { t } = useTranslation();
   const u = useUnits();
-  // Assign a color only to motors that actually have a curve (in order), so the
-  // chart, legend and table dots agree, and a curveless motor gets none.
-  const colorFor = new Map<string, string>();
-  let ci = 0;
-  for (const m of motors) {
-    if (hasCurve(m)) colorFor.set(keyOf(m), seriesColor(ci++));
-  }
-  const series = motors
-    .filter((m) => colorFor.has(keyOf(m)))
-    .map((m) => ({ m, color: colorFor.get(keyOf(m))!, pts: m.curves![0]!.samples }));
+  // A color only for a motor with a curve, so a curveless one gets none.
+  const series = seriesFor(motors);
+  const colorFor = new Map(series.map((s) => [keyOf(s.m), s.color]));
   // Identity is the motor name (+ color dot); show every other chosen column.
   const specCols = cols.filter((c) => c.id !== 'designation');
 
@@ -50,7 +43,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
             width="100%"
             className="mt-2 block max-w-xl"
             role="img"
-            aria-label={t('dash.compareChartAria', { names: fmtList(series.map((s) => s.m.code || s.m.designation)) })}
+            aria-label={t('dash.compareChartAria', { names: fmtList(series.map((s) => motorName(s.m))) })}
           >
             <ChartAxes dims={dims} tMax={tMax} fMax={fMax} X={X} Y={Y} fScale={u.factor('force')} />
             {/* jscpd:ignore-start -- the combine chart's series props, at this chart's own weights and label sizes */}
@@ -62,7 +55,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
                 Y={Y}
                 color={s.color}
                 strokeWidth={2}
-                label={labelDirect ? s.m.code || s.m.designation : undefined}
+                label={labelDirect ? motorName(s.m) : undefined}
                 labelLift={5}
                 labelClass="text-[9px] font-semibold"
               />
@@ -73,13 +66,13 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-soft">
             {series.map((s) => (
               <LegendSwatch key={keyOf(s.m)} color={s.color} width={12}>
-                {s.m.code || s.m.designation}
+                {motorName(s.m)}
               </LegendSwatch>
             ))}
           </div>
         </>
       ) : (
-        <p className="my-4 rounded-lg bg-raised/50 p-3 text-xs text-ink-muted">{t('motorDlg.noCurve')}</p>
+        <NoCurveNote />
       )}
 
       <div className="mt-3 overflow-x-auto">
@@ -104,7 +97,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
                     className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
                     style={{ background: colorFor.get(keyOf(m)) ?? token('ink-dim') }}
                   />
-                  {m.code || m.designation}
+                  {motorName(m)}
                   {!colorFor.has(keyOf(m)) && (
                     <span className="ml-1 text-[10px] font-normal text-ink-faint">({t('dash.noCurve')})</span>
                   )}

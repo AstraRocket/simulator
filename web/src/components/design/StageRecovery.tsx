@@ -4,6 +4,7 @@ import { recoveryDevices } from '../../services/design/treeEdit';
 import { useWorkspaceStore } from '../../state/store';
 import { partLabel } from '../../i18n/format';
 import { PropSection } from './PropSection';
+import { RadioGroup } from '../common/RadioGroup';
 
 /**
  * A stage's recovery plan: single deployment, or dual with one of its devices
@@ -43,27 +44,15 @@ export function StageRecovery({ node }: { node: ComponentNode }) {
 
   return (
     <PropSection title={t('prop.recoveryType')}>
-      <label className="flex items-center gap-2 text-xs text-ink-soft">
-        <input
-          type="radio"
-          name={`recovery-${stageId}`}
-          checked={!dual}
-          onChange={() => setDrogue(stageId, null)}
-          className="accent-accent-500"
-        />
-        {t('prop.single')}
-      </label>
-      <label className="flex items-center gap-2 text-xs text-ink-soft">
-        <input
-          type="radio"
-          name={`recovery-${stageId}`}
-          checked={dual}
-          disabled={!hasDevices}
-          onChange={() => setDrogue(stageId, picked)}
-          className="accent-accent-500"
-        />
-        <span className={hasDevices ? undefined : 'text-ink-faint'}>{t('prop.dual')}</span>
-      </label>
+      <RadioGroup
+        layout="inline"
+        legend={t('prop.recoveryType')}
+        options={['single', 'dual'] as const}
+        value={dual ? 'dual' : 'single'}
+        onChange={(r) => setDrogue(stageId, r === 'dual' ? picked : null)}
+        fmt={(r) => t(r === 'dual' ? 'prop.dual' : 'prop.single')}
+        isDisabled={(r) => r === 'dual' && !hasDevices}
+      />
       {hasDevices ? (
         <label className="flex items-center justify-between gap-3 pl-6">
           <span className="text-xs text-ink-muted">{t('prop.drogueDevice')}</span>

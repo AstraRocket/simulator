@@ -8,6 +8,7 @@
  */
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import type { Workspace } from './workspaceStore';
+import { isRecord } from '../app/numbers';
 
 /**
  * Accept a stored workspace of the current version, or null.
@@ -54,9 +55,6 @@ function settled(w: Workspace): Workspace {
   const tree = settleLinkedDimensions(w.tree);
   return tree === w.tree ? w : { ...w, tree };
 }
-
-/** A plain object, not null and not an array. */
-const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** A simulation or configuration: an object carrying its id. */
 const hasStringId = (v: unknown): boolean => isRecord(v) && typeof v.id === 'string';

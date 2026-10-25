@@ -155,6 +155,27 @@ describe('a stage reports only inside its own flight', () => {
     expect(head).toMatch(/12/);
   });
 
+  // One rule with the time panels: the peak spans every shown stage, so a
+  // booster faster than the sustainer is the one named.
+  it('the velocity-altitude header names the fastest stage, not only the primary', () => {
+    const faster = [
+      branch('sustainer', { time: [0, 1, 2], altitude: [0, 10, 5], velocity: [0, 8, 4] }),
+      branch('booster', { time: [0, 1, 2], altitude: [0, 4, 6], velocity: [0, 30, 1] }),
+    ];
+    const { container } = renderWithProviders(
+      <FlightXYPanel
+        meta={meta('velocityAltitude')}
+        branches={faster}
+        w={400}
+        height={200}
+        hoverT={null}
+        expanded={false}
+        onToggleExpand={() => {}}
+      />,
+    );
+    expect(container.querySelector('.text-ink-strong')!.textContent).toMatch(/^30/);
+  });
+
   it('the velocity-altitude header shows no value past the primary stage’s landing', () => {
     const head = xyPanel(3).querySelector('.text-ink-strong')!.textContent ?? '';
     // Not the primary stage's top speed (8).
@@ -249,5 +270,39 @@ describe('the stage chips', () => {
     expect(chip('Sustainer').getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(chip('Booster'));
     expect(chip('Sustainer').getAttribute('aria-disabled')).toBeNull();
+  });
+});
+
+describe('the aero window', () => {
+  // A booster's charge lands in the sustainer's branch at booster burnout, so
+  // with no deployment recorded forward flight runs on to apogee, as the
+  // Max q·α tile measures it.
+  const charged = {
+    id: 'sim-3',
+    name: 'Simulation 3',
+    result: {
+      summary: { flightTime: 4 },
+      events: [
+        { type: 'EJECTION_CHARGE', time: 1 },
+        { type: 'APOGEE', time: 3 },
+      ],
+      series: {
+        time: [0, 1, 2, 3, 4],
+        altitude: [0, 100, 150, 160, 100],
+        stability: [2, 2, 2, 2, 2],
+      },
+    },
+  } as unknown as ChartFlight;
+
+  it('does not end at an ejection charge with no deployment', () => {
+    seedSettings({ flightSeries: ['altitude', 'stability'] });
+    renderWithProviders(<FlightChart flight={charged} />);
+    const group = screen.getByRole('group', { name: /Flight charts/ });
+    fireEvent.keyDown(group, { key: 'End' });
+    for (let i = 0; i < 4; i++) fireEvent.keyDown(group, { key: 'ArrowLeft', shiftKey: true });
+    // The crosshair sits at 2.4 s: past the charge, before apogee.
+    const text = screen.getByRole('status').textContent ?? '';
+    expect(text).toMatch(/2\.40/);
+    expect(text).toMatch(/Stability/);
   });
 });

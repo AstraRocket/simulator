@@ -1,5 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
+import { kernelDefault } from '../../tree/kernelDefaults';
+import { ringInstanceOffsets } from '../../tree/assembly';
 import { bodyTubeRadius, bool, countOf, finCant, num } from '../../tree/nodeProps';
 import { finRootChord, finTabSpan } from '../../tree/finPlanform';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
@@ -159,11 +160,6 @@ export function radialOrigin(angles: number[]): number {
   return center;
 }
 
-const finCountDefault = (type: string): number => {
-  const d = (KERNEL_DEFAULTS as Record<string, { finCount?: number }>)[type];
-  return d?.finCount ?? 3;
-};
-
 /**
  * Every angle (rad) one component is mounted at.
  *
@@ -178,9 +174,8 @@ const finCountDefault = (type: string): number => {
 export function mountAngles(node: ComponentNode): number[] {
   const type = String(node.type);
   if (!isFinSet(type)) return [num(node, 'angleOffset', Math.PI)];
-  const count = countOf(node, 'finCount', finCountDefault(type));
-  const base = num(node, 'rotation', 0);
-  return Array.from({ length: count }, (_, i) => base + (i * TWO_PI) / count);
+  const count = countOf(node, 'finCount', kernelDefault(type, 'finCount') ?? 3);
+  return ringInstanceOffsets(count, 0, num(node, 'rotation', 0)).map((o) => o.angle);
 }
 
 /**
@@ -251,7 +246,7 @@ function finSlot(fin: ComponentNode, tube: ComponentNode): GuideSlot | null {
   const root = finRootChord(fin);
   const tab = finTabSpan(fin, root, bodyTubeRadius(tube));
   if (!tab) return null;
-  const thickness = (KERNEL_DEFAULTS as Record<string, { thickness?: number }>)[type]?.thickness ?? 0;
+  const thickness = kernelDefault(type, 'thickness') ?? 0;
   return {
     aftMm: (root - tab.x1) * 1000,
     foreMm: (root - tab.x0) * 1000,

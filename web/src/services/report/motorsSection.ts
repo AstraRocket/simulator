@@ -1,5 +1,5 @@
 import type { ReportModel } from './reportModel';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, withFixedUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { G0 } from '../motors/motorMath';
 import {
@@ -48,8 +48,8 @@ function writeFlightSummary(p: PdfPage, flight: NonNullable<MotorConfig['flight'
   const { t } = p;
   kvGrid(p, [
     [t('report.altitude'), q(p, 'distance', flight.maxAltitude, 0)],
-    [t('report.flightTime'), `${fmtNum(flight.flightTime, 1)} s`],
-    [t('report.timeToApogee'), `${fmtNum(flight.timeToApogee, 1)} s`],
+    [t('report.flightTime'), withFixedUnit(flight.flightTime, t('units.second'))],
+    [t('report.timeToApogee'), withFixedUnit(flight.timeToApogee, t('units.second'))],
     [t('report.velOffRod'), q(p, 'velocity', flight.launchRodVelocity)],
     [t('report.maxVel'), q(p, 'velocity', flight.maxVelocity, 0)],
     [t('report.velDeploy'), flight.deploymentVelocity != null ? q(p, 'velocity', flight.deploymentVelocity) : NO_VALUE],
@@ -90,7 +90,7 @@ function writeMotorTable(p: PdfPage, c: MotorConfig): void {
   const rows = c.motors.map((m) => [
     `${m.manufacturer ? m.manufacturer + ' ' : ''}${m.designation}`,
     q(p, 'force', m.avgThrust),
-    Number.isFinite(m.burnTime) ? `${fmtNum(m.burnTime, 2)} s` : NO_VALUE,
+    withFixedUnit(m.burnTime, p.t('units.second'), 2),
     q(p, 'force', m.maxThrust),
     q(p, 'impulse', m.totalImpulse),
     twRatio(m.avgThrust, m.loadedMass),

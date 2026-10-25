@@ -1,3 +1,4 @@
+import { toError } from '../app/errorMessage';
 // The building block for client-side persistence: a small async key-value
 // interface plus a localStorage implementation. The domain stores (motors,
 // materials, parts, templates, launch locations) each hold one of these and can
@@ -54,7 +55,7 @@ export class LocalStorageKeyValueStore implements KeyValueStore {
     try {
       return Promise.resolve(localStorage.getItem(key));
     } catch (e) {
-      return Promise.reject(e instanceof Error ? e : new Error('localStorage read failed'));
+      return Promise.reject(toError(e, 'localStorage read failed'));
     }
   }
 

@@ -6,13 +6,14 @@ import { clampCount, finiteNum } from './numbers';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_COUNT } from './importLimits';
 import { EXTRA_KEY, readPassthrough } from './passthrough';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
-import { hexOf } from '../../design/colorHex';
+import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
 import { degToRad } from '../../../prefs/units';
 import { KERNEL_DEPLOYMENT, KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
 import { DEPLOY_EVENTS, MASS_COMPONENT_TYPES, SEPARATION_EVENTS } from '../../design/componentFields';
 import { CLUSTER_POINTS } from '../../../tree/cluster';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
+import { PROFILE_SHAPES } from '../../../tree/shapeProfile';
 
 /**
  * Readers for the individual .ork elements more than one component carries:
@@ -70,8 +71,8 @@ export function autoRadiusTag(el: Element, tag: string): number | undefined {
   if (!t || t.toLowerCase().startsWith('auto')) return undefined;
   // A stated 0 is a radius of 0, as DocumentConfig's setter sets it: desktop's
   // phantom tubes carry fins on a pod at the pod's own axis.
-  const v = Number(t);
-  return Number.isFinite(v) && v >= 0 ? v : undefined;
+  const v = finiteNum(t);
+  return v !== undefined && v >= 0 ? v : undefined;
 }
 
 /** `<isdrogue>` as OpenRocket writes it: present and "true" or absent altogether. */
@@ -94,8 +95,8 @@ export function readAutoPackedRadius(el: Element, node: ComponentNode): boolean 
   const raw = text(el, ':scope > packedradius')?.trim() ?? '';
   if (!raw.toLowerCase().startsWith('auto')) return false;
   node['radiusAuto'] = true;
-  const v = Number(raw.slice(4).trim());
-  if (Number.isFinite(v) && v > 0) node['radius'] = v;
+  const v = finiteNum(raw.slice(4));
+  if (v !== undefined && v > 0) node['radius'] = v;
   return true;
 }
 
@@ -144,6 +145,12 @@ function readMaterialGroup(el: Element, node: ComponentNode): void {
   if (group) node['materialGroup'] = group;
 }
 
+/** A positive number attribute, else undefined: a material's density off the file. */
+const positiveAttr = (el: Element, name: string): number | undefined => {
+  const v = finiteNum(el.getAttribute(name));
+  return v !== undefined && v > 0 ? v : undefined;
+};
+
 /**
  * The bulk material's `shearModulus` attribute, carried for the writer.
  *
@@ -156,17 +163,14 @@ function readMaterialGroup(el: Element, node: ComponentNode): void {
 function readShearModulus(el: Element, node: ComponentNode): void {
   const m = el.querySelector(':scope > material');
   if (!m || m.getAttribute('type') !== 'bulk') return;
-  const raw = m.getAttribute('shearModulus');
-  if (raw === null) return;
-  const v = Number(raw);
-  if (Number.isFinite(v) && v >= 0) node['shearModulus'] = v;
+  const v = finiteNum(m.getAttribute('shearModulus'));
+  if (v !== undefined && v >= 0) node['shearModulus'] = v;
 }
 
 function matDensity(el: Element): number | undefined {
   const m = el.querySelector(':scope > material');
   if (!m || m.getAttribute('type') !== 'bulk') return undefined;
-  const d = Number(m.getAttribute('density'));
-  return Number.isFinite(d) && d > 0 ? d : undefined;
+  return positiveAttr(m, 'density');
 }
 
 /** Material name if it's a real name (not the "custom" placeholder). */
@@ -188,8 +192,8 @@ export function readSoftMaterial(
 ): void {
   const m = el.querySelector(selector);
   if (!m || m.getAttribute('type') !== kind) return;
-  const d = Number(m.getAttribute('density'));
-  if (Number.isFinite(d) && d > 0) node[densityKey] = d;
+  const d = positiveAttr(m, 'density');
+  if (d !== undefined) node[densityKey] = d;
   const name = matName(el, kind, selector);
   if (name) node[nameKey] = name;
 }
@@ -258,8 +262,8 @@ function readFillet(el: Element, node: ComponentNode): void {
   // material at a 0 radius, and a fillet turned back on is in that material.
   const m = el.querySelector(':scope > filletmaterial');
   if (!m) return;
-  const d = Number(m.getAttribute('density'));
-  if (Number.isFinite(d) && d > 0) node['filletDensity'] = d;
+  const d = positiveAttr(m, 'density');
+  if (d !== undefined) node['filletDensity'] = d;
   const group = m.getAttribute('group');
   if (group) node['filletMaterialGroup'] = group;
   const name = (m.textContent ?? '').trim();
@@ -335,9 +339,7 @@ const FINISHES: ReadonlyMap<string, string> = new Map([
 ]);
 
 /** `Transition.Shape`, as `ComponentFactory.shapeOf` accepts it. */
-const SHAPES: ReadonlyMap<string, string> = new Map(
-  ['conical', 'ogive', 'ellipsoid', 'power', 'parabolic', 'haack'].map((s) => [s, s]),
-);
+const SHAPES: ReadonlyMap<string, string> = new Map(PROFILE_SHAPES.map((s) => [s, s]));
 
 /** `FinSet.CrossSection`, as `ComponentFactory.crossSectionOf` accepts it. */
 const CROSS_SECTIONS: ReadonlyMap<string, string> = new Map(['square', 'rounded', 'airfoil'].map((s) => [s, s]));
@@ -566,7 +568,7 @@ function orColor(col: Element | null): { paint: string; alpha: number } | null {
   const [r, g, b] = [ch('red'), ch('green'), ch('blue')];
   const alpha = col.hasAttribute('alpha') ? ch('alpha') : 255;
   if (r === null || g === null || b === null || alpha === null) return null;
-  return { paint: hexOf((r << 16) | (g << 8) | b), alpha };
+  return { paint: hexOf(packRgb(r, g, b)), alpha };
 }
 
 /**

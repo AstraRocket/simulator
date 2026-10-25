@@ -21,7 +21,7 @@
 // notifies listeners so the UI can warn up front (see onStorageDegraded).
 import { type KeyValueStore, LocalStorageKeyValueStore } from './keyValueStore';
 import { STORAGE_PREFIX } from './storageKeys';
-import { errorMessage } from '../app/errorMessage';
+import { toError } from '../app/errorMessage';
 
 const DB_NAME = STORAGE_PREFIX;
 const DB_VERSION = 1;
@@ -244,7 +244,7 @@ async function txUpdate(key: string, fn: (raw: string | null) => string | null):
         if (next === null) store.delete(key);
         else store.put(next, key);
       } catch (e) {
-        reject(e instanceof Error ? e : new Error(errorMessage(e)));
+        reject(toError(e));
         t.abort();
       }
     };
@@ -331,7 +331,7 @@ export class IndexedDbKeyValueStore implements KeyValueStore {
       return (await tx<string | undefined>('readonly', (s) => s.get(key))) ?? null;
     } catch (e) {
       markDegraded();
-      throw e instanceof Error ? e : new Error(errorMessage(e));
+      throw toError(e);
     }
   }
 

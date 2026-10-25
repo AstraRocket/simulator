@@ -1,5 +1,6 @@
 import type { ComponentType } from '../../services/parts/componentDb';
 import type { SavedPartEntry } from '../../services/parts/customParts';
+import { groupBy } from '../../services/app/collections';
 
 /**
  * Where each catalog type's group sits in the saved-parts library: the add-part
@@ -31,12 +32,7 @@ const rank = (type: string): number =>
  * saved and deleted.
  */
 export function groupSavedParts(entries: readonly SavedPartEntry[]): { type: string; list: SavedPartEntry[] }[] {
-  const by = new Map<string, SavedPartEntry[]>();
-  for (const e of entries) {
-    if (!by.has(e.part.type)) by.set(e.part.type, []);
-    by.get(e.part.type)!.push(e);
-  }
-  return [...by.entries()]
+  return [...groupBy(entries, (e) => e.part.type).entries()]
     .sort((a, b) => rank(a[0]) - rank(b[0]))
     .map(([type, list]) => ({
       type,

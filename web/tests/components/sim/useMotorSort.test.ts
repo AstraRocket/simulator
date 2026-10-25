@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compareSortKeys } from '../../../src/components/sim/useMotorSort';
+import { compareSortKeys } from '../../../src/services/app/sortKeys';
 
 /**
  * The motor table's sort order. A motor with no value in the sorted column

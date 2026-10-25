@@ -8,12 +8,12 @@ import {
   sweepLaunch,
   sweepPoints,
   sweepSpeeds,
-  surfaceWind,
   type WindSweepSpec,
 } from '../../../src/services/flight/windSweep';
 import { MAX_WIND_SPEED_MS } from '../../../src/services/flight/safetyLimits';
 import type { CompleteLaunch } from '../../../src/services/flight/requiredLaunch';
 import type { WindLevel } from '../../../src/services/design/orkTree';
+import { surfaceWind } from '../../../src/services/flight/windLevels';
 
 /**
  * The grid a drift sweep flies, and the conditions each of its cells carries.

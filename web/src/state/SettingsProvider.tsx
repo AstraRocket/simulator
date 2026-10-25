@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode, useEffect, useRef } from 'react';
 import {
-  DEFAULT_SETTINGS,
+  defaultSettings,
   isSettingsStorageKey,
   loadSettings,
   loadStoredSettings,
@@ -89,8 +89,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [],
   );
   const reset = useCallback(() => {
-    if (!saveSettings(DEFAULT_SETTINGS)) reportRefused();
-    setSettings(DEFAULT_SETTINGS);
+    const fresh = defaultSettings();
+    if (!saveSettings(fresh)) reportRefused();
+    setSettings(fresh);
   }, []);
   const value = useMemo(() => ({ settings, update, reset }), [settings, update, reset]);
 

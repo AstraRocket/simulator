@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { hasMaterial, isRecoveryDevice } from '../../services/design/treeEdit';
@@ -9,7 +9,7 @@ import { FieldRow, FieldSection, ShoulderSections, sectionFields, visibleFields 
 import { OverridesSection } from './OverridesSection';
 import { CordMaterialSection, MaterialSection, RecoveryMaterialSection } from './MaterialSection';
 import { errorText } from '../../i18n/keyedError';
-import { EditorFooter } from '../common/MasterDetail';
+import { EditorFooter, useReportDirty, EditorHeading } from '../common/MasterDetail';
 import { PartMetaFields } from './PartMetaFields';
 
 /**
@@ -62,9 +62,7 @@ export function SavedPartEditor({
     meta.desc !== part.desc ||
     JSON.stringify(savedShape(node)) !== JSON.stringify(part.node);
 
-  useEffect(() => {
-    onDirtyChange(dirty);
-  }, [dirty, onDirtyChange]);
+  useReportDirty(dirty, onDirtyChange);
 
   const change = (patch: Partial<ComponentNode>) => setNode((n) => ({ ...n, ...patch }));
   const setMetaField = (patch: Partial<PartMeta>) => setMeta((m) => ({ ...m, ...patch }));
@@ -99,20 +97,11 @@ export function SavedPartEditor({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pt-0">
-        <div className="sticky top-0 -mx-4 mb-1 flex items-center gap-2 bg-surface px-4 py-2">
-          {/* Phone only: at `md` and up the list is beside this, so there is
-              nothing to go back to. */}
-          <button
-            onClick={onBack}
-            className="rounded px-1 text-sm text-ink-muted hover:text-ink md:hidden"
-            aria-label={t('picker.savedBack')}
-          >
-            ‹
-          </button>
-          <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-            {t(`part.${part.type}`, { defaultValue: part.type })}
-          </span>
-        </div>
+        <EditorHeading
+          onBack={onBack}
+          backLabel={t('picker.savedBack')}
+          title={t(`part.${part.type}`, { defaultValue: part.type })}
+        />
 
         <PartMetaFields idPrefix="edit" meta={meta} onChange={setMetaField} />
 
@@ -144,13 +133,8 @@ export function SavedPartEditor({
         onRevert={revert}
         onSave={() => void submit()}
         saveDisabled={!meta.partNo.trim() || saving}
-      >
-        {/* Always mounted, empty until there is something to say: a live region
-            created together with its text is not announced (see UpdateToast). */}
-        <p role="status" aria-live="polite" className="min-w-0 flex-1 truncate text-xs text-danger-400">
-          {err}
-        </p>
-      </EditorFooter>
+        err={err}
+      />
     </>
   );
 }

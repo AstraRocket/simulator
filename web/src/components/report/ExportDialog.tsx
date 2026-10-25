@@ -15,7 +15,9 @@ import { stageLabel } from '../../i18n/format';
 import { errorText } from '../../i18n/keyedError';
 import { Check } from '../common/Check';
 import { ColorInput } from '../common/ColorInput';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
+import { useLatest } from '../common/useLatest';
+import { walkNodes } from '../../tree/treeWalk';
 
 interface StageSel {
   parts: boolean;
@@ -34,13 +36,8 @@ interface Sel {
   stages: StageSel[];
 }
 
-const hasType = (nodes: ComponentNode[], pred: (t: string) => boolean): boolean => {
-  for (const n of nodes) {
-    if (pred(n.type)) return true;
-    if (n.children && hasType(n.children, pred)) return true;
-  }
-  return false;
-};
+const hasType = (nodes: ComponentNode[], pred: (t: string) => boolean): boolean =>
+  [...walkNodes(nodes)].some((n) => pred(n.type));
 
 /**
  * The "Print or export" dialog: pick what to include, tweak output settings,
@@ -71,19 +68,13 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const tree = useWorkspaceStore((s) => s.tree);
   const runSim = useWorkspaceStore((s) => s.runSim);
 
-  // Set once the dialog is dismissed. A save in flight checks it after every
-  // await and writes nothing once it is set; closing also stops the run it is
-  // waiting on, so the dialog going away is the end of the export.
-  const canceled = useRef(false);
+  // A save in flight observes the dialog and checks after every await, writing
+  // nothing once it was dismissed (closed, or unmounted). Closing also stops
+  // the run it is waiting on, so the dialog going away is the end of the export.
+  const latest = useLatest();
   const running = useRef(false);
-  useEffect(() => {
-    canceled.current = false;
-    return () => {
-      canceled.current = true;
-    };
-  }, []);
   const close = () => {
-    canceled.current = true;
+    latest.claim();
     if (running.current) useWorkspaceStore.getState().cancelRun();
     onClose();
   };
@@ -179,6 +170,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   const save = async () => {
     if (!sel || !model) return;
+    const live = latest.observe();
+    const canceled = () => !live();
     setBusy(true);
     try {
       if (sel.updateSimData) {
@@ -208,13 +201,13 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           useWorkspaceStore.setState({ view: prevView, tab: prevTab, designPane: prevPane });
         }
       }
-      if (canceled.current) return;
+      if (canceled()) return;
       const fresh = assembleReport() ?? model;
       // jsPDF is loaded here rather than first inside the writer, so the last
       // check below comes after every wait: from there to the download is
       // synchronous work that a close cannot interleave with.
       const [{ downloadReportPdf }] = await Promise.all([import('../../services/report/reportPdf'), import('jspdf')]);
-      if (canceled.current) return;
+      if (canceled()) return;
       await downloadReportPdf(
         fresh,
         tree,
@@ -234,71 +227,47 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         },
         exportUnits,
         // The font fetch is a wait of its own; a close during it saves nothing.
-        { canceled: () => canceled.current },
+        { canceled },
       );
       onClose();
     } catch (e) {
-      if (canceled.current) return;
+      if (canceled()) return;
       useWorkspaceStore.getState().setErr(t('export.pdfFailed', { message: errorText(e, t) }));
     } finally {
       setBusy(false);
     }
   };
 
+  /** Write one of the CSVs from the current report, and close; the writers load on demand. */
+  const writeCsv = async (
+    write: (csv: typeof import('../../services/report/reportCsv'), report: NonNullable<typeof model>) => void,
+  ) => {
+    if (!model) return;
+    try {
+      write(await import('../../services/report/reportCsv'), assembleReport() ?? model);
+      onClose();
+    } catch (e) {
+      useWorkspaceStore.getState().setErr(t('export.csvFailed', { message: errorText(e, t) }));
+    }
+  };
   // One row per part, in the export's units (services/report/reportCsv).
-  const savePartsCsv = async () => {
-    if (!model) return;
-    try {
-      const { downloadComponentCsv } = await import('../../services/report/reportCsv');
-      downloadComponentCsv(assembleReport() ?? model, exportUnits, (type) => t(`part.${type}`));
-      onClose();
-    } catch (e) {
-      useWorkspaceStore.getState().setErr(t('export.csvFailed', { message: errorText(e, t) }));
-    }
-  };
-
-  const saveCsv = async () => {
-    if (!model) return;
-    try {
-      const { downloadDesignCsv } = await import('../../services/report/reportCsv');
-      downloadDesignCsv(assembleReport() ?? model, exportUnits);
-      onClose();
-    } catch (e) {
-      useWorkspaceStore.getState().setErr(t('export.csvFailed', { message: errorText(e, t) }));
-    }
-  };
+  const savePartsCsv = () =>
+    writeCsv((csv, report) => csv.downloadComponentCsv(report, exportUnits, (type) => t(`part.${type}`)));
+  const saveCsv = () => writeCsv((csv, report) => csv.downloadDesignCsv(report, exportUnits));
 
   // The pinned row of actions, declared here because it is the shell's `footer`
   // and so has to be named before the body it is passed with.
   const actionRow = (
     <div className="flex items-center justify-between gap-2 border-t border-line/10 p-4">
-      <button
-        onClick={() => setShowSettings(true)}
-        className="rounded-md bg-raised px-3 py-2 text-sm text-ink ring-1 ring-line/10 hover:bg-elevated"
-      >
-        {t('export.settings')}
-      </button>
+      <DialogButton onClick={() => setShowSettings(true)}>{t('export.settings')}</DialogButton>
       <div className="flex gap-2">
-        <button
-          onClick={close}
-          className="rounded-md bg-raised px-3 py-2 text-sm text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          onClick={saveCsv}
-          disabled={busy}
-          className="rounded-md bg-raised px-3 py-2 text-sm text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50"
-        >
+        <DialogButton onClick={close}>{t('common.cancel')}</DialogButton>
+        <DialogButton onClick={saveCsv} disabled={busy}>
           {t('export.saveCsv')}
-        </button>
-        <button
-          onClick={savePartsCsv}
-          disabled={busy}
-          className="rounded-md bg-raised px-3 py-2 text-sm text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50"
-        >
+        </DialogButton>
+        <DialogButton onClick={savePartsCsv} disabled={busy}>
           {t('export.savePartsCsv')}
-        </button>
+        </DialogButton>
         <DialogButton onClick={save} disabled={busy} variant="primary">
           {busy ? t('common.loading') : t('export.savePdf')}
         </DialogButton>
@@ -306,6 +275,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     </div>
   );
 
+  const setReport = (patch: Partial<typeof settings.report>) => update({ report: { ...settings.report, ...patch } });
+  const select = 'rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10';
   const check = 'accent-accent-500';
   const fillId = useId();
   const row = 'flex items-center gap-2 py-0.5 text-sm text-ink';
@@ -406,7 +377,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 <select
                   aria-label={t('export.units')}
                   value={settings.report.units}
-                  onChange={(e) => update({ report: { ...settings.report, units: e.target.value as UnitChoice } })}
+                  onChange={(e) => setReport({ units: e.target.value as UnitChoice })}
                   className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
                 >
                   {UNIT_CHOICES.map((c) => (
@@ -468,7 +439,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                   <ColorInput
                     disabled={!settings.report.templateFill}
                     value={settings.report.templateFill || '#e5e7eb'}
-                    onCommit={(c) => update({ report: { ...settings.report, templateFill: c } })}
+                    onCommit={(c) => setReport({ templateFill: c })}
                     ariaLabel={t('export.fillColor')}
                     className="h-7 w-10 cursor-pointer rounded-md border border-line/10 bg-raised p-0.5 disabled:opacity-40"
                   />
@@ -478,7 +449,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 {t('export.border')}
                 <ColorInput
                   value={settings.report.templateStroke}
-                  onCommit={(c) => update({ report: { ...settings.report, templateStroke: c } })}
+                  onCommit={(c) => setReport({ templateStroke: c })}
                   className="h-7 w-10 cursor-pointer rounded-md border border-line/10 bg-raised p-0.5"
                 />
               </label>
@@ -486,8 +457,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 {t('export.paper')}
                 <select
                   value={settings.report.paper}
-                  onChange={(e) => update({ report: { ...settings.report, paper: e.target.value as 'letter' | 'a4' } })}
-                  className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10"
+                  onChange={(e) => setReport({ paper: e.target.value as 'letter' | 'a4' })}
+                  className={select}
                 >
                   <option value="letter">{t('export.paperLetter')}</option>
                   <option value="a4">{t('export.paperA4')}</option>
@@ -497,33 +468,27 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                 {t('export.orientation')}
                 <select
                   value={settings.report.orientation}
-                  onChange={(e) =>
-                    update({ report: { ...settings.report, orientation: e.target.value as 'portrait' | 'landscape' } })
-                  }
-                  className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10"
+                  onChange={(e) => setReport({ orientation: e.target.value as 'portrait' | 'landscape' })}
+                  className={select}
                 >
                   <option value="portrait">{t('export.portrait')}</option>
                   <option value="landscape">{t('export.landscape')}</option>
                 </select>
               </label>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
+            <DialogActions>
+              <DialogButton
                 // Only what this popover shows. The report units are chosen in
                 // the dialog behind it, and a reset of the colors must not move
                 // them.
                 onClick={() => update({ report: { ...DEFAULT_REPORT, units: settings.report.units } })}
-                className="rounded-md bg-raised px-3 py-1.5 text-sm text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
               >
                 {t('export.reset')}
-              </button>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="rounded-md bg-accent-600 px-4 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-700"
-              >
+              </DialogButton>
+              <DialogButton variant="primary" onClick={() => setShowSettings(false)}>
                 {t('common.close')}
-              </button>
-            </div>
+              </DialogButton>
+            </DialogActions>
           </>
         </Dialog>
       )}

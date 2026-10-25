@@ -6,10 +6,10 @@ import { PAD_L, PAD_R, PANEL_H } from './flightChartAxis';
 import { panelDigits, panelSeries, traceScale, traceUnit, type Branch, type Meta } from './flightChartTraces';
 import { PanelHover, hoverValue } from './FlightChartHover';
 import { NO_VALUE } from '../../i18n/noValue';
-import { polylinePath } from '../common/svgPath';
-import { ChartPanelFrame } from './ChartPanelFrame';
+import { polylinePath, areaPath } from '../common/svgPath';
+import { ChartPanelFrame, PanelClip, PanelLines, YEnds } from './ChartPanelFrame';
 import { token } from '../common/colorTokens';
-import { timeSeriesSummary } from './chartSummary';
+import { timeSeriesSummary, peakAcross } from './chartSummary';
 
 /**
  * Owns one small-multiple panel of the flight chart: it draws the lines that
@@ -91,21 +91,19 @@ export function FlightChartPanel({
    * six-figure sample counts `maxFlightTime`'s docblock describes that is a
    * six-figure-segment string per panel per move.
    */
-  const { paths, areaPath, peak } = useMemo(() => {
+  const { paths, area, peak } = useMemo(() => {
     const first = list[0];
     return {
       paths: list.map((sr) => mkLine(sr.pts)),
-      areaPath:
+      area:
         first && first.pts.length >= 2
-          ? `M${X(first.pts[0]![0]).toFixed(1)},${Y(Math.max(lo, 0)).toFixed(1)} ` +
-            first.pts.map((p) => `L${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ') +
-            ` L${X(first.pts[first.pts.length - 1]![0]).toFixed(1)},${Y(Math.max(lo, 0)).toFixed(1)} Z`
+          ? areaPath(
+              first.pts.map((p) => [X(p[0]), Y(p[1])]),
+              Y(Math.max(lo, 0)),
+              'comma',
+            )
           : '',
-      peak: list.reduce((acc, sr) => {
-        let m = acc;
-        for (const y of sr.ys) if (Math.abs(y) > Math.abs(m)) m = y;
-        return m;
-      }, 0),
+      peak: peakAcross(list)?.value ?? null,
     };
   }, [list, mkLine, X, Y, lo]);
 
@@ -161,9 +159,7 @@ export function FlightChartPanel({
         )}
         {/* Clip everything time-mapped to the plot area, so zoomed-out-of-window
               points don't spill over the y-axis labels / panel edges. */}
-        <clipPath id={clipId}>
-          <rect x={PAD_L} y={0} width={Math.max(0, w - PAD_L - PAD_R)} height={height} />
-        </clipPath>
+        <PanelClip id={clipId} w={w} height={height} />
       </defs>
       {zeroInRange && <line x1={PAD_L} y1={Y(0)} x2={w - PAD_R} y2={Y(0)} className="stroke-line/15" />}
       <g clipPath={`url(#${clipId})`}>
@@ -179,19 +175,8 @@ export function FlightChartPanel({
             vectorEffect="non-scaling-stroke"
           />
         ))}
-        {single && !meta.level && areaPath && <path d={areaPath} fill={`url(#${uid}-${meta.key})`} />}
-        {list.map((s, i) =>
-          paths[i] ? (
-            <path
-              key={i}
-              d={paths[i]}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={1.75}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null,
-        )}
+        {single && !meta.level && area && <path d={area} fill={`url(#${uid}-${meta.key})`} />}
+        <PanelLines paths={paths} colors={list.map((s) => s.color)} />
         {hoverT != null && (
           <PanelHover
             hoverT={hoverT}
@@ -205,12 +190,7 @@ export function FlightChartPanel({
           />
         )}
       </g>
-      <text x={PAD_L - 4} y={padT + 7} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
-        {fmtNum(hi, digits)}
-      </text>
-      <text x={PAD_L - 4} y={height - padB} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
-        {fmtNum(lo, digits)}
-      </text>
+      <YEnds top={fmtNum(hi, digits)} bottom={fmtNum(lo, digits)} padT={padT} padB={padB} height={height} />
     </ChartPanelFrame>
   );
 }

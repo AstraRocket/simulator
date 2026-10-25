@@ -148,6 +148,16 @@ describe('limitText', () => {
       limitText({ field: 'windSpeed', value: 11.2, limit: MAX_WIND_SPEED_MS, powerClass: 'model' }, t, metric),
     ).toBe('limits.wind {"value":"11.2 m/s","limit":"8.9 m/s"}');
   });
+
+  // The launch panel quotes the cap under the box in the box's own unit, so the
+  // Run notice for the same cap has to use it too, or one screen states one
+  // limit twice in two units.
+  it('quotes the cap in the unit the field was set to', () => {
+    const fieldMph = unitSymbols(METRIC_UNITS, { 'launch.speed': 'mph' });
+    expect(
+      limitText({ field: 'windSpeed', value: 11.2, limit: MAX_WIND_SPEED_MS, powerClass: 'model' }, t, fieldMph),
+    ).toBe('limits.wind {"value":"25.1 mph","limit":"20 mph"}');
+  });
 });
 
 describe('the wind judged at the pad', () => {

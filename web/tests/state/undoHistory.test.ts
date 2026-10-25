@@ -184,3 +184,28 @@ describe('patchActiveLaunch', () => {
     expect(s().past).toHaveLength(past);
   });
 });
+
+/**
+ * A discrete change is its own undo step, closing any field edit still open
+ * first (`recordStep`), as every other atomic action does. Folded into the open
+ * edit, Undo after renaming the design would also revert the half-typed value
+ * in another field.
+ */
+describe('an atomic change beside an open field edit', () => {
+  it('renaming the design leaves the open edit its own step', () => {
+    s().setSelectedId('nose');
+    s().patchSelected({ length: 0.31 }); // a field still being typed in: no commit
+    s().updateDesignMeta({ name: 'Renamed' });
+    s().undo();
+    expect(s().tree.name).not.toBe('Renamed');
+    expect(findNode(s().tree, 'nose')!['length']).toBe(0.31);
+  });
+
+  it('adding a document material leaves the open edit its own step', () => {
+    s().setSelectedId('nose');
+    s().patchSelected({ length: 0.32 });
+    s().addDocumentMaterial({ name: 'Mine', type: 'bulk', density: 1234 });
+    s().undo();
+    expect(findNode(s().tree, 'nose')!['length']).toBe(0.32);
+  });
+});

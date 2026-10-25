@@ -103,3 +103,9 @@ export const useEngineStore = create<EngineState>((set) => {
     reload: () => location.reload(),
   };
 });
+
+/**
+ * Whether the kernel is up. A boolean selector, so a caller re-renders when the
+ * answer flips and not on every phase the boot passes through.
+ */
+export const useEngineReady = (): boolean => useEngineStore((s) => s.phase === 'ready');

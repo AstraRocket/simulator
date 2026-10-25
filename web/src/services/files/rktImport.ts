@@ -3,7 +3,6 @@ import { decodeFileText } from './decodeText';
 import type { ComponentNode, ComponentType } from '../../engine/openRocketEngine';
 import { syncAutoRadii } from '../design/autoRadius';
 import { defaultStageName, freshId } from '../design/orkTree';
-import { uuid } from '../app/uuid';
 import { xmlText as text } from './xmlUtil';
 import { parseOrkXml } from './ork/importUnpack';
 import { clampCount, finiteNum } from './ork/numbers';
@@ -11,7 +10,7 @@ import { MAX_FIN_COUNT, MAX_FIN_POINTS, MAX_LINE_COUNT, checkDepth, countCompone
 import { ignoredNotes } from './ork/importNotes';
 import { keyedNote, notePartName, type ImportNote } from './importNote';
 import { KeyedError } from '../../i18n/keyedError';
-import type { OrkFlightConfig, OrkImportResult } from './orkTypes';
+import { type OrkFlightConfig, type OrkImportResult, defaultOrkConfig } from './orkTypes';
 import { finCant, numOpt } from '../../tree/nodeProps';
 import { bodyRadiusAt, trapezoidPoints } from '../../tree/finPlanform';
 import { isAssembly } from '../../tree/assembly';
@@ -19,6 +18,17 @@ import { rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
 import { canHost } from '../design/treeEdit';
 import { hexOf, parseHexColor } from '../design/colorHex';
 import { degToRad } from '../../prefs/units';
+import {
+  CROSS_SECTIONS,
+  FINISHES,
+  LOCATION_METHODS,
+  RING_TYPES,
+  SHAPES,
+  STAGE_CG_ELEMENTS,
+  STAGE_ELEMENTS,
+  STAGE_MASS_ELEMENTS,
+  SURFACE_DENSITY,
+} from './rocksim/schema';
 
 /**
  * RockSim (`.rkt`) import.
@@ -48,27 +58,6 @@ const LENGTH = 1000;
 const RADIUS = 2000;
 /** g → kg. `…_TO_OPENROCKET_MASS`. */
 const MASS = 1000;
-/**
- * RockSim surface density → kg/m². `…_TO_OPENROCKET_SURFACE_DENSITY`.
- *
- * Divided, like LENGTH, RADIUS and MASS above: the kernel's whole rocksim
- * package converts inbound by dividing by its constant
- * (`BaseHandler.computeDensity` is `raw / type.asOpenRocket()`) and outbound by
- * multiplying (the `BasePartDTO(RocketComponent)` constructor). The direction matters by a factor of a
- * hundred, and the physics agrees with the kernel: RockSim's unit is g/cm², and
- * 1 g/cm² is 10 kg/m², so a nylon canopy at 0.067 kg/m² sits in the file as
- * 0.0067.
- */
-const SURFACE_DENSITY = 1 / 10;
-
-/** `RockSimNoseConeCode`. RockSim's PARABOLIC (2) really is OpenRocket's ELLIPSOID. */
-const SHAPES = ['conical', 'ogive', 'ellipsoid', 'ellipsoid', 'power', 'parabolic', 'haack'] as const;
-
-/** `RockSimFinishCode`, in its own ordinal order. */
-const FINISHES = ['polished', 'smooth', 'normal', 'unfinished'] as const;
-
-/** `RockSimLocationMode`: 0 front of parent, 1 from the nose tip, 2 back of parent. */
-const LOCATION_METHODS = ['top', 'absolute', 'bottom'] as const;
 
 /**
  * `RockSimDensityType` divisors: bulk (kg/m³), surface (g/cm²), line (kg/m).
@@ -413,19 +402,6 @@ const readBodyTube = (el: Element, parent: ComponentNode | undefined): Component
   return n;
 };
 
-/**
- * `RingHandler.endHandler`'s `UsageCode` → the four OpenRocket ring types. Any
- * other code, a sleeve or one RockSim does not define, falls to the handler's
- * `else` and stays the centering ring it started as.
- */
-const RING_TYPES: Record<number, ComponentType> = {
-  0: 'centeringring',
-  1: 'bulkhead',
-  2: 'engineblock',
-  3: 'centeringring', // "Sleeve": `RingHandler` keeps it the centering ring it started as
-  4: 'tubecoupler',
-};
-
 const readRing = (el: Element): ComponentNode => {
   const n = base(el, RING_TYPES[num(el, 'UsageCode') ?? 0] ?? 'centeringring', true);
   put(n, 'length', mmPos(el, 'Len'));
@@ -464,9 +440,6 @@ const readLaunchLug = (el: Element): ComponentNode => {
 
 /** `LaunchLug()`'s wall, which `LaunchLugHandler` leaves in place. */
 const LUG_WALL = 0.001;
-
-/** `TipShapeCode` is the fin's cross section (`FinSetHandler.convertTipShapeCode`). */
-const CROSS_SECTIONS = ['square', 'rounded', 'airfoil'] as const;
 
 /**
  * The parts only a freeform fin set may be mounted on.
@@ -981,17 +954,6 @@ const KNOWN_UNSUPPORTED = new Set(['RingTail']);
 
 // ------------------------------------------------------------------ entry ---
 
-/** RockSim numbers its stages from the nose down: 3 is the sustainer. */
-const STAGE_ELEMENTS = ['Stage3Parts', 'Stage2Parts', 'Stage1Parts'] as const;
-
-/**
- * The per-stage mass and CG RockSim states on the design, nose down to match
- * `STAGE_ELEMENTS`. The CG tags are not named alike: the sustainer's is
- * `Stage3CG` and the boosters' are `…CGAlone`, as `RockSimHandler` reads them.
- */
-const STAGE_MASS_ELEMENTS = ['Stage3Mass', 'Stage2Mass', 'Stage1Mass'] as const;
-const STAGE_CG_ELEMENTS = ['Stage3CG', 'Stage2CGAlone', 'Stage1CGAlone'] as const;
-
 /**
  * Read a `.rkt` into the same result shape `importOrk` produces, so every
  * caller downstream (`loadOrk`, `wireLoadedOrk`, the loaded-design banner)
@@ -1069,15 +1031,7 @@ export function importRkt(data: ArrayBuffer | string): OrkImportResult {
   // An ejected pod is grounded in the configuration desktop opens on, so there
   // is one configuration to ground it in.
   const grounding: OrkFlightConfig | null = ctx.removed.length
-    ? {
-        id: uuid(),
-        name: null,
-        isDefault: true,
-        motors: {},
-        deployments: {},
-        separations: {},
-        grounded: [...ctx.removed],
-      }
+    ? defaultOrkConfig({ grounded: [...ctx.removed] })
     : null;
 
   return {

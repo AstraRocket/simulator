@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { loadoutLabel, type FlightConfig } from '../../services/flight/flightConfigs';
+import { configLabel, type FlightConfig } from '../../services/flight/flightConfigs';
 
 /** One column of the table: a part of the rocket, and what each setup does with it. */
 export interface ConfigColumn {
@@ -62,7 +62,7 @@ export function ConfigsTable({
       </thead>
       <tbody>
         {configs.map((c) => {
-          const label = c.name || loadoutLabel(tree, c);
+          const label = configLabel(tree, c);
           return (
             <tr
               key={c.id}

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { chartScales, linePath, baselineArea, type XY } from '../../../src/components/sim/chartAxes';
+import { chartScales, linePath, baselineArea, seriesFor, type XY } from '../../../src/components/sim/chartAxes';
+import { seriesColor } from '../../../src/components/common/chartPalette';
+import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
 const dims = { width: 100, height: 100, padL: 10, padR: 10, padT: 10, padB: 10 };
 
@@ -43,5 +45,25 @@ describe('baselineArea', () => {
   });
   it('is empty for no points', () => {
     expect(baselineArea([], X, Y, 10)).toBe('');
+  });
+});
+
+describe('seriesFor', () => {
+  const curve: [number, number][] = [
+    [0, 0],
+    [0.5, 10],
+    [1, 5],
+    [1.5, 0],
+  ];
+  const withCurve = (designation: string) =>
+    ({ designation, curves: [{ src: 'cert', samples: curve }] }) as unknown as CatalogMotor;
+  const without = (designation: string) => ({ designation }) as unknown as CatalogMotor;
+
+  // The combine pane colored by list position, so a curveless motor ahead of
+  // the others shifted every color from the compare pane's.
+  it('colors only the motors with a curve, in order among them', () => {
+    const lines = seriesFor([without('A1'), withCurve('B2'), withCurve('C3')]);
+    expect(lines.map((l) => l.m.designation)).toEqual(['B2', 'C3']);
+    expect(lines.map((l) => l.color)).toEqual([seriesColor(0), seriesColor(1)]);
   });
 });

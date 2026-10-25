@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { AltitudeReference, DistanceUnit } from '../../services/exports/flightPathExport';
+import { CardGroup } from '../common/CardGroup';
 
 /** The flight-path export dialog's form building blocks. */
 
@@ -7,15 +8,14 @@ const UNITS: DistanceUnit[] = ['m', 'ft', 'km', 'mi'];
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl bg-raised/40 p-3 ring-1 ring-line/10">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</h3>
-      <div className="space-y-1.5">{children}</div>
-    </section>
+    <CardGroup title={title} fill="raised">
+      {children}
+    </CardGroup>
   );
 }
 
 /** A labeled dropdown whose options are the values of `T`. */
-function SelectRow<T extends string>({
+export function SelectRow<T extends string>({
   label,
   value,
   onChange,
@@ -25,8 +25,8 @@ function SelectRow<T extends string>({
   label: string;
   value: T;
   onChange: (v: T) => void;
-  /** The dropdown's Tailwind width class. */
-  width: string;
+  /** The dropdown's Tailwind width class; none sizes it to its options. */
+  width?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -36,7 +36,7 @@ function SelectRow<T extends string>({
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className={`${width} rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500`}
+        className={`${width ?? ''} rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500`}
       >
         {children}
       </select>

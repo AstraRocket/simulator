@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fmtNum, stageLabel } from '../../i18n/format';
+import { stageLabel, withFixedUnit } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
+import { forwardFlightEnd } from '../../services/flight/flightEvents';
 import { EVENT_LABEL, clusterEventLabels } from '../../services/flight/simReport';
 import { FlightCsvDialog } from '../sim/FlightCsvDialog';
 import { useSettings } from '../../state/SettingsProvider';
@@ -26,6 +27,8 @@ import { FlightChartPanel } from './FlightChartPanel';
 import { crosshairReadout, eventsSummary } from './chartSummary';
 import { FlightXYPanel } from './FlightXYPanel';
 import { useElementResize } from '../common/useElementResize';
+import { ToggleButton } from '../common/ToggleButton';
+import { smallButton } from '../common/smallButton';
 
 // The series catalog lives in its own module; GroundTrack imports the trace
 // builder through this one.
@@ -113,16 +116,10 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
   );
 
   // Boost→apogee window: aero series (CP / stability / q·α) are only meaningful until
-  // the rocket stops flying forward (recovery deploy, else apogee).
+  // the rocket stops flying forward, the same end the Max q·α tile measures to.
   const clipT = useMemo(() => {
-    const at = (type: string) => flight.result.events?.find((e) => e.type === type)?.time;
-    return (
-      at('RECOVERY_DEVICE_DEPLOYMENT') ??
-      at('EJECTION_CHARGE') ??
-      at('APOGEE') ??
-      flight.result.summary.timeToApogee ??
-      maxT
-    );
+    const end = forwardFlightEnd({ events: flight.result.events ?? [], summary: flight.result.summary });
+    return Number.isFinite(end) ? end : maxT;
   }, [flight, maxT]);
 
   // Cluster near-coincident event labels (a recovery deployment always keeps its
@@ -172,7 +169,7 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
     keyT == null || !primary
       ? ''
       : crosshairReadout(
-          `${t('flight.time')} ${fmtNum(keyT, 2)} ${t('units.second')}`,
+          `${t('flight.time')} ${withFixedUnit(keyT, t('units.second'), 2)}`,
           shownMetas
             .filter((m) => !m.xy && !(m.aero && keyT > clipT))
             .map((m) => {
@@ -196,8 +193,7 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
     setHoverT(crosshair.clampT(invX(localX(e.clientX))));
   };
 
-  const zBtn =
-    'rounded-md bg-raised px-2 py-1 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-40';
+  const zBtn = smallButton('chip', 'ink');
 
   return (
     <div className="flex h-full flex-col rounded-xl bg-surface ring-1 ring-line/10">
@@ -205,21 +201,13 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{t('flight.title')}</h2>
         <div className="flex items-center gap-2">
           <span className="text-xs tabular-nums text-ink-muted">
-            {t('flight.time')} {fmtNum(hoverT ?? maxT, hoverT != null ? 2 : 1)} {t('units.second')}
+            {t('flight.time')} {withFixedUnit(hoverT ?? maxT, t('units.second'), hoverT != null ? 2 : 1)}
           </span>
           <span className="sr-only" role="status" aria-live="polite">
             {announcement}
           </span>
+          {/* In, out, fit: the schematic's and the site map's order. */}
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => zoomAt(1 / 0.6, centerT())}
-              disabled={!zoomed}
-              title={t('flight.zoomOut')}
-              aria-label={t('flight.zoomOut')}
-              className={zBtn}
-            >
-              −
-            </button>
             <button
               onClick={() => zoomAt(0.6, centerT())}
               // At the narrowest window a press would change nothing.
@@ -229,6 +217,15 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
               className={zBtn}
             >
               +
+            </button>
+            <button
+              onClick={() => zoomAt(1 / 0.6, centerT())}
+              disabled={!zoomed}
+              title={t('flight.zoomOut')}
+              aria-label={t('flight.zoomOut')}
+              className={zBtn}
+            >
+              −
             </button>
             <button
               onClick={zoomCtl.reset}
@@ -244,7 +241,7 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
             onClick={() => setCsvOpen(true)}
             title={t('flight.exportCsv')}
             aria-label={t('flight.exportCsv')}
-            className="rounded-md bg-raised px-2 py-1 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
+            className={smallButton('chip', 'ink')}
           >
             <span aria-hidden>⬇</span> CSV
           </button>
@@ -284,14 +281,14 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
         {SERIES.map((m) => {
           const active = on.includes(m.key);
           return (
-            <button
+            <ToggleButton
               key={m.key}
+              active={active}
               onClick={() => toggle(m.key)}
-              aria-pressed={active}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${active ? 'bg-accent-600 text-on-accent ring-accent-500' : 'bg-raised text-ink-soft ring-line/10'}`}
+              className="rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ring-line/10"
             >
               {t(m.label)}
-            </button>
+            </ToggleButton>
           );
         })}
       </div>

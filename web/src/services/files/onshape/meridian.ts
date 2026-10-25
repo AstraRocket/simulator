@@ -1,6 +1,6 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
 import { num, numOpt } from '../../../tree/nodeProps';
-import { nodeShape, outerProfile, profileEnds } from '../../../tree/shapeProfile';
+import { nodeShape, outerProfile, profileEnds, shouldersOf, type Shoulder } from '../../../tree/shapeProfile';
 import { partLength } from '../../../tree/position';
 import { kernelDefault } from '../../../tree/kernelDefaults';
 
@@ -43,13 +43,6 @@ export interface Section {
   innerIsAxis: boolean;
 }
 
-export interface Shoulder {
-  radius: number;
-  length: number;
-  thickness: number;
-  capped: boolean;
-}
-
 export interface SymmetricSections {
   body: Section;
   /** One polygon per shoulder; null on an end with none. */
@@ -69,27 +62,6 @@ function axisBore(fore: number, aft: number): Pt[] {
     [0, fore],
     [0, aft],
   ];
-}
-
-/**
- * The shoulders of a nose cone or transition, fore and aft, as the kernel
- * holds them. A nose cone keeps one shoulder, at its base: aft, or fore once it
- * is flipped into a tail cone (`NoseCone.getShoulderRadius` and its siblings
- * read the fore fields when flipped).
- */
-export function shouldersOf(node: ComponentNode): { fore: Shoulder; aft: Shoulder } {
-  const read = (prefix: string): Shoulder => ({
-    radius: num(node, `${prefix}Radius`, 0),
-    length: num(node, `${prefix}Length`, 0),
-    thickness: num(node, `${prefix}Thickness`, 0),
-    capped: node[`${prefix}Capped`] === true,
-  });
-  const none: Shoulder = { radius: 0, length: 0, thickness: 0, capped: false };
-  if (node.type === 'nosecone') {
-    const base = read('shoulder');
-    return node['flipped'] === true ? { fore: base, aft: none } : { fore: none, aft: base };
-  }
-  return { fore: read('foreShoulder'), aft: read('aftShoulder') };
 }
 
 /** The outer radius at each of the kernel's slice boundaries, fore to aft. */

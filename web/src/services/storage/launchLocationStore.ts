@@ -144,3 +144,15 @@ export function locationFrom(
     launchAltitudeM: site.launchAltitudeM,
   };
 }
+
+/**
+ * The three launch fields a location sets, taken from anything that carries
+ * them (a saved location, the launch defaults): where the site is and how high.
+ * Applying a location sets all three, since keeping the previous site's
+ * elevation would fly the wrong air unannounced.
+ */
+export function siteOf<T extends Pick<LaunchLocation, 'latitudeDeg' | 'longitudeDeg'> & { launchAltitudeM: unknown }>(
+  x: T,
+): Pick<T, 'latitudeDeg' | 'longitudeDeg' | 'launchAltitudeM'> {
+  return { latitudeDeg: x.latitudeDeg, longitudeDeg: x.longitudeDeg, launchAltitudeM: x.launchAltitudeM };
+}

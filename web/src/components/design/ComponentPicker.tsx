@@ -31,7 +31,7 @@ import {
   type SortKey,
 } from '../../services/parts/componentFilter';
 import { confirm } from '../../state/confirmStore';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import { useCatalogProgress } from '../common/CatalogLoading';
@@ -41,6 +41,7 @@ import { progressPercent } from '../../services/app/remoteData';
 import { SortHeader } from '../common/SortHeader';
 import { UnitBound } from '../common/UnitBound';
 import { useAsyncLoad } from '../common/useAsyncLoad';
+import { Check } from '../common/Check';
 
 /**
  * How many rows are rendered at once. There are well over a thousand body tubes and no
@@ -143,7 +144,7 @@ export function ComponentPicker({
         {state.status === 'error'
           ? t('catalog.retry')
           : state.status === 'loading'
-            ? `${t('common.loading')}${pct == null ? '' : ` ${pct}%`}`
+            ? `${t('common.loading')}${pct == null ? '' : ` ${fmtPercent(pct)}`}`
             : t('picker.pick', { count: state.all.length })}
       </button>
 
@@ -576,26 +577,21 @@ function PickerDialog({
               <span className="text-ink-faint">{u.sym('length')}</span>
             </span>
             {canFit && (
-              <label className="flex items-center gap-1.5 text-xs text-ink-soft" title={t('picker.fitsHint')}>
-                <input
-                  type="checkbox"
-                  checked={q.fitsOnly}
-                  onChange={(e) => set({ fitsOnly: e.target.checked })}
-                  className="accent-accent-500"
-                />
-                {t('picker.fitsOnly')}
-              </label>
+              <Check
+                checked={q.fitsOnly}
+                onChange={(v) => set({ fitsOnly: v })}
+                label={t('picker.fitsOnly')}
+                title={t('picker.fitsHint')}
+                className="text-xs text-ink-soft"
+              />
             )}
             {hasLegacy && (
-              <label className="flex items-center gap-1.5 text-xs text-ink-soft">
-                <input
-                  type="checkbox"
-                  checked={q.showLegacy}
-                  onChange={(e) => set({ showLegacy: e.target.checked })}
-                  className="accent-accent-500"
-                />
-                {t('picker.showLegacy')}
-              </label>
+              <Check
+                checked={q.showLegacy}
+                onChange={(v) => set({ showLegacy: v })}
+                label={t('picker.showLegacy')}
+                className="text-xs text-ink-soft"
+              />
             )}
             {!queryIsEmpty(q) && (
               <button

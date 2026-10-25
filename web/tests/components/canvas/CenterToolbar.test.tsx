@@ -23,9 +23,9 @@ const renderToolbar = () =>
 
 /**
  * The Results heading says when the flight it shows is being flown again, so
- * the numbers on screen are known to be about to change. While it runs, the
- * Running chip stands in for Outdated, which is true but no longer the thing to
- * act on.
+ * the numbers on screen are known to be about to change, or when it failed.
+ * While it runs or waits, that chip stands in for Outdated, which is true but
+ * no longer the thing to act on.
  */
 describe('CenterToolbar run state', () => {
   const setRun = (run: SimRun | undefined) => {
@@ -56,10 +56,20 @@ describe('CenterToolbar run state', () => {
     expect(screen.queryByText('Outdated')).toBeNull();
   });
 
-  it('shows Running while the shown flight waits its turn in a batch', () => {
+  // The simulations table's own words (`simStatusLabel`): a batch of twelve
+  // queues at once and starts a few at a time, and "Running" on a flight that
+  // has not started reads as stuck.
+  it('shows Queued while the shown flight waits its turn in a batch', () => {
     setRun({ phase: 'queued' });
     renderToolbar();
-    expect(screen.getByRole('status').textContent).toBe('Running');
+    expect(screen.getByRole('status').textContent).toBe('Queued');
+    expect(screen.queryByText('Outdated')).toBeNull();
+  });
+
+  it('shows Failed when the shown flight failed on this design', () => {
+    setRun({ phase: 'failed', tree: st().tree });
+    renderToolbar();
+    expect(screen.getByRole('status').textContent).toBe('Failed');
   });
 });
 

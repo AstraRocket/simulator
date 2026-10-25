@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { usePopoverDismiss } from './useMenuPopover';
 
 export interface CheckMenuItem {
   key: string;
@@ -38,24 +39,7 @@ export function CheckMenu({
   const ref = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      setOpen(false);
-      summaryRef.current?.focus();
-    };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey, true);
-    };
-  }, [open]);
+  usePopoverDismiss(open, () => setOpen(false), ref, summaryRef);
 
   return (
     <details

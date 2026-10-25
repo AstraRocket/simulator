@@ -7,13 +7,13 @@ import { launcherKind } from '../services/design/launcher';
 import { mergePalette } from '../services/design/partColors';
 import type { DesignInfo } from '../services/files/orkTypes';
 import type { buildRocketTree } from '../engine/api';
-import type { ComponentInfo, RocketTree } from '../engine/openRocketEngine';
+import type { ComponentInfo, OpenRocketDesign, RocketTree } from '../engine/openRocketEngine';
 import type { StageLaunch } from '../services/files/rasaero/stageLaunch';
 import { buildDesignInfo } from '../services/report/designInfo';
 import { buildExportMotorMap, fillMotorDigests } from '../services/motors/exportMotors';
 import { repairValues } from '../services/design/repairValues';
 import { builtFrom, computeStaticInfo } from '../services/design/buildRocket';
-import { walkNodes } from '../tree/treeWalk';
+import { stageNodes, walkNodes } from '../tree/treeWalk';
 import { wireLoadedOrk } from '../services/files/wireLoadedOrk';
 import { assertImportSize } from '../services/files/decodeText';
 // Static, not the lazy import the neighboring .ork paths use: this is a fetch
@@ -25,13 +25,13 @@ import { effectivePrefs, isOutdated, newSimulation } from '../services/flight/si
 import { loadSettings } from '../services/storage/settings';
 import { importNotes } from '../services/files/importBanner';
 import { configPowerClass } from '../services/flight/powerClass';
-import { configFor, configuredTree } from '../services/flight/flightConfigs';
+import { configFor, configuredTree, type FlightConfig } from '../services/flight/flightConfigs';
 import { defaultDesignName, designNameOf } from '../services/app/appInfo';
 import { getDesignLibrary, type DesignMeta } from '../services/storage/designLibrary';
 import { getWorkspaceStore, lean, resultsOf } from '../services/storage/workspaceStore';
 import { migrateWorkspace } from '../services/storage/workspaceMigrate';
 import { errorText, keyedText, type Keyed } from '../i18n/keyedError';
-import { fmtList } from '../i18n/format';
+import { fmtList, partLabel } from '../i18n/format';
 import {
   configOf,
   defaultConfig,
@@ -45,7 +45,14 @@ import {
 } from './workspaceSelectors';
 import type { WorkspaceState } from './store';
 import { showing } from './viewSlice';
-import { holdSaves, markWritten, savesHeld, unchangedSinceWrite, voidPendingAutosave } from './writtenWorkspace';
+import {
+  holdSaves,
+  markWritten,
+  recordWrite,
+  savesHeld,
+  unchangedSinceWrite,
+  voidPendingAutosave,
+} from './writtenWorkspace';
 
 /**
  * Opening, saving and exporting designs, and the design library.
@@ -179,6 +186,18 @@ export const createFileSlice =
   ({ replaceWorkspace, clearHistory }: FileSliceShared): StateCreator<WorkspaceState, [], [], FileSlice> =>
   (set, get) => {
     /**
+     * Build the design now and install the handle as the store's, since the
+     * build frees the one the store held. The handle, or undefined when the
+     * kernel cannot build the design.
+     */
+    const rebuildNow = (tree: RocketTree, config: FlightConfig): OpenRocketDesign | undefined => {
+      const built = computeStaticInfo(tree, config);
+      if ('error' in built) return undefined;
+      get().applyBuild(built.info, built.rocket);
+      return built.rocket;
+    };
+
+    /**
      * Write the open design out now, ahead of switching away from it. False if
      * storage refused the write.
      *
@@ -197,9 +216,7 @@ export const createFileSlice =
       if (savesHeld()) return true;
       try {
         await getWorkspaceStore().save(workspaceSnapshot(fields));
-        markWritten(fields);
-        // A landed write disproves a standing "full" or conflict warning.
-        get().clearSaveWarning();
+        recordWrite(fields, get());
         return true;
       } catch (e) {
         // Recorded rather than returned, so a caller that only cares whether the
@@ -253,11 +270,8 @@ export const createFileSlice =
     const figuresFor = (tree: RocketTree): KernelFigures | undefined => {
       const { rocket } = get();
       if (rocket && builtFrom(rocket) === tree.components) return figuresOf(rocket, tree);
-      const built = computeStaticInfo(tree, selectConfig(get()));
-      if ('error' in built) return undefined;
-      // The new build freed the store's handle, so it takes this one.
-      get().applyBuild(built.info, built.rocket);
-      return figuresOf(built.rocket, tree);
+      const fresh = rebuildNow(tree, selectConfig(get()));
+      return fresh ? figuresOf(fresh, tree) : undefined;
     };
 
     /** "Rocket" → "Rocket (2)", "Rocket (3)", … against the names already taken. */
@@ -458,6 +472,13 @@ export const createFileSlice =
         // A after clicking B. A monotonic token makes every continuation check it
         // is still the most recent request before it touches anything.
         const stale = claimWorkspace();
+        // The design is gone or unreadable: say so, and put the library back on
+        // the design still shown.
+        const missing = async () => {
+          set({ err: i18n.t('library.missing') });
+          await pointAtShown();
+          await get().refreshDesigns();
+        };
 
         const lib = getDesignLibrary();
         // The same shape check the boot path runs: a raw blob handed straight to
@@ -465,12 +486,7 @@ export const createFileSlice =
         // and then the kernel. Same check, same `library.missing` outcome.
         const w = migrateWorkspace(await lib.read(id));
         if (stale()) return;
-        if (!w) {
-          set({ err: i18n.t('library.missing') });
-          await pointAtShown();
-          await get().refreshDesigns();
-          return;
-        }
+        if (!w) return missing();
         // Persist whatever is open before switching, or the edits since the last
         // debounced autosave would be lost to the swap.
         await flushOutgoing(stale);
@@ -496,12 +512,7 @@ export const createFileSlice =
           }
         } else store.setActiveId?.(id);
         if (stale()) return;
-        if (!opened) {
-          set({ err: i18n.t('library.missing') });
-          await pointAtShown();
-          await get().refreshDesigns();
-          return;
-        }
+        if (!opened) return missing();
         clearHistory(); // a different design is a different document
         get().hydrate(opened);
         set((s) => ({ selectedId: null, ...showing(s, '2d') }));
@@ -663,10 +674,7 @@ export const createFileSlice =
             const { assembleReport } = reportMods;
             // Not built yet (a design just loaded, or the engine still arriving):
             // build it now rather than leave out a block the user asked for.
-            if (!get().info) {
-              const built = computeStaticInfo(tree, selectConfig(get()));
-              if (!('error' in built)) get().applyBuild(built.info, built.rocket);
-            }
+            if (!get().info) rebuildNow(tree, selectConfig(get()));
             const report = assembleReport();
             if (report) designInfo = buildDesignInfo(report);
           }
@@ -779,12 +787,11 @@ export const createFileSlice =
           // shared engine, so the live handle is rebuilt afterward, as the
           // design report does.
           let stageLaunch: StageLaunch[] | undefined;
-          if (info && tree.components.filter((n) => n.type === 'stage').length > 1) {
+          if (info && stageNodes(tree).length > 1) {
             const { cumulativeStageLaunch } = await import('../services/files/rasaero/stageLaunch');
             const { buildConfiguredRocket } = await import('../services/design/buildRocket');
             stageLaunch = cumulativeStageLaunch(flown, buildConfiguredRocket(flown, config));
-            const built = computeStaticInfo(tree, config);
-            if (!('error' in built)) get().applyBuild(built.info, built.rocket);
+            rebuildNow(tree, config);
           }
           // A finish RASAero has no surface for is written as smooth, as on
           // desktop, which warns about it; the user is told the same here.
@@ -826,7 +833,7 @@ export const createFileSlice =
             palette: mergePalette(loadSettings().partColors),
           });
           if (skipped.length) {
-            const parts = fmtList(skipped.map((p) => p.name || i18n.t(`part.${p.type}`)));
+            const parts = fmtList(skipped.map((p) => partLabel(i18n.t, p)));
             set({ err: i18n.t('errors.exportJsonPartial', { parts }) });
           }
         } catch (e) {

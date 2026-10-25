@@ -7,6 +7,7 @@ import { isWeatherSource, restoredSource } from '../../weather/weatherSource';
 import { finiteNum } from './numbers';
 import { numTag } from './importTags';
 import { radToDeg } from '../../../prefs/units';
+import { LAUNCH_SI } from '../../../prefs/launchUnits';
 
 /**
  * Launch conditions from the first <simulation>'s <conditions>: the launch a
@@ -97,7 +98,7 @@ function readWeatherSource(condEl: Element, launch: Partial<LaunchConditions>): 
   const el = condEl.querySelector(':scope > weathersource');
   if (!el) return;
   const a = (k: string) => el.getAttribute(k) ?? '';
-  const num = (k: string) => (a(k).trim() === '' ? NaN : Number(a(k)));
+  const num = (k: string) => finiteNum(a(k)) ?? NaN;
   const source = {
     provider: a('provider'),
     endpoint: a('endpoint'),
@@ -225,9 +226,9 @@ function readAtmosphere(condEl: Element, launch: Partial<LaunchConditions>): voi
       launch.relativeHumidity = null;
     } else {
       const tK = numTag(atmEl, 'basetemperature', NaN);
-      if (!Number.isNaN(tK)) launch.temperatureC = tK - 273.15;
+      if (!Number.isNaN(tK)) launch.temperatureC = LAUNCH_SI.degC.fromSi(tK);
       const pPa = numTag(atmEl, 'basepressure', NaN);
-      if (!Number.isNaN(pPa)) launch.pressureHPa = pPa / 100;
+      if (!Number.isNaN(pPa)) launch.pressureHPa = LAUNCH_SI.hPa.fromSi(pPa);
       // A fraction on disk, as the kernel holds it. <baserelativehumidity> is
       // the element upstream OpenRocket's AtmosphereHandler reads and this app
       // writes (24.12 has no humidity); <relativehumidity> (an alternate
@@ -250,15 +251,13 @@ function readAtmosphere(condEl: Element, launch: Partial<LaunchConditions>): voi
   ];
   const levels = usableAtmosphereLevels(
     levelEls.map((l) => {
-      // An absent attribute is NaN, not the 0 Number(null) would make of it.
-      const at = (name: string) => {
-        const v = l.getAttribute(name);
-        return v === null || v.trim() === '' ? NaN : Number(v);
-      };
+      // An absent or unreadable attribute is NaN, not the 0 Number(null)
+      // would make of it, nor an Infinity the filters downstream would meet.
+      const at = (name: string) => finiteNum(l.getAttribute(name)) ?? NaN;
       return {
         altitudeM: at('altitude'),
-        temperatureC: at('temperature') - 273.15,
-        pressureHPa: at('pressure') / 100,
+        temperatureC: LAUNCH_SI.degC.fromSi(at('temperature')),
+        pressureHPa: LAUNCH_SI.hPa.fromSi(at('pressure')),
         relativeHumidity: at('relativehumidity'),
       };
     }),

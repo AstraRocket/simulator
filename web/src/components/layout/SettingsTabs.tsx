@@ -1,7 +1,12 @@
-import { useEffect, useId, useRef, useState, type ComponentProps } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/SettingsProvider';
-import { DEFAULT_SETTINGS, SIM_BOUNDS, type SimulationSettings } from '../../services/storage/settings';
+import {
+  DEFAULT_SETTINGS,
+  PLAYBACK_SPEEDS,
+  playbackLabel,
+  type SimulationSettings,
+} from '../../services/storage/settings';
 import { PART_KEYS, mergePalette } from '../../services/design/partColors';
 import type { FigureStyle } from '../../services/design/figureStyle';
 import type { ComponentType } from '../../engine/openRocketEngine';
@@ -9,19 +14,23 @@ import { LineStyleRow } from '../design/LineStyleRow';
 import { NumberRow } from '../common/NumberRow';
 import { DefaultMaterials } from './DefaultMaterials';
 import { LaunchPanel } from '../sim/LaunchPanel';
+import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, simOptionUnit } from '../sim/simOptionFields';
 import { withRequiredFrom, type CompleteLaunch } from '../../services/flight/requiredLaunch';
 import { launchPatchFor } from '../../services/design/orkTree';
 import { IMPERIAL_UNITS, METRIC_UNITS, QUANTITIES, UNITS, unitScope } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { Check } from '../common/Check';
-import { ColorInput } from '../common/ColorInput';
+import { ColorField } from '../common/ColorInput';
 import { canAskWhereToSave } from '../../services/files/saveFile';
 import { SPEED_WARNINGS } from '../sim/speedWarnings';
 import { EsriKeyField } from '../sim/EsriKeyField';
 import { CardGroup } from '../common/CardGroup';
 import { THEME_PREFS, type ThemePref } from '../../services/app/theme';
 import { seedFromInput } from '../../services/flight/simulations';
+import { withKey } from '../../services/app/objectKeys';
+import { useLatestRef } from '../common/useLatestRef';
+import { smallButton } from '../common/smallButton';
 
 /**
  * The Settings dialog's tabs, one component each, so a tab can be rendered and
@@ -29,9 +38,6 @@ import { seedFromInput } from '../../services/flight/simulations';
  * SettingsProvider; the dialog around them owns the tab strip and the reset
  * buttons.
  */
-
-const SPEEDS = [0.25, 0.5, 1, 2, 4];
-const speedLabel = (s: number) => (s === 0.25 ? '¼×' : s === 0.5 ? '½×' : `${s}×`);
 
 const RULER_SIDES = ['top', 'bottom', 'left', 'right'] as const;
 
@@ -141,11 +147,8 @@ export function ColorsTab() {
   const { settings, update } = useSettings();
   const palette = mergePalette(settings.partColors);
   const setPart = (key: string, color: string) => update({ partColors: { ...settings.partColors, [key]: color } });
-  const resetPart = (key: string) => {
-    const p = { ...settings.partColors };
-    delete p[key as keyof typeof p];
-    update({ partColors: p });
-  };
+  const resetPart = (key: string) =>
+    update({ partColors: withKey(settings.partColors, key as keyof typeof settings.partColors, null) });
   const setPhase = (k: 'boost' | 'coast' | 'descent', c: string) =>
     update({ phaseColors: { ...settings.phaseColors, [k]: c } });
   return (
@@ -153,7 +156,7 @@ export function ColorsTab() {
       {/* Part colors apply to the 3D model, which a phone reaches
           through the Sketch tab just as a desktop reaches it through the
           view switch, so this is not gated on width. */}
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{t('settings.parts')}</div>
+      <SubHeading first>{t('settings.parts')}</SubHeading>
       {PART_KEYS.map((key) => (
         <ColorRow
           key={key}
@@ -167,9 +170,7 @@ export function ColorsTab() {
       ))}
       {/* The default is a magnitude ramp; OpenRocket's green-to-red is here
           for anyone who reads that faster from knowing the desktop. */}
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.aeroHeat')}
-      </div>
+      <SubHeading>{t('settings.aeroHeat')}</SubHeading>
       <label className="flex items-center justify-between gap-3 text-sm text-ink-soft">
         {t('settings.aeroHeatLabel')}
         <select
@@ -185,9 +186,7 @@ export function ColorsTab() {
 
       <FigureStyles />
 
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.phases')}
-      </div>
+      <SubHeading>{t('settings.phases')}</SubHeading>
       <ColorRow label={t('flight.boost')} value={settings.phaseColors.boost} onChange={(c) => setPhase('boost', c)} />
       <ColorRow label={t('flight.coast')} value={settings.phaseColors.coast} onChange={(c) => setPhase('coast', c)} />
       <ColorRow
@@ -210,16 +209,10 @@ function FigureStyles() {
   const types = Object.keys(settings.figureStyles) as ComponentType[];
   const set = (type: ComponentType, patch: Partial<FigureStyle>) =>
     update({ figureStyles: { ...settings.figureStyles, [type]: { ...settings.figureStyles[type], ...patch } } });
-  const remove = (type: ComponentType) => {
-    const next = { ...settings.figureStyles };
-    delete next[type];
-    update({ figureStyles: next });
-  };
+  const remove = (type: ComponentType) => update({ figureStyles: withKey(settings.figureStyles, type, null) });
   return (
     <>
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.figureStyles')}
-      </div>
+      <SubHeading>{t('settings.figureStyles')}</SubHeading>
       {types.length === 0 ? (
         <p className="text-[11px] leading-snug text-ink-faint">{t('settings.figureStylesNone')}</p>
       ) : (
@@ -235,7 +228,7 @@ function FigureStyles() {
                   onClick={() => remove(type)}
                   title={t('settings.resetOneFor', { name })}
                   aria-label={t('settings.resetOneFor', { name })}
-                  className="rounded-md bg-raised px-2 py-1 text-xs text-ink-muted ring-1 ring-line/10 hover:bg-elevated"
+                  className={smallButton('xs', 'muted')}
                 >
                   ↺
                 </button>
@@ -282,9 +275,9 @@ export function PlaybackTab() {
         onChange={(e) => update({ playbackSpeed: parseFloat(e.target.value) })}
         className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
       >
-        {SPEEDS.map((s) => (
+        {PLAYBACK_SPEEDS.map((s) => (
           <option key={s} value={s}>
-            {speedLabel(s)}
+            {playbackLabel(s)}
           </option>
         ))}
       </select>
@@ -303,9 +296,7 @@ export function SketchTab() {
         checked={settings.showMarkers}
         onChange={(v) => update({ showMarkers: v })}
       />
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.sketchRulers')}
-      </div>
+      <SubHeading>{t('settings.sketchRulers')}</SubHeading>
       {RULER_SIDES.map((side) => (
         <Check
           key={side}
@@ -339,42 +330,26 @@ export function SimTab() {
         checked={settings.simulation.autoRunOutdated}
         onChange={(v) => setSim({ autoRunOutdated: v })}
       />
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.simOptions')}
-      </div>
-      <InfoRow label={t('settings.calcMethod')} value={t('settings.calcMethodValue')} />
-      <InfoRow label={t('settings.simMethod')} value={t('settings.simMethodValue')} />
-      <NumRow
-        label={t('settings.timeStep')}
-        unit={t('units.second')}
-        step={0.01}
-        min={SIM_BOUNDS.timeStep.min}
-        // maxTime / timeStep is the solver's iteration count, so both
-        // ends are bounded. 1000000 s (a plausible slip for 1000) at the
-        // default 0.05 s step would ask for 20 M integration steps, with
-        // no way to interrupt the run.
-        max={SIM_BOUNDS.timeStep.max}
-        value={settings.simulation.timeStep}
-        onChange={(v) => setSim({ timeStep: v ?? DEFAULT_SETTINGS.simulation.timeStep })}
-      />
-      <NumRow
-        label={t('settings.maxTime')}
-        unit={t('units.second')}
-        step={60}
-        min={SIM_BOUNDS.maxTime.min}
-        max={SIM_BOUNDS.maxTime.max}
-        value={settings.simulation.maxTime}
-        onChange={(v) => setSim({ maxTime: v ?? DEFAULT_SETTINGS.simulation.maxTime })}
-      />
-      <NumRow
-        label={t('settings.maxAngleStep')}
-        unit={angle.sym}
-        step={angle.step((0.5 * Math.PI) / 180)}
-        min={angle.toUi(SIM_BOUNDS.maxAngleStep.min)}
-        max={angle.toUi(SIM_BOUNDS.maxAngleStep.max)}
-        value={angle.toUi(settings.simulation.maxAngleStep)}
-        onChange={onSi(angle, (si) => setSim({ maxAngleStep: si ?? DEFAULT_SETTINGS.simulation.maxAngleStep }))}
-      />
+      <SubHeading>{t('settings.simOptions')}</SubHeading>
+      {KERNEL_METHOD_ROWS.map((r) => (
+        <InfoRow key={r.label} label={t(r.label)} value={t(r.value)} />
+      ))}
+      {SIM_OPTION_FIELDS.map((f) => {
+        const fu = simOptionUnit(f, angle, t('units.second'));
+        return (
+          <NumRow
+            key={f.key}
+            label={t(f.label)}
+            hint={'hint' in f ? t(f.hint) : undefined}
+            unit={fu.sym}
+            step={fu.step}
+            min={fu.min}
+            max={fu.max}
+            value={fu.toUi(settings.simulation[f.key])}
+            onChange={fu.entry((si) => setSim({ [f.key]: si ?? DEFAULT_SETTINGS.simulation[f.key] }))}
+          />
+        );
+      })}
       <NumRow
         label={t('settings.randomSeed')}
         step={1}
@@ -382,9 +357,7 @@ export function SimTab() {
         value={settings.simulation.randomSeed}
         onChange={(v) => setSim({ randomSeed: seedFromInput(v) })}
       />
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.warnings')}
-      </div>
+      <SubHeading>{t('settings.warnings')}</SubHeading>
       {/* Settings applies to every design, so its launcher wording names
           neither guide: no rail or rod variant, unlike the per-design
           launch panel. */}
@@ -421,9 +394,7 @@ export function SimTab() {
       {/* Everything above this heading decides when a flight warns. What
           follows changes what the flight does, so it is separated and
           its hint says which way the number moves. */}
-      <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-        {t('settings.simModel')}
-      </div>
+      <SubHeading>{t('settings.simModel')}</SubHeading>
       {/* Neutral launcher wording, as for the rail exit speed above. */}
       <Check
         label={t('settings.guideAwareRodClearance')}
@@ -472,10 +443,7 @@ function LaunchDefaults({ launch, onSave }: { launch: CompleteLaunch; onSave: (l
   const [draft, setDraft] = useState<CompleteLaunch | null>(null);
   const shown = draft ?? launch;
   const pending = useRef<CompleteLaunch | null>(null);
-  const save = useRef(onSave);
-  useEffect(() => {
-    save.current = onSave;
-  });
+  const save = useLatestRef(onSave);
   const flush = () => {
     if (!pending.current) return;
     save.current(pending.current);
@@ -487,7 +455,7 @@ function LaunchDefaults({ launch, onSave }: { launch: CompleteLaunch; onSave: (l
     () => () => {
       if (pending.current) save.current(pending.current);
     },
-    [],
+    [save],
   );
   return (
     <LaunchPanel
@@ -527,6 +495,15 @@ function NumRow(props: Omit<ComponentProps<typeof NumberRow>, 'commitOnBlur' | '
   return <NumberRow {...props} commitOnBlur labelClassName="text-sm text-ink-soft" />;
 }
 
+/** A subheading inside a settings tab; `first` drops the space above the tab's top one. */
+function SubHeading({ first, children }: { first?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={`${first ? '' : 'pt-1 '}text-[11px] font-semibold uppercase tracking-wide text-ink-faint`}>
+      {children}
+    </div>
+  );
+}
+
 function ColorRow({
   label,
   value,
@@ -542,32 +519,13 @@ function ColorRow({
   onReset?: () => void;
   resetTitle?: string;
 }) {
-  const id = useId();
   return (
-    // A row, not one big <label>: the reset button is a second control, and a
-    // label may only bind to one.
-    <div className="flex items-center justify-between gap-3">
-      <label htmlFor={id} className="text-sm text-ink-soft">
-        {label}
-      </label>
-      <span className="flex items-center gap-2">
-        <ColorInput
-          id={id}
-          value={value}
-          onCommit={onChange}
-          className="h-7 w-10 cursor-pointer rounded-md border border-line/10 bg-raised p-0.5"
-        />
-        {overridden && onReset && (
-          <button
-            onClick={onReset}
-            title={resetTitle}
-            aria-label={resetTitle}
-            className="rounded-md bg-raised px-2 py-1 text-xs text-ink-muted ring-1 ring-line/10 hover:bg-elevated"
-          >
-            ↺
-          </button>
-        )}
-      </span>
-    </div>
+    <ColorField label={label} value={value} onCommit={onChange} labelClassName="text-sm text-ink-soft">
+      {overridden && onReset && (
+        <button onClick={onReset} title={resetTitle} aria-label={resetTitle} className={smallButton('xs', 'muted')}>
+          ↺
+        </button>
+      )}
+    </ColorField>
   );
 }
