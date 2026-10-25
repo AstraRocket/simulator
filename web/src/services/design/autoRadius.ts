@@ -1,6 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS, kernelLength } from '../../tree/kernelDefaults';
-import { bodyTubeRadius, num, str } from '../../tree/nodeProps';
+import { bodyTubeRadius, noseConeAftRadius, num, str } from '../../tree/nodeProps';
 import { tubeFinRadius } from '../../tree/tubefins';
 import { DISC_TYPES } from '../files/componentFormats';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
@@ -9,6 +9,8 @@ import { mapTreePreserving, walkNodes, type MapContext } from '../../tree/treeWa
 import { axialFrames } from '../../tree/axialRebase';
 import { isPlanarFinSet } from '../../tree/tubefins';
 import { isZero } from '../motors/mathEquals';
+import { ASSEMBLY_TYPES, CHAIN_TYPES, MASS_OBJECT_TYPES } from '../../tree/componentKinds';
+import { startFromPosition } from '../../tree/position';
 
 /**
  * Diameters that follow the part next door: OpenRocket's **Automatic**
@@ -101,29 +103,21 @@ interface Part {
 const hasRadius = (node: ComponentNode, key: string): boolean => Number.isFinite(node[key]);
 
 const ASSEMBLIES = new Set(['stage', 'podset', 'parallelstage']);
-const RINGS = new Set(['podset', 'parallelstage']);
-const SYMMETRIC = new Set(['bodytube', 'nosecone', 'transition']);
+const RINGS = ASSEMBLY_TYPES as ReadonlySet<string>;
+const SYMMETRIC = CHAIN_TYPES as ReadonlySet<string>;
 const AXIAL = new Set<string>(['top', 'middle', 'bottom', 'after', 'absolute']);
-const MASS_OBJECTS = new Set(['parachute', 'streamer', 'shockcord', 'masscomponent']);
-const RING_PARTS = new Set(['centeringring', 'bulkhead', 'tubecoupler', 'engineblock']);
+const MASS_OBJECTS = MASS_OBJECT_TYPES as ReadonlySet<string>;
+const RING_PARTS = DISC_TYPES;
 
 /**
  * `AxialMethod.getAsPosition`, and for ABSOLUTE `RocketComponent.setAxialOffset`:
- * the offset less the parent's first location, `parentStart`.
+ * the offset less the parent's first location, `parentStart`. The tree's own
+ * reader (`startFromPosition`) for every method but AFTER, which it leaves to
+ * the load step and which here, with the run's own end in hand, is that end
+ * plus the offset.
  */
 function asPosition(method: Axial, offset: number, inner: number, outer: number, parentStart: number): number {
-  switch (method) {
-    case 'absolute':
-      return offset - parentStart;
-    case 'middle':
-      return offset + (outer - inner) / 2;
-    case 'bottom':
-      return offset + outer - inner;
-    case 'after':
-      return outer + offset;
-    default:
-      return offset;
-  }
+  return method === 'after' ? outer + offset : startFromPosition({ method, offset }, inner, outer, parentStart);
 }
 
 /** `RocketComponent.setAxialOffset` snaps a position within a micrometer to zero. */
@@ -193,8 +187,8 @@ function partOf(node: ComponentNode | null, type: string): Part {
     Object.assign(
       p,
       n['flipped'] === true
-        ? { fore: r('aftRadius'), aft: 0, foreAuto: auto, aftAuto: false }
-        : { fore: 0, aft: r('aftRadius'), foreAuto: false, aftAuto: auto },
+        ? { fore: noseConeAftRadius(n), aft: 0, foreAuto: auto, aftAuto: false }
+        : { fore: 0, aft: noseConeAftRadius(n), foreAuto: false, aftAuto: auto },
     );
   } else if (type === 'transition') {
     Object.assign(p, {
@@ -976,24 +970,32 @@ export function syncAutoRadii(tree: RocketTree): RocketTree {
   return components === tree.components ? tree : { ...tree, components };
 }
 
-/** Whether any transition here has an end with no radius on record. */
-function hasKeylessEnd(nodes: readonly ComponentNode[]): boolean {
+/**
+ * Whether any radius the bridge would resolve has no value on record here: a
+ * transition end, a ring or tube fin's outside, or a centering ring's bore. A
+ * reader that took a fallback of its own for one of these (the first inner
+ * tube for a ring's bore, say) would cut a different part than the one that
+ * flies.
+ */
+function hasKeylessRadius(nodes: readonly ComponentNode[]): boolean {
   for (const n of walkNodes(nodes)) {
     if (n.type === 'transition' && !(hasRadius(n, 'foreRadius') && hasRadius(n, 'aftRadius'))) return true;
+    if (KEYLESS_AUTO_OUTER.has(n.type) && !hasRadius(n, 'outerRadius')) return true;
+    if (n.type === 'centeringring' && !hasRadius(n, 'innerRadius')) return true;
   }
   return false;
 }
 
 /**
- * The design as the drawings read it: every transition end with no radius on
- * record resolved by {@link syncAutoRadii}, as the bridge flies it (an absent
- * end is automatic to `ComponentFactory`). A tree from an edit or an import has
+ * The design as the drawings read it: every radius with no value on record (a
+ * transition end, a ring's outside or bore) resolved by {@link syncAutoRadii},
+ * as the bridge flies it (an absent radius is automatic to `ComponentFactory`). A tree from an edit or an import has
  * been through `syncAutoRadii` already and comes back as it is, so this costs a
  * walk. The drawings then read each end with `profileEnds`, and the neighbor
  * rule has one copy, here.
  */
 export function withKernelEnds(tree: RocketTree): RocketTree {
-  return hasKeylessEnd(tree.components) ? syncAutoRadii(tree) : tree;
+  return hasKeylessRadius(tree.components) ? syncAutoRadii(tree) : tree;
 }
 
 /**
@@ -1002,7 +1004,7 @@ export function withKernelEnds(tree: RocketTree): RocketTree {
  * stage holding the whole chain resolves the same way the stages would.
  */
 export function chainWithKernelEnds(chain: ComponentNode[]): ComponentNode[] {
-  if (!hasKeylessEnd(chain)) return chain;
+  if (!hasKeylessRadius(chain)) return chain;
   const stage = { type: 'stage', id: 'chain', children: chain } as ComponentNode;
   return syncAutoRadii({ name: '', components: [stage] }).components[0]?.children ?? chain;
 }

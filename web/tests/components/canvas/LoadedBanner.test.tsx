@@ -11,6 +11,7 @@ import { parseDesignFile } from '../../../src/services/files/designFile';
 import { exportOrk } from '../../../src/services/files/orkFile';
 import { wireLoadedOrk } from '../../../src/services/files/wireLoadedOrk';
 import { defaultRocketTree } from '../../../src/services/design/defaultRocket';
+import { designNameOf } from '../../../src/services/app/appInfo';
 import type { LoadedOrk } from '../../../src/services/files/loadOrk';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import en from '../../../src/i18n/locales/en.json';
@@ -110,6 +111,16 @@ describe('LoadedBanner design name', () => {
     const btn = screen.getByRole('button', { name: /Alpha Rocket/ });
     expect(btn.textContent).toContain('Alpha Rocket');
     expect(screen.getByRole('button', { name: /Edit rocket configuration/ })).toBe(btn);
+  });
+
+  // The same name every filename, report and image header uses for the design.
+  it('names an unnamed design as its exports do', () => {
+    const st = useWorkspaceStore.getState();
+    useWorkspaceStore.setState({ tree: { ...st.tree, name: '   ' } });
+    renderWithProviders(<LoadedBanner loaded={null} onClose={() => {}} />);
+    const btn = screen.getByRole('button', { name: /Edit rocket configuration/ });
+    expect(btn.textContent).toContain(designNameOf({ name: '' }, null));
+    expect(btn.textContent).not.toMatch(/^\s*Rocket/);
   });
 });
 

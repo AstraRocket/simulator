@@ -16,7 +16,7 @@ import { isComplete } from '../../services/flight/requiredLaunch';
 import { flyForecastHours, refusalKeys, type HourLanding } from '../../services/flight/forecastHours';
 import { configPowerClass } from '../../services/flight/powerClass';
 import { readWeatherKey } from '../../services/weather/weatherKey';
-import { LandingMap } from '../tools/LandingMap';
+import { LandingMap } from '../common/map/LandingMap';
 import { formatCoord } from '../../services/map/slippyMap';
 import { unitScope } from '../../prefs/units';
 import { weatherErrorText } from '../../services/weather/weatherErrorText';
@@ -27,6 +27,9 @@ import { useLatest } from '../common/useLatest';
 import { TermRow } from '../common/TermRow';
 import { flightBranches } from '../../services/flight/flightColumns';
 import { useOnline } from '../common/useOnline';
+import { StatusLine } from '../common/StatusLine';
+import { CardGroup } from '../common/CardGroup';
+import { smallButton } from '../common/smallButton';
 
 /**
  * Where the flight came down, and, when its conditions came from a forecast,
@@ -41,8 +44,7 @@ type Run =
   | { kind: 'error'; message: string }
   | { kind: 'done'; hours: HourLanding[] };
 
-const btn =
-  'rounded-md bg-raised px-3 py-1.5 text-xs font-medium text-accent-300 ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
+const btn = smallButton('sm', 'accent');
 
 export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
   const { t } = useTranslation();
@@ -132,8 +134,7 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
   const hourLabel = (ms: number) => fmtSiteTime(ms, source?.timezone, { timeOnly: true });
 
   return (
-    <section className="space-y-3 rounded-xl bg-surface p-3 ring-1 ring-line/10">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{t('env.landing.title')}</h3>
+    <CardGroup title={t('env.landing.title')}>
       <dl className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-1 text-xs">
         {branches.map((b, i) => {
           const p = landingPoint(b.series);
@@ -171,9 +172,7 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
               {outdated ? t('env.landing.outdated') : t('env.landing.flyHoursNote')}
             </p>
           </div>
-          <p role="status" aria-live="polite" className="text-xs text-warn-400">
-            {run.kind === 'error' ? run.message : ''}
-          </p>
+          <StatusLine tone="warn">{run.kind === 'error' ? run.message : ''}</StatusLine>
           {run.kind === 'done' && (
             <>
               <LandingMap
@@ -233,6 +232,6 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
       ) : (
         <p className="text-xs text-ink-muted">{t('env.landing.noForecast')}</p>
       )}
-    </section>
+    </CardGroup>
   );
 }

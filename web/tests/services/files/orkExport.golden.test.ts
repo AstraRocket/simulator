@@ -150,7 +150,7 @@ const kitchenSink = (): RocketTree =>
                 thickness: 0.0005,
                 radialPosition: 0.01,
                 radialDirection: Math.PI / 2,
-                cluster: '2x2',
+                cluster: '4-ring',
                 clusterScale: 1.1,
                 clusterRotation: Math.PI / 6,
                 maxMotorLength: 0.14,

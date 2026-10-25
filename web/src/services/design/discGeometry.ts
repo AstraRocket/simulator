@@ -1,5 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { num, positionOf } from '../../tree/nodeProps';
+import { noseConeAftRadius, num, positionOf } from '../../tree/nodeProps';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { partLength, startFromPosition } from '../../tree/position';
 import { stationRadius } from '../../tree/shapeProfile';
 // Shared with the .ork reader and writer, so a part that lost a tag is sized the
@@ -36,11 +37,6 @@ const TUBE_WALL = {
   tubecoupler: COMPONENT_DEFAULTS.tubecoupler.thickness,
 } as const;
 
-/** The default wall for a tube type, or the inner tube's for any other (a mount). */
-export function tubeWall(type: unknown): number {
-  return type === 'bodytube' || type === 'tubecoupler' ? TUBE_WALL[type] : TUBE_WALL.innertube;
-}
-
 export interface Tube {
   outerR: number;
   innerR: number;
@@ -49,15 +45,16 @@ export interface Tube {
 export function tubeRadii(node: ComponentNode): Tube | null {
   const t = node.type;
   if (t === 'bodytube' || t === 'innertube' || t === 'tubecoupler') {
-    const or = num(node, 'outerRadius', NaN);
+    // A body tube or inner tube with no radius on record is the one the bridge
+    // builds (KERNEL_DEFAULTS); a coupler has no fixed default to read.
+    const built = t === 'tubecoupler' ? NaN : KERNEL_DEFAULTS[t].outerRadius;
+    const or = num(node, 'outerRadius', built);
     // A filled body tube is solid: `BodyTube.getInnerRadius` is 0.
     if (t === 'bodytube' && node['filled'] === true && !Number.isNaN(or)) return { outerR: or, innerR: 0 };
     if (!Number.isNaN(or)) return { outerR: or, innerR: Math.max(0, or - num(node, 'thickness', TUBE_WALL[t])) };
   } else if (t === 'nosecone') {
-    const ar = num(node, 'aftRadius', NaN);
-    if (!Number.isNaN(ar)) {
-      return { outerR: ar, innerR: Math.max(0, ar - num(node, 'thickness', COMPONENT_DEFAULTS.nosecone.thickness)) };
-    }
+    const ar = noseConeAftRadius(node);
+    return { outerR: ar, innerR: Math.max(0, ar - num(node, 'thickness', COMPONENT_DEFAULTS.nosecone.thickness)) };
   } else if (t === 'transition') {
     const or = Math.max(num(node, 'aftRadius', 0), num(node, 'foreRadius', 0));
     if (or > 0) {
@@ -271,6 +268,7 @@ export function endAt(node: ComponentNode, end: 'fore' | 'aft'): { outer: number
   switch (node.type) {
     case 'bodytube':
     case 'innertube':
+      return at(num(node, 'outerRadius', KERNEL_DEFAULTS[node.type].outerRadius), TUBE_WALL[node.type]);
     case 'tubecoupler':
       return at(num(node, 'outerRadius', NaN), TUBE_WALL[node.type]);
     case 'transition':
@@ -279,7 +277,7 @@ export function endAt(node: ComponentNode, end: 'fore' | 'aft'): { outer: number
       // Open at its base, closed at the tip. A flipped cone's base is its fore
       // end (`NoseCone.getBaseRadius`).
       const base = node['flipped'] === true ? 'fore' : 'aft';
-      return end === base ? at(num(node, 'aftRadius', NaN), COMPONENT_DEFAULTS.nosecone.thickness) : null;
+      return end === base ? at(noseConeAftRadius(node), COMPONENT_DEFAULTS.nosecone.thickness) : null;
     }
     default:
       return null;

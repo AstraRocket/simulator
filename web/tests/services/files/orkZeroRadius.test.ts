@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { importOrk } from '../../../src/services/files/orkFile';
+import { exportOrk } from '../../../src/services/files/orkExport';
+import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { walkNodes } from '../../../src/tree/treeWalk';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
@@ -67,6 +69,44 @@ describe('a radius stated as 0', () => {
     const n = read();
     expect(n[key]).toBe(0);
     expect(n[`${key}Auto`]).not.toBe(true);
+  });
+
+  it.each([
+    ['a centering ring inner radius', 'centeringring', 'innerRadius'],
+    ['a bulkhead outer radius', 'bulkhead', 'outerRadius'],
+  ])('survives a save as 0 on %s, not as automatic', (_label, type, key) => {
+    const tree = {
+      name: 'R',
+      components: [
+        {
+          type: 'stage',
+          id: 's',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'b',
+              length: 0.3,
+              outerRadius: 0.012,
+              children: [
+                {
+                  type,
+                  id: 'r',
+                  length: 0.005,
+                  outerRadius: 0.011,
+                  innerRadius: 0.004,
+                  [key]: 0,
+                  [`${key}Auto`]: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree;
+    const xml = exportOrk({ name: 'R', tree } as never);
+    const back = [...walkNodes(importOrk(xml).tree.components)].find((n) => n.type === type)!;
+    expect(back[key]).toBe(0);
+    expect(back[`${key}Auto`]).not.toBe(true);
   });
 
   it('leaves `auto` automatic', () => {

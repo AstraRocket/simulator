@@ -4,7 +4,7 @@ import type { LaunchConditions } from '../design/orkTree';
 import { componentName, isDefaultComponentName } from '../app/warningText';
 import { hexOf, parseHexColor } from '../design/colorHex';
 import { neutralizeFormula } from './csvCell';
-import { siToUi } from '../../prefs/units';
+import { siToUi, degToRad } from '../../prefs/units';
 import { stageLabel, withUnit } from '../../i18n/format';
 import { CSV_MIME } from './csvExport';
 import { escapeXml } from '../files/xmlUtil';
@@ -686,7 +686,7 @@ const UNIT_DECIMALS: Record<DistanceUnit, number> = { m: 1, ft: 1, km: 3, mi: 3 
  * two more places in radians, the precision `fmtDegrees` gives the app.
  */
 function fmtBearing(deg: number, unit: string): string {
-  const v = siToUi('angle', unit, (deg * Math.PI) / 180);
+  const v = siToUi('angle', unit, degToRad(deg));
   return withUnit(v.toFixed(unit === '°' ? 0 : 2), unit);
 }
 

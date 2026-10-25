@@ -1,5 +1,6 @@
 /**
- * Every component that renders a dialog shell (`<Dialog>` or `<AlertDialog>`),
+ * Every component that renders a dialog shell (`<Dialog>`, `<AlertDialog>` or
+ * `<MasterDetailDialog>`),
  * with how many shells it renders. tests/dialogSurfaces.test.ts holds this list
  * to the source, and a11y.spec.ts keys its dialog scans on it, so a dialog the
  * app gains fails a gate until axe scans it.

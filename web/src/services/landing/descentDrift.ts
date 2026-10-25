@@ -2,6 +2,7 @@ import type { GroundPoint } from '../flight/groundTrack';
 import { offsetToLatLon } from '../map/geodesy';
 import { degToRad } from '../../prefs/units';
 import { bearingFromPad, distanceFromPad } from '../flight/groundTrack';
+import { vectorAt } from '../flight/windLevels';
 
 /**
  * Where a rocket coming down under its recovery lands, estimated from typed
@@ -71,25 +72,14 @@ const STEP_M = 10;
 /**
  * The air's velocity at an altitude (m above sea level), east and north in m/s:
  * the direction it moves toward, opposite to where the wind blows from.
- * Interpolated linearly in its components, so a backing or veering wind turns
- * through the short way without the angle wrapping; held at the end values
- * outside the profile.
+ * Interpolated as every wind profile is (`vectorAt`).
  */
 export function airVelocity(wind: readonly WindLayer[], altitudeM: number, speedFactor = 1, turnDeg = 0) {
   if (wind.length === 0) return { east: 0, north: 0 };
-  const comp = (l: WindLayer) => {
+  return vectorAt(wind, altitudeM, (l) => {
     const to = degToRad(l.fromDeg + 180 + turnDeg);
     return { east: l.speed * speedFactor * Math.sin(to), north: l.speed * speedFactor * Math.cos(to) };
-  };
-  if (altitudeM <= wind[0]!.altitudeM) return comp(wind[0]!);
-  const last = wind[wind.length - 1]!;
-  if (altitudeM >= last.altitudeM) return comp(last);
-  let i = 0;
-  while (wind[i + 1]!.altitudeM < altitudeM) i++;
-  const a = comp(wind[i]!);
-  const b = comp(wind[i + 1]!);
-  const f = (altitudeM - wind[i]!.altitudeM) / (wind[i + 1]!.altitudeM - wind[i]!.altitudeM);
-  return { east: a.east + (b.east - a.east) * f, north: a.north + (b.north - a.north) * f };
+  });
 }
 
 /** The descent from apogee to the ground. `wind` must be sorted by altitude. */

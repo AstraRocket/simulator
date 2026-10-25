@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { SiteFields, type ToolSite } from '../../../src/components/tools/SiteFields';
-import { renderWithProviders } from '../../testing/renderWithProviders';
+import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { setLaunchLocationStore, type LaunchLocation } from '../../../src/services/storage/launchLocationStore';
 import { loadSettings } from '../../../src/services/storage/settings';
 
@@ -34,5 +34,17 @@ describe('SiteFields', () => {
       longitudeDeg: defaults.longitudeDeg,
       launchAltitudeM: null,
     });
+  });
+
+  // One site, one elevation unit: the launch panel and the location dialogs
+  // share a scope so a user working in feet sees feet in both, and the tools
+  // read the same elevation of the same place.
+  it('shows the elevation in the unit the launch panel set for it', () => {
+    setLaunchLocationStore({ list: async () => [], save: async () => {}, remove: async () => {} });
+    seedSettings({ unitOverrides: { 'launch.altitude': 'ft' } });
+    const site: ToolSite = { latitudeDeg: 39.05, longitudeDeg: -104.8, launchAltitudeM: 304.8 };
+    renderWithProviders(<SiteFields site={site} onChange={() => {}} elevation />);
+    const box = screen.getByRole('spinbutton', { name: /Site elevation/ }) as HTMLInputElement;
+    expect(Number(box.value)).toBeCloseTo(1000, 6);
   });
 });

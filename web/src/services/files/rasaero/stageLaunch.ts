@@ -1,5 +1,5 @@
 import type { OpenRocketDesign, RocketTree } from '../../../engine/openRocketEngine';
-import { findStages } from '../../design/treeEdit';
+import { activateThrough, stageIdsByTopStage } from '../../design/stageStack';
 
 /**
  * One stage's cell pair in RASAero's simulation block: the launch mass (kg)
@@ -29,10 +29,9 @@ export type StageMassBuild = Pick<OpenRocketDesign, 'setStageActiveById' | 'stat
  * design report does.
  */
 export function cumulativeStageLaunch(tree: RocketTree, rocket: StageMassBuild): StageLaunch[] {
-  const top = tree.components.filter((n) => n.type === 'stage');
-  const stageIds = top.map((st) => findStages({ ...tree, components: [st] }).map((n) => n.id as string));
-  return top.map((_, k) => {
-    stageIds.forEach((ids, i) => ids.forEach((id) => rocket.setStageActiveById(id, i <= k)));
+  const stageIds = stageIdsByTopStage(tree);
+  return stageIds.map((_, k) => {
+    activateThrough(rocket, stageIds, k);
     const info = rocket.staticInfo();
     return { massKg: info.mass, cgM: info.cg };
   });

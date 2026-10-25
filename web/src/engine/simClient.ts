@@ -42,8 +42,8 @@ const SIM_TIMEOUT_MS = 30_000;
 /**
  * Ceiling on a cold worker's engine load, timed from the moment a call reaches
  * it. The call's own timeout starts only once the worker reports its engine
- * ready, so a slow load is not charged to the flight, while a load that never
- * finishes still fails the call rather than holding the slot forever.
+ * ready, so a slow load is not charged to the flight. A call that sets no
+ * timeout of its own sets no load ceiling either; every caller today sets one.
  * Generous, because a cold WASM load on a slow phone is legitimately tens of
  * seconds.
  */

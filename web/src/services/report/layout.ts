@@ -1,7 +1,7 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { isPlanarFinSet } from '../../tree/tubefins';
 import { walkNodes } from '../../tree/treeWalk';
-import { parseHexColor } from '../design/colorHex';
+import { parseHexColor, rgbChannels } from '../design/colorHex';
 
 /**
  * The PDF report's layout arithmetic and the two selectors the sections share,
@@ -15,7 +15,7 @@ import { parseHexColor } from '../design/colorHex';
 export const hexToRgbTuple = (hex: string): [number, number, number] => {
   const n = parseHexColor(hex);
   if (n === null) return [17, 24, 39];
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return rgbChannels(n);
 };
 
 /**

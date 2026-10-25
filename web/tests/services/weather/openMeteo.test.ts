@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ALOFT_VARS,
+  forecastStart,
   fetchWeather,
   forecastUrl,
   parseForecast,
@@ -19,6 +20,20 @@ import { answer } from '../../testing/openMeteoFixture';
 const ok = (json: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(json), { status }));
 
 beforeEach(() => resetWeatherState());
+
+describe('forecastStart', () => {
+  // The clock moves between reads. One instant, so a call a hair before
+  // midnight cannot pair today's date with the hour after it.
+  it('takes the date and the hour from one instant', () => {
+    let now = new Date(2026, 9, 24, 22, 59, 59, 999).getTime();
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => now++);
+    try {
+      expect(forecastStart()).toEqual({ date: '2026-10-24', hour: 23 });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
 
 describe('planDateWindow', () => {
   it('uses the forecast endpoint from 92 days back to 15 days ahead', () => {

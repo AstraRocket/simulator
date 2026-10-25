@@ -3,6 +3,7 @@ import { catalogDigest, loadCatalog, matchCatalogMotor, sameMaker } from './moto
 import { liveMotors, type FlightConfig } from '../flight/flightConfigs';
 import type { OrkExportMotor } from '../files/orkFile';
 import { embeddedMotorFile } from '../files/ork/embeddedMotors';
+import { toCatalogMm } from './catalogUnits';
 
 /**
  * Build the mount-id -> export-motor map shared verbatim by the `.ork` and
@@ -134,7 +135,7 @@ export async function fillMotorDigests(
     // the full code where the seated motor has one: a maker can sell two
     // motors under one common name (AeroTech's F67C and F67W are both F67),
     // which the common name alone leaves in doubt.
-    const sized = catalog.filter((row) => Math.abs(row.diameter - m.diameter * 1000) <= DIAMETER_TOLERANCE_MM);
+    const sized = catalog.filter((row) => Math.abs(row.diameter - toCatalogMm(m.diameter)) <= DIAMETER_TOLERANCE_MM);
     const match = matchCatalogMotor(sized, m.seated?.code || m.designation, m.manufacturer);
     const maker = m.manufacturer?.trim().toLowerCase();
     const row =

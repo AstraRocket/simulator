@@ -45,6 +45,13 @@ npm run test         # Vitest: unit tests (.test.ts) and component tests (.test.
 npm run test:watch   # Vitest in watch mode while developing
 npm run e2e          # Playwright end-to-end tests against a fresh production build on port 5180
                      # (run `npx playwright install chromium` once first; nothing installs the browser for you)
+                     # A local run is below-normal priority with 4 workers; E2E_WORKERS=8 for more.
+npm run e2e:sections # the same suite one section at a time (shell, design, aero, motors, simulation,
+                     # results, tools, files, a11y), then the offline-data, offline-help and update
+                     # checks as steps; a report after each and a table at the end.
+                     # `-- --skip a11y,update`, `-- --only aero,motors`, `-- --list`; Playwright
+                     # options after a second `--`. Sections and steps live in
+                     # scripts/lib/e2eSectionList.mjs.
 npm run dupes        # jscpd copy-paste check over src (see below); part of audit
 npm run verify       # the pre-push gate: typecheck, lint, the production build,
                      # and the unit suite. Format, spell, knip and dupes run in
@@ -212,7 +219,7 @@ Open a PR from your branch to **`dev`** (or to **`hotfix`** for a hotfix, see [B
 2. The underlying cause.
 3. How you fixed it.
 
-Make sure `npm run verify` passes (the same gate list CI runs, in the same order), and that you've checked the change in the browser. Add or update tests for any logic you touch under `web/src/services` or `web/src/engine`. Keep engine `.mjs`/`.wasm` regenerations in the same PR as their Java changes.
+Make sure `npm run verify` passes (the typecheck, lint, build and unit suite CI runs; CI also runs the core Playwright specs and the docs site typecheck, all in parallel), and that you've checked the change in the browser. Add or update tests for any logic you touch under `web/src/services` or `web/src/engine`. Keep engine `.mjs`/`.wasm` regenerations in the same PR as their Java changes.
 
 What CI gates on the PR itself (`.github/workflows/gates.yml`):
 
@@ -221,6 +228,7 @@ What CI gates on the PR itself (`.github/workflows/gates.yml`):
 | `build-and-test` | `npm run build` in three parts: `typecheck`, `lint`, `vite build`                                         |
 | `unit`           | the unit suite, without coverage, split three ways (`vitest run --shard`)                                 |
 | `e2e`            | `npm run e2e:core`, the core Playwright specs (`CORE_SPECS` in `playwright.config.ts`), split three ways  |
+| `website`        | `npm run typecheck` in `website/` (Docusaurus builds through Babel, which checks no types)                |
 
 The engine checks are not CI gates. After a change under `engine-java/` or to the vendored engine, run `npm run audit` in `engine-java/` (needs a JDK): parity, a rebuild that fails if the committed engine binaries differ, the extraction check, the pinned upstream date, and the aero scorecards. It stops at the first failure and names the step.
 

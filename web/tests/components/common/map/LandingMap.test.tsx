@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { LandingMap } from '../../../src/components/tools/LandingMap';
-import { useUnits } from '../../../src/prefs/useUnits';
-import { MIN_EXTENT_M } from '../../../src/services/flight/groundTrack';
-import { renderWithProviders } from '../../testing/renderWithProviders';
+import { LandingMap } from '../../../../src/components/common/map/LandingMap';
+import { useUnits } from '../../../../src/prefs/useUnits';
+import { MIN_EXTENT_M } from '../../../../src/services/flight/groundTrack';
+import { renderWithProviders } from '../../../testing/renderWithProviders';
 
 /**
  * The landing plan view frames by the ground track's rule (`trackExtent`), so

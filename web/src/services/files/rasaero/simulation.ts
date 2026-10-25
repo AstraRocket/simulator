@@ -5,6 +5,7 @@ import { FT, IN, LB, fmt, type Cdx1Writer } from './units';
 import type { StageEngineSlot } from './engines';
 import type { StageLaunch } from './stageLaunch';
 import { num, str } from '../../../tree/nodeProps';
+import { KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
 
 /** Design-level `[mach, altitude m]` conditions table (RASAero's Mach-Alt table). */
 export type MachAltTable = [number, number][];
@@ -52,7 +53,9 @@ export function writeSimulationList(
   const stackCg = (i: number): string => fmt((stageLaunch[i]?.cgM ?? 0) * IN);
   const stageSeparationDelay = (i: number): string => {
     const st = stagesIn[i];
-    return fmt(st && str(st, 'separationEvent', 'ejection') === 'burnout' ? num(st, 'separationDelay', 0) : 0);
+    // The kernel's separation defaults, as `designSeparation` reads them.
+    const burnout = st && str(st, 'separationEvent', KERNEL_SEPARATION.separationEvent) === 'burnout';
+    return fmt(burnout ? num(st, 'separationDelay', KERNEL_SEPARATION.separationDelay) : 0);
   };
   emit('<SimulationList>');
   emit('<Simulation>');

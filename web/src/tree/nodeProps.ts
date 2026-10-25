@@ -1,5 +1,6 @@
 import type { ComponentNode, ComponentPosition } from '../engine/openRocketEngine';
 import { KERNEL_BODYTUBE_OUTER_RADIUS, KERNEL_DEFAULTS } from './kernelDefaults';
+import { degToRad } from '../prefs/units';
 
 /**
  * Typed accessors for a ComponentNode's open-ended parameter bag
@@ -54,7 +55,7 @@ export const MAX_FIN_COUNT = 8;
  * dialogs stop their spinner and slider there, so a larger cant is one the
  * kernel never flies.
  */
-export const MAX_CANT = (15 * Math.PI) / 180;
+export const MAX_CANT = degToRad(15);
 
 /** A fin set's cant as the kernel flies it: the stored one, clamped to {@link MAX_CANT}. */
 export const finCant = (node: ComponentNode): number => Math.max(-MAX_CANT, Math.min(MAX_CANT, num(node, 'cant', 0)));

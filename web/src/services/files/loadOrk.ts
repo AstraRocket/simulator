@@ -16,17 +16,17 @@ import { loadCatalog, matchCatalogMotor, type CatalogMotor, type MotorMatchDoubt
 import { customMotorToSpec, fetchMotorSpec } from '../motors/thrustcurve';
 import { parseRse, removeDelay } from '../motors/rseParser';
 import type { CustomMotor } from '../motors/motorStore';
-import type { OrkMotorRef } from './orkTypes';
+import { type OrkMotorRef, defaultOrkConfig } from './orkTypes';
 import { findMounts } from '../design/treeEdit';
 import { IGNITION_EVENTS } from '../design/componentFields';
 import { motorFitsMount, mountFit } from '../motors/motorPicker';
 import { hasUsableCurve } from '../motors/motorCurve';
-import { uuid } from '../app/uuid';
 import { mountIgnition, type FlightConfig, type MountMotor } from '../flight/flightConfigs';
 import { errorReason } from '../../i18n/keyedError';
 import { roundTo } from '../app/numbers';
 import { rseDigest } from './ork/embeddedMotors';
 import { keyedNote, noteList, notePartName, type ImportNote } from './importNote';
+import { toCatalogMm } from '../motors/catalogUnits';
 
 /**
  * One of the file's flight configurations, with its motors resolved: the same
@@ -370,19 +370,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
   // The file's configurations, or one standing in for a file that declares
   // none: a `.rkt`, a bare-XML `.ork`, or a hand-rolled one whose <motor>
   // elements were read without a declaration table (importConfigs).
-  const declared = res.configs?.length
-    ? res.configs
-    : [
-        {
-          id: uuid(),
-          name: null,
-          isDefault: true,
-          motors: res.motors ?? {},
-          deployments: {},
-          separations: {},
-          grounded: [],
-        },
-      ];
+  const declared = res.configs?.length ? res.configs : [defaultOrkConfig({ motors: res.motors ?? {} })];
   const chosenConfigId = declared.some((c) => c.id === res.chosenConfigId) ? res.chosenConfigId! : declared[0]!.id;
 
   const mountNodes = findMounts(res.tree);
@@ -404,7 +392,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
     const node = byId.get(mountId);
     const fit = node ? mountFit(node) : null;
     if (!fit || !spec.designation || !(spec.diameter > 0)) return;
-    const motor = { diameter: spec.diameter * 1000, length: spec.length ? spec.length * 1000 : undefined };
+    const motor = { diameter: toCatalogMm(spec.diameter), length: spec.length ? toCatalogMm(spec.length) : undefined };
     if (motorFitsMount(motor, fit)) return;
     const key = `${mountId}|${spec.designation}`;
     if (misfits.has(key)) return;

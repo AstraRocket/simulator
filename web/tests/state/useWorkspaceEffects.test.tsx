@@ -229,7 +229,7 @@ describe('hydration', () => {
     // effect, and its success path calls `setErr(null)`; a message written
     // there is wiped in the same tick and the user never sees it.
     expect(s().storageWarning).toBeTruthy();
-    expect(s().storageWarningKind).toBe('loadFailed');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(computeStaticInfo).toHaveBeenCalledTimes(1); // the engine still built
 
     // ...and autosave still runs, so work done after the failure is not lost too.
@@ -260,7 +260,7 @@ describe('hydration', () => {
     });
 
     expect(s().tree).toBe(edited);
-    expect(s().storageWarningKind).toBe('loadFailed');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(setActiveId).toHaveBeenCalledWith(null);
     expect(unchangedSinceWrite(s())).toBe(false);
     // So the unload flush writes it, where an untouched default is skipped.
@@ -305,7 +305,7 @@ describe('hydration', () => {
     load.mockResolvedValue({ ...saved(), tree: null });
     await mount();
 
-    expect(s().storageWarningKind).toBe('loadFailed');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(s().tree.name).not.toBe('Restored');
     expect(setActiveId).toHaveBeenCalledWith(null);
   });
@@ -876,6 +876,21 @@ describe('a hydrate does not re-stamp the design', () => {
       vis.mockRestore();
     }
   };
+
+  // The header's save status reports that saving happens, so a write that
+  // landed when the tab was hidden counts as much as the debounced autosave.
+  it('records a save the hidden tab made', async () => {
+    load.mockResolvedValue(saved());
+    await mount();
+    act(() => useWorkspaceStore.setState({ lastSavedAt: null }));
+    act(() => s().addPartToTree('bodytube'));
+    await hideTab();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(save).toHaveBeenCalled();
+    expect(s().lastSavedAt).not.toBeNull();
+  });
 
   // A tab switch is not an edit: after New it would create a library entry
   // for a design nobody touched, and after a load it would re-stamp one only

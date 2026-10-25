@@ -3,6 +3,7 @@ import { usableAtmosphereLevels } from '../flight/atmosphereLevels';
 import { usableWindLevels } from '../flight/windLevels';
 import type { HourSample } from './openMeteo';
 import { roundTo } from '../app/numbers';
+import { stdDevForIntensity } from '../flight/windTurbulence';
 
 /**
  * One forecast hour as launch conditions, split into the groups the Weather
@@ -84,7 +85,12 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
   if (s.windSpeed !== null && s.windFromDeg !== null) {
     const surfaceTi = turbulenceFromGust(s.windSpeed, s.windGust);
     const raw: WindLevel[] = [
-      { altitudeM: elevationM + 10, speed: s.windSpeed, directionDeg: s.windFromDeg, stddev: surfaceTi * s.windSpeed },
+      {
+        altitudeM: elevationM + 10,
+        speed: s.windSpeed,
+        directionDeg: s.windFromDeg,
+        stddev: stdDevForIntensity(s.windSpeed, surfaceTi),
+      },
     ];
     for (const h of s.heightWinds) {
       if (h.speed !== null && h.speed >= 0 && h.fromDeg !== null) {
@@ -92,7 +98,7 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
           altitudeM: elevationM + h.heightM,
           speed: h.speed,
           directionDeg: h.fromDeg,
-          stddev: UPPER_AIR_TURBULENCE * h.speed,
+          stddev: stdDevForIntensity(h.speed, UPPER_AIR_TURBULENCE),
         });
       }
     }
@@ -111,7 +117,7 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
           altitudeM: l.altitudeM,
           speed: l.windSpeed,
           directionDeg: l.windFromDeg,
-          stddev: UPPER_AIR_TURBULENCE * l.windSpeed,
+          stddev: stdDevForIntensity(l.windSpeed, UPPER_AIR_TURBULENCE),
         });
       }
     }
@@ -119,7 +125,7 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
     p.wind = {
       surfaceSpeed: s.windSpeed,
       surfaceFromDeg: s.windFromDeg,
-      surfaceStdDev: surfaceTi * s.windSpeed,
+      surfaceStdDev: stdDevForIntensity(s.windSpeed, surfaceTi),
       gust: s.windGust,
       levels: usableWindLevels(raw),
     };

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
-import { findMounts, findNode, findParent, hasCatalog, siblingIndex, stageNodes } from '../../services/design/treeEdit';
+import { findMounts, findNode, findParent, hasCatalog, siblingIndex } from '../../services/design/treeEdit';
+import { stageNodes } from '../../tree/treeWalk';
 import { fitContextFor } from '../../services/parts/componentFit';
 import { useWorkspaceStore } from '../../state/store';
 import { confirm } from '../../state/confirmStore';

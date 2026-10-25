@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { bodyTubeRadius, countOf, finCant, num, numOpt } from '../../tree/nodeProps';
+import { bodyTubeRadius, countOf, finCant, noseConeAftRadius, num, numOpt } from '../../tree/nodeProps';
 import { axialChain, motorSeatStart, partLength } from '../../tree/position';
 import { FIN_DEFAULTS, KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import {
@@ -23,7 +23,14 @@ import {
 } from '../../tree/assembly.js';
 import { lineInstances, placementOffsets } from '../../tree/placement';
 import { isPlanarFinSet, tubeFinRadius } from '../../tree/tubefins.js';
-import { nodeShape, outerProfile, profileEnds } from '../../tree/shapeProfile.js';
+import {
+  hasShoulder,
+  nodeShape,
+  outerProfile,
+  profileEnds,
+  shouldersOf,
+  type Shoulder,
+} from '../../tree/shapeProfile.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DEFAULT_PART_COLORS, type PartPalette } from '../../services/design/partColors';
 import { figureLooks, partLooks, type Look } from '../../services/design/appearance';
@@ -33,6 +40,7 @@ import { resolveDisc } from '../../services/design/discGeometry';
 import { axialStart, innerTubeExtent, internalExtent, type MotorDims } from '../../tree/schematicGeometry';
 import { withKernelEnds } from '../../services/design/autoRadius';
 import { railButtonSize } from './railButton';
+import { MASS_OBJECT_TYPES } from '../../tree/componentKinds';
 
 /**
  * Owns the 3D geometry of the rocket: the component tree to Piece list build
@@ -113,28 +121,15 @@ const lathe = (pts: THREE.Vector2[]): THREE.BufferGeometry | null =>
 
 /** Internal parts drawn as the space they take rather than as a made part:
  *  packed recovery gear and mass objects. `DISC_TYPES` are the made parts. */
-const PACKED_TYPES = new Set(['parachute', 'streamer', 'shockcord', 'masscomponent']);
+const PACKED_TYPES = MASS_OBJECT_TYPES as ReadonlySet<string>;
 
 // Axial placement is the shared `position.axialStart`, not a copy: an
 // `absolute` child is measured from the nose tip, as the kernel measures it, so
 // a second implementation puts an absolutely positioned child in a different
 // place in 3D than in 2D.
 
-/** A shoulder: the reduced-diameter stub that plugs into the tube next door. */
-interface Shoulder {
-  radius: number;
-  length: number;
-}
-
-/** A node's shoulder under the given key prefix, or undefined when it has none. */
-const shoulderOf = (n: ComponentNode, prefix: '' | 'fore' | 'aft'): Shoulder | undefined => {
-  // A nose cone has one shoulder and spells it `shoulderRadius`; a transition
-  // has two and spells them `foreShoulderRadius` / `aftShoulderRadius`.
-  const key = (what: 'Radius' | 'Length') => (prefix ? `${prefix}Shoulder${what}` : `shoulder${what}`);
-  const radius = num(n, key('Radius'), 0);
-  const length = num(n, key('Length'), 0);
-  return radius > 1e-6 && length > 1e-6 ? { radius, length } : undefined;
-};
+/** A shoulder to lathe, or undefined when there is none. */
+const present = (s: Shoulder): Shoulder | undefined => (hasShoulder(s) ? s : undefined);
 
 /**
  * Lathe points for a nose/transition outer profile (kernel-exact shapes from
@@ -290,6 +285,29 @@ export function buildPieces(
       m.multiply(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rotation[0], rotation[1], rotation[2])));
     g.applyMatrix4(m);
     pieces.push({ key, id: curId, geometry: g, looks, ...flags });
+  };
+
+  // A loaded motor in the tube `tube` (start `start`, length `len`), seated as
+  // the kernel seats it, at the tube's off-axis offset (y, z).
+  const placeMotor = (
+    motor: { length: number; diameter: number },
+    tube: ComponentNode,
+    start: number,
+    len: number,
+    y: number,
+    z: number,
+    xform?: THREE.Matrix4,
+  ) => {
+    const mR = motor.diameter / 2;
+    const mStart = motorSeatStart(tube, start, len, motor.length);
+    place(
+      `motor${k++}`,
+      new THREE.CylinderGeometry(mR, mR, motor.length, 32),
+      motorLooks(palette),
+      [mStart + motor.length / 2, y, z],
+      [0, 0, -Math.PI / 2],
+      xform,
+    );
   };
 
   const addFins = (
@@ -487,18 +505,7 @@ export function buildPieces(
             xform,
             'glass',
           );
-          if (motor) {
-            const mR = motor.diameter / 2;
-            const mStart = motorSeatStart(child, start, len, motor.length);
-            place(
-              `motor${k++}`,
-              new THREE.CylinderGeometry(mR, mR, motor.length, 32),
-              motorLooks(palette),
-              [mStart + motor.length / 2, off.y, off.z],
-              [0, 0, -Math.PI / 2],
-              xform,
-            );
-          }
+          if (motor) placeMotor(motor, child, start, len, off.y, off.z, xform);
         }
         // Its own internal parts (an engine block, a ring) sit in every tube of
         // the cluster, as the kernel places a child once per parent instance.
@@ -595,13 +602,12 @@ export function buildPieces(
       curId = n.id;
       const len = partLength(n);
       if (n.type === 'nosecone') {
-        const R = num(n, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius);
+        const R = noseConeAftRadius(n);
         const shapeName = nodeShape(n);
         // A flipped nose cone is a tail cone: its base, and the shoulder on it,
-        // are at the fore end.
-        const flipped = n['flipped'] === true;
+        // are at the fore end (`profileEnds` and `shouldersOf` both turn it).
         const ends = profileEnds(n);
-        const shoulder = shoulderOf(n, '');
+        const shoulders = shouldersOf(n);
         const pts = lathePoints(
           shapeName,
           numOpt(n, 'shapeParameter'),
@@ -609,8 +615,8 @@ export function buildPieces(
           ends.fore,
           ends.aft,
           undefined,
-          flipped ? shoulder : undefined,
-          flipped ? undefined : shoulder,
+          present(shoulders.fore),
+          present(shoulders.aft),
         );
         placeLathe(`nose${k++}`, pts, n, x);
         maxR = Math.max(maxR, R);
@@ -627,18 +633,7 @@ export function buildPieces(
         maxR = Math.max(maxR, R);
         // Min-diameter mount: a motor loaded directly in this body tube.
         const tubeMotor = n.id ? motors?.[n.id] : undefined;
-        if (tubeMotor) {
-          const mR = tubeMotor.diameter / 2;
-          const mStart = motorSeatStart(n, x, len, tubeMotor.length);
-          place(
-            `motor${k++}`,
-            new THREE.CylinderGeometry(mR, mR, tubeMotor.length, 32),
-            motorLooks(palette),
-            [mStart + tubeMotor.length / 2, 0, 0],
-            [0, 0, -Math.PI / 2],
-            xform,
-          );
-        }
+        if (tubeMotor) placeMotor(tubeMotor, n, x, len, 0, 0, xform);
         addChildren(n, x, len, R, xform);
         x += len;
       } else if (n.type === 'transition') {
@@ -655,8 +650,8 @@ export function buildPieces(
           rf,
           ra,
           typeof n['clipped'] === 'boolean' ? n['clipped'] : undefined,
-          shoulderOf(n, 'fore'),
-          shoulderOf(n, 'aft'),
+          present(shouldersOf(n).fore),
+          present(shouldersOf(n).aft),
         );
         placeLathe(`trans${k++}`, pts, n, x);
         maxR = Math.max(maxR, rf, ra);

@@ -58,4 +58,12 @@ describe('a body tube material with neither', () => {
     const res = importOrk(ork('<material type="bulk" density="680" shearModulus="soft">Cardboard</material>'));
     expect(bodyOf(res.tree)['shearModulus']).toBeUndefined();
   });
+
+  // An empty attribute is no modulus (`finiteNum`), not the 0 `Number('')`
+  // makes of it, which the writer would then put back as shearModulus="0".
+  it('drops an empty modulus rather than reading it as 0', () => {
+    const res = importOrk(ork('<material type="bulk" density="680" shearModulus="">Cardboard</material>'));
+    expect(bodyOf(res.tree)['shearModulus']).toBeUndefined();
+    expect(materialLine(exportOrk({ name: 'T', tree: res.tree }))).not.toContain('shearModulus');
+  });
 });

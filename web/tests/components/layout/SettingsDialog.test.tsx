@@ -108,4 +108,19 @@ describe('Settings launch defaults', () => {
     expect(after).toBeGreaterThan(0);
     expect(after).not.toBe(before);
   });
+
+  it('keeps the latitude a cleared box had, not the shipped site', () => {
+    // The user's own site: a cleared latitude must not become the shipped
+    // default's beside the user's longitude.
+    seedSettings({ launchDefaults: { latitudeDeg: 39.05, longitudeDeg: -104.8 } as never });
+    renderWithProviders(<SettingsDialog onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Launch' }));
+    const box = screen.getByRole('spinbutton', { name: /^Latitude/ });
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: '' } });
+    fireEvent.blur(box);
+    const saved = readSettings()['launchDefaults'] as { latitudeDeg: number; longitudeDeg: number };
+    expect(saved.latitudeDeg).toBe(39.05);
+    expect(saved.longitudeDeg).toBe(-104.8);
+  });
 });

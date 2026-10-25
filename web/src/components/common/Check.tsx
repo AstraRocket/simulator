@@ -12,6 +12,7 @@ export function Check({
   label,
   disabled,
   hint,
+  title,
   className = 'text-sm text-ink-soft',
   align = 'center',
 }: {
@@ -21,11 +22,14 @@ export function Check({
   disabled?: boolean;
   /** Rendered under the row: for a setting that needs a sentence of why. */
   hint?: string;
+  /** A tooltip on the row, for a setting whose label says what but not why. */
+  title?: string;
   className?: string;
   align?: 'center' | 'start';
 }) {
   const row = (
     <label
+      title={title}
       className={`flex ${align === 'start' ? 'items-start' : 'items-center'} gap-2 ${className} ${disabled ? 'opacity-40' : ''}`}
     >
       <input

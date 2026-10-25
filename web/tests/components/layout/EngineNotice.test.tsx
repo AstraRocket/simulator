@@ -57,4 +57,19 @@ describe('EngineNotice', () => {
     expect(reload).toHaveBeenCalledOnce();
     expect(retry).not.toHaveBeenCalled();
   });
+
+  it("shows why a failed load failed, in the reader's language when it is keyed", async () => {
+    act(() => useEngineStore.setState({ phase: 'failed', slow: false, status: null, error: 'wasm compile error' }));
+    const { unmount } = renderWithProviders(<EngineNotice />);
+    expect(screen.getByText('wasm compile error')).toBeTruthy();
+    unmount();
+    await i18n.changeLanguage('es');
+    try {
+      act(() => useEngineStore.setState({ error: { key: 'boot.failed' } }));
+      renderWithProviders(<EngineNotice />);
+      expect(screen.getAllByText(i18n.t('boot.failed')).length).toBeGreaterThan(1);
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
 });

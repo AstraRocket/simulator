@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parseEntry } from '../../prefs/entryValue';
+import { trimFloatNoise } from '../../services/app/numbers';
 
 /** Round for display only: trims unit-conversion float noise (e.g. 0.1 + 0.2).
  *  The value the parent stores keeps whatever precision the user actually typed. */
-const fmt = (v: number) => String(Number(v.toFixed(6)));
+const fmt = (v: number) => String(trimFloatNoise(v));
 
 /**
  * What a typed field value means: a finite number clamped to the declared
@@ -108,8 +109,11 @@ export function NumberInput({
   // What the edit has left to report, as of the last render: read by the
   // unmount cleanup as well as the blur.
   const props = { commitOnBlur, draft, min, max, blank, onChange, onCommit };
+  // Its own ref rather than useLatestRef: the unmount cleanup below reads it,
+  // and the cleanup must see the last render's values. Updated in a layout
+  // effect, so an event between commit and the passive effects reads them too.
   const latest = useRef(props);
-  useEffect(() => {
+  useLayoutEffect(() => {
     latest.current = props;
   });
   const report = (el: HTMLInputElement, p: typeof props) => {

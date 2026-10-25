@@ -31,7 +31,7 @@ export type Pt = [number, number];
 // Imported, not redeclared: this is the one unit constant shared by every
 // dimensional export.
 import { M_TO_MM } from '../../prefs/units';
-import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
+import { KERNEL_DEFAULTS, kernelDefault } from '../../tree/kernelDefaults';
 
 /**
  * A fin's cut outline (mm): the outline, the root along its parent and the tab
@@ -49,7 +49,7 @@ export function finPlanformMm(node: ComponentNode, parent: FinParent = null): { 
   // Flip to the PDF's frame: the body surface under the fin front sits at
   // y = height and the span rises toward 0, so the template prints tip-up.
   const pts: Pt[] = contour.map(([x, y]) => [x * M_TO_MM, (height - y) * M_TO_MM]);
-  return { pts, count: countOf(node, 'finCount', 3) };
+  return { pts, count: countOf(node, 'finCount', kernelDefault(String(node.type), 'finCount') ?? 3) };
 }
 
 /** A revolved part's side outline (mm), centered on its own centerline. */

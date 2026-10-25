@@ -13,7 +13,8 @@ import { stageLabel } from '../../i18n/format';
 import { airDensity, descentMass } from '../../services/flight/recoverySizing';
 import { Dialog } from '../common/Dialog';
 import { SizingFigures } from '../tools/SizingFigures';
-import type { NodeEditProps } from './DimensionFields';
+import { commitWith, type NodeEditProps } from './DimensionFields';
+import { smallButton } from '../common/smallButton';
 
 /**
  * Descent-sizing help for a selected parachute, opened from its editor as a
@@ -40,11 +41,7 @@ export function RecoverySizingReadout({ node, onChange, onCommit }: NodeEditProp
   const [open, setOpen] = useState(false);
   return (
     <div className="border-t border-line/5 pt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full rounded-md bg-raised px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
-      >
+      <button type="button" onClick={() => setOpen(true)} className={smallButton('sm', 'ink', 'w-full')}>
         {t('recovery.open')}
       </button>
       {open && (
@@ -56,13 +53,7 @@ export function RecoverySizingReadout({ node, onChange, onCommit }: NodeEditProp
           layout="pad"
           size="md"
         >
-          <SizingBody
-            node={node}
-            onUse={(d) => {
-              onChange({ diameter: d });
-              onCommit?.();
-            }}
-          />
+          <SizingBody node={node} onUse={(d) => commitWith(onChange, onCommit)({ diameter: d })} />
         </Dialog>
       )}
     </div>

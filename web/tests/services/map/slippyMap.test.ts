@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import i18n from '../../../src/i18n';
 import {
   MAX_LAT,
+  panView,
   TILE_SIZE,
   TILE_SOURCES,
   formatCoord,
@@ -289,5 +290,24 @@ describe('formatLat / formatLon', () => {
     };
     walk(src);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('panView', () => {
+  it('moves the center east and south by a screen offset', () => {
+    const v = panView({ lat: 0, lon: 0, zoom: 2 }, TILE_SIZE, 0);
+    expect(v.lon).toBeCloseTo(90);
+    expect(v.lat).toBeCloseTo(0);
+  });
+
+  it('wraps across the date line', () => {
+    expect(panView({ lat: 0, lon: 170, zoom: 1 }, TILE_SIZE / 2, 0).lon).toBeCloseTo(-100);
+  });
+
+  // The zoom about the pointer did its own tile math without this clamp, so a
+  // zoom near a pole could put the center above it.
+  it('stops at the pole rather than panning past it', () => {
+    const v = panView({ lat: 80, lon: 0, zoom: 3 }, 0, -10 * TILE_SIZE);
+    expect(v.lat).toBeCloseTo(MAX_LAT, 3);
   });
 });

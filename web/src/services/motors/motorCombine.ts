@@ -6,7 +6,7 @@
 
 import { NO_VALUE } from '../../i18n/noValue';
 import { finalizeSamples } from './curveFinalize';
-import { trapezoidImpulse } from './motorMath';
+import { samplesImpulse } from './motorMath';
 
 export type Sample = [number, number]; // [time s, thrust N]
 
@@ -45,12 +45,7 @@ export function thrustAt(samples: Sample[], t: number): number {
 }
 
 /** Trapezoidal integral of a thrust curve → total impulse (N·s). */
-export function impulse(samples: Sample[]): number {
-  return trapezoidImpulse(
-    samples.map((s) => s[0]),
-    samples.map((s) => s[1]),
-  );
-}
+export const impulse = (samples: Sample[]): number => samplesImpulse(samples);
 
 /** How long an abruptly-ending motor takes to stop, for the terminator point. */
 const END_DROP_S = 1e-6;

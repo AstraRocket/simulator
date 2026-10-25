@@ -190,13 +190,14 @@ describe('resolveFilePositions', () => {
     const pod = resolveFilePositions(tree).components[0]!.children![2]!;
     const [, mass, after] = pod.children!;
     // The pod's own start is 0.1 (its position against the stage), so an
-    // absolute station of 0.22 is 0.12 from the pod's fore edge, and the part
-    // after it starts at 0.14. Taking pStart as the chain total (0.5 by the
-    // time the pod is reached) would put the absolute part at -0.28: ahead of
-    // the rocket's own nose.
+    // absolute station of 0.22 is 0.12 from the pod's fore edge. Taking pStart
+    // as the chain total (0.5 by the time the pod is reached) would put the
+    // absolute part at -0.28: ahead of the rocket's own nose. A mass object
+    // takes `after` as the parent's aft end plus the offset (MassObject
+    // overrides isAfter() to false), and the pod's own length is 0.2.
     expect(mass!.position).toEqual({ method: 'absolute', offset: 0.22 });
     expect(after!.position!.method).toBe('top');
-    expect(after!.position!.offset).toBeCloseTo(0.14, 12);
+    expect(after!.position!.offset).toBeCloseTo(0.2, 12);
     expect(axialFrameOf(tree, 'pm')!.start).toBeCloseTo(0.22, 12);
   });
 
@@ -226,11 +227,11 @@ describe('resolveFilePositions', () => {
     } as unknown as RocketTree;
 
     const ps = resolveFilePositions(tree).components[0]!.children![1]!;
-    // `after` follows the aft end of the middle-positioned sibling. The pod's
-    // own chain is 0.3 long, so middle puts m1 at (0.3 - 0.02)/2 = 0.14 and m2
-    // lands at 0.16. With a parent length of 0, m1 resolves to -0.01 and m2
-    // chains to +0.01 - both forward of where the part actually sits.
-    expect(ps.children![2]!.position!.offset).toBeCloseTo(0.16);
+    // The pod's own chain is 0.3 long, so middle puts m1 at (0.3 - 0.02)/2 =
+    // 0.14, and m2, a mass object, takes `after` as the pod's aft end plus its
+    // offset: 0.3. With a parent length of 0, m1 would resolve to -0.01 and m2
+    // to 0, forward of where the parts actually sit.
+    expect(ps.children![2]!.position!.offset).toBeCloseTo(0.3);
   });
 });
 
@@ -356,10 +357,11 @@ describe('normalizeFreeformPoints', () => {
  * and the part lose its position entirely, defaulting to the parent's top: a
  * coupler seated after an inner tube jumps to the front of the body tube.
  *
- * The kernel's meaning (RocketComponent.setAfter:1459-1491): start at the aft
- * end of the previous sibling, offset forced to 0. Not the `outerLength +
- * offset` the AxialMethod enum's own getAsPosition suggests: setAfter returns
- * before that code is reached.
+ * The kernel's meaning for these parts, whose isAfter() is the method's own
+ * (RocketComponent.setAfter:1459-1491): start at the aft end of the previous
+ * sibling, offset forced to 0. The parts that override isAfter() to false take
+ * the enum's `outerLength + offset` instead; afterPosition.kernel.test.ts holds
+ * both to the kernel.
  */
 describe('resolveFilePositions: after', () => {
   const tree = (): RocketTree =>
@@ -402,7 +404,14 @@ describe('resolveFilePositions: after', () => {
 
   it('starts a FIRST child at the parent’s top, as setAfter does', () => {
     const t = tree();
-    t.components[0]!.children![0]!.children![0]!.position = { method: 'after', offset: 0 };
+    // A coupler, whose isAfter() is the method's own: an inner tube overrides
+    // it and would take the parent's aft end instead.
+    t.components[0]!.children![0]!.children![0]! = {
+      id: 'a',
+      type: 'tubecoupler',
+      length: 0.07,
+      position: { method: 'after', offset: 0 },
+    } as never;
     const out = kids(resolveFilePositions(t));
     expect(out[0]!.position).toMatchObject({ method: 'top', offset: 0 });
   });

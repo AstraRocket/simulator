@@ -6,6 +6,7 @@ import {
   goneSection,
   motorProblems,
   partProblems,
+  presetsWithoutRow,
   MIN_ROWS,
   // @ts-expect-error - a plain .mjs build script helper, no types
 } from '../../../scripts/lib/digestCoverage.mjs';
@@ -110,5 +111,28 @@ describe('the digest comparison with the previous catalog', () => {
     const text = goneSection('Motors', ['AT|H128']);
     expect(text).toContain('### Motors no longer in the source');
     expect(text).toContain('- `AT|H128`');
+  });
+});
+
+/**
+ * Every preset the release holds needs a row: a saved .ork names its part by
+ * the preset's digest, and a preset no row carries is a part the app cannot
+ * name, however full the per-type floors look.
+ */
+describe('presetsWithoutRow', () => {
+  const presets = [
+    { digest: 'a', label: 'bodytube Estes BT-20 (a)' },
+    { digest: 'b', label: 'bodytube Estes BT-20 (b)' },
+    { digest: 'c', label: 'nosecone Estes PNC-20 (c)' },
+  ];
+
+  it('names nothing when every preset has a row', () => {
+    expect(presetsWithoutRow(presets, [{ digest: 'c' }, { digest: 'a' }, { digest: 'b' }])).toEqual([]);
+  });
+
+  it('names a preset whose twin took the only row', () => {
+    // Two .orc elements that differ only in fields the row reader drops (a
+    // stated mass, an image) collapse into one row and one digest.
+    expect(presetsWithoutRow(presets, [{ digest: 'a' }, { digest: 'c' }, {}])).toEqual(['bodytube Estes BT-20 (b)']);
   });
 });

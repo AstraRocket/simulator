@@ -34,6 +34,19 @@ describe('hasUsableCurve', () => {
     expect(hasUsableCurve({ ...C6, thrusts: [0, NaN, 5, 5, 0] })).toBe(false);
     expect(hasUsableCurve({ ...C6, times: 'nope' as unknown as number[] })).toBe(false);
   });
+
+  // The builder seats any motor this accepts, and the engine throws for these,
+  // which failed the whole design build instead of leaving the mount empty.
+  it('rejects every curve the engine refuses', () => {
+    expect(hasUsableCurve({ ...C6, times: [0, 0.5, 0.4, 1, 2] })).toBe(false); // backwards
+    expect(hasUsableCurve({ ...C6, masses: C6.masses.map(() => 0) })).toBe(false); // weighs nothing
+    expect(hasUsableCurve({ ...C6, masses: C6.masses.map((m, i) => (i === 1 ? -0.001 : m)) })).toBe(false);
+    expect(hasUsableCurve({ ...C6, diameter: 0 })).toBe(false);
+    expect(hasUsableCurve({ ...C6, length: NaN })).toBe(false);
+    expect(hasUsableCurve({ ...C6, cgX: NaN })).toBe(false);
+    expect(hasUsableCurve({ ...C6, ejectionDelay: NaN })).toBe(false);
+    expect(hasUsableCurve({ ...C6, ejectionDelay: Infinity })).toBe(true); // plugged
+  });
 });
 
 describe('a one-sample motor is rejected everywhere', () => {

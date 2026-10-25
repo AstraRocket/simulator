@@ -2,7 +2,7 @@
 import type { jsPDF } from 'jspdf';
 import type { StaticInfo } from '../../engine/openRocketEngine';
 import type { Pt } from './reportGeometry';
-import { fmtNum, fmtSig, ladderDigits } from '../../i18n/format';
+import { fmtNum, fmtPercent, fmtSig, ladderDigits } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { siToUi, type Quantity, type UnitSelection } from '../../prefs/units';
 import { hexToRgbTuple, pageFrame } from './layout';
@@ -249,16 +249,8 @@ export function fillScaled(
 
 /** A 1:1 template outline in the dialog's template colors. */
 export function fillPolygon(p: PdfPage, pts: Pt[], ox: number, oy: number): void {
-  if (pts.length < 3) return;
-  const { doc, opts } = p;
-  const deltas = pts.slice(1).map((q, i) => [q[0] - pts[i]![0], q[1] - pts[i]![1]] as [number, number]);
-  doc.setDrawColor(...hexToRgbTuple(opts.templateStroke)).setLineWidth(0.3);
-  if (opts.templateFill) {
-    doc.setFillColor(...hexToRgbTuple(opts.templateFill));
-    doc.lines(deltas, ox + pts[0]![0], oy + pts[0]![1], [1, 1], 'FD', true);
-  } else {
-    doc.lines(deltas, ox + pts[0]![0], oy + pts[0]![1], [1, 1], 'S', true);
-  }
+  const { templateFill, templateStroke } = p.opts;
+  fillScaled(p, pts, ox, oy, 1, 1, templateFill ? hexToRgbTuple(templateFill) : null, hexToRgbTuple(templateStroke));
 }
 
 /** Two-column label/value grid. */
@@ -449,7 +441,7 @@ export function summaryRows(p: PdfPage, info: StaticInfo): [string, string][] {
       case 'stabilityCal':
         return `${fmtNum(v, 2)} cal`;
       case 'stabilityPct':
-        return `${fmtNum(v, 1)} %`;
+        return fmtPercent(v, 1);
       case 'cd':
         return fmtNum(v, 3);
       case 'cna':

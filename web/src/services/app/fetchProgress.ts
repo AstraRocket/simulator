@@ -65,3 +65,65 @@ export async function readStreamWithProgress(
   }
   return buf;
 }
+
+/** How a caller words each way a staged fetch fails. */
+export interface StagedFetchErrors {
+  /** A non-2xx reply. */
+  http: (status: number) => Error;
+  /** A reply over the size cap, declared or streamed. */
+  tooLarge: () => Error;
+  /** Anything else, or anything above as thrown, with whether a budget ran out. */
+  fail: (e: unknown, timedOut: boolean) => Error;
+}
+
+/**
+ * fetch and JSON with staged abort timeouts and a size cap, so a hung or
+ * oversized host response cannot stall a picker or exhaust memory on parse.
+ *
+ * The first budget (`ttfbMs`) covers the time to first byte; once headers are
+ * in the host is alive, and the body gets its own (`bodyMs`). A single budget
+ * spanning both would cut off a slow download. The cap is held on the bytes
+ * received, not just a declared length, since a chunked reply declares none.
+ * Any failure aborts the body, so an error page or an oversized reply does not
+ * go on downloading after it is reported. Worker-safe: no i18n, the caller
+ * words its errors.
+ */
+export async function fetchJsonStaged<T>(
+  url: string,
+  init: RequestInit,
+  budget: { ttfbMs: number; bodyMs: number; maxBytes: number; onProgress?: (p: TransferProgress) => void },
+  errors: StagedFetchErrors,
+): Promise<T> {
+  const ctrl = new AbortController();
+  // Set only by a budget running out, so the failure can tell a timeout from
+  // the abort done on any other failure.
+  let timedOut = false;
+  const expire = () => {
+    timedOut = true;
+    ctrl.abort();
+  };
+  let timer = setTimeout(expire, budget.ttfbMs);
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    clearTimeout(timer);
+    timer = setTimeout(expire, budget.bodyMs);
+    if (!res.ok) throw errors.http(res.status);
+    const len = declaredLength(res);
+    if (len !== null && len > budget.maxBytes) throw errors.tooLarge();
+    // Awaited, not returned: `finally` runs at the `return`, so returning the
+    // unawaited read would clear the body timer before the body is read.
+    if (!res.body) return (await res.json()) as T;
+    let bytes: Uint8Array;
+    try {
+      bytes = await readStreamWithProgress(res.body, len, budget.onProgress ?? (() => {}), budget.maxBytes);
+    } catch (e) {
+      throw e instanceof KeyedError && e.key === 'errors.remote.tooLarge' ? errors.tooLarge() : e;
+    }
+    return JSON.parse(new TextDecoder().decode(bytes)) as T;
+  } catch (e) {
+    ctrl.abort();
+    throw errors.fail(e, timedOut);
+  } finally {
+    clearTimeout(timer);
+  }
+}

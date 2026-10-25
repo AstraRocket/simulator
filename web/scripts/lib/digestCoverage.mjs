@@ -159,6 +159,27 @@ export function digestChanges(previous, current) {
 }
 
 /**
+ * The presets of the release that no catalog row carries the digest of.
+ *
+ * Desktop's library holds every preset, duplicates included, each under its
+ * own digest, and a saved `.ork` names its part by that digest. A preset no
+ * row carries is a part desktop users have and the app cannot name, so a sync
+ * refuses it: two `.orc` elements that the row reader cannot tell apart would
+ * otherwise collapse into one row, and the floors would still read 100%.
+ *
+ * @param {{ digest: string, label: string }[]} presets every preset the release holds
+ * @param {{ digest?: string }[]} components the catalog this run would write
+ * @returns {string[]} the labels of the presets no row carries, sorted
+ */
+export function presetsWithoutRow(presets, components) {
+  const carried = new Set(components.map((c) => c.digest).filter(Boolean));
+  return presets
+    .filter((p) => !carried.has(p.digest))
+    .map((p) => p.label)
+    .sort();
+}
+
+/**
  * A Markdown section listing the digested rows that went away upstream, for the
  * console and the workflow summary; empty when none did.
  *

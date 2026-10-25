@@ -63,6 +63,26 @@ export function flipRows(pixels: Uint8Array | Uint8ClampedArray, width: number, 
 }
 
 /**
+ * A 2D canvas of the given size and its context. A canvas past the browser's
+ * size limit has no 2D context (Safari stops near 16.7 Mpx), and a browser may
+ * also throw while allocating one; either way this throws the keyed
+ * `imageTooLarge` error the export's caller shows.
+ */
+export function canvas2d(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+  const canvas = document.createElement('canvas');
+  let ctx: CanvasRenderingContext2D | null;
+  try {
+    canvas.width = width;
+    canvas.height = height;
+    ctx = canvas.getContext('2d');
+  } catch {
+    ctx = null;
+  }
+  if (!ctx) throw new KeyedError('errors.export.imageTooLarge');
+  return { canvas, ctx };
+}
+
+/**
  * A 2D canvas holding a WebGL readback, the right way up. This is the only
  * DOM touch on the export path before the header/encode step, and the canvas
  * it returns is an ordinary HTMLCanvasElement, so `snapshotWithHeader` draws
@@ -74,16 +94,7 @@ export function pixelsToCanvas(
   width: number,
   height: number,
 ): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  let ctx: CanvasRenderingContext2D | null;
-  try {
-    canvas.width = width;
-    canvas.height = height;
-    ctx = canvas.getContext('2d');
-  } catch {
-    ctx = null;
-  }
-  if (!ctx) throw new KeyedError('errors.export.imageTooLarge');
+  const { canvas, ctx } = canvas2d(width, height);
   const image = ctx.createImageData(width, height);
   image.data.set(flipRows(pixels, width, height));
   ctx.putImageData(image, 0, 0);

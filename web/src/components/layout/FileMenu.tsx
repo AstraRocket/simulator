@@ -118,7 +118,7 @@ function MenuItem({
 /**
  * The header's dropdown menu (WAI-ARIA menu-button pattern): New / Open /
  * Save As / Import / Export / Report / Motors / Launch locations / Custom Parts /
- * Settings / Help / Safety / Privacy / Check for updates / About.
+ * My materials / Settings / Help / Safety / Privacy / Check for updates / About.
  *
  * There is no **Save**. Editing autosaves on a 500 ms debounce, with a
  * synchronous journal on unload, so the header reports when the last save landed

@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { fmtNum } from '../../i18n/format';
 import type { StaticInfo } from '../../engine/api';
 import { stabilityState, stabilityToneOf } from '../../services/flight/simReport';
 import { useUnits } from '../../prefs/useUnits';
-import { STABILITY_GLYPH } from '../../tree/schematicGeometry';
+import { marginText } from '../../tree/schematicGeometry';
+import { NO_VALUE } from '../../i18n/noValue';
 
 /**
  * Quick-glance readout box for the 2D/3D view: length, loaded
@@ -21,6 +21,7 @@ export function InfoOverlay({ info }: { info: StaticInfo | null }) {
   // the CP callout carry, so the quick-glance card isn't missing a data item.
   // The engine's own figure, not ours: see StaticInfo.stabilityPercent.
   const pct = info.stabilityPercent;
+  const margin = marginText(cal, pct, t);
   const rows: [string, React.ReactNode][] = [
     [t('stats.length'), `${u.fmtSym('length', info.length)}`],
     [t('stability.mass'), `${u.fmtSym('mass', info.mass)}`],
@@ -28,9 +29,9 @@ export function InfoOverlay({ info }: { info: StaticInfo | null }) {
     [t('stability.cp'), `${u.fmtSym('length', info.cp)}`],
     [
       t('stability.onPad'),
+      // The drawings' readout (marginText) without its word: the row is the verdict's own.
       <span className={state ? stabilityToneOf(state) : 'text-ink-muted'}>
-        {state && `${STABILITY_GLYPH[state]} `}
-        {fmtNum(cal, 2)} {t('stability.caliber')} · {fmtNum(pct, 1)}%
+        {margin ? `${margin.glyph} ${margin.figures}` : NO_VALUE}
       </span>,
     ],
   ];

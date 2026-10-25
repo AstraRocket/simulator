@@ -29,6 +29,7 @@ import { isChainType } from '../../tree/componentKinds.js';
 import { axialStart, partLength } from '../../tree/position.js';
 import {
   colorOf,
+  figureToken,
   innerTubeExtent,
   internalExtent,
   MAX_ZOOM,
@@ -39,7 +40,7 @@ import {
 } from '../../tree/schematicGeometry';
 import { ZoomButtons } from './ZoomButtons';
 import { useWheelZoom } from './useWheelZoom';
-import { keyPan } from './keyPan';
+import { zoomSurfaceProps } from './keyPan';
 import { discDims, tubeRadii } from '../../services/design/discGeometry';
 import { DISC_TYPES } from '../../services/files/componentFormats';
 import { withKernelEnds } from '../../services/design/autoRadius';
@@ -107,6 +108,19 @@ type Shape =
       title?: string;
     };
 
+/** Names for a scene built only to be measured: the measure does not read them. */
+const keyOnly = ((key: string) => key) as unknown as TFunction;
+
+/**
+ * The rocket's full span (m): twice the farthest any part reaches from the
+ * axis, each fin, lug, rail button and pod measured from the surface it
+ * actually stands on, as the aft view draws it. The one figure both image
+ * exports print as "Span".
+ */
+export function rocketSpanM(components: ComponentNode[]): number {
+  return 2 * buildAftScene(components, undefined, keyOnly).reach;
+}
+
 /**
  * The aft scene as three painter's layers plus the radial extent that frames
  * them. Module scope, not a closure inside the memo: the walk is two
@@ -118,15 +132,17 @@ export function buildAftScene(
   components: ComponentNode[],
   motors: MotorDims | undefined,
   t: TFunction,
-): { hulls: Shape[]; inner: Shape[]; outer: Shape[]; extent: number } {
+): { hulls: Shape[]; inner: Shape[]; outer: Shape[]; extent: number; reach: number } {
   // Painter's layers: hulls (opaque, big→small), then internals, then externals.
   const hulls: Shape[] = [];
   const inner: Shape[] = [];
   const outer: Shape[] = [];
-  let extent = 0.02;
+  // The farthest any part reaches from the axis. The frame never shrinks
+  // below 2 cm, but the measure itself does not carry that floor.
+  let farthest = 0;
 
   const reach = (y: number, z: number, r: number) => {
-    extent = Math.max(extent, Math.hypot(y, z) + r);
+    farthest = Math.max(farthest, Math.hypot(y, z) + r);
   };
   // Unnamed parts read as the tree panel's translated type name, not a
   // hard-coded English word.
@@ -173,7 +189,7 @@ export function buildAftScene(
         y: cy,
         z: cz,
         r,
-        fill: colorOf(n, token('sch-shell-light')),
+        fill: colorOf(n, token(figureToken(n.type))),
         stroke: token('sch-line'),
         dash: dashOf(n),
         title: nameOf(n),
@@ -203,7 +219,7 @@ export function buildAftScene(
 
   /** An outside part's paint and name: its figure color and line style, lit on the light part fill. */
   const partInk = (child: ComponentNode) => ({
-    fill: colorOf(child, token('sch-part-light')),
+    fill: colorOf(child, token(figureToken(child.type))),
     stroke: token('sch-line'),
     dash: dashOf(child),
     title: nameOf(child),
@@ -218,7 +234,7 @@ export function buildAftScene(
       z,
       r,
       fill: 'none',
-      stroke: colorOf(child, token('sch-ink')),
+      stroke: colorOf(child, token(figureToken(child.type))),
       dash: dashOf(child, dash),
       title: nameOf(child),
     });
@@ -276,7 +292,7 @@ export function buildAftScene(
         // First fin straight up (desktop rear-view convention) plus the set's
         // own rotation about the body axis and the parent's turn.
         const ring = ringInstanceOffsets(count, 0, Math.PI / 2 + num(child, 'rotation', 0) + turn);
-        const fill = colorOf(child, token('sch-part'));
+        const fill = colorOf(child, token(figureToken(child.type)));
         const title = `${nameOf(child)} ×${count}`;
         const outline = cant === 0 ? null : finOutlinePoints(child, fp);
         const closed = cant === 0 ? null : finPointsWithRoot(child, fp);
@@ -484,7 +500,7 @@ export function buildAftScene(
 
   // Big circles first so nested ones stay visible.
   hulls.sort((a, b) => (b.kind === 'circle' ? b.r : 0) - (a.kind === 'circle' ? a.r : 0));
-  return { hulls, inner, outer, extent };
+  return { hulls, inner, outer, extent: Math.max(0.02, farthest), reach: farthest };
 }
 
 /**
@@ -627,34 +643,19 @@ export function AftView({
 
   const toView = (clientX: number, clientY: number) =>
     clientToViewBox(svgRef.current, svgRef.current!.getBoundingClientRect(), E, clientX, clientY);
+  const surface = zoomSurfaceProps(zoom, setZoom, 2 * E, t('schematic.aftAria'), t('schematic.panHint'));
   return (
     <div style={{ position: 'relative', height: '100%' }}>
       <svg
         ref={svgRef}
         viewBox={`${-E} ${-E} ${2 * E} ${2 * E}`}
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'block',
-          touchAction: 'none',
-          cursor: zoom.k > 1 ? 'grab' : undefined,
-        }}
+        {...surface}
+        style={{ width: '100%', height: '100%', display: 'block', ...surface.style }}
         // role="group" (not "img"): "img" collapses the whole SVG into one
         // node and suppresses every per-part <title> inside, so a screen reader
         // would hear only the one aria-label and none of the parts. "group"
         // keeps the overall name yet still exposes the named parts within.
         role="group"
-        aria-label={zoom.k > 1 ? `${t('schematic.aftAria')}. ${t('schematic.panHint')}` : t('schematic.aftAria')}
-        // Zoomed in, the view takes focus so the arrows can pan it, as the
-        // side view does.
-        tabIndex={zoom.k > 1 ? 0 : undefined}
-        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
-        onKeyDown={(e) => {
-          const next = keyPan(zoom, e.key, e.shiftKey, 2 * E);
-          if (!next) return;
-          e.preventDefault();
-          setZoom(next);
-        }}
         onPointerDown={(e) => {
           // At the fitted view a drag rotates the roll. Zoomed in, it pans: the
           // roll slider still turns the rocket, and a wheel zoom about the

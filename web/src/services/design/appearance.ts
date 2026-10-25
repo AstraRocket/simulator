@@ -1,6 +1,7 @@
 import type { ComponentNode, ComponentType } from '../../engine/openRocketEngine';
-import { hexOf, parseHexColor } from './colorHex';
+import { hexOf, packRgb, parseHexColor, rgbChannels } from './colorHex';
 import { colorForType, DEFAULT_PART_COLORS, type PartPalette } from './partColors';
+import { EXTERNAL_COMPONENT_TYPES } from '../../tree/componentKinds';
 
 /**
  * A part's 3D appearance: the desktop Appearance tab's lower half, without the
@@ -151,17 +152,7 @@ export function partLooks(node: ComponentNode, palette?: PartPalette): { outside
 }
 
 /** The parts that extend `ExternalComponent`, whose figure shine follows their finish. */
-const EXTERNAL_TYPES: ReadonlySet<ComponentType> = new Set<ComponentType>([
-  'nosecone',
-  'transition',
-  'bodytube',
-  'trapezoidfinset',
-  'ellipticalfinset',
-  'freeformfinset',
-  'tubefinset',
-  'launchlug',
-  'railbutton',
-]);
+const EXTERNAL_TYPES = EXTERNAL_COMPONENT_TYPES;
 
 /**
  * `FigureRenderer.getShine`: the shininess an external part's finish gives it,
@@ -178,9 +169,8 @@ const FIGURE_SHININESS: Partial<Record<string, number>> = {
 
 /** A hex color with each channel scaled, as `FigureRenderer` darkens the inside. */
 const scaled = (hex: string, k: number): string => {
-  const n = parseHexColor(hex) ?? 0;
-  const ch = (shift: number) => Math.round(((n >> shift) & 255) * k);
-  return hexOf((ch(16) << 16) | (ch(8) << 8) | ch(0));
+  const [r, g, b] = rgbChannels(parseHexColor(hex) ?? 0).map((c) => Math.round(c * k));
+  return hexOf(packRgb(r!, g!, b!));
 };
 
 /**

@@ -368,6 +368,17 @@ export function bodyRadiusAt(parent: ComponentNode, x: number): number | null {
 }
 
 /**
+ * How far aft of its root's front the kernel locates a canted fin set: the
+ * first fin turned by the cant about the root's midpoint
+ * (`FinSet.getInstanceOffsets`, its localCantRotation), which moves the front
+ * by (chord / 2)(1 - cos cant). 0 for an uncanted set. `chord` is the root's
+ * axial length.
+ */
+export function cantFrontShift(fin: ComponentNode, chord: number): number {
+  return (chord / 2) * (1 - Math.cos(finCant(fin)));
+}
+
+/**
  * Where a fin set stands on `parent`, or `null` when the parent is not a
  * symmetric body.
  *

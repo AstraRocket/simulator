@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
+import { smallButton } from '../common/smallButton';
 
 /**
  * The small controls on the AeroAnalysis header: the flight-condition number
@@ -91,7 +92,7 @@ export function WorstButton({
           }
         }}
         title={t('aero.worstNote')}
-        className="rounded-md bg-raised px-2 py-0.5 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
+        className={smallButton('tight', 'ink')}
       >
         {t('aero.worst')}
       </button>

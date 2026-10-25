@@ -6,7 +6,8 @@ import { DEFAULT_CUSTOM_MFR, saveCustomPart, type PartMeta } from '../../service
 import { PartMetaFields } from './PartMetaFields';
 import { Dialog } from '../common/Dialog';
 import { errorText } from '../../i18n/keyedError';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
+import { StatusLine } from '../common/StatusLine';
 
 /**
  * Saves the selected component to the user's own parts library, so it can be
@@ -92,18 +93,18 @@ function SavePartDialog({ node, type, onClose }: { node: ComponentNode; type: Pi
       )}
       {/* Always mounted, empty until there is something to say: a live region
           created together with its text is not announced (see UpdateToast). */}
-      <p role="status" aria-live="polite" className="mt-2 text-xs text-danger-400">
+      <StatusLine tone="danger" className="mt-2">
         {err}
-      </p>
+      </StatusLine>
 
-      <div className="mt-6 flex justify-end gap-2">
+      <DialogActions>
         <DialogButton onClick={onClose} variant="secondary">
           {t('common.cancel')}
         </DialogButton>
         <DialogButton onClick={() => void submit()} disabled={!partNo.trim() || saving} variant="primary">
           {t('common.save')}
         </DialogButton>
-      </div>
+      </DialogActions>
     </Dialog>
   );
 }

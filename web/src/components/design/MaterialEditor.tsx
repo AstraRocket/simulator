@@ -1,20 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { DEFAULT_CUSTOM_GROUP } from '../../services/materials/materials';
-import type { MaterialType } from '../../services/materials/materialTypes';
+import { MATERIAL_TYPES, type MaterialType } from '../../services/materials/materialTypes';
 import type { ScopedMaterial } from '../../services/materials/myMaterials';
-import { EditorFooter } from '../common/MasterDetail';
+import { EditorFooter, useReportDirty, EditorHeading } from '../common/MasterDetail';
 import { NumberInput } from '../common/NumberInput';
 import { UnitChip } from '../common/UnitChip';
 import { DENSITY_LABEL, QUANTITY, groupLabel } from './materialUnits';
+import { Check } from '../common/Check';
+import { fmtList } from '../../i18n/format';
 
 const field =
   'mt-1 w-full rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500';
 const labelClass = 'mt-4 block text-xs font-medium text-ink-muted';
-
-const TYPES: MaterialType[] = ['bulk', 'surface', 'line'];
 
 /**
  * The detail half of Custom Materials: desktop's `CustomMaterialDialog` as a pane.
@@ -77,9 +77,7 @@ export function MaterialEditor({
       draft.scope !== material.scope
     : name.trim() !== '' || dens !== null;
 
-  useEffect(() => {
-    onDirtyChange(dirty);
-  }, [dirty, onDirtyChange]);
+  useReportDirty(dirty, onDirtyChange);
 
   const revert = () => {
     setName(start.name);
@@ -102,18 +100,11 @@ export function MaterialEditor({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pt-0">
-        <div className="sticky top-0 -mx-4 mb-1 flex items-center gap-2 bg-surface px-4 py-2">
-          <button
-            onClick={onBack}
-            className="rounded px-1 text-sm text-ink-muted hover:text-ink md:hidden"
-            aria-label={t('myMaterials.back')}
-          >
-            ‹
-          </button>
-          <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-            {material ? t(`myMaterials.type.${material.type}`) : t('myMaterials.new')}
-          </span>
-        </div>
+        <EditorHeading
+          onBack={onBack}
+          backLabel={t('myMaterials.back')}
+          title={material ? t(`myMaterials.type.${material.type}`) : t('myMaterials.new')}
+        />
 
         <label htmlFor="mat-name" className={labelClass}>
           {t('myMaterials.name')}
@@ -136,7 +127,7 @@ export function MaterialEditor({
               }}
               className={field}
             >
-              {TYPES.map((k) => (
+              {MATERIAL_TYPES.map((k) => (
                 <option key={k} value={k}>
                   {t(`myMaterials.type.${k}`)}
                 </option>
@@ -172,15 +163,17 @@ export function MaterialEditor({
           ))}
         </select>
 
-        <label className="mt-4 flex items-center gap-2 text-sm text-ink">
-          <input type="checkbox" checked={toLibrary} onChange={(e) => setToLibrary(e.target.checked)} />
-          {t('material.addToLibrary')}
-        </label>
+        <Check
+          checked={toLibrary}
+          onChange={setToLibrary}
+          label={t('material.addToLibrary')}
+          className="mt-4 text-sm text-ink"
+        />
         <p className="mt-2 text-xs leading-snug text-ink-faint">{t('myMaterials.scopeNote')}</p>
 
         {material && (
           <p className="mt-4 text-xs leading-snug text-ink-muted">
-            {usedBy.length ? t('myMaterials.usedBy', { parts: usedBy.join(', ') }) : t('myMaterials.usedByNone')}
+            {usedBy.length ? t('myMaterials.usedBy', { parts: fmtList(usedBy) }) : t('myMaterials.usedByNone')}
           </p>
         )}
       </div>
@@ -191,12 +184,8 @@ export function MaterialEditor({
         onRevert={revert}
         onSave={() => void submit()}
         saveDisabled={!name.trim() || dens === null || saving}
-      >
-        {/* Always mounted, empty until there is something to say (see UpdateToast). */}
-        <p role="status" aria-live="polite" className="min-w-0 flex-1 truncate text-xs text-danger-400">
-          {err}
-        </p>
-      </EditorFooter>
+        err={err}
+      />
     </>
   );
 }

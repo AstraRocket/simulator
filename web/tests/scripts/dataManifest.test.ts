@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error - a plain .mjs build script helper, no types
-import { writeDataManifest } from '../../scripts/lib/dataManifest.mjs';
+import { rowCount, writeDataManifest } from '../../scripts/lib/dataManifest.mjs';
 
 /**
  * The manifest dates each catalog by the run that last changed it. The publish
@@ -62,5 +62,21 @@ describe('writeDataManifest', () => {
         .filter(([, v]) => typeof v !== 'string')
         .map(([k]) => k),
     ).toEqual(['catalogs']);
+  });
+});
+
+/**
+ * The rows a catalog holds, which the manifest records and the offline check
+ * compares: a parts catalog wraps its rows in one array beside its stamps, so
+ * its top-level keys are not its rows.
+ */
+describe('rowCount', () => {
+  it('counts the array a catalog is', () => {
+    expect(rowCount([{}, {}, {}])).toBe(3);
+  });
+
+  it('counts the one array a catalog wraps, not its keys', () => {
+    expect(rowCount({ generated: 'x', count: 2, components: [{}, {}] })).toBe(2);
+    expect(rowCount({ generated: 'x', count: 0, components: [] })).toBe(0);
   });
 });

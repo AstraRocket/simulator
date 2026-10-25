@@ -22,8 +22,11 @@ const FILES = {
   contributors: 'contributors.generated.json',
 };
 
+/** A catalog's cache-bust hash: the first 12 hex digits of the SHA-256 of its JSON. */
+export const catalogHash = (data) => createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 12);
+
 /** The rows a catalog holds: the array itself, or the one array it wraps. */
-function rowCount(data) {
+export function rowCount(data) {
   if (Array.isArray(data)) return data.length;
   const arrays = Object.values(data ?? {}).filter(Array.isArray);
   return arrays.length === 1 ? arrays[0].length : undefined;
@@ -51,7 +54,7 @@ export function writeDataManifest(dir, { today = new Date().toISOString().slice(
     // Hash the parsed→re-serialized data so formatting (compact vs prettier)
     // never changes the token; only a real data change does.
     const data = JSON.parse(readFileSync(path, 'utf8'));
-    const hash = createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 12);
+    const hash = catalogHash(data);
     manifest[key] = hash;
     const kept = prev[key] === hash ? prev.catalogs?.[key]?.updated : undefined;
     const count = rowCount(data);

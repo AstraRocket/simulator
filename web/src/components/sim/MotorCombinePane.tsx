@@ -5,13 +5,25 @@ import { combineCurves, impulseClass, type Sample } from '../../services/motors/
 import { useUnits } from '../../prefs/useUnits';
 import { SpecItem } from './MotorDetail';
 import { keyOf } from '../../services/motors/motorKey';
-import { seriesColor } from '../common/chartPalette';
-import { inUserUnit, withFixedUnit } from './motorFormat';
-import { ChartAxes, CHART_HEADROOM, chartScales, linePath, baselineArea, LegendSwatch, SeriesPath } from './chartAxes';
+import { inUserUnit } from './motorFormat';
+import { withFixedUnit } from '../../i18n/format';
+import {
+  ChartAxes,
+  CHART_HEADROOM,
+  chartScales,
+  linePath,
+  baselineArea,
+  LegendSwatch,
+  SeriesPath,
+  seriesFor,
+  MotorSeries,
+} from './chartAxes';
 import { token } from '../common/colorTokens';
 import { fmtList } from '../../i18n/format';
 import { motorStatistics } from '../../engine/openRocketEngine';
-import { useEngineStore } from '../../state/engineStore';
+import { useEngineReady } from '../../state/engineStore';
+import { motorName } from '../../services/motors/motorName';
+import { MotorHeading } from './MotorPanelParts';
 
 /**
  * The motor dashboard's Combine tool: the checked motors summed into one
@@ -22,13 +34,7 @@ import { useEngineStore } from '../../state/engineStore';
 /** Cluster chart: the summed total as a filled orange envelope with each motor's
  *  own curve overlaid on top (categorical colors), so you see each contribution.
  *  A legend and direct labels name the curves, so color is not the only cue. */
-function CombineChart({
-  combined,
-  series,
-}: {
-  combined: Sample[];
-  series: { m: CatalogMotor; color: string; pts: Sample[] }[];
-}) {
+function CombineChart({ combined, series }: { combined: Sample[]; series: MotorSeries[] }) {
   const { t } = useTranslation();
   const u = useUnits();
   // Per instance: `url(#id)` resolves to the first match in the document, so a
@@ -50,7 +56,7 @@ function CombineChart({
         width="100%"
         className="mt-2 block max-w-2xl"
         role="img"
-        aria-label={t('dash.combineChartAria', { names: fmtList(usable.map((s) => s.m.designation)) })}
+        aria-label={t('dash.combineChartAria', { names: fmtList(usable.map((s) => motorName(s.m))) })}
       >
         <defs>
           <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
@@ -68,7 +74,7 @@ function CombineChart({
             Y={Y}
             color={s.color}
             strokeWidth={1.5}
-            label={labelDirect ? s.m.designation : undefined}
+            label={labelDirect ? motorName(s.m) : undefined}
             labelLift={4}
             labelClass="text-[8px] font-semibold"
           />
@@ -82,7 +88,7 @@ function CombineChart({
         </LegendSwatch>
         {usable.map((s) => (
           <LegendSwatch key={keyOf(s.m)} color={s.color} width={12}>
-            {s.m.code || s.m.designation}
+            {motorName(s.m)}
           </LegendSwatch>
         ))}
       </div>
@@ -104,7 +110,7 @@ export function MotorCombinePane({ motors }: { motors: CatalogMotor[] }) {
   // between the crossings of 5% of peak), as a single motor's are. They read as
   // a dash, rather than being worked out another way, while the engine is not
   // loaded or when the kernel refuses the summed curve.
-  const engineReady = useEngineStore((s) => s.phase) === 'ready';
+  const engineReady = useEngineReady();
   const kernel = useMemo(
     () => (engineReady && combined.samples.length >= 2 ? motorStatistics(combined.samples) : null),
     [engineReady, combined.samples],
@@ -112,24 +118,13 @@ export function MotorCombinePane({ motors }: { motors: CatalogMotor[] }) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-warn-300">{t('dash.combined')}</div>
-      <div className="mt-1 flex items-center gap-2">
-        <span className="rounded bg-ok-500/15 px-1.5 py-0.5 text-xs font-semibold text-ok-300">
-          {impulseClass(combined.totalImpulse)}
-        </span>
-        <h3 className="text-2xl font-bold text-ink-strong">{t('dash.cluster', { n: combined.motorCount })}</h3>
-      </div>
+      <MotorHeading
+        kicker={t('dash.combined')}
+        impulseClass={impulseClass(combined.totalImpulse)}
+        title={t('dash.cluster', { n: combined.motorCount })}
+      />
       <div className="mt-0.5 text-sm text-ink-muted">{motors.map((m) => m.designation).join(' + ')}</div>
-      {combined.samples.length >= 2 && (
-        <CombineChart
-          combined={combined.samples}
-          series={motors.map((m, i) => ({
-            m,
-            color: seriesColor(i),
-            pts: m.curves?.[0]?.samples ?? [],
-          }))}
-        />
-      )}
+      {combined.samples.length >= 2 && <CombineChart combined={combined.samples} series={seriesFor(motors)} />}
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
         <SpecItem label={t('dash.motors')} value={String(combined.motorCount)} />
         {/* In the user's units, as MotorDetail's grid is. Burn time
@@ -137,7 +132,10 @@ export function MotorCombinePane({ motors }: { motors: CatalogMotor[] }) {
         <SpecItem label={t('motorDlg.totalImpulse')} value={inUserUnit(u, 'impulse', combined.totalImpulse, 1, 1)} />
         <SpecItem label={t('motorDlg.maxThrust')} value={inUserUnit(u, 'force', combined.peakThrust, 1, 1)} />
         <SpecItem label={t('motorDlg.avgThrust')} value={inUserUnit(u, 'force', kernel?.averageThrust ?? null, 1, 1)} />
-        <SpecItem label={t('motorDlg.burnTime')} value={withFixedUnit(kernel?.burnTime ?? null, 's', 2)} />
+        <SpecItem
+          label={t('motorDlg.burnTime')}
+          value={withFixedUnit(kernel?.burnTime ?? null, t('units.second'), 2)}
+        />
       </dl>
       <p className="mt-2 text-[11px] leading-snug text-ink-faint">{t('dash.combineNote')}</p>
     </div>

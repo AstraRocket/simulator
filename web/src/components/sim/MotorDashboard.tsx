@@ -20,9 +20,9 @@ import { ColumnChooser, MotorGrid } from './MotorGrid';
 import { MotorComparePane } from './MotorComparePane';
 import { MotorCombinePane } from './MotorCombinePane';
 import { ToggleButton } from '../common/ToggleButton';
-import { useAsyncLoad } from '../common/useAsyncLoad';
-import { catalogInfo } from '../../services/app/remoteData';
 import { fmtNum } from '../../i18n/format';
+import { toggledEntry } from '../../services/app/collections';
+import { MotorSearch, useCatalogInfo } from './MotorPanelParts';
 
 /**
  * The motor dashboard shell: the dialog frame, the filter row, the checked set
@@ -45,7 +45,7 @@ type Mode = 'detail' | 'combine' | 'compare';
  */
 export function MotorDashboard({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const catalogMeta = useAsyncLoad(() => catalogInfo('motors'), 'motorsInfo').data;
+  const catalogMeta = useCatalogInfo();
   const [selected, setSelected] = useState<CatalogMotor | null>(null);
   const [curveIdx, setCurveIdx] = useState(0);
   const [checked, setChecked] = useState<Map<string, CatalogMotor>>(new Map());
@@ -90,14 +90,7 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
   const checkedMotors = useMemo(() => [...checked.values()], [checked]);
   const effMode: Mode = (mode === 'combine' || mode === 'compare') && checked.size >= 2 ? mode : 'detail';
 
-  const toggleCheck = (m: CatalogMotor) =>
-    setChecked((prev) => {
-      const next = new Map(prev);
-      const k = keyOf(m);
-      if (next.has(k)) next.delete(k);
-      else next.set(k, m);
-      return next;
-    });
+  const toggleCheck = (m: CatalogMotor) => setChecked((prev) => toggledEntry(prev, keyOf(m), m));
 
   return (
     <Dialog
@@ -147,14 +140,7 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
           className={`${effMode === 'detail' ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col md:border-r md:border-line/10`}
         >
           <div className="flex flex-wrap items-center gap-2 p-3">
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              autoFocus
-              placeholder={t('motorDlg.searchCode')}
-              aria-label={t('motorDlg.searchCode')}
-              className="min-w-[140px] flex-1 rounded-lg bg-canvas px-3 py-1.5 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-faint focus:outline-none focus:ring-accent-500"
-            />
+            <MotorSearch value={text} onChange={setText} className="min-w-[140px] py-1.5" />
             <ManufacturerMenu manufacturers={manufacturers} mfrs={mfrs} onChange={setMfrs} align="right" />
             <ColumnChooser visCols={visCols} onToggle={toggleCol} />
             <DiameterRange dia={dia} onChange={setDia} />

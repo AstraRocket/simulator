@@ -1,14 +1,13 @@
-import { useId, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useMemo, useRef, useState } from 'react';
 import type { LaunchConditions, LaunchPatch } from '../../services/design/orkTree';
 import { FieldLabel } from '../common/FieldMark';
 import { isFilled, missingRequired, type RequiredLaunchKey } from '../../services/flight/requiredLaunch';
 import { UnitChip } from '../common/UnitChip';
 import { useUnits, type Units } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
+import { unitScope, degToRad } from '../../prefs/units';
 import { onSi } from '../../prefs/entryValue';
 import { fmtUpTo, ladderDigits, withUnit } from '../../i18n/format';
-import { LAUNCH_SI, type LaunchUnitKind } from '../../prefs/launchUnits';
+import { LAUNCH_SI, LIMIT_FIELD, SITE_ALTITUDE_FIELD, type LaunchUnitKind } from '../../prefs/launchUnits';
 import { MAX_ROD_ANGLE_RAD, MAX_TURBULENCE_PERCENT, MAX_WIND_SPEED_MS } from '../../services/flight/safetyLimits';
 import type { PowerClass } from '../../services/flight/powerClass';
 import { G0 } from '../../services/motors/motorMath';
@@ -27,14 +26,20 @@ import { LocationPicker } from './LocationPicker';
 import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { SiteMapDialog } from './SiteMapDialog';
 import { useLatest } from '../common/useLatest';
-import { DEFAULT_HEADING_DEG } from '../../services/flight/simulations';
+import { DEFAULT_HEADING_DEG, levelFromAverage } from '../../services/flight/windLevels';
 import { NumberRow, type NumberRowMarks } from '../common/NumberRow';
 import { CardGroup } from '../common/CardGroup';
 import { LatLonRows } from './LatLonRows';
-import { withLauncher, type LauncherKind } from '../../services/design/launcher';
-import { useEngineStore } from '../../state/engineStore';
+import { type LauncherKind } from '../../services/design/launcher';
+import { useEngineReady } from '../../state/engineStore';
 import { standardPressurePa } from '../../engine/openRocketEngine';
 import { seaLevelExcessPa } from '../../services/flight/sitePressure';
+import { roundCoord } from '../../services/map/slippyMap';
+import { Check } from '../common/Check';
+import { StatusLine } from '../common/StatusLine';
+import { smallButton } from '../common/smallButton';
+import { RadioGroup } from '../common/RadioGroup';
+import { useLauncherT } from '../common/useLauncher';
 
 /**
  * Launch & atmosphere conditions for the flight simulation: wind (single average
@@ -162,13 +167,11 @@ export function LaunchPanel({
    */
   powerClass?: PowerClass | null;
 }) {
-  const { t: plainT } = useTranslation();
-  const t = withLauncher(plainT as unknown as (key: string, options?: Record<string, unknown>) => string, launcher);
+  const t = useLauncherT(launcher ?? null);
   const u = useUnits();
   // The wind model radios' group name, one per panel. Settings opens its own
   // panel over the simulation editor's, and radios that share a name are one
   // group to the browser: an arrow key in one would check the other's.
-  const windGroup = useId();
   /**
    * A safety-code cap in the unit its own field is shown in, resolved the way
    * QNum resolves it, chip override included. A hint that quotes the rule in a
@@ -188,7 +191,7 @@ export function LaunchPanel({
   // is probably a sea-level figure (see services/flight/sitePressure). The
   // standard pressure is the kernel's, so nothing here re-derives the
   // atmosphere; until the engine is up there is simply no check.
-  const engineReady = useEngineStore((s) => s.phase === 'ready');
+  const engineReady = useEngineReady();
   const pressureExcess = useMemo(() => {
     if (!engineReady || launch.pressureHPa == null || launch.launchAltitudeM == null) return null;
     const standard = standardPressurePa(launch.launchAltitudeM);
@@ -249,16 +252,7 @@ export function LaunchPanel({
     onChange((l) => {
       if (l.windLevels?.length) return {};
       if (l.keptWindLevels?.length) return { windLevels: l.keptWindLevels, keptWindLevels: undefined };
-      return {
-        windLevels: [
-          {
-            altitudeM: 0,
-            speed: l.windAverage || 0,
-            directionDeg: l.windDirectionDeg ?? DEFAULT_HEADING_DEG,
-            stddev: l.windStdDev || 0,
-          },
-        ],
-      };
+      return { windLevels: [levelFromAverage(l)] };
     });
   };
 
@@ -292,10 +286,10 @@ export function LaunchPanel({
         />
         <QNum
           label={t('launch.angle')}
-          field="angle"
+          field={LIMIT_FIELD.rodAngle}
           kind="deg"
           u={u}
-          stepSi={Math.PI / 180}
+          stepSi={degToRad(1)}
           // Into the wind, the sign is the meaning: a negative angle launches
           // with the wind, as on the desktop, whose rod angle runs -60 to 60
           // and which the kernel flies as given (SimulationStatus rotates by
@@ -307,11 +301,11 @@ export function LaunchPanel({
           hint={
             powerClass === null
               ? t('launch.angleLimitEither', {
-                  model: capFor('deg', 'angle', MAX_ROD_ANGLE_RAD.model),
-                  highPower: capFor('deg', 'angle', MAX_ROD_ANGLE_RAD.highPower),
+                  model: capFor('deg', LIMIT_FIELD.rodAngle, MAX_ROD_ANGLE_RAD.model),
+                  highPower: capFor('deg', LIMIT_FIELD.rodAngle, MAX_ROD_ANGLE_RAD.highPower),
                 })
               : t(powerClass === 'model' ? 'launch.angleLimitModel' : 'launch.angleLimitHighPower', {
-                  limit: capFor('deg', 'angle', MAX_ROD_ANGLE_RAD[powerClass]),
+                  limit: capFor('deg', LIMIT_FIELD.rodAngle, MAX_ROD_ANGLE_RAD[powerClass]),
                 })
           }
           mixed={mixed('launchRodAngleDeg')}
@@ -319,18 +313,15 @@ export function LaunchPanel({
           value={launch.launchRodAngleDeg}
           onChange={(v) => onChange({ launchRodAngleDeg: v })}
         />
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={launch.launchIntoWind ?? false}
-            onChange={(e) => {
-              onChange({ launchIntoWind: e.target.checked });
-              onCommit?.();
-            }}
-            className="accent-accent-500"
-          />
-          <FieldLabel text={t('launch.intoWind')} mixed={mixed('launchIntoWind')} />
-        </label>
+        <Check
+          checked={launch.launchIntoWind ?? false}
+          onChange={(v) => {
+            onChange({ launchIntoWind: v });
+            onCommit?.();
+          }}
+          className=""
+          label={<FieldLabel text={t('launch.intoWind')} mixed={mixed('launchIntoWind')} />}
+        />
         {!launch.launchIntoWind && (
           <QNum
             label={t('launch.rodDirection')}
@@ -338,7 +329,7 @@ export function LaunchPanel({
             field="rodDirection"
             kind="deg"
             u={u}
-            stepSi={(5 * Math.PI) / 180}
+            stepSi={degToRad(5)}
             mixed={mixed('launchRodDirectionDeg')}
             value={launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG}
             // Cleared means unset: the box shows 90 when unset, so writing 0
@@ -355,7 +346,7 @@ export function LaunchPanel({
         <LocationPicker launch={launch} onChange={onChange} onCommit={onCommit} />
         <QNum
           label={t('launch.altitude')}
-          field="altitude"
+          field={SITE_ALTITUDE_FIELD}
           kind="distance"
           u={u}
           stepSi={10}
@@ -392,8 +383,8 @@ export function LaunchPanel({
                   // above the ellipsoid, not above sea level, and keeping the
                   // previous site's would fly the wrong air unannounced.
                   onChange({
-                    latitudeDeg: +pos.coords.latitude.toFixed(4),
-                    longitudeDeg: +pos.coords.longitude.toFixed(4),
+                    latitudeDeg: roundCoord(pos.coords.latitude),
+                    longitudeDeg: roundCoord(pos.coords.longitude),
                     launchAltitudeM: null,
                   });
                   onCommit?.();
@@ -410,24 +401,21 @@ export function LaunchPanel({
               );
             }}
             disabled={locating}
-            className="w-full rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-60"
+            className={smallButton('row', 'soft', 'w-full')}
           >
             <span aria-hidden="true">📍</span> {locating ? t('launch.locating') : t('launch.useLocation')}
           </button>
         )}
-        <button
-          onClick={() => setMapOpen(true)}
-          className="w-full rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
-        >
+        <button onClick={() => setMapOpen(true)} className={smallButton('row', 'soft', 'w-full')}>
           <span aria-hidden="true">🗺</span> {t('map.show')}
         </button>
         {/* Always mounted, empty until there is something to say: a live
             region created together with its text is not announced by most
             screen readers (see UpdateToast), so the refusal would be silent to
             the people who cannot see the amber line. */}
-        <p role="status" aria-live="polite" className="mt-1 text-[11px] leading-snug text-warn-400">
+        <StatusLine tone="warn" size="fine" className="mt-1">
           {locateErr}
-        </p>
+        </StatusLine>
         {mapOpen && (
           <SiteMapDialog
             latitudeDeg={launch.latitudeDeg}
@@ -449,7 +437,7 @@ export function LaunchPanel({
               setWeatherRefresh(false);
               setWeatherOpen(true);
             }}
-            className="w-full rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-accent-300 ring-1 ring-line/10 hover:bg-elevated"
+            className={smallButton('row', 'accent', 'w-full')}
           >
             {t('launch.getWeather')}
           </button>
@@ -535,7 +523,7 @@ export function LaunchPanel({
                 onChange({ atmosphereLevels: undefined });
                 onCommit?.();
               }}
-              className="rounded-md bg-raised px-2 py-1 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
+              className={smallButton('xs', 'soft')}
             >
               {t('launch.clearForecastProfile')}
             </button>
@@ -545,41 +533,30 @@ export function LaunchPanel({
       </CardGroup>
 
       <CardGroup title={t('launch.wind')}>
-        <fieldset className="pb-1">
-          <legend className="sr-only">{t('launch.windModel')}</legend>
-          <div className="flex items-center justify-between gap-3">
-            <FieldLabel text={t('launch.windModel')} mixed={mixed('windLevels')} />
-            <div className="flex gap-3">
-              {(['average', 'multilevel'] as const).map((m) => (
-                <label key={m} className="flex items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name={windGroup}
-                    checked={multilevel === (m === 'multilevel')}
-                    onChange={() => {
-                      setWindModel(m);
-                      onCommit?.();
-                    }}
-                    className="accent-accent-500"
-                  />
-                  <span className="text-xs text-ink-muted">{t(`launch.windModel_${m}`)}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </fieldset>
+        <RadioGroup
+          className="pb-1"
+          legend={t('launch.windModel')}
+          label={<FieldLabel text={t('launch.windModel')} mixed={mixed('windLevels')} />}
+          options={['average', 'multilevel'] as const}
+          value={multilevel ? 'multilevel' : 'average'}
+          onChange={(m) => {
+            setWindModel(m);
+            onCommit?.();
+          }}
+          fmt={(m) => t(`launch.windModel_${m}`)}
+        />
 
         {!multilevel ? (
           <>
             <QNum
               label={t('launch.speed')}
-              field="speed"
+              field={LIMIT_FIELD.windSpeed}
               kind="windspeed"
               u={u}
               stepSi={0.5}
               minSi={0}
               maxSi={MAX_WIND_SPEED_MS}
-              hint={t('launch.windLimit', { limit: capFor('windspeed', 'speed', MAX_WIND_SPEED_MS) })}
+              hint={t('launch.windLimit', { limit: capFor('windspeed', LIMIT_FIELD.windSpeed, MAX_WIND_SPEED_MS) })}
               mixed={mixed('windAverage')}
               {...req('windAverage')}
               value={launch.windAverage}
@@ -652,7 +629,7 @@ export function LaunchPanel({
               field="direction"
               kind="deg"
               u={u}
-              stepSi={(5 * Math.PI) / 180}
+              stepSi={degToRad(5)}
               mixed={mixed('windDirectionDeg')}
               value={launch.windDirectionDeg ?? DEFAULT_HEADING_DEG}
               // See the rod direction: an emptied box goes back to unset.

@@ -1,9 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { confirm } from '../../state/confirmStore';
-import { fireAction } from '../../state/fireAction';
-import { MasterDetail, MasterRow, MasterStatus, useGuardedSelection } from '../common/MasterDetail';
-import { Dialog } from '../common/Dialog';
+import { MasterDetail, MasterRow, useGuardedSelection, MasterDetailDialog } from '../common/MasterDetail';
 import { fmtNum } from '../../i18n/format';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import { DEFAULT_CHUTE_CD } from '../../services/parts/componentFilter';
@@ -35,15 +33,10 @@ import { errorText } from '../../i18n/keyedError';
 export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const u = useUnits();
-  const { entries } = useSavedParts();
-  const [err, setErr] = useState<string | null>(null);
-  const {
-    selectedId,
-    select: guardedSelect,
-    settle,
-    close: guardedClose,
-    onDirtyChange,
-  } = useGuardedSelection(t('picker.savedDiscardConfirm'));
+  const { entries, error: listError } = useSavedParts();
+  const { selectedId, select, settle, close, onDirtyChange, err, setErr } = useGuardedSelection(
+    t('picker.savedDiscardConfirm'),
+  );
 
   // Grouped by catalog type in a fixed order (see savedPartGroups).
   const groups = useMemo(() => (entries ? groupSavedParts(entries) : []), [entries]);
@@ -53,11 +46,6 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   // part, and a part deleted in another tab clears the selection instead of
   // editing something that is gone.
   const selected = entries?.find((e) => e.part.id === selectedId) ?? null;
-
-  /** Move the selection, asking first if it would throw away an edit. */
-  const select = async (id: string | null) => {
-    if (await guardedSelect(id)) setErr(null);
-  };
 
   const remove = async (e: SavedPartEntry) => {
     // A saved part can be the only copy of geometry somebody worked out, if
@@ -80,23 +68,15 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Dialog
+    <MasterDetailDialog
       id="savedParts"
       title={t('picker.savedManage')}
-      onClose={() => fireAction(guardedClose(onClose))}
-      size="4xl"
-      // List beside detail, each scrolling itself and reaching the panel's
-      // edges: the body takes the height and does its own padding.
-      layout="fill"
-      // Fixed rather than the viewport's height, the way the motor picker is:
-      // the list is the working surface and should not become a screen-tall
-      // column on a large monitor.
-      height={720}
-      footer={<MasterStatus err={err} />}
+      onClose={onClose}
+      close={close}
+      err={err ?? listError}
+      loading={entries === null}
     >
-      {entries === null ? (
-        <p className="grid flex-1 place-items-center p-6 text-sm text-ink-muted">{t('common.loading')}</p>
-      ) : entries.length === 0 ? (
+      {entries?.length === 0 && listError === null ? (
         // Reachable from the menu before anything is saved, so it has to say
         // where saved parts come from rather than show a void.
         <p className="grid flex-1 place-items-center p-6 text-center text-sm leading-snug text-ink-muted">
@@ -165,7 +145,7 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
           }
         />
       )}
-    </Dialog>
+    </MasterDetailDialog>
   );
 }
 

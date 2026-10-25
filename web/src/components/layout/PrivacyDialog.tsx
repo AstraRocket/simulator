@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { appName } from '../../services/app/appInfo';
 import { Dialog } from '../common/Dialog';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
 
 /** Privacy policy modal: the app is client-only; nothing leaves the device
  *  except the optional fetches the dialog lists. Copy lives in i18n.
@@ -27,11 +27,11 @@ export function PrivacyDialog({ onClose }: { onClose: () => void }) {
         <p className="text-xs text-ink-faint">{t('privacy.hosting')}</p>
       </div>
 
-      <div className="mt-5 flex justify-end">
+      <DialogActions>
         <DialogButton onClick={onClose} variant="primary">
           {t('privacy.close')}
         </DialogButton>
-      </div>
+      </DialogActions>
     </Dialog>
   );
 }

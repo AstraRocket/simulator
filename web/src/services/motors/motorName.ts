@@ -22,6 +22,11 @@ export function motorName(spec: Pick<MotorSpec, 'designation' | 'code'>): string
   return spec.code || spec.designation;
 }
 
+/** A motor's name with its maker in front when known: `Estes C6`. */
+export function motorFullName(spec: Pick<MotorSpec, 'designation' | 'code' | 'manufacturer'>): string {
+  return spec.manufacturer ? `${spec.manufacturer} ${motorName(spec)}` : motorName(spec);
+}
+
 /**
  * How a seated motor is named: its name and the delay it was seated on,
  * `F67W-9`, or `C6-P` for a plugged one.

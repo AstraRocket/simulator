@@ -1,7 +1,7 @@
 import { motorStatistics, type MotorSpec } from '../../engine/openRocketEngine';
 import { impulseClass } from '../motors/motorCombine';
 import { motorName } from '../motors/motorName';
-import { curveStats } from '../motors/motorMath';
+import { curveStats, specSamples } from '../motors/motorMath';
 
 /**
  * Report computations: the numbers that back the print/export rocket report.
@@ -36,7 +36,7 @@ export function motorStats(spec: MotorSpec): MotorStats {
   // not to the last sample. A report is assembled with the engine running.
   // A curve the kernel builds no motor from has no burn or average to state:
   // those print as no value, and the impulse and peak are the curve's own.
-  const curve = spec.times.map((t, i) => [t, spec.thrusts[i] ?? 0] as [number, number]);
+  const curve = specSamples(spec);
   const kernel = motorStatistics(curve);
   const own = curveStats(curve);
   const impulse = kernel?.totalImpulse ?? own.impulse;

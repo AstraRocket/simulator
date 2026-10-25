@@ -22,7 +22,7 @@ export interface CachedEntry<T> {
 
 /**
  * A user-imported motor (from a `.eng` or `.rse` file). Unlike a catalog motor
- * (specs only, curve fetched from thrustcurve on demand), a custom motor
+ * (bundled curves for most rows, the rest fetched from thrustcurve on demand), a custom motor
  * carries its own thrust curve, so it resolves to a MotorSpec entirely from
  * local data with no network. It is user content: created by import, listed in
  * the picker, and removable.
@@ -142,10 +142,18 @@ export function isCustomMotor(v: unknown): v is CustomMotor {
     // row missing either takes down the whole motor picker, not just its own entry.
     typeof m.manufacturer === 'string' &&
     typeof m.class === 'string' &&
+    // The importers' header rules (engParser, rseParser): a positive size, a
+    // positive loaded mass and a propellant mass from 0 up to it. A restored
+    // row breaking them would fly a motor that gains mass as it burns.
     Number.isFinite(m.diameter) &&
+    m.diameter > 0 &&
     Number.isFinite(m.length) &&
+    m.length > 0 &&
     Number.isFinite(m.totalWeightG) &&
+    m.totalWeightG > 0 &&
     Number.isFinite(m.propWeightG) &&
+    m.propWeightG >= 0 &&
+    m.propWeightG <= m.totalWeightG &&
     isThrustSampleArray(m.samples) &&
     isMassArray(m.massesG, m.samples.length) &&
     // The launch CG lies within the motor, as ThrustCurveMotor requires.

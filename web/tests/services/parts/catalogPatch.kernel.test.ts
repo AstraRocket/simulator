@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { catalogPatch, defaultNode, presetRef, updateNode } from '../../../src/services/design/treeEdit';
+import { repairValues } from '../../../src/services/design/repairValues';
 import { isComponentRow, type Component, type ParachuteComponent } from '../../../src/services/parts/componentDb';
 import { KERNEL_MATERIALS } from '../../../src/tree/kernelDefaults';
 import type { ComponentNode, ComponentType, RocketTree } from '../../../src/engine/openRocketEngine';
@@ -262,6 +263,22 @@ describe('a stated catalog mass', () => {
     expect(wrong).toEqual([]);
   });
 
+  // Every workspace load and every .ork open runs the design through
+  // repairValues, so a picked part has to fly its stated mass after a reload as
+  // well as in the session it was picked.
+  it('is still the mass the part flies at once the design is loaded again', async () => {
+    const engine = await loadEngine();
+    const wrong: string[] = [];
+    for (const row of catalog.filter((p) => typeof p.mass === 'number')) {
+      engine.reset();
+      const handle = engine.buildRocket(JSON.stringify(repairValues(picked(row)).tree));
+      const info = JSON.parse(engine.getComponentInfo(handle, 'probe'));
+      if (info.error || !(Math.abs(info.mass / row.mass! - 1) < 0.005))
+        wrong.push(`${row.type} ${row.mfr} ${row.partNo}: catalog ${row.mass} kg, flies ${info.mass ?? info.error}`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
   // A degenerate shape (a reversed nose cone whose ends are 0 and 2.54 µm, with
   // a 21.6 mm shoulder on its 0 end) has no volume once its shoulder is held to
   // that end: PresetDump on the 24.12 jar reports the density
@@ -458,6 +475,39 @@ const javaSource = (file: string): string => readFileSync(join(JAVA_ROOT, file),
  * A recovery part picked from the catalog, against `Streamer.loadFromPreset`,
  * `RecoveryDevice.loadFromPreset` and `Parachute.loadFromPreset`.
  */
+/**
+ * `Parachute.loadFromPreset` takes a stated Cd, line count and line length only
+ * when it is above 0, and gives the parachute its own default otherwise
+ * (Parachute.java:233-282). The Cd and line count defaults are read from the
+ * kernel: a parachute built with neither key.
+ */
+describe('a catalog parachute stating a zero', () => {
+  it('flies the kernel default for each zero, as desktop loads it', async () => {
+    const engine = await loadEngine();
+    const fields = (probe: ComponentNode) => {
+      engine.reset();
+      const handle = engine.buildRocket(JSON.stringify(design(probe)));
+      return JSON.parse(engine.getComponentFields(handle, 'probe')) as Record<string, unknown>;
+    };
+    const defaults = fields(node('parachute', 'probe', { diameter: 0.5 }));
+    const row = {
+      type: 'parachute',
+      mfr: 'Test',
+      partNo: 'ZERO',
+      desc: '',
+      diameter: 0.5,
+      cd: 0,
+      lineCount: 0,
+      lineLength: 0,
+    } as unknown as ParachuteComponent;
+    const got = fields({ ...node('parachute', 'probe'), ...catalogPatch(row) } as ComponentNode);
+    for (const key of ['cd', 'cdAuto', 'lineCount']) expect(got[key], key).toEqual(defaults[key]);
+    // A new parachute sizes its lines from its canopy; a preset without a line
+    // length gets DEFAULT_LINE_LENGTH, fixed (Parachute.java:22, :258-259).
+    expect(got['lineLength']).toBeCloseTo(0.3, 12);
+  });
+});
+
 describe('a picked recovery part', () => {
   it('is generated from the rules the patch was written against', () => {
     expect(javaSource('Streamer.java')).toContain('this.length = this.stripWidth;');

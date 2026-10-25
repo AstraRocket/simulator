@@ -3,7 +3,7 @@ import { importOrk } from './orkFile';
 import { importRkt } from './rktImport';
 import { assertImportSize, decodeFileText } from './decodeText';
 import { KeyedError } from '../../i18n/keyedError';
-import { isGzip } from './ork/importUnpack';
+import { isGzip, isZip } from './ork/importUnpack';
 
 /**
  * Which design format a file is, decided from its bytes rather than its name.
@@ -31,7 +31,7 @@ export type DesignFormat = 'ork' | 'rkt';
 export function sniffDesignFormat(data: ArrayBuffer | string): DesignFormat | null {
   if (typeof data !== 'string') {
     const bytes = new Uint8Array(data);
-    if (bytes[0] === 0x50 && bytes[1] === 0x4b) return 'ork'; // "PK": a zip
+    if (isZip(bytes)) return 'ork';
     // Gzipped XML is how older OpenRocket builds saved a `.ork`; RockSim never
     // compresses its files.
     if (isGzip(bytes)) return 'ork';

@@ -8,9 +8,11 @@ import type { FlightSummary } from '../../../engine/openRocketEngine';
 import type { OrkExportSimulation, OrkSimPrefs } from '../orkTypes';
 import { unwrapConditionsChild } from './passthrough';
 import { degToRad } from '../../../prefs/units';
-import { DEFAULT_HEADING_DEG } from '../../flight/simulations';
+import { LAUNCH_SI } from '../../../prefs/launchUnits';
+import { DEFAULT_HEADING_DEG } from '../../flight/windLevels';
 import { G0 } from '../../motors/motorMath';
 import { DEFAULT_SETTINGS } from '../../storage/settings';
+import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS } from './simulationTags';
 
 /**
  * The <simulations> block: every simulation, each with its own conditions and
@@ -84,19 +86,7 @@ function simulationXml(w: OrkWriter, depth: number, sim: OrkExportSimulation, pr
 
 /** The <flightdata> summary as the desktop writes it: one attribute per figure it has. */
 function flightDataTag(s: FlightSummary): string {
-  const attrs: [string, number | null][] = [
-    ['maxaltitude', s.maxAltitude],
-    ['maxvelocity', s.maxVelocity],
-    ['maxacceleration', s.maxAcceleration],
-    ['maxmach', s.maxMachNumber],
-    ['timetoapogee', s.timeToApogee],
-    ['flighttime', s.flightTime],
-    ['groundhitvelocity', s.groundHitVelocity],
-    ['launchrodvelocity', s.launchRodVelocity],
-    ['deploymentvelocity', s.deploymentVelocity],
-    ['optimumdelay', s.optimumDelay],
-  ];
-  const written = attrs
+  const written = FLIGHT_DATA_ATTRS.map(([key, attr]) => [attr, s[key]] as const)
     .filter(([, v]) => v != null && Number.isFinite(v))
     .map(([k, v]) => ` ${k}="${v}"`)
     .join('');
@@ -160,14 +150,8 @@ function conditionsXml(
   weatherSourceXml(w, depth, launch);
   // What the run flew under, in upstream OpenRocketSaver's elements and order.
   // 24.12 reads the time step and the maximum time and skips the four warning
-  // thresholds without a warning. The drogue element's capital L is upstream's
-  // own spelling, which its reader matches exactly.
-  emit(depth, `<timestep>${prefs.timeStep}</timestep>`);
-  emit(depth, `<maxtime>${prefs.maxTime}</maxtime>`);
-  emit(depth, `<recoveryspeedwarning>${prefs.deploymentSpeedWarn}</recoveryspeedwarning>`);
-  emit(depth, `<drogueLowspeedwarning>${prefs.drogueLowSpeedWarn}</drogueLowspeedwarning>`);
-  emit(depth, `<recoverydroguemainhighspeedwarning>${prefs.mainHighSpeedWarn}</recoverydroguemainhighspeedwarning>`);
-  emit(depth, `<recoverydroguemainlowspeedwarning>${prefs.mainLowSpeedWarn}</recoverydroguemainlowspeedwarning>`);
+  // thresholds without a warning.
+  for (const [key, tag] of SIM_PREF_TAGS) emit(depth, `<${tag}>${prefs[key]}</${tag}>`);
   // The file's own children this app does not model, the seed among them
   // unless one was written above.
   for (const raw of carried) {
@@ -231,8 +215,8 @@ function atmosphereXml(w: OrkWriter, depth: number, launch: LaunchConditions): v
     // Kelvin / pascal on disk. The desktop stores both-or-ISA, so a
     // single custom value fills the other with the ISA sea-level standard.
     emit(depth, '<atmosphere model="extendedisa">');
-    emit(depth + 1, `<basetemperature>${(launch.temperatureC ?? 15) + 273.15}</basetemperature>`);
-    emit(depth + 1, `<basepressure>${(launch.pressureHPa ?? 1013.25) * 100}</basepressure>`);
+    emit(depth + 1, `<basetemperature>${LAUNCH_SI.degC.toSi(launch.temperatureC ?? 15)}</basetemperature>`);
+    emit(depth + 1, `<basepressure>${LAUNCH_SI.hPa.toSi(launch.pressureHPa ?? 1013.25)}</basepressure>`);
     // Only when set, so a file that never expressed humidity carries none.
     // <baserelativehumidity> is the element upstream OpenRocket writes and
     // reads (OpenRocketSaver, AtmosphereHandler). 24.12 has no humidity: it
@@ -287,7 +271,7 @@ function forecastLevelsXml(w: OrkWriter, depth: number, levels: readonly Atmosph
   for (const l of levels) {
     w.emit(
       depth,
-      `<forecastlevel altitude="${l.altitudeM}" temperature="${l.temperatureC + 273.15}" pressure="${l.pressureHPa * 100}" relativehumidity="${l.relativeHumidity}"/>`,
+      `<forecastlevel altitude="${l.altitudeM}" temperature="${LAUNCH_SI.degC.toSi(l.temperatureC)}" pressure="${LAUNCH_SI.hPa.toSi(l.pressureHPa)}" relativehumidity="${l.relativeHumidity}"/>`,
     );
   }
 }

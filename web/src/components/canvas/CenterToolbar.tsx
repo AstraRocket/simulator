@@ -1,27 +1,27 @@
 import { useTranslation } from 'react-i18next';
-import {
-  useWorkspaceStore,
-  selectActive,
-  selectOutdated,
-  selectShownSim,
-  type WorkspaceState,
-} from '../../state/store';
-import { resultFlight } from '../../services/flight/simulations';
+import { useWorkspaceStore, selectOutdated, selectShownSim, type WorkspaceState } from '../../state/store';
+import { simStatus, simStatusLabel, type SimStatus } from '../../services/flight/simulations';
 import { ResultPicker } from '../sim/ResultPicker';
 import { ViewToggle } from './ViewToggle';
 import { ViewBtn } from './ViewBtn';
 import { useViewPrefs } from './useViewPrefs';
 
 /**
- * Whether the flight the Results tab shows is being flown again right now
- * (running, or queued in a batch). A boolean, so subscribing to it re-renders
- * only when that answer changes.
+ * The status of the flight the Results tab shows, as the simulations table
+ * words it (`simStatus`). A string, so subscribing to it re-renders only when
+ * that answer changes.
  */
-const selectShownRunning = (s: WorkspaceState): boolean => {
-  const activeId = selectActive(s).id;
-  const shown = resultFlight(s.sims, s.resultSimId, activeId)?.id ?? activeId;
-  const phase = s.simRuns[shown]?.phase;
-  return phase === 'running' || phase === 'queued';
+const selectShownStatus = (s: WorkspaceState): SimStatus => {
+  const sim = selectShownSim(s);
+  return simStatus(sim, s.simRuns, s.tree, selectOutdated(s, sim));
+};
+
+/** The chip each status shows beside the heading; the rest show none. */
+const STATUS_CHIP: Partial<Record<SimStatus, string>> = {
+  queued: 'bg-accent-500/15 text-accent-300 ring-accent-400/30',
+  running: 'bg-accent-500/15 text-accent-300 ring-accent-400/30',
+  failed: 'bg-danger-500/15 text-danger-200 ring-danger-400/30',
+  outdated: 'bg-warn-500/15 text-warn-200 ring-warn-400/30',
 };
 
 /**
@@ -55,9 +55,8 @@ export function CenterToolbar({
   const onResetView = useWorkspaceStore((s) => s.resetView);
   // The flight the heading names, not the active row: with the picker on
   // another row, the chip has to describe the numbers on screen.
-  const result = useWorkspaceStore((s) => selectShownSim(s).result);
-  const outdated = useWorkspaceStore((s) => selectOutdated(s, selectShownSim(s)));
-  const running = useWorkspaceStore(selectShownRunning);
+  const status = useWorkspaceStore(selectShownStatus);
+  const chip = STATUS_CHIP[status];
   const { showMarkers, showInfoCard, rulers, toggleMarkers, toggleInfoCard, toggleRulerSide } = useViewPrefs();
 
   return (
@@ -82,24 +81,20 @@ export function CenterToolbar({
             simulation has flown the picker becomes the heading, so the name
             is not shown twice. `ResultPicker` renders its own h2 in that case. */}
             <ResultPicker fallbackName={resultName} />
-            {/* While the shown flight is being flown again its numbers are
-            about to be replaced, which is what this says; Outdated would be
-            true but no longer the thing to act on. */}
-            {running ? (
+            {/* The table's word for the shown flight. While it is queued or
+            being flown again its numbers are about to be replaced, which is
+            what this says; Outdated would be true but no longer the thing to
+            act on. Outdated itself shows only once there is a result. */}
+            {chip && (
               <span
-                role="status"
-                className="flex items-center gap-1.5 rounded-md bg-accent-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-300 ring-1 ring-accent-400/30"
+                role={status === 'outdated' ? undefined : 'status'}
+                className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ring-1 ${chip}`}
               >
-                <span aria-hidden className="size-1.5 rounded-full bg-accent-400 motion-safe:animate-pulse" />
-                {t('sims.statusRunning')}
+                {status === 'running' && (
+                  <span aria-hidden className="size-1.5 rounded-full bg-accent-400 motion-safe:animate-pulse" />
+                )}
+                {simStatusLabel(status, t)}
               </span>
-            ) : (
-              outdated &&
-              result && (
-                <span className="rounded-md bg-warn-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warn-200 ring-1 ring-warn-400/30">
-                  {t('sims.statusOutdated')}
-                </span>
-              )
             )}
           </div>
         )}

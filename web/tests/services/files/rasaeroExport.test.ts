@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { exportCdx1 } from '../../../src/services/files/rasaeroExport';
+import { IN, fmt } from '../../../src/services/files/rasaero/units';
 import { stageEngineSlots } from '../../../src/services/files/rasaero/engines';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import {
@@ -165,30 +166,155 @@ describe('finish to RASAero surface (desktop table)', () => {
 });
 
 /**
- * An assembly in the sustainer chain is not skipped like an internal part. A pod or
- * a strap-on booster is external aerodynamics, and a file that quietly omits it
- * describes a different rocket (the desktop refuses them, RASAeroExport.error33).
+ * A pod or a strap-on booster is external aerodynamics RASAero's flat part
+ * list cannot hold, and a file that quietly omits it describes a different
+ * rocket. The editor mounts both on a body tube (`canHost`), so that is where
+ * the export has to find them, in the sustainer and in a booster alike.
  */
 describe('assemblies RASAero cannot hold', () => {
-  const withAssembly = (type: 'podset' | 'parallelstage'): RocketTree => ({
-    components: [
-      {
-        type: 'stage',
-        children: [
-          { type: 'nosecone', id: 'nc', length: 0.1, aftRadius: 0.0127, shape: 'ogive' },
-          { type: 'bodytube', id: 'bt', length: 0.254, outerRadius: 0.0127 },
-          { type, id: 'asm', name: 'Side pod', children: [{ type: 'bodytube', length: 0.1, outerRadius: 0.005 }] },
-        ],
-      },
-    ],
+  const pod = (type: 'podset' | 'parallelstage') => ({
+    type,
+    id: 'asm',
+    name: 'Side pod',
+    children: [{ type: 'bodytube', length: 0.1, outerRadius: 0.005 }],
+  });
+  const onSustainer = (type: 'podset' | 'parallelstage'): RocketTree =>
+    ({
+      components: [
+        {
+          type: 'stage',
+          children: [
+            { type: 'nosecone', id: 'nc', length: 0.1, aftRadius: 0.0127, shape: 'ogive' },
+            { type: 'bodytube', id: 'bt', length: 0.254, outerRadius: 0.0127, children: [pod(type)] },
+          ],
+        },
+      ],
+    }) as RocketTree;
+  const onBooster = (): RocketTree =>
+    ({
+      components: [
+        tree.components[0]!,
+        {
+          type: 'stage',
+          name: 'Booster',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'bb',
+              length: 0.2,
+              outerRadius: 0.0127,
+              children: [{ ...tree.components[0]!.children![1]!.children![0]!, id: 'bf' }, pod('podset')],
+            },
+          ],
+        },
+      ],
+    }) as RocketTree;
+
+  it('refuses a pod set on a body tube by name rather than dropping it', () => {
+    expect(() => exportCdx1({ tree: onSustainer('podset'), name: 'x' })).toThrow(/pods.*Side pod/);
   });
 
-  it('refuses a pod set by name rather than dropping it', () => {
-    expect(() => exportCdx1({ tree: withAssembly('podset'), name: 'x' })).toThrow(/pods.*Side pod/);
+  it('refuses a parallel stage on a body tube by name rather than dropping it', () => {
+    expect(() => exportCdx1({ tree: onSustainer('parallelstage'), name: 'x' })).toThrow(/strap-on.*Side pod/);
   });
 
-  it('refuses a parallel stage by name rather than dropping it', () => {
-    expect(() => exportCdx1({ tree: withAssembly('parallelstage'), name: 'x' })).toThrow(/strap-on.*Side pod/);
+  it("refuses a pod set on a booster's tube", () => {
+    expect(() => exportCdx1({ tree: onBooster(), name: 'x', stageLaunch: [] })).toThrow(/pods.*Side pod/);
+  });
+});
+
+/**
+ * A booster is held to the rules of desktop's `BoosterDTO` (core
+ * file/rasaero/export/BoosterDTO.java): consecutive body tubes of the first
+ * tube's radius are one body (their lengths summed), the first part after them
+ * that is not one refuses the export unless it is the last stage's boat tail
+ * (error31), a leading transition is a shoulder whose ends meet the part above
+ * and the tube behind (error12 to error15), and the body carries a fin set
+ * (error16).
+ */
+describe('a booster as desktop writes one', () => {
+  const finSet = (id: string) => ({ ...tree.components[0]!.children![1]!.children![0]!, id });
+  const tube = (id: string, length: number, outerRadius: number, fins = false) => ({
+    type: 'bodytube',
+    id,
+    name: id,
+    length,
+    outerRadius,
+    ...(fins ? { children: [finSet(`${id}f`)] } : {}),
+  });
+  const twoStage = (boosterParts: unknown[]): RocketTree =>
+    ({
+      name: 'Two',
+      components: [tree.components[0]!, { type: 'stage', id: 'b', name: 'Booster', children: boosterParts }],
+    }) as RocketTree;
+  const cells = [
+    { massKg: 0.4, cgM: 0.15 },
+    { massKg: 0.8, cgM: 0.3 },
+  ];
+  const run = (parts: unknown[]) => exportCdx1({ tree: twoStage(parts), name: 'Two', stageLaunch: cells });
+  const booster = (xml: string) => xml.match(/<Booster>[\s\S]*?<\/Booster>/)![0];
+
+  it('joins consecutive tubes of one radius into one body', () => {
+    // 0.1 m + 0.154 m = 0.254 m, 10 in.
+    const xml = booster(run([tube('t1', 0.1, 0.0127, true), tube('t2', 0.154, 0.0127)]));
+    expect(xml).toContain('<Length>10</Length>');
+    expect(xml).toContain('<Diameter>1</Diameter>');
+  });
+
+  it('refuses a tube of another radius after the body', () => {
+    expect(() => run([tube('t1', 0.1, 0.0127, true), tube('t2', 0.1, 0.02)])).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.boosterTubeSize', values: { stage: 'Booster' } }),
+    );
+  });
+
+  it('refuses a booster with no fin set', () => {
+    expect(() => run([tube('t1', 0.254, 0.0127)])).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.boosterNoFins', values: { stage: 'Booster', name: 't1' } }),
+    );
+  });
+
+  it('refuses a booster that starts with a nose cone', () => {
+    expect(() =>
+      run([
+        { type: 'nosecone', id: 'n', name: 'Cap', length: 0.05, aftRadius: 0.0127, shape: 'ogive' },
+        tube('t1', 0.2, 0.0127, true),
+      ]),
+    ).toThrow(expect.objectContaining({ key: 'errors.rasaero.boosterFirstPart' }));
+  });
+
+  const shoulder = (fore: number, aft: number) => ({
+    type: 'transition',
+    id: 's',
+    name: 'Shoulder',
+    shape: 'conical',
+    length: 0.03,
+    foreRadius: fore,
+    aftRadius: aft,
+  });
+
+  it('takes a leading transition whose ends meet its neighbors as the shoulder', () => {
+    const xml = booster(run([shoulder(0.0127, 0.02), tube('t1', 0.254, 0.02, true)]));
+    // 0.03 m is 1.1811 in; the inside diameter is the shoulder's fore end, 1 in.
+    expect(xml).toContain('<ShoulderLength>1.1811</ShoulderLength>');
+    expect(xml).toContain('<InsideDiameter>1</InsideDiameter>');
+  });
+
+  it('refuses a shoulder that does not meet the part above', () => {
+    expect(() => run([shoulder(0.01, 0.02), tube('t1', 0.254, 0.02, true)])).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.boosterShoulderFore' }),
+    );
+  });
+
+  it('refuses a shoulder that does not meet the tube behind it', () => {
+    expect(() => run([shoulder(0.0127, 0.02), tube('t1', 0.254, 0.025, true)])).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.boosterShoulderAft' }),
+    );
+  });
+
+  it('refuses a shoulder with no body tube behind it', () => {
+    expect(() => run([shoulder(0.0127, 0.02)])).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.boosterShoulderTube' }),
+    );
   });
 });
 
@@ -258,6 +384,79 @@ describe('a trapezoid fin with no sweep key', () => {
     expect(out).toContain(
       `<SweepDistance>${(KERNEL_DEFAULTS.trapezoidfinset.sweep * 39.37).toFixed(4).replace(/0+$/, '')}</SweepDistance>`,
     );
+  });
+});
+
+/**
+ * A dimension with no key is the one the kernel flies and every view draws
+ * (KERNEL_DEFAULTS), not a figure of the RASAero writer's own.
+ */
+/**
+ * A freeform outline is read as the kernel normalizes it (first point moved to
+ * the origin), so a trapezoid the editor let start off the origin still exports.
+ */
+describe('a freeform trapezoid that starts off the origin', () => {
+  it('writes the same fin as one at the origin', () => {
+    const at = (x0: number, y0: number) => {
+      const t = structuredClone(tree);
+      const tube = t.components[0]!.children![1]!;
+      tube.children![0] = {
+        type: 'freeformfinset',
+        id: 'fin',
+        finCount: 3,
+        thickness: 0.003,
+        points: [
+          [x0, y0],
+          [x0 + 0.0254, y0 + 0.0254],
+          [x0 + 0.0508, y0 + 0.0254],
+          [x0 + 0.0508, y0],
+        ],
+        position: { method: 'bottom', offset: 0 },
+      } as never;
+      return exportCdx1({ tree: t, name: 'ff', launchMassKg: 0.45, launchCgM: 0.127 }).match(
+        /<Fin>[\s\S]*?<\/Fin>/,
+      )![0];
+    };
+    expect(at(0.02, 0.005)).toBe(at(0, 0));
+  });
+});
+
+describe('parts with no dimension keys', () => {
+  const inches = (m: number) => fmt(m * IN);
+  const bare = structuredClone(tree);
+  const [nose, tube] = bare.components[0]!.children!;
+  delete nose!['length'];
+  delete nose!['aftRadius'];
+  delete tube!['length'];
+  delete tube!['outerRadius'];
+  const lug = tube!.children![1]!;
+  delete lug['length'];
+  delete lug['outerRadius'];
+  const out = exportCdx1({ tree: bare, name: 'bare', launchMassKg: 0.45, launchCgM: 0.127 });
+  const part = (tag: string) => out.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`))![0];
+
+  it('writes the nose cone the kernel flies', () => {
+    expect(part('NoseCone')).toContain(`<Length>${inches(KERNEL_DEFAULTS.nosecone.length)}</Length>`);
+    expect(part('NoseCone')).toContain(`<Diameter>${inches(2 * KERNEL_DEFAULTS.nosecone.aftRadius)}</Diameter>`);
+  });
+
+  it('writes the body tube and its lug the kernel flies', () => {
+    const body = part('BodyTube');
+    expect(body).toContain(`<Diameter>${inches(2 * KERNEL_DEFAULTS.bodytube.outerRadius)}</Diameter>`);
+    expect(body).toContain(
+      `<LaunchLugDiameter>${inches(2 * KERNEL_DEFAULTS.launchlug.outerRadius)}</LaunchLugDiameter>`,
+    );
+    expect(body).toContain(`<LaunchLugLength>${inches(KERNEL_DEFAULTS.launchlug.length)}</LaunchLugLength>`);
+  });
+
+  it('places the fins against the length the tube is written with', () => {
+    // A fin at the tube's top has its front edge one tube length above the
+    // tube's bottom, which RASAero measures from.
+    const topFin = structuredClone(bare);
+    topFin.components[0]!.children![1]!.children![0]!.position = { method: 'top', offset: 0 };
+    const xml = exportCdx1({ tree: topFin, name: 'bare', launchMassKg: 0.45, launchCgM: 0.127 });
+    const fin = xml.match(/<Fin>[\s\S]*?<\/Fin>/)![0];
+    expect(fin).toContain(`<Location>${inches(KERNEL_DEFAULTS.bodytube.length)}</Location>`);
   });
 });
 

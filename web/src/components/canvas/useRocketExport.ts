@@ -8,8 +8,8 @@ import {
 } from '../../services/exports/schematicExport.js';
 import { download, exportFilename } from '../../services/files/saveFile';
 import type { ImageExportOptions } from './ImageExportMenu.js';
-import { piecesBounds, type Piece } from './rocketPieces';
-import { exportCamera, isFittableBox } from './rocketExportCamera';
+import { type Piece } from './rocketPieces';
+import { exportView } from './rocketExportCamera';
 import { captureSceneOffscreen } from './offscreenCapture';
 import { clampExportSize } from '../../services/exports/offscreenRaster';
 import { useLatest } from '../common/useLatest';
@@ -33,8 +33,7 @@ export interface R3fHandles {
 export function useRocketExport(
   r3f: RefObject<R3fHandles | null>,
   pieces: Piece[],
-  maxR: number,
-  exportData: Omit<ExportData, 'spanM'> | undefined,
+  exportData: ExportData | undefined,
   /**
    * Told of a failed export. The handler is awaited by nothing (the menu's
    * onPick is void), so a rejection with nowhere to go is an unhandled one and
@@ -73,11 +72,8 @@ export function useRocketExport(
     // leaving the controls desynced if the capture throws. A throwaway cannot
     // desync: there is nothing to put back. Building it fresh rather than
     // cloning also guarantees a clean projection (no inherited zoom or view
-    // offset). spanM stays 2*maxR: framing moves the camera, never the rocket.
-    const src = st.camera as THREE.PerspectiveCamera;
-    const box = opts?.fit && src.isPerspectiveCamera ? piecesBounds(pieces) : null;
-    const cam: THREE.Camera = box && isFittableBox(box) ? exportCamera(box, src, width / height) : st.camera;
-    const data: ExportData = { ...exportData, spanM: 2 * maxR };
+    // offset). The header's span is the rocket's, not the frame's.
+    const cam = exportView(st.camera, pieces, !!opts?.fit, width / height);
     const filename = exportFilename([exportData.name, '3d'], IMAGE_FORMAT_EXT[format]);
 
     // Preferred path: an offscreen render target. The on-screen canvas is
@@ -97,7 +93,7 @@ export function useRocketExport(
       console.warn('3D export: offscreen capture failed, falling back to the live canvas', err);
     }
     if (offscreen) {
-      download(filename, await snapshotWithHeader(offscreen, data, format));
+      download(filename, await snapshotWithHeader(offscreen, exportData, format));
       return;
     }
 
@@ -118,7 +114,7 @@ export function useRocketExport(
       st.gl.setPixelRatio(1);
       st.gl.setSize(width, height, false);
       st.gl.render(st.scene, cam);
-      download(filename, await snapshotWithHeader(el, data, format));
+      download(filename, await snapshotWithHeader(el, exportData, format));
     } finally {
       // Switching away from the 3D view, or an edit remounting the canvas,
       // disposes the renderer underneath it, and restoring a disposed

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
+import { onSi } from '../../prefs/entryValue';
+import type { FieldUnit } from '../../prefs/useUnits';
 
 /**
  * The pieces of a per-configuration override card (recovery deployment, stage
@@ -133,5 +135,46 @@ export function OverrideNumber({
         <span className="min-w-6 text-xs text-ink-faint">{unit}</span>
       </span>
     </OverrideRow>
+  );
+}
+
+/**
+ * An altitude override (a deployment or a separation trigger), in the field's
+ * unit and stored in SI. Floored at zero, as the design-side box is by
+ * `fieldRange`: `onSi` rejects only a null or a failed conversion, not a
+ * negative, and a negative altitude never fires the kernel's altitude trigger,
+ * so the part would never deploy or separate on altitude under that one
+ * configuration.
+ */
+export function OverrideAltitude({
+  name,
+  label,
+  si,
+  designedSi,
+  unit,
+  onChange,
+  onCommit,
+}: {
+  name: string;
+  label: string;
+  /** The stored override in meters, or null to fall through to the design. */
+  si: number | null | undefined;
+  designedSi: number;
+  unit: FieldUnit;
+  onChange: (si: number | null) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <OverrideNumber
+      name={name}
+      label={label}
+      value={si == null ? null : unit.toUi(si)}
+      placeholder={unit.fmt(designedSi)}
+      step={unit.step(10)}
+      min={unit.toUi(0)}
+      unit={unit.sym}
+      onChange={onSi(unit, onChange)}
+      onCommit={onCommit}
+    />
   );
 }

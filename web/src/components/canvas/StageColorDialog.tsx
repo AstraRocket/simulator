@@ -9,7 +9,7 @@ import {
 } from '../../services/exports/flightPathExport';
 import { Dialog } from '../common/Dialog';
 import { stageLabel } from '../../i18n/format';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
 
 /** The three independently colorable things the exporter draws per stage. */
 const COLOR_ROLES = ['path', 'ground', 'pin'] as const;
@@ -118,7 +118,7 @@ export function StageColorDialog({
             );
           })}
         </div>
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <DialogActions>
           <button
             type="button"
             onClick={() => setDrafts({ path: new Map(), ground: new Map(), pin: new Map() })}
@@ -132,7 +132,7 @@ export function StageColorDialog({
           <DialogButton onClick={() => onApply(drafts.path, drafts.ground, drafts.pin)} variant="primary">
             {t('pathExport.apply')}
           </DialogButton>
-        </div>
+        </DialogActions>
       </>
     </Dialog>
   );

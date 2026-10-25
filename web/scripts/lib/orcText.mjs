@@ -14,6 +14,14 @@ export const xmlText = (s) =>
     return String.fromCodePoint(code);
   });
 
+/**
+ * Part files in one order on every machine: by name, compared code unit by code
+ * unit. A directory listing comes back in the file system's order, which is
+ * not the same on Windows as on the Linux runner, and the catalog's rows, and
+ * so its manifest hash, follow the order the files are read in.
+ */
+export const byFileName = (files) => [...files].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+
 /** SI factor for each `Unit` attribute a `.orc` length carries. */
 const LEN = { in: 0.0254, mm: 0.001, cm: 0.01, m: 1, ft: 0.3048, '': 1 };
 

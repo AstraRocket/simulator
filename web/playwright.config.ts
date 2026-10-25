@@ -1,3 +1,4 @@
+import { constants, setPriority } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -54,16 +55,33 @@ const CORE_SPECS = [
 ];
 const core = process.env.E2E_SCOPE === 'core';
 
+// Every browser software-renders WebGL across many threads, so a local run
+// takes the whole machine at its peaks whatever the worker count. Below-normal
+// priority, which the build, the preview server, the workers and the browsers
+// they launch all inherit, leaves the desktop responsive: the suite gets the
+// CPU nothing else wants. CI has nothing else to share with.
+if (!process.env.CI) {
+  try {
+    setPriority(constants.priority.PRIORITY_BELOW_NORMAL);
+  } catch {
+    // Not permitted here; the run goes on at normal priority.
+  }
+}
+
+// Four by default: on a 28-core box eight put the CPU at 95% or more for half
+// the core set's samples, and four for a fifth of them, for about the same
+// wall time once the build is counted. E2E_WORKERS overrides it.
+const localWorkers = Number(process.env.E2E_WORKERS) || 4;
+
 export default defineConfig({
   testDir: './e2e',
   // Every test spreads across the workers, not just every file: each test has
   // its own browser context and storage, so none depends on another's order,
-  // and a long file (simulations-tab) does not set the floor. Against the
-  // built app, 8 workers run the suite in about a minute on a 28-core box;
-  // 12 is no faster. A GitHub runner has 4 vCPUs that also serve the app and
-  // software-render WebGL for every browser, so CI runs two.
+  // and a long file (simulations-tab) does not set the floor. A GitHub runner
+  // has 4 vCPUs that also serve the app and software-render WebGL for every
+  // browser, so CI runs two; a local run uses `localWorkers` above.
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 8,
+  workers: process.env.CI ? 2 : localWorkers,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // Under CI the `github` reporter annotates the PR, and the HTML report is
@@ -102,10 +120,14 @@ export default defineConfig({
   // ordering bugs. Built fresh each run, and never reused, so a server left on
   // the port cannot serve an old build. The docs the Help dialog
   // reads are copied in from public/docs by the build (npm run docs:build).
-  webServer: {
-    command: 'npx vite build && npx vite preview --port 5180 --strictPort',
-    url: 'http://localhost:5180',
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  // `npm run e2e:sections` builds and serves once for all its sections and
+  // sets E2E_SERVED, so each section's run does not start a server of its own.
+  webServer: process.env.E2E_SERVED
+    ? undefined
+    : {
+        command: 'npx vite build && npx vite preview --port 5180 --strictPort',
+        url: 'http://localhost:5180',
+        reuseExistingServer: false,
+        timeout: 120_000,
+      },
 });

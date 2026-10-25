@@ -1,6 +1,6 @@
 import type { ComponentNode, ComponentType } from '../../../engine/openRocketEngine';
 import { nodeShape, shapeIsClippable } from '../../../tree/shapeProfile';
-import { num, str } from '../../../tree/nodeProps';
+import { noseConeAftRadius, num, str } from '../../../tree/nodeProps';
 import { escapeXml } from '../xmlUtil';
 import { COMPONENT_DEFAULTS } from '../../design/componentDefaults';
 import type { OrkWriter } from './exportWriter';
@@ -25,6 +25,7 @@ import {
 } from './exportParts';
 import { stageFileName } from '../../design/orkTree';
 import { KERNEL_DEFAULTS, KERNEL_DEPLOYMENT, KERNEL_MATERIALS, defaultSeparation } from '../../../tree/kernelDefaults';
+import { MATERIAL_KEYS, kernelPartMaterial, statedMaterial } from '../../design/materialSlots';
 
 /**
  * One writer per component type: the element body the desktop's saver for
@@ -118,16 +119,18 @@ const writeNosecone: NodeWriter = (w, node, d) => {
   w.emit(d, `<shape>${escapeXml(nodeShape(node))}</shape>`);
   w.emit(d, '<shapeclipped>false</shapeclipped>');
   shapeParamXml(w, d, node);
-  w.emit(
-    d,
-    `<aftradius>${node['aftRadiusAuto'] === true ? 'auto' : num(node, 'aftRadius', COMPONENT_DEFAULTS.nosecone.aftRadius)}</aftradius>`,
-  );
-  w.emit(d, `<aftshoulderradius>${num(node, 'shoulderRadius', 0)}</aftshoulderradius>`);
-  w.emit(d, `<aftshoulderlength>${num(node, 'shoulderLength', 0)}</aftshoulderlength>`);
-  w.emit(d, `<aftshoulderthickness>${num(node, 'shoulderThickness', 0)}</aftshoulderthickness>`);
-  w.emit(d, `<aftshouldercapped>${node['shoulderCapped'] === true}</aftshouldercapped>`);
+  w.emit(d, `<aftradius>${node['aftRadiusAuto'] === true ? 'auto' : noseConeAftRadius(node)}</aftradius>`);
+  shoulderXml(w, d, node, 'aft', 'shoulder');
   w.emit(d, `<isflipped>${node['flipped'] === true}</isflipped>`);
 };
+
+/** One shoulder's `<{side}shoulder*>` tags from the node keys `{key}Radius` and the rest (see readShoulder). */
+function shoulderXml(w: OrkWriter, d: number, node: ComponentNode, side: 'fore' | 'aft', key: string): void {
+  w.emit(d, `<${side}shoulderradius>${num(node, `${key}Radius`, 0)}</${side}shoulderradius>`);
+  w.emit(d, `<${side}shoulderlength>${num(node, `${key}Length`, 0)}</${side}shoulderlength>`);
+  w.emit(d, `<${side}shoulderthickness>${num(node, `${key}Thickness`, 0)}</${side}shoulderthickness>`);
+  w.emit(d, `<${side}shouldercapped>${node[`${key}Capped`] === true}</${side}shouldercapped>`);
+}
 
 const writeTransition: NodeWriter = (w, node, d) => {
   header(w, d, node, 'Transition');
@@ -156,13 +159,8 @@ const writeTransition: NodeWriter = (w, node, d) => {
     node[`${key}Auto`] === true || typeof node[key] !== 'number' ? 'auto' : String(node[key]);
   w.emit(d, `<foreradius>${transAuto('foreRadius')}</foreradius>`);
   w.emit(d, `<aftradius>${transAuto('aftRadius')}</aftradius>`);
-  for (const side of ['fore', 'aft'] as const) {
-    const key = side === 'fore' ? 'foreShoulder' : 'aftShoulder';
-    w.emit(d, `<${side}shoulderradius>${num(node, `${key}Radius`, 0)}</${side}shoulderradius>`);
-    w.emit(d, `<${side}shoulderlength>${num(node, `${key}Length`, 0)}</${side}shoulderlength>`);
-    w.emit(d, `<${side}shoulderthickness>${num(node, `${key}Thickness`, 0)}</${side}shoulderthickness>`);
-    w.emit(d, `<${side}shouldercapped>${node[`${key}Capped`] === true}</${side}shouldercapped>`);
-  }
+  shoulderXml(w, d, node, 'fore', 'foreShoulder');
+  shoulderXml(w, d, node, 'aft', 'aftShoulder');
 };
 
 // A part writes `<motormount>` when it is flagged as a mount or when any
@@ -333,11 +331,7 @@ const writeRailbutton: NodeWriter = (w, node, d) => {
   // kept them (see the railbutton import case); the constructor constants are
   // only the fallback.
   const rb = COMPONENT_DEFAULTS.railbutton;
-  material(w, d, node, 'bulk', {
-    name: rb.materialName,
-    density: rb.materialDensity,
-    group: rb.materialGroup,
-  });
+  material(w, d, node, 'bulk', kernelPartMaterial('railbutton', 'bulk'));
   w.emit(d, `<outerdiameter>${num(node, 'outerDiameter', rb.outerDiameter)}</outerdiameter>`);
   w.emit(d, `<innerdiameter>${num(node, 'innerDiameter', rb.innerDiameter)}</innerdiameter>`);
   w.emit(d, `<height>${num(node, 'height', rb.height)}</height>`);
@@ -382,17 +376,17 @@ const writeParachute: NodeWriter = (w, node, d) => {
   }
   w.emit(d, `<linecount>${num(node, 'lineCount', chute.lineCount)}</linecount>`);
   autoLengthXml(w, d, node, 'lineLength', 'lineLengthAuto', 'linelength', chute.lineLength);
-  if (typeof node['lineDensity'] === 'number') {
-    const lname = typeof node['lineMaterialName'] === 'string' ? node['lineMaterialName'] : 'custom';
-    w.emit(d, `<linematerial type="line" density="${node['lineDensity']}">${escapeXml(lname)}</linematerial>`);
+  const line = statedMaterial(node, MATERIAL_KEYS.line, false);
+  if (line) {
+    w.emit(d, `<linematerial type="line" density="${line.density}">${escapeXml(line.name)}</linematerial>`);
   } else {
     // The kernel's own line, the row `material` writes under <material>; a
     // parachute's line has a tag of its own, so the row is written from the
     // table here rather than through `material`.
-    const line = KERNEL_MATERIALS.line;
+    const kernelLine = KERNEL_MATERIALS.line;
     w.emit(
       d,
-      `<linematerial type="line" density="${line.density}" group="${line.group}">${escapeXml(line.name)}</linematerial>`,
+      `<linematerial type="line" density="${kernelLine.density}" group="${kernelLine.group}">${escapeXml(kernelLine.name)}</linematerial>`,
     );
   }
 };
@@ -434,9 +428,14 @@ const assemblyHead = (w: OrkWriter, node: ComponentNode, d: number, fallback: st
   // suppress for assemblies.
   const assembly = node.type === 'podset' ? KERNEL_DEFAULTS.podset : KERNEL_DEFAULTS.parallelstage;
   w.emit(d, `<instancecount>${num(node, 'instanceCount', assembly.instanceCount)}</instancecount>`);
-  const rMethod = node['radiusMethod'] === 'free' ? 'free' : 'relative';
+  // Every method the bridge builds, as the importer reads them back.
+  const rMethod = ['free', 'surface', 'coaxial'].includes(String(node['radiusMethod']))
+    ? String(node['radiusMethod'])
+    : 'relative';
   w.emit(d, `<radiusoffset method="${rMethod}">${num(node, 'radiusOffset', 0)}</radiusoffset>`); // meters
-  const aMethod = node['angleMethod'] === 'fixed' ? 'fixed' : 'relative';
+  const aMethod = ['fixed', 'mirror_xy'].includes(String(node['angleMethod']))
+    ? String(node['angleMethod'])
+    : 'relative';
   // angleOffset is stored in radians → degrees on disk (same as cant).
   w.emit(d, `<angleoffset method="${aMethod}">${(num(node, 'angleOffset', 0) * 180) / Math.PI}</angleoffset>`);
   position(w, d, node, 'bottom');

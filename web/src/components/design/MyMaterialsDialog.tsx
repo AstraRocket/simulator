@@ -1,11 +1,10 @@
 // cspell:ignore matedtpan -- desktop's MaterialEditPanel message keys
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { confirm } from '../../state/confirmStore';
-import { fireAction } from '../../state/fireAction';
 import { useWorkspaceStore } from '../../state/store';
 import { errorText } from '../../i18n/keyedError';
-import { partLabel } from '../../i18n/format';
+import { partLabel, fmtList } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { documentMaterialsOf, byNameThenDensity } from '../../services/materials/documentMaterials';
@@ -16,7 +15,7 @@ import {
   listCustom,
   onCustomMaterialsChanged,
 } from '../../services/materials/materials';
-import type { Material, MaterialType } from '../../services/materials/materialTypes';
+import { MATERIAL_TYPES, type Material, type MaterialType } from '../../services/materials/materialTypes';
 import { partsUsing } from '../../services/materials/materialEdits';
 import {
   deleteAllMaterials,
@@ -25,13 +24,11 @@ import {
   type DesignAccess,
   type ScopedMaterial,
 } from '../../services/materials/myMaterials';
-import { Dialog } from '../common/Dialog';
-import { MasterDetail, MasterRow, MasterStatus, useGuardedSelection } from '../common/MasterDetail';
+import { MasterDetail, MasterRow, useGuardedSelection, MasterDetailDialog } from '../common/MasterDetail';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { MaterialEditor } from './MaterialEditor';
 import { QUANTITY } from './materialUnits';
-
-const TYPES: MaterialType[] = ['bulk', 'surface', 'line'];
+import { smallButton } from '../common/smallButton';
 
 /** The selection token for the material being created, which has no key yet. */
 const NEW = 'new';
@@ -63,15 +60,10 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   const tree = useWorkspaceStore((s) => s.tree);
   const version = useSyncExternalStore(onCustomMaterialsChanged, customMaterialsVersion, customMaterialsVersion);
   const library = useAsyncLoad(listCustom, 'custom', { refresh: version });
-  const builtins = useAsyncLoad(() => Promise.all(TYPES.map(builtinsForType)), 'builtins');
-  const [err, setErr] = useState<string | null>(null);
-  const {
-    selectedId,
-    select: guardedSelect,
-    settle,
-    close: guardedClose,
-    onDirtyChange,
-  } = useGuardedSelection(t('myMaterials.discardConfirm'));
+  const builtins = useAsyncLoad(() => Promise.all(MATERIAL_TYPES.map(builtinsForType)), 'builtins');
+  const { selectedId, select, settle, close, onDirtyChange, err, setErr } = useGuardedSelection(
+    t('myMaterials.discardConfirm'),
+  );
 
   const designList = useMemo<ScopedMaterial[]>(
     () =>
@@ -98,10 +90,6 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
     return groupsOf(all.filter((m) => m.type === type));
   };
 
-  const select = async (id: string | null) => {
-    if (await guardedSelect(id)) setErr(null);
-  };
-
   const save = async (draft: ScopedMaterial): Promise<string | null> => {
     try {
       await saveMaterial(design, selected, draft);
@@ -118,7 +106,7 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
     const users = partsUsing(tree, m);
     if (m.scope === 'design' && users.length) {
       // Desktop refuses, naming the parts (matedtpan.dlg.RemoveUsedMaterial.Document).
-      setErr(t('myMaterials.deleteRefused', { name: m.name, parts: users.map((n) => partLabel(t, n)).join(', ') }));
+      setErr(t('myMaterials.deleteRefused', { name: m.name, parts: fmtList(users.map((n) => partLabel(t, n))) }));
       return;
     }
     const ok = await confirm({
@@ -156,17 +144,16 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   };
 
   const empty = designList.length === 0 && libraryList.length === 0;
-  const actionClass =
-    'rounded-md bg-raised px-2 py-1 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
+  const actionClass = smallButton('xs', 'ink');
 
   return (
-    <Dialog
+    <MasterDetailDialog
       id="myMaterials"
       title={t('myMaterials.title')}
-      onClose={() => fireAction(guardedClose(onClose))}
-      size="4xl"
-      layout="fill"
-      height={720}
+      onClose={onClose}
+      close={close}
+      err={err ?? library.error}
+      loading={library.loading && !library.data}
       actions={
         <div className="flex gap-2">
           <button onClick={() => void select(NEW)} className={actionClass}>
@@ -178,46 +165,41 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       }
-      footer={<MasterStatus err={err ?? library.error} />}
     >
-      {library.loading && !library.data ? (
-        <p className="grid flex-1 place-items-center p-6 text-sm text-ink-muted">{t('common.loading')}</p>
-      ) : (
-        <MasterDetail
-          showsDetail={showsDetail}
-          hint={t('myMaterials.pickHint')}
-          list={
-            empty ? (
-              // Reachable from the menu before anything is defined, so it says
-              // where custom materials come from rather than show a void.
-              <p className="p-6 text-center text-sm leading-snug text-ink-muted">{t('myMaterials.empty')}</p>
-            ) : (
-              <>
-                <Section title={t('material.inDesign')} list={designList} selectedId={selectedId} onSelect={select} />
-                <Section
-                  title={t('myMaterials.inBrowser')}
-                  list={libraryList}
-                  selectedId={selectedId}
-                  onSelect={select}
-                />
-              </>
-            )
-          }
-          detail={
-            <MaterialEditor
-              key={selectedId ?? NEW}
-              material={selected}
-              groups={groups}
-              usedBy={selected ? partsUsing(tree, selected).map((n) => partLabel(t, n)) : []}
-              onSave={save}
-              onDelete={selected ? () => void remove(selected) : undefined}
-              onDirtyChange={onDirtyChange}
-              onBack={() => void select(null)}
-            />
-          }
-        />
-      )}
-    </Dialog>
+      <MasterDetail
+        showsDetail={showsDetail}
+        hint={t('myMaterials.pickHint')}
+        list={
+          empty ? (
+            // Reachable from the menu before anything is defined, so it says
+            // where custom materials come from rather than show a void.
+            <p className="p-6 text-center text-sm leading-snug text-ink-muted">{t('myMaterials.empty')}</p>
+          ) : (
+            <>
+              <Section title={t('material.inDesign')} list={designList} selectedId={selectedId} onSelect={select} />
+              <Section
+                title={t('myMaterials.inBrowser')}
+                list={libraryList}
+                selectedId={selectedId}
+                onSelect={select}
+              />
+            </>
+          )
+        }
+        detail={
+          <MaterialEditor
+            key={selectedId ?? NEW}
+            material={selected}
+            groups={groups}
+            usedBy={selected ? partsUsing(tree, selected).map((n) => partLabel(t, n)) : []}
+            onSave={save}
+            onDelete={selected ? () => void remove(selected) : undefined}
+            onDirtyChange={onDirtyChange}
+            onBack={() => void select(null)}
+          />
+        }
+      />
+    </MasterDetailDialog>
   );
 }
 
@@ -231,7 +213,7 @@ function Section({
   title: string;
   list: ScopedMaterial[];
   selectedId: string | null;
-  onSelect: (id: string) => Promise<void>;
+  onSelect: (id: string) => Promise<unknown>;
 }) {
   const { t } = useTranslation();
   const u = useUnits();

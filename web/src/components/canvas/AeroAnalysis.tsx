@@ -19,6 +19,8 @@ import { Num, WorstButton } from './AeroInputs';
 import { Segmented } from '../common/Segmented';
 import { CATEGORICAL } from '../common/chartPalette';
 import type { AeroPane } from '../../state/tabs';
+import { roundTo } from '../../services/app/numbers';
+import { smallButton } from '../common/smallButton';
 
 /**
  * Aerodynamic analysis (RASAero-style "Aero Plots"). Two panes
@@ -214,7 +216,7 @@ export function AeroAnalysis() {
           }
           title={t('aero.exportCsv')}
           aria-label={t('aero.exportCsv')}
-          className="rounded-md bg-raised px-2 py-1 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
+          className={smallButton('chip', 'ink')}
         >
           <span aria-hidden>⬇</span> CSV
         </button>
@@ -244,7 +246,7 @@ export function AeroAnalysis() {
             unit={angle.sym}
           />
           <WorstButton
-            worst={rocket ? () => Math.round(rocket.worstThetaDeg(pick, aoaDeg) * 10) / 10 : null}
+            worst={rocket ? () => roundTo(rocket.worstThetaDeg(pick, aoaDeg), 1) : null}
             onWorst={setThetaDeg}
           />
         </div>

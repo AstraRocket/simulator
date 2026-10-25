@@ -1,7 +1,8 @@
 import type { LaunchConditions } from '../design/orkTree';
-import { padLevelWind } from './windLevels';
+import { surfaceWind } from './windLevels';
 import { fmtUpTo, ladderDigits, withUnit } from '../../i18n/format';
-import { degToRad, type Quantity, siToUi, uiToSi, type UnitSymbols } from '../../prefs/units';
+import { degToRad, type Quantity, siToUi, uiToSi, unitScope, type UnitSymbols } from '../../prefs/units';
+import { LIMIT_FIELD } from '../../prefs/launchUnits';
 import type { PowerClass } from './powerClass';
 import type { LauncherKind } from '../design/launcher';
 import { keyedText, type Keyed } from '../../i18n/keyedError';
@@ -73,7 +74,7 @@ export interface LimitViolation {
  * as its magnitude, so it is judged as one.
  */
 function surfaceWindMs(launch: LaunchConditions): number {
-  return padLevelWind(launch)?.speedMs ?? Math.abs(launch.windAverage ?? 0);
+  return surfaceWind(launch).speedMs;
 }
 
 /**
@@ -119,7 +120,8 @@ export function launchLimitViolations(launch: LaunchConditions, cls: PowerClass)
  */
 export function limitNote(v: LimitViolation, u: UnitSymbols, launcher: LauncherKind | null = null): Keyed {
   const quantity: Quantity = v.field === 'rodAngle' ? 'angle' : 'windspeed';
-  const sym = u.sym(quantity);
+  // The field's own unit, as the hint under its box quotes the same cap.
+  const sym = u.sym(quantity, unitScope('launch', LIMIT_FIELD[v.field]));
   const ui = (si: number) => siToUi(quantity, sym, si);
   // One precision for both numbers, taken from the larger: "30.4°" beside
   // "20.0°" in the same sentence reads as two rules stated to different

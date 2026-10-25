@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import i18n from '../../i18n';
+import { errorText } from '../../i18n/keyedError';
 import { useLatest } from '../common/useLatest';
 import { getLaunchLocationStore, type LaunchLocation } from '../../services/storage/launchLocationStore';
 
@@ -18,10 +20,23 @@ import { getLaunchLocationStore, type LaunchLocation } from '../../services/stor
  *
  * `null` means not read yet, which is how the manage dialog tells an empty list
  * apart from an unread one and avoids flashing its "no saved locations" card at
- * somebody who has several.
+ * somebody who has several. A first read that fails is reported in `error`, as
+ * Custom Materials reports its own, rather than read as no locations; a read
+ * that succeeds clears it.
+ *
+ * `write` is how both callers save or delete: the write, then a fresh read, and
+ * a refused write said in the caller's status line (`setErr`) rather than left
+ * as a list that simply does not hold what was just saved. It resolves whether
+ * the write went through, so the dialog can move its selection after it.
  */
-export function useLocationList(): { locations: LaunchLocation[] | null; refresh: () => Promise<void> } {
+export function useLocationList(): {
+  locations: LaunchLocation[] | null;
+  error: string | null;
+  refresh: () => Promise<void>;
+  write: (fn: () => Promise<void>, setErr: (err: string | null) => void) => Promise<boolean>;
+} {
   const [locations, setPads] = useState<LaunchLocation[] | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
 
   /** Which read is the current one; an older answer, or one after unmount, is dropped. */
   const { claim } = useLatest();
@@ -29,19 +44,39 @@ export function useLocationList(): { locations: LaunchLocation[] | null; refresh
   const refresh = useCallback(async () => {
     const mine = claim();
     const list = await getLaunchLocationStore().list();
-    if (mine()) setPads(list);
+    if (mine()) {
+      setPads(list);
+      setFailure(null);
+    }
   }, [claim]);
 
-  // The first read, with an empty list as its fallback. A caller's `refresh`
-  // rejects to that caller instead.
+  const write = async (fn: () => Promise<void>, setErr: (err: string | null) => void): Promise<boolean> => {
+    setErr(null);
+    try {
+      await fn();
+      await refresh();
+      return true;
+    } catch {
+      setErr(i18n.t('location.saveFailed'));
+      return false;
+    }
+  };
+
+  // The first read, with an empty list and the failure as its fallback. A
+  // caller's `refresh` rejects to that caller instead.
   useEffect(() => {
     const mine = claim();
     // Async, so a store that throws synchronously still lands in the fallback.
     void (async () => getLaunchLocationStore().list())().then(
       (list) => mine() && setPads(list),
-      () => mine() && setPads([]),
+      (e: unknown) => {
+        if (!mine()) return;
+        setPads([]);
+        setFailure(e ?? new Error());
+      },
     );
   }, [claim]);
 
-  return { locations, refresh };
+  // Worded on every render, so it follows a language switch.
+  return { locations, error: failure === null ? null : errorText(failure, i18n.t), refresh, write };
 }

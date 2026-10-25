@@ -1,4 +1,47 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+} from 'react';
+import { useLatestRef } from './useLatestRef';
+
+/**
+ * While `open`, a pointer press outside `wrapRef` closes the popover, and Escape
+ * closes it and returns focus to `returnRef`: focus left on the body makes a
+ * popover a dead end, since Tab restarts from the top of the document. Escape
+ * is taken in the capture phase and marked handled (`defaultPrevented`), so a
+ * window listener that also answers Escape can tell the key was spent. The
+ * menu button popover and the checkbox dropdown both close this way.
+ */
+export function usePopoverDismiss(
+  open: boolean,
+  close: () => void,
+  wrapRef: RefObject<Element | null>,
+  returnRef: RefObject<HTMLElement | null>,
+): void {
+  const closeRef = useLatestRef(close);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) closeRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      closeRef.current();
+      returnRef.current?.focus();
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [open, wrapRef, returnRef, closeRef]);
+}
 
 /** Every menu item role: plain, radio and checkbox items all take part in the roving focus. */
 const MENU_ITEMS = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
@@ -39,24 +82,7 @@ export function useMenuPopover<T extends HTMLElement = HTMLButtonElement>({
   const triggerRef = useRef<T>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      setOpen(false);
-      triggerRef.current?.focus();
-    };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey, true);
-    };
-  }, [open]);
+  usePopoverDismiss(open, () => setOpen(false), wrapRef, triggerRef);
 
   // On open, focus goes to the first item, unless it is already inside.
   useEffect(() => {

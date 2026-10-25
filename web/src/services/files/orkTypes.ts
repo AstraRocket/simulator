@@ -6,6 +6,7 @@ import type { EmbeddedMotorFile } from './ork/embeddedMotors';
 import type { ImportNote } from './importNote';
 import type { SimPrefs } from '../flight/simulations';
 import type { ComponentFigures } from './rktExport';
+import { uuid } from '../app/uuid';
 
 /**
  * The simulation preferences a `.ork` states in every simulation's
@@ -275,4 +276,22 @@ export interface OrkTreeExportInput {
    * `auto`.
    */
   componentInfo?: ComponentFigures;
+}
+
+/**
+ * A configuration the importer mints: the file's default one when it declares
+ * none, or the one that grounds stages a `.rkt` reader dropped. Unnamed,
+ * nothing loaded or overridden unless `partial` says so.
+ */
+export function defaultOrkConfig(partial: Partial<OrkFlightConfig> = {}): OrkFlightConfig {
+  return {
+    id: uuid(),
+    name: null,
+    isDefault: true,
+    motors: {},
+    deployments: {},
+    separations: {},
+    grounded: [],
+    ...partial,
+  };
 }

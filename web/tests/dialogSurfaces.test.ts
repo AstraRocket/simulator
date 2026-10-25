@@ -14,10 +14,16 @@ import { DIALOG_SURFACES } from '../e2e/dialogSurfaces';
  * a JSX tag, not an import.
  */
 const web = fileURLToPath(new URL('..', import.meta.url));
-const SHELL = /<(?:Dialog|AlertDialog)[\s>/]/g;
+const SHELL = /<(?:Dialog|AlertDialog|MasterDetailDialog)[\s>/]/g;
+/**
+ * Files that define a shell over `<Dialog>` rather than open a dialog of their
+ * own: their users render the wrapper, and are the dialogs on the list.
+ */
+const WRAPPERS = new Set(['MasterDetail']);
 
 const rendered: Record<string, number> = {};
 for (const file of globSync('src/**/*.tsx', { cwd: web })) {
+  if (WRAPPERS.has(basename(file, '.tsx'))) continue;
   const count = readFileSync(`${web}${file}`, 'utf8').match(SHELL)?.length ?? 0;
   if (count > 0) rendered[basename(file, '.tsx')] = count;
 }

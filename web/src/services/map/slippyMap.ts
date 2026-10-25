@@ -12,7 +12,18 @@
  */
 import i18n from '../../i18n';
 import { fmtNum } from '../../i18n/format';
-import { degToRad } from '../../prefs/units';
+import { degToRad, radToDeg } from '../../prefs/units';
+import { roundTo } from '../app/numbers';
+
+/**
+ * Decimal places a picked or shown coordinate keeps: four, about 11 m, finer
+ * than a launch site needs and coarse enough to read. A map pick, "use my
+ * location" and the coordinate readouts all keep this many.
+ */
+const COORD_PLACES = 4;
+
+/** A picked coordinate (degrees) rounded to {@link COORD_PLACES}. */
+export const roundCoord = (deg: number): number => roundTo(deg, COORD_PLACES);
 
 /** Every source below serves 256px tiles. */
 export const TILE_SIZE = 256;
@@ -95,7 +106,7 @@ export function lonToTileX(lonDeg: number, zoom: number): number {
 
 /** Fractional tile Y of a latitude, clamped to the projection's limit. */
 export function latToTileY(latDeg: number, zoom: number): number {
-  const lat = (Math.max(-MAX_LAT, Math.min(MAX_LAT, latDeg)) * Math.PI) / 180;
+  const lat = degToRad(Math.max(-MAX_LAT, Math.min(MAX_LAT, latDeg)));
   return ((1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2) * 2 ** zoom;
 }
 
@@ -105,7 +116,25 @@ export function tileXToLon(x: number, zoom: number): number {
 
 export function tileYToLat(y: number, zoom: number): number {
   const n = Math.PI * (1 - (2 * y) / 2 ** zoom);
-  return (Math.atan(Math.sinh(n)) * 180) / Math.PI;
+  return radToDeg(Math.atan(Math.sinh(n)));
+}
+
+/** A map view: the center it shows and its zoom. */
+export interface MapView {
+  lat: number;
+  lon: number;
+  zoom: number;
+}
+
+/**
+ * The view moved by a screen offset: its center goes `dx` pixels east and `dy`
+ * south. Longitude wraps, since the world repeats east-west; the tile row is
+ * clamped rather than wrapped, since there is nothing above a pole to pan onto.
+ */
+export function panView(v: MapView, dx: number, dy: number): MapView {
+  const cx = lonToTileX(v.lon, v.zoom) + dx / TILE_SIZE;
+  const cy = Math.max(0, Math.min(2 ** v.zoom, latToTileY(v.lat, v.zoom) + dy / TILE_SIZE));
+  return { lat: tileYToLat(cy, v.zoom), lon: normalizeLon(tileXToLon(cx, v.zoom)), zoom: v.zoom };
 }
 
 /**
@@ -139,12 +168,12 @@ export function normalizeLon(lonDeg: number): number {
  * The error the site map exists to catch is a dropped minus sign, and
  * "104.8000° W" is harder to misread than "-104.8000".
  */
-export function formatLat(latDeg: number, places = 4): string {
+export function formatLat(latDeg: number, places = COORD_PLACES): string {
   return `${fmtNum(Math.abs(latDeg), places)}° ${latHemisphere(latDeg)}`;
 }
 
 /** A longitude, the same way as {@link formatLat}. */
-export function formatLon(lonDeg: number, places = 4): string {
+export function formatLon(lonDeg: number, places = COORD_PLACES): string {
   return `${fmtNum(Math.abs(lonDeg), places)}° ${lonHemisphere(lonDeg)}`;
 }
 
@@ -155,7 +184,7 @@ export const latHemisphere = (latDeg: number): string => i18n.t(latDeg < 0 ? 'ma
 export const lonHemisphere = (lonDeg: number): string => i18n.t(lonDeg < 0 ? 'map.hemisphereW' : 'map.hemisphereE');
 
 /** A latitude and longitude pair. */
-export function formatCoord(latDeg: number, lonDeg: number, places = 4): string {
+export function formatCoord(latDeg: number, lonDeg: number, places = COORD_PLACES): string {
   return `${formatLat(latDeg, places)}, ${formatLon(lonDeg, places)}`;
 }
 

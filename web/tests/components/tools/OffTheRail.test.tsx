@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 
 const fetchSurfaceWind = vi.hoisted(() => vi.fn());
 vi.mock('../../../src/services/tools/surfaceWind', async (orig) => ({
@@ -16,14 +16,21 @@ beforeEach(() => {
   fetchSurfaceWind.mockReset();
 });
 
-/** A failed wind fetch is announced, not only drawn in red. */
+/** The status lines that have something to say. */
+const spoken = () => screen.getAllByRole('status').filter((s) => s.textContent);
+
+/**
+ * A failed wind fetch is announced in the status line the other forecast tools
+ * use: always mounted, so a screen reader speaks the text when it appears,
+ * which a live region created together with its text does not.
+ */
 describe('OffTheRail wind fetch', () => {
-  it('raises the failure as an alert', async () => {
+  it('reports the failure in its always-mounted status line', async () => {
     fetchSurfaceWind.mockRejectedValue(new Error('forecast service down'));
     renderWithProviders(<OffTheRail />);
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(spoken()).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Get the forecast wind' }));
-    expect(await screen.findByRole('alert')).toBeTruthy();
+    await waitFor(() => expect(spoken()).toHaveLength(1));
   });
 });
 
@@ -66,7 +73,7 @@ describe('OffTheRail site elevation', () => {
     fetchSurfaceWind.mockResolvedValue('noElevation');
     renderWithProviders(<OffTheRail />);
     fireEvent.click(screen.getByRole('button', { name: 'Get the forecast wind' }));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/elevation/);
+    await waitFor(() => expect(spoken()[0]?.textContent).toMatch(/elevation/));
   });
 });
 

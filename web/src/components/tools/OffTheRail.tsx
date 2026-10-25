@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { defaultToolSite, rememberedSlot, useRemembered } from './remembered';
+import { rememberedSlot, useForecastFields, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { fmtDegrees, useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { useSettings } from '../../state/SettingsProvider';
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import { fmtNum, fmtSiteTime, withUnit } from '../../i18n/format';
-import { hourInZone, nextHourMs, todayYmd, ymdInZone } from '../../services/weather/openMeteo';
+import { todayYmd } from '../../services/weather/openMeteo';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import {
   maxDryMassKg,
@@ -24,12 +24,13 @@ import { SiteFields, toolBtn, type ToolSite } from './SiteFields';
 import { WhenFields } from '../sim/WhenFields';
 import { CardGroup } from '../common/CardGroup';
 import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
-import { weatherErrorText } from '../../services/weather/weatherErrorText';
 import { roundTo } from '../../services/app/numbers';
-import { useLatest } from '../common/useLatest';
-import { motorName } from '../../services/motors/motorName';
+import { motorFullName } from '../../services/motors/motorName';
 import { useEngineStore } from '../../state/engineStore';
 import { useOnline } from '../common/useOnline';
+import { StatusLine } from '../common/StatusLine';
+import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
+import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
 /**
  * Off the rail, for a rocket that has not been designed here: a motor from the
@@ -49,11 +50,7 @@ interface FetchedFor {
   windMs: number;
 }
 
-type Fetch =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; wind: SurfaceWind; for: FetchedFor };
+type Fetch = ForecastState<{ wind: SurfaceWind; for: FetchedFor }>;
 
 interface Remembered {
   motor: MotorSpec | null;
@@ -83,16 +80,14 @@ export function OffTheRail() {
   const [dryMassKg, setDryMassKg] = useRemembered(remembered, 'dryMassKg', 0.5);
   const [railLengthM, setRailLengthM] = useRemembered(remembered, 'railLengthM', defaults.launchRodLengthM ?? 1);
   const [windMs, setWindMs] = useRemembered(remembered, 'windMs', 4);
-  const [site, setSite] = useRemembered(remembered, 'site', defaultToolSite(defaults));
-  const [date, setDate] = useRemembered(remembered, 'date', ymdInZone(nextHourMs(), undefined));
-  const [hour, setHour] = useRemembered(remembered, 'hour', hourInZone(nextHourMs(), undefined));
+  const { site, setSite, date, setDate, hour, setHour } = useForecastFields(remembered, defaults);
   // A request still out when the tab closed was aborted, so it comes back idle.
   const [fetched, setFetched] = useRemembered(remembered, 'fetched', { kind: 'idle' }, (f): Fetch =>
     f.kind === 'loading' ? { kind: 'idle' } : f,
   );
   const [motorOpen, setMotorOpen] = useState(false);
   const [motorError, setMotorError] = useState<string | null>(null);
-  const request = useLatest();
+  const windRequest = useForecastRequest();
   // The average thrust to weight is the kernel's average thrust, null until the
   // engine has loaded; reading the phase re-renders the figures when it does.
   useEngineStore((s) => s.phase);
@@ -100,37 +95,27 @@ export function OffTheRail() {
   const getWind = async () => {
     const { latitudeDeg, longitudeDeg, launchAltitudeM } = site;
     if (latitudeDeg == null || longitudeDeg == null) return;
-    const signal = request.claimSignal();
-    setFetched({ kind: 'loading' });
-    try {
-      const wind = await fetchSurfaceWind(
-        {
-          latitudeDeg,
-          longitudeDeg,
-          siteM: launchAltitudeM,
-          date,
-          hour,
-          today: todayYmd(),
-          apiKey: readWeatherKey(),
-        },
-        { signal },
-      );
-      if (signal.aborted) return;
-      if (wind === 'noHour' || wind === 'noElevation') {
-        setFetched({ kind: 'error', message: t(wind === 'noHour' ? 'weather.noHour' : 'weather.needElevation') });
-        return;
-      }
-      const speed = roundTo(wind.speedMs, 1);
-      setFetched({
-        kind: 'ready',
-        wind,
-        for: { latitudeDeg, longitudeDeg, launchAltitudeM, date, hour, windMs: speed },
-      });
-      setWindMs(speed);
-    } catch (err) {
-      if (signal.aborted) return;
-      setFetched({ kind: 'error', message: weatherErrorText(err, t) });
-    }
+    const wind = await windRequest.run(
+      setFetched,
+      (signal) =>
+        fetchSurfaceWind(
+          {
+            latitudeDeg,
+            longitudeDeg,
+            siteM: launchAltitudeM,
+            date,
+            hour,
+            today: todayYmd(),
+            apiKey: readWeatherKey(),
+          },
+          { signal },
+        ),
+      (w) => ({
+        wind: w,
+        for: { latitudeDeg, longitudeDeg, launchAltitudeM, date, hour, windMs: roundTo(w.speedMs, 1) },
+      }),
+    );
+    if (wind) setWindMs(roundTo(wind.speedMs, 1));
   };
 
   const ready = motor != null && dryMassKg != null && dryMassKg >= 0 && railLengthM != null && railLengthM > 0;
@@ -172,27 +157,18 @@ export function OffTheRail() {
   const validTime = forecast ? fmtSiteTime(forecast.validUnix * 1000, forecast.answer.timezone, { year: false }) : '';
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,28rem)]">
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">{t('rail.title')}</h2>
-          <p className="mt-1 text-xs text-ink-muted">{t('rail.intro')}</p>
-        </div>
-
+    <ToolLayout>
+      <ToolForm title={t('rail.title')} intro={t('rail.intro')}>
         <CardGroup title={t('rail.motor')}>
           <div className="flex items-center justify-between gap-3">
             <span className="min-w-0 truncate text-sm text-ink">
-              {motor ? `${motor.manufacturer ? `${motor.manufacturer} ` : ''}${motorName(motor)}` : t('rail.noMotor')}
+              {motor ? motorFullName(motor) : t('rail.noMotor')}
             </span>
             <button className={toolBtn} onClick={() => setMotorOpen(true)}>
               {motor ? t('sims.changeMotor') : t('rail.chooseMotor')}
             </button>
           </div>
-          {motorError && (
-            <p role="alert" className="text-xs text-error-400">
-              {motorError}
-            </p>
-          )}
+          <StatusLine tone="danger">{motorError}</StatusLine>
         </CardGroup>
 
         <CardGroup title={t('rail.rocket')}>
@@ -252,11 +228,9 @@ export function OffTheRail() {
               >
                 {fetched.kind === 'loading' ? t('rail.fetching') : t('rail.fetchWind')}
               </button>
-              {fetched.kind === 'error' && (
-                <p role="alert" className="text-xs text-error-400">
-                  {fetched.message}
-                </p>
-              )}
+              {/* The status line the other forecast tools use: always mounted, so
+                  the failure is announced when it appears. */}
+              <StatusLine tone="warn">{fetched.kind === 'error' ? fetched.message : null}</StatusLine>
               {forecast && (
                 <>
                   <p className="text-xs text-ink-muted">
@@ -272,9 +246,9 @@ export function OffTheRail() {
             </div>
           </details>
         </CardGroup>
-      </div>
+      </ToolForm>
 
-      <section className="h-fit rounded-xl bg-surface p-3 ring-1 ring-line/10" aria-label={t('rail.result')}>
+      <ToolResultCard label={t('rail.result')}>
         {!ready ? (
           <p className="text-xs text-ink-muted">{t('rail.empty')}</p>
         ) : exit === 'noLiftoff' ? (
@@ -328,7 +302,7 @@ export function OffTheRail() {
             <p className="text-[11px] text-ink-faint">{t('rail.estimateNote')}</p>
           </div>
         ) : null}
-      </section>
+      </ToolResultCard>
 
       {motorOpen && (
         <MotorDialog
@@ -343,7 +317,7 @@ export function OffTheRail() {
           current={motor}
         />
       )}
-    </div>
+    </ToolLayout>
   );
 }
 

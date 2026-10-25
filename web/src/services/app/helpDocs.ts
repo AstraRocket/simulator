@@ -37,7 +37,7 @@ export interface HelpTarget {
 }
 
 /** `'a/b#c'` into its slug and its anchor. */
-function splitPage(page: string): { slug: string; hash: string } {
+export function splitPage(page: string): { slug: string; hash: string } {
   const at = page.indexOf('#');
   return at < 0 ? { slug: page, hash: '' } : { slug: page.slice(0, at), hash: page.slice(at) };
 }

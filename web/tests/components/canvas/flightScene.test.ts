@@ -159,6 +159,34 @@ describe('callouts', () => {
   });
 });
 
+/**
+ * An ejection charge is not a deployment. The kernel records a booster's charge
+ * in the sustainer's flight at booster burnout, and a charge with nothing to
+ * open leaves the rocket flying forward, so the model turns over at apogee when
+ * no deployment is recorded, as the flight chart's aero window ends there
+ * (`forwardFlightEnd`).
+ */
+describe('an ejection charge with no deployment', () => {
+  const s = buildFlightScene(
+    result({
+      ...arc(),
+      events: [
+        { type: 'EJECTION_CHARGE', time: 2 },
+        { type: 'APOGEE', time: 5 },
+      ],
+    }),
+    phase,
+  );
+
+  it('turns the model over at apogee, not at the charge', () => {
+    expect(s.deployT).toBe(5);
+  });
+
+  it('marks no deployment', () => {
+    expect(s.callouts.map((c) => c.type)).not.toContain('RECOVERY_DEVICE_DEPLOYMENT');
+  });
+});
+
 describe('scaling', () => {
   it('normalizes peak altitude to 24 scene units', () => {
     const s = buildFlightScene(result({ ...arc() }), phase);

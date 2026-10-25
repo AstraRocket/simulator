@@ -125,7 +125,10 @@ export default tseslint.config(
       // has no form for.
       'jsx-a11y-x/no-autofocus': 'off',
       // NumberInput renders an <input>, so a label wrapping it is labeled.
-      'jsx-a11y-x/label-has-associated-control': ['error', { controlComponents: ['NumberInput'], depth: 3 }],
+      'jsx-a11y-x/label-has-associated-control': [
+        'error',
+        { controlComponents: ['NumberInput', 'NumberWithUnit'], depth: 3 },
+      ],
     },
   },
   {

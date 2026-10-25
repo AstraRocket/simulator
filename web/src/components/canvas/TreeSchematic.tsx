@@ -1,8 +1,9 @@
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
+import type { ComponentNode, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
+import { partLabel, tickDigits } from '../../i18n/format';
 import type { ExportData } from '../../services/exports/schematicExport.js';
 import {
   computeSchematicLayout,
@@ -16,10 +17,11 @@ import {
   MAX_ZOOM,
   WHEEL_ZOOM_FACTOR,
   type MotorDims,
+  isZoomIdentity,
 } from '../../tree/schematicGeometry';
 import { buildSchematicShapes } from './schematicShapes';
 import { useWheelZoom } from './useWheelZoom';
-import { keyPan } from './keyPan';
+import { zoomSurfaceProps } from './keyPan';
 import { HorizontalCaliper, VerticalCaliper } from './SchematicCalipers';
 import { SchematicControls } from './SchematicControls';
 import { HoverOverlay, StabilityOverlay } from './SchematicOverlay';
@@ -80,7 +82,7 @@ export function TreeSchematic({
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   /** When set, the SVG / image export buttons appear. */
-  exportData?: Omit<ExportData, 'spanM'>;
+  exportData?: ExportData;
   /**
    * Reports an export failure to the caller's note channel. Rasterizing really
    * can fail (svgToImage rejects from img.onerror, and a big rocket at 7680px
@@ -287,9 +289,10 @@ export function TreeSchematic({
   // Namespaces this instance's clipPath ids so two schematics sharing a document
   // can't cross-clip (url(#id) resolves to the first match in the document).
   const uid = useId().replace(/:/g, '');
-  // Unnamed parts print the tree panel's translated type name, not the schema's
-  // English label, so the hover tag and <title> read the same as the tree.
-  const partName = useCallback((n: { type: string }) => t(`part.${n.type}`), [t]);
+  // A part is named as every view names it (its own name, trimmed, else the
+  // tree panel's translated type), so the hover tag and <title> read the same
+  // as the tree, the aft view and the reports.
+  const partName = useCallback((n: ComponentNode) => partLabel(t, n), [t]);
   // The internal parts' type tags are drawing text, carried into the exports.
   const typeTag = useCallback((type: string) => t(`schematic.tag.${type}`), [t]);
   // The whole SVG scene: every part outline, wire, clip path and clip def.
@@ -328,7 +331,7 @@ export function TreeSchematic({
   // Rulers only at the default fit (a pan/zoom would slide them off scale). Each
   // side is toggled independently; length (top/bottom) and radial (left/right)
   // marks are computed if either ruler of that pair is on.
-  const rulersActive = zoom.k === 1 && zoom.x === 0 && zoom.y === 0;
+  const rulersActive = isZoomIdentity(zoom);
   const showLen = rulersActive && (rulers.top || rulers.bottom);
   const showRad = rulersActive && (rulers.left || rulers.right);
   // Labeled majors are dense: about one per 22 screen px at least (rounded up
@@ -336,8 +339,9 @@ export function TreeSchematic({
   // real drafting ruler rather than a handful of marks across the canvas.
   const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / scale));
   const rulerStep = u.fromUi('length', rulerStepUi);
-  // Enough decimals to tell one graduation from the next, and no more.
-  const rulerDigits = rulerStepUi >= 1 ? 0 : rulerStepUi >= 0.1 ? 1 : 2;
+  // Enough decimals to tell one graduation from the next, and no more: the
+  // step's own, so a 2.5 step labels 2.5 and 7.5 rather than 3 and 8.
+  const rulerDigits = tickDigits(rulerStepUi, 0, 3);
   // Each ruler stops a few px short of the corner where it would meet another,
   // so the frame reads as four separate rules rather than one welded box. A
   // ruler that instead runs to the viewport edge (its neighbor is off) keeps no
@@ -383,7 +387,6 @@ export function TreeSchematic({
       scale={scale}
       w={w}
       h={h}
-      vHalf={vHalf}
       totalLen={totalLen}
       maxR={maxR}
       caliperH={caliperH}
@@ -396,32 +399,17 @@ export function TreeSchematic({
     />
   );
 
+  const surface = zoomSurfaceProps(zoom, setZoom, w, t('schematic.sideAria'), t('schematic.panHint'));
   return (
     <div ref={wrapRef} style={{ position: 'relative', ...(fillHeight ? { height: '100%' } : null) }}>
+      {/* No role="img": it would tell assistive tech the whole SVG is a single
+          static image and hide every clickable component. (Keyboard selection
+          lives in the component tree, which is focusable.) */}
       <svg
         ref={svgRef}
         viewBox={`0 0 ${w} ${h}`}
-        style={{
-          width: '100%',
-          height: 'auto',
-          display: 'block',
-          touchAction: 'none',
-          cursor: zoom.k > 1 ? 'grab' : undefined,
-        }}
-        // No role="img": it would tell assistive tech the whole SVG is a single
-        // static image and hide every clickable component. (Keyboard selection
-        // lives in the component tree, which is focusable.)
-        aria-label={zoom.k > 1 ? `${t('schematic.sideAria')}. ${t('schematic.panHint')}` : t('schematic.sideAria')}
-        // Zoomed in, the drawing takes focus so the arrows can pan it: a drag
-        // is otherwise the only way to bring the nose or the fins into view.
-        tabIndex={zoom.k > 1 ? 0 : undefined}
-        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
-        onKeyDown={(e) => {
-          const next = keyPan(zoom, e.key, e.shiftKey, w);
-          if (!next) return;
-          e.preventDefault();
-          setZoom(next);
-        }}
+        {...surface}
+        style={{ width: '100%', height: 'auto', display: 'block', ...surface.style }}
         onPointerDown={beginPan}
         onPointerMove={onMove}
         onPointerUp={endDrag}

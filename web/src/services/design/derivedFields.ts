@@ -1,5 +1,6 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { num } from '../../tree/nodeProps';
+import { degToRad } from '../../prefs/units';
 
 /**
  * Second doors onto numbers a part already stores.
@@ -25,7 +26,7 @@ import { num } from '../../tree/nodeProps';
  */
 
 /** `TrapezoidFinSet.MAX_SWEEP_ANGLE`: 89 degrees, not 90, so the tangent is finite. */
-export const MAX_SWEEP_ANGLE = (89 * Math.PI) / 180;
+export const MAX_SWEEP_ANGLE = degToRad(89);
 
 /** `MassComponent.setDensity` clamps the mass it computes to this. */
 const MAX_MASS = 1_000_000;

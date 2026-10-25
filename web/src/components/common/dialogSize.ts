@@ -1,5 +1,6 @@
 import { nsKey } from '../../services/storage/storageKeys';
 import { readLocalJson, writeLocalJson } from '../../services/storage/localPref';
+import { withKey } from '../../services/app/objectKeys';
 /**
  * Dialog widths, and the user's choice to expand one.
  *
@@ -98,11 +99,8 @@ export function readExpanded(id: string): boolean {
 }
 
 export function writeExpanded(id: string, expanded: boolean): void {
-  const map = { ...readLocalJson(KEY, isFlagMap, {}) };
   // Only the expanded ones are stored, so the key does not grow a `false` for
   // every dialog the user ever opened and collapsed again. A preference that
   // cannot be saved is not a reason to refuse the resize, so a refusal is ignored.
-  if (expanded) map[id] = true;
-  else delete map[id];
-  writeLocalJson(KEY, map);
+  writeLocalJson(KEY, withKey(readLocalJson(KEY, isFlagMap, {}), id, expanded ? true : null));
 }

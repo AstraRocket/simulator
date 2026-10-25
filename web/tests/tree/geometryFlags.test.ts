@@ -19,6 +19,9 @@ import { solidFor } from '../../src/services/exports/rocketPrintExport';
 import { componentToDxf } from '../../src/services/exports/dxfExport';
 import { exportRkt } from '../../src/services/files/rktExport';
 import { syncDerived } from '../../src/services/design/treeEdit';
+import { exportOnshape } from '../../src/services/files/onshapeExport';
+import { exportCdx1 } from '../../src/services/files/rasaeroExport';
+import { fitContextFor } from '../../src/services/parts/componentFit';
 
 /**
  * Every flag that changes a part's shape, against every reader that draws,
@@ -149,6 +152,17 @@ const READERS: Record<string, Reader> = {
   // Every part of the design, so a ring cut to fit inside the flagged part is read too.
   DXF: (tree) => walkIds(tree.components).map((id) => componentToDxf(tree, id)),
   'RockSim export': (tree) => exportRkt('t', tree).xml,
+  'Onshape export': (tree) => exportOnshape({ name: 't', tree }),
+  // A design RASAero cannot hold is refused by key; the refusal is the output.
+  'RASAero export': (tree) => {
+    try {
+      return exportCdx1({ name: 't', tree });
+    } catch (e) {
+      return `refused: ${(e as { key?: string }).key ?? String(e)}`;
+    }
+  },
+  // The diameters the parts picker offers a part, matched to its neighbors.
+  'part fitting': (tree, node) => round(fitContextFor(tree, node.id ?? null)),
 };
 
 /**
@@ -164,6 +178,7 @@ interface Flag {
   like?: string;
   reads?: string;
   inPod?: true;
+  inParallel?: true;
 }
 
 const NOSE: ComponentNode = {
@@ -240,6 +255,26 @@ const FLAGS: Flag[] = [
   },
   // A flag on a part inside a pod set, which readers reach through the assembly.
   { name: 'flipped nose cone in a pod', part: NOSE, on: { flipped: true }, like: 'flipped nose cone', inPod: true },
+  {
+    name: 'flipped nose cone in a parallel stage',
+    part: NOSE,
+    on: { flipped: true },
+    like: 'flipped nose cone',
+    inParallel: true,
+  },
+  // The shoulder moves to the fore end with the base.
+  {
+    name: 'flipped shouldered nose cone',
+    part: { ...NOSE, shoulderLength: 0.03, shoulderRadius: 0.023, shoulderThickness: 0.002 } as ComponentNode,
+    on: { flipped: true },
+    like: 'flipped nose cone',
+  },
+  {
+    name: 'unclipped power transition',
+    part: { ...TRANSITION, shape: 'power', shapeParameter: 0.5 } as ComponentNode,
+    on: { clipped: false },
+    like: 'unclipped transition',
+  },
   // One flag toggled with another already set: a reader that handles each
   // alone can still let one mask the other.
   {
@@ -317,6 +352,41 @@ const UNAFFECTED: Record<string, string> = {
   'unclipped transition / disc geometry': 'the ends and the wall, which clipping does not change',
   'unclipped transition / PDF parts table': 'lists the ends and the length, which clipping does not change',
   'flipped filled nose cone / disc geometry': 'a filled part has no bore at either end',
+  // RASAero's parts are outside shapes, and its transitions are cones only
+  // (desktop's TransitionDTO refuses any other shape).
+  ...Object.fromEntries(
+    ['filled nose cone', 'filled transition', 'filled body tube', 'filled body tube holding a ring'].map((flag) => [
+      `${flag} / RASAero export`,
+      'RASAero describes the outside shape only, which a filled part keeps',
+    ]),
+  ),
+  ...Object.fromEntries(
+    [
+      'unclipped transition',
+      'shape parameter on a transition',
+      'unclipped haack transition',
+      'unclipped power transition',
+    ].map((flag) => [`${flag} / RASAero export`, 'a transition that is not conical is refused, clipped or not']),
+  ),
+  ...Object.fromEntries(
+    ['flipped nose cone in a pod', 'flipped nose cone in a parallel stage'].map((flag) => [
+      `${flag} / RASAero export`,
+      'a pod set or parallel stage is refused whatever it holds',
+    ]),
+  ),
+  // The picker matches a part's end diameters to its neighbors' (desktop's
+  // ComponentPresetChooserDialog); a wall, a fill, a clip or a shape parameter
+  // leaves both ends where they were.
+  ...Object.fromEntries(
+    [
+      'filled nose cone',
+      'filled transition',
+      'filled body tube',
+      'unclipped transition',
+      'shape parameter on a nose cone',
+      'shape parameter on a transition',
+    ].map((flag) => [`${flag} / part fitting`, 'matches the end diameters, which the flag does not move']),
+  ),
   ...Object.fromEntries(
     ['flipped nose cone', 'filled nose cone', 'filled transition', 'filled body tube', 'unclipped transition'].flatMap(
       (flag) => [
@@ -353,26 +423,27 @@ function chainFor(part: ComponentNode, tag = ''): ComponentNode[] {
  * A design holding the part where it sits in a real rocket, or, `inPod`, in
  * the chain of a pod set beside the main body tube.
  */
-function design(part: ComponentNode, inPod = false): RocketTree {
-  const chain = inPod
-    ? [
-        { ...NOSE, id: 'nose' },
-        {
-          ...TUBE,
-          id: 'tube',
-          children: [
-            {
-              type: 'podset',
-              id: 'pod',
-              instanceCount: 2,
-              radiusOffset: 0.06,
-              position: { method: 'top', offset: 0.05 },
-              children: chainFor(part, '-pod'),
-            },
-          ],
-        },
-      ]
-    : chainFor(part);
+function design(part: ComponentNode, inPod = false, inParallel = false): RocketTree {
+  const chain =
+    inPod || inParallel
+      ? [
+          { ...NOSE, id: 'nose' },
+          {
+            ...TUBE,
+            id: 'tube',
+            children: [
+              {
+                type: inParallel ? 'parallelstage' : 'podset',
+                id: 'pod',
+                instanceCount: 2,
+                radiusOffset: 0.06,
+                position: { method: 'top', offset: 0.05 },
+                children: chainFor(part, '-pod'),
+              },
+            ],
+          },
+        ]
+      : chainFor(part);
   // Synced as the app holds every design, so automatic radii follow the flag.
   return syncDerived({ components: [{ type: 'stage', id: 'stage', children: chain }] } as unknown as RocketTree);
 }
@@ -403,7 +474,7 @@ describe('every shape flag reaches every reader', () => {
       const expected = reason === undefined && !(pair in KNOWN);
       it(`${pair}: ${expected ? 'reacts' : (reason ?? `ignored, ${KNOWN[pair]}`)}`, () => {
         const read2 = (part: ComponentNode) => {
-          const tree = design(part, flag.inPod);
+          const tree = design(part, flag.inPod, flag.inParallel);
           return JSON.stringify(read(tree, measured(tree, flag, part)));
         };
         expect(read2(off) !== read2(on)).toBe(expected);

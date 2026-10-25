@@ -1,4 +1,4 @@
-import type { ComponentNode } from '../engine/openRocketEngine';
+import type { ComponentNode, RocketTree } from '../engine/openRocketEngine';
 
 /**
  * Shared walks over a component tree. Every search stops at the first match in
@@ -54,6 +54,51 @@ export function findSiblings(nodes: ComponentNode[], id: string): { siblings: Co
   return null;
 }
 
+/**
+ * `nodes` with the node `id` replaced by `fn(node)`: one node in its place, or
+ * several fanned out from it. The node is the one {@link findNode} finds (depth
+ * first, the first match). Only the arrays and parents on the path to it are
+ * copied, so every untouched subtree keeps its identity, and `nodes` itself
+ * comes back when there is no such node.
+ */
+export function replaceNode(
+  nodes: readonly ComponentNode[],
+  id: string,
+  fn: (node: ComponentNode) => ComponentNode | ComponentNode[],
+): ComponentNode[] {
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]!;
+    if (n.id === id) {
+      const r = fn(n);
+      return [...nodes.slice(0, i), ...(Array.isArray(r) ? r : [r]), ...nodes.slice(i + 1)];
+    }
+    if (!n.children) continue;
+    const kids = replaceNode(n.children, id, fn);
+    if (kids !== n.children) {
+      const out = nodes.slice();
+      out[i] = { ...n, children: kids };
+      return out;
+    }
+  }
+  return nodes as ComponentNode[];
+}
+
+/**
+ * The node `id` and every node above it, nearest first: the node, its parent,
+ * and so on to the top-level node holding it. One walk, where stepping up with
+ * `findParent` searches the whole tree once per level. Empty when there is no
+ * such node; the node is the one {@link findNode} finds.
+ */
+export function lineageOf(nodes: readonly ComponentNode[], id: string): ComponentNode[] {
+  for (const n of nodes) {
+    if (n.id === id) return [n];
+    if (!n.children) continue;
+    const below = lineageOf(n.children, id);
+    if (below.length) return [...below, n];
+  }
+  return [];
+}
+
 /** The node's position when {@link mapTreePreserving} calls its function. */
 export interface MapContext {
   /** Index among its siblings. */
@@ -100,4 +145,24 @@ export function mapTreePreserving(
     return node;
   });
   return changed ? out : nodes;
+}
+
+/**
+ * Every node `pred` accepts, in pre-order (tree order), that carries an id:
+ * what the flight configurations key their overrides by, so a node without one
+ * cannot be addressed and is left out.
+ */
+export function collectNodes(nodes: readonly ComponentNode[], pred: (n: ComponentNode) => boolean): ComponentNode[] {
+  const out: ComponentNode[] = [];
+  for (const n of walkNodes(nodes)) if (typeof n.id === 'string' && pred(n)) out.push(n);
+  return out;
+}
+
+/**
+ * Top-level stage nodes, in desktop order ([0] = top sustainer … [last] =
+ * bottom booster). Here rather than in `treeEdit`, so a file writer or the
+ * report can list them without pulling in the part catalogs.
+ */
+export function stageNodes(tree: RocketTree): ComponentNode[] {
+  return tree.components.filter((n) => n.type === 'stage');
 }

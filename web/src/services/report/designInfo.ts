@@ -3,6 +3,7 @@ import type { ReportModel } from './reportModel';
 import type { DesignInfo, DesignFinSet, DesignStat, DesignStatGroup } from '../files/orkTypes';
 import i18n from '../../i18n';
 import { partLabel } from '../../i18n/format';
+import { plainSig } from '../files/numberText';
 
 // Builds the optional <designinfo> block from the report model (whole-rocket +
 // per-stage static info and fin-set positions). Pure data apart from naming an
@@ -27,16 +28,7 @@ const NONE = '';
  * exponent and no trailing zeros. e.g. 0.4250 → "0.425", 24993 → "24990",
  * 9.3e-6 → "0.0000093".
  */
-export function sig4(v: number): string {
-  if (!Number.isFinite(v) || v === 0) return '0';
-  const mag = Math.floor(Math.log10(Math.abs(v)));
-  const factor = 10 ** (3 - mag); // 4 sig figs = 3 fractional digits past the leading one
-  const rounded = Math.round(v * factor) / factor;
-  const decimals = Math.max(0, 3 - mag);
-  let str = rounded.toFixed(Math.min(decimals, 100));
-  if (str.includes('.')) str = str.replace(/0+$/, '').replace(/\.$/, '');
-  return str;
-}
+export const sig4 = (v: number): string => plainSig(v, 4, '0');
 
 /** One whole-rocket or per-stage statistic, by a stable key. */
 export type StatKey =

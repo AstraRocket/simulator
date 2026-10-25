@@ -283,9 +283,11 @@ describe('importRkt', () => {
     const cord = byName(stage.children, 'Shock cord');
     expect(cord.type).toBe('shockcord');
     expect(cord['cordLength']).toBeCloseTo(1, 9);
-    // No density in the file: the cord's material stays weightless, as
-    // MassObjectHandler leaves it; a stated mass counts only through UseKnownCG.
-    expect(cord['lineDensity']).toBeUndefined();
+    // No density in the file: the cord's line is weightless and unnamed, as
+    // MassObjectHandler leaves it (the desktop step of `npm run audit` reads the
+    // same file back); a stated mass counts only through UseKnownCG.
+    expect(cord['lineDensity']).toBe(0);
+    expect(cord['lineMaterialName']).toBe('');
 
     const alt = byName(stage.children, 'Altimeter');
     expect(alt.type).toBe('masscomponent');

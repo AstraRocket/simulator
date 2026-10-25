@@ -22,6 +22,20 @@ export function markWritten(s: Written): void {
   written = { tree: s.tree, sims: s.sims, configs: s.configs, activeId: s.activeId, loadedMeta: s.loadedMeta };
 }
 
+/**
+ * A workspace write that landed, recorded where the UI reads it: the written
+ * marker, a retired "full" or conflict warning (a landed write disproves it),
+ * and the header's save status. The debounced autosave, the hidden-tab save
+ * and the flush ahead of a design switch all record a landed write this way,
+ * so the status moves for every save that happened. `s` is the store's state,
+ * passed in because the store imports this module.
+ */
+export function recordWrite(fields: Written, s: Pick<WorkspaceState, 'clearSaveWarning' | 'markSaved'>): void {
+  markWritten(fields);
+  s.clearSaveWarning();
+  s.markSaved();
+}
+
 export function unchangedSinceWrite(s: Written): boolean {
   return (
     written !== null &&

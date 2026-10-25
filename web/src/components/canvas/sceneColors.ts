@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { tokenValues } from '../common/colorTokens';
 
 /**
  * The 3D views' colors, as tokens (src/index.css, `--c-scene-*`).
@@ -52,8 +53,8 @@ let watchers = 0;
 
 function snapshot(): SceneColors {
   if (cached && !stale) return cached.colors;
-  const style = typeof document === 'undefined' ? null : getComputedStyle(document.documentElement);
-  const values = SCENE_TOKENS.map((name) => style?.getPropertyValue(`--c-${name}`).trim() || UNRESOLVED);
+  const read = tokenValues();
+  const values = SCENE_TOKENS.map((name) => read(name) || UNRESOLVED);
   const key = values.join('|');
   // The same object while nothing changed, so a memo keyed on it holds.
   if (cached?.key !== key) {

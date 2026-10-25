@@ -1,7 +1,13 @@
 import { nsKey } from '../../../src/services/storage/storageKeys';
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { loadSettings, saveSettings, DEFAULT_SETTINGS, SIM_BOUNDS } from '../../../src/services/storage/settings';
+import {
+  loadSettings,
+  saveSettings,
+  DEFAULT_SETTINGS,
+  SIM_BOUNDS,
+  PLAYBACK_SPEEDS,
+} from '../../../src/services/storage/settings';
 import {
   MATERIAL_SLOTS,
   defaultMaterialKey,
@@ -75,16 +81,24 @@ describe('loadSettings', () => {
     }
     // Infinity stringifies as null, so the largest finite number stands in for it.
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: Number.MAX_VALUE }));
-    expect(loadSettings().playbackSpeed).toBe(10); // clamped, not rejected
+    expect(loadSettings().playbackSpeed).toBe(4); // the fastest choice, not rejected
   });
 
-  it('clamps playbackSpeed into the range the player can actually run', () => {
+  // Both speed pickers offer only these, so a stored value outside them would
+  // leave each select showing a speed it is not running at.
+  it('snaps playbackSpeed to a speed the pickers offer', () => {
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 1000 }));
-    expect(loadSettings().playbackSpeed).toBe(10);
+    expect(loadSettings().playbackSpeed).toBe(4);
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 0.0001 }));
-    expect(loadSettings().playbackSpeed).toBe(0.05);
+    expect(loadSettings().playbackSpeed).toBe(0.25);
+    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 3 }));
+    expect(loadSettings().playbackSpeed).toBe(4); // nearer 4 than 2 as a ratio
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 2 }));
-    expect(loadSettings().playbackSpeed).toBe(2); // in range, untouched
+    expect(loadSettings().playbackSpeed).toBe(2); // offered, untouched
+    for (const v of [0.3, 0.7, 1.2, 9]) {
+      localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: v }));
+      expect(PLAYBACK_SPEEDS, String(v)).toContain(loadSettings().playbackSpeed);
+    }
   });
 
   it('drops a partColors value that is not a hex string', () => {
@@ -258,6 +272,37 @@ describe('launchDefaults is validated per field', () => {
     expect(load({ windLevels: 'lots' }).windLevels).toBe(DEFAULT_SETTINGS.launchDefaults.windLevels);
   });
 
+  it('drops a gravity, humidity or wind reference the bridge cannot read', () => {
+    // OpenRocketEngine reads these with JsonLite.dbl and JsonLite.str, which
+    // throw on the wrong type, so one bad stored value would fail every run.
+    const bad = load({
+      gravityModel: 'lunar',
+      constantGravity: 0,
+      relativeHumidity: '50',
+      windAltitudeReference: 'sea',
+    });
+    for (const key of ['gravityModel', 'constantGravity', 'relativeHumidity', 'windAltitudeReference'])
+      expect(bad, key).not.toHaveProperty(key);
+    expect(load({ relativeHumidity: 1.5 })).not.toHaveProperty('relativeHumidity');
+    expect(load({ constantGravity: -9.8 })).not.toHaveProperty('constantGravity');
+  });
+
+  it('keeps a usable gravity, humidity and wind reference', () => {
+    const good = load({
+      gravityModel: 'constant',
+      constantGravity: 9.7,
+      relativeHumidity: 0.5,
+      windAltitudeReference: 'agl',
+    });
+    expect(good).toMatchObject({
+      gravityModel: 'constant',
+      constantGravity: 9.7,
+      relativeHumidity: 0.5,
+      windAltitudeReference: 'agl',
+    });
+    expect(load({ relativeHumidity: null }).relativeHumidity).toBeNull();
+  });
+
   it('keeps a profile held under the Average model, held to the same rule as a flown one', () => {
     const kept = [
       { altitudeM: 0, speed: 3, directionDeg: 90, stddev: 0.3 },
@@ -282,6 +327,24 @@ describe('loadSettings validates what reaches styles, jsPDF and the CSV writer',
     const b = loadSettings();
     expect(b).toEqual(DEFAULT_SETTINGS);
     expect(b).not.toBe(DEFAULT_SETTINGS);
+  });
+
+  // The KML, 3MF and drawing readers all go through parseHexColor, so a stored
+  // color has to be one it reads: a five- or seven-digit "hex" is not a color.
+  it('keeps only colors the color reader can read', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        partColors: { fins: '#12345', nose: '#1234567', body: '123456', tubes: '#1234', rings: '#AbCdEf' },
+        phaseColors: { boost: '#12345', coast: '#1234567' },
+      }),
+    );
+    const s = loadSettings();
+    const c = s.partColors as Record<string, unknown>;
+    for (const k of ['fins', 'nose', 'body', 'tubes']) expect(c[k], k).toBeUndefined();
+    expect(c.rings).toBe('#AbCdEf');
+    expect(s.phaseColors.boost).toBe(DEFAULT_SETTINGS.phaseColors.boost);
+    expect(s.phaseColors.coast).toBe(DEFAULT_SETTINGS.phaseColors.coast);
   });
 
   it('applies the hex filter to phaseColors', () => {

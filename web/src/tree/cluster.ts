@@ -1,3 +1,7 @@
+import type { ComponentNode } from '../engine/openRocketEngine';
+import { KERNEL_DEFAULTS } from './kernelDefaults';
+import { num } from './nodeProps';
+
 /**
  * Cluster layouts: an exact mirror of the kernel's ClusterConfiguration
  * (carved info.openrocket.core.rocketcomponent.ClusterConfiguration). Unit
@@ -171,4 +175,21 @@ export function clusterPoints(
     const z = o.z + baseZ;
     return { radialPosition: Math.hypot(y, z), radialDirection: Math.atan2(z, y) };
   });
+}
+
+/**
+ * {@link clusterPoints} for an inner tube, read from its own keys. A mount with
+ * no `outerRadius` flies at the kernel's inner tube default
+ * (`ComponentFactory`), so its tubes are spaced from that, not stacked at the
+ * center.
+ */
+export function clusterPlacesOf(node: ComponentNode): { radialPosition: number; radialDirection: number }[] {
+  return clusterPoints(
+    typeof node['cluster'] === 'string' ? node['cluster'] : undefined,
+    num(node, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius),
+    num(node, 'clusterScale', 1),
+    num(node, 'clusterRotation', 0),
+    num(node, 'radialPosition', 0),
+    num(node, 'radialDirection', 0),
+  );
 }

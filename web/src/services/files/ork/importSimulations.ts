@@ -10,6 +10,7 @@ import { MAX_SIMULATIONS } from './importLimits';
 import { finiteNum } from './numbers';
 import type { SimPrefs } from '../../flight/simulations';
 import { SIM_BOUNDS } from '../../storage/settings';
+import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS, OPTIONAL_FLIGHT_DATA } from './simulationTags';
 
 /** A warning threshold is any positive speed (m/s), as Settings takes one. */
 const WARN_BOUNDS = { min: Number.MIN_VALUE, max: Number.MAX_VALUE };
@@ -80,21 +81,18 @@ export function readSimulations(doc: Document): OrkSimulation[] {
   });
 }
 
-/** The `<conditions>` element names of the per-simulation settings, by app key. */
-const PREF_TAGS: [keyof SimPrefs, string, { min: number; max: number }][] = [
-  ['timeStep', 'timestep', SIM_BOUNDS.timeStep],
-  ['maxTime', 'maxtime', SIM_BOUNDS.maxTime],
-  ['deploymentSpeedWarn', 'recoveryspeedwarning', WARN_BOUNDS],
-  ['drogueLowSpeedWarn', 'drogueLowspeedwarning', WARN_BOUNDS],
-  ['mainHighSpeedWarn', 'recoverydroguemainhighspeedwarning', WARN_BOUNDS],
-  ['mainLowSpeedWarn', 'recoverydroguemainlowspeedwarning', WARN_BOUNDS],
-];
+/** The range a per-simulation setting is read in; the warning thresholds take any positive speed. */
+const PREF_BOUNDS: Partial<Record<keyof SimPrefs, { min: number; max: number }>> = {
+  timeStep: SIM_BOUNDS.timeStep,
+  maxTime: SIM_BOUNDS.maxTime,
+};
 
 /** A simulation's own run settings, as `{ prefs }`, or nothing when it states none. */
 function simulationPrefs(condEl: Element | null): { prefs?: Partial<SimPrefs> } {
   if (!condEl) return {};
   const prefs: Partial<Record<keyof SimPrefs, number>> = {};
-  for (const [key, tag, { min, max }] of PREF_TAGS) {
+  for (const [key, tag] of SIM_PREF_TAGS) {
+    const { min, max } = PREF_BOUNDS[key] ?? WARN_BOUNDS;
     const v = finiteNum(text(condEl, `:scope > ${tag}`) ?? undefined);
     if (v !== undefined && v >= min && v <= max) prefs[key] = v;
   }
@@ -103,21 +101,10 @@ function simulationPrefs(condEl: Element | null): { prefs?: Partial<SimPrefs> } 
 
 /** The <flightdata> attributes as a summary; a figure the file left out reads as missing. */
 function summaryOf(el: Element): FlightSummary {
-  const num = (name: string): number => finiteNum(el.getAttribute(name)) ?? NaN;
-  const orNull = (name: string): number | null => {
-    const v = num(name);
-    return Number.isNaN(v) ? null : v;
-  };
-  return {
-    maxAltitude: num('maxaltitude'),
-    maxVelocity: num('maxvelocity'),
-    maxAcceleration: num('maxacceleration'),
-    maxMachNumber: num('maxmach'),
-    timeToApogee: num('timetoapogee'),
-    flightTime: num('flighttime'),
-    groundHitVelocity: num('groundhitvelocity'),
-    launchRodVelocity: num('launchrodvelocity'),
-    deploymentVelocity: orNull('deploymentvelocity'),
-    optimumDelay: orNull('optimumdelay'),
-  };
+  const out: Record<string, number | null> = {};
+  for (const [key, attr] of FLIGHT_DATA_ATTRS) {
+    const v = finiteNum(el.getAttribute(attr));
+    out[key] = v ?? (OPTIONAL_FLIGHT_DATA.has(key) ? null : NaN);
+  }
+  return out as unknown as FlightSummary;
 }

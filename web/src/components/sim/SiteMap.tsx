@@ -3,28 +3,25 @@ import { useTranslation } from 'react-i18next';
 import {
   MIN_ZOOM,
   SITE_ZOOM,
-  TILE_SIZE,
   TILE_SOURCES,
   formatCoord,
-  latToTileY,
-  lonToTileX,
   metersPerPixel,
-  normalizeLon,
   project,
-  tileXToLon,
-  tileYToLat,
+  roundCoord,
   unproject,
   visibleTiles,
   type TileSourceId,
+  panView,
 } from '../../services/map/slippyMap';
 import { rememberTileLayer, tileLayer } from '../../services/map/tileLayer';
 import { useUnits, type Units } from '../../prefs/useUnits';
-import { fmtNum, withUnit } from '../../i18n/format';
+import { fmtNum, withUnit, shortDigits } from '../../i18n/format';
 import { siToUi } from '../../prefs/units';
 import { useElementResize } from '../common/useElementResize';
 import { useTileVerdict } from '../common/map/useTileVerdict';
 import { MapCredit, TileImg, TileLayerButtons } from '../common/map/MapParts';
 import { SOURCE_LAYERS } from '../common/map/mapStyle';
+import { useNativeWheel } from '../common/useNativeWheel';
 
 /**
  * The launch site, seen from above.
@@ -127,11 +124,12 @@ export function SiteMap({
     const z = Math.max(MIN_ZOOM, Math.min(tiles.maxZoom, next));
     if (z === view.zoom) return;
     if (!about) return setView((v) => ({ ...v, zoom: z }));
-    // Keep whatever is under the pointer under the pointer.
+    // Keep whatever is under the pointer under the pointer: the new view puts
+    // that point at the center, then moves back by the pointer's offset.
     const at = unproject(about.x, about.y, view.lat, view.lon, view.zoom, size.w, size.h);
-    const cx = lonToTileX(at.longitudeDeg, z) - (about.x - size.w / 2) / TILE_SIZE;
-    const cy = latToTileY(at.latitudeDeg, z) - (about.y - size.h / 2) / TILE_SIZE;
-    setView({ lat: tileYToLat(cy, z), lon: normalizeLon(tileXToLon(cx, z)), zoom: z });
+    setView(
+      panView({ lat: at.latitudeDeg, lon: at.longitudeDeg, zoom: z }, size.w / 2 - about.x, size.h / 2 - about.y),
+    );
   };
 
   // Pan, and the click that is not a pan. One pointer, captured, so a drag that
@@ -179,16 +177,8 @@ export function SiteMap({
     const dy = e.clientY - d.y;
     d.moved = Math.max(d.moved, Math.abs(dx) + Math.abs(dy));
     if (d.moved < CLICK_SLOP_PX) return;
-    const n = 2 ** d.view.zoom;
-    const cx = lonToTileX(d.view.lon, d.view.zoom) - dx / TILE_SIZE;
-    // Clamped rather than wrapped: the world repeats east-west but there is
-    // nothing above the north pole to pan onto.
-    const cy = Math.max(0, Math.min(n, latToTileY(d.view.lat, d.view.zoom) - dy / TILE_SIZE));
-    setView({
-      lat: tileYToLat(cy, d.view.zoom),
-      lon: normalizeLon(tileXToLon(cx, d.view.zoom)),
-      zoom: d.view.zoom,
-    });
+    // The ground follows the pointer, so the center moves the other way.
+    setView(panView(d.view, -dx, -dy));
   };
 
   /**
@@ -202,10 +192,7 @@ export function SiteMap({
     const pan = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (pan) {
       e.preventDefault();
-      const n = 2 ** view.zoom;
-      const cx = lonToTileX(view.lon, view.zoom) + (pan[0]! * KEY_PAN_PX) / TILE_SIZE;
-      const cy = Math.max(0, Math.min(n, latToTileY(view.lat, view.zoom) + (pan[1]! * KEY_PAN_PX) / TILE_SIZE));
-      setView({ lat: tileYToLat(cy, view.zoom), lon: normalizeLon(tileXToLon(cx, view.zoom)), zoom: view.zoom });
+      setView(panView(view, pan[0]! * KEY_PAN_PX, pan[1]! * KEY_PAN_PX));
     } else if (e.key === '+' || e.key === '=') {
       e.preventDefault();
       setZoom(view.zoom + 1);
@@ -215,8 +202,8 @@ export function SiteMap({
     } else if ((e.key === 'Enter' || e.key === ' ') && onPick) {
       e.preventDefault();
       // Rounded like a click (see onPointerUp).
-      const lat = +view.lat.toFixed(4);
-      const lon = +view.lon.toFixed(4);
+      const lat = roundCoord(view.lat);
+      const lon = roundCoord(view.lon);
       emitted.current = { lat, lon };
       onPick(lat, lon);
     }
@@ -232,8 +219,8 @@ export function SiteMap({
     const at = unproject(p.x, p.y, view.lat, view.lon, view.zoom, size.w, size.h);
     // Four places is about 10 m, which is finer than anyone can point at a
     // field and matches what "use my location" writes.
-    const lat = +at.latitudeDeg.toFixed(4);
-    const lon = +at.longitudeDeg.toFixed(4);
+    const lat = roundCoord(at.latitudeDeg);
+    const lon = roundCoord(at.longitudeDeg);
     emitted.current = { lat, lon };
     onPick(lat, lon);
   };
@@ -258,20 +245,17 @@ export function SiteMap({
    * the launch form underneath it, which on a phone means the map slides out from
    * under the finger that is zooming it.
    *
-   * The handler closes over `view` and `imagery`, so it is re-registered when
-   * either moves. That is cheap, and it keeps this a plain effect rather than a
-   * latest-value ref.
+   * The handler reads the current `view` through `useNativeWheel`, so the
+   * listener is attached once rather than on every pan and zoom.
    */
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host || imagery === 'unavailable') return;
-    const onWheel = (e: WheelEvent) => {
+  useNativeWheel(
+    hostRef,
+    (e) => {
       e.preventDefault();
       setZoom(view.zoom + (e.deltaY < 0 ? 1 : -1), localPoint(e));
-    };
-    host.addEventListener('wheel', onWheel, { passive: false });
-    return () => host.removeEventListener('wheel', onWheel);
-  });
+    },
+    imagery !== 'unavailable',
+  );
 
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
@@ -410,7 +394,7 @@ function scaleLabel(u: Units, lat: number, zoom: number): string {
   const sym = u.sym('distance');
   const up = SCALE_PROMOTION[sym];
   const big = up ? siToUi('distance', up, meters) : 0;
-  if (up && big >= 1) return withUnit(fmtNum(big, big >= 10 ? 0 : 1), up);
+  if (up && big >= 1) return withUnit(fmtNum(big, shortDigits(big)), up);
   return u.fmtSym('distance', meters, 0);
 }
 

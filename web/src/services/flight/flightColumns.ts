@@ -179,13 +179,36 @@ export function flightColumns(result: FlightResult, branchIndex = 0): FlightColu
 /** The columns a fresh export starts from: the friendly dozen plus the track. */
 export const DEFAULT_CSV_COLUMNS: readonly string[] = [...KNOWN.map((c) => c.key), ...TRACK_KEYS];
 
+/** How a flight CSV is written: what the settings remember and the exporter reads. */
+export interface CsvFormat {
+  /** Series keys to write, in `flightColumns` order. */
+  columns: string[];
+  /** Between fields. A tab or a space is as legitimate as a comma. */
+  separator: string;
+  /** Decimal places for every value. */
+  decimals: number;
+  /** 1.5e-4 rather than 0.00015, for series that span many magnitudes. */
+  exponential: boolean;
+  /** A comment naming the simulation and the design it flew. */
+  simDescription: boolean;
+  /**
+   * The column names with their units, as one commented line above the data:
+   * the file's only header, as on desktop.
+   */
+  fieldDescriptions: boolean;
+  /** A comment per flight event, placed among the data rows at its time. */
+  flightEvents: boolean;
+  /** What marks a comment line. */
+  commentChar: string;
+}
+
 /**
  * The flight CSV's starting format: the default columns, comma separated, three
  * decimals, every comment block on. The settings default and the exporter's
  * fallback both start here. A fresh object each call, so a caller can edit the
  * column list.
  */
-export function defaultCsvFormat() {
+export function defaultCsvFormat(): CsvFormat {
   return {
     columns: [...DEFAULT_CSV_COLUMNS],
     separator: ',',

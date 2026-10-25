@@ -3,7 +3,7 @@
 // implementation persists through a KeyValueStore, but you can replace the whole
 // thing with any MaterialStore on the client (setMaterialStore(...)),
 // independently of the motor store.
-import type { Material, MaterialType } from './materialTypes';
+import { isMaterialType, type Material, type MaterialType } from './materialTypes';
 import type { KeyValueStore } from '../storage/keyValueStore';
 import { IndexedDbKeyValueStore } from '../storage/idbKeyValueStore';
 import { JsonListStore } from '../storage/jsonListStore';
@@ -36,15 +36,20 @@ export function isMaterial(v: unknown): v is Material {
   return (
     !!m &&
     typeof m.name === 'string' &&
+    // A name, as `isDocumentMaterial` and the catalog rows require: a blank
+    // one could not be picked or told apart. A group may be absent on an
+    // entry an older build stored, but never another type.
+    m.name.trim().length > 0 &&
+    (m.group === undefined || typeof m.group === 'string') &&
     typeof m.density === 'number' &&
     Number.isFinite(m.density) &&
     m.density > 0 &&
-    (m.type === 'bulk' || m.type === 'surface' || m.type === 'line')
+    isMaterialType(m.type)
   );
 }
 
 /** A material's identity in the list: its name and type together. */
-const materialId = (name: string, type: MaterialType): string => JSON.stringify([type, name]);
+export const materialId = (name: string, type: MaterialType): string => JSON.stringify([type, name]);
 
 /**
  * Default MaterialStore: serializes the custom-material list to a single

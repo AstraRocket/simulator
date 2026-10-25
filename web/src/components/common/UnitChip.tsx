@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/SettingsProvider';
 import { UNITS, unitFor, type Quantity } from '../../prefs/units';
+import { withKey } from '../../services/app/objectKeys';
+import { useUnits } from '../../prefs/useUnits';
 
 /**
  * The unit shown beside a value, changeable in place: a borderless <select>
@@ -60,10 +62,9 @@ export function UnitChip({
       }
       onClick={(e) => e.stopPropagation()}
       onChange={(e) => {
-        const next = { ...settings.unitOverrides };
-        if (e.target.value === settings.units[quantity]) delete next[scope];
-        else next[scope] = e.target.value;
-        update({ unitOverrides: next });
+        // The default unit clears the override rather than storing it.
+        const v = e.target.value;
+        update({ unitOverrides: withKey(settings.unitOverrides, scope, v === settings.units[quantity] ? null : v) });
       }}
       className={`cursor-pointer appearance-none bg-transparent text-xs hover:text-accent-400 focus:outline-none focus:ring-1 focus:ring-accent-500 ${
         overridden ? 'font-medium text-warn-400' : 'text-ink-faint'
@@ -76,4 +77,19 @@ export function UnitChip({
       ))}
     </select>
   );
+}
+
+/**
+ * A field's unit and its chip from one scope, so a tile cannot format its value
+ * in one field's unit while its chip changes another's. `chip(label)` is the
+ * `UnitChip` for the same scope and quantity.
+ */
+export function useScopedUnit(scope: string, quantity: Quantity) {
+  const field = useUnits().at(scope, quantity);
+  return {
+    ...field,
+    chip: (label: string, className?: string) => (
+      <UnitChip label={label} quantity={quantity} scope={scope} className={className} />
+    ),
+  };
 }

@@ -99,6 +99,26 @@ describe('JsonListStore', () => {
     expect(JSON.parse(kv.map.get(KEY)!)).toEqual([{ id: 'a', n: 1 }]);
   });
 
+  it('keeps a stored row this build cannot use through an unrelated write', async () => {
+    // A newer build of the app shares the storage and may store a row this one
+    // refuses (a widened field). An add or a delete here must not erase it.
+    const kv = new FakeKv();
+    const newer = { id: 'z', n: 'wide' };
+    kv.map.set(KEY, JSON.stringify([{ id: 'a', n: 1 }, newer]));
+    const store = make(kv);
+    await store.upsert([{ id: 'b', n: 2 }]);
+    await store.remove('a');
+    expect(JSON.parse(kv.map.get(KEY)!)).toEqual([{ id: 'b', n: 2 }, newer]);
+    expect(await store.list()).toEqual([{ id: 'b', n: 2 }]);
+  });
+
+  it('replaces a stored row it cannot use when an item with its id is saved', async () => {
+    const kv = new FakeKv();
+    kv.map.set(KEY, JSON.stringify([{ id: 'z', n: 'wide' }]));
+    await make(kv).upsert([{ id: 'z', n: 3 }]);
+    expect(JSON.parse(kv.map.get(KEY)!)).toEqual([{ id: 'z', n: 3 }]);
+  });
+
   it('normalizes every row read back', async () => {
     const kv = new FakeKv();
     kv.map.set(KEY, JSON.stringify([{ id: 'a', n: 1 }]));

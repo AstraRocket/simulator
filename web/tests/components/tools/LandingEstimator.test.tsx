@@ -12,8 +12,8 @@ import { resetWeatherState, setWeatherTransport } from '../../../src/services/we
 
 /** The site each landing map was drawn over, newest last. */
 const mapSites = vi.hoisted(() => [] as { lat: number; lon: number }[]);
-vi.mock('../../../src/components/tools/LandingMap', async (importOriginal) => {
-  const real = await importOriginal<typeof import('../../../src/components/tools/LandingMap')>();
+vi.mock('../../../src/components/common/map/LandingMap', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../../src/components/common/map/LandingMap')>();
   return {
     LandingMap: (p: Parameters<typeof real.LandingMap>[0]) => {
       mapSites.push({ lat: p.latitudeDeg, lon: p.longitudeDeg });

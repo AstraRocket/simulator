@@ -2,8 +2,8 @@ import type { StaticInfo } from '../../engine/openRocketEngine';
 import type { MaterialDensity, ReportModel } from './reportModel';
 import { exportFilename, saveText } from '../files/saveFile';
 import { siToUi, type Quantity, type UnitSelection } from '../../prefs/units';
-import { plainDecimal } from '../files/numberText';
-import { sig4, staticInfoRows } from './designInfo';
+import { plainDecimal, plainSig } from '../files/numberText';
+import { staticInfoRows } from './designInfo';
 import { type StatKey } from './designInfo';
 import { csvField } from '../exports/csvCell';
 import { CSV_MIME } from '../exports/csvExport';
@@ -30,14 +30,7 @@ const round = (v: number, d: number): string => plainDecimal(v, d);
  * in meters as 0.001. A figure the kernel could not give is a blank cell, as in
  * every CSV the app writes, never the UI's no-value glyph in a numeric column.
  */
-const fig = (q: Quantity, symbol: string, si: number): string => {
-  if (!Number.isFinite(si)) return '';
-  const v = Number(siToUi(q, symbol, si).toPrecision(6));
-  // Plain decimal, never an exponent, which a spreadsheet may read as text:
-  // `String` writes one below 1e-6.
-  const s = v.toFixed(12).replace(/\.?0+$/, '');
-  return s === '-0' ? '0' : s;
-};
+const fig = (q: Quantity, symbol: string, si: number): string => plainSig(siToUi(q, symbol, si), 6);
 
 /**
  * RFC-4180 cell, with spreadsheet formula injection neutralized by the rule
@@ -80,7 +73,7 @@ function summaryRows(info: StaticInfo, units: UnitSelection): [string, string, s
       case 'rollInertia':
         // Significant figures, not fixed decimals: a small rocket's roll inertia
         // is around 1e-7 kg·m², which six decimals would write as 0.
-        return [Number.isFinite(v) ? sig4(v) : '', 'kg·m²'];
+        return [plainSig(v, 4), 'kg·m²'];
       default:
         return len(v);
     }

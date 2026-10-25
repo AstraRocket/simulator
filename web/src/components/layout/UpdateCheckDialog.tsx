@@ -4,7 +4,8 @@ import { APP_VERSION } from '../../services/app/appInfo';
 import { useUpdateStore } from '../../state/updateStore';
 import { fireAction } from '../../state/fireAction';
 import { Dialog } from '../common/Dialog';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
+import { useLatest } from '../common/useLatest';
 
 /**
  * The menu's "Check for updates": checks the moment it opens and says what came
@@ -26,17 +27,17 @@ export function UpdateCheckDialog({ onClose }: { onClose: () => void }) {
   const [answered, setAnswered] = useState(false);
   const result = answered ? stored : 'checking';
 
+  // `observe` is stable; the object `useLatest` returns is not.
+  const { observe } = useLatest();
   useEffect(() => {
-    let live = true;
+    // Nothing lands on a dialog closed before the check finished.
+    const live = observe();
     fireAction(
       checkNow().then(() => {
-        if (live) setAnswered(true);
+        if (live()) setAnswered(true);
       }),
     );
-    return () => {
-      live = false;
-    };
-  }, [checkNow]);
+  }, [checkNow, observe]);
 
   const message: Record<typeof result, string> = {
     idle: t('update.checking'),
@@ -56,11 +57,11 @@ export function UpdateCheckDialog({ onClose }: { onClose: () => void }) {
       >
         {message[result]}
       </p>
-      <div className="mt-5 flex justify-end">
+      <DialogActions>
         <DialogButton onClick={onClose} variant="primary">
           {t('common.close')}
         </DialogButton>
-      </div>
+      </DialogActions>
     </Dialog>
   );
 }

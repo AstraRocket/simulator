@@ -18,6 +18,7 @@ import { degToRad, radToDeg } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
 import { useSettings } from '../../state/SettingsProvider';
 import { withFigureDefaults } from '../../services/design/figureStyle';
+import { RULER_H } from '../../tree/schematicGeometry';
 
 // three.js is heavy, so the 3D views are code-split: their chunks load only when
 // the user actually switches to a 3D view, keeping the default (2D) path light.
@@ -90,7 +91,7 @@ export function CenterCanvas({
           className="absolute z-20"
           style={
             view === '2d'
-              ? { left: (rulers.left ? 60 : 44) + ROLL_GUTTER, top: rulers.top ? 44 : 12 }
+              ? { left: (rulers.left ? 60 : 44) + ROLL_GUTTER, top: 12 + (rulers.top ? RULER_H : 0) }
               : { left: 12, top: 12 }
           }
         >

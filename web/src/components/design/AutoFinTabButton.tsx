@@ -3,6 +3,7 @@ import type { ComponentNode } from '../../engine/openRocketEngine';
 import { autoFinTab, canAutoFinTab } from '../../services/design/finTabAuto';
 import { findParent, updateNode } from '../../services/design/treeEdit';
 import { useWorkspaceStore } from '../../state/store';
+import { PanelButton } from './PanelButton';
 
 /**
  * OpenRocket's **Calculate automatically** button, at the foot of the fin tab
@@ -23,7 +24,7 @@ export function AutoFinTabButton({ node }: { node: ComponentNode }) {
   const id = node.id as string;
   if (!canAutoFinTab(node, findParent(tree, id))) return null;
   return (
-    <button
+    <PanelButton
       onClick={() =>
         apply((t0) => {
           const patch = autoFinTab(t0, id);
@@ -31,9 +32,8 @@ export function AutoFinTabButton({ node }: { node: ComponentNode }) {
         })
       }
       title={t('prop.autoFinTabTip')}
-      className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
     >
       {t('prop.autoFinTab')}
-    </button>
+    </PanelButton>
   );
 }

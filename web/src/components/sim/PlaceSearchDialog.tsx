@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog } from '../common/Dialog';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
 import { GeoNamesCredit } from '../common/OpenMeteoCredit';
 import { useLatest } from '../common/useLatest';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
+import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { formatCoord } from '../../services/map/slippyMap';
 import { parseCoordinateText } from '../../services/map/coordinateText';
 import { fetchElevation, searchPlaces, type PlaceMatch } from '../../services/weather/openMeteo';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { weatherErrorText } from '../../services/weather/weatherErrorText';
 import { useOnline } from '../common/useOnline';
+import { baseLanguage } from '../../i18n/language';
 
 /**
  * What choosing a place writes into the site. The elevation is always written,
@@ -72,7 +73,7 @@ const placeRow = (p: PlaceMatch, i: number, t: (k: string, o?: Record<string, un
  */
 export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePick) => void; onClose: () => void }) {
   const { t, i18n } = useTranslation();
-  const altUnit = useUnits().at(unitScope('launch', 'altitude'), LAUNCH_SI.distance.q);
+  const altUnit = useUnits().at(unitScope('launch', SITE_ALTITUDE_FIELD), LAUNCH_SI.distance.q);
   const [query, setQuery] = useState('');
   const [state, setState] = useState<State>({ kind: 'idle' });
   const request = useLatest();
@@ -109,7 +110,7 @@ export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePic
     }
     setState({ kind: 'searching' });
     try {
-      const places = await searchPlaces(text, i18n.language.slice(0, 2).toLowerCase(), readWeatherKey(), {
+      const places = await searchPlaces(text, baseLanguage(i18n.language), readWeatherKey(), {
         signal,
       });
       if (signal.aborted) return;
@@ -196,11 +197,11 @@ export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePic
       {/* GeoNames' license asks for the credit wherever its places are shown. */}
       <GeoNamesCredit className="mt-4 text-[11px] text-ink-faint" />
 
-      <div className="mt-4 flex justify-end">
+      <DialogActions>
         <DialogButton onClick={onClose} variant="secondary">
           {t('common.cancel')}
         </DialogButton>
-      </div>
+      </DialogActions>
     </Dialog>
   );
 }

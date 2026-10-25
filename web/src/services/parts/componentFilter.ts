@@ -4,6 +4,8 @@
 //
 // The catalog is SI throughout (meters), like componentDb.
 import { lengthOf, outerDiameterOf, type Component, type ComponentType, type PickerType } from './componentDb';
+import { compareSortKeys } from '../app/sortKeys';
+import { distinctSorted } from '../app/collections';
 
 /**
  * How far under a bore a part may be and still be a fit, in meters. A coupler is
@@ -359,29 +361,21 @@ export function queryComponents<C extends Component>(
       if (b.fit == null) return -1;
       return (a.fit - b.fit) * q.dir;
     }
-    const av = sortValue(a.part, q.sort);
-    const bv = sortValue(b.part, q.sort);
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    if (typeof av === 'string' || typeof bv === 'string') return String(av).localeCompare(String(bv)) * q.dir;
-    return (av - bv) * q.dir;
+    return compareSortKeys(sortValue(a.part, q.sort), sortValue(b.part, q.sort), q.dir);
   };
   return rows.sort(cmp);
 }
 
 /** Every manufacturer in a list, for the facet, alphabetical. */
-export const manufacturers = (list: Component[]): string[] =>
-  [...new Set(list.map((p) => p.mfr))].sort((a, b) => a.localeCompare(b));
+export const manufacturers = (list: Component[]): string[] => distinctSorted(list, (p) => p.mfr);
 
 /** Every material family present in a list, for the facet, alphabetical. */
-export const materialFamilies = (list: Component[]): string[] =>
-  [...new Set(list.map(materialFamily).filter((f): f is string => f != null))].sort((a, b) => a.localeCompare(b));
+export const materialFamilies = (list: Component[]): string[] => distinctSorted(list, materialFamily);
 
 /** Every nose cone or transition shape present in a list, for the facet. Empty
  *  for any other type, which is how the picker knows not to offer the control. */
 export const noseShapes = (list: Component[]): string[] =>
-  [...new Set(list.flatMap((p) => ('shape' in p ? [p.shape] : [])))].sort((a, b) => a.localeCompare(b));
+  distinctSorted(list, (p) => ('shape' in p ? p.shape : undefined));
 
 /**
  * Units and the words that join two of them.

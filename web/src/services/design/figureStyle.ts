@@ -1,5 +1,6 @@
 import type { ComponentNode, ComponentType, RocketTree } from '../../engine/openRocketEngine';
 import { hexOf, parseHexColor } from './colorHex';
+import { mapTreePreserving } from '../../tree/treeWalk';
 
 /**
  * A part's figure style: the color and the line style the 2D views draw it
@@ -69,19 +70,16 @@ export function readFigureStyles(v: unknown): FigureStyles {
  */
 export function withFigureDefaults(tree: RocketTree, styles: FigureStyles): RocketTree {
   if (Object.keys(styles).length === 0) return tree;
-  const apply = (n: ComponentNode): ComponentNode => {
-    const d = styles[n.type];
-    const mapped = n.children?.map(apply);
-    const children = mapped?.some((c, i) => c !== n.children![i]) ? mapped : n.children;
-    const color = typeof n['color'] === 'string' ? undefined : d?.color;
-    const lineStyle = readLineStyle(n['lineStyle']) ? undefined : d?.lineStyle;
-    if (!color && !lineStyle && children === n.children) return n;
-    return {
-      ...n,
-      ...(color ? { color } : {}),
-      ...(lineStyle ? { lineStyle } : {}),
-      ...(children ? { children } : {}),
-    };
-  };
-  return { ...tree, components: tree.components.map(apply) };
+  const components = mapTreePreserving(
+    tree.components,
+    (n) => {
+      const d = styles[n.type];
+      const color = typeof n['color'] === 'string' ? undefined : d?.color;
+      const lineStyle = readLineStyle(n['lineStyle']) ? undefined : d?.lineStyle;
+      if (!color && !lineStyle) return n;
+      return { ...n, ...(color ? { color } : {}), ...(lineStyle ? { lineStyle } : {}) };
+    },
+    'post',
+  );
+  return { ...tree, components };
 }

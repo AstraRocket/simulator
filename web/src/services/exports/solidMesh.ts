@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ComponentNode } from '../../engine/openRocketEngine';
-import { num, numOpt } from '../../tree/nodeProps';
+import { noseConeAftRadius, num, numOpt } from '../../tree/nodeProps';
 import { finCutContour, finRootChord, finSpan, mountRadius, type FinParent } from '../../tree/finPlanform';
 import { freeformPoints, partLength } from '../../tree/position';
-import { nodeShape, outerProfile, profileEnds } from '../../tree/shapeProfile';
+import { hasShoulder, nodeShape, outerProfile, profileEnds, shouldersOf } from '../../tree/shapeProfile';
 import { tubeFinRadius } from '../../tree/tubefins';
 import { FIN_DEFAULTS, KERNEL_DEFAULTS, kernelDefault } from '../../tree/kernelDefaults';
 import { directedEdges, edgeKey, meshTolerances, undirectedEdgeCounts, validateSolid } from './meshValidate';
@@ -59,12 +59,15 @@ export function makeWatertight(geo: THREE.BufferGeometry): THREE.BufferGeometry 
   // than one boundary edge; a single-valued map would keep only one and leave
   // the other loop uncapped. Each edge is consumed exactly once by the walk below.
   const outgoing = new Map<number, number[]>();
+  const push = (u: number, v: number) => {
+    const arr = outgoing.get(u);
+    if (arr) arr.push(v);
+    else outgoing.set(u, [v]);
+  };
   let boundaryEdges = 0;
   for (const [u, v] of dirList) {
     if (undirected.get(edgeKey(u, v)) === 1) {
-      const arr = outgoing.get(u);
-      if (arr) arr.push(v);
-      else outgoing.set(u, [v]);
+      push(u, v);
       boundaryEdges++;
     }
   }
@@ -127,12 +130,6 @@ export function makeWatertight(geo: THREE.BufferGeometry): THREE.BufferGeometry 
   // Walk the boundary into closed loops and cap each. Starting a fresh loop
   // from every vertex that still has an unconsumed edge handles multiple loops
   // sharing a vertex; `boundaryEdges` bounds the total work.
-  const push = (u: number, v: number) => {
-    const arr = outgoing.get(u);
-    if (arr) arr.push(v);
-    else outgoing.set(u, [v]);
-  };
-
   for (const start of outgoing.keys()) {
     while ((outgoing.get(start)?.length ?? 0) > 0) {
       const loop: number[] = [start];
@@ -423,7 +420,9 @@ function validated(geo: THREE.BufferGeometry | null): THREE.BufferGeometry | nul
  * An app choice, and the only one here: `ComponentFactory` calls
  * `setThickness` on a tube fin set only when the node carries `thickness`;
  * absent the key, the kernel keeps `TubeFinSet.thickness` at `Double.NaN`,
- * and a stated wall is always used as given. There is no kernel number to
+ * and a stated wall is held to the outer radius (`TubeFinSet.setThickness`).
+ * The app's resolver writes the parent's wall onto a tube fin set, so this is
+ * reached only for a tree it has not resolved. There is no kernel number to
  * agree with, and a NaN wall exports nothing at all, so the printable part
  * borrows the inner tube's (the nearest thing the kernel does define for a
  * small hollow tube) rather than an untraceable literal.
@@ -443,14 +442,17 @@ function buildSolid(node: ComponentNode, parent: FinParent): THREE.BufferGeometr
   const len = partLength(node);
   switch (node.type) {
     case 'nosecone': {
-      const R = num(node, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius);
+      const R = noseConeAftRadius(node);
       if (!(R > 0) || !(len > 0)) return null; // zero-radius/length → empty, non-manifold lathe
       const shape = nodeShape(node);
       const surface = outerProfile(shape, numOpt(node, 'shapeParameter'), len, 0, R, SEGMENTS);
-      // Aft shoulder: a smaller-radius stub that plugs into the body tube.
-      const shR = num(node, 'shoulderRadius', 0);
-      const shLen = num(node, 'shoulderLength', 0);
-      if (shR > 1e-6 && shLen > 1e-6) surface.push([len, Math.min(shR, R)], [len + shLen, Math.min(shR, R)]);
+      // The base shoulder: a smaller-radius stub that plugs into the body tube.
+      // Built tip first whether or not the cone is flipped (the printed part is
+      // the same either way), so the base shoulder always goes aft.
+      const sh = shouldersOf(node);
+      const base = node['flipped'] === true ? sh.fore : sh.aft;
+      if (hasShoulder(base))
+        surface.push([len, Math.min(base.radius, R)], [len + base.length, Math.min(base.radius, R)]);
       return revolveSolidX(surface, 0);
     }
     case 'transition': {
@@ -460,13 +462,11 @@ function buildSolid(node: ComponentNode, parent: FinParent): THREE.BufferGeometr
       const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
       let surface = outerProfile(shape, numOpt(node, 'shapeParameter'), len, rf, ra, SEGMENTS, undefined, clipped);
       // Fore/aft shoulders: stubs that plug into the tubes on either side.
-      const fShR = num(node, 'foreShoulderRadius', 0),
-        fShLen = num(node, 'foreShoulderLength', 0);
-      const aShR = num(node, 'aftShoulderRadius', 0),
-        aShLen = num(node, 'aftShoulderLength', 0);
-      if (fShR > 1e-6 && fShLen > 1e-6) surface = [[-fShLen, Math.min(fShR, rf)], [0, Math.min(fShR, rf)], ...surface];
-      if (aShR > 1e-6 && aShLen > 1e-6)
-        surface = [...surface, [len, Math.min(aShR, ra)], [len + aShLen, Math.min(aShR, ra)]];
+      const { fore, aft } = shouldersOf(node);
+      if (hasShoulder(fore))
+        surface = [[-fore.length, Math.min(fore.radius, rf)], [0, Math.min(fore.radius, rf)], ...surface];
+      if (hasShoulder(aft))
+        surface = [...surface, [len, Math.min(aft.radius, ra)], [len + aft.length, Math.min(aft.radius, ra)]];
       return revolveSolidX(surface, 0);
     }
     // Tubes: hollow, with their own wall thickness. (Coupler/engine block/rings
