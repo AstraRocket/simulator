@@ -41,9 +41,9 @@ vi.mock('../../../src/services/files/designFile', () => ({
   }),
 }));
 
-const fetchMotorSpec = vi.fn();
-vi.mock('../../../src/services/motors/thrustcurve', () => ({
-  fetchMotorSpec: (...a: unknown[]) => fetchMotorSpec(...a),
+const catalogMotorSpec = vi.fn();
+vi.mock('../../../src/services/motors/motorSpec', () => ({
+  catalogMotorSpec: (...a: unknown[]) => catalogMotorSpec(...a),
 }));
 
 vi.mock('../../../src/services/motors/motorDb', () => ({
@@ -58,12 +58,12 @@ const { loadOrk } = await import('../../../src/services/files/loadOrk');
 
 describe('loadOrk when the thrust-curve download fails', () => {
   beforeEach(() => {
-    fetchMotorSpec.mockReset();
+    catalogMotorSpec.mockReset();
     design.setMotorById.mockReset();
   });
 
   it('seats the unresolved motor rather than leaving the mount for a default C6', async () => {
-    fetchMotorSpec.mockRejectedValue(new Error('network down'));
+    catalogMotorSpec.mockRejectedValue(new Error('network down'));
     const loaded = await loadOrk(new ArrayBuffer(0));
 
     const seated = loaded.configs[0]!.motors['mount1'];
@@ -76,14 +76,14 @@ describe('loadOrk when the thrust-curve download fails', () => {
   });
 
   it('says so in the import notes, naming the mount as unflyable', async () => {
-    fetchMotorSpec.mockRejectedValue(new Error('network down'));
+    catalogMotorSpec.mockRejectedValue(new Error('network down'));
     const loaded = await loadOrk(new ArrayBuffer(0));
     expect(noteTexts(loaded.notes).join(' ')).toMatch(/K550/);
     expect(noteTexts(loaded.notes).join(' ')).toMatch(/No motor is substituted/i);
   });
 
   it('still seats the real motor when the download succeeds', async () => {
-    fetchMotorSpec.mockResolvedValue({
+    catalogMotorSpec.mockResolvedValue({
       designation: 'K550',
       manufacturer: 'AeroTech',
       diameter: 0.054,

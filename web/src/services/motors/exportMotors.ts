@@ -24,7 +24,7 @@ import { toCatalogMm } from './catalogUnits';
  * The manufacturer is the motor's own when it has one. The desktop's findMotors
  * filters by manufacturer when the file names one, so a made-up one resolves
  * nothing, and with none it goes by the designation alone. Every motor the
- * picker seats carries its manufacturer (thrustcurve.ts), and this map writes
+ * picker seats carries its manufacturer (motorSpec.ts), and this map writes
  * it through.
  *
  * The digest is the other half of resolving it, and it is filled in separately,

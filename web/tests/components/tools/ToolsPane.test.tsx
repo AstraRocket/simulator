@@ -1,54 +1,16 @@
 // @vitest-environment jsdom
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { forgetToolsPane, ToolsPane } from '../../../src/components/tools/ToolsPane';
-import { forgetOffTheRail } from '../../../src/components/tools/OffTheRail';
 import { forgetParachuteTool } from '../../../src/components/tools/ParachuteTool';
 import { forgetLandingEstimator } from '../../../src/components/tools/LandingEstimator';
 import { renderWithProviders } from '../../testing/renderWithProviders';
-import { __setEngineForTests } from '../../../src/engine/openRocketEngine';
-import { loadEngine } from '../../testing/kernelGeometry';
-import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
-
-vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
-
-// The rail tool's average thrust-to-weight is the kernel's average thrust.
-beforeAll(async () => {
-  __setEngineForTests(await loadEngine());
-});
-
-// The real picker loads the catalog; this one hands back a motor at once.
-vi.mock('../../../src/components/sim/MotorDialog', () => ({
-  MotorDialog: ({ onSelect, onClose }: { onSelect: (m: unknown) => void; onClose: () => void }) => (
-    <button
-      onClick={() => {
-        onSelect({
-          designation: 'F50',
-          manufacturer: 'Test',
-          diameter: 0.029,
-          length: 0.1,
-          times: [0, 1],
-          thrusts: [50, 50],
-          masses: [0.1, 0.05],
-          cgX: 0.05,
-          ejectionDelay: 6,
-        });
-        onClose();
-      }}
-    >
-      Pick F50
-    </button>
-  ),
-}));
 
 beforeEach(() => {
   forgetToolsPane();
-  forgetOffTheRail();
   forgetParachuteTool();
   forgetLandingEstimator();
 });
-
-const value = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
 
 describe('the Tools tab', () => {
   it('opens on the landing estimator, and switches tools from a tab list', () => {
@@ -97,34 +59,6 @@ describe('the Tools tab', () => {
     fireEvent.change(site, { target: { value: '' } });
     fireEvent.blur(site);
     expect(main()).toBe(high);
-  });
-
-  it('works out a rail exit once there is a motor', () => {
-    renderWithProviders(<ToolsPane />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Off the rail' }));
-    expect(screen.getByText("Choose a motor, and enter the rocket's mass and the rail length.")).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Choose…' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Pick F50' }));
-    expect(screen.getByText('Test F50')).toBeTruthy();
-    // 0.5 kg airframe and a 0.1 kg motor: 50 N over 0.6 kg weight.
-    expect(value('Thrust to weight, average')).toBe('8.5 : 1');
-    // 12.2 m/s is under the default minimum, so the reading says so.
-    expect(value('Rail exit speed')).toMatch(/^[\d.]+ m\/s · Below minimum$/);
-    expect(value('Weathercock angle')).toMatch(/°$/);
-    expect(screen.getByText(/^An estimate: no drag/)).toBeTruthy();
-  });
-
-  it('names an out-of-limit rail figure in words, not only in amber', () => {
-    renderWithProviders(<ToolsPane />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Off the rail' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Choose…' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Pick F50' }));
-    expect(value('Thrust to weight, average')).toBe('8.5 : 1');
-    // 50 N under 1.6 kg is about 3.2 : 1, below the 5 : 1 the rules ask for.
-    const mass = screen.getByLabelText('Rocket mass without the motor') as HTMLInputElement;
-    const grams = Number(mass.value) > 10;
-    fireEvent.change(mass, { target: { value: grams ? '1500' : '1.5' } });
-    expect(value('Thrust to weight, average')).toMatch(/Below minimum$/);
   });
 
   it('keeps each tool as it was left across a trip to another tab', () => {

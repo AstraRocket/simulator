@@ -9,6 +9,7 @@ import {
   ClassChips,
   DiameterRange,
   ImpulseRange,
+  PerfFilters,
   ManufacturerMenu,
   PluggedFilter,
   OopFilter,
@@ -65,6 +66,10 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
     setDia,
     imp,
     setImp,
+    perf,
+    perfFields,
+    setPerf,
+    clearPerf,
     plugged,
     setPlugged,
     classes,
@@ -95,6 +100,7 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
   return (
     <Dialog
       id="motorDashboard"
+      fullBleed="xl"
       title={t('dash.title')}
       onClose={onClose}
       size="6xl"
@@ -154,6 +160,9 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
             <ImpulseRange imp={imp} onChange={setImp} />
             <PluggedFilter plugged={plugged} onChange={setPlugged} />
             <OopFilter on={hideOop} onChange={setHideOop} />
+          </div>
+          <div className="px-3 pb-2">
+            <PerfFilters perf={perf} onChange={setPerf} onClear={clearPerf} fields={perfFields} />
           </div>
 
           <MotorGrid

@@ -12,7 +12,7 @@ import { LatLonRows } from '../sim/LatLonRows';
 import { SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { smallButton } from '../common/smallButton';
 
-export const toolBtn = smallButton('sm', 'soft');
+const toolBtn = smallButton('sm', 'soft');
 
 export interface ToolSite {
   latitudeDeg: number | null;

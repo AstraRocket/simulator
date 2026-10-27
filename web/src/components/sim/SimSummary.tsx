@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { useLauncherT } from '../common/useLauncher';
 import { fmtNum } from '../../i18n/format';
 import { useScopedUnit } from '../common/UnitChip';
-import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
+import { fmtDegrees, useUnits } from '../../prefs/useUnits';
+import { NO_VALUE } from '../../i18n/noValue';
+import { degToRad, unitScope } from '../../prefs/units';
 import type { FlightResult } from '../../engine/api';
 import { forwardFlightEnd, maxQ, maxQAlpha, maxRollRate, seriesAt } from '../../services/flight/flightEvents';
 import { distanceFromPad, landingPoint } from '../../services/flight/groundTrack';
@@ -17,6 +18,7 @@ import { deploymentVerdict, lastDeployment } from './speedWarnings';
 import { sharedDeviceNames } from '../../services/flight/recoveryFlown';
 import { selectShownSim, useWorkspaceStore } from '../../state/store';
 import { effectivePrefs, type SimPrefs } from '../../services/flight/simulations';
+import { WEATHERCOCK_LIMIT_DEG, maxWindMs } from '../../services/flight/weathercock';
 
 /**
  * What the numbers below are and are not, as a card of its own above them.
@@ -180,6 +182,8 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
   const maxQUnit = useScopedUnit(unitScope('sim', 'maxQ'), 'pressure');
   const maxSpeed = useScopedUnit(unitScope('sim', 'maxSpeed'), 'velocity');
   const maxRollUnit = useScopedUnit(unitScope('sim', 'maxRoll'), 'rollRate');
+  const railNeededUnit = useScopedUnit(unitScope('sim', 'railNeeded'), 'length');
+  const maxWindUnit = useScopedUnit(unitScope('sim', 'maxWind'), 'windspeed');
   // No fixed digits on these tiles: the ladder's precision follows the size of
   // the number in the reader's unit, and is what the simulations table shows.
   const { settings } = useSettings();
@@ -191,6 +195,13 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
     return shown.result === sim ? shown.prefs : undefined;
   });
   const { deploymentSpeedWarn } = effectivePrefs(settings.simulation, ownPrefs);
+  // The rod or rail this flight left, to judge the length it needed against.
+  // Only the shown row's own, as `ownPrefs` above: another row's rod says
+  // nothing about this flight.
+  const rodLengthM = useWorkspaceStore((st): number | null => {
+    const shown = selectShownSim(st);
+    return shown.result === sim ? shown.launch.launchRodLengthM : null;
+  });
   // Names more than one recovery device flies under: a warning without node
   // ids that names one of them cannot be pinned to this branch.
   const tree = useWorkspaceStore((st) => st.tree);
@@ -216,6 +227,12 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
   const rodTime = sim?.events.find((e) => e.type === 'LAUNCHROD')?.time;
   const railMargin = sim && rodTime != null ? seriesAt(sim.series, 'stability', rodTime) : null;
   const railCp = sim && rodTime != null ? seriesAt(sim.series, 'cpLocation', rodTime) : null;
+  // The engine's thrust-to-weight and angle of attack as it left the launcher.
+  // The angle of attack there is the weathercocking: the angle the relative
+  // wind meets the rocket at, flown with the run's own wind. Null on a result
+  // recorded without the full series.
+  const railTwr = sim && rodTime != null ? seriesAt(sim.series, 'Twr', rodTime) : null;
+  const railAoa = sim && rodTime != null ? seriesAt(sim.series, 'aoa', rodTime) : null;
   // Downrange (lateral) landing distance: the last sample where both halves of
   // the drift are finite, the same point the ground track reports.
   const landing = sim ? landingPoint(sim.series) : null;
@@ -271,6 +288,54 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             }
             tone={stabilityTone(railMargin)}
             status={t(railVerdictKey(railMargin))}
+          />
+        )}
+        {rodTime != null && <Stat card label={t('sim.exitTime')} value={fmtNum(rodTime, 2)} sub={t('units.second')} />}
+        {railTwr != null && <Stat card label={t('sim.exitTwr')} value={fmtNum(railTwr, 1)} sub={t('sim.exitTwrSub')} />}
+        {railAoa != null && (
+          <Stat
+            card
+            label={t('sim.exitAoa')}
+            value={u.fmt('angle', Math.abs(railAoa))}
+            sub={u.sym('angle')}
+            // The usual weathercocking limit, as the max-wind tile beside it uses.
+            tone={Math.abs(railAoa) > degToRad(WEATHERCOCK_LIMIT_DEG) ? warnTone : goodTone}
+            status={Math.abs(railAoa) > degToRad(WEATHERCOCK_LIMIT_DEG) ? t('limits.aboveMax') : undefined}
+          />
+        )}
+        {/* The steadiest wind that keeps the angle at rail exit within the usual
+            20° rule: the engine's exit speed times tan 20°. */}
+        <Stat
+          card
+          label={t('sim.maxWind', { angle: fmtDegrees(u, WEATHERCOCK_LIMIT_DEG) })}
+          value={maxWindUnit.fmt(maxWindMs(s.launchRodVelocity))}
+          sub={maxWindUnit.chip(t('sim.maxWind', { angle: fmtDegrees(u, WEATHERCOCK_LIMIT_DEG) }))}
+        />
+        {/* Absent from a run that did not ask, or recorded before the engine
+            reported it; null when no rod is long enough. */}
+        {s.railLengthNeeded !== undefined && (
+          <Stat
+            card
+            label={t('sim.railNeeded')}
+            value={s.railLengthNeeded == null ? NO_VALUE : railNeededUnit.fmt(s.railLengthNeeded)}
+            sub={
+              <>
+                {s.railLengthNeeded != null && <>{railNeededUnit.chip(t('sim.railNeeded'))} · </>}
+                {t('sim.railNeededFor', { speed: rodExit.fmtSym(railExitVelocityMin) })}
+              </>
+            }
+            tone={
+              s.railLengthNeeded == null || (rodLengthM != null && s.railLengthNeeded > rodLengthM)
+                ? warnTone
+                : goodTone
+            }
+            status={
+              s.railLengthNeeded == null
+                ? t('sim.railNeverReaches')
+                : rodLengthM != null && s.railLengthNeeded > rodLengthM
+                  ? t('sim.railLonger')
+                  : undefined
+            }
           />
         )}
         {s.optimumDelay != null && (

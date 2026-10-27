@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
 import { type MotorSpec, type IgnitionEvent } from '../../engine/openRocketEngine';
 import { MotorDialog } from './MotorDialog';
+import type { LiftoffAt } from './useLiftoffFields';
 import type { MountFit } from '../../services/motors/motorPicker';
 import { MotorSpecDialog } from './MotorSpecDialog';
 import { useUnits } from '../../prefs/useUnits';
@@ -29,6 +30,7 @@ export function MotorRow({
   onCommit,
   soloEdit,
   used,
+  liftoff,
 }: {
   motor: MotorSpec | null;
   onChange: (m: MotorSpec) => void;
@@ -56,6 +58,8 @@ export function MotorRow({
   soloEdit?: boolean;
   /** The motors this mount carries in its other flight configurations. */
   used?: MotorSpec[];
+  /** The configuration and mount this card chooses for, for the picker's thrust-to-weight filter. */
+  liftoff?: LiftoffAt;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -138,6 +142,7 @@ export function MotorRow({
           mount={mount}
           current={motor}
           used={used}
+          liftoff={liftoff}
         />
       )}
       {curveOpen && hasCurve && motor && <MotorSpecDialog motor={motor} onClose={() => setCurveOpen(false)} />}

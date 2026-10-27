@@ -116,7 +116,8 @@ export interface SimulationSettings {
    */
   drogueLowSpeedWarn: number;
   /** Minimum safe rod/rail-exit velocity (m/s): the rod-exit tile is green at or
-   *  above this, and warns below it (too slow to be stable off the rail). */
+   *  above this, and warns below it (too slow to be stable off the rail). Each
+   *  run also asks the engine how long a launcher reaches it. */
   railExitVelocityMin: number;
   /**
    * Which launch-guide clearance model to fly. Default false, OpenRocket's own.

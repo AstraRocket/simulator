@@ -8,6 +8,8 @@ import {
   type CsvFormat,
 } from '../flight/flightColumns';
 import { forwardFlightEnd, maxQ, maxQAlpha, maxRollRate, type EventRow } from '../flight/flightEvents';
+import type { GuideRow } from '../flight/motorGuide';
+import { avgThrustOf } from '../motors/motorMath';
 import { withLauncher, type LauncherKind } from '../design/launcher';
 import { siToUi, siToUiDelta, type Quantity, type UnitSelection } from '../../prefs/units';
 import { plainDecimal } from '../files/numberText';
@@ -407,6 +409,86 @@ export function runTableCsv(
         cell(mul(maxQ(series)?.q, pres.f)),
         cell(mul(qa?.value, pres.f * ang.f)),
         cell(mul(maxRollRate(series), roll.f)),
+      ]),
+    );
+  }
+  return lines.join(EOL) + EOL;
+}
+
+/** One motor guide row as the guide table writes it. */
+export interface GuideTableRow {
+  /** The motor's name, e.g. "F67W". */
+  motor: string;
+  manufacturer: string;
+  /** The delay it was flown at, as the table shows it ("7", "P"). */
+  delay: string;
+  /** What the guide found wrong, translated by the caller; empty for a clean flight. */
+  status: string;
+  row: GuideRow;
+}
+
+/**
+ * The motor guide table: one row per candidate motor, in the user's units, with
+ * the figures the guide shows. The same shape as the run table, so the two
+ * files read alike side by side.
+ */
+export function motorGuideCsv(
+  rows: readonly GuideTableRow[],
+  units: UnitSelection,
+  t: CsvTranslate,
+  launcher: LauncherKind | null = null,
+): string {
+  const lt = withLauncher(t, launcher);
+  const dist = col(units, 'distance');
+  const vel = col(units, 'velocity');
+  const acc = col(units, 'acceleration');
+  const imp = col(units, 'impulse');
+  const force = col(units, 'force');
+  const text = textCell;
+  const lines = [
+    row([
+      titled(t('csv.head.motor')),
+      titled(t('csv.head.manufacturer')),
+      titled(t('csv.head.delay'), 's'),
+      titled(t('csv.head.totalImpulse'), imp.sym),
+      titled(t('csv.head.avgThrust'), force.sym),
+      titled(t('csv.head.burnTime'), 's'),
+      titled(t('csv.head.optimumDelay'), 's'),
+      titled(t('csv.head.apogee'), dist.sym),
+      titled(t('csv.head.maxVelocity'), vel.sym),
+      titled(t('csv.head.maxAcceleration'), acc.sym),
+      titled(t('csv.head.maxMach')),
+      titled(lt('csv.head.exitVelocity'), vel.sym),
+      titled(t('csv.head.railMargin'), t('stability.caliber')),
+      titled(t('csv.head.thrustWeight')),
+      titled(t('csv.head.timeToApogee'), 's'),
+      titled(t('csv.head.deploymentVelocity'), vel.sym),
+      titled(t('csv.head.landingVelocity'), vel.sym),
+      titled(t('csv.head.status')),
+    ]),
+  ];
+  for (const r of rows) {
+    const g = r.row;
+    lines.push(
+      row([
+        text(r.motor),
+        text(r.manufacturer),
+        text(r.delay),
+        cell(mul(g.motor.impulse, imp.f)),
+        cell(mul(avgThrustOf(g.motor), force.f)),
+        cell(g.motor.burn),
+        cell(g.optimumDelay),
+        cell(mul(g.apogee, dist.f)),
+        cell(mul(g.maxVelocity, vel.f)),
+        cell(mul(g.maxAcceleration, acc.f)),
+        cell(g.maxMach),
+        cell(mul(g.railExit, vel.f)),
+        cell(g.railMargin),
+        cell(g.railTwr),
+        cell(g.timeToApogee),
+        cell(mul(g.deployVelocity, vel.f)),
+        cell(mul(g.landingVelocity, vel.f)),
+        text(r.status),
       ]),
     );
   }

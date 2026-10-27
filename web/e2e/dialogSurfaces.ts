@@ -22,6 +22,7 @@ export const DIALOG_SURFACES = {
   LocationsDialog: 1,
   MotorDashboard: 1,
   MotorDialog: 1,
+  MotorGuideDialog: 1,
   MotorSpecDialog: 1,
   MyMaterialsDialog: 1,
   PlaceSearchDialog: 1,

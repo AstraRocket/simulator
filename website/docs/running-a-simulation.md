@@ -139,6 +139,9 @@ Under it, results are shown as tiles, in roughly chronological flight order, inc
 
 - **Rail exit** (**Rod exit** or **Launcher exit**, after the design's guides): the speed as the rocket leaves the launcher, flagged if below your safety minimum
 - **Static margin @ rail exit** (**@ rod exit** or **@ launcher exit**, after the design's guides): the stability margin in calibers at the moment the rocket leaves the guide, with the CP at that moment, marked stable, marginal or unstable. The stats strip's stability figure is for the rocket on the pad; this one uses the real speed and the partly burned motor.
+- **Time at exit**, **thrust/weight at exit** and **angle of attack at exit**: when the rocket left the launcher, how hard the motor was pushing against its weight then, and the angle the airflow met it at. That angle is the weathercocking, flown with the run's own wind, and it is flagged above the usual 20° limit.
+- **Max wind for 20°**: the steady wind that would turn the airflow 20° at the launcher-exit speed (that speed times tan 20°)
+- **Rail length needed** (**Rod length needed** or **Launcher length needed**, after the design's guides): how long a launcher this rocket needs to leave it at your minimum exit speed from **Settings > Simulation**. The engine flies a short extra probe of the same rocket on a very long launcher to find it. It is flagged when it is longer than the launcher you set, or when no launcher is long enough because the motor burns out first.
 - **Optimum delay** and **time to apogee**
 - **Apogee** (max altitude) and **max velocity / acceleration / Mach**
 - **Deploy speed** (flagged if above your warning threshold; green when safely low). On a [dual-deployment](./designing-a-rocket.md#dual-deployment) design the flight engine judges the main and the drogue against their own thresholds instead, and reports a warning for each.

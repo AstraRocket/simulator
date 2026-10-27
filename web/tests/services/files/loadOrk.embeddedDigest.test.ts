@@ -57,10 +57,10 @@ vi.mock('../../../src/services/files/designFile', () => ({
   }),
 }));
 
-const fetchMotorSpec = vi.fn();
+const catalogMotorSpec = vi.fn();
 const customMotorToSpec = vi.fn();
-vi.mock('../../../src/services/motors/thrustcurve', () => ({
-  fetchMotorSpec: (...a: unknown[]) => fetchMotorSpec(...a),
+vi.mock('../../../src/services/motors/motorSpec', () => ({
+  catalogMotorSpec: (...a: unknown[]) => catalogMotorSpec(...a),
   customMotorToSpec: (...a: unknown[]) => customMotorToSpec(...a),
 }));
 
@@ -86,13 +86,13 @@ beforeEach(() => {
   catalogDigests.value = [];
   twoCurves.value = false;
   customMotorToSpec.mockReturnValue(SPEC);
-  fetchMotorSpec.mockResolvedValue({ ...SPEC, designation: 'catalog C6' });
+  catalogMotorSpec.mockResolvedValue({ ...SPEC, designation: 'catalog C6' });
 });
 
 describe('an embedded motor named by digest', () => {
   it('reopens with the curve the file carried, not the catalog motor of the same name', async () => {
     const res = await loadOrk(new ArrayBuffer(0));
-    expect(fetchMotorSpec).not.toHaveBeenCalled();
+    expect(catalogMotorSpec).not.toHaveBeenCalled();
     expect(customMotorToSpec).toHaveBeenCalledTimes(1);
     expect(res.configs[0]!.motors['mount1']!.spec).toBe(SPEC);
   });
@@ -100,7 +100,7 @@ describe('an embedded motor named by digest', () => {
   it('takes the catalog motor when the catalog holds that exact digest', async () => {
     catalogDigests.value = [{ digest: DIGEST, delays: [5] }];
     await loadOrk(new ArrayBuffer(0));
-    expect(fetchMotorSpec).toHaveBeenCalledTimes(1);
+    expect(catalogMotorSpec).toHaveBeenCalledTimes(1);
     expect(customMotorToSpec).not.toHaveBeenCalled();
   });
 

@@ -25,7 +25,7 @@
 //     instead, which is what the picker already renders for a motor whose type
 //     the catalog does not give.
 //   - No `calculateMass` port. Upstream reconstructs the mass curve from thrust
-//     when the file omits it, and `thrustcurve.samplesToMotorSpec` already does
+//     when the file omits it, and `motorSpec.samplesToMotorSpec` already does
 //     the identical arithmetic for every motor without per-sample mass (mass
 //     falls from loaded to burnout in proportion to cumulative impulse, both by
 //     the trapezoid rule). A file with no mass data therefore just omits

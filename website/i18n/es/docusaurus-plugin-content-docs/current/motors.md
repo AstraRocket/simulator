@@ -10,6 +10,8 @@ El selector busca en un catálogo incluido de **~1.150 motores reales** de [thru
 
 - **Cabe en el soporte**: solo los motores que caben en este soporte, por su diámetro interior y la longitud disponible, incluido el saliente del motor. La etiqueta muestra el diámetro interior. Está activado por defecto cuando el selector se abre para un soporte; desactívalo para ver todo el catálogo.
 - **Taponado**: solo los motores que el fabricante ofrece sin carga de eyección, para separación de etapas o recuperación electrónica. Cualquier motor se puede volar taponado desde el control de retardo (consulta [Retardo de eyección](#ejection-delay)).
+- **Más filtros**: límites para **empuje medio**, **empuje máximo**, **tiempo de combustión**, **peso total**, **peso del propelente**, **longitud** e **Isp** (estimado a partir del impulso total y el peso del propelente), cada uno con un mínimo y un máximo en tus propias unidades, ambos opcionales. Quedan plegados hasta que los abres, y el botón cuenta cuántos hay puestos. Un motor para el que el catálogo no da un valor queda oculto en cuanto ese valor tiene un límite, porque no hay nada con qué comprobarlo. El Panel de motores y la [guía de motores](#motor-guide) tienen los mismos filtros.
+- **Empuje/peso**: en el selector abierto desde un soporte, y en la guía de motores, Más filtros también limita el empuje medio del motor dividido por el peso del cohete al despegue: la estructura, los motores que ya están en los otros soportes y todos los motores que lleva el soporte, así que un racimo cuenta cada uno. Es la cifra en la que se expresa la regla habitual de 5 : 1. El Panel de motores no tiene un cohete que levantar, así que no lo ofrece.
 
 Tres filtros más funcionan como en el selector de motores de OpenRocket de escritorio:
 
@@ -18,7 +20,25 @@ Tres filtros más funcionan como en el selector de motores de OpenRocket de escr
 - **Ocultar curvas de empuje muy parecidas**: muchos motores tienen más de una curva (certificada, del fabricante, enviada por usuarios). Con esto activado, la lista de curvas deja fuera las que se parecen más de un 95 % a la mostrada, según la medida del propio OpenRocket. Activado por defecto, y se recuerda.
 
 - El **catálogo** (las especificaciones de cada motor) viene con la aplicación, así que no hace falta ninguna consulta para explorarlo.
-- La **curva de empuje** viene incluida en el catálogo para la mayoría de los motores, así que elegir uno se resuelve al instante y funciona sin conexión. Los motores sin curva publicada se señalan en el selector; su curva se descarga de thrustcurve.org la primera vez que los eliges y luego se guarda en caché (se revalida de vez en cuando y recurre a la copia en caché si la descarga falla).
+- La **curva de empuje** viene incluida en el catálogo, así que elegir un motor se resuelve al instante y funciona sin conexión. Unos 90 motores no tienen curva publicada. El selector los sigue mostrando con sus datos, marcados **sin curva**, pero no se pueden elegir ni volar. Para volar uno, importa un archivo `.eng` o `.rse` para él (consulta [Importar tus propios motores](#importing-your-own-motors)).
+
+## Guía de motores {#motor-guide}
+
+La guía de motores responde a «cuál de estos vuelo»: vuela un conjunto de motores candidatos en tu cohete y muestra todos los vuelos en una sola tabla. Ábrela con **Guía de motores** en la pestaña **Simulaciones**. Trabaja sobre la simulación activa, con sus condiciones de lanzamiento, su configuración de vuelo y sus ajustes.
+
+1. Si el diseño tiene más de un soporte de motor, elige el **Soporte** en el que probar motores. Los demás soportes conservan el motor que ya tiene su configuración.
+2. Reduce la lista con los mismos filtros que el selector de motores. **Cabe en el soporte** está activado por defecto. Los motores que coinciden aparecen debajo de los filtros, todos marcados; desmarca los que no quieras hasta que queden 8 o menos. La guía solo vuela motores cuya curva de empuje está en tu dispositivo: la que viene con el catálogo o una que hayas importado. Un motor sin curva publicada se deja fuera, y la guía dice cuántos.
+3. Pulsa **Volar**. Cada motor se vuela una vez para hallar su **mejor retardo**, y otra vez con el retardo que ofrece más cercano a ese, así que la velocidad de despliegue de su fila es la que da ese retardo. En caso de empate gana el retardo más corto. Todos los vuelos usan la misma semilla de turbulencia, así que las diferencias entre filas vienen de los motores.
+
+La tabla tiene una fila por motor y se ordena por cualquier columna: el retardo con que se voló, el impulso total, el empuje medio y el tiempo de combustión del motor, el apogeo, la velocidad y la aceleración máximas, la velocidad de salida del lanzador, el margen de estabilidad y el empuje/peso a la salida del lanzador, el tiempo hasta el apogeo, el mejor retardo, la velocidad de despliegue y la de aterrizaje. **Estado** da a cada vuelo los mismos avisos que darían sus resultados: salida del lanzador por debajo del mínimo de **Ajustes**, un margen a la salida en el límite o inestable, un despliegue demasiado rápido o demasiado lento, y cuántos avisos de vuelo dio el motor de simulación. Pasa el puntero sobre el estado para leer los avisos.
+
+Un motor que una simulación normal rechazaría aparece debajo de la tabla con el motivo. Por ejemplo, un motor de alta potencia hace que el límite del ángulo del lanzador sea de 20°, así que un lanzamiento a 25° se rechaza solo para ese motor.
+
+- **Usar** conserva un motor: añade una configuración de vuelo con ese motor en el soporte, y una simulación de ella junto a la de partida. Ejecútala para ver todos sus resultados. Es un solo paso de deshacer.
+- **⬇ CSV** descarga la tabla en tus unidades.
+- **Cancelar** detiene la guía y conserva los motores ya volados.
+
+Los vuelos no se guardan ni añaden simulaciones. La tabla se queda hasta que la borras, vuelves a volar la guía o abres otro diseño. Si cambias el diseño o la simulación después de volar, la tabla lo indica y **Usar** se desactiva hasta que vuelvas a volarla.
 
 ## Retardo de eyección {#ejection-delay}
 

@@ -52,7 +52,7 @@ Desktop OpenRocket is a Java program you install. AstraRocket runs in a browser,
 | **Environment view** | The air the flight actually met, from the conditions at launch to profiles against altitude. See [Views & Analysis](./views-and-analysis.md#environment-after-a-simulation). |
 | **Landing across the forecast hours** | Flies the design under each hour from two before to two after and maps the landings with a 2σ ellipse. See [Views & Analysis](./views-and-analysis.md#where-it-landed). |
 | **Landing estimator** | A site, a forecast hour, an apogee and descent rates give a landing zone, with no design needed. See [Tools](./tools.md#landing-estimator). |
-| **Rail exit check** | A catalog motor, the rocket's mass and the rail length give thrust to weight, rail exit speed and weathercock angle. See [Tools](./tools.md#off-the-rail). |
+| **Rail length needed** | Each run reports how long a launcher the design needs to leave it at your minimum exit speed, beside the time, thrust to weight and angle of attack at exit. See [Running a Simulation](./running-a-simulation.md). |
 | **Parachute descent sizing** | The descent rate a canopy gives, and the diameter needed to hit a target rate. |
 | **NAR / Tripoli limits, enforced** | A run past the rail angle or surface wind limits is refused rather than flown. See [Safety](./safety.md). |
 | **A shoulder that follows the tube it plugs into** | A switch keeps a shoulder at the bore of the adjoining part. See [Designing a Rocket](./designing-a-rocket.md). |

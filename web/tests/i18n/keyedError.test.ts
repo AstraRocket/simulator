@@ -17,7 +17,7 @@ import { parseDesignFile } from '../../src/services/files/designFile';
 import { exportCdx1 } from '../../src/services/files/rasaeroExport';
 import { parseEng } from '../../src/services/motors/engParser';
 import { parseRse } from '../../src/services/motors/rseParser';
-import { samplesToMotorSpec } from '../../src/services/motors/thrustcurve';
+import { samplesToMotorSpec } from '../../src/services/motors/motorSpec';
 import {
   OpenRocketDesign,
   __setEngineForTests,
@@ -62,11 +62,11 @@ async function caughtAsync(p: Promise<unknown>): Promise<string> {
 
 describe('KeyedError', () => {
   it('carries its key and values, with the English sentence as its message for logs', () => {
-    const e = new KeyedError('errors.thrustcurve.noData', { motor: 'H128W' });
+    const e = new KeyedError('errors.thrustcurve.noSamples', { motor: 'H128W' });
     expect(e).toBeInstanceOf(Error);
-    expect(e.key).toBe('errors.thrustcurve.noData');
+    expect(e.key).toBe('errors.thrustcurve.noSamples');
     expect(e.values).toEqual({ motor: 'H128W' });
-    expect(e.message).toBe('No thrust-curve data available for H128W.');
+    expect(e.message).toBe('No thrust samples for H128W.');
   });
 
   it('fills a nested keyed value in English too', () => {
@@ -145,11 +145,13 @@ describe('errorReason', () => {
   it('rides inside an import note and is translated with it', async () => {
     const note = keyedNote('importNote.motorFetchFailed', {
       motor: 'J350',
-      reason: errorReason(new KeyedError('errors.thrustcurve.timeout')),
+      reason: errorReason(new KeyedError('errors.thrustcurve.noCurve', { motor: 'J350' })),
     });
     await i18n.changeLanguage('fr');
     expect(importNoteText(note, i18n.t)).toBe(
-      fr.importNote.motorFetchFailed.replace('{{motor}}', 'J350').replace('{{reason}}', fr.errors.thrustcurve.timeout),
+      fr.importNote.motorFetchFailed
+        .replace('{{motor}}', 'J350')
+        .replace('{{reason}}', fr.errors.thrustcurve.noCurve.replace('{{motor}}', 'J350')),
     );
   });
 

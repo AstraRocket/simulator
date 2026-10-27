@@ -1746,14 +1746,6 @@ public final class OpenRocketEngine {
         RocketCtx ctx = get(rocketHandle, RocketCtx.class, "a rocket");
         Map<String, Object> o = JsonLite.parseObject(optionsJson);
 
-        double launchAltitude = JsonLite.dbl(o, "launchAltitude", 0);
-        double temperature = JsonLite.dbl(o, "temperature", Double.NaN);
-        double pressure = JsonLite.dbl(o, "pressure", Double.NaN);
-        // Relative humidity as a fraction (0..1), like the kernel's own field.
-        // Humidity lowers air density (water vapor is lighter than dry air),
-        // which is small but not nothing on a marginal-stability flight.
-        double humidity = JsonLite.dbl(o, "relativeHumidity", Double.NaN);
-        double timeStep = JsonLite.dbl(o, "timeStep", 0.05);
         // Series payload mode. "summary" (default) emits the friendly dozen
         // plus only the symbol series the app's flight report reads on every
         // run; "full" adds the branch's whole recording. Serializing all ~60
@@ -1765,6 +1757,45 @@ public final class OpenRocketEngine {
         }
         boolean fullSeries = "full".equals(seriesMode);
 
+        SimulationConditions conditions = buildConditions(ctx, o);
+
+        // The minimum speed off the rod, m/s, asked for so the result can say how
+        // long a rod this rocket needs to reach it (see RailSpeedProbe). Absent,
+        // no probe flies and the summary carries no railLengthNeeded.
+        double railExitMinSpeed = JsonLite.dbl(o, "railExitMinSpeed", Double.NaN);
+        boolean railAsked = isFinite(railExitMinSpeed) && railExitMinSpeed > 0;
+
+        try {
+            BasicEventSimulationEngine engine = new BasicEventSimulationEngine();
+            engine.simulate(conditions);
+            FlightData data = engine.getFlightData();
+            double railNeeded = railAsked ? railLengthNeeded(ctx, o, railExitMinSpeed) : Double.NaN;
+            return flightDataToJson(data, fullSeries, appIds(ctx), railAsked, railNeeded);
+        } catch (SimulationException e) {
+            return errorJson(e);
+        } catch (RuntimeException e) {
+            // Kept alongside the outer wrapper: this one is close to the
+            // simulate() call and keeps its stack shallow, the outer one covers
+            // the handle lookup and the options parse above.
+            return errorJson(e);
+        }
+    }
+
+    /**
+     * The conditions a flight of this rocket flies under, from the options
+     * blob {@link #simulateJson} documents. A method of its own because the
+     * rail-length probe flies the same rocket under the same conditions as the
+     * real flight, and two copies of this would drift.
+     */
+    private static SimulationConditions buildConditions(RocketCtx ctx, Map<String, Object> o) {
+        double launchAltitude = JsonLite.dbl(o, "launchAltitude", 0);
+        double temperature = JsonLite.dbl(o, "temperature", Double.NaN);
+        double pressure = JsonLite.dbl(o, "pressure", Double.NaN);
+        // Relative humidity as a fraction (0..1), like the kernel's own field.
+        // Humidity lowers air density (water vapor is lighter than dry air),
+        // which is small but not nothing on a marginal-stability flight.
+        double humidity = JsonLite.dbl(o, "relativeHumidity", Double.NaN);
+        double timeStep = JsonLite.dbl(o, "timeStep", 0.05);
         SimulationConditions conditions = new SimulationConditions();
         conditions.setSimulation(new Simulation(ctx.rocket, ctx.fcid));
         conditions.setLaunchRodLength(JsonLite.dbl(o, "rodLength", 1.0));
@@ -1909,19 +1940,31 @@ public final class OpenRocketEngine {
             conditions.getSimulationListenerList().add(new GuideClearanceListener());
         }
 
-        try {
-            BasicEventSimulationEngine engine = new BasicEventSimulationEngine();
-            engine.simulate(conditions);
-            FlightData data = engine.getFlightData();
-            return flightDataToJson(data, fullSeries, appIds(ctx));
-        } catch (SimulationException e) {
-            return errorJson(e);
-        } catch (RuntimeException e) {
-            // Kept alongside the outer wrapper: this one is close to the
-            // simulate() call and keeps its stack shallow, the outer one covers
-            // the handle lookup and the options parse above.
-            return errorJson(e);
-        }
+        return conditions;
+    }
+
+    /** A rod longer than any real one, for the rail-length probe, m. */
+    private static final double PROBE_ROD_M = 1.0e6;
+
+    /** The longest the probe may run, s: well past any motor still on a rod. */
+    private static final double PROBE_MAX_TIME_S = 60;
+
+    /**
+     * How long a rod this rocket needs to leave it at {@code minSpeed}, m, or
+     * NaN when no rod is long enough. Flies a probe of the same rocket under
+     * the same conditions on a very long rod and stops it at that speed; see
+     * {@link RailSpeedProbe}.
+     */
+    private static double railLengthNeeded(RocketCtx ctx, Map<String, Object> o, double minSpeed)
+            throws SimulationException {
+        SimulationConditions probe = buildConditions(ctx, o);
+        double rod = probe.getLaunchRodLength();
+        probe.setLaunchRodLength(PROBE_ROD_M);
+        probe.setMaxSimulationTime(Math.min(probe.getMaxSimulationTime(), PROBE_MAX_TIME_S));
+        RailSpeedProbe listener = new RailSpeedProbe(minSpeed, JsonLite.bool(o, "guideAwareRodClearance", false), rod);
+        probe.getSimulationListenerList().add(listener);
+        new BasicEventSimulationEngine().simulate(probe);
+        return listener.railLength();
     }
 
     // ---------- helpers ----------
@@ -2044,7 +2087,8 @@ public final class OpenRocketEngine {
         return c == null ? null : appIds.get(c.getID().toString());
     }
 
-    private static String flightDataToJson(FlightData data, boolean fullSeries, Map<String, String> appIds) {
+    private static String flightDataToJson(FlightData data, boolean fullSeries, Map<String, String> appIds,
+            boolean railAsked, double railNeeded) {
         StringBuilder sb = new StringBuilder("{\"summary\":{");
         num(sb, "maxAltitude", data.getMaxAltitude()).append(',');
         num(sb, "maxVelocity", data.getMaxVelocity()).append(',');
@@ -2056,6 +2100,12 @@ public final class OpenRocketEngine {
         num(sb, "launchRodVelocity", data.getLaunchRodVelocity()).append(',');
         num(sb, "deploymentVelocity", data.getDeploymentVelocity()).append(',');
         num(sb, "optimumDelay", data.getOptimumDelay());
+        // Only when asked for, so a result that never asked carries no key and
+        // reads as "not computed" rather than as "no rod is long enough" (null).
+        if (railAsked) {
+            sb.append(',');
+            num(sb, "railLengthNeeded", railNeeded);
+        }
         sb.append("},\"warnings\":");
         appendWarnings(sb, data.getWarningSet(), appIds);
         sb.append(",\"warningTexts\":");

@@ -8,7 +8,7 @@
 // against the curve the app flies. Both sides come from the flown data: the
 // entry's from desktop's own motor object (motor-digests/MotorDump.java), the
 // row's from the bundled curve the picker seats by default
-// (`thrustcurve.ts` builds a bundled motor from `curves[0]` and `mass`).
+// (`motorSpec.ts` builds a bundled motor from `curves[0]` and `mass`).
 
 /** The kernel's `Motor.MARGINAL_THRUST` (core/.../motor/Motor.java:67). */
 const MARGINAL_THRUST = 0.05;

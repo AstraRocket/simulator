@@ -635,6 +635,13 @@ export interface SimulationOptions {
    */
   guideAwareRodClearance?: boolean;
   /**
+   * The minimum speed off the rod or rail, m/s. Given, the bridge flies a short
+   * probe of the same rocket on a very long rod and reports how long a rod it
+   * needs to reach this speed (`FlightSummary.railLengthNeeded`; see
+   * `api/RailSpeedProbe.java`). The flight itself is unchanged.
+   */
+  railExitMinSpeed?: number;
+  /**
    * Series payload mode. 'summary' (the default) returns the 12 friendly-named
    * arrays plus only the symbol series the app's flight report reads every run
    * (Pl, θl, Px, Py, dΦ). 'full' additionally returns every series the branch
@@ -861,6 +868,14 @@ export interface FlightSummary {
    * flight's apogee). null when not computable.
    */
   optimumDelay: number | null;
+  /**
+   * How long a rod or rail this rocket needs to leave it at the minimum speed
+   * the run asked for (`railExitMinSpeed`), m: the engine's figure, from a probe
+   * of the same rocket on a very long rod. Null when no rod is long enough (the
+   * motor burns out first); absent when the run did not ask, or from a result
+   * recorded before the engine reported it.
+   */
+  railLengthNeeded?: number | null;
 }
 
 export interface FlightEvent {
@@ -1185,7 +1200,7 @@ export class OpenRocketDesign {
     // Reject a malformed curve at the package boundary. A NaN in `masses` would
     // otherwise surface as TeaVM's internal "The number NaN cannot be converted
     // to a BigInt", which tells the user nothing and blanks their design; catalog
-    // data with missing weights is the real-world source (see thrustcurve.ts).
+    // data with missing weights is the real-world source (see motorSpec.ts).
     assertFiniteCurve(motor);
     callEngine('setMotorById', () =>
       eng().setMotorById(
@@ -1323,6 +1338,7 @@ export class OpenRocketDesign {
           mainLowSpeedWarn: options.mainLowSpeedWarn,
           drogueLowSpeedWarn: options.drogueLowSpeedWarn,
           guideAwareRodClearance: options.guideAwareRodClearance,
+          railExitMinSpeed: options.railExitMinSpeed,
           series: options.series,
         }),
       ),

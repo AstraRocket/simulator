@@ -34,6 +34,7 @@ const PREFS: SimPrefs = {
   drogueLowSpeedWarn: 3.048,
   // OpenRocket's own clearance model, which is the default.
   guideAwareRodClearance: false,
+  railExitVelocityMin: 15,
 };
 
 describe('simConditions', () => {

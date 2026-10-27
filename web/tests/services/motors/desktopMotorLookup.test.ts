@@ -46,9 +46,9 @@ vi.mock('../../../src/engine/openRocketEngine', async (original) => ({
   },
   resetEngine: () => {},
 }));
-vi.mock('../../../src/services/motors/thrustcurve', async (original) => ({
-  ...(await original<typeof import('../../../src/services/motors/thrustcurve')>()),
-  fetchMotorSpec: vi.fn(async (cat: CatalogMotor, delay: number): Promise<MotorSpec> => ({
+vi.mock('../../../src/services/motors/motorSpec', async (original) => ({
+  ...(await original<typeof import('../../../src/services/motors/motorSpec')>()),
+  catalogMotorSpec: vi.fn(async (cat: CatalogMotor, delay: number): Promise<MotorSpec> => ({
     designation: cat.designation,
     manufacturer: cat.manufacturer,
     diameter: cat.diameter / 1000,
@@ -271,7 +271,7 @@ const ownCurve = (manufacturer: string | undefined, designation: string, diamete
   cgX: 0.05,
 });
 
-/** The spec as `fetchMotorSpec` seats a row: its common name, with the code beside it. */
+/** The spec as `catalogMotorSpec` seats a row: its common name, with the code beside it. */
 const picked = (r: CatalogMotor, delay: number): MotorSpec => ({
   designation: r.designation,
   ...(r.code && r.code !== r.designation ? { code: r.code } : {}),
