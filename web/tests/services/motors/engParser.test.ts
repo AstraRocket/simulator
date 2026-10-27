@@ -245,6 +245,12 @@ describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () =>
     );
   });
 
+  it('a curve with no thrust anywhere, naming the motor', () => {
+    expect(() => parseEng(ENG.replace('0.5 20', '0.5 0'))).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.engNoThrust', values: { motor: 'TC10' } }),
+    );
+  });
+
   it('a negative time, naming the motor and its line in the file', () => {
     // Upstream puts a (0, 0) point ahead of a curve that does not start at
     // zero, and the builder then refuses a time that runs backward.

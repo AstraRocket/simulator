@@ -149,6 +149,10 @@ function parseEngine(el: Element): CustomMotor {
   if (points.some((p) => p.thrust < 0)) {
     throw new KeyedError('errors.motorFile.rseNegativeThrust', { motor: designation });
   }
+  // Zero all the way along: no impulse, a motor that would never leave the pad.
+  if (!points.some((p) => p.thrust > 0)) {
+    throw new KeyedError('errors.motorFile.rseNoThrust', { motor: designation });
+  }
 
   const samples = points.map((p) => ({ time: p.time, thrust: p.thrust }));
 
