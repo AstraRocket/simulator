@@ -22,6 +22,19 @@ const TREE = {
   ],
 } as unknown as RocketTree;
 
+// jsdom has no matchMedia; each row's export button asks it whether this is a
+// desktop window (useCapability). Answer "desktop".
+beforeAll(() => {
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+});
+
 /**
  * Rows are tree items, not `role="button"`: a button may not contain interactive
  * content such as the fold toggle and the export button, and a button says

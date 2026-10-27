@@ -2,6 +2,28 @@
 title: "Archivos y exportaciones"
 sidebar_position: 13
 ---
+## En un teléfono o una tableta {#on-a-phone-or-tablet}
+
+Algunas exportaciones crean un archivo que solo puede usar un programa de escritorio, así que un teléfono o una tableta no las ofrece. La importación de RockSim las acompaña, porque sus archivos también vienen de un programa de escritorio; un `.rkt` elegido con **Importar → OpenRocket** se rechaza con un mensaje.
+
+| Función | La usa |
+| --- | --- |
+| **RockSim** (`.rkt`), importación y exportación | RockSim |
+| **RASAero II** (`.CDX1`) | RASAero II, un programa de Windows |
+| **Impresión 3D** (`.3mf`), y **STL**, **OBJ** y **3MF** en el botón **⬇** de una pieza | Un laminador |
+| Hojas de corte **DXF** en el botón **⬇** de una pieza | El software de una cortadora láser o una fresadora CNC |
+| **JSON** para Onshape | La función de importación de Onshape |
+
+Todo lo demás se mantiene: `.ork` (la forma de llevar los diseños entre tus dispositivos), **GLB** en el botón **⬇** de una pieza (los teléfonos lo muestran en 3D), el informe en PDF, los CSV, la trayectoria para aplicaciones de mapas, las imágenes, los archivos de motor y las copias de seguridad. Abre la aplicación en un ordenador de escritorio para usar las exportaciones de arriba; tus diseños te acompañan mediante `.ork` o una copia de seguridad.
+
+«Teléfono o tableta» significa cualquiera de estos casos:
+
+- **La ventana mide menos de 1024 píxeles de ancho**, donde la aplicación pasa a su vista de teléfono.
+- **El navegador indica un iPhone, iPad o iPod**, o indica un Mac con pantalla táctil. Un iPad pide las versiones de escritorio de los sitios y se presenta como Mac, pero un Mac de verdad no tiene pantalla táctil.
+- **El navegador indica un teléfono o una tableta.** Chrome, Edge y Samsung Internet comunican a los sitios el tipo de dispositivo (escritorio, teléfono o tableta) y eso lo decide. Los demás navegadores se leen por su agente de usuario: cuenta uno que nombre Android.
+
+Una tableta con Windows cuenta aquí como ordenador de escritorio, porque puede ejecutar estos programas. En Safari y Firefox, un navegador configurado para **solicitar el sitio de escritorio** puede ocultar lo que es, y entonces aparecen las funciones de escritorio.
+
 ## Importar y exportar `.ork` {#opening-and-saving-ork}
 
 AstraRocket lee y escribe archivos **`.ork` de OpenRocket** estándar, así que los diseños viajan en ambos sentidos entre esta aplicación y OpenRocket de escritorio.
@@ -16,17 +38,22 @@ Se ha verificado que un viaje de ida y vuelta por exportación e importación co
 
 ## RockSim (`.rkt`) {#rocksim-rkt}
 
-Los diseños de RockSim también se abren y se guardan, desde **menú → Importar → RockSim** y **menú → Exportar → RockSim**. El lector se guía por el contenido del archivo y no por su nombre, así que un `.rkt` elegido en el diálogo de OpenRocket también se abre.
+Los diseños de RockSim también se abren y se guardan, desde **menú → Importar → RockSim** y **menú → Exportar → RockSim**. El lector se guía por el contenido del archivo y no por su nombre, así que un `.rkt` elegido en el diálogo de OpenRocket también se abre. Las dos se ofrecen solo en un ordenador de escritorio (consulta [En un teléfono o una tableta](#on-a-phone-or-tablet)).
 
 Lo que sí viaja: ojivas, tubos y transiciones; tubos interiores y soportes de motor; anillos de centrado, mamparos, topes de motor y acopladores; juegos de aletas trapezoidales, elípticas y de forma libre con su inclinación, su giro y sus lengüetas pasantes; aletas tubulares; guías de lanzamiento; paracaídas y cintas; objetos de masa y cuerdas de choque; cápsulas externas (una cápsula desmontable entra como etapa en paralelo, que vuela su propia rama); y hasta tres etapas. Con ellos van las dimensiones, los materiales, los acabados, la colocación y la masa y el CG medidos.
 
 Lo que no:
 
 - **Los motores y las condiciones de lanzamiento.** RockSim los guarda con sus *simulaciones*, que son un objeto distinto del diseño, así que un cohete importado llega sin motor y uno exportado sale sin el tuyo. Elige un motor después de importar.
-- **Las colas anulares (ring tails)**, que aquí no tienen equivalente.
+- **Las colas anulares (ring tails)** como forma. Cada una entra como objeto de masa con la masa y el CG que calcula RockSim, así que su peso se conserva pero su resistencia no se simula.
 - **Los subconjuntos**, cuyo contenido se fusiona en el diseño en lugar de mantenerse como grupo.
 
 En el otro sentido, RockSim no tiene elemento para los **botones de riel**. Se quedan fuera del archivo, y la aplicación te dice cuáles se han omitido. Una etapa en paralelo sale como una cápsula desmontable, que es como la escriben RockSim y OpenRocket de escritorio, y un conjunto de cápsulas o de etapas en paralelo sale como una cápsula por cada copia.
+
+En qué se diferencia de OpenRocket de escritorio, o qué es fácil pasar por alto:
+
+- **La extensión de la base de una ojiva toma el color de la ojiva.** RockSim dibuja una ojiva con una sección recta en la base; esa sección entra como una transición recta detrás de la ojiva, con el material, el acabado y el color de la ojiva. El escritorio le da el material y el acabado, pero no el color.
+- **El orificio de ventilación de un paracaídas no se escribe en un `.rkt`.** El paracaídas sale como una sola campana redonda con la misma área de resistencia, así que RockSim vuela el mismo paracaídas, pero el orificio desaparece. El escritorio también lo omite. Al leer un `.rkt`, el orificio se descuenta del área de la campana en lugar de conservarse como orificio.
 
 > **Menú → Abrir y Guardar como trabajan sobre los diseños guardados dentro de la aplicación** (consulta [Diseños guardados](#saved-designs) más abajo); los archivos `.ork` van y vienen de tu disco mediante **Importar** y **Exportar**.
 
@@ -53,15 +80,17 @@ La aplicación mantiene una biblioteca de tus cohetes en el navegador, así que 
 
 ## Exportar a RASAero II (`.CDX1`) {#exporting-to-rasaero-ii-cdx1}
 
-**Menú → Exportar → RASAero II** escribe el diseño como un archivo `.CDX1` de RASAero II, para que puedas abrirlo en **[RASAero II](https://www.rasaero.com/)** y hacer su propio análisis aerodinámico y de vuelo.
+**Menú → Exportar → RASAero II** escribe el diseño como un archivo `.CDX1` de RASAero II, para que puedas abrirlo en **[RASAero II](https://www.rasaero.com/)** y hacer su propio análisis aerodinámico y de vuelo. Solo se ofrece en un ordenador de escritorio (consulta [En un teléfono o una tableta](#on-a-phone-or-tablet)).
 
-RASAero modela únicamente la **forma aerodinámica exterior**, así que la exportación lleva el fuselaje (ojiva, tubos, transiciones y colas de bote, aletas y guías de lanzamiento) además del **peso y el CG** cargados (escritos en el bloque de simulación de RASAero). Las piezas internas sin efecto aerodinámico (anillos de centrado, mamparos, cordones de choque, topes de motor) se descartan; los dos primeros paracaídas dentro de los tubos de las etapas se convierten en las dos entradas de recuperación de RASAero, con el despliegue de la configuración de vuelo que tengas seleccionada. Un paracaídas en una ojiva, una transición o un pod no se exporta, como en OpenRocket. Las dimensiones se convierten a las unidades de RASAero (pulgadas, libras, pies, °F).
+RASAero modela únicamente la **forma aerodinámica exterior**, así que la exportación lleva el fuselaje (ojiva, tubos, transiciones y colas de bote, aletas y guías de lanzamiento) además del **peso y el CG** cargados (escritos en el bloque de simulación de RASAero). Las piezas internas sin efecto aerodinámico (anillos de centrado, mamparos, cordones de choque, topes de motor) se descartan; los paracaídas de cualquier parte de las etapas se convierten en las dos entradas de recuperación de RASAero, con el despliegue de la configuración de vuelo que tengas seleccionada: el paracaídas de apogeo es la entrada 1 y el de altitud la entrada 2. Las dimensiones se convierten a las unidades de RASAero (pulgadas, libras, pies, °F). El sitio de lanzamiento lleva el viento de frente a lo largo de la guía y la presión reducida al nivel del mar, que es como los lee RASAero.
 
-Como RASAero no puede representar todas las formas, la exportación **se detiene con un mensaje claro** en lugar de escribir un archivo que RASAero rechazaría: por ejemplo, aletas tubulares o elípticas, una transición no cónica, más de un juego de aletas en un tubo, una aleta de forma libre que no sea un trapecio simple, una ojiva ojival con un parámetro de forma distinto de 1, una ojiva Haack que no sea Von Kármán (0) ni LV-Haack (0,33), o un paracaídas que se despliegue en algo que no sea el apogeo o una altitud (un paracaídas nuevo se despliega con la carga de eyección del motor, así que ajusta antes su despliegue). En esos casos, cambia el diseño o usa `.ork`.
+Cuando RASAero no tiene un equivalente exacto, la exportación escribe el más cercano y **te avisa**, como hace OpenRocket de escritorio: un juego de aletas elíptico o de forma libre sale como el trapecio con la misma cuerda de raíz, envergadura, área y centroide, solo se conserva el primer juego de aletas de cada pieza, un paracaídas con la carga de eyección del motor se abre en el apogeo, una cinta o un segundo paracaídas con el mismo evento se quedan fuera, el acabado que cubre la mayor parte del cohete vale para todo él, y RASAero vuela un solo motor por etapa, así que se avisa de un grupo de motores o de un segundo soporte de motor.
+
+Para lo que RASAero no puede representar en absoluto, la exportación **se detiene con un mensaje claro** en lugar de escribir un archivo que RASAero rechazaría: por ejemplo, aletas tubulares, una transición no cónica, un tubo cuyo diámetro no coincide con el de la pieza anterior, una ojiva ojival con un parámetro de forma distinto de 1, una ojiva Haack que no sea Von Kármán (0) ni LV-Haack (1/3), o un paracaídas que se despliegue en algo que no sea el apogeo, una altitud o la carga de eyección. En esos casos, cambia el diseño o usa `.ork`.
 
 ## Exportar JSON para Onshape (`.json`) {#exporting-json-for-onshape-json}
 
-**Menú → Exportar → JSON** escribe el diseño como un archivo `.json` para la función personalizada **[AstraRocketOnshapeImport](https://cad.onshape.com/documents/8e0814e355abcb7f2e678124/w/e2a90792fddced2ca802f65f/e/6eb2e92aea957e94a813c25e)** de Onshape, que construye el cohete como piezas en un Part Studio. La función lee el formato de archivo del proyecto **[OpenRocket-Onshape](https://github.com/AstraRocket/openrocket-onshape)**.
+**Menú → Exportar → JSON** escribe el diseño como un archivo `.json` para la función personalizada **[AstraRocketOnshapeImport](https://cad.onshape.com/documents/8e0814e355abcb7f2e678124/w/e2a90792fddced2ca802f65f/e/6eb2e92aea957e94a813c25e)** de Onshape, que construye el cohete como piezas en un Part Studio. La función lee el formato de archivo del proyecto **[OpenRocket-Onshape](https://github.com/AstraRocket/openrocket-onshape)**. Solo se ofrece en un ordenador de escritorio (consulta [En un teléfono o una tableta](#on-a-phone-or-tablet)).
 
 Para construir el cohete en Onshape:
 
@@ -84,7 +113,7 @@ El carenado de cámara es la única pieza que la función no sabe construir. Se 
 
 ## Exportar el cohete entero para impresión 3D (`.3mf`) {#exporting-the-whole-rocket-for-3d-printing-3mf}
 
-**Menú → Exportar → Impresión 3D (.3mf)** escribe de una vez todas las piezas imprimibles del diseño. El diálogo lista lo que el diseño puede imprimir, todo marcado; desmarca lo que no quieras. Los paracaídas, las cintas, los cordones de choque, los componentes de masa y los botones de riel ni siquiera aparecen, porque no tienen un cuerpo sólido que imprimir.
+**Menú → Exportar → Impresión 3D (.3mf)** escribe de una vez todas las piezas imprimibles del diseño. El diálogo lista lo que el diseño puede imprimir, todo marcado; desmarca lo que no quieras. Los paracaídas, las cintas, los cordones de choque, los componentes de masa y los botones de riel ni siquiera aparecen, porque no tienen un cuerpo sólido que imprimir. Solo se ofrece en un ordenador de escritorio (consulta [En un teléfono o una tableta](#on-a-phone-or-tablet)).
 
 Dos opciones:
 
@@ -99,7 +128,7 @@ El 3MF también se ofrece por componente, junto a STL/OBJ/GLB, en el botón **�
 
 ## Exportar un componente como modelo 3D o archivo de corte {#exporting-a-component-as-a-3d-model-or-cut-file}
 
-La exportación es **por componente**, no del cohete entero: en el árbol de **Componentes**, cada pieza con una forma real lleva un pequeño botón **⬇** que ofrece los formatos adecuados a *esa* pieza. Las piezas sin objeto imprimible (paracaídas, cintas, cordones de choque, componentes de masa, botones de riel) no llevan botón.
+La exportación es **por componente**, no del cohete entero: en el árbol de **Componentes**, cada pieza con una forma real lleva un pequeño botón **⬇** que ofrece los formatos adecuados a *esa* pieza. Las piezas sin objeto imprimible (paracaídas, cintas, cordones de choque, componentes de masa, botones de riel) no llevan botón. En un teléfono o una tableta el botón ofrece solo GLB (consulta [En un teléfono o una tableta](#on-a-phone-or-tablet)).
 
 - **Modelos 3D: STL, OBJ, GLB, 3MF.** Un **sólido estanco** único de la pieza, pensado para impresión 3D y CAD (STL/OBJ se importan en cualquier laminador o modelador; GLB además lleva color para los visores; el **3MF** lleva el nombre de la pieza, su color y la unidad, y es el que conviene elegir si tu laminador lo admite). Disponible para ojivas, transiciones, tubos, tubos interiores, guías de lanzamiento, aletas tubulares, juegos de aletas, anillos de centrado, mamparos, acopladores y topes de motor. Para obtener el cohete entero de una vez, consulta [imprimir el cohete entero en 3D](#exporting-the-whole-rocket-for-3d-printing-3mf) más arriba.
 - **DXF: hoja de corte 2D.** El contorno plano de una pieza **cortada en plancha**, para cortadora láser o fresadora CNC (AutoCAD R12, en milímetros, capas CUT / REFERENCE). Disponible solo para las piezas que realmente se cortan de plancha: **aletas, anillos de centrado y mamparos**. Los contornos de aleta incluyen cualquier pestaña pasante; los discos llevan el taladro y una cruz de centrado.

@@ -43,7 +43,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 1`] = `
 </Fin>
 </BodyTube>
 <Surface>Rough Camouflage Paint</Surface>
-<CD>0</CD>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
@@ -55,7 +55,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 1`] = `
 </RocketDesign>
 <LaunchSite>
 <Altitude>0</Altitude>
-<Pressure>29.92</Pressure>
+<Pressure>0</Pressure>
 <RodAngle>0</RodAngle>
 <RodLength>10</RodLength>
 <Temperature>59</Temperature>
@@ -147,7 +147,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 2`] = `
 </Fin>
 </BodyTube>
 <Surface>Rough Camouflage Paint</Surface>
-<CD>0</CD>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
@@ -159,7 +159,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 2`] = `
 </RocketDesign>
 <LaunchSite>
 <Altitude>0</Altitude>
-<Pressure>29.92</Pressure>
+<Pressure>0</Pressure>
 <RodAngle>0</RodAngle>
 <RodLength>10</RodLength>
 <Temperature>59</Temperature>
@@ -251,7 +251,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 3`] = `
 </Fin>
 </BodyTube>
 <Surface>Rough Camouflage Paint</Surface>
-<CD>0</CD>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
@@ -263,7 +263,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 3`] = `
 </RocketDesign>
 <LaunchSite>
 <Altitude>0</Altitude>
-<Pressure>29.92</Pressure>
+<Pressure>0</Pressure>
 <RodAngle>0</RodAngle>
 <RodLength>10</RodLength>
 <Temperature>59</Temperature>
@@ -355,7 +355,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 4`] = `
 </Fin>
 </BodyTube>
 <Surface>Rough Camouflage Paint</Surface>
-<CD>0</CD>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
@@ -367,7 +367,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 4`] = `
 </RocketDesign>
 <LaunchSite>
 <Altitude>0</Altitude>
-<Pressure>29.92</Pressure>
+<Pressure>0</Pressure>
 <RodAngle>0</RodAngle>
 <RodLength>10</RodLength>
 <Temperature>59</Temperature>
@@ -460,7 +460,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 5`] = `
 </Fin>
 </BodyTube>
 <Surface>Rough Camouflage Paint</Surface>
-<CD>0</CD>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
@@ -472,7 +472,7 @@ exports[`golden .CDX1 export > maps each remaining nose shape 5`] = `
 </RocketDesign>
 <LaunchSite>
 <Altitude>0</Altitude>
-<Pressure>29.92</Pressure>
+<Pressure>0</Pressure>
 <RodAngle>0</RodAngle>
 <RodLength>10</RodLength>
 <Temperature>59</Temperature>
@@ -585,7 +585,8 @@ exports[`golden .CDX1 export > pins the three-stage design with engines, recover
 <Location>29.5275</Location>
 <Color>Black</Color>
 <ShoulderLength>1.5748</ShoulderLength>
-<NozzleExitDiameter>0</NozzleExitDiameter>
+<NozzleExitDiameter>1</NozzleExitDiameter>
+<NozzleDiameter>1</NozzleDiameter>
 <BoattailLength>0</BoattailLength>
 <BoattailRearDiameter>0</BoattailRearDiameter>
 <Fin>
@@ -616,6 +617,7 @@ exports[`golden .CDX1 export > pins the three-stage design with engines, recover
 <Color>Black</Color>
 <ShoulderLength>0</ShoulderLength>
 <NozzleExitDiameter>0</NozzleExitDiameter>
+<NozzleDiameter>0</NozzleDiameter>
 <BoattailLength>1.1811</BoattailLength>
 <BoattailRearDiameter>1.5748</BoattailRearDiameter>
 <Fin>
@@ -632,12 +634,12 @@ exports[`golden .CDX1 export > pins the three-stage design with engines, recover
 <FX3>0</FX3>
 </Fin>
 </Booster>
-<Surface>Galvanized Metal</Surface>
-<CD>0</CD>
+<Surface>Rough Camouflage Paint</Surface>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
-<Booster1Nozzle>0</Booster1Nozzle>
+<Booster1Nozzle>1</Booster1Nozzle>
 <Booster2Nozzle>0</Booster2Nozzle>
 <UseBooster1>True</UseBooster1>
 <UseBooster2>True</UseBooster2>
@@ -645,23 +647,23 @@ exports[`golden .CDX1 export > pins the three-stage design with engines, recover
 </RocketDesign>
 <LaunchSite>
 <Altitude>4593.176</Altitude>
-<Pressure>25.1005</Pressure>
+<Pressure>29.7176</Pressure>
 <RodAngle>4</RodAngle>
 <RodLength>6.5617</RodLength>
 <Temperature>86</Temperature>
 <WindSpeed>10.0662</WindSpeed>
 </LaunchSite>
 <Recovery>
-<Altitude1>656.168</Altitude1>
-<Altitude2>0</Altitude2>
+<Altitude1>0</Altitude1>
+<Altitude2>656.168</Altitude2>
 <DeviceType1>Parachute</DeviceType1>
 <DeviceType2>Parachute</DeviceType2>
 <Event1>True</Event1>
 <Event2>True</Event2>
-<Size1>35.433</Size1>
-<Size2>15.748</Size2>
-<EventType1>Altitude</EventType1>
-<EventType2>Apogee</EventType2>
+<Size1>15.748</Size1>
+<Size2>35.433</Size2>
+<EventType1>Apogee</EventType1>
+<EventType2>Altitude</EventType2>
 <CD1>0.8</CD1>
 <CD2>0.8</CD2>
 </Recovery>
@@ -676,17 +678,17 @@ exports[`golden .CDX1 export > pins the three-stage design with engines, recover
 <SustainerLaunchWt>2.4251</SustainerLaunchWt>
 <SustainerNozzleDiameter>0</SustainerNozzleDiameter>
 <SustainerCG>17.7165</SustainerCG>
-<SustainerIgnitionDelay>1.2</SustainerIgnitionDelay>
+<SustainerIgnitionDelay>0.7</SustainerIgnitionDelay>
 <Booster1Engine>K550W  (AT)</Booster1Engine>
 <Booster1LaunchWt>4.1888</Booster1LaunchWt>
-<Booster1SeparationDelay>1.5</Booster1SeparationDelay>
-<Booster1IgnitionDelay>0</Booster1IgnitionDelay>
+<Booster1SeparationDelay>0.5</Booster1SeparationDelay>
+<Booster1IgnitionDelay>6</Booster1IgnitionDelay>
 <Booster1CG>27.559</Booster1CG>
-<Booster1NozzleDiameter>0</Booster1NozzleDiameter>
+<Booster1NozzleDiameter>1</Booster1NozzleDiameter>
 <IncludeBooster1>True</IncludeBooster1>
 <Booster2Engine>L1000  (CTI)</Booster2Engine>
 <Booster2LaunchWt>5.5116</Booster2LaunchWt>
-<Booster2Delay>0</Booster2Delay>
+<Booster2Delay>3</Booster2Delay>
 <Booster2CG>35.433</Booster2CG>
 <Booster2NozzleDiameter>0</Booster2NozzleDiameter>
 <IncludeBooster2>True</IncludeBooster2>
@@ -744,7 +746,7 @@ exports[`golden .CDX1 export > writes a bare single-stage design with RASAero de
 </Fin>
 </BodyTube>
 <Surface>Smooth (Zero Roughness)</Surface>
-<CD>0</CD>
+<CP>0</CP>
 <ModifiedBarrowman>False</ModifiedBarrowman>
 <Turbulence>False</Turbulence>
 <SustainerNozzle>0</SustainerNozzle>
@@ -756,7 +758,7 @@ exports[`golden .CDX1 export > writes a bare single-stage design with RASAero de
 </RocketDesign>
 <LaunchSite>
 <Altitude>0</Altitude>
-<Pressure>29.92</Pressure>
+<Pressure>0</Pressure>
 <RodAngle>0</RodAngle>
 <RodLength>10</RodLength>
 <Temperature>59</Temperature>

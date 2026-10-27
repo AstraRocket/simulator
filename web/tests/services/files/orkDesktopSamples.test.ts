@@ -47,9 +47,9 @@ vi.mock('../../../src/services/files/saveOrk', async (orig) => {
       saved.archives.push(real.orkArchive(input));
       saved.inputs.push(input);
     },
-    downloadRkt: async (...[name, tree, componentInfo]: Parameters<typeof real.downloadRkt>) => {
+    downloadRkt: async (...[name, tree, componentInfo, stageFigures]: Parameters<typeof real.downloadRkt>) => {
       const { exportRkt } = await import('../../../src/services/files/rktExport');
-      const { xml, skipped } = exportRkt(name, tree, componentInfo);
+      const { xml, skipped } = exportRkt(name, tree, componentInfo, stageFigures);
       saved.rkt.push(xml);
       return skipped;
     },

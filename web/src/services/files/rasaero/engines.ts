@@ -1,5 +1,7 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
 import { walkNodes } from '../../../tree/treeWalk';
+import { clusterCount } from '../../../tree/cluster';
+import { str } from '../../../tree/nodeProps';
 
 /**
  * Per-stage engine strings: which manufacturers RASAero's own motor database
@@ -51,6 +53,7 @@ const RASAERO_MFG: Array<[abbrev: string, names: string[]]> = [
   ['RTW', ['RATT', 'RATT WORKS', 'RTW', 'RT']],
   ['HT', ['HYPERTEK', 'HT']],
   ['AMW', ['AMW', 'ANIMAL MOTOR WORKS', 'ANIMAL', 'AW']],
+  ['WCH', ['WEST COAST HYBRIDS', 'WEST COAST HYBRID', 'WEST COAST', 'WCH', 'WCR']],
   // Not an Animal Motor Works alias in desktop's Manufacturer table, so it
   // reaches its own branch of the desktop map.
   ['AMW/ProX', ['AMW PROX', 'AMW/PROX']],
@@ -76,23 +79,35 @@ function rasaeroManufacturerAbbrev(mfg: string | undefined): string | null {
 export interface Cdx1ExportEngine {
   designation: string;
   manufacturer?: string;
-  /** Kernel ignition-event name; only 'burnout' has a delay RASAero can hold. */
+  /** Ejection-charge delay (s); `PLUGGED_DELAY` or more for a plugged motor. */
+  delay?: number;
+  /** Kernel ignition-event name ('automatic' when absent, as the kernel's default). */
   ignitionEvent?: string;
-  /** Seconds after the stage below's burnout (RASAero's own semantics). */
+  /** Seconds after the ignition event. */
   ignitionDelay?: number;
 }
 
 export interface StageEngineSlot {
-  /** 'DESIGNATION  (ABBREV)', or null: no motor, or an undocumented maker. */
+  /** 'DESIGNATION  (ABBREV)', or null: no motor, an undocumented maker, or engine export off. */
   engine: string | null;
-  ignitionDelay: number;
+  /** The motor RASAero flies for the stage: its first mount's, or none. */
+  motor?: Cdx1ExportEngine;
+  /** That mount. */
+  mount?: ComponentNode;
+  /**
+   * Whether the stage carries motors RASAero does not fly: a cluster in that
+   * mount, or a motor in another mount. They count toward the stage's weight
+   * and CG only.
+   */
+  extraMotors: boolean;
 }
 
 /**
  * Per-stage engine strings, desktop format 'DESIGNATION  (ABBREV)': two
  * spaces, the exact shape the desktop's RASAero importer reads back. null = no
  * motor on the stage, or a manufacturer RASAero doesn't document (the
- * NullReferenceException risk).
+ * NullReferenceException risk). The motor and its mount are read either way,
+ * for the staging timeline and the nozzle.
  */
 export function stageEngineSlots(
   stagesIn: ComponentNode[],
@@ -100,21 +115,23 @@ export function stageEngineSlots(
   engineOn: boolean,
 ): StageEngineSlot[] {
   return stagesIn.map((st): StageEngineSlot => {
-    if (!engineOn || !motors) return { engine: null, ignitionDelay: 0 };
-    let found: Cdx1ExportEngine | undefined;
-    // One engine per stage in RASAero: the first mount wins.
-    for (const n of walkNodes(st.children ?? [])) {
-      if (n.id && motors[n.id]) {
-        found = motors[n.id];
-        break;
-      }
-    }
-    // Only a burnout-triggered motor has a delay this format can express.
-    const ignitionDelay = found?.ignitionEvent === 'burnout' ? (found.ignitionDelay ?? 0) : 0;
-    const abbrev = found ? rasaeroManufacturerAbbrev(found.manufacturer) : null;
+    if (!motors) return { engine: null, extraMotors: false };
+    // One engine per stage in RASAero: the first mount wins, as desktop's
+    // SimulationListDTO.findMotorMount takes it.
+    const mounts = [...walkNodes(st.children ?? [])].filter((n) => n.id && motors[n.id]);
+    const mount = mounts[0];
+    const found = mount ? motors[mount.id!] : undefined;
+    const abbrev = found && engineOn ? rasaeroManufacturerAbbrev(found.manufacturer) : null;
     return {
       engine: found && abbrev ? `${found.designation}  (${abbrev})` : null,
-      ignitionDelay,
+      motor: found,
+      mount,
+      extraMotors: mounts.length > 1 || (!!mount && mountMotorCount(mount) > 1),
     };
   });
+}
+
+/** The motors a mount holds: its cluster's, one for a tube with none (`MotorMount.getMotorCount`). */
+export function mountMotorCount(mount: ComponentNode): number {
+  return clusterCount(str(mount, 'cluster', 'single'));
 }

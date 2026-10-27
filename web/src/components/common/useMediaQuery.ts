@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react';
+import { DESKTOP_QUERY, formFactorsSnapshot, isMobileDevice, subscribeFormFactors } from '../../services/app/device';
+import { capabilityAllowed, type Capability, type DeviceClass } from '../../services/app/capabilities';
 
 /**
  * Whether a CSS media query currently matches, as React state.
@@ -32,7 +34,7 @@ function useMediaQuery(query: string): boolean {
 }
 
 /** The `lg:` breakpoint, as a boolean. Keep in step with Tailwind's default. */
-export const useIsDesktop = (): boolean => useMediaQuery('(min-width: 1024px)');
+export const useIsDesktop = (): boolean => useMediaQuery(DESKTOP_QUERY);
 
 /**
  * The `2xl:` breakpoint, as a boolean.
@@ -52,3 +54,26 @@ export const useIsDesktop = (): boolean => useMediaQuery('(min-width: 1024px)');
  * for every role and text query.
  */
 export const useIsWide = (): boolean => useMediaQuery('(min-width: 1536px)');
+
+/**
+ * This device's class as React state: `desktop` in the `lg:` layout on a
+ * device that is not a phone or tablet, else `mobile` (services/app/device.ts
+ * says how a device is told). The width test alone would class an iPad in
+ * landscape as a desktop, hence the device test as well.
+ */
+export const useDeviceClass = (): DeviceClass => {
+  const desktop = useIsDesktop();
+  // Subscribed so the browser's `formFactors` answer, which arrives after the
+  // first render, re-renders the caller.
+  useSyncExternalStore(subscribeFormFactors, formFactorsSnapshot, () => null);
+  return desktop && !isMobileDevice() ? 'desktop' : 'mobile';
+};
+
+/**
+ * Whether this device offers a capability from services/app/capabilities.ts,
+ * as a function of the capability, so one component can ask about several.
+ */
+export const useCapability = (): ((cap: Capability) => boolean) => {
+  const device = useDeviceClass();
+  return (cap) => capabilityAllowed(cap, device);
+};

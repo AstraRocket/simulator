@@ -13,13 +13,8 @@
  */
 
 import { loadSettings } from '../storage/settings';
+import { isApplePhoneOrTablet } from '../app/device';
 
-/** iOS or iPadOS. iPadOS 13+ reports as a Mac, hence the touch check. */
-function isApplePhoneOrTablet(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  if (/iP(hone|ad|od)/.test(navigator.userAgent)) return true;
-  return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1;
-}
 
 /** Running as an installed app rather than a browser tab. */
 function isStandalone(): boolean {

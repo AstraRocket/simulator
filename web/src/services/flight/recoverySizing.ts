@@ -95,14 +95,24 @@ export function airDensity(launch?: SizingLaunch | null): number {
   const anchored = launch.temperatureC != null && launch.pressureHPa != null;
   const levels = launch.atmosphereLevels?.length ? usableAtmosphereLevels(launch.atmosphereLevels) : [];
   if (levels.length && !anchored) return profileDensity(levels, h);
+  const { t, p } = siteAtmosphere(launch);
+  if (!(t > 0) || !(p > 0)) return RHO0;
+  return p / (R_AIR * t);
+}
+
+/**
+ * The temperature (K) and pressure (Pa) at the pad in the two branches of
+ * {@link airDensity} that have no forecast levels, and whether it is the
+ * standard atmosphere (nothing set). A forecast profile is not read here.
+ */
+export function siteAtmosphere(launch: SizingLaunch): { t: number; p: number; standard: boolean } {
   const custom = launch.temperatureC != null || launch.pressureHPa != null || launch.relativeHumidity != null;
-  const { t: tIsa, p: pIsa } = isaAt(h);
+  const { t: tIsa, p: pIsa } = isaAt(launch.launchAltitudeM ?? 0);
   // T0 / P0 are the kernel's own ExtendedISAModel.STANDARD_TEMPERATURE and
   // STANDARD_PRESSURE; a blank in the custom branch is filled with those.
   const t = launch.temperatureC != null ? LAUNCH_SI.degC.toSi(launch.temperatureC) : custom ? T0 : tIsa;
   const p = launch.pressureHPa != null ? LAUNCH_SI.hPa.toSi(launch.pressureHPa) : custom ? P0 : pIsa;
-  if (!(t > 0) || !(p > 0)) return RHO0;
-  return p / (R_AIR * t);
+  return { t, p, standard: !custom };
 }
 
 /**

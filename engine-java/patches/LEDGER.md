@@ -1344,3 +1344,22 @@ No shim or example file changed upstream in this range.
 - **Change:** comment-only. Line counts (644, 404, 84, 56) and upstream hashes
   are unchanged; only the patch hashes were re-recorded with `--bless`.
 - **Golden:** no value moved.
+
+## Repinned to upstream `f5ac8a152` - 2026-10-26
+
+From `591c5e5f7` (2026-10-07) to `f5ac8a152` (2026-10-26), the head of canonical
+`unstable` on the day. 57 commits, most of them RockSim and RASAero import and
+export (PRs #3404, #3405), desktop 3D rendering and translations. None of the
+file code is extracted; the app's own `.rkt` and `.CDX1` code takes the same
+fixes separately. One extracted file moved:
+
+- **`motor/Manufacturer.java`**: Gorilla Rocket Motors also answers to `GM`,
+  the abbreviation RASAero uses. Not physics.
+
+No patched file, shim or example file changed upstream in this range, so
+`extract/DIVERGENCE.txt` needs no re-bless.
+
+- **Golden:** no value moved; all 362 lines bit-identical.
+- **Parity:** JS and WASM agree with the JVM on all 362 lines.
+- **Validation:** supersonic 61/135, at its floor; `npm run audit` passed all
+  five checks.

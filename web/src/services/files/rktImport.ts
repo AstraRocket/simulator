@@ -14,7 +14,10 @@ import { type OrkFlightConfig, type OrkImportResult, defaultOrkConfig } from './
 import { finCant, numOpt } from '../../tree/nodeProps';
 import { bodyRadiusAt, trapezoidPoints } from '../../tree/finPlanform';
 import { isAssembly } from '../../tree/assembly';
-import { rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
+import { isChainType, rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
+import { partLength } from '../../tree/position';
+import { shapeParamMax } from '../../tree/shapeProfile';
+import { partLabel } from '../../i18n/format';
 import { canHost } from '../design/treeEdit';
 import { hexOf, parseHexColor } from '../design/colorHex';
 import { degToRad } from '../../prefs/units';
@@ -23,11 +26,14 @@ import {
   FINISHES,
   LOCATION_METHODS,
   RING_TYPES,
+  SECANT_OGIVE,
   SHAPES,
+  SHAPE_PARAMETERS,
   STAGE_CG_ELEMENTS,
   STAGE_ELEMENTS,
   STAGE_MASS_ELEMENTS,
   SURFACE_DENSITY,
+  UNKNOWN_SHAPE_CODE,
 } from './rocksim/schema';
 
 /**
@@ -213,8 +219,8 @@ const readTubeWall = (el: Element, n: ComponentNode): void => {
  *
  * A deliberate departure from desktop, whose handlers pass the degree value
  * straight to the radian setters. RockSim writes degrees, so converting here
- * (and for `CantAngle`, and back in `rktExport`) is what puts a part where
- * RockSim drew it.
+ * (and back in `rktExport`) is what puts a part where RockSim drew it. A fin's
+ * `CantAngle` is not one of these: see `readFinSet`.
  */
 const readRadialAngle = (el: Element, n: ComponentNode, key: 'angleOffset' | 'rotation' | 'radialDirection'): void => {
   const angle = num(el, 'RadialAngle');
@@ -289,20 +295,48 @@ const readWall = (el: Element, n: ComponentNode): void => {
 /** The shapes a shape parameter means anything on (`NoseConeHandler`). */
 const PARAMETERIZED_SHAPES = new Set(['power', 'parabolic', 'haack']);
 
+/** Within `MathUtil.EPSILON`, the tolerance the handlers compare a clamped value with. */
+const EPSILON = 1e-8;
+
 /**
  * `ShapeCode`, or the part's own default when the file has none: a new
  * `NoseCone` is an ogive (code 1) and a new `Transition` is conical (code 0),
- * and neither handler sets a shape the file does not state.
+ * and neither handler sets a shape the file does not state. A code RockSim
+ * does not define reads as `fromCode`'s default, the parabola.
  */
-const readShape = (el: Element, n: ComponentNode, fallbackCode: number): void => {
-  const code = num(el, 'ShapeCode');
-  const shape = SHAPES[clampCount(code ?? fallbackCode, 0, SHAPES.length - 1)]!;
+const readShape = (ctx: RktContext, el: Element, n: ComponentNode, fallbackCode: number): void => {
+  const raw = num(el, 'ShapeCode');
+  const stated = raw === undefined ? fallbackCode : Math.round(raw);
+  const code = stated >= 0 && stated < SHAPES.length ? stated : UNKNOWN_SHAPE_CODE;
+  const shape = SHAPES[code]!;
   n['shape'] = shape;
+  // The parabola and the secant ogive imply a parameter of their own, and the
+  // `ShapeParameter` RockSim writes beside them does not override it.
+  const implied = SHAPE_PARAMETERS[code];
+  if (implied !== undefined) {
+    n['shapeParameter'] = implied;
+    if (code === SECANT_OGIVE) ctx.notes.push(keyedNote('importNote.rktSecantOgive', { part: notePartName(n) }));
+    return;
+  }
   // RockSim writes ShapeParameter for every nose cone and transition, and
   // `NoseConeHandler` applies it only on these three shapes. The key is not
   // inert here either: the mesh, the report, the schematic, the 3D view and the
   // `.ork` writer all read it.
-  if (PARAMETERIZED_SHAPES.has(shape)) put(n, 'shapeParameter', num(el, 'ShapeParameter'));
+  const param = num(el, 'ShapeParameter');
+  if (!PARAMETERIZED_SHAPES.has(shape) || param === undefined) return;
+  // Clamped as `Transition.setShapeParameter` clamps it, and said so: RockSim
+  // allows Haack parameters past the LV-Haack's 1/3, which the kernel cuts.
+  const clamped = Math.min(shapeParamMax(shape), Math.max(0, param));
+  n['shapeParameter'] = clamped;
+  if (Math.abs(clamped - param) > EPSILON) {
+    ctx.notes.push(
+      keyedNote('importNote.rktShapeParameter', {
+        part: notePartName(n),
+        value: tag(el, 'ShapeParameter') ?? String(param),
+        used: Number(clamped.toPrecision(4)),
+      }),
+    );
+  }
 };
 
 /** A tube that is a motor mount: the flag plus RockSim's engine overhang. */
@@ -345,30 +379,70 @@ const shoulderAtMost = (radius: number | undefined, end: unknown): number | unde
  * a node without the key flies the same open shoulder desktop reads.
  */
 
-const readNoseCone = (el: Element): ComponentNode => {
+const readNoseCone = (ctx: RktContext, el: Element): ComponentNode => {
   const n = base(el, 'nosecone', false);
   put(n, 'length', mmPos(el, 'Len'));
   put(n, 'aftRadius', dia(el, 'BaseDia'));
   readWall(el, n);
-  readShape(el, n, 1);
+  readShape(ctx, el, n, 1);
   const shR = shoulderAtMost(dia(el, 'ShoulderOD'), n['aftRadius']);
   const shL = mmPos(el, 'ShoulderLen');
   put(n, 'shoulderRadius', shR);
   put(n, 'shoulderLength', shL);
   put(n, 'shoulderThickness', shoulderWall(el, n, shR));
+  // A solid RockSim nose can be drilled out (`CoreDia`, `CoreLen`), which the
+  // app cannot model, so it weighs as a solid one and `NoseConeHandler` says so.
+  if (n['filled'] === true && (num(el, 'CoreDia') ?? 0) > 0 && (num(el, 'CoreLen') ?? 0) > 0) {
+    ctx.notes.push(keyedNote('importNote.rktDrilledCore', { part: notePartName(n) }));
+  }
   return n;
 };
+
+/**
+ * A nose cone's `BaseExtensionLen` as the straight transition behind it.
+ *
+ * RockSim puts a straight section between a nose and its shoulder and places
+ * the next part after it; ignoring it would move every part behind the nose
+ * forward by its length. `NoseConeHandler.addBaseExtension` adds a conical
+ * transition at the base radius, made and finished as the nose is, which takes
+ * over the nose's shoulder. RockSim's known nose mass already covers the
+ * extension, so under a nose mass override the extension weighs nothing.
+ */
+function baseExtension(el: Element, nose: ComponentNode): ComponentNode | undefined {
+  const length = mmPos(el, 'BaseExtensionLen');
+  if (!length) return undefined;
+  const ext: ComponentNode = {
+    type: 'transition',
+    id: freshId(),
+    name: i18n.t('importNote.rktBaseExtensionName', { name: partLabel(i18n.t, nose) }),
+    shape: 'conical',
+    length,
+  };
+  put(ext, 'foreRadius', numOpt(nose, 'aftRadius'));
+  put(ext, 'aftRadius', numOpt(nose, 'aftRadius'));
+  if (nose['filled'] === true) ext['filled'] = true;
+  for (const key of ['thickness', 'density', 'materialName', 'finish', 'color']) {
+    const v = nose[key];
+    if (typeof v === 'number' || typeof v === 'string') put(ext, key, v);
+  }
+  put(ext, 'aftShoulderRadius', numOpt(nose, 'shoulderRadius'));
+  put(ext, 'aftShoulderLength', numOpt(nose, 'shoulderLength'));
+  put(ext, 'aftShoulderThickness', numOpt(nose, 'shoulderThickness'));
+  if (nose['shoulderLength'] !== undefined) nose['shoulderLength'] = 0;
+  if (nose['overrideMass'] !== undefined) ext['overrideMass'] = 0;
+  return ext;
+}
 
 // No placement: `TransitionHandler` extends `BaseHandler`, not
 // `PositionDependentHandler`, so desktop never reads a transition's `Xb` or
 // `LocationMode`, and the transition sits where the body chain puts it.
-const readTransition = (el: Element): ComponentNode => {
+const readTransition = (ctx: RktContext, el: Element): ComponentNode => {
   const n = base(el, 'transition', false);
   put(n, 'length', mmPos(el, 'Len'));
   put(n, 'foreRadius', dia(el, 'FrontDia'));
   put(n, 'aftRadius', dia(el, 'RearDia'));
   readWall(el, n);
-  readShape(el, n, 0);
+  readShape(ctx, el, n, 0);
   const fShR = shoulderAtMost(dia(el, 'FrontShoulderDia'), n['foreRadius']);
   const aShR = shoulderAtMost(dia(el, 'RearShoulderDia'), n['aftRadius']);
   const fShL = mmPos(el, 'FrontShoulderLen');
@@ -494,9 +568,10 @@ function readFinSet(ctx: RktContext, el: Element, parent?: ComponentNode): Compo
     else ctx.notes.push(keyedNote('importNote.finPointsTooFew', { part: notePartName(n) }));
   }
 
-  // Degrees, converted: the same deliberate departure as `readRadialAngle`.
-  // Clamped as FinSet.setCantAngle clamps it, so the panel shows the cant that flies.
-  const cant = finCant({ type: n.type, cant: degToRad(num(el, 'CantAngle') ?? 0) });
+  // Radians, as `FinSetHandler` reads it and `FinSetDTO` writes it: unlike
+  // `RadialAngle`, the cant goes through unconverted both ways. Clamped as
+  // FinSet.setCantAngle clamps it, so the panel shows the cant that flies.
+  const cant = finCant({ type: n.type, cant: num(el, 'CantAngle') ?? 0 });
   if (cant !== 0) n['cant'] = cant;
   readRadialAngle(el, n, 'rotation');
 
@@ -674,18 +749,48 @@ function packedRadius(parent: ComponentNode | undefined, diameter: number | unde
   return diameter === undefined ? undefined : diameter * 0.025;
 }
 
-const readParachute = (el: Element, parent?: ComponentNode): ComponentNode => {
+/**
+ * The round canopy with RockSim's drag area, in m, or the stated diameter when
+ * they agree.
+ *
+ * `ParachuteHandler.setEquivalentDiameter`: RockSim's area is that of every
+ * canopy (`ChuteCount`), each a regular polygon of `SideCount` sides measured
+ * corner to corner, or a circle below three sides, less its spill hole. A
+ * missing `SideCount` is RockSim's default hexagon. The app flies one round
+ * canopy and no spill hole, so the hole is taken out here and not carried
+ * beside the diameter as well, which would take it out twice.
+ */
+function equivalentDiameter(ctx: RktContext, el: Element, n: ComponentNode, diameter: number): number {
+  const sides = Math.round(num(el, 'SideCount') ?? 6);
+  const chutes = Math.max(1, Math.round(num(el, 'ChuteCount') ?? 1));
+  const spill = mmPos(el, 'SpillHoleDia') ?? 0;
+  const r = diameter / 2;
+  const canopy = sides < 3 ? Math.PI * r * r : 0.5 * sides * r * r * Math.sin((2 * Math.PI) / sides);
+  const area = chutes * (canopy - Math.PI * (spill / 2) ** 2);
+  if (!(area > 0)) return diameter;
+  const round = 2 * Math.sqrt(area / Math.PI);
+  if (Math.abs(round - diameter) <= EPSILON) return diameter;
+  ctx.notes.push(
+    keyedNote('importNote.rktParachuteArea', {
+      part: notePartName(n),
+      diameter: (round * LENGTH).toFixed(1),
+      original: (diameter * LENGTH).toFixed(1),
+    }),
+  );
+  return round;
+}
+
+const readParachute = (ctx: RktContext, el: Element, parent?: ComponentNode): ComponentNode => {
   const n = base(el, 'parachute', true);
   // Not a radius: OpenRocket's Parachute takes a diameter, and RockSim's `Dia`
   // is one, so this is the one circular field that converts by LENGTH.
   const diameter = mmPos(el, 'Dia');
-  put(n, 'diameter', diameter);
+  put(n, 'diameter', diameter && equivalentDiameter(ctx, el, n, diameter));
   put(n, 'cd', num(el, 'DragCoefficient'));
   const lines = num(el, 'ShroudLineCount');
   // From 0: `ParachuteHandler` keeps a chute with no lines (`Math.max(0, n)`).
   if (lines !== undefined) n['lineCount'] = clampCount(lines, 0, MAX_LINE_COUNT);
   put(n, 'lineLength', mmPos(el, 'ShroudLineLen'));
-  put(n, 'spillHoleDiameter', mmPos(el, 'SpillHoleDia'));
   const lineMaterial = tag(el, 'ShroudLineMaterial');
   if (lineMaterial) n['lineMaterialName'] = lineMaterial;
   // Despite the element's name, this is kg/m and passes straight through:
@@ -768,6 +873,22 @@ const readMassObject = (el: Element, parent?: ComponentNode): ComponentNode => {
   // override counts it twice. `MassObjectHandler` zeroes it for exactly this
   // reason; the mass override stays, and equals the mass the object already has.
   if (n['overrideCGX'] !== undefined) n['overrideCGX'] = 0;
+  return n;
+};
+
+/**
+ * A ring tail, which the app does not have, as the mass component
+ * `RingTailHandler` makes of it: RockSim's own computed mass, with its CG from
+ * the ring tail's front as a CG override, unless the file overrides the mass
+ * itself. Its drag is not flown, which `readParts` says once the part is in.
+ */
+const readRingTail = (el: Element): ComponentNode => {
+  const n = base(el, 'masscomponent', true);
+  put(n, 'length', mmPos(el, 'Len'));
+  if (n['overrideMass'] === undefined) {
+    n['mass'] = Math.max(0, (num(el, 'CalcMass') ?? 0) / MASS);
+    n['overrideCGX'] = mm(el, 'CalcCG') ?? 0;
+  }
   return n;
 };
 
@@ -854,17 +975,18 @@ function wrapMountAngles(nodes: ComponentNode[]): ComponentNode[] {
 type Reader = (ctx: RktContext, el: Element, parent?: ComponentNode) => ComponentNode;
 
 const READERS: Record<string, Reader> = {
-  NoseCone: (_c, el) => readNoseCone(el),
+  NoseCone: readNoseCone,
   BodyTube: (_c, el, parent) => readBodyTube(el, parent),
-  Transition: (_c, el) => readTransition(el),
+  Transition: readTransition,
   Ring: (_c, el) => readRing(el),
   LaunchLug: (_c, el) => readLaunchLug(el),
   FinSet: readFinSet,
   CustomFinSet: readFinSet,
   TubeFinSet: (_c, el) => readTubeFinSet(el),
-  Parachute: (_c, el, parent) => readParachute(el, parent),
+  Parachute: readParachute,
   Streamer: (_c, el) => readStreamer(el),
   MassObject: (_c, el, parent) => readMassObject(el, parent),
+  RingTail: (_c, el) => readRingTail(el),
   ExternalPod: readPod,
 };
 
@@ -899,7 +1021,7 @@ function readParts(ctx: RktContext, container: Element, depth = 0, parent?: Comp
       // great deal of scalar bookkeeping (`Len`, `CalcMass`, `SerialNo`, …) as
       // siblings of the parts, and listing those as unsupported components
       // would bury the one line that matters.
-      if (el.children.length > 0 || KNOWN_UNSUPPORTED.has(el.tagName)) ctx.ignored.add(el.tagName);
+      if (el.children.length > 0) ctx.ignored.add(el.tagName);
       continue;
     }
     // Counted here rather than in each reader: this is the one place every
@@ -945,12 +1067,86 @@ function readParts(ctx: RktContext, container: Element, depth = 0, parent?: Comp
       subtractAngleOffset(node.children, numOpt(node, 'angleOffset') ?? 0);
     }
     out.push(node);
+    // What desktop says only for a part it attached: a ring tail stood in for,
+    // and a nose base extension added behind its nose as a part of its own.
+    if (el.tagName === 'RingTail') {
+      ctx.notes.push(keyedNote('importNote.rktRingTail', { part: notePartName(node) }));
+    }
+    const ext = node.type === 'nosecone' && canHost(parentType, 'transition') ? baseExtension(el, node) : undefined;
+    if (ext) {
+      countComponent(ctx, '.rkt');
+      out.push(ext);
+      ctx.notes.push(keyedNote('importNote.rktBaseExtension', { part: notePartName(node), extension: ext.name! }));
+    }
   }
   return out;
 }
 
-/** Parts RockSim has and we do not, named so the banner says what was lost. */
-const KNOWN_UNSUPPORTED = new Set(['RingTail']);
+// ------------------------------------------------------------ the design ---
+
+/** The newest `FileVersion` RockSim 11 writes (`RockSimContentHandler.NEWEST_FILE_VERSION`). */
+const NEWEST_FILE_VERSION = 4;
+
+/**
+ * RockSim's own figures for each stage, as stage-level overrides.
+ *
+ * `RocketDesignHandler.applyStageOverrides`: RockSim uses them only while
+ * `UseKnownMass` is set, whatever the file states beside it. The masses are
+ * per stage; the CGs are those of the stacks RockSim flies, measured from the
+ * nose tip, so each stage's own CG is the one that, with the stages above it,
+ * puts the stack's CG where the file says, from the mass moments. A stage with
+ * no mass stops the derivation for itself and every stage below it.
+ *
+ * Both are set with "apply to subcomponents" on: RockSim has no such concept,
+ * and it is upstream's way of saying the number covers the stage rather than
+ * the empty stage object.
+ */
+function applyStageOverrides(design: Element, stages: ComponentNode[]): void {
+  if ((num(design, 'UseKnownMass') ?? 0) === 0) return;
+  let stackMass = 0;
+  let stackMoment = 0;
+  let cgKnown = true;
+  // Where each stage starts from the nose tip: stages stack nose to tail.
+  let front = 0;
+  stages.forEach((stage, i) => {
+    const start = front;
+    front += (stage.children ?? []).reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
+    const mass = (num(design, STAGE_MASS_ELEMENTS[i]!) ?? 0) / MASS;
+    if (!(mass > 0)) {
+      cgKnown = false;
+      return;
+    }
+    stage['overrideMass'] = mass;
+    stage['overrideSubcomponentsMass'] = true;
+    const stackCg = mm(design, STAGE_CG_ELEMENTS[i]!) ?? 0;
+    cgKnown &&= stackCg > 0;
+    if (cgKnown) {
+      stage['overrideCGX'] = (stackCg * (stackMass + mass) - stackMoment) / mass - start;
+      stage['overrideSubcomponentsCG'] = true;
+    }
+    stackMass += mass;
+    stackMoment = stackCg * stackMass;
+  });
+}
+
+/**
+ * RockSim's fixed Cd, as the stage's Cd override.
+ *
+ * `RocketDesignHandler.applyFixedCD`: with `CalculateCD` off, RockSim flies the
+ * design's `FixedCd` instead of its own figure. Only a single-stage design is
+ * read, since which fixed Cd RockSim flies each stack with is not known; a
+ * multi-stage one keeps the kernel's Cd and says so.
+ */
+function applyFixedCd(ctx: RktContext, design: Element, stages: ComponentNode[]): void {
+  const fixed = num(design, 'FixedCd') ?? 0;
+  if (num(design, 'CalculateCD') !== 0 || !(fixed > 0) || stages.length === 0) return;
+  if (stages.length > 1) {
+    ctx.notes.push(keyedNote('importNote.rktFixedCdStages'));
+    return;
+  }
+  stages[0]!['overrideCD'] = fixed;
+  stages[0]!['overrideSubcomponentsCD'] = true;
+}
 
 // ------------------------------------------------------------------ entry ---
 
@@ -993,25 +1189,6 @@ export function importRkt(data: ArrayBuffer | string): OrkImportResult {
       id: freshId(),
       name: defaultStageName(i),
     };
-    /**
-     * RockSim's own figure for the whole stage, as a stage-level override.
-     *
-     * `RockSimHandler.openElement` applies each one when it is positive, with
-     * "apply to subcomponents" on. RockSim has no such concept; it is
-     * upstream's way of saying the number covers the stage rather than the empty
-     * stage object. Without them every imported design would fly at our own
-     * computed mass instead of the one its author measured.
-     */
-    const stageMass = num(design, STAGE_MASS_ELEMENTS[i]!);
-    if (stageMass !== undefined && stageMass > 0) {
-      stage['overrideMass'] = stageMass / MASS;
-      stage['overrideSubcomponentsMass'] = true;
-    }
-    const stageCg = mm(design, STAGE_CG_ELEMENTS[i]!);
-    if (stageCg !== undefined && stageCg > 0) {
-      stage['overrideCGX'] = stageCg;
-      stage['overrideSubcomponentsCG'] = true;
-    }
     const kids = stageEl ? readParts(ctx, stageEl) : [];
     if (kids.length > 0) stage.children = kids;
     components.push(stage);
@@ -1019,6 +1196,17 @@ export function importRkt(data: ArrayBuffer | string): OrkImportResult {
 
   if (components.every((s) => (s.children ?? []).length === 0)) {
     throw new KeyedError('errors.file.noComponents');
+  }
+  applyStageOverrides(design, components);
+  applyFixedCd(ctx, design, components);
+
+  // `RockSimContentHandler`: version 4 is what RockSim 11 writes, and a newer
+  // file may hold what this reader does not know to look for.
+  const version = num(doc.documentElement, 'FileVersion');
+  if (version !== undefined && version > NEWEST_FILE_VERSION) {
+    ctx.notes.unshift(
+      keyedNote('importNote.rktNewerVersion', { version: tag(doc.documentElement, 'FileVersion')!, supported: 4 }),
+    );
   }
 
   const notes = [...ctx.notes];
@@ -1034,11 +1222,23 @@ export function importRkt(data: ArrayBuffer | string): OrkImportResult {
     ? defaultOrkConfig({ grounded: [...ctx.removed] })
     : null;
 
+  // The design's comments, designer credit and revision history, which
+  // `RockSimHandler` reads into the rocket's and the tree keeps as `importOrk` does.
+  const comment = tag(design, 'Comments') ?? undefined;
+  const designer = tag(design, 'Designer') ?? undefined;
+  const revision = tag(design, 'Revisions') ?? undefined;
+
   return {
     name,
     // Automatic radii resolved on load, as importOrk does, so every reader
     // sees a number and the kernel and the drawing agree on it.
-    tree: syncAutoRadii({ name, components: wrapMountAngles(components) }),
+    tree: syncAutoRadii({
+      name,
+      components: wrapMountAngles(components),
+      ...(designer ? { designer } : {}),
+      ...(comment ? { comment } : {}),
+      ...(revision ? { revision } : {}),
+    }),
     motors: {},
     // A `.rkt` declares no flight configurations; RockSim's equivalent lives
     // with its simulations. Stated as an empty table rather than omitted so

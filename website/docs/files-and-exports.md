@@ -2,6 +2,28 @@
 title: "Files & Exports"
 sidebar_position: 13
 ---
+## On a phone or tablet
+
+Some exports make a file that only a desktop program can use, so a phone or tablet does not offer them. RockSim import goes with them, since its files come from a desktop program too; a `.rkt` picked through **Import → OpenRocket** is refused with a message.
+
+| Feature | Used by |
+| --- | --- |
+| **RockSim** (`.rkt`), import and export | RockSim |
+| **RASAero II** (`.CDX1`) | RASAero II, a Windows program |
+| **3D print** (`.3mf`), and **STL**, **OBJ** and **3MF** on a part's **⬇** button | A slicer |
+| **DXF** cut sheets on a part's **⬇** button | Laser cutter or CNC software |
+| **JSON** for Onshape | Onshape's import feature |
+
+Everything else stays: `.ork` (how designs move between your devices), **GLB** on a part's **⬇** button (phones view it in 3D), the PDF report, CSV, the flight path for mapping apps, images, motor files and backups. Open the app on a desktop computer to use the exports above; your designs follow through `.ork` or a backup.
+
+"Phone or tablet" means any of these:
+
+- **The window is narrower than 1024 pixels**, where the app switches to its phone layout.
+- **The browser reports an iPhone, iPad or iPod**, or reports a Mac with a touch screen. An iPad asks for desktop sites and calls itself a Mac, but a real Mac has no touch screen.
+- **The browser reports a phone or tablet.** Chrome, Edge and Samsung Internet tell sites the device's own form factor (desktop, phone or tablet) and that settles it. Other browsers are read by their user agent: one that names Android counts.
+
+A Windows tablet is a desktop computer here, since it can run these programs. In Safari and Firefox, a browser set to **request the desktop site** can hide what it is, and then the desktop features show.
+
 ## Opening and saving `.ork`
 
 AstraRocket reads and writes standard **OpenRocket `.ork`** files, so designs move both ways between it and desktop OpenRocket.
@@ -16,17 +38,22 @@ A round-trip through export and import is verified to preserve the physics (mass
 
 ## RockSim (`.rkt`)
 
-RockSim designs open and save too, from **menu → Import → RockSim** and **menu → Export → RockSim**. The reader also works off the file's contents rather than its name, so a `.rkt` picked in the OpenRocket dialog still opens.
+RockSim designs open and save too, from **menu → Import → RockSim** and **menu → Export → RockSim**. The reader also works off the file's contents rather than its name, so a `.rkt` picked in the OpenRocket dialog still opens. Both are offered on a desktop computer only (see [On a phone or tablet](#on-a-phone-or-tablet)).
 
 What comes across: nose cones, body tubes and transitions; inner tubes and motor mounts; centering rings, bulkheads, engine blocks and couplers; trapezoidal, elliptical and freeform fin sets with their cant, rotation and through-the-wall tabs; tube fins; launch lugs; parachutes and streamers; mass objects and shock cords; external pods (a detachable pod comes in as a parallel stage, which flies its own branch); and up to three stages. Dimensions, materials, finishes, placement and measured mass/CG come with them.
 
 What does not:
 
 - **Motors and launch conditions.** RockSim keeps those with its *simulations*, which are a separate object from the design, so an imported rocket arrives with no motor loaded and an exported one leaves without yours. Pick a motor after importing.
-- **Ring tails**, which have no equivalent here.
+- **Ring tails** as a shape. Each one comes in as a mass object with RockSim's computed mass and CG, so its weight is kept but its drag is not simulated.
 - **Subassemblies**, whose contents are merged into the design rather than kept as a group.
 
 Going the other way, RockSim has no element for **rail buttons**. They are left out of the file, and the app tells you which parts were dropped. A strap-on booster goes out as a pod that separates, which is how RockSim and desktop OpenRocket write one, and a set of pods or boosters goes out as one pod per copy.
+
+Where this differs from desktop OpenRocket, or is easy to miss:
+
+- **A nose cone's base extension takes the nose's color.** RockSim draws a nose cone with a straight base section; that section comes in as a straight transition behind the nose, with the nose's material, finish and color. Desktop gives it the material and finish but not the color.
+- **A parachute's spill hole is not written to a `.rkt`.** The parachute goes out as one round canopy with the same drag area, so RockSim flies the same chute, but the hole itself is gone. Desktop leaves it out too. Reading a `.rkt`, the spill hole comes off the canopy's area instead of being kept as a hole.
 
 > **Menu → Open and Save As work on designs saved inside the app** (see [Saved designs](#saved-designs) below); `.ork` files move to and from your disk through **Import** and **Export**.
 
@@ -53,15 +80,17 @@ The app keeps a library of your rockets in the browser, so you can work on sever
 
 ## Exporting to RASAero II (`.CDX1`)
 
-**Menu → Export → RASAero II** writes the design as a RASAero II `.CDX1` file, so you can open it in **[RASAero II](https://www.rasaero.com/)** for its own aerodynamic and flight analysis.
+**Menu → Export → RASAero II** writes the design as a RASAero II `.CDX1` file, so you can open it in **[RASAero II](https://www.rasaero.com/)** for its own aerodynamic and flight analysis. It is offered on a desktop computer only (see [On a phone or tablet](#on-a-phone-or-tablet)).
 
-RASAero models only the **external aerodynamic shape**, so the export carries the airframe (nose cone, body tubes, transitions / boat tails, fins, and launch lugs) plus the loaded **weight and CG** (written into RASAero's simulation block). Internal parts with no aerodynamic effect (centering rings, bulkheads, shock cords, engine blocks) are dropped; the first two parachutes inside the stages' body tubes become RASAero's two recovery entries, with the deployment of the flight configuration you have selected. A parachute in a nose cone, a transition or a pod is not exported, as in OpenRocket. Dimensions are converted to RASAero's units (inches, pounds, feet, °F).
+RASAero models only the **external aerodynamic shape**, so the export carries the airframe (nose cone, body tubes, transitions / boat tails, fins, and launch lugs) plus the loaded **weight and CG** (written into RASAero's simulation block). Internal parts with no aerodynamic effect (centering rings, bulkheads, shock cords, engine blocks) are dropped; parachutes anywhere in the stages become RASAero's two recovery entries, with the deployment of the flight configuration you have selected: the apogee parachute is entry 1 and the altitude parachute entry 2. Dimensions are converted to RASAero's units (inches, pounds, feet, °F). The launch site carries the headwind along the launch rod and the pressure reduced to sea level, which is how RASAero reads them.
 
-Because RASAero can't represent every shape, the export **stops with a clear message** rather than write a file RASAero would reject, for example tube or elliptical fins, a non-conical transition, more than one fin set on a tube, a freeform fin that isn't a simple trapezoid, an ogive nose cone with a shape parameter other than 1, a Haack nose cone other than Von Kármán (0) or LV-Haack (0.33), or a parachute that deploys on anything but apogee or an altitude (a new parachute deploys on the motor's ejection charge, so set its deployment first). In those cases, change the design or use `.ork` instead.
+Where RASAero has no exact equivalent, the export writes the nearest one and **warns you**, as desktop OpenRocket does: an elliptical or freeform fin set goes out as the trapezoid with the same root chord, span, area and centroid, only the first fin set on a part is kept, a parachute on the motor's ejection charge opens at apogee, a streamer or a second parachute on the same event is left out, the finish covering most of the rocket stands for all of it, and RASAero flies one motor per stage, so a motor cluster or a second motor mount is noted.
+
+For what RASAero can't represent at all, the export **stops with a clear message** rather than write a file RASAero would reject, for example tube fins, a non-conical transition, a body tube whose diameter does not match the part ahead of it, an ogive nose cone with a shape parameter other than 1, a Haack nose cone other than Von Kármán (0) or LV-Haack (1/3), or a parachute that deploys on anything but apogee, an altitude or the ejection charge. In those cases, change the design or use `.ork` instead.
 
 ## Exporting JSON for Onshape (`.json`)
 
-**Menu → Export → JSON** writes the design as a `.json` file for the **[AstraRocketOnshapeImport](https://cad.onshape.com/documents/8e0814e355abcb7f2e678124/w/e2a90792fddced2ca802f65f/e/6eb2e92aea957e94a813c25e)** custom feature in Onshape, which builds the rocket as parts in a Part Studio. The feature reads the file format of the **[OpenRocket-Onshape](https://github.com/AstraRocket/openrocket-onshape)** project.
+**Menu → Export → JSON** writes the design as a `.json` file for the **[AstraRocketOnshapeImport](https://cad.onshape.com/documents/8e0814e355abcb7f2e678124/w/e2a90792fddced2ca802f65f/e/6eb2e92aea957e94a813c25e)** custom feature in Onshape, which builds the rocket as parts in a Part Studio. The feature reads the file format of the **[OpenRocket-Onshape](https://github.com/AstraRocket/openrocket-onshape)** project. It is offered on a desktop computer only (see [On a phone or tablet](#on-a-phone-or-tablet)).
 
 To build the rocket in Onshape:
 
@@ -84,7 +113,7 @@ The camera shroud is the one part the feature has no builder for. It is left out
 
 ## Exporting the whole rocket for 3D printing (`.3mf`)
 
-**Menu → Export → 3D print (.3mf)** writes every printable part of the design at once. The dialog lists what the design can print, all checked; uncheck anything you do not want. Parachutes, streamers, shock cords, mass components and rail buttons are not listed at all, because they have no solid body to print.
+**Menu → Export → 3D print (.3mf)** writes every printable part of the design at once. The dialog lists what the design can print, all checked; uncheck anything you do not want. Parachutes, streamers, shock cords, mass components and rail buttons are not listed at all, because they have no solid body to print. It is offered on a desktop computer only (see [On a phone or tablet](#on-a-phone-or-tablet)).
 
 Two options:
 
@@ -99,7 +128,7 @@ Parts keep the **orientation they have in the design**: the rocket's axis runs a
 
 ## Exporting a component as a 3D model or cut file
 
-Export is **per component**, not whole-rocket: in the **Components** tree, every part that has a real shape carries a small **⬇** button that offers the formats appropriate to *that* part. Parts with no printable object (parachutes, streamers, shock cords, mass components, rail buttons) carry no button.
+Export is **per component**, not whole-rocket: in the **Components** tree, every part that has a real shape carries a small **⬇** button that offers the formats appropriate to *that* part. Parts with no printable object (parachutes, streamers, shock cords, mass components, rail buttons) carry no button. On a phone or tablet the button offers GLB only (see [On a phone or tablet](#on-a-phone-or-tablet)).
 
 - **3D models (STL, OBJ, GLB, 3MF).** A single, **watertight solid** of the part, built for 3D printing and CAD (STL/OBJ import into any slicer or modeler; GLB also carries a color for viewers; **3MF** carries the part's name, its color and the unit, and is the one to pick if your slicer takes it). Offered for nose cones, transitions, body tubes, inner tubes, launch lugs, tube fins, fin sets, centering rings, bulkheads, couplers and engine blocks. To get the whole rocket at once, see [3D printing the whole rocket](#exporting-the-whole-rocket-for-3d-printing-3mf) above.
 - **DXF 2D cut sheet.** The flat outline of a **plate-cut** part for a laser cutter or CNC router (AutoCAD R12, in millimeters, CUT / REFERENCE layers). Offered only for the parts you actually cut from sheet: **fins, centering rings and bulkheads**. Fin outlines fold in any through-the-wall tab; discs carry the bore and a center cross-hair.

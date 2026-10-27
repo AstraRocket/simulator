@@ -68,10 +68,12 @@ describe('a fin cant read from a file', () => {
     expect(storedCant(tree)).toBeCloseTo(kernelCant(tree), 12);
   });
 
+  // A `.rkt` states the cant in radians, as `FinSetHandler` reads it.
   it.each(DEGREES)('in a .rkt at %s degrees is the cant the kernel flies', (deg) => {
     const { xml } = exportRkt('Cant', canted());
-    const edited = xml.replace(/<CantAngle>[^<]*<\/CantAngle>/, `<CantAngle>${deg}</CantAngle>`);
-    expect(edited).toContain(`<CantAngle>${deg}</CantAngle>`);
+    const rad = (deg * Math.PI) / 180;
+    const edited = xml.replace(/<CantAngle>[^<]*<\/CantAngle>/, `<CantAngle>${rad}</CantAngle>`);
+    expect(edited).toContain(`<CantAngle>${rad}</CantAngle>`);
     const tree = importRkt(edited).tree;
     expect(storedCant(tree)).toBeCloseTo(kernelCant(tree), 12);
   });
