@@ -129,6 +129,11 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
   // ramp from zero, and the impulse, class and burn time count it.
   const samples = finalizeCurve(raw);
   if (samples.length < 2) throw new KeyedError('errors.motorFile.engNoCurve');
+  // A curve that is zero all the way along has no impulse: it would import as a
+  // motor that never leaves the pad, with nothing to say why.
+  if (!samples.some((s) => s.thrust > 0)) {
+    throw new KeyedError('errors.motorFile.engNoThrust', { motor: designation });
+  }
 
   const manufacturer = mfr.join(' ') || 'Custom';
   return {
