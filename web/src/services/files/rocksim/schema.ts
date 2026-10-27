@@ -6,7 +6,7 @@ import type { ComponentType } from '../../../engine/openRocketEngine';
  * code tables and the surface-density factor.
  *
  * Each code table is held once, in the reader's ordinal order (the code is the
- * index), and the writer's token-to-code maps are built from it. Two tables are
+ * index), and the writer's token-to-code maps are built from it. Some tables are
  * deliberately not symmetric, and say so where they are built.
  */
 
@@ -26,18 +26,34 @@ export const SURFACE_DENSITY = 1 / 10;
 export const STAGE_ELEMENTS = ['Stage3Parts', 'Stage2Parts', 'Stage1Parts'] as const;
 
 /**
- * The per-stage mass and CG RockSim states on the design, nose down to match
- * {@link STAGE_ELEMENTS}. The CG tags are not named alike: the sustainer's is
- * `Stage3CG` and the boosters' are `…CGAlone`, as `RockSimHandler` reads them.
+ * The mass and CG RockSim states on the design, nose down to match
+ * {@link STAGE_ELEMENTS}. The masses are each stage's own; the CGs are the
+ * stacks RockSim flies (the sustainer alone, the sustainer and the first
+ * booster, then every stage), measured from the nose tip, which is how
+ * `RockSimHandler` reads them and `RockSimSaver` writes them. RockSim uses
+ * them only while `UseKnownMass` is set.
  */
 export const STAGE_MASS_ELEMENTS = ['Stage3Mass', 'Stage2Mass', 'Stage1Mass'] as const;
-export const STAGE_CG_ELEMENTS = ['Stage3CG', 'Stage2CGAlone', 'Stage1CGAlone'] as const;
+export const STAGE_CG_ELEMENTS = ['Stage3CG', 'Stage32CG', 'Stage321CG'] as const;
 
 /**
- * `RockSimNoseConeCode`, by code. RockSim's PARABOLIC (2) really is
- * OpenRocket's ELLIPSOID, so both 2 and 3 read as an ellipsoid.
+ * `RockSimNoseConeCode`, by code. RockSim's parabola (2) is a paraboloid of
+ * revolution, r = R * sqrt(x / L), which is a power series of 1/2, and its
+ * secant ogive (7) bulges past the tangent ogive, which the app cannot draw, so
+ * it reads as a tangent ogive. Both shapes imply a parameter of their own
+ * ({@link SHAPE_PARAMETERS}). A code RockSim does not define reads as the
+ * parabola, `fromCode`'s default ({@link UNKNOWN_SHAPE_CODE}).
  */
-export const SHAPES = ['conical', 'ogive', 'ellipsoid', 'ellipsoid', 'power', 'parabolic', 'haack'] as const;
+export const SHAPES = ['conical', 'ogive', 'power', 'ellipsoid', 'power', 'parabolic', 'haack', 'ogive'] as const;
+
+/** The shape parameter a code implies, ignoring the `ShapeParameter` RockSim writes beside it. */
+export const SHAPE_PARAMETERS: Readonly<Record<number, number>> = { 2: 0.5, 7: 1 };
+
+/** The secant ogive's code, which reads as a tangent ogive with a note. */
+export const SECANT_OGIVE = 7;
+
+/** The code an unknown `ShapeCode` reads as: the parabola, `RockSimNoseConeCode.fromCode`'s default. */
+export const UNKNOWN_SHAPE_CODE = 2;
 
 /** `RockSimFinishCode`, by code. */
 export const FINISHES = ['polished', 'smooth', 'normal', 'unfinished'] as const;
@@ -65,17 +81,33 @@ export const RING_TYPES: Readonly<Record<number, ComponentType>> = {
 const toCodes = (codes: readonly string[]): ReadonlyMap<string, number> => new Map(codes.map((token, i) => [token, i]));
 
 /**
- * The writer's `ShapeCode` by shape. RockSim has no separate ellipsoid, so the
- * last code that reads as one, ELLIPTICAL (3), is the one written.
+ * The writer's `ShapeCode` by shape: the first code that reads as it, leaving
+ * out the two that imply a parameter, as `RockSimNoseConeCode.toCode` does. So
+ * a power series goes out as POWER_SERIES (4), keeping its exponent, and an
+ * ogive as the tangent OGIVE (1).
  */
-export const SHAPE_CODES = toCodes(SHAPES);
+export const SHAPE_CODES: ReadonlyMap<string, number> = new Map(
+  SHAPES.map((token, code) => [token, code] as const)
+    .filter(([, code]) => SHAPE_PARAMETERS[code] === undefined)
+    .reverse(),
+);
 
 /**
- * The writer's `FinishCode` by finish. Every other finish goes out as matt (2),
- * as `RockSimFinishCode.toCode` writes it, because a part with no `FinishCode`
- * opens in desktop with no finish at all.
+ * The writer's `FinishCode` by finish: RockSim's four, plus the app's other
+ * finishes at the nearest of them by roughness, as `RockSimFinishCode.toCode`
+ * writes them. The rough ones go out as unfinished (3, RockSim's roughest) and
+ * the ones smoother than regular paint as polished (0, its smoothest). A
+ * finish with no code at all goes out as matt (2), because a part with no
+ * `FinishCode` opens in desktop with no finish at all.
  */
-export const FINISH_CODES = toCodes(FINISHES);
+export const FINISH_CODES: ReadonlyMap<string, number> = new Map([
+  ...toCodes(FINISHES),
+  ['rough', 3],
+  ['roughunfinished', 3],
+  ['optimum', 0],
+  ['finishpolished', 0],
+  ['mirror', 0],
+]);
 export const MATT = FINISH_CODES.get('normal')!;
 
 /**

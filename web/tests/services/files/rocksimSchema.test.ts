@@ -29,7 +29,19 @@ describe('the RockSim schema', () => {
       parabolic: 5,
       haack: 6,
     });
-    expect(Object.fromEntries(FINISH_CODES)).toEqual({ polished: 0, smooth: 1, normal: 2, unfinished: 3 });
+    // RockSim's four, and the app's other finishes at the nearest of them
+    // (`RockSimFinishCode.toCode`).
+    expect(Object.fromEntries(FINISH_CODES)).toEqual({
+      polished: 0,
+      smooth: 1,
+      normal: 2,
+      unfinished: 3,
+      rough: 3,
+      roughunfinished: 3,
+      optimum: 0,
+      finishpolished: 0,
+      mirror: 0,
+    });
     expect(MATT).toBe(2);
     expect(Object.fromEntries(LOCATION_CODES)).toEqual({ top: 0, absolute: 1, bottom: 2, middle: 0, after: 0 });
     expect(Object.fromEntries(TIP_SHAPE_CODES)).toEqual({ square: 0, rounded: 1, airfoil: 2 });
@@ -38,7 +50,7 @@ describe('the RockSim schema', () => {
 
   it('reads every written code back as the token that wrote it', () => {
     for (const [shape, code] of SHAPE_CODES) expect(SHAPES[code]).toBe(shape);
-    for (const [finish, code] of FINISH_CODES) expect(FINISHES[code]).toBe(finish);
+    for (const finish of FINISHES) expect(FINISHES[FINISH_CODES.get(finish)!]).toBe(finish);
     for (const [cross, code] of TIP_SHAPE_CODES) expect(CROSS_SECTIONS[code]).toBe(cross);
     for (const [type, code] of RING_USAGE) expect(RING_TYPES[code]).toBe(type);
     for (const method of LOCATION_METHODS) expect(LOCATION_METHODS[LOCATION_CODES.get(method)!]).toBe(method);

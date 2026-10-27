@@ -82,10 +82,11 @@ const threeStage = (): RocketTree =>
                 finLeRadius: 0.001,
                 position: { method: 'top', offset: 0.01 },
               }),
-              // In a transition, which desktop's exporter does not read
-              // (RecoveryDTO.getParachutesFromRocket), so its ejection-charge
-              // event does not stop the export.
-              node({ type: 'parachute', id: 'third', diameter: 0.5 }),
+              // In a transition, which desktop's exporter reads too
+              // (RecoveryDTO.getParachutesFromRocket takes the whole stage):
+              // its ejection-charge event is written as apogee, and with the
+              // drogue already there it is left out, each with a warning.
+              node({ type: 'parachute', id: 'third', name: 'Third', diameter: 0.5 }),
             ],
           }),
         ],
@@ -94,7 +95,8 @@ const threeStage = (): RocketTree =>
         type: 'stage',
         name: 'Booster 1',
         separationEvent: 'burnout',
-        separationDelay: 1.5,
+        separationDelay: 0.5,
+        nozzleExitDiameter: 0.0254,
         children: [
           node({ type: 'transition', id: 'shoulder1', length: 0.04, foreRadius: 0.03, aftRadius: 0.038 }),
           node({
@@ -176,7 +178,13 @@ describe('golden .CDX1 export', () => {
       warnings,
     });
     expect(xml).toMatchSnapshot();
-    expect(warnings).toEqual([]);
+    expect(warnings).toEqual([
+      { key: 'errors.exportRasaeroFinShape', values: { name: { key: 'part.freeformfinset' } } },
+      // The nose is unfinished, everything else the kernel's NORMAL.
+      { key: 'errors.exportRasaeroSurfaceMixed', values: { finish: { key: 'finish.normal' } } },
+      { key: 'errors.exportRasaeroChuteEjection', values: { name: 'Third' } },
+      { key: 'errors.exportRasaeroChuteExtra', values: { name: 'Third' } },
+    ]);
   });
 
   it('writes a bare single-stage design with RASAero defaults and an unmapped finish', () => {
@@ -184,8 +192,15 @@ describe('golden .CDX1 export', () => {
     const tree = {
       name: 'Bare',
       components: [
-        node({ type: 'nosecone', id: 'n', length: 0.1, aftRadius: 0.02, shape: 'conical', finish: 'rough' }),
-        node({ type: 'bodytube', id: 'b', length: 0.3, outerRadius: 0.02, children: [fins('bare')] }),
+        node({ type: 'nosecone', id: 'n', length: 0.1, aftRadius: 0.02, shape: 'conical', finish: 'satin' }),
+        node({
+          type: 'bodytube',
+          id: 'b',
+          length: 0.3,
+          outerRadius: 0.02,
+          finish: 'satin',
+          children: [fins('bare', { finish: 'satin' })],
+        }),
       ],
     } as unknown as RocketTree;
     const xml = exportCdx1({
@@ -204,7 +219,7 @@ describe('golden .CDX1 export', () => {
     for (const [shape, param] of [
       ['ogive', 1],
       ['ellipsoid', 1],
-      ['haack', 0.33],
+      ['haack', 1 / 3],
       ['haack', 0],
       ['power', undefined],
     ] as const) {

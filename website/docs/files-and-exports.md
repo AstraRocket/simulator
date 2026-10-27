@@ -23,10 +23,15 @@ What comes across: nose cones, body tubes and transitions; inner tubes and motor
 What does not:
 
 - **Motors and launch conditions.** RockSim keeps those with its *simulations*, which are a separate object from the design, so an imported rocket arrives with no motor loaded and an exported one leaves without yours. Pick a motor after importing.
-- **Ring tails**, which have no equivalent here.
+- **Ring tails** as a shape. Each one comes in as a mass object with RockSim's computed mass and CG, so its weight is kept but its drag is not simulated.
 - **Subassemblies**, whose contents are merged into the design rather than kept as a group.
 
 Going the other way, RockSim has no element for **rail buttons**. They are left out of the file, and the app tells you which parts were dropped. A strap-on booster goes out as a pod that separates, which is how RockSim and desktop OpenRocket write one, and a set of pods or boosters goes out as one pod per copy.
+
+Where this differs from desktop OpenRocket, or is easy to miss:
+
+- **A nose cone's base extension takes the nose's color.** RockSim draws a nose cone with a straight base section; that section comes in as a straight transition behind the nose, with the nose's material, finish and color. Desktop gives it the material and finish but not the color.
+- **A parachute's spill hole is not written to a `.rkt`.** The parachute goes out as one round canopy with the same drag area, so RockSim flies the same chute, but the hole itself is gone. Desktop leaves it out too. Reading a `.rkt`, the spill hole comes off the canopy's area instead of being kept as a hole.
 
 > **Menu → Open and Save As work on designs saved inside the app** (see [Saved designs](#saved-designs) below); `.ork` files move to and from your disk through **Import** and **Export**.
 
@@ -55,9 +60,11 @@ The app keeps a library of your rockets in the browser, so you can work on sever
 
 **Menu → Export → RASAero II** writes the design as a RASAero II `.CDX1` file, so you can open it in **[RASAero II](https://www.rasaero.com/)** for its own aerodynamic and flight analysis.
 
-RASAero models only the **external aerodynamic shape**, so the export carries the airframe (nose cone, body tubes, transitions / boat tails, fins, and launch lugs) plus the loaded **weight and CG** (written into RASAero's simulation block). Internal parts with no aerodynamic effect (centering rings, bulkheads, shock cords, engine blocks) are dropped; the first two parachutes inside the stages' body tubes become RASAero's two recovery entries, with the deployment of the flight configuration you have selected. A parachute in a nose cone, a transition or a pod is not exported, as in OpenRocket. Dimensions are converted to RASAero's units (inches, pounds, feet, °F).
+RASAero models only the **external aerodynamic shape**, so the export carries the airframe (nose cone, body tubes, transitions / boat tails, fins, and launch lugs) plus the loaded **weight and CG** (written into RASAero's simulation block). Internal parts with no aerodynamic effect (centering rings, bulkheads, shock cords, engine blocks) are dropped; parachutes anywhere in the stages become RASAero's two recovery entries, with the deployment of the flight configuration you have selected: the apogee parachute is entry 1 and the altitude parachute entry 2. Dimensions are converted to RASAero's units (inches, pounds, feet, °F). The launch site carries the headwind along the launch rod and the pressure reduced to sea level, which is how RASAero reads them.
 
-Because RASAero can't represent every shape, the export **stops with a clear message** rather than write a file RASAero would reject, for example tube or elliptical fins, a non-conical transition, more than one fin set on a tube, a freeform fin that isn't a simple trapezoid, an ogive nose cone with a shape parameter other than 1, a Haack nose cone other than Von Kármán (0) or LV-Haack (0.33), or a parachute that deploys on anything but apogee or an altitude (a new parachute deploys on the motor's ejection charge, so set its deployment first). In those cases, change the design or use `.ork` instead.
+Where RASAero has no exact equivalent, the export writes the nearest one and **warns you**, as desktop OpenRocket does: an elliptical or freeform fin set goes out as the trapezoid with the same root chord, span, area and centroid, only the first fin set on a part is kept, a parachute on the motor's ejection charge opens at apogee, a streamer or a second parachute on the same event is left out, the finish covering most of the rocket stands for all of it, and RASAero flies one motor per stage, so a motor cluster or a second motor mount is noted.
+
+For what RASAero can't represent at all, the export **stops with a clear message** rather than write a file RASAero would reject, for example tube fins, a non-conical transition, a body tube whose diameter does not match the part ahead of it, an ogive nose cone with a shape parameter other than 1, a Haack nose cone other than Von Kármán (0) or LV-Haack (1/3), or a parachute that deploys on anything but apogee, an altitude or the ejection charge. In those cases, change the design or use `.ork` instead.
 
 ## Exporting JSON for Onshape (`.json`)
 

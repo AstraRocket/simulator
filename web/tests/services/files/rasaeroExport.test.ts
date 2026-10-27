@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import type { RocketTree } from '../../../src/engine/openRocketEngine';
+import { PLUGGED_DELAY, type RocketTree } from '../../../src/engine/openRocketEngine';
+import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import { exportCdx1 } from '../../../src/services/files/rasaeroExport';
 import { IN, fmt } from '../../../src/services/files/rasaero/units';
-import { stageEngineSlots } from '../../../src/services/files/rasaero/engines';
+import { stageEngineSlots, type Cdx1ExportEngine } from '../../../src/services/files/rasaero/engines';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import {
   rasaeroSurface,
@@ -114,52 +115,93 @@ describe('exportCdx1', () => {
 
 /**
  * The surface table is the desktop's RASAeroCommonConstants
- * .OPENROCKET_TO_RASAERO_SURFACE (lines 370-391), row for row. It does not send
- * `polished` to Sheet Metal, `smooth` to Smooth Paint or `rough` to Cast Iron,
- * and it lets ROUGH and POLISHED fall to its default with a warning.
+ * .OPENROCKET_TO_RASAERO_SURFACE, row for row. It does not send `polished` to
+ * Sheet Metal or `smooth` to Smooth Paint; POLISHED shares Polished and ROUGH
+ * Cast Iron, the nearest RASAero roughnesses. Only text no finish is falls to
+ * its default with a warning.
  */
 describe('finish to RASAero surface (desktop table)', () => {
   it.each([
     ['mirror', 'Smooth (Zero Roughness)'],
     ['finishpolished', 'Polished'],
+    ['polished', 'Polished'],
     ['optimum', 'Sheet Metal'],
     ['smooth', 'Camouflage Paint'],
     ['normal', 'Rough Camouflage Paint'],
     ['unfinished', 'Galvanized Metal'],
     ['roughunfinished', 'Cast Iron (Very Rough)'],
+    ['rough', 'Cast Iron (Very Rough)'],
   ])('%s maps to %s without a warning', (finish, surface) => {
     expect(rasaeroSurface(finish)).toEqual({ surface });
   });
 
-  it.each(['rough', 'polished', 'nosuchfinish'])('%s falls to Smooth with the desktop warning', (finish) => {
-    const r = rasaeroSurface(finish);
+  it('falls to Smooth with the desktop warning for a finish with no row', () => {
+    const r = rasaeroSurface('nosuchfinish');
     expect(r.surface).toBe(RASAERO_SURFACE_DEFAULT);
     expect(r.warning).toEqual(RASAERO_SURFACE_WARNING);
   });
 
-  const withFinish = (finish: string | undefined): RocketTree => ({
+  const withFinish = (nose: string | undefined, tube: string | undefined): RocketTree => ({
     components: [
       {
         type: 'stage',
         children: [
-          { type: 'nosecone', id: 'nc', length: 0.1, aftRadius: 0.0127, shape: 'ogive', ...(finish ? { finish } : {}) },
-          { type: 'bodytube', id: 'bt', length: 0.254, outerRadius: 0.0127 },
+          {
+            type: 'nosecone',
+            id: 'nc',
+            length: 0.1,
+            aftRadius: 0.0127,
+            shape: 'ogive',
+            ...(nose ? { finish: nose } : {}),
+          },
+          { type: 'bodytube', id: 'bt', length: 0.254, outerRadius: 0.0127, ...(tube ? { finish: tube } : {}) },
         ],
       },
     ],
   });
 
-  it('takes the global surface from the first nose cone, as RocketDesignDTO does', () => {
-    expect(exportCdx1({ tree: withFinish('optimum'), name: 'x' })).toContain('<Surface>Sheet Metal</Surface>');
+  it('takes the finish of one finish throughout without a warning', () => {
+    const warnings: Keyed[] = [];
+    expect(exportCdx1({ tree: withFinish('optimum', 'optimum'), name: 'x', warnings })).toContain(
+      '<Surface>Sheet Metal</Surface>',
+    );
     // No finish key is the kernel's NORMAL.
-    expect(exportCdx1({ tree: withFinish(undefined), name: 'x' })).toContain(
+    expect(exportCdx1({ tree: withFinish(undefined, undefined), name: 'x', warnings })).toContain(
       '<Surface>Rough Camouflage Paint</Surface>',
     );
+    expect(warnings.map((k) => k.key)).not.toContain('errors.exportRasaeroSurfaceMixed');
+  });
+
+  // RocketDesignDTO.getPredominantFinish: the finish of most of the wetted
+  // area, not the nose cone's. The 10 in tube outweighs the 4 in nose.
+  it('takes the finish of most of the wetted area, with a warning naming it', () => {
+    const warnings: Keyed[] = [];
+    const xml = exportCdx1({ tree: withFinish('mirror', 'unfinished'), name: 'x', warnings });
+    expect(xml).toContain('<Surface>Galvanized Metal</Surface>');
+    expect(warnings).toContainEqual({
+      key: 'errors.exportRasaeroSurfaceMixed',
+      values: { finish: { key: 'finish.unfinished' } },
+    });
+  });
+
+  it('counts both faces of every fin', () => {
+    // The 1 in tube's 10 in is 31.4 in^2 and the nose some 7 in^2 more. Eight
+    // fins with a 2 in root and a 1 in tip are 1.5 in^2 a face at a 1 in span,
+    // 24 in^2 in all, and 5.9 in^2 a face at a 0.1 m span, 94 in^2.
+    const finned = (height: number) => {
+      const t = withFinish('normal', 'normal');
+      const fin = { ...tree.components[0]!.children![1]!.children![0]!, finCount: 8, height, finish: 'mirror' };
+      t.components[0]!.children![1]!.children = [fin];
+      return t;
+    };
+    expect(exportCdx1({ tree: finned(0.0254), name: 'x' })).toContain('<Surface>Rough Camouflage Paint</Surface>');
+    expect(exportCdx1({ tree: finned(0.1), name: 'x' })).toContain('<Surface>Smooth (Zero Roughness)</Surface>');
   });
 
   it('collects the warning for a finish with no row', () => {
     const warnings: Keyed[] = [];
-    const xml = exportCdx1({ tree: withFinish('rough'), name: 'x', launchMassKg: 0.45, launchCgM: 0.12, warnings });
+    const tree = withFinish('nosuchfinish', 'nosuchfinish');
+    const xml = exportCdx1({ tree, name: 'x', launchMassKg: 0.45, launchCgM: 0.12, warnings });
     expect(xml).toContain('<Surface>Smooth (Zero Roughness)</Surface>');
     expect(warnings).toEqual([RASAERO_SURFACE_WARNING]);
   });
@@ -366,6 +408,8 @@ describe('a non-finite dimension', () => {
     const body = bad.components[0]!.children![1]!;
     body['length'] = Number.NaN;
     body['outerRadius'] = Number.POSITIVE_INFINITY;
+    // Both fall back to the kernel's 0.025 m, so the tube still meets the nose.
+    bad.components[0]!.children![0]!['aftRadius'] = Number.POSITIVE_INFINITY;
     const out = exportCdx1({ tree: bad, name: 'bad', launchMassKg: 0.45, launchCgM: 0.127 });
     expect(out).not.toMatch(/NaN|Infinity/);
   });
@@ -578,43 +622,46 @@ const withChute = (chute: Record<string, unknown>): RocketTree => ({
     },
   ],
 });
-const exported = (t: RocketTree) =>
+const exported = (t: RocketTree, warnings?: Keyed[]) =>
   new DOMParser().parseFromString(
-    exportCdx1({ tree: t, name: 'Chute', launchMassKg: 0.45, launchCgM: 0.12 }),
+    exportCdx1({ tree: t, name: 'Chute', launchMassKg: 0.45, launchCgM: 0.12, warnings }),
     'text/xml',
   );
+const recovery = (doc: Document, tag: string) => doc.querySelector(`Recovery > ${tag}`)?.textContent;
 
 /**
- * RASAero deploys at apogee or at an altitude and nothing else. Desktop's
- * RecoveryDTO raises RASAeroExport.error21 for any other event rather than write
- * a chute that never opens. A key the part does not carry is the kernel's
- * default: a new parachute deploys on the ejection charge, is 0.3 m across, and
- * flies Parachute.DEFAULT_CD.
+ * RASAero has no ejection charge: desktop's RecoveryDTO writes a chute on it as
+ * an apogee chute and warns (RASAeroExport.warning14). A key the part does not
+ * carry is the kernel's default: a new parachute deploys on the ejection
+ * charge, is 0.3 m across, and flies Parachute.DEFAULT_CD.
  */
 describe('a parachute with no deployment or size of its own', () => {
-  it('is refused on the ejection charge, naming the part and the event', () => {
-    expect(() => exported(withChute({}))).toThrow(
-      expect.objectContaining({
-        key: 'errors.rasaero.chuteEvent',
-        values: { name: 'Main', event: { key: 'deployEvent.ejection' } },
-      }),
-    );
+  it('is written as the apogee device, with a warning naming it', () => {
+    const warnings: Keyed[] = [];
+    const doc = exported(withChute({}), warnings);
+    expect(recovery(doc, 'EventType1')).toBe('Apogee');
+    expect(recovery(doc, 'Event1')).toBe('True');
+    expect(recovery(doc, 'Event2')).toBe('False');
+    expect(Number(recovery(doc, 'Size1'))).toBeCloseTo(0.3 / 0.0254, 3);
+    expect(Number(recovery(doc, 'CD1'))).toBe(0.8);
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroChuteEjection', values: { name: 'Main' } }]);
   });
 
-  it('goes out at the kernel diameter and drag coefficient once it deploys at apogee', () => {
-    const doc = exported(withChute({ deployEvent: 'apogee' }));
-    expect(doc.querySelector('Recovery > EventType1')?.textContent).toBe('Apogee');
-    expect(doc.querySelector('Recovery > Event1')?.textContent).toBe('True');
-    expect(Number(doc.querySelector('Recovery > Size1')?.textContent)).toBeCloseTo(0.3 / 0.0254, 3);
-    expect(Number(doc.querySelector('Recovery > CD1')?.textContent)).toBe(0.8);
+  // Any other event has no RASAero deployment (RASAeroExport.error21).
+  it('is refused on an event RASAero has no deployment for, naming the part and the event', () => {
+    expect(() => exported(withChute({ deployEvent: 'never' }))).toThrow(
+      expect.objectContaining({
+        key: 'errors.rasaero.chuteEvent',
+        values: { name: 'Main', event: { key: 'deployEvent.never' } },
+      }),
+    );
   });
 });
 
 /**
- * Desktop's exporter reads the parachutes under each stage's own body tubes,
- * a tube's whole subtree in order (RecoveryDTO.getParachutesFromRocket iterates
- * the tube), and no other: one in a nose cone is not a recovery entry, and its
- * event does not stop the export.
+ * Desktop's exporter reads every parachute anywhere in a stage
+ * (RecoveryDTO.getParachutesFromRocket iterates the stage), and warns about a
+ * streamer, which RASAero has no device for.
  */
 describe('which parachutes are recovery', () => {
   const design = (noseKids: object[], tubeKids: object[]): RocketTree => ({
@@ -630,29 +677,88 @@ describe('which parachutes are recovery', () => {
     ],
   });
 
-  it('reads one inside an inner tube in a body tube, and none in the nose cone', () => {
+  it('reads one in the nose cone and one inside an inner tube in a body tube', () => {
     const doc = exported(
       design(
-        [{ type: 'parachute', id: 'n', name: 'Nose chute' }],
+        [{ type: 'parachute', id: 'n', name: 'Nose chute', diameter: 0.6, deployEvent: 'apogee' }],
         [
           {
             type: 'innertube',
             id: 'it',
             length: 0.1,
-            children: [{ type: 'parachute', id: 'p', name: 'Main', diameter: 0.6, deployEvent: 'apogee' }],
+            children: [
+              { type: 'parachute', id: 'p', name: 'Main', diameter: 0.9, deployEvent: 'altitude', deployAltitude: 150 },
+            ],
           },
         ],
       ),
     );
-    expect(doc.querySelector('Recovery > Size1')?.textContent).toBe(String(Number((0.6 / 0.0254).toFixed(3))));
-    expect(doc.querySelector('Recovery > DeviceType2')?.textContent).toBe('None');
+    expect(recovery(doc, 'Size1')).toBe(String(Number((0.6 / 0.0254).toFixed(3))));
+    expect(recovery(doc, 'Size2')).toBe(String(Number((0.9 / 0.0254).toFixed(3))));
+  });
+
+  it('leaves out a streamer with a warning', () => {
+    const warnings: Keyed[] = [];
+    const doc = exported(design([], [{ type: 'streamer', id: 's', name: 'Ribbon' }]), warnings);
+    expect(recovery(doc, 'DeviceType1')).toBe('None');
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroStreamer', values: { name: 'Ribbon' } }]);
+  });
+});
+
+/**
+ * RASAero deploys device 1 at apogee and device 2 when descending through
+ * Altitude2, whatever the event types say, so desktop's RecoveryDTO puts the
+ * apogee chute in slot 1 and the altitude chute in slot 2 whatever their tree
+ * order, each with its own CD, and leaves out a second chute on an event
+ * already taken with a warning (RASAeroExport.warning15).
+ */
+describe('recovery slots', () => {
+  const chutes = (...kids: object[]): RocketTree => ({
+    ...tree,
+    components: [
+      {
+        ...tree.components[0]!,
+        children: [tree.components[0]!.children![0]!, { ...tree.components[0]!.children![1]!, children: kids }],
+      } as RocketTree['components'][number],
+    ],
+  });
+  const main = { type: 'parachute', id: 'm', name: 'Main', diameter: 1, cd: 1.5, deployEvent: 'altitude' };
+  const drogue = { type: 'parachute', id: 'd', name: 'Drogue', diameter: 0.3, cd: 0.8, deployEvent: 'apogee' };
+
+  it('writes the apogee chute first and the altitude chute second, as desktop does', () => {
+    const warnings: Keyed[] = [];
+    const doc = exported(chutes({ ...main, deployAltitude: 150 }, drogue), warnings);
+    expect(recovery(doc, 'EventType1')).toBe('Apogee');
+    expect(Number(recovery(doc, 'Size1'))).toBeCloseTo(0.3 * IN, 3);
+    expect(recovery(doc, 'CD1')).toBe('0.8');
+    expect(recovery(doc, 'Altitude1')).toBe('0');
+    expect(recovery(doc, 'EventType2')).toBe('Altitude');
+    expect(Number(recovery(doc, 'Altitude2'))).toBeCloseTo(150 * 3.28084, 3);
+    expect(Number(recovery(doc, 'Size2'))).toBeCloseTo(1 * IN, 3);
+    expect(recovery(doc, 'CD2')).toBe('1.5');
+    expect(warnings).toEqual([]);
+  });
+
+  it('writes a lone altitude chute as device 2', () => {
+    const doc = exported(chutes(main));
+    expect(recovery(doc, 'Event1')).toBe('False');
+    expect(recovery(doc, 'DeviceType1')).toBe('None');
+    expect(recovery(doc, 'Event2')).toBe('True');
+  });
+
+  it('leaves out a second chute on an event already taken, with a warning', () => {
+    const warnings: Keyed[] = [];
+    const doc = exported(chutes(drogue, { ...drogue, id: 'd2', name: 'Spare', diameter: 0.5 }), warnings);
+    expect(Number(recovery(doc, 'Size1'))).toBeCloseTo(0.3 * IN, 3);
+    expect(recovery(doc, 'DeviceType2')).toBe('None');
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroChuteExtra', values: { name: 'Spare' } }]);
   });
 });
 
 /**
  * RASAero has one ogive (tangent) and two Haack noses. Desktop
  * (RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SHAPE) takes an ogive only at
- * shape parameter 1 and a Haack only at 0 (Von Karman) or within 1% of 0.33
+ * shape parameter 1 and a Haack only at 0 (Von Karman) or within 1% of 1/3
  * (LV-Haack), and refuses the rest. An absent parameter is the shape's default.
  */
 describe('the nose shape parameter', () => {
@@ -674,6 +780,8 @@ describe('the nose shape parameter', () => {
     [{ shape: 'haack' }, 'Von Karman Ogive'],
     [{ shape: 'haack', shapeParameter: 0 }, 'Von Karman Ogive'],
     [{ shape: 'haack', shapeParameter: 0.333 }, 'LV-Haack'],
+    // The kernel's own LV-Haack.
+    [{ shape: 'haack', shapeParameter: 1 / 3 }, 'LV-Haack'],
   ])('writes %o as %s', (nose, expected) => {
     expect(shapeOf(nose)).toBe(expected);
   });
@@ -681,8 +789,7 @@ describe('the nose shape parameter', () => {
   it.each([
     [{ shape: 'ogive', shapeParameter: 0.5 }, 'errors.rasaero.noseOgiveParameter', 0.5],
     [{ shape: 'haack', shapeParameter: 0.2 }, 'errors.rasaero.noseHaackParameter', 0.2],
-    // The kernel's LV-Haack, 1/3, is outside desktop's 1% of 0.33.
-    [{ shape: 'haack', shapeParameter: 1 / 3 }, 'errors.rasaero.noseHaackParameter', 0.333],
+    [{ shape: 'haack', shapeParameter: 0.32 }, 'errors.rasaero.noseHaackParameter', 0.32],
   ])('refuses %o', (nose, key, value) => {
     expect(() => shapeOf(nose)).toThrow(expect.objectContaining({ key, values: { name: 'Nose', value } }));
   });
@@ -762,7 +869,384 @@ describe('engine manufacturer abbreviations (desktop table)', () => {
     ['AMW ProX', 'AMW/ProX'],
     ['Loki', 'LR'],
     ['Loki Research', 'LR'],
+    // RASAero's abbreviation for West Coast Hybrids, and the names desktop's
+    // Manufacturer table gives it.
+    ['West Coast Hybrids', 'WCH'],
+    ['WCH', 'WCH'],
+    ['West Coast', 'WCH'],
   ])('writes %s as %s', (manufacturer, abbrev) => {
     expect(engine(manufacturer)).toBe(`J350W  (${abbrev})`);
+  });
+});
+
+/** RASAero writes and reads a CP element in the rocket design, not a CD one. */
+it('writes the CP element RASAero reads, not CD', () => {
+  const xml = exportCdx1({ tree, name: 'x' });
+  expect(xml).toContain('<CP>0</CP>');
+  expect(xml).not.toContain('<CD>0</CD>');
+});
+
+/**
+ * RASAero has one trapezoidal fin set per part. Desktop's FinDTO writes any
+ * other planar fin set as the trapezoid with the same root chord, span, area
+ * and area centroid, and BodyTubeDTOAdapter keeps the first of several fin
+ * sets, each with a warning.
+ */
+describe('fin sets RASAero has no form for', () => {
+  // The single stage's cell, so the only warnings are the fins'.
+  const cell = { launchMassKg: 0.45, launchCgM: 0.12 };
+  const withFins = (...fins: object[]): RocketTree => ({
+    ...tree,
+    components: [
+      {
+        ...tree.components[0]!,
+        children: [tree.components[0]!.children![0]!, { ...tree.components[0]!.children![1]!, children: fins }],
+      } as RocketTree['components'][number],
+    ],
+  });
+  const fin = (xml: string, tag: string) => Number(new RegExp(`<Fin>[\\s\\S]*?<${tag}>([^<]*)</${tag}>`).exec(xml)![1]);
+
+  // Desktop's own case: for an ellipse it is the symmetric trapezoid with a
+  // tip chord of (pi/2 - 1) times the root chord.
+  it('writes an elliptical fin set as its equivalent trapezoid, with a warning', () => {
+    const warnings: Keyed[] = [];
+    const xml = exportCdx1({
+      tree: withFins({ type: 'ellipticalfinset', id: 'e', name: 'Ellipse', finCount: 3, rootChord: 0.1, height: 0.05 }),
+      name: 'x',
+      warnings,
+      ...cell,
+    });
+    const root = 0.1 * IN;
+    const tip = (Math.PI / 2 - 1) * root;
+    expect(fin(xml, 'Chord')).toBeCloseTo(root, 3);
+    expect(fin(xml, 'Span')).toBeCloseTo(0.05 * IN, 3);
+    expect(Math.abs(fin(xml, 'TipChord') - tip)).toBeLessThan(0.01 * tip);
+    expect(Math.abs(fin(xml, 'SweepDistance') - (root - tip) / 2)).toBeLessThan(0.01 * root);
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroFinShape', values: { name: 'Ellipse' } }]);
+  });
+
+  it('writes a freeform fin set with the same area and centroid as its outline', () => {
+    // An L: 0.1 m root, 0.05 m span, with the outline stepping down to 0.02 m
+    // halfway back. Its area is 0.05 * 0.05 + 0.05 * 0.02 = 0.0035 m^2.
+    const warnings: Keyed[] = [];
+    const xml = exportCdx1({
+      tree: withFins({
+        type: 'freeformfinset',
+        id: 'f',
+        name: 'Step',
+        finCount: 4,
+        points: [
+          [0, 0],
+          [0, 0.05],
+          [0.05, 0.05],
+          [0.05, 0.02],
+          [0.1, 0.02],
+          [0.1, 0],
+        ],
+      }),
+      name: 'x',
+      warnings,
+      ...cell,
+    });
+    const root = fin(xml, 'Chord') / IN;
+    const span = fin(xml, 'Span') / IN;
+    const tip = fin(xml, 'TipChord') / IN;
+    const sweep = fin(xml, 'SweepDistance') / IN;
+    expect(root).toBeCloseTo(0.1, 4);
+    expect(span).toBeCloseTo(0.05, 4);
+    expect(((root + tip) / 2) * span).toBeCloseTo(0.0035, 5);
+    // The L's centroid is (0.025 * 0.0025 + 0.075 * 0.001) / 0.0035 from the root's front.
+    const centroid = (sweep * (root + 2 * tip) + root * root + root * tip + tip * tip) / (3 * (root + tip));
+    expect(centroid).toBeCloseTo((0.025 * 0.0025 + 0.075 * 0.001) / 0.0035, 4);
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroFinShape', values: { name: 'Step' } }]);
+  });
+
+  it('keeps the first of two fin sets on a tube, with a warning naming the other', () => {
+    const warnings: Keyed[] = [];
+    const first = tree.components[0]!.children![1]!.children![0]!;
+    const second = { ...first, id: 'fin2', name: 'Canards', finCount: 4 };
+    const xml = exportCdx1({ tree: withFins({ ...first, name: 'Main fins' }, second), name: 'x', warnings, ...cell });
+    expect(xml.match(/<Fin>/g)).toHaveLength(1);
+    expect(fin(xml, 'Count')).toBe(3);
+    expect(warnings).toEqual([
+      { key: 'errors.exportRasaeroExtraFins', values: { name: 'Canards', part: { key: 'part.bodytube' } } },
+    ]);
+  });
+
+  it('still refuses tube fins, which have no planform', () => {
+    expect(() => exportCdx1({ tree: withFins({ type: 'tubefinset', id: 't', name: 'Tubes' }), name: 'x' })).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.tubeFinsUnsupported', values: { name: 'Tubes' } }),
+    );
+  });
+
+  it('keeps the first fin set of a booster body and warns about one elsewhere in the stage', () => {
+    const warnings: Keyed[] = [];
+    const finSet = (id: string, name: string) => ({ ...tree.components[0]!.children![1]!.children![0]!, id, name });
+    const two: RocketTree = {
+      name: 'Two',
+      components: [
+        tree.components[0]!,
+        {
+          type: 'stage',
+          id: 'b',
+          name: 'Booster',
+          children: [
+            {
+              type: 'bodytube',
+              id: 't1',
+              name: 'Upper',
+              length: 0.1,
+              outerRadius: 0.0127,
+              children: [finSet('f1', 'Low')],
+            },
+            {
+              type: 'bodytube',
+              id: 't2',
+              name: 'Lower',
+              length: 0.1,
+              outerRadius: 0.0127,
+              children: [finSet('f2', 'Aft')],
+            },
+          ],
+        },
+      ],
+    };
+    const xml = exportCdx1({ tree: two, name: 'Two', stageLaunch: [], warnings });
+    expect(xml.match(/<Booster>[\s\S]*?<\/Booster>/)![0].match(/<Fin>/g)).toHaveLength(1);
+    expect(warnings).toContainEqual({ key: 'errors.exportRasaeroExtraFins', values: { name: 'Aft', part: 'Lower' } });
+  });
+});
+
+/**
+ * RASAero gives every body tube the aft diameter of the part ahead of it once
+ * it loads a design, so desktop's BodyTubeDTO refuses a tube of another
+ * diameter (RASAeroExport.error15) rather than have RASAero resize it.
+ */
+describe('a body tube diameter step', () => {
+  const stepped = (noseRadius: number): RocketTree => ({
+    ...tree,
+    components: [
+      {
+        ...tree.components[0]!,
+        children: [
+          { ...tree.components[0]!.children![0]!, name: 'Nose', aftRadius: noseRadius },
+          { ...tree.components[0]!.children![1]!, name: 'Body' },
+        ],
+      } as RocketTree['components'][number],
+    ],
+  });
+
+  it('is refused, naming the tube and the part ahead of it', () => {
+    expect(() => exportCdx1({ tree: stepped(0.0127 - 0.001), name: 'x' })).toThrow(
+      expect.objectContaining({ key: 'errors.rasaero.tubeStep', values: { name: 'Body', previous: 'Nose' } }),
+    );
+  });
+
+  it('is not raised when the tube meets the part ahead of it', () => {
+    expect(() => exportCdx1({ tree: stepped(0.0127), name: 'x' })).not.toThrow();
+  });
+});
+
+/**
+ * Desktop's LaunchSiteDTO writes the simulated launch site: RASAero's
+ * barometric pressure is the pressure reduced to sea level, 0 for the
+ * standard atmosphere, in which case RASAero uses the standard pressure at the
+ * site; the temperature is the one the flight starts in; and the wind is the
+ * signed headwind component along the rod.
+ */
+describe('the launch site', () => {
+  const site = (launch: Partial<LaunchConditions>, warnings?: Keyed[]) => {
+    const doc = new DOMParser().parseFromString(
+      exportCdx1({ tree, name: 'x', launch, warnings, launchMassKg: 0.45, launchCgM: 0.12 }),
+      'text/xml',
+    );
+    return (tag: string) => Number(doc.querySelector(`LaunchSite > ${tag}`)?.textContent);
+  };
+  // RASAero II's standard atmosphere, as desktop's
+  // RASAERO_TO_OPENROCKET_LAUNCH_PRESSURE turns its input back into the
+  // site's pressure (Pa).
+  const sitePressure = (barometric: number, altitudeFt: number) => {
+    const pressureAltitude = altitudeFt + (Math.pow((barometric * 0.49117) / 14.6958, 0.19026) - 1) / -6.87535e-6;
+    return 14.6958 * Math.pow(1 - 6.87535e-6 * pressureAltitude, 5.2561) * 6894.757;
+  };
+
+  it('writes a typed pressure reduced to sea level, which RASAero turns back into it', () => {
+    const at = site({ launchAltitudeM: 1000, temperatureC: 26.85, pressureHPa: 880 });
+    expect(sitePressure(at('Pressure'), 1000 * 3.28084)).toBeCloseTo(88000, -1);
+    // Reduced to sea level, it is above the site's 25.99 in-Hg.
+    expect(at('Pressure')).toBeGreaterThan(880 / 33.8639);
+    expect(at('Temperature')).toBeCloseTo(80.33, 1);
+  });
+
+  it('writes no pressure and the standard temperature at the site for the standard atmosphere', () => {
+    const at = site({ launchAltitudeM: 1000, temperatureC: null, pressureHPa: null });
+    expect(at('Pressure')).toBe(0);
+    // 288.15 K less 6.5 K a kilometer, in degrees Fahrenheit.
+    expect(at('Temperature')).toBeCloseTo((288.15 - 6.5 - 273.15) * 1.8 + 32, 0);
+  });
+
+  it('writes the headwind along the rod, negative for a tailwind', () => {
+    const wind = { windAverage: 5, windDirectionDeg: 90, launchAltitudeM: 0 };
+    expect(site({ ...wind, launchRodDirectionDeg: 90 })('WindSpeed')).toBeCloseTo(5 * 2.23694, 3);
+    expect(site({ ...wind, launchRodDirectionDeg: 270 })('WindSpeed')).toBeCloseTo(-5 * 2.23694, 3);
+    expect(site({ ...wind, launchRodDirectionDeg: 0 })('WindSpeed')).toBeCloseTo(0, 3);
+    // Launched into the wind, the rod is turned to face it.
+    expect(site({ ...wind, launchRodDirectionDeg: 270, launchIntoWind: true })('WindSpeed')).toBeCloseTo(
+      5 * 2.23694,
+      3,
+    );
+  });
+
+  it("writes a wind profile's lowest level, with a warning", () => {
+    const warnings: Keyed[] = [];
+    const at = site(
+      {
+        launchAltitudeM: 0,
+        launchRodDirectionDeg: 90,
+        windLevels: [
+          { altitudeM: 500, speed: 9, directionDeg: 90, stddev: 0 },
+          { altitudeM: 100, speed: 4, directionDeg: 90, stddev: 0 },
+        ],
+      },
+      warnings,
+    );
+    expect(at('WindSpeed')).toBeCloseTo(4 * 2.23694, 3);
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroWindLevels' }]);
+  });
+});
+
+/**
+ * Desktop's SimulationDTO converts the staging events to RASAero's timeline,
+ * which runs from each booster's burnout: the booster's separation delay is
+ * how long the two stages coast together, and the upper stage's ignition
+ * delay how long it then coasts alone. A booster is included only when the
+ * configuration flies it and it has a motor, and a stage's other motors are
+ * named in a warning, since RASAero flies one motor per stage.
+ */
+describe('staging, nozzles and the motors RASAero flies', () => {
+  const finSet = { ...tree.components[0]!.children![1]!.children![0]!, id: 'bf' };
+  const staged = (
+    booster: object = {},
+    mounts: object[] = [{ type: 'innertube', id: 'bm', length: 0.1 }],
+  ): RocketTree => ({
+    name: 'Two',
+    components: [
+      {
+        ...tree.components[0]!,
+        id: 'sus',
+        name: 'Sustainer',
+        children: [
+          tree.components[0]!.children![0]!,
+          {
+            ...tree.components[0]!.children![1]!,
+            children: [...tree.components[0]!.children![1]!.children!, { type: 'innertube', id: 'sm', length: 0.1 }],
+          },
+        ],
+      },
+      {
+        type: 'stage',
+        id: 'b',
+        name: 'Booster',
+        ...booster,
+        children: [{ type: 'bodytube', id: 'bt', length: 0.2, outerRadius: 0.0127, children: [finSet, ...mounts] }],
+      },
+    ] as RocketTree['components'],
+  });
+  const motor = (o: Partial<Cdx1ExportEngine> = {}): Cdx1ExportEngine => ({
+    designation: 'J350W',
+    manufacturer: 'AeroTech',
+    ...o,
+  });
+  const run = (t: RocketTree, motors: Record<string, Cdx1ExportEngine>, extra: object = {}) => {
+    const warnings: Keyed[] = [];
+    const xml = exportCdx1({ tree: t, name: 'Two', stageLaunch: [], motors, warnings, ...extra });
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const cell = (tag: string) => doc.querySelector(`Simulation > ${tag}`)?.textContent;
+    return { xml, doc, cell, warnings: warnings.filter((k) => k.key !== 'errors.exportRasaeroStageMass') };
+  };
+
+  it("separates on the booster's ejection charge after its motor's delay", () => {
+    // The kernel's default separation: the booster's ejection charge.
+    const { cell, warnings } = run(staged({ separationDelay: 0.5 }), {
+      sm: motor({ ignitionEvent: 'ejectioncharge', ignitionDelay: 1 }),
+      bm: motor({ delay: 4 }),
+    });
+    expect(cell('Booster1SeparationDelay')).toBe('4.5');
+    // Ignited 4 + 1 s after burnout, 0.5 s after separation.
+    expect(cell('SustainerIgnitionDelay')).toBe('0.5');
+    expect(cell('IncludeBooster1')).toBe('True');
+    expect(warnings).toEqual([]);
+  });
+
+  it('ignites the upper stage at separation on the next-stage-ignition event', () => {
+    const { cell } = run(staged({ separationEvent: 'upperignition' }), {
+      sm: motor({ ignitionEvent: 'burnout', ignitionDelay: 2 }),
+      bm: motor({ delay: 6 }),
+    });
+    expect(cell('Booster1SeparationDelay')).toBe('2');
+    expect(cell('SustainerIgnitionDelay')).toBe('0');
+  });
+
+  it('warns about events the timeline has no place for, and stages them at burnout', () => {
+    const { cell, warnings } = run(staged({ separationEvent: 'apogee', separationDelay: 1 }), {
+      sm: motor({ ignitionEvent: 'launch', ignitionDelay: 0.25 }),
+      bm: motor({ delay: 6 }),
+    });
+    expect(cell('Booster1SeparationDelay')).toBe('1');
+    expect(cell('SustainerIgnitionDelay')).toBe('0');
+    expect(warnings).toEqual([
+      {
+        key: 'errors.exportRasaeroIgnitionEvent',
+        values: { stage: 'Sustainer', event: { key: 'ignition.launch' } },
+      },
+      {
+        key: 'errors.exportRasaeroSeparationEvent',
+        values: { stage: 'Booster', event: { key: 'separationEvent.apogee' } },
+      },
+      { key: 'errors.exportRasaeroIgnitionBeforeSeparation', values: { stage: 'Sustainer' } },
+    ]);
+  });
+
+  it('does not separate a plugged booster on its ejection charge', () => {
+    const { cell, warnings } = run(staged(), {
+      sm: motor({ ignitionEvent: 'burnout' }),
+      bm: motor({ delay: PLUGGED_DELAY }),
+    });
+    expect(cell('Booster1SeparationDelay')).toBe('0');
+    expect(warnings).toContainEqual({
+      key: 'errors.exportRasaeroSeparationEvent',
+      values: { stage: 'Booster', event: { key: 'separationEvent.ejection' } },
+    });
+  });
+
+  it('leaves out a booster the configuration grounds', () => {
+    const { cell } = run(staged(), { sm: motor(), bm: motor({ delay: 3 }) }, { grounded: ['b'] });
+    expect(cell('IncludeBooster1')).toBe('False');
+    expect(cell('Booster1SeparationDelay')).toBe('0');
+  });
+
+  it('writes a cluster as one nozzle of the same exit area, and warns that one motor flies', () => {
+    const { xml, cell, warnings } = run(
+      staged({ nozzleExitDiameter: 0.0254 }, [{ type: 'innertube', id: 'bm', length: 0.1, cluster: '4-ring' }]),
+      { sm: motor(), bm: motor({ delay: 3 }) },
+    );
+    // Four 1 in nozzles have the area of one 2 in nozzle.
+    expect(cell('Booster1NozzleDiameter')).toBe('2');
+    expect(xml).toContain('<Booster1Nozzle>2</Booster1Nozzle>');
+    expect(xml).toContain('<NozzleExitDiameter>2</NozzleExitDiameter>');
+    expect(xml).toContain('<NozzleDiameter>2</NozzleDiameter>');
+    expect(cell('SustainerNozzleDiameter')).toBe('0');
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroExtraMotors', values: { stage: 'Booster' } }]);
+  });
+
+  it('warns about a motor in a second mount of a stage', () => {
+    const { warnings } = run(
+      staged({}, [
+        { type: 'innertube', id: 'bm', length: 0.1 },
+        { type: 'innertube', id: 'bm2', length: 0.1 },
+      ]),
+      { sm: motor(), bm: motor({ delay: 3 }), bm2: motor({ delay: 3 }) },
+    );
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroExtraMotors', values: { stage: 'Booster' } }]);
   });
 });

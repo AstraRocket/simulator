@@ -23,10 +23,15 @@ Lo que sí viaja: ojivas, tubos y transiciones; tubos interiores y soportes de m
 Lo que no:
 
 - **Los motores y las condiciones de lanzamiento.** RockSim los guarda con sus *simulaciones*, que son un objeto distinto del diseño, así que un cohete importado llega sin motor y uno exportado sale sin el tuyo. Elige un motor después de importar.
-- **Las colas anulares (ring tails)**, que aquí no tienen equivalente.
+- **Las colas anulares (ring tails)** como forma. Cada una entra como objeto de masa con la masa y el CG que calcula RockSim, así que su peso se conserva pero su resistencia no se simula.
 - **Los subconjuntos**, cuyo contenido se fusiona en el diseño en lugar de mantenerse como grupo.
 
 En el otro sentido, RockSim no tiene elemento para los **botones de riel**. Se quedan fuera del archivo, y la aplicación te dice cuáles se han omitido. Una etapa en paralelo sale como una cápsula desmontable, que es como la escriben RockSim y OpenRocket de escritorio, y un conjunto de cápsulas o de etapas en paralelo sale como una cápsula por cada copia.
+
+En qué se diferencia de OpenRocket de escritorio, o qué es fácil pasar por alto:
+
+- **La extensión de la base de una ojiva toma el color de la ojiva.** RockSim dibuja una ojiva con una sección recta en la base; esa sección entra como una transición recta detrás de la ojiva, con el material, el acabado y el color de la ojiva. El escritorio le da el material y el acabado, pero no el color.
+- **El orificio de ventilación de un paracaídas no se escribe en un `.rkt`.** El paracaídas sale como una sola campana redonda con la misma área de resistencia, así que RockSim vuela el mismo paracaídas, pero el orificio desaparece. El escritorio también lo omite. Al leer un `.rkt`, el orificio se descuenta del área de la campana en lugar de conservarse como orificio.
 
 > **Menú → Abrir y Guardar como trabajan sobre los diseños guardados dentro de la aplicación** (consulta [Diseños guardados](#saved-designs) más abajo); los archivos `.ork` van y vienen de tu disco mediante **Importar** y **Exportar**.
 
@@ -55,9 +60,11 @@ La aplicación mantiene una biblioteca de tus cohetes en el navegador, así que 
 
 **Menú → Exportar → RASAero II** escribe el diseño como un archivo `.CDX1` de RASAero II, para que puedas abrirlo en **[RASAero II](https://www.rasaero.com/)** y hacer su propio análisis aerodinámico y de vuelo.
 
-RASAero modela únicamente la **forma aerodinámica exterior**, así que la exportación lleva el fuselaje (ojiva, tubos, transiciones y colas de bote, aletas y guías de lanzamiento) además del **peso y el CG** cargados (escritos en el bloque de simulación de RASAero). Las piezas internas sin efecto aerodinámico (anillos de centrado, mamparos, cordones de choque, topes de motor) se descartan; los dos primeros paracaídas dentro de los tubos de las etapas se convierten en las dos entradas de recuperación de RASAero, con el despliegue de la configuración de vuelo que tengas seleccionada. Un paracaídas en una ojiva, una transición o un pod no se exporta, como en OpenRocket. Las dimensiones se convierten a las unidades de RASAero (pulgadas, libras, pies, °F).
+RASAero modela únicamente la **forma aerodinámica exterior**, así que la exportación lleva el fuselaje (ojiva, tubos, transiciones y colas de bote, aletas y guías de lanzamiento) además del **peso y el CG** cargados (escritos en el bloque de simulación de RASAero). Las piezas internas sin efecto aerodinámico (anillos de centrado, mamparos, cordones de choque, topes de motor) se descartan; los paracaídas de cualquier parte de las etapas se convierten en las dos entradas de recuperación de RASAero, con el despliegue de la configuración de vuelo que tengas seleccionada: el paracaídas de apogeo es la entrada 1 y el de altitud la entrada 2. Las dimensiones se convierten a las unidades de RASAero (pulgadas, libras, pies, °F). El sitio de lanzamiento lleva el viento de frente a lo largo de la guía y la presión reducida al nivel del mar, que es como los lee RASAero.
 
-Como RASAero no puede representar todas las formas, la exportación **se detiene con un mensaje claro** en lugar de escribir un archivo que RASAero rechazaría: por ejemplo, aletas tubulares o elípticas, una transición no cónica, más de un juego de aletas en un tubo, una aleta de forma libre que no sea un trapecio simple, una ojiva ojival con un parámetro de forma distinto de 1, una ojiva Haack que no sea Von Kármán (0) ni LV-Haack (0,33), o un paracaídas que se despliegue en algo que no sea el apogeo o una altitud (un paracaídas nuevo se despliega con la carga de eyección del motor, así que ajusta antes su despliegue). En esos casos, cambia el diseño o usa `.ork`.
+Cuando RASAero no tiene un equivalente exacto, la exportación escribe el más cercano y **te avisa**, como hace OpenRocket de escritorio: un juego de aletas elíptico o de forma libre sale como el trapecio con la misma cuerda de raíz, envergadura, área y centroide, solo se conserva el primer juego de aletas de cada pieza, un paracaídas con la carga de eyección del motor se abre en el apogeo, una cinta o un segundo paracaídas con el mismo evento se quedan fuera, el acabado que cubre la mayor parte del cohete vale para todo él, y RASAero vuela un solo motor por etapa, así que se avisa de un grupo de motores o de un segundo soporte de motor.
+
+Para lo que RASAero no puede representar en absoluto, la exportación **se detiene con un mensaje claro** en lugar de escribir un archivo que RASAero rechazaría: por ejemplo, aletas tubulares, una transición no cónica, un tubo cuyo diámetro no coincide con el de la pieza anterior, una ojiva ojival con un parámetro de forma distinto de 1, una ojiva Haack que no sea Von Kármán (0) ni LV-Haack (1/3), o un paracaídas que se despliegue en algo que no sea el apogeo, una altitud o la carga de eyección. En esos casos, cambia el diseño o usa `.ork`.
 
 ## Exportar JSON para Onshape (`.json`) {#exporting-json-for-onshape-json}
 

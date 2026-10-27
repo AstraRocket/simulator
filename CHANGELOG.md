@@ -6,6 +6,35 @@ All notable changes to AstraRocket are recorded here. The engine is validated
 against desktop **OpenRocket** (`.ork` round-trips and its Component Analysis),
 so most entries describe getting a computation to match OpenRocket exactly.
 
+## [0.5.2]
+
+### Changed
+- **Engine updated to OpenRocket `unstable` of 2026-10-26.** The only engine change is that Gorilla Rocket Motors also answers to `GM`. No reference flight moved. Most of the 57 upstream commits rework desktop's RockSim and RASAero import and export; this app has its own code for both formats, and the entries below bring it in line.
+- **RockSim stage masses and CGs are used only when RockSim uses them.** A `.rkt` stage mass or CG now comes in as a stage override only when the file sets **UseKnownMass**, as RockSim does; RockSim writes these figures into every file whether it uses them or not. A booster's CG is worked out from RockSim's stack CGs (sustainer alone, sustainer and first booster, every stage), so each stack balances where RockSim says. Exporting with any stage overridden now writes every stage's mass and every stack's CG as the engine flies them, so the file opens flying the same stacks.
+- **RockSim's parabola is a 1/2 power series.** A `.rkt` nose cone or transition with RockSim's parabola shape opens as a power series with parameter 0.5, the paraboloid RockSim draws. It used to open as an ellipsoid, which moved the CP and changed the mass. A secant ogive opens as a tangent ogive with a note, where before it became a Haack series. A shape parameter outside the app's range, such as a Haack parameter above 1/3, is clamped with a note.
+- **RockSim parachutes keep their drag area.** A `.rkt` parachute opens as one round canopy with the drag area RockSim computes: every canopy, each a polygon with its side count (a hexagon when the file gives none), less the spill hole. A note gives the diameter when it changes. An exported parachute is written as one round canopy, which RockSim would otherwise read as a hexagon.
+- **Fin cant in a `.rkt` is in radians**, as desktop OpenRocket reads and writes it. A cant from a file desktop wrote used to open almost 60 times too small.
+- **Nearest RockSim finish on export.** Rough finishes go out as RockSim's unfinished and finishes smoother than regular paint as polished, instead of all as matt.
+- **RockSim CP method.** An exported `.rkt` selects RockSim's own stability equations when a fin set has a fin count other than 3, 4 or 6, which RockSim's Barrowman equations do not support.
+- **RASAero export writes more designs instead of refusing them.** A parachute set to deploy on the motor's ejection charge is written to open at apogee, an elliptical or freeform fin set is written as the trapezoid with the same root chord, span, area and centroid, and a second fin set on a part is left out. Each case is named in a warning, as desktop OpenRocket does.
+- **RASAero recovery follows RASAero's own rules.** The apogee parachute is always device 1 and the altitude parachute device 2, whatever their order in the tree, each with its own drag coefficient. Parachutes are found anywhere in a stage, and a streamer or an extra parachute is reported rather than silently dropped.
+- **RASAero launch sites match what the flight flies.** A typed pressure is written as RASAero's sea-level barometric pressure, the standard atmosphere writes RASAero's "not entered" with the standard temperature at the site's elevation, and the wind is the headwind along the launch rod, from the lowest level of a wind profile.
+- **RASAero staging follows RASAero's timeline.** Separation on the ejection charge uses the motor's delay, the upper stage's ignition delay counts from separation, and staging events RASAero cannot represent are reported. A booster the configuration grounds is no longer flown.
+- **RASAero surface finish comes from most of the rocket.** The finish covering the most wetted area is written, with a warning when the rocket has several. Polished and Rough now map to RASAero's Polished and Cast Iron instead of falling back to Smooth.
+
+### Fixed
+- **Nose cone base extensions are no longer dropped.** A RockSim nose cone's straight base extension opens as a straight transition behind it that carries the shoulder. Before, every part behind the nose moved forward by its length.
+- **Ring tails come in as mass components** with RockSim's computed mass and CG, and a note says their drag is not simulated. Before, they were dropped with their mass.
+- **RockSim's fixed Cd.** A single-stage `.rkt` that flies a fixed Cd opens with it as the stage's Cd override, and a single stage's Cd override exports as RockSim's fixed Cd. A stage Cd override RockSim cannot hold is named in the export notice instead of being dropped silently.
+- **No double-counted masses in an exported `.rkt`.** Parts inside a mass override that covers its parts are written weighing nothing, so RockSim no longer counts them twice.
+- **Design comments, designer and revision history** now carry through `.rkt` import and export.
+- **More `.rkt` import notes.** A drilled solid nose cone is noted as weighing as a solid one, and a file newer than RockSim 11's format is noted as possibly holding data that is not imported.
+- **RASAero files carry the nozzle exit diameter.** Each stage's nozzle exit diameter reaches RASAero's design, booster and simulation fields, with a cluster written as one nozzle of the same exit area. A warning notes motors RASAero does not fly.
+- **LV-Haack nose cones export to RASAero.** A Haack nose cone with shape parameter 1/3 is now written as RASAero's LV-Haack.
+- **A body tube that does not match the part ahead of it is reported.** RASAero would silently resize such a tube, so the export now refuses it with the part names.
+- **RASAero reads the design's CP field.** The export no longer writes a CD element RASAero ignores.
+- **West Coast Hybrids motors are named in RASAero exports.**
+
 ## [0.5.1]
 
 ### Added

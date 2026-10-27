@@ -180,9 +180,11 @@ describe('exportRkt', () => {
     expect(xml).toContain('<Dia>400</Dia>');
   });
 
-  it('writes masses in grams and angles in degrees', () => {
+  it('writes masses in grams, angles in degrees and the fin cant in radians', () => {
     expect(xml).toContain('<KnownMass>9.5</KnownMass>'); // 0.0095 kg
-    expect(xml).toContain('<CantAngle>1.5</CantAngle>');
+    // `FinSetDTO` writes the cant as it holds it, radians, and `FinSetHandler`
+    // reads it back the same way: 1.5 degrees.
+    expect(xml).toContain('<CantAngle>0.026179939</CantAngle>');
     expect(xml).toContain('<RadialAngle>30</RadialAngle>');
     // A shock cord states its mass in RockSim: 0.006 kg/m over 1 m.
     expect(xml).toContain('<KnownMass>6</KnownMass>');
@@ -225,7 +227,7 @@ describe('exportRkt → importRkt round trip', () => {
     ['Fins', ['rootChord', 'tipChord', 'height', 'sweep', 'thickness', 'cant', 'rotation', 'tabLength']],
     ['Motor mount', ['length', 'outerRadius', 'thickness', 'motorOverhang']],
     ['Aft ring', ['length', 'outerRadius', 'innerRadius']],
-    ['Chute', ['diameter', 'cd', 'lineLength', 'spillHoleDiameter', 'lineDensity', 'surfaceDensity']],
+    ['Chute', ['diameter', 'cd', 'lineLength', 'lineDensity', 'surfaceDensity']],
     ['Lug', ['length', 'angleOffset']],
   ])('preserves every numeric field of %s', (name, keys) => {
     const before = find(design.components, name);
@@ -767,9 +769,14 @@ describe('mass and CG overrides through the one UseKnownCG switch', () => {
 });
 
 describe('stage mass and CG overrides', () => {
-  // StageDTO writes a mass-overridden stage's mass in grams on the design as
-  // StageNMass with UseKnownMass=1, and its override CG in millimeters as
-  // Stage3CG for the sustainer and StageNCGAlone for a booster.
+  // `RockSimSaver.setStageOverrides`: with any stage overridden, the kernel's
+  // structure mass of every stage in grams as StageNMass, and the CG of every
+  // stack in millimeters from the nose tip as Stage3CG, Stage32CG and
+  // Stage321CG, with UseKnownMass=1. The figures here stand in for the kernel's.
+  const figures = [
+    { mass: 0.1425, stackCg: 0.21 },
+    { mass: 0.08, stackCg: 0.3 },
+  ];
   const tree = {
     name: 'Two stage',
     components: [
@@ -795,52 +802,166 @@ describe('stage mass and CG overrides', () => {
       },
     ],
   } as unknown as RocketTree;
-  const { xml: out, skipped } = exportRkt('Two stage', tree);
+  const { xml: out, skipped } = exportRkt('Two stage', tree, undefined, figures);
 
   it('writes them on the design, under the names RockSimHandler reads', () => {
     expect(out).toContain('<Stage3Mass>142.5</Stage3Mass>');
     expect(out).toContain('<Stage2Mass>80</Stage2Mass>');
     expect(out).toContain('<Stage3CG>210</Stage3CG>');
-    expect(out).toContain('<Stage2CGAlone>120</Stage2CGAlone>');
+    expect(out).toContain('<Stage32CG>300</Stage32CG>');
+    expect(out).not.toContain('CGAlone');
     expect(out).toContain('<UseKnownMass>1</UseKnownMass>');
     expect(out).not.toContain('Stage1Mass');
     expect(skipped).toEqual([]);
   });
 
-  it('reads back as the same stage overrides', () => {
+  it('reads back as stage overrides that fly the same stacks', () => {
     const [sustainer, booster] = importRkt(out).tree.components;
     expect(sustainer!['overrideMass']).toBeCloseTo(0.1425, 12);
     expect(sustainer!['overrideCGX']).toBeCloseTo(0.21, 12);
     expect(booster!['overrideMass']).toBeCloseTo(0.08, 12);
-    expect(booster!['overrideCGX']).toBeCloseTo(0.12, 12);
+    // The booster starts 0.3 m back, behind the sustainer's tube, and the two
+    // together balance at 0.3 m.
+    const boosterCg = (booster!['overrideCGX'] as number) + 0.3;
+    expect((0.1425 * 0.21 + 0.08 * boosterCg) / (0.1425 + 0.08)).toBeCloseTo(0.3, 12);
+  });
+
+  /** All or nothing: one stage overridden writes the figures of every stage. */
+  it('writes every stage when only one is overridden', () => {
+    const one = exportRkt(
+      'Two stage',
+      {
+        ...tree,
+        components: [{ ...tree.components[0]!, overrideMass: undefined, overrideCGX: undefined }, tree.components[1]!],
+      },
+      undefined,
+      figures,
+    ).xml;
+    expect(one).toContain('<Stage3Mass>142.5</Stage3Mass>');
+    expect(one).toContain('<Stage2Mass>80</Stage2Mass>');
+    expect(one).toContain('<Stage3CG>210</Stage3CG>');
+    expect(one).toContain('<Stage32CG>300</Stage32CG>');
   });
 
   it('writes none for a stage that overrides nothing', () => {
-    const plain = exportRkt('One', {
-      name: 'One',
-      components: [{ type: 'stage', id: 's', children: [tree.components[0]!.children![0]!] }],
-    } as unknown as RocketTree).xml;
+    const plain = exportRkt(
+      'One',
+      {
+        name: 'One',
+        components: [{ type: 'stage', id: 's', children: [tree.components[0]!.children![0]!] }],
+      } as unknown as RocketTree,
+      undefined,
+      figures,
+    ).xml;
     expect(plain).not.toMatch(/Stage\dMass|Stage3CG|UseKnownMass/);
   });
 
   /**
-   * `RockSimHandler` turns on `setSubcomponentsOverriddenMass` and
-   * `setSubcomponentsOverriddenCG` for every stage figure it reads, so an
-   * override of the stage alone opens in desktop as one of the whole stage.
+   * The figures are the kernel's for the stage as it flies, its parts
+   * included, so an override of the stage alone survives the trip too.
    */
-  it('names a stage override that leaves the parts inside out', () => {
-    const stage = (extra: Record<string, unknown>) =>
-      exportRkt('One', {
-        name: 'One',
-        components: [{ ...tree.components[0]!, ...extra }],
-      } as unknown as RocketTree).skipped;
-    const named = [{ key: 'errors.rktSkip.stageOnlyOverride', values: { name: 'Sustainer' } }];
-    expect(stage({ overrideSubcomponentsMass: false })).toEqual(named);
-    expect(stage({ overrideSubcomponentsCG: false })).toEqual(named);
-    expect(stage({ overrideMass: undefined, overrideSubcomponentsCG: undefined })).toEqual(named);
-    expect(stage({ name: undefined, overrideSubcomponentsMass: false })).toEqual([
-      { key: 'errors.rktSkip.stageOnlyOverride', values: { name: { key: 'part.stage' } } },
+  it('names nothing for an override of the stage alone', () => {
+    const alone = exportRkt(
+      'One',
+      { name: 'One', components: [{ ...tree.components[0]!, overrideSubcomponentsMass: false }] } as RocketTree,
+      undefined,
+      figures,
+    );
+    expect(alone.skipped).toEqual([]);
+    expect(alone.xml).toContain('<Stage3Mass>142.5</Stage3Mass>');
+  });
+
+  it('leaves them out and names each overridden stage when there are no kernel figures', () => {
+    const none = exportRkt('Two stage', {
+      ...tree,
+      components: [{ ...tree.components[0]!, name: undefined }, tree.components[1]!],
+    } as RocketTree);
+    expect(none.xml).not.toMatch(/Stage\dMass|Stage3CG|UseKnownMass/);
+    expect(none.skipped).toEqual([
+      { key: 'errors.rktSkip.stageOverride', values: { name: { key: 'part.stage' } } },
+      { key: 'errors.rktSkip.stageOverride', values: { name: 'Booster' } },
     ]);
+  });
+});
+
+/** `RockSimSaver`: a single stage's Cd override that covers its parts is RockSim's fixed Cd. */
+describe('a stage Cd override', () => {
+  const tube = { type: 'bodytube', id: 'u', name: 'Upper', length: 0.3, outerRadius: 0.0124, thickness: 0.0004 };
+  const stage = (extra: Record<string, unknown>) =>
+    ({ type: 'stage', id: 's', name: 'Sustainer', children: [tube], ...extra }) as ComponentNode;
+
+  it('goes out as the fixed Cd of a single-stage design, and reads back as the override', () => {
+    const { xml: out, skipped: s } = exportRkt('One', {
+      name: 'One',
+      components: [stage({ overrideCD: 0.65, overrideSubcomponentsCD: true })],
+    });
+    expect(out).toContain('<CalculateCD>0</CalculateCD>');
+    expect(out).toContain('<FixedCd>0.65</FixedCd>');
+    expect(s).toEqual([]);
+    expect(importRkt(out).tree.components[0]!['overrideCD']).toBe(0.65);
+  });
+
+  it('is named rather than dropped when RockSim cannot hold it', () => {
+    const alone = exportRkt('One', { name: 'One', components: [stage({ overrideCD: 0.65 })] });
+    expect(alone.xml).not.toContain('FixedCd');
+    expect(alone.skipped).toEqual([{ key: 'errors.rktSkip.cdOverride', values: { name: 'Sustainer' } }]);
+    const two = exportRkt('Two', {
+      name: 'Two',
+      components: [stage({ overrideCD: 0.65, overrideSubcomponentsCD: true }), stage({ id: 'b', name: 'Booster' })],
+    });
+    expect(two.xml).not.toContain('FixedCd');
+    expect(two.skipped).toEqual([{ key: 'errors.rktSkip.cdOverride', values: { name: 'Sustainer' } }]);
+  });
+
+  it('writes no fixed Cd for a design that overrides none', () => {
+    expect(exportRkt('One', { name: 'One', components: [stage({})] }).xml).not.toMatch(/CalculateCD|FixedCd/);
+  });
+});
+
+describe("a design's own information and RockSim's CP method", () => {
+  const write = (finCount: number, extra: Partial<RocketTree> = {}) =>
+    exportRkt('x', {
+      name: 'x',
+      ...extra,
+      components: [
+        {
+          type: 'stage',
+          id: 's',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'b',
+              length: 0.5,
+              outerRadius: 0.03,
+              children: [{ type: 'trapezoidfinset', id: 'f', finCount } as ComponentNode],
+            },
+          ],
+        },
+      ],
+    }).xml;
+
+  /** `RocketDesignDTO`: `Comments`, `Designer` and `Revisions`, read back by `RockSimHandler`. */
+  it('writes the comments, the designer and the revision history, and reads them back', () => {
+    const out = write(3, { comment: 'A comment', designer: 'A designer', revision: 'A revision' });
+    expect(out).toContain('<Comments>A comment</Comments>');
+    const back = importRkt(out).tree;
+    expect(back.comment).toBe('A comment');
+    expect(back.designer).toBe('A designer');
+    expect(back.revision).toBe('A revision');
+    expect(write(3)).not.toMatch(/Comments|Designer|Revisions/);
+  });
+
+  /** `RockSimSaver.supportsBarrowmanEquations`: fin sets of 3, 4 or 6 fins only. */
+  it.each([
+    [3, 1],
+    [4, 1],
+    [6, 1],
+    [5, 4],
+    [8, 4],
+  ])('selects the CP method RockSim supports for %s fins', (fins, flag) => {
+    const out = write(fins);
+    expect(out).toContain(`<CPCalcFlags>${flag}</CPCalcFlags>`);
+    expect(out).toContain(`<CPSimFlags>${flag}</CPSimFlags>`);
   });
 });
 
@@ -1187,10 +1308,41 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(Number(value(blocks(out, 'FinSet')[0]!, 'TabOffset'))).toBeCloseTo(expected, 9);
   });
 
-  /** `RockSimFinishCode.toCode` writes every finish it has no code for as matt (2). */
-  it('writes a finish RockSim has no code for as matt', () => {
-    const { xml: out } = write([{ ...tube([]), finish: 'rough' }]);
-    expect(value(blocks(out, 'BodyTube')[0]!, 'FinishCode')).toBe('2');
+  /**
+   * `RockSimFinishCode.toCode`: RockSim's four finishes as their own codes, the
+   * rough ones as unfinished (3, its roughest), the ones smoother than regular
+   * paint as polished (0, its smoothest), and anything else as matt (2).
+   */
+  it.each([
+    ['rough', '3'],
+    ['roughunfinished', '3'],
+    ['unfinished', '3'],
+    ['normal', '2'],
+    ['smooth', '1'],
+    ['optimum', '0'],
+    ['polished', '0'],
+    ['finishpolished', '0'],
+    ['mirror', '0'],
+    ['sandpaper', '2'],
+  ])('writes a %s finish as the nearest RockSim finish, %s', (finish, code) => {
+    const { xml: out } = write([{ ...tube([]), finish }]);
+    expect(value(blocks(out, 'BodyTube')[0]!, 'FinishCode')).toBe(code);
+  });
+
+  /**
+   * `ParachuteDTO`: RockSim reads a chute with no `SideCount` as a hexagon, so a
+   * round one says it is round, and one canopy. No spill hole: the kernel flies
+   * none, and RockSim would take it out of the area.
+   */
+  it('writes a parachute as one round canopy with no spill hole', () => {
+    const { xml: out } = write([
+      tube([{ type: 'parachute', id: 'p', name: 'Chute', diameter: 0.4, spillHoleDiameter: 0.04 } as ComponentNode]),
+    ]);
+    const chute = blocks(out, 'Parachute')[0]!;
+    expect(value(chute, 'SideCount')).toBe('0');
+    expect(value(chute, 'ChuteCount')).toBe('1');
+    expect(chute).not.toContain('SpillHoleDia');
+    expect(find(importRkt(out).tree.components, 'Chute')['diameter']).toBeCloseTo(0.4, 12);
   });
 
   /** A fin set's and a tube fin set's roll is their `rotation`, as the bridge reads it. */
@@ -1328,6 +1480,84 @@ describe('exportRkt, overrides RockSim cannot hold', () => {
 
   it('names nothing for an override of the part alone', () => {
     expect(only(nose({ overrideMass: 0.05 })).skipped).toEqual([]);
+  });
+
+  it('names nothing when the mass and the CG both cover the parts inside', () => {
+    const both = nose({
+      overrideMass: 0.05,
+      overrideSubcomponentsMass: true,
+      overrideCGX: 0.06,
+      overrideSubcomponentsCG: true,
+    });
+    expect(only(both).skipped).toEqual([]);
+  });
+});
+
+/**
+ * `BasePartDTO`: RockSim's known mass of a part leaves its attached parts out,
+ * so the parts inside a mass override that covers them go out weighing nothing
+ * rather than being counted twice.
+ */
+describe('exportRkt, the parts inside a mass override that covers them', () => {
+  const blocks = (out: string, tag: string): string[] =>
+    [...out.matchAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'))].map((m) => m[0]);
+  const value = (block: string, name: string): string | undefined =>
+    new RegExp(`<${name}>([^<]*)</${name}>`).exec(block)?.[1];
+  const write = (body: Partial<ComponentNode>, inner: ComponentNode[] = []) =>
+    exportRkt(
+      'x',
+      {
+        name: 'x',
+        components: [
+          {
+            type: 'stage',
+            id: 's',
+            children: [
+              {
+                type: 'bodytube',
+                id: 'b',
+                name: 'Body',
+                length: 0.5,
+                outerRadius: 0.03,
+                overrideMass: 0.2,
+                children: [{ type: 'masscomponent', id: 'm', name: 'Mass', mass: 0.05 } as ComponentNode, ...inner],
+                ...body,
+              } as ComponentNode,
+            ],
+          },
+        ],
+      },
+      (id) => (id === 'b' ? { mass: 0.2, cgX: 0.25 } : { mass: 0.05, cgX: 0.01 }),
+    ).xml;
+
+  it('writes them with no mass, and the overridden part with the whole', () => {
+    const out = write({ overrideSubcomponentsMass: true });
+    const body = blocks(out, 'BodyTube')[0]!;
+    expect(value(body, 'KnownMass')).toBe('200');
+    expect(value(body, 'UseKnownCG')).toBe('1');
+    const mass = blocks(out, 'MassObject')[0]!;
+    expect(value(mass, 'KnownMass')).toBe('0');
+    expect(value(mass, 'UseKnownCG')).toBe('1');
+  });
+
+  it('keeps their own masses under an override of the part alone', () => {
+    const mass = blocks(write({}), 'MassObject')[0]!;
+    expect(value(mass, 'KnownMass')).toBe('50');
+  });
+
+  it('reaches the parts further in too', () => {
+    const deep = write({ overrideSubcomponentsMass: true }, [
+      {
+        type: 'innertube',
+        id: 'i',
+        name: 'Inner',
+        length: 0.1,
+        outerRadius: 0.01,
+        children: [{ type: 'masscomponent', id: 'm2', name: 'Deep', mass: 0.01 } as ComponentNode],
+      } as ComponentNode,
+    ]);
+    const deepMass = blocks(deep, 'MassObject').find((b) => b.includes('<Name>Deep</Name>'))!;
+    expect(value(deepMass, 'KnownMass')).toBe('0');
   });
 });
 

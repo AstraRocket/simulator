@@ -45,18 +45,19 @@ describe('the export banner, in German', () => {
     );
   });
 
-  // RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SURFACE writes ROUGH and
-  // POLISHED as Smooth and adds a warning; the file is still saved.
+  // RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SURFACE writes a finish it
+  // has no row for as Smooth and adds a warning; the file is still saved.
   it('warns, in German, that a finish with no RASAero surface was written as smooth', async () => {
     await i18n.changeLanguage('de');
+    const finish = 'satin';
     const tree = {
       name: 'x',
       components: [
         {
           ...stage('a'),
           children: [
-            { type: 'nosecone', id: 'nc', length: 0.1, aftRadius: 0.0124, shape: 'ogive', finish: 'rough' },
-            ...stage('a').children,
+            { type: 'nosecone', id: 'nc', length: 0.1, aftRadius: 0.0124, shape: 'ogive', finish },
+            ...stage('a').children.map((c) => ({ ...c, finish })),
           ],
         },
       ],
