@@ -195,13 +195,13 @@ describe('each service family, rendered in another language', () => {
           id: 's',
           children: [
             { type: 'nosecone', id: 'n', shape: 'ogive' },
-            { type: 'bodytube', id: 'b', children: [{ type: 'ellipticalfinset', id: 'f' }] },
+            { type: 'bodytube', id: 'b', children: [{ type: 'tubefinset', id: 'f' }] },
           ],
         },
       ],
     } as unknown as RocketTree;
     expect(caught(() => exportCdx1({ tree, name: 'x' }))).toBe(
-      de.errors.rasaero.ellipticalFins.replace('{{name}}', de.part.ellipticalfinset),
+      de.errors.rasaero.tubeFinsUnsupported.replace('{{name}}', de.part.tubefinset),
     );
   });
 

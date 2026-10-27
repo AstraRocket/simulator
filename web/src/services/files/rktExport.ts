@@ -28,6 +28,9 @@ import {
   SURFACE_DENSITY,
   TIP_SHAPE_CODES,
 } from './rocksim/schema';
+import { overridesStages, type StageFigures } from './rocksim/stageStacks';
+
+export type { StageFigures } from './rocksim/stageStacks';
 
 /**
  * RockSim (`.rkt`) export.
@@ -35,8 +38,9 @@ import {
  * The mirror of `rktImport.ts`, written against the same schema
  * (`RockSimCommonConstants.java` and `file/rocksim/export/*DTO.java`), so
  * everything the reader understands the writer produces. What RockSim cannot
- * carry (a CG-only override, a drag override) is left out and named in the
- * export's skipped list rather than written approximately.
+ * carry (a part's drag override, a stage's other than a single stage's) is
+ * left out and named in the export's skipped list rather than written
+ * approximately.
  *
  * Scope: this writes a design, not a full RockSim document: no simulations,
  * no engine selections, no view state. RockSim keeps its motor choices and
@@ -86,7 +90,22 @@ interface Writer {
   componentInfo?: ComponentFigures;
   /** Single pods already split out of their set, written as they are. */
   splitPods: WeakSet<ComponentNode>;
+  /** Whether a part above the one being written overrides the mass of the parts inside it. */
+  inSubtreeMass: boolean;
 }
+
+/**
+ * Whether a part's mass override covers the parts inside it, which RockSim's
+ * own known mass never does (`CRocketPart::GetMass` leaves the attached parts
+ * out). A stage's does too, but goes on the design instead, so it is not
+ * counted here, and neither is anything inside a booster, where `BasePartDTO`
+ * stops looking up the parents.
+ */
+const coversParts = (n: ComponentNode): boolean =>
+  n.type !== 'stage' &&
+  n.type !== 'parallelstage' &&
+  numOpt(n, 'overrideMass') !== undefined &&
+  n['overrideSubcomponentsMass'] === true;
 
 /**
  * A part's own mass (kg) and its CG from its own front (m), as the kernel
@@ -195,7 +214,15 @@ function writeCommon(
   // the part's own CG while the CG is not overridden).
   const cgOnlyMass = overrideMass === undefined && overrideCg !== undefined ? (ownMass ?? figures?.mass) : undefined;
   const massOnlyCg = overrideMass !== undefined && overrideCg === undefined ? figures?.cgX : undefined;
-  if (overrideMass !== undefined && overrideCg === undefined && massOnlyCg === undefined) {
+  if (w.inSubtreeMass) {
+    // Inside a part whose override covers its parts, which that part's
+    // KnownMass already holds: written weighing nothing, as BasePartDTO does,
+    // so RockSim does not count the part twice. With no mass the CG moves
+    // nothing, so a part with no kernel figures goes out at its front.
+    el(w, d, 'KnownMass', 0);
+    el(w, d, 'KnownCG', mm(overrideCg ?? figures?.cgX ?? 0));
+    el(w, d, 'UseKnownCG', 1);
+  } else if (overrideMass !== undefined && overrideCg === undefined && massOnlyCg === undefined) {
     // No kernel figures, so no CG to pair with the mass: a CG of 0 would move the
     // part's CG to its front. Left out and named, with the part's own mass.
     if (ownMass !== undefined) el(w, d, 'KnownMass', g(ownMass));
@@ -213,14 +240,17 @@ function writeCommon(
     }
   }
   // RockSim's switch covers the part alone (`BaseHandler.setOverride` clears
-  // the flags for the parts inside), and it has no drag override, so desktop opens the
-  // first as an override of the part only, with its children's mass added on
-  // top, and drops the second. Both are named rather than lost quietly.
+  // the flags for the parts inside), and it has no drag override, which desktop
+  // drops. A mass and CG that both cover the parts inside go out whole, the
+  // parts inside weighing nothing (`inSubtreeMass`); one of the two alone does
+  // not, since the parts inside still weigh what they do and move the CG. Both
+  // are named rather than lost quietly.
   const label = { name: notePartName(n) };
-  const subtree =
-    (n['overrideSubcomponentsMass'] === true && overrideMass !== undefined) ||
-    (n['overrideSubcomponentsCG'] === true && overrideCg !== undefined);
-  if (subtree) skip(w, { key: 'errors.rktSkip.subtreeOverride', values: label });
+  const subMass = n['overrideSubcomponentsMass'] === true && overrideMass !== undefined;
+  const subCg = n['overrideSubcomponentsCG'] === true && overrideCg !== undefined;
+  if (!w.inSubtreeMass && (subMass || subCg) && !(subMass && subCg)) {
+    skip(w, { key: 'errors.rktSkip.subtreeOverride', values: label });
+  }
   if (numOpt(n, 'overrideCD') !== undefined) skip(w, { key: 'errors.rktSkip.cdOverride', values: label });
 
   el(w, d, 'FinishCode', FINISH_CODES.get(strOf(n, 'finish') ?? 'normal') ?? MATT);
@@ -288,7 +318,8 @@ const writeTransition: PartWriter = (w, d, n) => {
  * A deliberate departure from desktop, which writes the radian value into this
  * degree element (and reads it back the same way). RockSim reads degrees, so
  * the conversion here and in `rktImport.readRadialAngle` is what makes the file
- * open with its parts where they were.
+ * open with its parts where they were. A fin's `CantAngle` is not converted:
+ * see `writeFinSet`.
  */
 function writeRadialAngle(w: Writer, d: number, angle: number | undefined): void {
   if (angle) el(w, d, 'RadialAngle', radToDeg(angle));
@@ -399,9 +430,11 @@ const writeFinSet: PartWriter = (w, d, n) => {
     }
   }
 
-  // Degrees, as RockSim reads them: the same deliberate departure as `writeRadialAngle`.
+  // Radians, unconverted, as `FinSetDTO` writes it and `FinSetHandler` reads it,
+  // to nine places: the six every other number takes would round a cant of a
+  // degree or two to four figures.
   const cant = numOpt(n, 'cant');
-  if (cant) el(w, d, 'CantAngle', radToDeg(cant));
+  if (cant) el(w, d, 'CantAngle', plainDecimal(cant, 9, '0'));
   writeRadialAngle(w, d, numOpt(n, 'rotation'));
   // The fin's cross section, which RockSim calls a tip shape
   // (the `FinSetDTO(FinSet)` constructor). Without it RockSim reads every fin as square.
@@ -464,11 +497,17 @@ const writeParachute: PartWriter = (w, d, n) => {
   // `Dia` is a diameter on both sides, not halved, unlike every other
   // circular field in the format.
   put(w, d, 'Dia', numOpt(n, 'diameter'), mm);
+  // One round canopy, as `ParachuteDTO` writes it: RockSim reads a chute with
+  // no `SideCount` as a hexagon, about a sixth smaller in area than the circle
+  // the kernel flies. No `SpillHoleDia` either: the kernel flies no spill
+  // hole (the app keeps one only as an `.ork` extension), and RockSim would
+  // take it out of the area.
+  el(w, d, 'SideCount', 0);
   const cd = flown(w, n, 'cd', 'cdAuto');
   if (cd !== undefined) el(w, d, 'DragCoefficient', cd);
   el(w, d, 'ShroudLineCount', numOpt(n, 'lineCount') ?? 6);
   put(w, d, 'ShroudLineLen', flown(w, n, 'lineLength', 'lineLengthAuto'), mm);
-  put(w, d, 'SpillHoleDia', numOpt(n, 'spillHoleDiameter'), mm);
+  el(w, d, 'ChuteCount', 1);
   // The density first: `ParachuteHandler` builds the line material when
   // `ShroudLineMaterial` closes, from the density it has read by then, so the
   // other order gives the lines a density of 0. kg/m straight through, despite
@@ -672,7 +711,12 @@ function writeCouplerParts(w: Writer, depth: number, coupler: ComponentNode): vo
   });
   w.parentLength = outer.length;
   w.parentStart = outer.start;
+  // Still the coupler's parts, wherever the file puts them, so its override
+  // covers them as it covers what is attached to any other part.
+  const outerSub = w.inSubtreeMass;
+  w.inSubtreeMass ||= coversParts(coupler);
   for (const kid of placed) writePart(w, depth, kid);
+  w.inSubtreeMass = outerSub;
 }
 
 /**
@@ -728,10 +772,13 @@ function writePart(w: Writer, depth: number, n: ComponentNode, at?: number): voi
  * lays them out.
  */
 function writeChildren(w: Writer, depth: number, parent: ComponentNode, start: number): void {
-  const outer = { length: w.parentLength, start: w.parentStart, parent: w.parent };
+  const outer = { length: w.parentLength, start: w.parentStart, parent: w.parent, sub: w.inSubtreeMass };
   w.parentStart = start;
   w.parentLength = axialLength(parent);
   w.parent = parent;
+  // A stage or a booster starts afresh; any other part adds its own override.
+  w.inSubtreeMass =
+    parent.type === 'stage' || parent.type === 'parallelstage' ? false : outer.sub || coversParts(parent);
   const chained = parent.type === 'stage' || isAssembly(parent.type);
   let x = start;
   for (const kid of parent.children ?? []) {
@@ -743,6 +790,88 @@ function writeChildren(w: Writer, depth: number, parent: ComponentNode, start: n
   w.parentLength = outer.length;
   w.parentStart = outer.start;
   w.parent = outer.parent;
+  w.inSubtreeMass = outer.sub;
+}
+
+// ------------------------------------------------------------ the design ---
+
+/** `RocketDesignDTO.CP_METHOD_BARROWMAN` and `CP_METHOD_ROCKSIM`, RockSim's CP method flags. */
+const CP_BARROWMAN = 1;
+const CP_ROCKSIM = 4;
+
+/** The fin counts RockSim's Barrowman equations take (`RockSimSaver.supportsBarrowmanEquations`). */
+const BARROWMAN_FIN_COUNTS = new Set([3, 4, 6]);
+
+/** The planar fin sets, the ones `supportsBarrowmanEquations` counts (a tube fin set is not a `FinSet`). */
+const PLANAR_FINS = new Set(['trapezoidfinset', 'ellipticalfinset', 'freeformfinset']);
+
+/** Whether every planar fin set in the stages written has a fin count RockSim's Barrowman equations take. */
+function barrowmanFits(stages: readonly ComponentNode[]): boolean {
+  const fits = (nodes: readonly ComponentNode[] | undefined): boolean =>
+    (nodes ?? []).every(
+      (n) =>
+        (!PLANAR_FINS.has(n.type) ||
+          BARROWMAN_FIN_COUNTS.has(countOf(n, 'finCount', kernelDefault(n.type, 'finCount') ?? 3))) &&
+        fits(n.children),
+    );
+  return fits(stages);
+}
+
+/**
+ * The single stage's Cd override as RockSim's fixed Cd.
+ *
+ * `RockSimSaver`: `CalculateCD` 0 makes RockSim fly the design's `FixedCd`
+ * instead of its own figure, which is the Cd of the whole design, so only a
+ * single stage whose override covers its parts goes out as one. Any other
+ * stage Cd override has no element, and is named: a stage carries none of the
+ * part elements (`writeCommon`) that would name it otherwise.
+ */
+function writeFixedCd(w: Writer, stages: readonly ComponentNode[]): void {
+  const only = stages.length === 1 ? stages[0]! : undefined;
+  const fixed = only && only['overrideSubcomponentsCD'] === true ? numOpt(only, 'overrideCD') : undefined;
+  if (fixed !== undefined) {
+    el(w, 3, 'CalculateCD', 0);
+    el(w, 3, 'FixedCd', fixed);
+    return;
+  }
+  for (const stage of stages) {
+    if (numOpt(stage, 'overrideCD') !== undefined) {
+      skip(w, { key: 'errors.rktSkip.cdOverride', values: { name: stage.name || { key: 'part.stage' } } });
+    }
+  }
+}
+
+/**
+ * Every stage's mass and the CG of every stack, when any stage overrides
+ * either; true when they were written, which `UseKnownMass` follows.
+ *
+ * `RockSimSaver.setStageOverrides`: RockSim's stage overrides are all or
+ * nothing. With `UseKnownMass` set it flies each stack of stages at the sum of
+ * the stage masses and at that stack's CG from the nose tip, so the figures
+ * written are the kernel's: each stage's structure mass, its override and its
+ * parts included, and each stack's CG (`Stage3CG` for the sustainer alone,
+ * `Stage32CG` with the first booster, `Stage321CG` with every stage). Read
+ * back, they fly the stacks as the design does, whatever the stage overrides
+ * cover. With no kernel figures they are left out and each stage named.
+ */
+function writeStageOverrides(
+  w: Writer,
+  tree: RocketTree,
+  stages: readonly ComponentNode[],
+  figures: readonly StageFigures[] | undefined,
+): boolean {
+  if (!overridesStages(tree)) return false;
+  if (!figures || figures.length < stages.length) {
+    for (const stage of stages) {
+      if (numOpt(stage, 'overrideMass') !== undefined || numOpt(stage, 'overrideCGX') !== undefined) {
+        skip(w, { key: 'errors.rktSkip.stageOverride', values: { name: stage.name || { key: 'part.stage' } } });
+      }
+    }
+    return false;
+  }
+  stages.forEach((_, i) => el(w, 3, STAGE_MASS_ELEMENTS[i]!, g(figures[i]!.mass)));
+  stages.forEach((_, i) => el(w, 3, STAGE_CG_ELEMENTS[i]!, mm(figures[i]!.stackCg)));
+  return true;
 }
 
 // ----------------------------------------------------------------- entry ---
@@ -761,10 +890,17 @@ export interface RktExportResult {
  * file they are about to hand to someone else.
  *
  * `componentInfo` gives the kernel's figures for a part, for the fields
- * desktop writes from the kernel (`CalcMass`, `CalcCG`); without it a part that
- * needs them is named in `skipped`.
+ * desktop writes from the kernel (`CalcMass`, `CalcCG`), and `stageFigures`
+ * the kernel's for each stage (see {@link StageFigures}), which a stage mass or
+ * CG override needs; without them a part or stage that needs them is named in
+ * `skipped`.
  */
-export function exportRkt(name: string, tree: RocketTree, componentInfo?: ComponentFigures): RktExportResult {
+export function exportRkt(
+  name: string,
+  tree: RocketTree,
+  componentInfo?: ComponentFigures,
+  stageFigures?: readonly StageFigures[],
+): RktExportResult {
   const lines: string[] = [];
   const w: Writer = {
     emit: (depth, s) => lines.push('  '.repeat(depth) + s),
@@ -774,6 +910,7 @@ export function exportRkt(name: string, tree: RocketTree, componentInfo?: Compon
     parent: null,
     componentInfo,
     splitPods: new WeakSet(),
+    inSubtreeMass: false,
   };
   // Station of the current stage's front: stages stack nose to tail.
   let stageStart = 0;
@@ -798,35 +935,28 @@ export function exportRkt(name: string, tree: RocketTree, componentInfo?: Compon
   w.emit(1, '<DesignInformation>');
   w.emit(2, '<RocketDesign>');
   w.emit(3, `<Name>${escapeXml(name)}</Name>`);
+  const held = stages.slice(0, written);
+  writeFixedCd(w, held);
+  // The design's comments, designer credit and revision history, which
+  // `RocketDesignDTO` carries and `RockSimHandler` reads back into the rocket.
+  for (const [tag, key] of [
+    ['Comments', 'comment'],
+    ['Designer', 'designer'],
+    ['Revisions', 'revision'],
+  ] as const) {
+    const v = tree[key];
+    if (typeof v === 'string' && v.trim()) el(w, 3, tag, v);
+  }
   w.emit(3, `<StageCount>${written}</StageCount>`);
-  // Each stage's mass and CG override, on the design as `StageDTO` writes them:
-  // grams and millimeters, nose down, with `UseKnownMass` set when any stage
-  // states a mass. The sustainer's CG tag is `Stage3CG` and the boosters' are
-  // `...CGAlone`, the names `RockSimHandler` reads back.
-  let knownMass = false;
-  stages.slice(0, written).forEach((stage, i) => {
-    const mass = numOpt(stage, 'overrideMass');
-    if (mass !== undefined) {
-      el(w, 3, STAGE_MASS_ELEMENTS[i]!, g(mass));
-      knownMass = true;
-    }
-  });
-  stages.slice(0, written).forEach((stage, i) => {
-    const cg = numOpt(stage, 'overrideCGX');
-    if (cg !== undefined) el(w, 3, STAGE_CG_ELEMENTS[i]!, mm(cg));
-  });
+  const knownMass = writeStageOverrides(w, tree, held, stageFigures);
+  // RockSim's CP method for its drawings and its flights, as `RockSimSaver`
+  // picks it: the Barrowman equations only where RockSim supports them
+  // (`CRocket::SupportsBarrowmanEquations`: every fin set of 3, 4 or 6 fins),
+  // and RockSim's own stability equations otherwise.
+  const cpMethod = barrowmanFits(held) ? CP_BARROWMAN : CP_ROCKSIM;
+  el(w, 3, 'CPCalcFlags', cpMethod);
+  el(w, 3, 'CPSimFlags', cpMethod);
   if (knownMass) el(w, 3, 'UseKnownMass', 1);
-  // `RockSimHandler` reads each stage figure back as an override of the whole
-  // stage, its parts included, so an override of the stage alone does not
-  // survive the trip and is named.
-  stages.slice(0, written).forEach((stage) => {
-    const alone =
-      (numOpt(stage, 'overrideMass') !== undefined && stage['overrideSubcomponentsMass'] !== true) ||
-      (numOpt(stage, 'overrideCGX') !== undefined && stage['overrideSubcomponentsCG'] !== true);
-    if (alone) {
-      skip(w, { key: 'errors.rktSkip.stageOnlyOverride', values: { name: stage.name || { key: 'part.stage' } } });
-    }
-  });
 
   STAGE_ELEMENTS.forEach((elName, i) => {
     const stage = i < written ? stages[i] : undefined;

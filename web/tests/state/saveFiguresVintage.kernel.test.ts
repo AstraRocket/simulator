@@ -21,7 +21,7 @@ import { useWorkspaceStore, selectConfig, workspaceSnapshot } from '../../src/st
 import { computeStaticInfo } from '../../src/services/design/buildRocket';
 import { updateNode } from '../../src/services/design/treeEdit';
 import type { RocketTree } from '../../src/engine/openRocketEngine';
-import type { ComponentFigures } from '../../src/services/files/rktExport';
+import type { ComponentFigures, StageFigures } from '../../src/services/files/rktExport';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
@@ -117,5 +117,30 @@ describe('the kernel figures a saved file carries', () => {
     const [, tree, figures] = downloadRkt.mock.calls[0]! as [string, RocketTree, ComponentFigures | undefined];
     expect(tree).toBe(saved);
     expect(cordIn(figures)).toBeCloseTo(expected, 12);
+  });
+
+  // RockSim's stage overrides are all or nothing, so a stage override has the
+  // kernel weigh every stage, on the store's build, which is left as it was.
+  it('.rkt: carry the stage figures when a stage overrides its mass', async () => {
+    const w = workspaceSnapshot(s());
+    const stageId = w.tree.components[0]!.id!;
+    s().hydrate({
+      ...w,
+      tree: updateNode(w.tree, stageId, { overrideMass: 0.2, overrideSubcomponentsMass: true } as never),
+    });
+    rebuild();
+    const before = s().rocket!.staticInfo();
+
+    await s().saveRkt();
+    const stages = downloadRkt.mock.calls[0]![3] as StageFigures[] | undefined;
+    expect(stages?.[0]?.mass).toBeCloseTo(0.2, 9);
+    const after = s().rocket!.staticInfo();
+    expect(after.massEmpty).toBeCloseTo(before.massEmpty, 12);
+    expect(after.cgEmpty).toBeCloseTo(before.cgEmpty, 12);
+  });
+
+  it('.rkt: carry no stage figures when no stage overrides', async () => {
+    await s().saveRkt();
+    expect(downloadRkt.mock.calls[0]![3]).toBeUndefined();
   });
 });

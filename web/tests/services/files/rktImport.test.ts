@@ -62,7 +62,7 @@ const RKT = `<?xml version="1.0" encoding="UTF-8"?>
               <SemiSpan>45</SemiSpan>
               <SweepDistance>25</SweepDistance>
               <Thickness>3.2</Thickness>
-              <CantAngle>1.5</CantAngle>
+              <CantAngle>0.05</CantAngle>
               <RadialAngle>30</RadialAngle>
               <TabLength>40</TabLength>
               <TabDepth>5</TabDepth>
@@ -137,8 +137,19 @@ const RKT = `<?xml version="1.0" encoding="UTF-8"?>
               <KnownMass>22</KnownMass>
             </MassObject>
             <RingTail>
-              <Name>Not supported</Name>
+              <Name>Ringtail</Name>
+              <KnownMass>0.</KnownMass>
+              <UseKnownCG>0</UseKnownCG>
+              <Xb>149.225</Xb>
+              <LocationMode>0</LocationMode>
+              <Len>76.2</Len>
+              <CalcMass>15.9106</CalcMass>
+              <CalcCG>38.1</CalcCG>
             </RingTail>
+            <Strake>
+              <Name>Not supported</Name>
+              <Len>40</Len>
+            </Strake>
           </AttachedParts>
         </BodyTube>
       </Stage3Parts>
@@ -223,7 +234,9 @@ describe('importRkt', () => {
     expect(fins['height']).toBeCloseTo(0.045, 9);
     expect(fins['sweep']).toBeCloseTo(0.025, 9);
     expect(fins['thickness']).toBeCloseTo(0.0032, 9);
-    expect(fins['cant']).toBeCloseTo((1.5 * Math.PI) / 180, 12);
+    // Radians as the file states them, as `FinSetHandler` reads them: unlike
+    // `RadialAngle` (30 degrees below), the cant is not converted.
+    expect(fins['cant']).toBeCloseTo(0.05, 12);
     expect(fins['rotation']).toBeCloseTo(Math.PI / 6, 12);
     expect(fins['tabLength']).toBeCloseTo(0.04, 9);
     expect(fins['tabHeight']).toBeCloseTo(0.005, 9);
@@ -258,11 +271,15 @@ describe('importRkt', () => {
     const chute = byName(stage.children, 'Chute');
     expect(chute.type).toBe('parachute');
     // `Dia` really is a diameter on both sides: the one field that is not halved.
-    expect(chute['diameter']).toBeCloseTo(0.4, 9);
+    // With no `SideCount` the canopy is RockSim's hexagon, 400 mm corner to
+    // corner, less the 40 mm spill hole, and it comes in as the round canopy
+    // with that drag area. The hole is in the area, so it is not carried too.
+    const hexagon = ((3 * Math.sqrt(3)) / 2) * 0.2 * 0.2;
+    expect(Math.PI * ((chute['diameter'] as number) / 2) ** 2).toBeCloseTo(hexagon - Math.PI * 0.02 * 0.02, 12);
+    expect(chute['spillHoleDiameter']).toBeUndefined();
     expect(chute['cd']).toBe(0.8);
     expect(chute['lineCount']).toBe(6);
     expect(chute['lineLength']).toBeCloseTo(0.35, 9);
-    expect(chute['spillHoleDiameter']).toBeCloseTo(0.04, 9);
     // g/cm2 to kg/m2 is x10, which is dividing by the kernel's own
     // `ROCKSIM_TO_OPENROCKET_SURFACE_DENSITY` of 1/10 - the direction
     // `BaseHandler.computeDensity` uses it in, and the opposite of the direction
@@ -298,10 +315,28 @@ describe('importRkt', () => {
     expect(alt['overrideMass']).toBeUndefined();
   });
 
+  /** `RingTailHandler`: RockSim's computed mass, its CG from the ring tail's front. */
+  it('reads a ring tail as a mass component, and says its drag is not flown', () => {
+    const tail = byName(stage.children, 'Ringtail');
+    expect(tail.type).toBe('masscomponent');
+    expect(tail['mass']).toBeCloseTo(0.0159106, 12);
+    expect(tail['length']).toBeCloseTo(0.0762, 12);
+    expect(tail.position).toEqual({ method: 'top', offset: 0.149225 });
+    expect(tail['overrideCGX']).toBeCloseTo(0.0381, 12);
+    expect(tail['overrideMass']).toBeUndefined();
+    expect(res.ignored).not.toContain('RingTail');
+    expect(noteTexts(res.notes)).toContain(
+      'Ringtail: the ring tail was imported as a mass component, so its drag is not simulated.',
+    );
+  });
+
   it('names what it could not bring across, and what never transfers', () => {
-    expect(res.ignored).toContain('RingTail');
-    expect(noteTexts(res.notes).join(' ')).toContain('RingTail');
+    expect(res.ignored).toContain('Strake');
+    expect(noteTexts(res.notes).join(' ')).toContain('Strake');
     expect(noteTexts(res.notes).join(' ')).toMatch(/motor selections and launch conditions are not imported/i);
+    expect(noteTexts(res.notes)).toContain(
+      'Chute: imported as a single round parachute with the same drag area, 361.6 mm across instead of 400.0 mm.',
+    );
   });
 
   it('refuses a file that is not a RockSim design', () => {

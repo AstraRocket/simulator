@@ -61,7 +61,23 @@ describe('saveRasaero', () => {
     expect(await blob.text()).toContain('<EventType1>Apogee</EventType1>');
   });
 
-  it("refuses the design's own ejection charge with no override", async () => {
+  // RASAero has no ejection charge: desktop writes such a chute as an apogee
+  // one and warns, and the banner says so with the file saved.
+  it("writes the design's own ejection charge as apogee, with a warning", async () => {
+    await s().saveRasaero();
+    expect(s().err).toContain('"Main"');
+    expect(s().err).toContain('apogee');
+    const blob = vi.mocked(saveBlob).mock.calls[0]![0];
+    expect(await blob.text()).toContain('<EventType1>Apogee</EventType1>');
+  });
+
+  it("refuses an event RASAero has no deployment for, with the configuration's override", async () => {
+    const active = selectConfig(s());
+    useWorkspaceStore.setState({
+      configs: s().configs.map((c) =>
+        c.id === active.id ? { ...c, deployments: { chute: { deployEvent: 'never' as const } } } : c,
+      ),
+    });
     await s().saveRasaero();
     expect(s().err).toContain('"Main"');
     expect(saveBlob).not.toHaveBeenCalled();

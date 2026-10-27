@@ -454,14 +454,15 @@ describe('a pod', () => {
 
 describe('a stage', () => {
   /**
-   * `RockSimHandler.openElement` applies each positive Stage*Mass and Stage*CG as
-   * a stage-level override with "apply to subcomponents" on. Dropping them would
-   * fly every imported design at our computed mass rather than the measured one.
+   * `RocketDesignHandler.applyStageOverrides` applies the stage figures as
+   * stage-level overrides with "apply to subcomponents" on, and only while
+   * `UseKnownMass` is set: RockSim writes them into every file whether it uses
+   * them or not.
    */
-  it('takes the mass and CG RockSim states for it, over the whole subtree', () => {
+  it('takes the mass and CG RockSim states for it, over the whole subtree, when RockSim uses them', () => {
     const list = read(
       '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>',
-      '<Stage3Mass>142.5</Stage3Mass><Stage3CG>210</Stage3CG>',
+      '<Stage3Mass>142.5</Stage3Mass><Stage3CG>210</Stage3CG><UseKnownMass>1</UseKnownMass>',
     );
     const stage = list[0]!;
     expect(stage['overrideMass']).toBeCloseTo(0.1425, 12);
@@ -470,26 +471,303 @@ describe('a stage', () => {
     expect(stage['overrideSubcomponentsCG']).toBe(true);
   });
 
-  it('is left alone when RockSim states nothing', () => {
-    const stage = read('<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>')[0]!;
-    expect(stage['overrideMass']).toBeUndefined();
-    expect(stage['overrideCGX']).toBeUndefined();
+  it('is left alone when RockSim does not use the figures it states', () => {
+    for (const flag of ['', '<UseKnownMass>0</UseKnownMass>']) {
+      const stage = read(
+        '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>',
+        `<Stage3Mass>142.5</Stage3Mass><Stage3CG>210</Stage3CG>${flag}`,
+      )[0]!;
+      expect(stage['overrideMass']).toBeUndefined();
+      expect(stage['overrideCGX']).toBeUndefined();
+    }
   });
 
-  /** The booster CG tags are not named like the sustainer's. */
-  it('reads the booster CG from its own CGAlone tag', () => {
-    const rkt = doc(
-      '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>',
-      '<Stage2Mass>90</Stage2Mass><Stage2CGAlone>120</Stage2CGAlone>',
-    )
-      .replace('<StageCount>1</StageCount>', '<StageCount>2</StageCount>')
-      .replace(
-        '</Stage3Parts>',
-        '</Stage3Parts><Stage2Parts><BodyTube><Name>Boost</Name><Len>200</Len><OD>24</OD><ID>23</ID></BodyTube></Stage2Parts>',
+  const threeStage = (figures: string): ComponentNode[] =>
+    importRkt(
+      doc('<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>', figures)
+        .replace('<StageCount>1</StageCount>', '<StageCount>3</StageCount>')
+        .replace(
+          '</Stage3Parts>',
+          '</Stage3Parts>' +
+            '<Stage2Parts><BodyTube><Name>Mid</Name><Len>200</Len><OD>24</OD><ID>23</ID></BodyTube></Stage2Parts>' +
+            '<Stage1Parts><BodyTube><Name>Low</Name><Len>100</Len><OD>24</OD><ID>23</ID></BodyTube></Stage1Parts>',
+        ),
+    ).tree.components;
+
+  /**
+   * RockSim's CGs are those of the stacks it flies (`Stage32CG`, `Stage321CG`),
+   * from the nose tip, so each stage's own CG comes from the mass moments and is
+   * kept from the stage's front, as `setOverrideCGX` takes it.
+   */
+  it("derives each stage's CG from the stack CGs, so the stacks balance where RockSim says", () => {
+    const [top, mid, low] = threeStage(
+      '<Stage3Mass>185</Stage3Mass><Stage2Mass>210</Stage2Mass><Stage1Mass>330</Stage1Mass>' +
+        '<Stage3CG>300</Stage3CG><Stage32CG>450</Stage32CG><Stage321CG>600</Stage321CG>' +
+        '<Stage2CGAlone>120</Stage2CGAlone><Stage1CGAlone>50</Stage1CGAlone><UseKnownMass>1</UseKnownMass>',
+    );
+    const at = (stage: ComponentNode, front: number) => (stage['overrideCGX'] as number) + front;
+    // Masses in kg, stage fronts at 0, 0.3 and 0.5 m.
+    const stack = (stages: [ComponentNode, number][]) => {
+      const mass = stages.reduce((sum, [s]) => sum + (s['overrideMass'] as number), 0);
+      return stages.reduce((sum, [s, front]) => sum + (s['overrideMass'] as number) * at(s, front), 0) / mass;
+    };
+    expect(top!['overrideMass']).toBeCloseTo(0.185, 12);
+    expect(mid!['overrideMass']).toBeCloseTo(0.21, 12);
+    expect(low!['overrideMass']).toBeCloseTo(0.33, 12);
+    expect(stack([[top!, 0]])).toBeCloseTo(0.3, 12);
+    expect(
+      stack([
+        [top!, 0],
+        [mid!, 0.3],
+      ]),
+    ).toBeCloseTo(0.45, 12);
+    expect(
+      stack([
+        [top!, 0],
+        [mid!, 0.3],
+        [low!, 0.5],
+      ]),
+    ).toBeCloseTo(0.6, 12);
+    expect(mid!['overrideSubcomponentsCG']).toBe(true);
+  });
+
+  it('stops deriving CGs at a stage with no mass', () => {
+    const [top, mid, low] = threeStage(
+      '<Stage3Mass>185</Stage3Mass><Stage2Mass>0</Stage2Mass><Stage1Mass>330</Stage1Mass>' +
+        '<Stage3CG>300</Stage3CG><Stage32CG>450</Stage32CG><Stage321CG>600</Stage321CG>' +
+        '<UseKnownMass>1</UseKnownMass>',
+    );
+    expect(top!['overrideCGX']).toBeCloseTo(0.3, 12);
+    expect(mid!['overrideMass']).toBeUndefined();
+    expect(mid!['overrideCGX']).toBeUndefined();
+    expect(low!['overrideMass']).toBeCloseTo(0.33, 12);
+    expect(low!['overrideCGX']).toBeUndefined();
+  });
+});
+
+describe('a nose cone or transition shape', () => {
+  const nose = (shape: string, design = ''): { node: ComponentNode; notes: string[] } => {
+    const res = importRkt(
+      doc(`<NoseCone><Name>N</Name><Len>100</Len><BaseDia>25</BaseDia>${shape}</NoseCone>`, design),
+    );
+    return { node: res.tree.components[0]!.children![0]!, notes: noteTexts(res.notes) };
+  };
+  const transition = (shape: string): ComponentNode =>
+    find(
+      parts(`<Transition><Name>T</Name><Len>50</Len><FrontDia>25</FrontDia><RearDia>20</RearDia>${shape}</Transition>`),
+      'T',
+    );
+
+  /** `RockSimNoseConeCode.PARABOLIC`: r = R * sqrt(x / L) is a power series of 1/2. */
+  it("reads RockSim's parabola as a power series of one half, whatever ShapeParameter says", () => {
+    for (const read of [
+      nose('<ShapeCode>2</ShapeCode><ShapeParameter>0</ShapeParameter>').node,
+      transition('<ShapeCode>2</ShapeCode><ShapeParameter>0</ShapeParameter>'),
+    ]) {
+      expect(read['shape']).toBe('power');
+      expect(read['shapeParameter']).toBe(0.5);
+    }
+  });
+
+  it('reads the elliptical code as an ellipsoid', () => {
+    expect(nose('<ShapeCode>3</ShapeCode>').node['shape']).toBe('ellipsoid');
+  });
+
+  /** `RockSimNoseConeCode.SECANT_OGIVE`: a tangent ogive, with a warning. */
+  it('reads a secant ogive as a tangent ogive and says so', () => {
+    const { node, notes } = nose('<ShapeCode>7</ShapeCode><ShapeParameter>300</ShapeParameter>');
+    expect(node['shape']).toBe('ogive');
+    expect(node['shapeParameter']).toBe(1);
+    expect(notes).toContain("N: RockSim's secant ogive was imported as a tangent ogive, which bulges less.");
+    expect(transition('<ShapeCode>7</ShapeCode>')['shape']).toBe('ogive');
+  });
+
+  /** `fromCode` falls back to PARABOLIC, not to the last code. */
+  it('reads a code RockSim does not define as its default, the parabola', () => {
+    expect(nose('<ShapeCode>9</ShapeCode>').node['shape']).toBe('power');
+    expect(nose('<ShapeCode>9</ShapeCode>').node['shapeParameter']).toBe(0.5);
+  });
+
+  /** `Transition.setShapeParameter` clamps, and the handlers say so. */
+  it('clamps a Haack parameter past the LV-Haack and says so', () => {
+    const { node, notes } = nose('<ShapeCode>6</ShapeCode><ShapeParameter>0.6</ShapeParameter>');
+    expect(node['shape']).toBe('haack');
+    expect(node['shapeParameter']).toBeCloseTo(1 / 3, 12);
+    expect(notes).toContain('N: the shape parameter 0.6 is outside the range this app supports, so 0.3333 is used.');
+    expect(transition('<ShapeCode>4</ShapeCode><ShapeParameter>-1</ShapeParameter>')['shapeParameter']).toBe(0);
+  });
+
+  it('says nothing about a parameter inside the range', () => {
+    const { node, notes } = nose('<ShapeCode>4</ShapeCode><ShapeParameter>0.75</ShapeParameter>');
+    expect(node['shapeParameter']).toBe(0.75);
+    expect(notes.join(' ')).not.toMatch(/shape parameter/);
+  });
+});
+
+describe('a nose cone base extension', () => {
+  const base =
+    '<NoseCone><Name>Nose cone</Name><Len>139.7</Len><BaseDia>66</BaseDia><WallThickness>2</WallThickness>' +
+    '<ConstructionType>1</ConstructionType><ShapeCode>1</ShapeCode><ShoulderLen>40</ShoulderLen><ShoulderOD>64</ShoulderOD>' +
+    '<Material>Balsa</Material><Density>160</Density><FinishCode>0</FinishCode>';
+
+  /**
+   * `NoseConeHandler.addBaseExtension`: RockSim puts the next part at Len plus
+   * BaseExtensionLen, with the shoulder behind the extension, so it is a
+   * straight transition after the nose that carries the shoulder.
+   */
+  it('becomes a straight transition behind the nose that takes over the shoulder', () => {
+    const res = importRkt(
+      doc(
+        `${base}<BaseExtensionLen>50.8</BaseExtensionLen></NoseCone><BodyTube><Name>B</Name><Len>300</Len><OD>66</OD><ID>64</ID></BodyTube>`,
+      ),
+    );
+    const [nose, ext, tube] = res.tree.components[0]!.children!;
+    expect(nose!.type).toBe('nosecone');
+    expect(nose!['shoulderLength']).toBe(0);
+    expect(ext!.type).toBe('transition');
+    expect(ext!.name).toBe('Nose cone base extension');
+    expect(ext!['shape']).toBe('conical');
+    expect(ext!['length']).toBeCloseTo(0.0508, 12);
+    expect(ext!['foreRadius']).toBeCloseTo(0.033, 12);
+    expect(ext!['aftRadius']).toBeCloseTo(0.033, 12);
+    expect(ext!['thickness']).toBeCloseTo(0.002, 12);
+    expect(ext!['materialName']).toBe('Balsa');
+    expect(ext!['finish']).toBe('polished');
+    expect(ext!['aftShoulderLength']).toBeCloseTo(0.04, 12);
+    expect(ext!['aftShoulderRadius']).toBeCloseTo(0.032, 12);
+    expect(ext!['overrideMass']).toBeUndefined();
+    expect(tube!.name).toBe('B');
+    expect(noteTexts(res.notes)).toContain(
+      'Nose cone: the base extension was imported as a separate transition, "Nose cone base extension".',
+    );
+  });
+
+  /** RockSim's known nose mass already covers its extension. */
+  it('weighs nothing under a nose mass override', () => {
+    const [nose, ext] = parts(
+      `${base}<UseKnownCG>1</UseKnownCG><KnownMass>40</KnownMass><KnownCG>60</KnownCG>` +
+        '<BaseExtensionLen>50.8</BaseExtensionLen></NoseCone>',
+    );
+    expect(nose!['overrideMass']).toBeCloseTo(0.04, 12);
+    expect(ext!['overrideMass']).toBe(0);
+  });
+
+  it('is not added when the extension has no length', () => {
+    expect(parts(`${base}<BaseExtensionLen>0</BaseExtensionLen></NoseCone>`)).toHaveLength(1);
+  });
+});
+
+/** `NoseConeHandler`: a drilled core is not modeled, so a solid nose weighs as solid. */
+describe('a drilled solid nose cone', () => {
+  const notes = (construction: number) =>
+    noteTexts(
+      importRkt(
+        doc(
+          `<NoseCone><Name>N</Name><Len>100</Len><BaseDia>40</BaseDia><ConstructionType>${construction}</ConstructionType>` +
+            '<CoreDia>10</CoreDia><CoreLen>50</CoreLen></NoseCone>',
+        ),
+      ).notes,
+    );
+
+  it('is said to weigh as a solid one', () => {
+    expect(notes(0)).toContain(
+      'N: the drilled core is not supported, so the mass and CG are those of a solid nose cone.',
+    );
+  });
+
+  it('is not mentioned on a hollow nose', () => {
+    expect(notes(1).join(' ')).not.toMatch(/drilled core/);
+  });
+});
+
+/** `ParachuteHandler.setEquivalentDiameter`: the round canopy with RockSim's drag area. */
+describe("a parachute's drag area", () => {
+  const chute = (extra: string) => {
+    const res = importRkt(
+      doc(
+        `<BodyTube><Name>B</Name><Len>300</Len><OD>40</OD><ID>38</ID><AttachedParts>` +
+          `<Parachute><Name>C</Name><Dia>1000</Dia>${extra}</Parachute></AttachedParts></BodyTube>`,
+      ),
+    );
+    return { node: find(res.tree.components, 'C'), notes: noteTexts(res.notes) };
+  };
+  const area = (n: ComponentNode) => Math.PI * ((n['diameter'] as number) / 2) ** 2;
+
+  it('counts every canopy, each a polygon measured corner to corner, less its spill hole', () => {
+    const { node, notes } = chute('<SideCount>6</SideCount><SpillHoleDia>100</SpillHoleDia><ChuteCount>2</ChuteCount>');
+    const hexagon = ((3 * Math.sqrt(3)) / 2) * 0.5 * 0.5;
+    expect(area(node)).toBeCloseTo(2 * (hexagon - Math.PI * 0.05 * 0.05), 12);
+    // The hole is in the area: carried as well, it would come out twice.
+    expect(node['spillHoleDiameter']).toBeUndefined();
+    expect(notes.join(' ')).toMatch(/C: imported as a single round parachute with the same drag area/);
+  });
+
+  it('takes a missing side count as RockSim does, a hexagon', () => {
+    expect(area(chute('').node)).toBeCloseTo(((3 * Math.sqrt(3)) / 2) * 0.25, 12);
+  });
+
+  it('keeps a round canopy as it is, and says nothing', () => {
+    const { node, notes } = chute('<SideCount>0</SideCount>');
+    expect(node['diameter']).toBeCloseTo(1, 12);
+    expect(notes.join(' ')).not.toMatch(/round parachute/);
+  });
+});
+
+/** `RocketDesignHandler.applyFixedCD`: RockSim's fixed Cd, for a single stage. */
+describe("a design's fixed Cd", () => {
+  const air = '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>';
+
+  it("is the stage's Cd override, over its parts, when RockSim does not calculate the Cd", () => {
+    const stage = read(air, '<CalculateCD>0</CalculateCD><FixedCd>0.55</FixedCd>')[0]!;
+    expect(stage['overrideCD']).toBe(0.55);
+    expect(stage['overrideSubcomponentsCD']).toBe(true);
+  });
+
+  it('is left alone while RockSim calculates the Cd', () => {
+    expect(read(air, '<CalculateCD>1</CalculateCD><FixedCd>0.55</FixedCd>')[0]!['overrideCD']).toBeUndefined();
+    expect(read(air, '<FixedCd>0.55</FixedCd>')[0]!['overrideCD']).toBeUndefined();
+  });
+
+  it('is not read for several stages, and says so', () => {
+    const res = importRkt(
+      doc(air, '<CalculateCD>0</CalculateCD><FixedCd>0.55</FixedCd>')
+        .replace('<StageCount>1</StageCount>', '<StageCount>2</StageCount>')
+        .replace('</Stage3Parts>', `</Stage3Parts><Stage2Parts>${air}</Stage2Parts>`),
+    );
+    expect(res.tree.components.every((s) => s['overrideCD'] === undefined)).toBe(true);
+    expect(noteTexts(res.notes)).toContain(
+      'The fixed Cd of a multi-stage RockSim design is not imported, so the Cd is calculated.',
+    );
+  });
+});
+
+describe("a design's own information", () => {
+  const air = '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>';
+
+  /** `RocketDesignHandler`: `Comments`, `Designer` and `Revisions` are the rocket's. */
+  it('keeps the comments, the designer and the revision history', () => {
+    const { tree } = importRkt(
+      doc(
+        air,
+        '<Comments>KV-64</Comments><Designer>Semroc Astronautics Corp</Designer>' +
+          '<Revisions>2-21-2010: new nose cone</Revisions>',
+      ),
+    );
+    expect(tree.comment).toBe('KV-64');
+    expect(tree.designer).toBe('Semroc Astronautics Corp');
+    expect(tree.revision).toBe('2-21-2010: new nose cone');
+  });
+
+  /** `RockSimContentHandler`: RockSim 11 writes version 4. */
+  it('says when the file is newer than RockSim 11 writes', () => {
+    const newer = (v: number) =>
+      noteTexts(
+        importRkt(doc(air).replace('<DesignInformation>', `<FileVersion>${v}</FileVersion><DesignInformation>`)).notes,
       );
-    const booster = importRkt(rkt).tree.components[1]!;
-    expect(booster['overrideMass']).toBeCloseTo(0.09, 12);
-    expect(booster['overrideCGX']).toBeCloseTo(0.12, 12);
+    expect(newer(5)).toContain(
+      'RockSim file version 5 is newer than the supported version 4, so some data may not be imported.',
+    );
+    expect(newer(4).join(' ')).not.toMatch(/newer than/);
   });
 });
 

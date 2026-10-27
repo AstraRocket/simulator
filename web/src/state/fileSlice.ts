@@ -25,12 +25,14 @@ import { effectivePrefs, isOutdated, newSimulation } from '../services/flight/si
 import { loadSettings } from '../services/storage/settings';
 import { importNotes } from '../services/files/importBanner';
 import { configPowerClass } from '../services/flight/powerClass';
-import { configFor, configuredTree, type FlightConfig } from '../services/flight/flightConfigs';
+import { configFor, configuredTree, stageFlies, type FlightConfig } from '../services/flight/flightConfigs';
+import { overridesStages, stageStacks } from '../services/files/rocksim/stageStacks';
 import { defaultDesignName, designNameOf } from '../services/app/appInfo';
 import { getDesignLibrary, type DesignMeta } from '../services/storage/designLibrary';
 import { getWorkspaceStore, lean, resultsOf } from '../services/storage/workspaceStore';
 import { migrateWorkspace } from '../services/storage/workspaceMigrate';
-import { errorText, keyedText, type Keyed } from '../i18n/keyedError';
+import { errorText, keyedText, KeyedError, type Keyed } from '../i18n/keyedError';
+import { hasCapability } from '../services/app/device';
 import { fmtList, partLabel } from '../i18n/format';
 import {
   configOf,
@@ -268,10 +270,15 @@ export const createFileSlice =
      * design is built now instead. Undefined when it does not build.
      */
     const figuresFor = (tree: RocketTree): KernelFigures | undefined => {
+      const built = buildFor(tree);
+      return built ? figuresOf(built, tree) : undefined;
+    };
+
+    /** The build {@link figuresFor} reads: the store's when it is of `tree`, else a fresh one. */
+    const buildFor = (tree: RocketTree): OpenRocketDesign | undefined => {
       const { rocket } = get();
-      if (rocket && builtFrom(rocket) === tree.components) return figuresOf(rocket, tree);
-      const fresh = rebuildNow(tree, selectConfig(get()));
-      return fresh ? figuresOf(fresh, tree) : undefined;
+      if (rocket && builtFrom(rocket) === tree.components) return rocket;
+      return rebuildNow(tree, selectConfig(get()));
     };
 
     /** "Rocket" → "Rocket (2)", "Rocket (3)", … against the names already taken. */
@@ -368,6 +375,13 @@ export const createFileSlice =
           assertImportSize(file.size);
           const bytes = await file.arrayBuffer();
           if (stale()) return;
+          // RockSim import is a capability (services/app/capabilities.ts): the
+          // menu leaves it off a device without it, and a `.rkt` handed to the
+          // `.ork` picker is refused here, since the reader goes by the bytes.
+          const { sniffDesignFormat } = await import('../services/files/designFile');
+          if (!hasCapability('import:rocksim') && sniffDesignFormat(bytes) === 'rkt') {
+            throw new KeyedError('errors.file.rktDesktopOnly');
+          }
           const { loadOrk } = await import('../services/files/loadOrk');
           engineTouched = true;
           const res = await loadOrk(bytes);
@@ -736,10 +750,17 @@ export const createFileSlice =
       saveRkt: async () => {
         try {
           const { tree, loadedMeta } = get();
-          const figures = figuresFor(tree);
+          const built = buildFor(tree);
+          const figures = built ? figuresOf(built, tree) : undefined;
+          // RockSim's stage overrides are all or nothing, so a stage override
+          // has every stage weighed, which is read now for the reason the part
+          // figures are (`figuresOf`).
+          const config = selectConfig(get());
+          const stages =
+            built && overridesStages(tree) ? stageStacks(built, tree, (id) => !stageFlies(config, id)) : undefined;
           const { downloadRkt } = await import('../services/files/saveOrk');
           const name = designNameOf(tree, loadedMeta);
-          const skipped = await downloadRkt(name, tree, figures);
+          const skipped = await downloadRkt(name, tree, figures, stages);
           // RockSim has no element for some of what this app can build (rail
           // buttons, the fairing extension). The file is still
           // worth having, but the user is about to hand it to somebody who will
@@ -793,13 +814,16 @@ export const createFileSlice =
             stageLaunch = cumulativeStageLaunch(flown, buildConfiguredRocket(flown, config));
             rebuildNow(tree, config);
           }
-          // A finish RASAero has no surface for is written as smooth, as on
-          // desktop, which warns about it; the user is told the same here.
+          // What RASAero cannot hold as designed (a chute on the ejection
+          // charge, a freeform fin, a second motor) is written as its nearest
+          // RASAero form, as on desktop, which warns about it; the user is told
+          // the same here.
           const warnings: Keyed[] = [];
           downloadCdx1({
             name: designNameOf(tree, loadedMeta),
             tree: flown,
             motors,
+            grounded: config.grounded,
             launch: active.launch,
             // Whole-rocket loaded mass/CG feed RASAero's mandatory simulation block.
             launchMassKg: info?.mass,

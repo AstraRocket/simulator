@@ -4,6 +4,17 @@ import { fireAction } from '../../state/fireAction';
 import { useWorkspaceStore } from '../../state/store';
 import { componentFormats, type ExportFormat } from '../../services/files/componentFormats';
 import { useMenuPopover } from '../common/useMenuPopover';
+import { useCapability } from '../common/useMediaQuery';
+import type { Capability } from '../../services/app/capabilities';
+
+/** The capability behind each format (services/app/capabilities.ts). */
+const CAPABILITY: Record<ExportFormat, Capability> = {
+  stl: 'export:part:stl',
+  obj: 'export:part:obj',
+  glb: 'export:part:glb',
+  '3mf': 'export:part:3mf',
+  dxf: 'export:part:dxf',
+};
 
 const LABEL: Record<ExportFormat, string> = {
   stl: 'file.stl',
@@ -19,14 +30,18 @@ const LABEL: Record<ExportFormat, string> = {
  * launch lug offers the mesh formats; a fin set, a centering ring or a bulkhead
  * offers the mesh formats and DXF). Renders nothing for parts with no
  * exportable object (parachute, streamer, shock cord, mass component, rail
- * button), so export sits only with the parts that can produce one.
+ * button), so export sits only with the parts that can produce one. Each
+ * format is a capability, so a phone or tablet offers only the ones
+ * services/app/capabilities.ts allows it (GLB).
  */
 export function ComponentExportButton({ node, tabIndex }: { node: ComponentNode; tabIndex?: number }) {
   const { t } = useTranslation();
   const exportComponent = useWorkspaceStore((s) => s.exportComponent);
   const { open, toggle, closeAndRestore, wrapRef, triggerRef, menuRef, onMenuKeyDown } = useMenuPopover();
 
-  const formats = componentFormats(node.type);
+  const can = useCapability();
+
+  const formats = componentFormats(node.type).filter((f) => can(CAPABILITY[f]));
   const id = node.id;
   if (formats.length === 0 || !id) return null;
 

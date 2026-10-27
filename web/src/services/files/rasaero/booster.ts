@@ -1,6 +1,6 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
 import { IN, fmt, type Cdx1Writer } from './units';
-import { finXml, partName } from './sustainer';
+import { aftRadius, finXml, partName } from './sustainer';
 import { KeyedError } from '../../../i18n/keyedError';
 import { bodyTubeRadius } from '../../../tree/nodeProps';
 import { isFinSet } from '../../../tree/tubefins';
@@ -9,13 +9,9 @@ import { partLength } from '../../../tree/position';
 import { profileEnds } from '../../../tree/shapeProfile';
 import { mathEquals } from '../../motors/mathEquals';
 
-/** A part's aft radius as the kernel has it: a tube's outer radius, or a cone's aft end. */
-const aftRadius = (node: ComponentNode): number =>
-  node.type === 'bodytube' ? bodyTubeRadius(node) : profileEnds(node).aft;
-
 const tubeRadius = bodyTubeRadius;
 
-const hasFins = (node: ComponentNode): boolean => (node.children ?? []).some((k) => isFinSet(k.type));
+const finSetsOf = (node: ComponentNode): ComponentNode[] => (node.children ?? []).filter((k) => isFinSet(k.type));
 
 /**
  * Boosters (each lower stage) as <Booster> elements, held to the rules of
@@ -31,11 +27,16 @@ const hasFins = (node: ComponentNode): boolean => (node.children ?? []).some((k)
  *   error32, "boat tails can only be added to the last stage");
  * - the body carries the fin set (error16).
  *
- * Desktop takes the first fin set it finds and skips the rest; here a second
- * one, or one on a part outside the body, refuses the export, as the fin cases
- * of the sustainer do, so no fins are dropped without a word.
+ * A booster has one fin set, the first on its body, as desktop takes the first
+ * it finds; a fin set anywhere else in the stage is left out with a warning,
+ * as one past the first on a tube is (see finXml).
+ *
+ * `nozzles` is each stage's nozzle exit diameter (in), written as both
+ * <NozzleExitDiameter> and <NozzleDiameter>: RASAero writes a booster's value
+ * under the first and reads it from the second, so desktop's `BoosterDTO`
+ * writes both.
  */
-export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
+export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[], nozzles: readonly number[]): void {
   const { emit } = w;
   for (let i = 1; i < stagesIn.length; i++) {
     const st = stagesIn[i]!;
@@ -83,11 +84,17 @@ export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
       throw new KeyedError(tail ? 'errors.rasaero.boosterBoattail' : 'errors.rasaero.boosterTubeSize', { stage });
     }
 
-    const finParents = kids.filter(hasFins);
-    if (finParents.length > 1) throw new KeyedError('errors.rasaero.boosterFins', { stage });
     // A fin set on the shoulder or the boat tail is not on the body RASAero has.
-    const finParent = finParents.find((p) => tubes.includes(p));
+    const finParent = tubes.find((p) => finSetsOf(p).length > 0);
     if (!finParent) throw new KeyedError('errors.rasaero.boosterNoFins', { stage, name: partName(firstTube) });
+    for (const other of kids.filter((p) => p !== finParent)) {
+      for (const fin of finSetsOf(other)) {
+        // Tube fins are refused wherever they are, as finXml refuses them.
+        if (fin.type === 'tubefinset')
+          throw new KeyedError('errors.rasaero.tubeFinsUnsupported', { name: partName(fin) });
+        w.warn({ key: 'errors.exportRasaeroExtraFins', values: { name: partName(fin), part: partName(other) } });
+      }
+    }
 
     const bodyLen = tubes.reduce((s, t) => s + partLength(t), 0);
     const shoulderLen = shoulder ? partLength(shoulder) : 0;
@@ -109,7 +116,8 @@ export function writeBoosters(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
     emit(`<Location>${fmt(w.locM * IN)}</Location>`);
     emit('<Color>Black</Color>');
     emit(`<ShoulderLength>${fmt(shoulderLen * IN)}</ShoulderLength>`);
-    emit('<NozzleExitDiameter>0</NozzleExitDiameter>');
+    emit(`<NozzleExitDiameter>${fmt(nozzles[i] ?? 0)}</NozzleExitDiameter>`);
+    emit(`<NozzleDiameter>${fmt(nozzles[i] ?? 0)}</NozzleDiameter>`);
     emit(`<BoattailLength>${fmt(btLen * IN)}</BoattailLength>`);
     emit(`<BoattailRearDiameter>${fmt(boattail ? profileEnds(boattail).aft * 2 * IN : 0)}</BoattailRearDiameter>`);
     // Where the fin set's tube starts from the nose tip: the stage's start plus

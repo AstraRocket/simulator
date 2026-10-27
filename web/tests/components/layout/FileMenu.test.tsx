@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { FileMenuButton, type FileMenuActions } from '../../../src/components/layout/FileMenu';
 import { renderWithProviders } from '../../testing/renderWithProviders';
@@ -96,5 +96,82 @@ describe('FileMenu structure', () => {
     expect(outer).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Open…' }));
     spy.mockRestore();
+  });
+});
+
+/**
+ * RockSim, RASAero II, a slicer and Onshape's import feature run only on a
+ * desktop computer, so their exports, and RockSim import, are left off a phone
+ * or tablet. The exports a phone can use stay.
+ */
+describe('FileMenu exports for desktop programs', () => {
+  const setWindow = (desktop: boolean) => {
+    window.matchMedia = ((query: string) => ({
+      matches: desktop,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+  };
+
+  const formats = () => {
+    openMenu(true);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Export' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Import' }));
+    return {
+      rktOut: screen.queryByRole('menuitem', { name: 'Export RockSim (.rkt)' }),
+      rasaero: screen.queryByRole('menuitem', { name: 'RASAero II' }),
+      rktIn: screen.queryByRole('menuitem', { name: 'Import RockSim (.rkt)' }),
+      print: screen.queryByRole('menuitem', { name: 'Export printable parts as 3MF' }),
+      json: screen.queryByRole('menuitem', { name: 'Export JSON (.json)' }),
+      ork: screen.queryByRole('menuitem', { name: 'Export OpenRocket (.ork)' }),
+    };
+  };
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('offers them on a desktop window', () => {
+    setWindow(true);
+    const f = formats();
+    expect(f.rktOut).not.toBeNull();
+    expect(f.rasaero).not.toBeNull();
+    expect(f.print).not.toBeNull();
+    expect(f.json).not.toBeNull();
+    expect(f.rktIn).not.toBeNull();
+  });
+
+  it('leaves them and RockSim import off at phone width, and keeps .ork', () => {
+    setWindow(false);
+    const f = formats();
+    expect(f.rktOut).toBeNull();
+    expect(f.rasaero).toBeNull();
+    expect(f.print).toBeNull();
+    expect(f.json).toBeNull();
+    expect(f.rktIn).toBeNull();
+    expect(f.ork).not.toBeNull();
+  });
+
+  it('trusts the Client Hints platform over the user agent', () => {
+    setWindow(true);
+    Object.defineProperty(navigator, 'userAgentData', { value: { platform: 'Android' }, configurable: true });
+    try {
+      expect(formats().rasaero).toBeNull();
+    } finally {
+      Reflect.deleteProperty(navigator, 'userAgentData');
+    }
+  });
+
+  it.each([
+    ['an iPad in landscape', 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15'],
+    ['an Android tablet', 'Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 Chrome/126.0'],
+  ])('leaves both off on %s, however wide', (_, ua) => {
+    setWindow(true);
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua);
+    const f = formats();
+    expect(f.rktOut).toBeNull();
+    expect(f.rasaero).toBeNull();
+    expect(f.rktIn).toBeNull();
   });
 });

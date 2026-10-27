@@ -46,7 +46,7 @@
               <SemiSpan>45</SemiSpan>
               <SweepDistance>25</SweepDistance>
               <Thickness>3.2</Thickness>
-              <CantAngle>1.5</CantAngle>
+              <CantAngle>0.0262</CantAngle>
               <RadialAngle>30</RadialAngle>
               <TabLength>40</TabLength>
               <TabDepth>5</TabDepth>

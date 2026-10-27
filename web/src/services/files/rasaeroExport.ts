@@ -3,7 +3,7 @@ import type { LaunchConditions } from '../design/orkTree';
 import { asStageNodes } from '../design/orkTree';
 import { escapeXml as esc } from './xmlUtil';
 import { saveBlob, exportFilename } from './saveFile';
-import { createCdx1Writer } from './rasaero/units';
+import { createCdx1Writer, fmt } from './rasaero/units';
 import { designSurface } from './rasaero/surface';
 import { CDX1_ENGINE_EXPORT, stageEngineSlots, type Cdx1ExportEngine } from './rasaero/engines';
 import { refuseAssemblies, writeSustainerChain } from './rasaero/sustainer';
@@ -11,7 +11,7 @@ import { writeBoosters } from './rasaero/booster';
 import { writeRecovery } from './rasaero/recovery';
 import { writeLaunchSite } from './rasaero/launchSite';
 import { KeyedError, type Keyed } from '../../i18n/keyedError';
-import { writeMachAlt, writeSimulationList, type MachAltTable } from './rasaero/simulation';
+import { stageNozzles, writeMachAlt, writeSimulationList, type MachAltTable } from './rasaero/simulation';
 import type { StageLaunch } from './rasaero/stageLaunch';
 
 /**
@@ -53,14 +53,22 @@ export interface Cdx1ExportInput {
   /** The design's Mach-Alt conditions table (SI); absent ⇒ empty <MachAlt>. */
   machAlt?: MachAltTable;
   /** Assigned motors keyed by mount node id; each stage's first mounted motor
-      becomes its Engine string. Only read when engine export is enabled. */
+      becomes its Engine string (when engine export is enabled), and gives its
+      staging delays and nozzle. */
   motors?: Record<string, Cdx1ExportEngine>;
+  /**
+   * Ids of the stages the exported configuration does not fly
+   * (`FlightConfig.grounded`). Such a booster is not included in RASAero's
+   * simulation, as desktop leaves out a stage its configuration turns off.
+   */
+  grounded?: readonly string[];
   /** Engine-string override for tests; defaults to the CDX1_ENGINE_EXPORT gate. */
   engineExport?: boolean;
   /**
    * Collects the non-fatal notes the desktop exporter would raise as warnings
-   * (a finish with no RASAero surface, say), keyed for the banner. Optional;
-   * without it the notes are not kept.
+   * (a chute written to deploy at apogee, a fin set written as its equivalent
+   * trapezoid, say), keyed for the banner, each once. Optional; without it
+   * the notes are not kept.
    */
   warnings?: Keyed[];
 }
@@ -75,6 +83,7 @@ export function exportCdx1({
   motors,
   engineExport,
   machAlt,
+  grounded,
   warnings,
 }: Cdx1ExportInput): string {
   const stagesIn = asStageNodes(tree);
@@ -87,21 +96,24 @@ export function exportCdx1({
     (stagesIn.length === 1 && launchMassKg !== undefined ? [{ massKg: launchMassKg, cgM: launchCgM ?? 0 }] : []);
 
   const slots = stageEngineSlots(stagesIn, motors, engineExport ?? CDX1_ENGINE_EXPORT);
-  const w = createCdx1Writer();
+  const nozzles = stageNozzles(stagesIn, slots);
+  const w = createCdx1Writer(warnings);
   const { emit } = w;
 
   emit('<RASAeroDocument>');
   emit('<FileVersion>2</FileVersion>');
   emit('<RocketDesign>');
   writeSustainerChain(w, stagesIn[0]!, stagesIn.length);
-  writeBoosters(w, stagesIn);
-  emit(`<Surface>${designSurface(stagesIn, warnings)}</Surface>`);
-  emit('<CD>0</CD>');
+  writeBoosters(w, stagesIn, nozzles);
+  emit(`<Surface>${designSurface(w, stagesIn)}</Surface>`);
+  // RASAero writes and reads CP here, at 0, as desktop's RocketDesignDTO
+  // writes it; a CD element is one RASAero does not read.
+  emit('<CP>0</CP>');
   emit('<ModifiedBarrowman>False</ModifiedBarrowman>');
   emit('<Turbulence>False</Turbulence>');
-  emit('<SustainerNozzle>0</SustainerNozzle>');
-  emit('<Booster1Nozzle>0</Booster1Nozzle>');
-  emit('<Booster2Nozzle>0</Booster2Nozzle>');
+  emit(`<SustainerNozzle>${fmt(nozzles[0] ?? 0)}</SustainerNozzle>`);
+  emit(`<Booster1Nozzle>${fmt(nozzles[1] ?? 0)}</Booster1Nozzle>`);
+  emit(`<Booster2Nozzle>${fmt(nozzles[2] ?? 0)}</Booster2Nozzle>`);
   emit(`<UseBooster1>${stagesIn.length >= 2 ? 'True' : 'False'}</UseBooster1>`);
   emit(`<UseBooster2>${stagesIn.length === 3 ? 'True' : 'False'}</UseBooster2>`);
   emit(`<Comments>${esc(name)}</Comments>`);
@@ -109,7 +121,7 @@ export function exportCdx1({
   writeLaunchSite(w, launch);
   writeRecovery(w, stagesIn);
   writeMachAlt(w, machAlt);
-  writeSimulationList(w, stagesIn, slots, cells, warnings);
+  writeSimulationList(w, stagesIn, slots, { stageLaunch: cells, grounded, nozzles });
   emit('</RASAeroDocument>');
   return w.lines.join('\n');
 }

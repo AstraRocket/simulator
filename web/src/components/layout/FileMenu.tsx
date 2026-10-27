@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useCanBuildDesign } from '../design/useCanBuildDesign';
 import { useMenuPopover } from '../common/useMenuPopover';
 import { useOnline } from '../common/useOnline';
+import { useCapability } from '../common/useMediaQuery';
 import { useUpdateStore } from '../../state/updateStore';
 
 /**
@@ -161,6 +162,9 @@ function FileMenu({
   const canBuild = useCanBuildDesign();
   const updateChecker = useUpdateStore((s) => s.checker);
   const online = useOnline();
+  // Which of the device-dependent entries this device offers
+  // (services/app/capabilities.ts).
+  const can = useCapability();
 
   /** Close the menu, then run the action. */
   const run = (action: () => void) => () => {
@@ -189,7 +193,7 @@ function FileMenu({
           {t('file.importOrk')}
         </MenuItem>
       )}
-      {importOpen && (
+      {importOpen && can('import:rocksim') && (
         <MenuItem sub label={t('file.importRktLabel')} onClick={run(actions.onImportRkt)}>
           {t('file.importRkt')}
         </MenuItem>
@@ -217,22 +221,22 @@ function FileMenu({
           {t('file.exportOrk')}
         </MenuItem>
       )}
-      {exportOpen && (
+      {exportOpen && can('export:rocksim') && (
         <MenuItem sub label={t('file.exportRktLabel')} disabled={!canSave} onClick={run(actions.onExportRkt)}>
           {t('file.exportRkt')}
         </MenuItem>
       )}
-      {exportOpen && (
+      {exportOpen && can('export:print3mf') && (
         <MenuItem sub label={t('file.exportPrintLabel')} disabled={!canSave} onClick={run(actions.onExportPrint)}>
           {t('file.exportPrint')}
         </MenuItem>
       )}
-      {exportOpen && (
+      {exportOpen && can('export:rasaero') && (
         <MenuItem sub disabled={!canSave} onClick={run(actions.onExportRasaero)}>
           {t('file.rasaero')}
         </MenuItem>
       )}
-      {exportOpen && (
+      {exportOpen && can('export:onshapeJson') && (
         <MenuItem sub label={t('file.exportJsonLabel')} disabled={!canSave} onClick={run(actions.onExportJson)}>
           {t('file.exportJson')}
         </MenuItem>
