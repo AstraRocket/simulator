@@ -14,11 +14,10 @@ import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import { withoutResults, type Simulation } from '../flight/simulations';
 import type { FlightConfig } from '../flight/flightConfigs';
 import { migrateWorkspace } from './workspaceMigrate';
-import type { OrkExportMotor } from '../files/orkFile';
-import type { ImportNote } from '../files/importNote';
-import type { DesignFormat } from '../files/designFile';
 import { nsKey } from './storageKeys';
 import { designNameOf } from '../app/appInfo';
+import type { LoadedMeta } from '../files/wireLoadedOrk';
+import { shortId } from '../app/uuid';
 
 export interface Workspace {
   version: 3;
@@ -35,13 +34,7 @@ export interface Workspace {
   configs: FlightConfig[];
   activeId: string;
   /** Imported-.ork source metadata (banner + round-trip export), or null. */
-  loadedMeta: {
-    name: string;
-    notes: ImportNote[];
-    exportMotors: Record<string, OrkExportMotor>;
-    /** The file's format, which the loaded-design card names. */
-    format?: DesignFormat;
-  } | null;
+  loadedMeta: LoadedMeta | null;
 }
 
 /** A design as read, with the stamp the store claims it by once it is the open one. */
@@ -158,7 +151,7 @@ function journalIsCurrent(j: Journal, meta: DesignMeta | null): boolean {
 }
 
 /** Per-tab, per-page-load: a reload is a new writer, and its journal names the old one. */
-const freshTabId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+const freshTabId = () => shortId('t', 8);
 
 /**
  * The workspace without its flight results.

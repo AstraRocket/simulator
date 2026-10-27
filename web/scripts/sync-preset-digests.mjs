@@ -91,7 +91,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STAGED_COMPONENTS, writeFileAtomic } from './lib/catalogStaging.mjs';
 import { writeDataManifest } from './lib/dataManifest.mjs';
-import { digestChanges, goneSection, partProblems } from './lib/digestCoverage.mjs';
+import { digestChanges, goneSection, partProblems, presetsWithoutRow } from './lib/digestCoverage.mjs';
 import { builtInMaterials } from './lib/builtInMaterials.mjs';
 import { chooseBuild, runDumper } from './lib/openrocketJava.mjs';
 import { presetVolumes } from './lib/presetVolume.mjs';
@@ -221,6 +221,7 @@ function parachuteFields(field, builtIn) {
 function dump(cp) {
   const builtIn = builtInMaterials(cp);
   const byPart = new Map();
+  const presets = [];
   for (const [type, names, partNo, digest, mass, geometry, chute, legacy, massDensity, desc = ''] of runDumper({
     cp,
     javaSrc: JAVA_SRC,
@@ -237,6 +238,7 @@ function dump(cp) {
       // Whether that build gives a part stating a mass a volume to spread it over.
       massHasVolume: massDensity === '' || Number.isFinite(Number(massDensity)),
     };
+    presets.push({ digest, label: `${appType(type)} ${names.split('|')[0]} ${partNo.trim()} (${digest})` });
     for (const maker of new Set(names.split('|').map(makerKey))) {
       const key = JSON.stringify([appType(type), maker, partNo.trim()]);
       if (!byPart.has(key)) byPart.set(key, []);
@@ -262,7 +264,7 @@ function dump(cp) {
     if (best) taken.add(best);
     return best;
   };
-  return { holds, presetFor };
+  return { holds, presetFor, presets };
 }
 
 /** A part's row key and whether it carries a digest, for `digestChanges`. */
@@ -272,7 +274,7 @@ async function main() {
   const { cp, label } = chooseBuild();
   console.log(`reading presets from ${label}`);
   console.log('dumping presets:');
-  const { holds, presetFor } = dump(cp);
+  const { holds, presetFor, presets } = dump(cp);
   const volumeOf = await presetVolumes();
 
   // The finished catalog now in public/data is the one this run is held to, and
@@ -331,6 +333,12 @@ async function main() {
   if (lost.length) {
     throw new Error(
       `refusing to write: ${lost.length} parts still in the catalog lost their digests (${lost.join(', ')}). Nothing written.`,
+    );
+  }
+  const withoutRow = presetsWithoutRow(presets, catalog.components);
+  if (withoutRow.length) {
+    throw new Error(
+      `refusing to write: ${withoutRow.length} presets of the release have no row to carry their digest (${withoutRow.join(', ')}). Nothing written.`,
     );
   }
   const problems = partProblems(catalog.components);

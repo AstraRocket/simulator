@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
+import { useLatestRef } from './useLatestRef';
 
 /**
  * Call `onResize` whenever the element behind `ref` changes size, with its
@@ -12,10 +13,7 @@ export function useElementResize<T extends Element>(
 ): void {
   // The latest callback, so a caller can pass an inline function without
   // re-subscribing the observer on every render.
-  const latest = useRef(onResize);
-  useLayoutEffect(() => {
-    latest.current = onResize;
-  });
+  const latest = useLatestRef(onResize);
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -25,5 +23,5 @@ export function useElementResize<T extends Element>(
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ref]);
+  }, [ref, latest]);
 }

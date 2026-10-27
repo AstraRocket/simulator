@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/SettingsProvider';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import type { ComponentMass, AeroSweep } from '../../engine/openRocketEngine';
 import {
@@ -103,6 +103,13 @@ interface SweepTableProps {
 
 const CELL = 'px-2 py-1 text-right tabular-nums';
 const HEAD = 'px-2 py-1 text-right font-medium';
+
+/** The drag split's columns, in the desktop's order, keyed as the sweep and the rows name them. */
+const SPLIT = [
+  { key: 'pressure', label: 'aero.pressure' },
+  { key: 'base', label: 'aero.base' },
+  { key: 'friction', label: 'aero.friction' },
+] as const;
 const NAME_CELL = 'px-2 py-1 text-left';
 
 /** The table every pane shares: a component column, then `head`'s columns, over `children`'s rows. */
@@ -170,7 +177,7 @@ export function ComponentTable({ sweep, machs, mach }: SweepTableProps) {
   // column is only worth having when something actually has more than one of
   // itself -- usually the fin set, and nothing else.
   const { totalCd, unattributed, hasSplit, hasInstances } = useMemo(() => dragTotals(sweep, i), [sweep, i]);
-  const pct = (v: number) => (totalCd ? `${fmtNum((v / totalCd) * 100, 0)}%` : NO_VALUE);
+  const pct = (v: number) => (totalCd ? fmtPercent((v / totalCd) * 100) : NO_VALUE);
   const rows = useMemo(() => dragRows(sweep, i, t), [sweep, i, t]);
 
   // `number | null`: a null cell is the kernel saying this reading was not
@@ -192,9 +199,12 @@ export function ComponentTable({ sweep, machs, mach }: SweepTableProps) {
       <SweepTable
         head={
           <>
-            {hasSplit && <th className={HEAD}>{t('aero.pressure')}</th>}
-            {hasSplit && <th className={HEAD}>{t('aero.base')}</th>}
-            {hasSplit && <th className={HEAD}>{t('aero.friction')}</th>}
+            {hasSplit &&
+              SPLIT.map((c) => (
+                <th key={c.key} className={HEAD}>
+                  {t(c.label)}
+                </th>
+              ))}
             {hasInstances && <th className={HEAD}>{t('aero.perInstance')}</th>}
             <th className={HEAD}>Cd</th>
             <th className={HEAD}>%</th>
@@ -202,21 +212,12 @@ export function ComponentTable({ sweep, machs, mach }: SweepTableProps) {
         }
       >
         <WholeRocketRow>
-          {hasSplit && (
-            <td className={CELL} style={heat(sweep.powerOff.pressure[i] ?? 0, totalCd, heatStyle)}>
-              {num(sweep.powerOff.pressure[i])}
-            </td>
-          )}
-          {hasSplit && (
-            <td className={CELL} style={heat(sweep.powerOff.base[i] ?? 0, totalCd, heatStyle)}>
-              {num(sweep.powerOff.base[i])}
-            </td>
-          )}
-          {hasSplit && (
-            <td className={CELL} style={heat(sweep.powerOff.friction[i] ?? 0, totalCd, heatStyle)}>
-              {num(sweep.powerOff.friction[i])}
-            </td>
-          )}
+          {hasSplit &&
+            SPLIT.map((c) => (
+              <td key={c.key} className={CELL} style={heat(sweep.powerOff[c.key][i] ?? 0, totalCd, heatStyle)}>
+                {num(sweep.powerOff[c.key][i])}
+              </td>
+            ))}
           {hasInstances && <td className={CELL}>{NO_VALUE}</td>}
           <td className={CELL} style={heat(totalCd, totalCd, heatStyle)}>
             {num(totalCd)}
@@ -224,21 +225,12 @@ export function ComponentTable({ sweep, machs, mach }: SweepTableProps) {
         </WholeRocketRow>
         {rows.map((r) => (
           <PartRow key={r.key} name={r.name}>
-            {hasSplit && (
-              <td className={CELL} style={heat(r.pressure ?? 0, totalCd, heatStyle)}>
-                {num(r.pressure)}
-              </td>
-            )}
-            {hasSplit && (
-              <td className={CELL} style={heat(r.base ?? 0, totalCd, heatStyle)}>
-                {num(r.base)}
-              </td>
-            )}
-            {hasSplit && (
-              <td className={CELL} style={heat(r.friction ?? 0, totalCd, heatStyle)}>
-                {num(r.friction)}
-              </td>
-            )}
+            {hasSplit &&
+              SPLIT.map((c) => (
+                <td key={c.key} className={CELL} style={heat(r[c.key] ?? 0, totalCd, heatStyle)}>
+                  {num(r[c.key])}
+                </td>
+              ))}
             {hasInstances && (
               <td className={CELL}>{r.instances > 1 ? `${num(r.cdInstance)} × ${r.instances}` : num(r.cdInstance)}</td>
             )}
@@ -251,9 +243,12 @@ export function ComponentTable({ sweep, machs, mach }: SweepTableProps) {
         {unattributed > 1e-6 && (
           <tr className="border-t border-line/10 text-ink-faint">
             <td className="px-2 py-1 text-left italic">{t('aero.unattributed')}</td>
-            {hasSplit && <td className={CELL}>{NO_VALUE}</td>}
-            {hasSplit && <td className={CELL}>{NO_VALUE}</td>}
-            {hasSplit && <td className={CELL}>{NO_VALUE}</td>}
+            {hasSplit &&
+              SPLIT.map((c) => (
+                <td key={c.key} className={CELL}>
+                  {NO_VALUE}
+                </td>
+              ))}
             {hasInstances && <td className={CELL}>{NO_VALUE}</td>}
             <td className={CELL}>{num(unattributed)}</td>
             <td className={CELL}>{pct(unattributed)}</td>
@@ -328,7 +323,7 @@ export function StabilityTable({
   const rows = useMemo(() => stabilityRows(sweep, i, massOf, t), [sweep, i, massOf, t]);
   if (!hasCna) return null;
 
-  const pct = (v: number) => (totalCna ? `${fmtNum((v / totalCna) * 100, 0)}%` : NO_VALUE);
+  const pct = (v: number) => (totalCna ? fmtPercent((v / totalCna) * 100) : NO_VALUE);
   // CP as a percentage, over either length, the same two the CP vs Mach chart
   // offers. `% body` is the whole airframe ("how far along the rocket in front
   // of me"); `% length` is the AERODYNAMIC length, which is what the desktop's
@@ -353,9 +348,9 @@ export function StabilityTable({
             {hasMass && <th className={HEAD}>{t('aero.eachMass', { unit: massUnit })}</th>}
             {hasMass && <th className={HEAD}>{t('aero.totalMass', { unit: massUnit })}</th>}
             {hasMass && <th className={HEAD}>{t('aero.cg', { unit: lengthUnit })}</th>}
-            <th className={HEAD}>CP ({lengthUnit})</th>
-            {hasBodyLen && <th className={HEAD}>CP ({t('aero.pctBody')})</th>}
-            {hasAeroLen && <th className={HEAD}>CP ({t('aero.pctLength')})</th>}
+            <th className={HEAD}>{t('aero.cp', { unit: lengthUnit })}</th>
+            {hasBodyLen && <th className={HEAD}>{t('aero.cp', { unit: t('aero.pctBody') })}</th>}
+            {hasAeroLen && <th className={HEAD}>{t('aero.cp', { unit: t('aero.pctLength') })}</th>}
             <th className={HEAD}>CNα</th>
             <th className={HEAD}>%</th>
           </>

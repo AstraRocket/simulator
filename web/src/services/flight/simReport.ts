@@ -19,8 +19,8 @@ export function stabilityToneOf(state: StabilityState): string {
 /** The rail-exit margin's bands by sign: stable at 1 cal and up, marginal from
  *  0, unstable below. The tone and the word both read from here, so a retune
  *  moves the color and the verdict together. */
-type RailBand = 'stable' | 'marginal' | 'unstable';
-const railBand = (cal: number): RailBand => (cal >= 1 ? 'stable' : cal >= 0 ? 'marginal' : 'unstable');
+export type RailBand = 'stable' | 'marginal' | 'unstable';
+export const railBand = (cal: number): RailBand => (cal >= 1 ? 'stable' : cal >= 0 ? 'marginal' : 'unstable');
 const RAIL_TONE: Record<RailBand, string> = {
   stable: 'text-ok-400',
   marginal: 'text-warn-400',

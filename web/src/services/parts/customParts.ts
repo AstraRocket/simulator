@@ -13,6 +13,7 @@ import { catalogTypeFor, isComponentRow, type Component, type ComponentType, typ
 import { getPresetStore, type CustomPart } from './presetStore';
 import { KeyedError } from '../../i18n/keyedError';
 import { changeSignal } from '../app/changeSignal';
+import { shortId } from '../app/uuid';
 
 /** What the manufacturer column says when the user names no maker. */
 export const DEFAULT_CUSTOM_MFR = 'Custom';
@@ -255,7 +256,7 @@ function cleanMeta(meta: PartMeta): PartMeta {
 
 /** An opaque id that survives a rename. */
 function newPartId(): string {
-  return `custom:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
+  return shortId('custom:', 8, ':');
 }
 
 /** The one write path: gate on the projection, store, announce. */
@@ -293,12 +294,17 @@ export async function updateCustomPart(id: string, meta: PartMeta, node: Partial
  * Returns how many replaced a stored part. A part the picker could not list is
  * refused by the caller first, as {@link write} refuses one.
  */
+/** A saved part's identity in the list: its type, manufacturer and part number together. */
+export const savedPartKey = (p: Pick<CustomPart, 'type' | 'mfr' | 'partNo'>): string =>
+  JSON.stringify([p.type, p.mfr, p.partNo]);
+
 export async function addSavedParts(parts: readonly CustomPart[]): Promise<number> {
   const stored = await getPresetStore().list();
   let replaced = 0;
   try {
     for (const part of parts) {
-      const existing = stored.find((p) => p.type === part.type && p.mfr === part.mfr && p.partNo === part.partNo);
+      const key = savedPartKey(part);
+      const existing = stored.find((p) => savedPartKey(p) === key);
       if (existing) replaced++;
       await getPresetStore().add({ ...part, id: existing?.id ?? part.id });
     }

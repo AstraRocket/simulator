@@ -1,18 +1,33 @@
 import i18n from '../../i18n';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { clusterCount, clusterPoints } from '../../tree/cluster';
+import { clusterCount, clusterPlacesOf } from '../../tree/cluster';
 import { isChainType, rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
-import { numOpt, positionOf } from '../../tree/nodeProps';
+import { countOf, numOpt, positionOf } from '../../tree/nodeProps';
 import { axialLength, freeformPoints, partLength, startFromPosition } from '../../tree/position';
-import { assemblyParentRadius, isAssembly, resolveAssemblyRadius } from '../../tree/assembly';
+import { assemblyParentRadius, isAssembly, resolveAssemblyRadius, ringInstanceOffsets } from '../../tree/assembly';
 import { profileEnds } from '../../tree/shapeProfile';
 import { finRootChord, tabPosition } from '../../tree/finPlanform';
-import { KERNEL_DEFAULTS, KERNEL_MATERIALS } from '../../tree/kernelDefaults';
+import { KERNEL_DEFAULTS, KERNEL_MATERIALS, kernelDefault } from '../../tree/kernelDefaults';
 import { asStageNodes } from '../design/orkTree';
 import { escapeXml } from './xmlUtil';
 import { plainDecimal } from './numberText';
 import { radToDeg } from '../../prefs/units';
 import type { Keyed } from '../../i18n/keyedError';
+import { notePartName } from './importNote';
+import { partLabel } from '../../i18n/format';
+import { MATERIAL_KEYS, statedMaterial } from '../design/materialSlots';
+import {
+  FINISH_CODES,
+  LOCATION_CODES,
+  MATT,
+  RING_USAGE,
+  SHAPE_CODES,
+  STAGE_CG_ELEMENTS,
+  STAGE_ELEMENTS,
+  STAGE_MASS_ELEMENTS,
+  SURFACE_DENSITY,
+  TIP_SHAPE_CODES,
+} from './rocksim/schema';
 
 /**
  * RockSim (`.rkt`) export.
@@ -48,55 +63,6 @@ const g = (v: number): number => v * 1000;
  * method), and `constructor` or `__proto__` on a plain object would resolve to
  * an Object.prototype member rather than to nothing.
  */
-
-/**
- * `RockSimFinishCode` ordinals, by our finish token. RockSim has four; every
- * other finish goes out as matt (2), as `RockSimFinishCode.toCode` writes it,
- * because a part with no `FinishCode` opens in desktop with no finish at all.
- */
-const FINISH_CODES: ReadonlyMap<string, number> = new Map(
-  Object.entries({ polished: 0, smooth: 1, normal: 2, unfinished: 3 }),
-);
-const MATT = 2;
-
-/** `RockSimNoseConeCode` ordinals, by our shape token. RockSim has no separate
- *  ellipsoid, so both of its rounded codes come back as ELLIPTICAL (3). */
-const SHAPE_CODES: ReadonlyMap<string, number> = new Map(
-  Object.entries({
-    conical: 0,
-    ogive: 1,
-    ellipsoid: 3,
-    power: 4,
-    parabolic: 5,
-    haack: 6,
-  }),
-);
-
-/**
- * `RockSimLocationMode` ordinals, by our placement method. RockSim has no
- * middle or after mode: middle is converted to a top offset when written (see
- * writeCommon), and after is written as top with its offset, as desktop's
- * BasePartDTO does, because RockSim lays out a stage's parts in order.
- */
-const LOCATION_CODES: ReadonlyMap<string, number> = new Map(
-  Object.entries({ top: 0, absolute: 1, bottom: 2, middle: 0, after: 0 }),
-);
-
-/**
- * `TipShapeCode` ordinals, by our cross-section token
- * (`TipShapeCode.convertTipShapeCode`). RockSim calls a fin's cross section its
- * tip shape.
- */
-const TIP_SHAPE_CODES: ReadonlyMap<string, number> = new Map(Object.entries({ square: 0, rounded: 1, airfoil: 2 }));
-
-/**
- * kg/m2 → RockSim's surface density in g/cm2.
- *
- * `ROCKSIM_TO_OPENROCKET_SURFACE_DENSITY`, multiplied on the way out and divided
- * on the way in, which is the one direction the kernel uses it in each path
- * (the `BasePartDTO(RocketComponent)` constructor and `BaseHandler.computeDensity`).
- */
-const SURFACE_DENSITY = 1 / 10;
 
 /** Record something left out of the file, once however often it is met. */
 function skip(w: Writer, what: Keyed): void {
@@ -161,28 +127,18 @@ type MaterialKind = 'bulk' | 'surface' | 'line' | 'none';
 const DENSITY_TYPES = { bulk: 0, surface: 1, line: 2 } as const;
 
 /** The node keys each material kind is kept under. */
-const MATERIAL_KEYS = {
-  bulk: { name: 'materialName', density: 'density' },
-  surface: { name: 'surfaceMaterialName', density: 'surfaceDensity' },
-  line: { name: 'lineMaterialName', density: 'lineDensity' },
-} as const;
-
 /**
  * The material a part is weighed with, as `Material` and `Density`.
  *
  * Desktop builds a part's material from those two elements alone, and a part
  * with no `Density` opens weighing nothing. The bridge (`ComponentFactory`)
  * takes a bulk material only from a positive density and a surface or line one
- * from any density, as the `.ork` writer (`exportParts.material`) does, so a
- * part without one flies the kernel's default (`KERNEL_MATERIALS`), and that
- * is what goes out for it. A density with no
- * name goes out as `custom`, as the `.ork` writer names it.
+ * from any density (`statedMaterial`, the rule every writer reads), so a part
+ * without one flies the kernel's default (`KERNEL_MATERIALS`), and that is what
+ * goes out for it. A density with no name goes out as `custom`.
  */
 function materialOf(n: ComponentNode, kind: Exclude<MaterialKind, 'none'>): { name: string; density: number } {
-  const keys = MATERIAL_KEYS[kind];
-  const density = numOpt(n, keys.density);
-  if (density === undefined || (kind === 'bulk' && !(density > 0))) return KERNEL_MATERIALS[kind];
-  return { name: strOf(n, keys.name) ?? 'custom', density };
+  return statedMaterial(n, MATERIAL_KEYS[kind], kind === 'bulk') ?? KERNEL_MATERIALS[kind];
 }
 
 /** Write a length/diameter/mass element only when the node carries the field. */
@@ -243,7 +199,7 @@ function writeCommon(
     // No kernel figures, so no CG to pair with the mass: a CG of 0 would move the
     // part's CG to its front. Left out and named, with the part's own mass.
     if (ownMass !== undefined) el(w, d, 'KnownMass', g(ownMass));
-    skip(w, { key: 'errors.rktSkip.massOverride', values: { name: n.name || { key: `part.${n.type}` } } });
+    skip(w, { key: 'errors.rktSkip.massOverride', values: { name: notePartName(n) } });
   } else if (overrideMass !== undefined || cgOnlyMass !== undefined) {
     el(w, d, 'KnownMass', g(overrideMass ?? cgOnlyMass!));
     el(w, d, 'KnownCG', mm(overrideCg ?? massOnlyCg!));
@@ -253,14 +209,14 @@ function writeCommon(
     // With no kernel figures there is no own mass to pair with the CG, so the
     // override is left out and named.
     if (overrideCg !== undefined) {
-      skip(w, { key: 'errors.rktSkip.cgOverride', values: { name: n.name || { key: `part.${n.type}` } } });
+      skip(w, { key: 'errors.rktSkip.cgOverride', values: { name: notePartName(n) } });
     }
   }
   // RockSim's switch covers the part alone (`BaseHandler.setOverride` clears
   // the flags for the parts inside), and it has no drag override, so desktop opens the
   // first as an override of the part only, with its children's mass added on
   // top, and drops the second. Both are named rather than lost quietly.
-  const label = { name: n.name || { key: `part.${n.type}` } };
+  const label = { name: notePartName(n) };
   const subtree =
     (n['overrideSubcomponentsMass'] === true && overrideMass !== undefined) ||
     (n['overrideSubcomponentsCG'] === true && overrideCg !== undefined);
@@ -380,12 +336,9 @@ const writeTube =
     if (inner) writeRadial(w, d, n);
   };
 
-/** Our four ring types are one RockSim `Ring`, told apart by `UsageCode`. */
-const RING_USAGE: Record<string, number> = { centeringring: 0, bulkhead: 1, engineblock: 2, tubecoupler: 4 };
-
 const writeRing: PartWriter = (w, d, n) => {
   writeCommon(w, d, n, true);
-  el(w, d, 'UsageCode', RING_USAGE[n.type] ?? 0);
+  el(w, d, 'UsageCode', RING_USAGE.get(n.type) ?? 0);
   put(w, d, 'Len', numOpt(n, 'length'), mm);
   const or = numOpt(n, 'outerRadius');
   put(w, d, 'OD', or, dia);
@@ -416,7 +369,7 @@ const FIN_SHAPE_CODES: Record<string, number> = { trapezoidfinset: 0, elliptical
 const writeFinSet: PartWriter = (w, d, n) => {
   writeCommon(w, d, n, true);
   el(w, d, 'ShapeCode', FIN_SHAPE_CODES[n.type] ?? 0);
-  el(w, d, 'FinCount', numOpt(n, 'finCount') ?? 3);
+  el(w, d, 'FinCount', countOf(n, 'finCount', kernelDefault(n.type, 'finCount') ?? 3));
   put(w, d, 'Thickness', numOpt(n, 'thickness'), mm);
 
   if (n.type === 'trapezoidfinset') {
@@ -463,7 +416,7 @@ const writeFinSet: PartWriter = (w, d, n) => {
       el(w, d, 'CalcMass', g(figures.mass));
       el(w, d, 'CalcCG', mm(figures.cgX));
     } else {
-      skip(w, { key: 'errors.rktSkip.airfoilMass', values: { name: n.name || { key: `part.${n.type}` } } });
+      skip(w, { key: 'errors.rktSkip.airfoilMass', values: { name: notePartName(n) } });
     }
   }
 
@@ -481,7 +434,7 @@ const writeFinSet: PartWriter = (w, d, n) => {
 
 const writeTubeFinSet: PartWriter = (w, d, n) => {
   writeCommon(w, d, n, true);
-  el(w, d, 'TubeCount', numOpt(n, 'finCount') ?? 6);
+  el(w, d, 'TubeCount', countOf(n, 'finCount', KERNEL_DEFAULTS.tubefinset.finCount));
   writeSurfaceTube(w, d, n);
 };
 
@@ -501,7 +454,7 @@ function flown(
   if (n[flag] !== true) return numOpt(n, key);
   const figure = typeof n.id === 'string' ? w.componentInfo?.(n.id)?.[key] : undefined;
   if (figure === undefined) {
-    skip(w, { key: 'errors.rktSkip.autoValue', values: { name: n.name || { key: `part.${n.type}` } } });
+    skip(w, { key: 'errors.rktSkip.autoValue', values: { name: notePartName(n) } });
   }
   return figure;
 }
@@ -637,19 +590,12 @@ function clusterMembers(n: ComponentNode): ComponentNode[] {
   const pattern = strOf(n, 'cluster');
   const count = clusterCount(pattern);
   if (n.type !== 'innertube' || count <= 1) return [n];
-  const places = clusterPoints(
-    pattern,
-    numOpt(n, 'outerRadius') ?? 0,
-    numOpt(n, 'clusterScale') ?? 1,
-    numOpt(n, 'clusterRotation') ?? 0,
-    numOpt(n, 'radialPosition') ?? 0,
-    numOpt(n, 'radialDirection') ?? 0,
-  );
+  const places = clusterPlacesOf(n);
   return places.map((p, i) => ({
     ...n,
     // Desktop's InnerBodyTubeDTO names each member `<name> #<n>`; a mount with
     // no name of its own takes its type's name, as a new desktop part does.
-    name: `${n.name ?? i18n.t('part.innertube')} #${i + 1}`,
+    name: `${partLabel(i18n.t, n)} #${i + 1}`,
     cluster: 'single',
     ...p,
   }));
@@ -685,16 +631,14 @@ function withPodAngle(children: ComponentNode[] | undefined, angle: number): Com
  */
 function podMembers(n: ComponentNode): ComponentNode[] {
   const fallback = n.type === 'parallelstage' ? KERNEL_DEFAULTS.parallelstage : KERNEL_DEFAULTS.podset;
-  const count = Math.max(1, Math.round(numOpt(n, 'instanceCount') ?? fallback.instanceCount));
-  const base = numOpt(n, 'angleOffset') ?? 0;
+  const count = countOf(n, 'instanceCount', fallback.instanceCount);
   const override = numOpt(n, 'overrideMass');
-  return Array.from({ length: count }, (_, i): ComponentNode => {
-    const angle = base + (2 * Math.PI * i) / count;
+  return ringInstanceOffsets(count, 0, numOpt(n, 'angleOffset') ?? 0).map(({ angle }, i): ComponentNode => {
     const member: ComponentNode = { ...n, angleOffset: angle, children: withPodAngle(n.children, angle) };
     if (count === 1) return member;
     return {
       ...member,
-      name: `${n.name ?? i18n.t(`part.${n.type}`)} #${i + 1}`,
+      name: `${partLabel(i18n.t, n)} #${i + 1}`,
       instanceCount: 1,
       ...(override !== undefined ? { overrideMass: override / count } : {}),
     };
@@ -762,7 +706,7 @@ function writePart(w: Writer, depth: number, n: ComponentNode, at?: number): voi
   // first copy; desktop's own export drops the count the same way. Named
   // rather than lost quietly.
   if (!isAssembly(n.type) && Math.round(numOpt(n, 'instanceCount') ?? 1) > 1) {
-    skip(w, { key: 'errors.rktSkip.instanceCount', values: { name: n.name || { key: `part.${n.type}` } } });
+    skip(w, { key: 'errors.rktSkip.instanceCount', values: { name: notePartName(n) } });
   }
   w.emit(depth, `<${spec.tag}>`);
   spec.write(w, depth + 1, n);
@@ -808,11 +752,6 @@ export interface RktExportResult {
   /** What had no RockSim element and was left out, as keyed text to render. */
   skipped: Keyed[];
 }
-
-/** RockSim numbers its stages from the nose down: 3 is the sustainer. */
-const STAGE_ELEMENTS = ['Stage3Parts', 'Stage2Parts', 'Stage1Parts'] as const;
-const STAGE_MASS_ELEMENTS = ['Stage3Mass', 'Stage2Mass', 'Stage1Mass'] as const;
-const STAGE_CG_ELEMENTS = ['Stage3CG', 'Stage2CGAlone', 'Stage1CGAlone'] as const;
 
 /**
  * Write a design as RockSim XML.

@@ -165,7 +165,6 @@ const BASELINE = [
   // Test seams over module state, each saying so where it is declared.
   'src/engine/openRocketEngine.ts#__setEngineForTests',
   'src/components/tools/LandingEstimator.tsx#forgetLandingEstimator',
-  'src/components/tools/OffTheRail.tsx#forgetOffTheRail',
   'src/components/tools/ParachuteTool.tsx#forgetParachuteTool',
   'src/components/tools/ToolsPane.tsx#forgetToolsPane',
   'src/services/app/helpSearch.ts#resetHelpIndex',

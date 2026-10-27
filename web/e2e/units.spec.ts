@@ -41,7 +41,9 @@ test('the preferences reach the fields, the tree, the rulers and the stats strip
 
   await expect(bodyTube).toContainText('cm');
   await expect(rulerUnit).toHaveText('cm');
-  await expect(statsUnit).toHaveValue('cm');
+  // The stats strip mounts once the engine has the design built, which on a
+  // loaded machine outlasts the default 5 s.
+  await expect(statsUnit).toHaveValue('cm', { timeout: 20_000 });
 
   const dialog = await openUnitsTab(page);
   await dialog.getByRole('button', { name: 'Imperial defaults' }).click();

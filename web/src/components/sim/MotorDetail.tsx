@@ -1,6 +1,6 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useUnits } from '../../prefs/useUnits';
 import type { CatalogMotor } from '../../services/motors/motorDb';
@@ -15,12 +15,18 @@ import {
   LegendSwatch,
   highestSample,
 } from './chartAxes';
-import { inUserUnit, motorTypeLabel, withFixedUnit } from './motorFormat';
+import { inUserUnit, motorTypeLabel } from './motorFormat';
+import { withFixedUnit } from '../../i18n/format';
 import { token } from '../common/colorTokens';
 import { motorSimilarity } from '../../engine/openRocketEngine';
-import { useEngineStore } from '../../state/engineStore';
+import { useEngineReady } from '../../state/engineStore';
 import { loadHideSimilar, saveHideSimilar } from './motorPrefs';
 import { finalizeSamples } from '../../services/motors/curveFinalize';
+import { motorName } from '../../services/motors/motorName';
+import { CATALOG_TO_SI } from '../../services/motors/catalogUnits';
+import { usePersistedState } from '../common/usePersistedState';
+import { Check } from '../common/Check';
+import { MotorHeading, NoCurveNote } from './MotorPanelParts';
 
 /** Desktop's threshold for "Hide very similar thrust curves" (MOTOR_SIMILARITY_THRESHOLD). */
 const SIMILAR = 0.95;
@@ -42,16 +48,12 @@ export function MotorDetail({
   const u = useUnits();
   const curves = useMemo(() => motor.curves ?? [], [motor.curves]);
   const samples = (curves[curveIndex] ?? curves[0])?.samples ?? [];
-  const [hideSimilar, setHideSimilarRaw] = useState(loadHideSimilar);
-  const setHideSimilar = (on: boolean) => {
-    setHideSimilarRaw(on);
-    saveHideSimilar(on);
-  };
+  const [hideSimilar, setHideSimilar] = usePersistedState(loadHideSimilar, saveHideSimilar);
   // The curves the dropdown offers: the one shown, and with the box ticked only
   // those the kernel's MotorCorrelation does not call near duplicates of it.
   // Every curve while the engine is still loading, rather than none. Engine
   // readiness is a dependency, so the list is filtered once the engine arrives.
-  const engineReady = useEngineStore((s) => s.phase) === 'ready';
+  const engineReady = useEngineReady();
   const offered = useMemo(
     () =>
       curves
@@ -72,7 +74,7 @@ export function MotorDetail({
         }),
     [curves, curveIndex, hideSimilar, engineReady],
   );
-  const title = motor.code || motor.designation;
+  const title = motorName(motor);
   const showCommon = !!motor.code && motor.code !== motor.designation;
 
   // Avg thrust and total impulse are motor-level (certified); peak and initial
@@ -85,7 +87,7 @@ export function MotorDetail({
   const massFrac = massFracOf(motor);
   // ThrustCurve's URL keys on the full designation (e.g. "E26W"), not the common
   // name ("E26"); `code` holds it when they differ.
-  const tcUrl = `https://www.thrustcurve.org/motors/${encodeURIComponent(motor.manufacturer)}/${encodeURIComponent(motor.code || motor.designation)}/`;
+  const tcUrl = `https://www.thrustcurve.org/motors/${encodeURIComponent(motor.manufacturer)}/${encodeURIComponent(motorName(motor))}/`;
 
   const g = withFixedUnit;
   // The catalog is in mm / g / N / N.s (see CatalogMotor), so `scale` lifts a
@@ -100,11 +102,7 @@ export function MotorDetail({
           <span aria-hidden="true">←</span> {t('motorDlg.backToList')}
         </button>
       )}
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-warn-300">{motor.manufacturer}</div>
-      <div className="mt-1 flex items-center gap-2">
-        <span className="rounded bg-ok-500/15 px-1.5 py-0.5 text-xs font-semibold text-ok-300">{motor.class}</span>
-        <h3 className="text-2xl font-bold text-ink-strong">{title}</h3>
-      </div>
+      <MotorHeading kicker={motor.manufacturer} impulseClass={motor.class} title={title} />
       <div className="mt-0.5 text-sm text-ink-muted">
         {showCommon && (
           <>
@@ -145,42 +143,33 @@ export function MotorDetail({
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-xs text-ink-soft" title={t('motorDlg.hideSimilarHint')}>
-            <input
-              type="checkbox"
-              checked={hideSimilar}
-              onChange={(e) => setHideSimilar(e.target.checked)}
-              className="accent-accent-500"
-            />
-            {t('motorDlg.hideSimilar')}
-          </label>
+          <Check
+            checked={hideSimilar}
+            onChange={setHideSimilar}
+            label={t('motorDlg.hideSimilar')}
+            title={t('motorDlg.hideSimilarHint')}
+            className="text-xs text-ink-soft"
+          />
         </div>
       )}
 
-      {samples.length >= 2 ? (
-        <ThrustChart samples={samples} avg={avg} burn={motor.burn} />
-      ) : (
-        <p className="my-4 rounded-lg bg-raised/50 p-3 text-xs text-ink-muted">{t('motorDlg.noCurve')}</p>
-      )}
+      {samples.length >= 2 ? <ThrustChart samples={samples} avg={avg} burn={motor.burn} /> : <NoCurveNote />}
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         <SpecItem label={t('motorDlg.commonName')} value={motor.designation} />
         <SpecItem label={t('motorDlg.motorType')} value={motor.type ? motorTypeLabel(motor.type, t) : NO_VALUE} />
         <SpecItem label={t('motorDlg.delays')} value={motor.delays ?? NO_VALUE} />
-        <SpecItem label={t('prop.diameter')} value={q('motorDimensions', motor.diameter, 0.001)} />
-        <SpecItem label={t('prop.length')} value={q('motorDimensions', motor.length, 0.001)} />
-        <SpecItem label={t('motorDlg.totalWeight')} value={q('mass', motor.mass, 0.001)} />
-        <SpecItem label={t('motorDlg.propWeight')} value={q('mass', motor.propWeightG, 0.001)} />
+        <SpecItem label={t('prop.diameter')} value={q('motorDimensions', motor.diameter, CATALOG_TO_SI)} />
+        <SpecItem label={t('prop.length')} value={q('motorDimensions', motor.length, CATALOG_TO_SI)} />
+        <SpecItem label={t('motorDlg.totalWeight')} value={q('mass', motor.mass, CATALOG_TO_SI)} />
+        <SpecItem label={t('motorDlg.propWeight')} value={q('mass', motor.propWeightG, CATALOG_TO_SI)} />
         <SpecItem label={t('motorDlg.avgThrust')} value={q('force', avg, 1, 1)} />
         <SpecItem label={t('motorDlg.initialThrust') + '*'} value={q('force', init, 1, 1)} />
         <SpecItem label={t('motorDlg.maxThrust')} value={q('force', max, 1, 1)} />
-        <SpecItem label={t('motorDlg.totalImpulse')} value={q('impulse', motor.impulse, 1, 1)} />
-        <SpecItem label={t('motorDlg.burnTime')} value={g(motor.burn, 's', 2)} />
-        <SpecItem label={t('motorDlg.isp') + '*'} value={g(isp, 's', 0)} />
-        <SpecItem
-          label={t('motorDlg.massFraction') + '*'}
-          value={Number.isFinite(massFrac) ? `${fmtNum(massFrac, 0)}%` : NO_VALUE}
-        />
+        <SpecItem label={t('motorDlg.totalImpulse')} value={q('impulse', motor.impulse)} />
+        <SpecItem label={t('motorDlg.burnTime')} value={g(motor.burn, t('units.second'), 2)} />
+        <SpecItem label={t('motorDlg.isp') + '*'} value={g(isp, t('units.second'), 0)} />
+        <SpecItem label={t('motorDlg.massFraction') + '*'} value={fmtPercent(massFrac)} />
         <SpecItem label={t('motorDlg.propType')} value={motor.propInfo ?? NO_VALUE} />
         <SpecItem label={t('motorDlg.sparky')} value={t(motor.sparky ? 'motorDlg.yes' : 'motorDlg.no')} />
       </dl>

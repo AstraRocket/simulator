@@ -129,4 +129,17 @@ describe('mountFit', () => {
     expect(fit.bore).toBeCloseTo(18, 9);
     expect(motorFitsMount({ diameter: 29, length: 70 }, fit)).toBe(false);
   });
+
+  // The bore as the 2D and aft views read it (discGeometry.tubeRadii).
+  it('gives a filled body tube no bore', () => {
+    expect(mountFit({ type: 'bodytube', outerRadius: 0.02, thickness: 0.001, filled: true })!.bore).toBe(0);
+  });
+
+  it('reads a keyless radius as the inner tube the bridge builds', () => {
+    expect(mountFit({ type: 'innertube', length: 0.07 })!.bore).toBeCloseTo(18, 9);
+  });
+
+  it('never reports a negative bore', () => {
+    expect(mountFit({ type: 'innertube', outerRadius: 0.01, thickness: 0.02 })!.bore).toBe(0);
+  });
 });

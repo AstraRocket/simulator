@@ -1,24 +1,26 @@
 import { useRef } from 'react';
-import { defaultToolSite, rememberedSlot, useRemembered } from './remembered';
+import { rememberedSlot, useForecastFields, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { fmtDegrees, fmtGroundDistance, useUnits } from '../../prefs/useUnits';
 import { useSettings } from '../../state/SettingsProvider';
-import { hourInZone, nextHourMs, todayYmd, ymdInZone } from '../../services/weather/openMeteo';
+import { todayYmd } from '../../services/weather/openMeteo';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { runLandingEstimate, type LandingRun } from '../../services/landing/landingEstimate';
 import type { DescentPlan } from '../../services/landing/descentDrift';
 import { QNum } from '../sim/LaunchPanel';
-import { LandingMap } from './LandingMap';
+import { LandingMap } from '../common/map/LandingMap';
 import { SiteFields, type ToolSite } from './SiteFields';
 import { WhenFields } from '../sim/WhenFields';
 import { CardGroup } from '../common/CardGroup';
 import { TermRow } from '../common/TermRow';
 import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
 import { formatCoord } from '../../services/map/slippyMap';
-import { weatherErrorText } from '../../services/weather/weatherErrorText';
 import { fmtSiteTime } from '../../i18n/format';
-import { useLatest } from '../common/useLatest';
 import { useOnline } from '../common/useOnline';
+import { StatusLine } from '../common/StatusLine';
+import { RadioGroup } from '../common/RadioGroup';
+import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
+import { ToolLayout, ToolForm } from './ToolLayout';
 
 /**
  * Where a rocket will come down, for a flight that has not been designed here:
@@ -56,11 +58,7 @@ const sameInputs = (a: EstimateInputs, b: EstimateInputs | null): boolean =>
   a.plan.main?.rateMs === b.plan.main?.rateMs &&
   a.plan.main?.aglM === b.plan.main?.aglM;
 
-type State =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; run: LandingRun; inputs: EstimateInputs };
+type State = ForecastState<{ run: LandingRun; inputs: EstimateInputs }>;
 
 interface Remembered {
   site: ToolSite;
@@ -93,9 +91,7 @@ export function LandingEstimator() {
   const u = useUnits();
   const { settings } = useSettings();
   const defaults = settings.launchDefaults;
-  const [site, setSite] = useRemembered(remembered, 'site', defaultToolSite(defaults));
-  const [date, setDate] = useRemembered(remembered, 'date', ymdInZone(nextHourMs(), undefined));
-  const [hour, setHour] = useRemembered(remembered, 'hour', hourInZone(nextHourMs(), undefined));
+  const { site, setSite, date, setDate, hour, setHour } = useForecastFields(remembered, defaults);
   const [apogee, setApogee] = useRemembered(remembered, 'apogee', 300);
   const [recovery, setRecovery] = useRemembered(remembered, 'recovery', 'single');
   // A single chute and a drogue fall at very different rates, so each keeps
@@ -108,7 +104,7 @@ export function LandingEstimator() {
   const [state, setState] = useRemembered(remembered, 'state', { kind: 'idle' }, (s): State =>
     s.kind === 'loading' ? { kind: 'idle' } : s,
   );
-  const request = useLatest();
+  const forecast = useForecastRequest();
 
   const dual = recovery === 'dual';
   const firstRate = dual ? drogueRate : singleRate;
@@ -137,30 +133,16 @@ export function LandingEstimator() {
       : null;
   const ready = inputs !== null;
 
-  const errorText = (err: unknown): string => weatherErrorText(err, t);
-
   const estimate = async () => {
     if (!inputs) return;
     const asked = inputs;
-    const signal = request.claimSignal();
-    setState({ kind: 'loading' });
-    try {
-      const run = await runLandingEstimate({ ...asked, today: todayYmd(), apiKey: readWeatherKey() }, { signal });
-      if (signal.aborted) return;
-      setState(
-        run === 'noHour'
-          ? { kind: 'error', message: t('weather.noHour') }
-          : run === 'noElevation'
-            ? { kind: 'error', message: t('weather.needElevation') }
-            : { kind: 'ready', run, inputs: asked },
-      );
-      // On a phone the result is below the form, out of sight of the button.
-      if (typeof run !== 'string')
-        requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest' }));
-    } catch (err) {
-      if (signal.aborted) return;
-      setState({ kind: 'error', message: errorText(err) });
-    }
+    const run = await forecast.run(
+      setState,
+      (signal) => runLandingEstimate({ ...asked, today: todayYmd(), apiKey: readWeatherKey() }, { signal }),
+      (r) => ({ run: r, inputs: asked }),
+    );
+    // On a phone the result is below the form, out of sight of the button.
+    if (run) requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest' }));
   };
 
   const dist = u.plain('distance');
@@ -171,13 +153,8 @@ export function LandingEstimator() {
   const outdated = ran !== null && !sameInputs(ran.inputs, inputs);
   const validTime = run ? fmtSiteTime(run.validUnix * 1000, run.answer.timezone) : '';
   return (
-    <div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">{t('landing.title')}</h2>
-          <p className="mt-1 text-xs text-ink-muted">{t('landing.intro')}</p>
-        </div>
-
+    <ToolLayout wide>
+      <ToolForm title={t('landing.title')} intro={t('landing.intro')}>
         <CardGroup title={t('landing.site')}>
           <SiteFields site={site} onChange={setSite} elevation />
         </CardGroup>
@@ -200,26 +177,13 @@ export function LandingEstimator() {
             value={apogee}
             onChange={setApogee}
           />
-          <fieldset>
-            <legend className="sr-only">{t('landing.recovery')}</legend>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-ink-muted">{t('landing.recovery')}</span>
-              <div className="flex gap-3">
-                {(['single', 'dual'] as const).map((r) => (
-                  <label key={r} className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="landingRecovery"
-                      checked={recovery === r}
-                      onChange={() => setRecovery(r)}
-                      className="accent-accent-500"
-                    />
-                    <span className="text-xs text-ink-muted">{t(`landing.recovery_${r}`)}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </fieldset>
+          <RadioGroup
+            legend={t('landing.recovery')}
+            options={['single', 'dual'] as const}
+            value={recovery}
+            onChange={setRecovery}
+            fmt={(r) => t(`landing.recovery_${r}`)}
+          />
           <QNum
             label={t(dual ? 'landing.drogueRate' : 'landing.descentRate')}
             field="landingFirstRate"
@@ -275,10 +239,8 @@ export function LandingEstimator() {
           {state.kind === 'loading' ? t('landing.estimating') : t('landing.estimate')}
         </button>
         {!hasSite && <p className="text-xs text-warn-400">{t('weather.needSite')}</p>}
-        <p role="status" aria-live="polite" className="text-xs text-warn-400">
-          {state.kind === 'error' ? state.message : ''}
-        </p>
-      </div>
+        <StatusLine tone="warn">{state.kind === 'error' ? state.message : ''}</StatusLine>
+      </ToolForm>
 
       <div ref={resultRef} className="min-w-0 space-y-3">
         {ran && run && e ? (
@@ -321,6 +283,6 @@ export function LandingEstimator() {
           <p className="p-4 text-sm text-ink-faint">{t('landing.empty')}</p>
         )}
       </div>
-    </div>
+    </ToolLayout>
   );
 }

@@ -12,6 +12,7 @@ import type { FlightResult } from '../../engine/openRocketEngine';
 import { stageLabel } from '../../i18n/format';
 import { Check } from '../common/Check';
 import { NumberInput } from '../common/NumberInput';
+import { DialogButton } from '../common/DialogButton';
 
 /**
  * What goes in the flight CSV, before it is written: OpenRocket's Export data
@@ -85,19 +86,12 @@ export function FlightCsvDialog({
       layout="fill"
       footer={
         <div className="flex justify-end gap-2 p-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg bg-raised px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
-          >
+          <DialogButton size="sm" onClick={onClose}>
             {t('common.close')}
-          </button>
-          <button
-            onClick={onExport}
-            disabled={!chosen.length}
-            className="rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          </DialogButton>
+          <DialogButton variant="primary" size="sm" onClick={onExport} disabled={!chosen.length}>
             {t('csv.export')}
-          </button>
+          </DialogButton>
         </div>
       }
     >

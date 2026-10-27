@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { fmtNum, tickDigits } from '../../../src/i18n/format';
 import type { AeroSweep, ComponentMass } from '../../../src/engine/openRocketEngine';
 import {
   altitudeField,
@@ -182,6 +183,18 @@ describe('machTicks', () => {
   });
   it('ticks whole Mach numbers above 1', () => {
     expect(machTicks(0.05, 3)).toEqual([0.05, 1, 2, 3]);
+  });
+  it('prints every tick as the Mach number it stands at', () => {
+    // The axis prints one decimal up to Mach 1 and none above; the first tick,
+    // the sweep's first sample, needs two.
+    for (const [max, axis] of [
+      [1, 1],
+      [3, 0],
+    ] as const) {
+      for (const m of machTicks(0.05, max)) {
+        expect(Number(fmtNum(m, tickDigits(m, axis)))).toBe(m);
+      }
+    }
   });
 });
 

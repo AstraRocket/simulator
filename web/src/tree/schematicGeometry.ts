@@ -8,7 +8,7 @@ import { isFinSet, tubeFinRadius } from './tubefins.js';
 import { isChainType } from './componentKinds.js';
 import { KERNEL_DEFAULTS, KERNEL_MASSCOMPONENT_RADIUS } from './kernelDefaults.js';
 import { assemblyBoundingRadius, assemblyParentRadius, isAssembly, resolveAssemblyRadius } from './assembly.js';
-import { stabilityState, type StabilityState } from '../services/flight/simReport.js';
+import { stabilityState, stabilityVerdictKey, type StabilityState } from '../services/flight/simReport.js';
 import { fmtNum } from '../i18n/format';
 
 export interface Ctx {
@@ -385,6 +385,37 @@ export function innerTubeExtent(node: ComponentNode): { length: number; radius: 
  */
 export const colorOf = (n: ComponentNode, dflt: string): string => (typeof n['color'] === 'string' ? n['color'] : dflt);
 
+/** The color token each part type is drawn in when it has no figure color of its own. */
+const FIGURE_TOKEN: Partial<Record<string, string>> = {
+  nosecone: 'sch-shell',
+  transition: 'sch-shell',
+  bodytube: 'sch-shell-light',
+  trapezoidfinset: 'sch-part',
+  ellipticalfinset: 'sch-part',
+  freeformfinset: 'sch-part',
+  tubefinset: 'sch-part-light',
+  fairing: 'sch-part-light',
+  launchlug: 'sch-part-light',
+  railbutton: 'sch-part-light',
+  parachute: 'sch-parachute',
+  streamer: 'sch-streamer',
+  shockcord: 'sch-shockcord',
+  masscomponent: 'sch-masscomponent',
+  centeringring: 'sch-centeringring',
+  bulkhead: 'sch-bulkhead',
+  engineblock: 'sch-engineblock',
+  tubecoupler: 'sch-tubecoupler',
+  innertube: 'sch-innertube',
+};
+
+/**
+ * The color token (`--c-<name>`) a part type is drawn in when it has no figure
+ * color of its own: the side view's, the aft view's and the one "use default
+ * color" starts an edit from, so clearing it does not change the color the
+ * part was drawn in.
+ */
+export const figureToken = (type: string): string => FIGURE_TOKEN[type] ?? 'sch-ink';
+
 /** Loaded motor case dimensions (m) keyed by mount node id. The one shape every
  *  view and the store's `selectMotorDims` use. */
 export type MotorDims = Record<string, { length: number; diameter: number; label?: string }>;
@@ -397,29 +428,25 @@ export const STABILITY_GLYPH: Record<StabilityState, string> = {
   ok: '✓',
 };
 
-const STABILITY_WORD: Record<StabilityState, string> = {
-  under: 'schematic.underStable',
-  over: 'schematic.overStable',
-  ok: 'schematic.ok',
-};
-
 /**
  * The margin readout every drawing prints beside its CP: glyph, calibers,
- * percent of length and the verdict word, e.g. "△ 7.00 cal · 12.0% (over-stable)".
- * One builder, so the 2D overlay and the 3D callout cannot word it differently.
- * Null without a finite margin or percentage, rather than "NaN%".
+ * percent of length and the verdict word, e.g. "△ 7.00 cal · 12.0% (Over-stable)".
+ * One builder, so the 2D overlay and the 3D callout cannot word it differently,
+ * and the word is the stats strip's (`stabilityVerdictKey`), so the drawing and
+ * the strip beside it grade one margin alike. `glyph` and `figures` are the
+ * readout without the word, for the info card. Null without a finite margin or
+ * percentage, rather than "NaN%".
  */
 export function marginText(
   cal: number,
   pct: number | null,
   t: (key: string) => string,
-): { state: StabilityState; text: string } | null {
+): { state: StabilityState; glyph: string; figures: string; text: string } | null {
   const state = stabilityState(cal);
   if (!state || pct == null || !Number.isFinite(pct)) return null;
-  return {
-    state,
-    text: `${STABILITY_GLYPH[state]} ${fmtNum(cal, 2)} ${t('stability.caliber')} · ${fmtNum(pct, 1)}% (${t(STABILITY_WORD[state])})`,
-  };
+  const glyph = STABILITY_GLYPH[state];
+  const figures = `${fmtNum(cal, 2)} ${t('stability.caliber')} · ${fmtNum(pct, 1)}%`;
+  return { state, glyph, figures, text: `${glyph} ${figures} (${t(stabilityVerdictKey(cal))})` };
 }
 
 /** View transform of a zoomable SVG drawing: scale `k` about the origin, then
@@ -431,6 +458,9 @@ export interface ZoomState {
 }
 
 export const ZOOM_IDENTITY: ZoomState = { k: 1, x: 0, y: 0 };
+
+/** True at the default fit: no zoom and no pan. */
+export const isZoomIdentity = (z: ZoomState): boolean => z.k === 1 && z.x === 0 && z.y === 0;
 
 /**
  * Rescale a view to `k` keeping the drawing point under (px, py) fixed on

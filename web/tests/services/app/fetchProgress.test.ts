@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { readStreamWithProgress } from '../../../src/services/app/fetchProgress';
+import { fetchJsonStaged, readStreamWithProgress } from '../../../src/services/app/fetchProgress';
 
 /**
  * The size cap on a streamed response.
@@ -79,5 +79,49 @@ describe('readStreamWithProgress', () => {
     const onProgress = vi.fn();
     await readStreamWithProgress(stream, 5, onProgress);
     expect(onProgress.mock.calls[0]?.[0]).toMatchObject({ loaded: 0, total: 5 });
+  });
+});
+
+/**
+ * One staged fetch for the catalog and thrustcurve.org: a reply over the cap is
+ * worded by the caller whether the host declared its length or streamed it, so
+ * one fault does not read as two different messages.
+ */
+describe('fetchJsonStaged', () => {
+  const errors = {
+    http: (s: number) => new Error(`http ${s}`),
+    tooLarge: () => new Error('mine: too large'),
+    fail: (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+  };
+  const budget = { ttfbMs: 1000, bodyMs: 1000, maxBytes: 4 };
+
+  it('words a streamed reply over the cap as the caller words a declared one', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('[1,2,3,4,5]'));
+        c.close();
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(body)),
+    );
+    try {
+      await expect(fetchJsonStaged('x', {}, budget, errors)).rejects.toThrow('mine: too large');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('words a declared length over the cap the same way', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('[1,2,3,4,5]', { headers: { 'content-length': '11' } })),
+    );
+    try {
+      await expect(fetchJsonStaged('x', {}, budget, errors)).rejects.toThrow('mine: too large');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

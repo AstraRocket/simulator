@@ -222,3 +222,24 @@ export function driftRegion(
     areaM2: polygonArea(hull),
   };
 }
+
+/**
+ * A sweep's landings grouped by stage, one region per stage that landed, in
+ * branch order (the order the ground track draws its traces in).
+ */
+export function sweepRegions(
+  landings: readonly ({ branch: number } & GroundPoint)[],
+  sigma = DEFAULT_SIGMA,
+): DriftRegion[] {
+  const byBranch = new Map<number, GroundPoint[]>();
+  for (const l of landings) {
+    const at = byBranch.get(l.branch);
+    const p = { east: l.east, north: l.north };
+    if (at) at.push(p);
+    else byBranch.set(l.branch, [p]);
+  }
+  return [...byBranch.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([branch, points]) => driftRegion(branch, points, sigma))
+    .filter((r): r is DriftRegion => r !== null);
+}

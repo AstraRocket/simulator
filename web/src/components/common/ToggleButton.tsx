@@ -13,6 +13,7 @@ export function ToggleButton({
   current = false,
   disabled,
   title,
+  label,
   className = 'rounded-lg px-3 py-1 text-xs font-medium',
   children,
 }: {
@@ -22,6 +23,8 @@ export function ToggleButton({
   current?: boolean;
   disabled?: boolean;
   title?: string;
+  /** Accessible name, for a button whose content is a bare glyph. */
+  label?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -31,6 +34,7 @@ export function ToggleButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={label}
       aria-pressed={current ? undefined : active}
       aria-current={current && active ? 'true' : undefined}
       className={`disabled:cursor-not-allowed disabled:opacity-40 ${

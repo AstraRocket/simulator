@@ -78,3 +78,39 @@ describe('SimulationsPane run-table export', () => {
     ).toBeTruthy();
   });
 });
+
+/** The time columns name their unit in the reader's language, as the rest of the app does. */
+describe('SimulationsTable time columns', () => {
+  it('name seconds through the translated unit', async () => {
+    const { default: i18n } = await import('../../../src/i18n');
+    await i18n.changeLanguage('ru');
+    try {
+      const s = useWorkspaceStore.getState();
+      renderWithProviders(
+        <SimulationsTable
+          sims={s.sims}
+          activeId={s.sims[0]!.id}
+          selectedIds={[]}
+          runs={{}}
+          tree={s.tree}
+          configs={s.configs}
+          simPrefs={s.simPrefs}
+          onSetConfig={() => {}}
+          onSelect={() => {}}
+          onToggle={() => {}}
+          onToggleAll={() => {}}
+          onOpenResults={() => {}}
+        />,
+      );
+      const second = i18n.t('units.second');
+      expect(second).not.toBe('s');
+      const heads = screen.getAllByRole('columnheader').map((h) => h.textContent ?? '');
+      for (const key of ['sim.toApogee', 'sim.flightTime']) {
+        const head = heads.find((h) => h.startsWith(i18n.t(key)));
+        expect(head, key).toBe(`${i18n.t(key)} ${second}`);
+      }
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
+});

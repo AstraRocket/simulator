@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { fmtNum } from '../../i18n/format';
 import { useCatalogNoticeStore } from '../../state/catalogNoticeStore';
+import { Banner } from '../common/Banner';
 
 /**
  * "The motor catalog was updated" after the scheduled sync replaced a catalog
@@ -21,7 +22,7 @@ export function CatalogNotice() {
   return (
     <div role="status" aria-live="polite">
       {changes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-accent-500/40 bg-accent-900/60 px-4 py-2 text-sm text-accent-50">
+        <Banner tone="accent" onDismiss={dismiss} dismissLabel={t('catalog.dismiss')}>
           <div className="min-w-0 flex-1">
             {changes.map((c) => (
               <p key={c.name}>
@@ -32,14 +33,7 @@ export function CatalogNotice() {
               </p>
             ))}
           </div>
-          <button
-            onClick={dismiss}
-            className="shrink-0 rounded-lg px-1 py-1.5 text-accent-300 hover:text-on-accent"
-            aria-label={t('catalog.dismiss')}
-          >
-            ✕
-          </button>
-        </div>
+        </Banner>
       )}
     </div>
   );

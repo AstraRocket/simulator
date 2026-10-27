@@ -9,6 +9,7 @@ import { fetchCatalog } from '../app/remoteData';
 import { noteCatalogLoad } from '../app/catalogUpdates';
 import type { ComponentNode, NoseShape } from '../../engine/openRocketEngine';
 import { isFiniteNumber } from '../app/numbers';
+import { PROFILE_SHAPES } from '../../tree/shapeProfile';
 
 interface ComponentBase {
   mfr: string;
@@ -244,16 +245,7 @@ const isOptionalSize = (v: unknown): boolean => v === undefined || isNullableNon
  * fails the build here until it is listed; an unknown one would otherwise fall
  * back to a different shape without a word.
  */
-const KNOWN_SHAPES: ReadonlySet<string> = new Set(
-  Object.keys({
-    ogive: true,
-    conical: true,
-    ellipsoid: true,
-    power: true,
-    parabolic: true,
-    haack: true,
-  } satisfies Record<NoseShape, true>),
-);
+const KNOWN_SHAPES: ReadonlySet<string> = new Set(PROFILE_SHAPES);
 const isShape = (v: unknown): boolean => typeof v === 'string' && KNOWN_SHAPES.has(v);
 
 /**

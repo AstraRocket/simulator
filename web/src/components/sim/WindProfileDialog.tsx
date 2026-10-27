@@ -14,16 +14,19 @@ import {
   turbulenceLevel,
 } from '../../services/flight/windTurbulence';
 import { parseWindProfileCsv, WindProfileCsvError } from '../../services/flight/windProfileCsv';
-import { duplicateAltitudeRows } from '../../services/flight/windLevels';
+import { duplicateAltitudeRows, levelFromAverage } from '../../services/flight/windLevels';
 import { useLatest } from '../common/useLatest';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, shortDigits } from '../../i18n/format';
 import { readFileText } from '../../services/files/decodeText';
 import { degToRad, radToDeg } from '../../prefs/units';
-import { DEFAULT_HEADING_DEG } from '../../services/flight/simulations';
+import { DEFAULT_HEADING_DEG } from '../../services/flight/windLevels';
 import { Check } from '../common/Check';
 import { useFilePick } from '../common/useFilePick';
 import { polylinePath } from '../common/svgPath';
 import { useSettings } from '../../state/SettingsProvider';
+import { DialogButton, DialogActions } from '../common/DialogButton';
+import { smallButton } from '../common/smallButton';
+import { RadioGroup } from '../common/RadioGroup';
 
 /**
  * The altitude-layered wind profile, as OpenRocket's Wind Profile Editor: one
@@ -39,25 +42,8 @@ import { useSettings } from '../../state/SettingsProvider';
  * line and the row keys start fresh per opening.
  */
 
-/**
- * The level a reset leaves, as the kernel's `resetLevels` does through
- * `addInitialLevel`: one level at altitude 0 carrying the preferences' average
- * wind (its speed, direction and deviation). The app's preferences for that are
- * the launch defaults new simulations start from.
- */
-const initialLevel = (defaults: {
-  windAverage: number | null;
-  windStdDev: number | null;
-  windDirectionDeg?: number;
-}): WindLevel => ({
-  altitudeM: 0,
-  speed: defaults.windAverage ?? 0,
-  directionDeg: defaults.windDirectionDeg ?? DEFAULT_HEADING_DEG,
-  stddev: defaults.windStdDev ?? 0,
-});
-
 const cell = 'rounded bg-raised px-1 py-1 text-right text-xs tabular-nums text-ink-strong ring-1 ring-line/10';
-const btn = 'rounded-md bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated';
+const btn = smallButton('row', 'soft');
 
 /**
  * Altitude against wind speed, the way the desktop draws it: altitude up, speed
@@ -129,7 +115,7 @@ function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Unit
         0
       </text>
       <text x={W - padR} y={H - padB + 12} textAnchor="end" className="fill-ink-faint text-[9px]">
-        {fmtNum(sHi, sHi < 10 ? 1 : 0)}
+        {fmtNum(sHi, shortDigits(sHi))}
       </text>
     </svg>
   );
@@ -361,7 +347,7 @@ export function WindProfileDialog({
                       className={`${cell} w-16`}
                     />
                     <NumberInput
-                      step={u.step('angle', (5 * Math.PI) / 180)}
+                      step={u.step('angle', degToRad(5))}
                       ariaLabel={t('windProfile.levelField', { field: t('launch.direction'), n: i + 1 })}
                       value={u.toUi('angle', degToRad(l.directionDeg))}
                       onChange={onSi(
@@ -422,7 +408,9 @@ export function WindProfileDialog({
               <button
                 className={btn}
                 onClick={() => {
-                  replaceLevels([initialLevel(settings.launchDefaults)]);
+                  // The level a reset leaves: the launch defaults' average wind, as
+                  // the kernel's `resetLevels` seeds from the preferences.
+                  replaceLevels([levelFromAverage(settings.launchDefaults)]);
                   setError(null);
                   onCommit?.();
                 }}
@@ -461,40 +449,28 @@ export function WindProfileDialog({
               label={t('windProfile.showVectors')}
             />
 
-            <fieldset className="mt-4">
-              <legend className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                {t('windProfile.altitudeReference')}
-              </legend>
-              <div className="mt-1 space-y-1">
-                {(['msl', 'agl'] as const).map((r) => (
-                  <label key={r} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="windAltitudeReference"
-                      checked={reference === r}
-                      onChange={() => {
-                        onChange({ windAltitudeReference: r });
-                        onCommit?.();
-                      }}
-                      className="accent-accent-500"
-                    />
-                    <span className="text-xs text-ink-muted">{t(`windProfile.${r}`)}</span>
-                  </label>
-                ))}
-              </div>
+            <RadioGroup
+              className="mt-4"
+              layout="stack"
+              legend={t('windProfile.altitudeReference')}
+              options={['msl', 'agl'] as const}
+              value={reference}
+              onChange={(r) => {
+                onChange({ windAltitudeReference: r });
+                onCommit?.();
+              }}
+              fmt={(r) => t(`windProfile.${r}`)}
+            >
               <p className="mt-1 text-[11px] leading-snug text-ink-faint">{t('windProfile.referenceNote')}</p>
-            </fieldset>
+            </RadioGroup>
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end">
-          <button
-            onClick={onClose}
-            className="rounded-lg bg-accent-600 px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-700"
-          >
+        <DialogActions>
+          <DialogButton variant="primary" size="sm" onClick={onClose}>
             {t('common.close')}
-          </button>
-        </div>
+          </DialogButton>
+        </DialogActions>
       </div>
     </Dialog>
   );

@@ -1,6 +1,6 @@
 import { PLUGGED_DELAY, type ComponentNode } from '../../../engine/openRocketEngine';
 import { xmlText as text } from '../xmlUtil';
-import type { OrkMotorRef, OrkFlightConfig } from '../orkTypes';
+import { type OrkMotorRef, type OrkFlightConfig, defaultOrkConfig } from '../orkTypes';
 import { nonNegTag, numTag, readDeploymentTags, readSeparationTags } from './importTags';
 import { MAX_MOTOR_CONFIGS } from './importLimits';
 import { finiteNum } from './numbers';
@@ -63,22 +63,23 @@ export function readFlightConfigs(rocketEl: Element): {
       seen.isDefault ||= isDefault;
       continue;
     }
-    byId.set(id, { id, name, isDefault, motors: {}, deployments: {}, separations: {}, grounded: [] });
+    byId.set(id, defaultOrkConfig({ id, name, isDefault }));
   }
   const configs = [...byId.values()];
   const chosenConfigId = configs.find((c) => c.isDefault)?.id ?? configs[0]?.id ?? null;
   return { configEls, configs, chosenConfigId };
 }
 
+/** `el`'s child `tag` that belongs to configuration `id`, or null. */
+const configChild = (el: Element, tag: string, id: string): Element | null =>
+  Array.from(el.children).find((x) => x.tagName === tag && x.getAttribute('configid') === id) ?? null;
+
 // The chosen configuration's child of `el` by tag name (per-config motor
 // or override block). With no declared configs, the first such child:
 // hand-rolled files may key <motor configid>s without declarations, and
 // first-in-document-order is the read for them.
 export function configScoped(ctx: OrkImportContext, el: Element, tag: string): Element | null {
-  return ctx.chosenConfigId === null
-    ? el.querySelector(`:scope > ${tag}`)
-    : (Array.from(el.children).find((c) => c.tagName === tag && c.getAttribute('configid') === ctx.chosenConfigId) ??
-        null);
+  return ctx.chosenConfigId === null ? el.querySelector(`:scope > ${tag}`) : configChild(el, tag, ctx.chosenConfigId);
 }
 
 /**
@@ -98,14 +99,29 @@ export function configScoped(ctx: OrkImportContext, el: Element, tag: string): E
  * already noted anything wrong with them.
  */
 export function captureDeployments(ctx: OrkImportContext, el: Element, node: ComponentNode): void {
+  captureOverrides(ctx, el, node, 'deploymentconfiguration', readDeploymentTags, (c) => c.deployments);
+}
+
+/**
+ * The shared half of the two captures: for each configuration with a `tag`
+ * block of its own, the bare defaults with the block's fields over them, into
+ * the map `into` picks. The bare tags are read without notes (the design's own
+ * read has noted them already).
+ */
+function captureOverrides<O extends object>(
+  ctx: OrkImportContext,
+  el: Element,
+  node: ComponentNode,
+  tag: string,
+  read: (from: Element, node: ComponentNode, notes: OrkImportContext['notes'] | undefined) => O,
+  into: (c: OrkFlightConfig) => Record<string, O>,
+): void {
   if (!node.id) return;
   for (const c of ctx.configs) {
-    const block = Array.from(el.children).find(
-      (x) => x.tagName === 'deploymentconfiguration' && x.getAttribute('configid') === c.id,
-    );
+    const block = configChild(el, tag, c.id);
     if (!block) continue;
-    const o = { ...readDeploymentTags(el, node, undefined), ...readDeploymentTags(block, node, ctx.notes) };
-    if (Object.keys(o).length > 0) c.deployments[node.id] = o;
+    const o = { ...read(el, node, undefined), ...read(block, node, ctx.notes) };
+    if (Object.keys(o).length > 0) into(c)[node.id] = o;
   }
 }
 
@@ -144,15 +160,7 @@ export function readStageActiveness(configEls: Element[], configs: OrkFlightConf
  * StageSeparationConfigurationHandler clones the default before applying it.
  */
 export function captureSeparations(ctx: OrkImportContext, el: Element, node: ComponentNode): void {
-  if (!node.id) return;
-  for (const c of ctx.configs) {
-    const block = Array.from(el.children).find(
-      (x) => x.tagName === 'separationconfiguration' && x.getAttribute('configid') === c.id,
-    );
-    if (!block) continue;
-    const o = { ...readSeparationTags(el, node, undefined), ...readSeparationTags(block, node, ctx.notes) };
-    if (Object.keys(o).length > 0) c.separations[node.id] = o;
-  }
+  captureOverrides(ctx, el, node, 'separationconfiguration', readSeparationTags, (c) => c.separations);
 }
 
 /**
@@ -163,8 +171,8 @@ export function captureSeparations(ctx: OrkImportContext, el: Element, node: Com
 function readDelay(motorEl: Element): number {
   const t = text(motorEl, ':scope > delay');
   if (t === null || t === 'none') return PLUGGED_DELAY;
-  const v = Number(t.trim());
-  return t.trim() !== '' && Number.isFinite(v) ? Math.max(0, v) : PLUGGED_DELAY;
+  const v = finiteNum(t);
+  return v === undefined ? PLUGGED_DELAY : Math.max(0, v);
 }
 
 /** A mount's <motormount>: the mount flag, its overhang, its own ignition, and every configuration's motor. */

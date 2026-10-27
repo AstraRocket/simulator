@@ -200,6 +200,19 @@ describe('split cluster', () => {
     });
   });
 
+  // A mount with no radius key flies at the kernel's inner tube default, so its
+  // tubes are spaced from that, not stacked at the center.
+  it('spaces a mount with no radius key from the kernel default', () => {
+    const keyless = tube();
+    delete (keyless as Record<string, unknown>)['outerRadius'];
+    const out = kids(splitCluster(rocket([keyless]), 'mount', 'Mount'));
+    const want = clusterOffsets('4-ring', 0.0095, 1, 0);
+    out.forEach((n, i) => {
+      const { y, z } = want[i]!;
+      expect(n['radialPosition'] as number).toBeCloseTo(Math.hypot(y, z), 12);
+    });
+  });
+
   it('keeps an off-center cluster off center', () => {
     // The kernel rotates the pattern by clusterRotation - radialDirection and
     // then adds the tube's own offset, so the tubes stay where they were drawn.

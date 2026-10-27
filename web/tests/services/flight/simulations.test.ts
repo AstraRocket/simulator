@@ -1,15 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { MAX_ROD_ANGLE_RAD } from '../../../src/services/flight/safetyLimits';
-import {
-  simConditions,
-  newSimulation,
-  resultKey,
-  DEFAULT_HEADING_DEG,
-  type SimPrefs,
-} from '../../../src/services/flight/simulations';
+import { simConditions, newSimulation, resultKey, type SimPrefs } from '../../../src/services/flight/simulations';
 import { newFlightConfig } from '../../../src/services/flight/flightConfigs';
 import type { CompleteLaunch } from '../../../src/services/flight/requiredLaunch';
+import { DEFAULT_HEADING_DEG } from '../../../src/services/flight/windLevels';
 
 const base: CompleteLaunch = {
   launchRodLengthM: 1,
@@ -39,6 +34,7 @@ const PREFS: SimPrefs = {
   drogueLowSpeedWarn: 3.048,
   // OpenRocket's own clearance model, which is the default.
   guideAwareRodClearance: false,
+  railExitVelocityMin: 15,
 };
 
 describe('simConditions', () => {

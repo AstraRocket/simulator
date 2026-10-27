@@ -3,6 +3,7 @@ import type { AeroSweep, ComponentMass } from '../../engine/openRocketEngine';
 import { polylinePath } from '../common/svgPath';
 import { niceStep } from '../../prefs/units';
 import { componentName, isDefaultComponentName } from '../../services/app/warningText';
+import { roundFixed } from '../../services/app/numbers';
 
 /**
  * The pure half of AeroAnalysis: the cell-shading formulas, the per-table row
@@ -59,6 +60,9 @@ type Translate = (key: string) => string;
  */
 export function niceName(raw: string, translate?: Translate): string {
   if (translate && isDefaultComponentName(raw)) return componentName(raw, translate);
+  // The bridge sends a renamed part's getName() as typed, dots and capitals
+  // included ("Fins 4.5in", "PayloadBay"); only a bracketed key is rewritten.
+  if (!/^\[[^\]]*\]$/.test(raw)) return raw;
   const m = raw.match(/^\[?([^.\]]+)\.([^.\]]+)\]?$/);
   const cls = m?.[1] ?? raw.replace(/[[\]]/g, '');
   const inst = m?.[2];
@@ -79,7 +83,7 @@ export function altitudeField(factor: number): {
   step: number;
 } {
   const digits = factor < 0.01 ? 2 : 0;
-  const round = (v: number) => Number(v.toFixed(digits));
+  const round = (v: number) => roundFixed(v, digits);
   return {
     toUi: (m) => round(m * factor),
     toSi: (ui) => round(ui) / factor,
@@ -368,7 +372,7 @@ export function stackedBands(
 export function machTicks(machMin: number, machMax: number): number[] {
   const step = machMax <= 1 ? 0.2 : 1;
   const ticks = [machMin];
-  for (let m = step; m <= machMax + 1e-9; m += step) ticks.push(Number(m.toFixed(2)));
+  for (let m = step; m <= machMax + 1e-9; m += step) ticks.push(roundFixed(m, 2));
   return ticks;
 }
 

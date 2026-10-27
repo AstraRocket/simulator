@@ -3,15 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { LaunchConditions, LaunchPatch } from '../../services/design/orkTree';
 import { Dialog } from '../common/Dialog';
 import { fmtDegrees, useUnits } from '../../prefs/useUnits';
-import {
-  fetchWeather,
-  hourInZone,
-  nextHourMs,
-  sampleAt,
-  todayYmd,
-  type WeatherAnswer,
-  ymdInZone,
-} from '../../services/weather/openMeteo';
+import { fetchWeather, forecastStart, sampleAt, todayYmd, type WeatherAnswer } from '../../services/weather/openMeteo';
 import {
   hasGroup,
   PROPOSAL_GROUPS,
@@ -22,17 +14,20 @@ import {
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { sameSite, sourceFor } from '../../services/weather/weatherSource';
 import { formatLat, formatLon } from '../../services/map/slippyMap';
-import { weatherErrorText } from '../../services/weather/weatherErrorText';
-import { fmtSiteTime } from '../../i18n/format';
+import { fmtPercent, fmtSiteTime } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { LAUNCH_SI } from '../../prefs/launchUnits';
 import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
 import { Check } from '../common/Check';
-import { useLatest } from '../common/useLatest';
 import { WhenFields } from './WhenFields';
 import { useOnline } from '../common/useOnline';
 import { fmtNum, withUnit } from '../../i18n/format';
 import { siToUi } from '../../prefs/units';
+import { toggled } from '../../services/app/collections';
+import { DialogButton } from '../common/DialogButton';
+import { StatusLine } from '../common/StatusLine';
+import { smallButton } from '../common/smallButton';
+import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
 
 /**
  * Launch conditions from an Open-Meteo forecast for a date and hour at the
@@ -52,14 +47,9 @@ import { siToUi } from '../../prefs/units';
 /** The large unit visibility reads in, by the user's distance unit: its own system's. */
 const FAR_UNIT: Record<string, string> = { m: 'km', km: 'km', ft: 'mi', yd: 'mi', mi: 'mi' };
 
-const btn =
-  'rounded-md bg-raised px-3 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
+const btn = smallButton('sm', 'soft');
 
-type State =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; answer: WeatherAnswer };
+type State = ForecastState<{ answer: WeatherAnswer }>;
 
 export function WeatherDialog({
   launch,
@@ -81,12 +71,13 @@ export function WeatherDialog({
   const { t, i18n } = useTranslation();
   const u = useUnits();
   const prior = refresh ? launch.weatherSource : undefined;
-  const [date, setDate] = useState(() => prior?.date ?? ymdInZone(nextHourMs(), undefined));
-  const [hour, setHour] = useState(() => prior?.hour ?? hourInZone(nextHourMs(), undefined));
+  const [start] = useState(forecastStart);
+  const [date, setDate] = useState(() => prior?.date ?? start.date);
+  const [hour, setHour] = useState(() => prior?.hour ?? start.hour);
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [useTerrain, setUseTerrain] = useState(prior?.elevationApplied ?? false);
   const [ticked, setTicked] = useState<Set<ProposalGroup>>(() => new Set(prior?.groups ?? PROPOSAL_GROUPS));
-  const request = useLatest();
+  const forecast = useForecastRequest();
   const online = useOnline();
 
   const lat = launch.latitudeDeg;
@@ -99,31 +90,25 @@ export function WeatherDialog({
   const elsewhere = !!(diff?.has('latitudeDeg') || diff?.has('longitudeDeg') || diff?.has('launchAltitudeM'));
   const hasSite = lat != null && lon != null;
 
-  const errorText = (err: unknown): string => weatherErrorText(err, t);
-
   /** `force` asks Open-Meteo even when an answer under 30 minutes old is held. */
   const fetchNow = async (force = false) => {
     if (!hasSite || siteM === null) return;
-    const signal = request.claimSignal();
-    setState({ kind: 'loading' });
-    try {
-      const answer = await fetchWeather(
-        {
-          latitudeDeg: lat,
-          longitudeDeg: lon,
-          siteM,
-          date,
-          today: todayYmd(),
-          apiKey: readWeatherKey(),
-        },
-        { signal, force },
-      );
-      if (signal.aborted) return;
-      setState({ kind: 'ready', answer });
-    } catch (err) {
-      if (signal.aborted) return;
-      setState({ kind: 'error', message: errorText(err) });
-    }
+    await forecast.run(
+      setState,
+      (signal) =>
+        fetchWeather(
+          {
+            latitudeDeg: lat,
+            longitudeDeg: lon,
+            siteM,
+            date,
+            today: todayYmd(),
+            apiKey: readWeatherKey(),
+          },
+          { signal, force },
+        ),
+      (answer) => ({ answer }),
+    );
   };
 
   // A refresh fetches at once: its date, hour and groups are already chosen.
@@ -182,12 +167,7 @@ export function WeatherDialog({
     onClose();
   };
 
-  const toggle = (g: ProposalGroup) => {
-    const next = new Set(ticked);
-    if (next.has(g)) next.delete(g);
-    else next.add(g);
-    setTicked(next);
-  };
+  const toggle = (g: ProposalGroup) => setTicked(toggled(ticked, g));
 
   const temp = (c: number) => `${u.fmtSym('temperature', LAUNCH_SI.degC.toSi(c), 1)}`;
   const pres = (hPa: number) => `${u.fmtSym('pressure', LAUNCH_SI.hPa.toSi(hPa), 1)}`;
@@ -206,7 +186,7 @@ export function WeatherDialog({
       case 'pressure':
         return pres(p.pressureHPa!);
       case 'humidity':
-        return `${Math.round(p.relativeHumidity! * 100)} %`;
+        return fmtPercent(p.relativeHumidity! * 100);
       case 'wind': {
         const w = p.wind!;
         const top = w.levels[w.levels.length - 1]!;
@@ -235,16 +215,12 @@ export function WeatherDialog({
       size="lg"
       footer={
         <div className="flex justify-end gap-2 p-3">
-          <button className={btn} onClick={onClose}>
+          <DialogButton size="sm" onClick={onClose}>
             {t('common.cancel')}
-          </button>
-          <button
-            className="rounded-md bg-accent-600 px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-accent-700 disabled:opacity-50"
-            disabled={!proposal || chosen.size === 0}
-            onClick={apply}
-          >
+          </DialogButton>
+          <DialogButton variant="primary" size="sm" disabled={!proposal || chosen.size === 0} onClick={apply}>
             {t('weather.apply')}
-          </button>
+          </DialogButton>
         </div>
       }
     >
@@ -264,7 +240,7 @@ export function WeatherDialog({
                   setDate(d);
                   // A new date is a new request; the old answer covers only its own
                   // days, and one still loading would land under the new date.
-                  request.claimSignal();
+                  forecast.cancel();
                   setState({ kind: 'idle' });
                 }}
                 onHour={setHour}
@@ -284,9 +260,7 @@ export function WeatherDialog({
           </>
         )}
 
-        <p role="status" aria-live="polite" className="text-xs text-warn-400">
-          {state.kind === 'error' ? state.message : ''}
-        </p>
+        <StatusLine tone="warn">{state.kind === 'error' ? state.message : ''}</StatusLine>
 
         {answer && !sample && <p className="text-xs text-warn-400">{t('weather.noHour')}</p>}
 
@@ -347,8 +321,8 @@ export function WeatherDialog({
                   <dl className="mt-1 space-y-0.5 text-xs">
                     {(
                       [
-                        ['weather.cloudCover', sample.cloudCoverPct, (v: number) => `${Math.round(v)} %`],
-                        ['weather.cloudCoverLow', sample.cloudCoverLowPct, (v: number) => `${Math.round(v)} %`],
+                        ['weather.cloudCover', sample.cloudCoverPct, (v: number) => fmtPercent(v)],
+                        ['weather.cloudCoverLow', sample.cloudCoverLowPct, (v: number) => fmtPercent(v)],
                         ['weather.visibility', sample.visibilityM, far],
                       ] as const
                     ).map(([key, value, fmt]) =>

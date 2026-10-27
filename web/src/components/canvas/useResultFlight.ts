@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useWorkspaceStore, selectActive } from '../../state/store';
-import { resultFlight, type ResultFlight } from '../../services/flight/simulations';
+import { useWorkspaceStore, selectActive, selectShownSim } from '../../state/store';
+import { toResultFlight, type ResultFlight } from '../../services/flight/simulations';
 
 /**
  * The flight the results views draw and the flight the 3D path animates. Owns
@@ -8,9 +8,9 @@ import { resultFlight, type ResultFlight } from '../../services/flight/simulatio
  */
 export function useResultFlight() {
   const result = useWorkspaceStore((s) => selectActive(s).result);
-  const sims = useWorkspaceStore((s) => s.sims);
-  const activeId = useWorkspaceStore((s) => selectActive(s).id);
-  const resultSimId = useWorkspaceStore((s) => s.resultSimId);
+  // The stored row, so the subscription is stable; the tiles and warnings read
+  // the same selector, so they describe the flight the charts draw.
+  const shown = useWorkspaceStore(selectShownSim);
 
   /**
    * The flight every results view draws, chosen in the Results picker.
@@ -19,10 +19,7 @@ export function useResultFlight() {
    * builds a fresh object is compared by reference by zustand, so subscribing to
    * one re-renders forever (see `selectRunIds`).
    */
-  const flight = useMemo<ResultFlight | null>(
-    () => resultFlight(sims, resultSimId, activeId),
-    [sims, resultSimId, activeId],
-  );
+  const flight = useMemo<ResultFlight | null>(() => toResultFlight(shown), [shown]);
 
   /**
    * The flight the 3D path animates: the one being shown, falling back to the

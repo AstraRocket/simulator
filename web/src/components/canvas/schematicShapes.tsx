@@ -12,8 +12,8 @@ import {
   type FinParent,
   type FinPose,
 } from '../../tree/finPlanform';
-import { profileEnds } from '../../tree/shapeProfile';
-import { bodyTubeRadius, countOf, finCant, num, str } from '../../tree/nodeProps';
+import { hasShoulder, profileEnds, shouldersOf, type Shoulder } from '../../tree/shapeProfile';
+import { bodyTubeRadius, countOf, finCant, noseConeAftRadius, num, str } from '../../tree/nodeProps';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults.js';
 import { railButtonSize } from './railButton';
 import { lineInstances, placementOffsets, turnedOffset } from '../../tree/placement';
@@ -35,6 +35,7 @@ import { chainWithKernelEnds } from '../../services/design/autoRadius.js';
 import {
   axialStart,
   colorOf,
+  figureToken,
   innerTubeExtent,
   internalExtent,
   profilePath,
@@ -81,8 +82,9 @@ export interface SchematicShapesCfg {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   setHoverId: React.Dispatch<React.SetStateAction<string | null>>;
-  /** Display name for an unnamed part (the tree panel's translated type name).
-   *  Absent = the untranslated schema label. */
+  /** A part's display name, as every view names it (`partLabel`: its own name,
+   *  trimmed, else its translated type). Absent = its own name, else the
+   *  untranslated schema label. */
   partName?: (n: ComponentNode) => string;
   /** The short in-drawing tag for an internal part type (`schematic.tag.<type>`).
    *  Absent = the untranslated English tag. */
@@ -114,7 +116,8 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
   const { ctx, scale, roll, uid, motors, selectedId, onSelect, setHoverId } = cfg;
   // A transition end with no radius on record is drawn as the kernel resolves it.
   const chain = chainWithKernelEnds(cfg.chain);
-  const nameOf = (n: ComponentNode): string => n.name ?? cfg.partName?.(n) ?? DISPLAY_NAME[n.type];
+  const nameOf = (n: ComponentNode): string =>
+    cfg.partName?.(n) ?? ((typeof n.name === 'string' && n.name.trim()) || DISPLAY_NAME[n.type]);
 
   // Selection sync: click any drawn component to select it in the tree; the
   // selected component draws with an accent outline.
@@ -402,7 +405,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
         const px = (x: number) => at(x, 0)[0];
         const py = (y: number) => at(0, y)[1];
         const ink = {
-          fill: wire ? 'none' : fillOf(child, token('sch-part')),
+          fill: wire ? 'none' : fillOf(child, token(figureToken(child.type))),
           fillOpacity: wire ? undefined : '0.35',
           stroke: token('sch-line'),
           strokeWidth: '1',
@@ -490,7 +493,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
               key={key++}
               points={ptsStr}
               clipPath={near ? undefined : `url(#${clip})`}
-              {...partLine(child, fillOf(child, token('sch-part')))}
+              {...partLine(child, fillOf(child, token(figureToken(child.type))))}
               {...grab}
             />
           );
@@ -522,23 +525,26 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
           const yc = baseY - (R + rt) * p * ctx.scale;
           const half = rt * ctx.scale;
           const w2 = Math.max(2, len * ctx.scale);
+          // The tube's dashed centerline, clipped with the tube when it is.
+          const centerline = (cut?: string) => (
+            <line
+              key={key++}
+              x1={X}
+              y1={yc}
+              x2={X + len * ctx.scale}
+              y2={yc}
+              clipPath={cut}
+              stroke={token('sch-line')}
+              strokeWidth="0.8"
+              strokeDasharray="4 3"
+              style={{ pointerEvents: 'none' }}
+            />
+          );
           if (wire) {
             pushWire(child, grab, tubeClip, (extra) => (
               <rect key={key++} x={X} y={yc - half} width={w2} height={2 * half} rx="2" {...extra} />
             ));
-            wires.push(
-              <line
-                key={key++}
-                x1={X}
-                y1={yc}
-                x2={X + len * ctx.scale}
-                y2={yc}
-                stroke={token('sch-line')}
-                strokeWidth="0.8"
-                strokeDasharray="4 3"
-                style={{ pointerEvents: 'none' }}
-              />,
-            );
+            wires.push(centerline());
             continue;
           }
           const cut = near ? undefined : `url(#${tubeClip})`;
@@ -553,25 +559,14 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
                 width={w2}
                 height={2 * half}
                 rx="2"
-                fill={fillOf(child, token('sch-part-light'))}
+                fill={fillOf(child, token(figureToken(child.type)))}
                 fillOpacity="0.6"
                 stroke={selStroke(child, token('sch-line'))}
                 strokeWidth={selWidth(child)}
                 strokeDasharray={dashOf(child)}
                 {...grab}
               />,
-              <line
-                key={key++}
-                x1={X}
-                y1={yc}
-                x2={X + len * ctx.scale}
-                y2={yc}
-                clipPath={cut}
-                stroke={token('sch-line')}
-                strokeWidth="0.8"
-                strokeDasharray="4 3"
-                style={{ pointerEvents: 'none' }}
-              />,
+              centerline(cut),
             );
           }
         }
@@ -592,14 +587,14 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
             <polygon
               key={key++}
               points={`${X},${y0} ${X + 0.3 * len * ctx.scale},${yh} ${X + 0.7 * len * ctx.scale},${yh} ${Xe},${y0}`}
-              {...partLine(child, fillOf(child, token('sch-part-light')))}
+              {...partLine(child, fillOf(child, token(figureToken(child.type))))}
               {...grab}
             />
           ) : fshape === 'halfround' ? (
             <path
               key={key++}
               d={`M ${X} ${y0} L ${X} ${yh + 0.35 * (y0 - yh)} Q ${X} ${yh} ${X + Math.min(8, len * ctx.scale * 0.25)} ${yh} L ${Xe - Math.min(8, len * ctx.scale * 0.25)} ${yh} Q ${Xe} ${yh} ${Xe} ${yh + 0.35 * (y0 - yh)} L ${Xe} ${y0} Z`}
-              {...partLine(child, fillOf(child, token('sch-part-light')))}
+              {...partLine(child, fillOf(child, token(figureToken(child.type))))}
               {...grab}
             />
           ) : (
@@ -609,7 +604,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
               y={yh}
               width={Math.max(2, len * ctx.scale)}
               height={Math.max(2, hgt * ctx.scale)}
-              {...partLine(child, fillOf(child, token('sch-part-light')))}
+              {...partLine(child, fillOf(child, token(figureToken(child.type))))}
               {...grab}
             />
           ),
@@ -648,7 +643,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
             y={yTop}
             width={Math.max(2, len * ctx.scale)}
             height={h}
-            {...partLine(child, fillOf(child, token('sch-part-light')))}
+            {...partLine(child, fillOf(child, token(figureToken(child.type))))}
             {...grab}
           />,
         );
@@ -658,18 +653,18 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
         // Per-type stroke color + a small tag, so these do not read as identical
         // gray boxes: payload-type parts get muted
         // colors from the theme-safe midrange.
-        const TYPE_STYLE: Partial<Record<string, { stroke: string; tag: string }>> = {
-          parachute: { stroke: token('sch-parachute'), tag: 'chute' },
-          streamer: { stroke: token('sch-streamer'), tag: 'strmr' },
-          shockcord: { stroke: token('sch-shockcord'), tag: 'cord' },
-          masscomponent: { stroke: token('sch-masscomponent'), tag: 'mass' },
-          centeringring: { stroke: token('sch-centeringring'), tag: 'CR' },
-          bulkhead: { stroke: token('sch-bulkhead'), tag: 'BH' },
-          engineblock: { stroke: token('sch-engineblock'), tag: 'EB' },
-          // Couplers and inner tubes get their own ink too: in a neutral gray
-          // they are two unlabeled boxes told apart only by size.
-          tubecoupler: { stroke: token('sch-tubecoupler'), tag: 'TC' },
-          innertube: { stroke: token('sch-innertube'), tag: 'IT' },
+        const TYPE_STYLE: Partial<Record<string, { tag: string }>> = {
+          parachute: { tag: 'chute' },
+          streamer: { tag: 'strmr' },
+          shockcord: { tag: 'cord' },
+          masscomponent: { tag: 'mass' },
+          centeringring: { tag: 'CR' },
+          bulkhead: { tag: 'BH' },
+          engineblock: { tag: 'EB' },
+          // Couplers and inner tubes get their own ink too (figureToken): in a
+          // neutral gray they are two unlabeled boxes told apart only by size.
+          tubecoupler: { tag: 'TC' },
+          innertube: { tag: 'IT' },
         };
         const style = TYPE_STYLE[child.type];
         // A ring, coupler, bulkhead or engine block is sized the way the DXF cut
@@ -694,7 +689,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
         // flush against the mount's aft end (how motors actually load).
         const motor = child.type === 'innertube' && child.id ? motors?.[child.id] : undefined;
         for (const off of offsets) {
-          const inkColor = isSel(child) ? 'var(--accent)' : fillOf(child, style?.stroke ?? token('sch-ink'));
+          const inkColor = isSel(child) ? 'var(--accent)' : fillOf(child, token(figureToken(child.type)));
           noteHover(
             child,
             ctx.x0 + start * ctx.scale,
@@ -729,7 +724,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
           if (gs >= 8) {
             const g = gs / 2;
             const glyphProps = {
-              stroke: fillOf(child, style?.stroke ?? token('sch-ink')),
+              stroke: fillOf(child, token(figureToken(child.type))),
               fill: 'none',
               strokeWidth: 1.2,
               style: { pointerEvents: 'none' as const },
@@ -751,7 +746,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
                     y={gcy - g * 0.35}
                     width={g * 1.4}
                     height={g * 1.05}
-                    fill={fillOf(child, style?.stroke ?? token('sch-ink'))}
+                    fill={fillOf(child, token(figureToken(child.type)))}
                     fillOpacity="0.35"
                   />
                   <path
@@ -805,7 +800,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
                 textAnchor="middle"
                 dominantBaseline="central"
                 fontSize="8.5"
-                fill={fillOf(child, style.stroke)}
+                fill={fillOf(child, token(figureToken(child.type)))}
                 style={{ pointerEvents: 'none', textTransform: 'uppercase', letterSpacing: '0.04em' }}
               >
                 {cfg.typeTag?.(child.type) ?? style.tag}
@@ -846,13 +841,14 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
   const shoulderRect = (
     owner: ComponentNode,
     startX: number,
-    lenSi: number,
-    radiusSi: number,
+    shoulder: Shoulder,
     endRadiusSi: number,
     baseY: number,
   ) => {
-    const rSi = Math.min(radiusSi, endRadiusSi);
-    if (lenSi <= 0 || rSi <= 0) return;
+    if (!hasShoulder(shoulder)) return;
+    const lenSi = shoulder.length;
+    const rSi = Math.min(shoulder.radius, endRadiusSi);
+    if (rSi <= 0) return;
     overlay.push(
       <rect
         key={key++}
@@ -886,7 +882,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
       <path
         key={key++}
         d={profilePath(ctx, n, cx, len, fore, aft, baseY)}
-        {...partLine(n, fillOf(n, token('sch-shell')))}
+        {...partLine(n, fillOf(n, token(figureToken(n.type))))}
         {...clickable(n)}
       />,
     );
@@ -900,15 +896,15 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
     for (const n of nodes) {
       const len = partLength(n);
       if (n.type === 'nosecone') {
-        const r = num(n, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius);
+        const r = noseConeAftRadius(n);
         // A flipped nose cone is a tail cone: its base, and the shoulder on it,
         // are at the fore end.
         const flipped = n['flipped'] === true;
         const ends = profileEnds(n);
         profileShape(n, cx, len, ends.fore, ends.aft, r, baseY);
-        const shLen = num(n, 'shoulderLength', 0);
-        const baseR = flipped ? ends.fore : ends.aft;
-        shoulderRect(n, flipped ? cx - shLen : cx + len, shLen, num(n, 'shoulderRadius', 0), baseR, baseY);
+        const sh = shouldersOf(n);
+        if (flipped) shoulderRect(n, cx - sh.fore.length, sh.fore, ends.fore, baseY);
+        else shoulderRect(n, cx + len, sh.aft, ends.aft, baseY);
         renderChildren(n, cx, len, r, baseY, turn);
         cx += len;
       } else if (n.type === 'bodytube') {
@@ -927,7 +923,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
               y={baseY - r * scale}
               width={len * scale}
               height={2 * r * scale}
-              {...partLine(n, fillOf(n, token('sch-shell-light')))}
+              {...partLine(n, fillOf(n, token(figureToken(n.type))))}
               {...clickable(n)}
             />,
           );
@@ -943,9 +939,9 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
       } else if (n.type === 'transition') {
         const { fore: rf, aft: ra } = profileEnds(n);
         profileShape(n, cx, len, rf, ra, Math.max(rf, ra), baseY);
-        const fsl = num(n, 'foreShoulderLength', 0);
-        shoulderRect(n, cx - fsl, fsl, num(n, 'foreShoulderRadius', 0), rf, baseY);
-        shoulderRect(n, cx + len, num(n, 'aftShoulderLength', 0), num(n, 'aftShoulderRadius', 0), ra, baseY);
+        const sh = shouldersOf(n);
+        shoulderRect(n, cx - sh.fore.length, sh.fore, rf, baseY);
+        shoulderRect(n, cx + len, sh.aft, ra, baseY);
         renderChildren(n, cx, len, Math.max(rf, ra), baseY, turn);
         cx += len;
       }

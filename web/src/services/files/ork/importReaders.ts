@@ -9,9 +9,11 @@ import { clampCount, finiteNum } from './numbers';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_POINTS, MAX_LINE_COUNT, checkDepth, countComponent } from './importLimits';
 import {
   autoRadiusTag,
+  clusterTag,
   crossSectionTag,
   finCountTag,
   isDrogueTag,
+  massComponentTypeTag,
   nonNegTag,
   numTag,
   readAirfoil,
@@ -79,8 +81,8 @@ const readCd = (el: Element, n: ComponentNode) => {
     return;
   }
   if (cdText) {
-    const cdv = Number(cdText);
-    if (Number.isFinite(cdv)) n['cd'] = cdv;
+    const cdv = finiteNum(cdText);
+    if (cdv !== undefined) n['cd'] = cdv;
   }
 };
 
@@ -102,18 +104,28 @@ const readNosecone: NodeReader = (ctx, el) => {
   readThicknessOrFilled(el, n, COMPONENT_DEFAULTS.nosecone.thickness);
   n['shape'] = shapeTag(el, n, ctx.notes, 'ogive');
   n['shapeParameter'] = nonNegTag(el, 'shapeparameter', shapeParamDefault(String(n['shape'])));
-  const shR = numTag(el, 'aftshoulderradius', 0);
-  const shL = numTag(el, 'aftshoulderlength', 0);
-  if (shR > 0) n['shoulderRadius'] = shR;
-  if (shL > 0) n['shoulderLength'] = shL;
-  const shT = numTag(el, 'aftshoulderthickness', 0);
-  if (shT > 0) n['shoulderThickness'] = shT;
-  if (text(el, ':scope > aftshouldercapped') === 'true') n['shoulderCapped'] = true;
+  readShoulder(el, n, 'aft', 'shoulder');
   // A flipped nose cone is a tail cone; read so it keeps its orientation
   // through a round trip.
   if (text(el, ':scope > isflipped') === 'true') n['flipped'] = true;
   return n;
 };
+
+/**
+ * One shoulder's `<{side}shoulder*>` tags into the node keys `{key}Radius`,
+ * `Length`, `Thickness` and `Capped`: a nose cone's one (`shoulder`) or a
+ * transition's two. A zero is no shoulder, so it is left unset. A capped
+ * shoulder is closed by a disc of the part's own material.
+ */
+function readShoulder(el: Element, n: ComponentNode, side: 'fore' | 'aft', key: string): void {
+  const r = numTag(el, `${side}shoulderradius`, 0);
+  const l = numTag(el, `${side}shoulderlength`, 0);
+  if (r > 0) n[`${key}Radius`] = r;
+  if (l > 0) n[`${key}Length`] = l;
+  const th = numTag(el, `${side}shoulderthickness`, 0);
+  if (th > 0) n[`${key}Thickness`] = th;
+  if (text(el, `:scope > ${side}shouldercapped`) === 'true') n[`${key}Capped`] = true;
+}
 
 const readTransition: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'transition', false);
@@ -132,20 +144,8 @@ const readTransition: NodeReader = (ctx, el) => {
   // kernel default (clipped, matching the desktop).
   const clip = text(el, ':scope > shapeclipped');
   if (clip === 'true' || clip === 'false') n['clipped'] = clip === 'true';
-  for (const [side, key] of [
-    ['fore', 'foreShoulder'],
-    ['aft', 'aftShoulder'],
-  ] as const) {
-    const r = numTag(el, `${side}shoulderradius`, 0);
-    const l = numTag(el, `${side}shoulderlength`, 0);
-    if (r > 0) n[`${key}Radius`] = r;
-    if (l > 0) n[`${key}Length`] = l;
-    const th = numTag(el, `${side}shoulderthickness`, 0);
-    if (th > 0) n[`${key}Thickness`] = th;
-    // A capped shoulder is closed by a disc of the part's own material. Read
-    // per side, since a transition has two.
-    if (text(el, `:scope > ${side}shouldercapped`) === 'true') n[`${key}Capped`] = true;
-  }
+  readShoulder(el, n, 'fore', 'foreShoulder');
+  readShoulder(el, n, 'aft', 'aftShoulder');
   return n;
 };
 
@@ -255,6 +255,23 @@ const readTubeFinset: NodeReader = (ctx, el) => {
   return n;
 };
 
+/**
+ * `RadiusMethod` and `AngleMethod` by the token desktop writes (the enum name
+ * lower-cased, `mirror_xy` with or without its underscore), each to the name
+ * the bridge builds (`ComponentFactory.radiusMethodOf`, `angleMethodOf`).
+ * Anything else reads as relative, desktop's default.
+ */
+const RADIUS_METHODS: ReadonlyMap<string, string> = new Map(
+  ['relative', 'free', 'surface', 'coaxial'].map((m) => [m, m]),
+);
+const ANGLE_METHODS: ReadonlyMap<string, string> = new Map([
+  ['relative', 'relative'],
+  ['fixed', 'fixed'],
+  ['mirrorxy', 'mirror_xy'],
+]);
+const methodOf = (el: Element, methods: ReadonlyMap<string, string>): string =>
+  methods.get((el.getAttribute('method') ?? '').trim().toLowerCase().replace(/_/g, '')) ?? 'relative';
+
 const readInnertube: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'innertube', true);
   const it = COMPONENT_DEFAULTS.innertube;
@@ -262,7 +279,7 @@ const readInnertube: NodeReader = (ctx, el) => {
   n['outerRadius'] = nonNegTag(el, 'outerradius', it.outerRadius);
   n['thickness'] = nonNegTag(el, 'thickness', it.thickness);
   // Cluster (desktop stores rotation in degrees; we keep radians).
-  const cluster = text(el, ':scope > clusterconfiguration');
+  const cluster = clusterTag(el, n, ctx.notes);
   if (cluster && cluster !== 'single') {
     n['cluster'] = cluster;
     n['clusterScale'] = nonNegTag(el, 'clusterscale', 1);
@@ -468,7 +485,7 @@ const readMasscomponent: NodeReader = (ctx, el) => {
   if (!readAutoPackedRadius(el, n)) n['radius'] = nonNegTag(el, 'packedradius', mc.radius);
   // Preserve-through: what kind of mass this is (altimeter, payload…).
   // No mass/CG effect, but the desktop shows it and users set it there.
-  const mct = text(el, ':scope > masscomponenttype');
+  const mct = massComponentTypeTag(el, n, ctx.notes);
   if (mct && mct !== 'masscomponent') n['massComponentType'] = mct;
   // Off-axis placement: <radialposition> (m) + <radialdirection> (deg → rad),
   // only kept when non-zero so a centered mass stays clean.
@@ -493,14 +510,13 @@ const readAssembly =
     const radEl = el.querySelector(':scope > radiusoffset');
     if (radEl) {
       n['radiusOffset'] = finiteNum(radEl.textContent) ?? 0; // meters, no conversion
-      n['radiusMethod'] = (radEl.getAttribute('method') ?? 'relative').toLowerCase() === 'free' ? 'free' : 'relative';
+      n['radiusMethod'] = methodOf(radEl, RADIUS_METHODS);
     }
     const angEl = el.querySelector(':scope > angleoffset');
     if (angEl) {
       n['angleOffset'] = ((finiteNum(angEl.textContent) ?? 0) * Math.PI) / 180; // deg → rad, like cant
       if (asmType === 'parallelstage') {
-        n['angleMethod'] =
-          (angEl.getAttribute('method') ?? 'relative').toLowerCase() === 'fixed' ? 'fixed' : 'relative';
+        n['angleMethod'] = methodOf(angEl, ANGLE_METHODS);
       }
     }
     if (asmType === 'parallelstage') {

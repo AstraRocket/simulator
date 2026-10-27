@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NumberInput } from '../common/NumberInput';
 import { UnitChip } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
@@ -9,6 +8,7 @@ import { num } from '../../tree/nodeProps';
 import { PANEL_SCOPE_KEYS } from '../../services/design/componentFields';
 import { PropSection } from './PropSection';
 import type { NodeEditProps } from './DimensionFields';
+import { NumberWithUnit } from '../common/NumberRow';
 
 /**
  * The property panel's override section: the mass / CG / CD overrides
@@ -68,19 +68,17 @@ function OverrideRow({
           />
           {label}
         </span>
-        <span className="flex items-center gap-1">
-          <NumberInput
-            ariaLabel={label}
-            value={Number.isFinite(value) ? value : 0}
-            onChange={onValue}
-            onCommit={onCommit}
-            disabled={!enabled || locked}
-            step={step}
-            min={min}
-            className="w-24 rounded-md bg-raised px-2 py-1 text-right text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 disabled:opacity-40"
-          />
-          {unit && <span className="min-w-10 text-xs text-ink-faint">{unit}</span>}
-        </span>
+        <NumberWithUnit
+          unit={unit}
+          fill="bg-raised text-ink-strong disabled:opacity-40"
+          ariaLabel={label}
+          value={Number.isFinite(value) ? value : 0}
+          onChange={onValue}
+          onCommit={onCommit}
+          disabled={!enabled || locked}
+          step={step}
+          min={min}
+        />
       </label>
       {coveredBy && (
         <p title={coveredBy.tip} className="pl-6 text-[11px] leading-snug text-danger-400">

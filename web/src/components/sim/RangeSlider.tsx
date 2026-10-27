@@ -69,7 +69,10 @@ export function RangeSlider({
         aria-label={t('motorDlg.rangeMin', { label })}
         onChange={(e) => onChange(Math.min(Number(e.target.value), high), high)}
         className={THUMB}
-        style={{ zIndex: low >= high ? 5 : 3 }}
+        // Where the thumbs meet, the one on top is the one that can still move:
+        // the low thumb, except at the first stop, where it cannot go lower and
+        // only the high thumb can leave.
+        style={{ zIndex: low >= high && low > 0 ? 5 : 3 }}
       />
       <input
         type="range"

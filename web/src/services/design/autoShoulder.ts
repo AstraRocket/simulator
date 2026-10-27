@@ -1,10 +1,10 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { boreAt, endAt } from './discGeometry';
-import { num } from '../../tree/nodeProps';
-import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
+import { noseConeAftRadius, num } from '../../tree/nodeProps';
+import { KERNEL_AUTO_RADIUS } from '../../tree/kernelDefaults';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
 import { mapTreePreserving, type MapContext } from '../../tree/treeWalk';
-import { isZero } from '../motors/mathEquals';
+import { isZero, mathEquals } from '../motors/mathEquals';
 import { symmetricNeighbors, type Neighbors } from './autoRadius';
 
 /**
@@ -34,39 +34,24 @@ import { symmetricNeighbors, type Neighbors } from './autoRadius';
  * the writer) then sees a plain dimension and needs to know nothing about it.
  */
 
-/** Which shoulder follows which neighbor: -1 is the part above, +1 below. */
-const SHOULDERS: Record<
-  string,
-  readonly { auto: string; length: string; radius: string; thickness: string; capped: string; side: -1 | 1 }[]
-> = {
-  nosecone: [
-    {
-      auto: 'shoulderAuto',
-      length: 'shoulderLength',
-      radius: 'shoulderRadius',
-      thickness: 'shoulderThickness',
-      capped: 'shoulderCapped',
-      side: 1,
-    },
-  ],
-  transition: [
-    {
-      auto: 'foreShoulderAuto',
-      length: 'foreShoulderLength',
-      radius: 'foreShoulderRadius',
-      thickness: 'foreShoulderThickness',
-      capped: 'foreShoulderCapped',
-      side: -1,
-    },
-    {
-      auto: 'aftShoulderAuto',
-      length: 'aftShoulderLength',
-      radius: 'aftShoulderRadius',
-      thickness: 'aftShoulderThickness',
-      capped: 'aftShoulderCapped',
-      side: 1,
-    },
-  ],
+/**
+ * One shoulder's node keys, all named from its prefix (`shoulder`,
+ * `foreShoulder`, `aftShoulder`) as `shouldersOf` reads them, and which
+ * neighbor it follows: -1 is the part above, +1 below.
+ */
+const shoulderKeys = (prefix: string, side: -1 | 1) => ({
+  auto: `${prefix}Auto`,
+  length: `${prefix}Length`,
+  radius: `${prefix}Radius`,
+  thickness: `${prefix}Thickness`,
+  capped: `${prefix}Capped`,
+  side,
+});
+
+/** Each shouldered type's shoulders. */
+const SHOULDERS: Record<string, readonly ReturnType<typeof shoulderKeys>[]> = {
+  nosecone: [shoulderKeys('shoulder', 1)],
+  transition: [shoulderKeys('foreShoulder', -1), shoulderKeys('aftShoulder', 1)],
 };
 
 /**
@@ -158,6 +143,48 @@ export function shoulderSeed(
   return out;
 }
 
+/**
+ * The shoulders an edit to an end radius cuts back to that end.
+ *
+ * Setting an end's radius sets that end's shoulder again through its clamping
+ * setter (`Transition.setForeRadius` and `setAftRadius` call
+ * `setForeShoulderRadius(getForeShoulderRadius(), doClamping)` and
+ * `setAftShoulderRadius(getAftShoulderRadius())`, Transition.java:121, :232;
+ * a nose cone's base is one of the two). That setter holds the radius to the
+ * end and the shoulder's wall to its radius (Transition.java:446-457, :558-569).
+ * The bridge sets a stated shoulder unclamped, as desktop's loader does, so the
+ * edit has to carry the clamp itself or the part flies a shoulder wider than
+ * the end it stands on.
+ *
+ * Only an edit of the end's own value: a radius that follows a neighbor is not
+ * set through the setter, and a shoulder radius the edit states is left alone.
+ */
+export function endShoulderClamp(
+  before: ComponentNode,
+  after: ComponentNode,
+  edit: Partial<ComponentNode>,
+): Partial<ComponentNode> {
+  const out: Record<string, unknown> = {};
+  for (const s of SHOULDERS[after.type] ?? []) {
+    const endKey = after.type === 'nosecone' || s.side === 1 ? 'aftRadius' : 'foreRadius';
+    if (!(endKey in edit) || s.radius in edit || after[`${endKey}Auto`] === true) continue;
+    const was = before[endKey];
+    const now = after[endKey];
+    // The setter returns before clamping when a fixed end is set to its own value.
+    if (
+      typeof now !== 'number' ||
+      (typeof was === 'number' && mathEquals(was, now) && before[`${endKey}Auto`] !== true)
+    )
+      continue;
+    const end = shoulderEnd(after, s.side);
+    const radius = num(after, s.radius, 0);
+    if (end === null || !(radius > end)) continue;
+    out[s.radius] = end;
+    if (num(after, s.thickness, 0) > end) out[s.thickness] = end;
+  }
+  return out;
+}
+
 /** A solid part's widest radius, which `SymmetricComponent.getThickness` reports as its wall. */
 const solidWall = (node: ComponentNode): number => {
   const open = { ...node, filled: false };
@@ -173,19 +200,12 @@ const sideOf = (node: ComponentNode, side: -1 | 1): -1 | 1 =>
   node.type === 'nosecone' && node['flipped'] === true ? -1 : side;
 
 /**
- * A nose cone's base radius as it flies: the stored one, which `syncAutoRadii`
- * has resolved for an automatic base, or the bridge's default for a cone that
- * states none (`ComponentFactory`, case "nosecone").
- */
-const noseBase = (node: ComponentNode): number => num(node, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius);
-
-/**
  * The radius of the end a shoulder sits on, as it flies: a nose cone's base, or
  * a transition's fore or aft end (`syncAutoRadii` has resolved an automatic
  * one). Null for a transition end with no radius on record.
  */
 const shoulderEnd = (node: ComponentNode, side: -1 | 1): number | null => {
-  if (node.type === 'nosecone') return noseBase(node);
+  if (node.type === 'nosecone') return noseConeAftRadius(node);
   const r = num(node, side === -1 ? 'foreRadius' : 'aftRadius', NaN);
   return Number.isFinite(r) ? r : null;
 };
@@ -224,7 +244,7 @@ export function syncAutoShoulders(tree: RocketTree): RocketTree {
     // the clamping `NoseCone.setShoulderRadius`, as desktop's loader does.
     if (node.type === 'nosecone' && node['flipped'] === true) {
       const stated = node['shoulderRadius'];
-      const base = noseBase(node);
+      const base = noseConeAftRadius(node);
       if (typeof stated === 'number' && stated > base) node = { ...node, shoulderRadius: base };
     }
     return node;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { engineRetryCanRecover, initEngine, resetEngineInit, type EngineLoadStatus } from '../engine/openRocketEngine';
-import { errorMessage } from '../services/app/errorMessage';
+import { errorReason, type Keyed } from '../i18n/keyedError';
 
 /**
  * Where the physics kernel is, as UI state.
@@ -32,8 +32,11 @@ interface EngineState {
   status: EngineLoadStatus | null;
   /** True once this load has outrun SLOW_AFTER_MS without settling. */
   slow: boolean;
-  /** Why the load failed, when it failed rather than stalled. */
-  error: string | null;
+  /**
+   * Why the load failed, when it failed rather than stalled: a key the notice
+   * translates, or the caught message as given.
+   */
+  error: string | Keyed | null;
   /**
    * True when {@link retry} cannot recover this load and only a page reload
    * can: the JS build is the only backend, and its chunk url cannot vary.
@@ -78,7 +81,9 @@ export const useEngineStore = create<EngineState>((set) => {
       .catch((e: unknown) => {
         if (mine !== attempt) return;
         clearSlowTimer();
-        set({ phase: 'failed', error: errorMessage(e), status: null, needsReload: !engineRetryCanRecover() });
+        // Logged as well as shown, so a report can carry the stack.
+        console.warn('engine load failed', e);
+        set({ phase: 'failed', error: errorReason(e), status: null, needsReload: !engineRetryCanRecover() });
       });
   };
 
@@ -98,3 +103,9 @@ export const useEngineStore = create<EngineState>((set) => {
     reload: () => location.reload(),
   };
 });
+
+/**
+ * Whether the kernel is up. A boolean selector, so a caller re-renders when the
+ * answer flips and not on every phase the boot passes through.
+ */
+export const useEngineReady = (): boolean => useEngineStore((s) => s.phase === 'ready');

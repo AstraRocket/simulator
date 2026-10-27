@@ -34,3 +34,9 @@ export function parseHexColor(raw: unknown): number | null {
 export function hexOf(rgb: number, hash = true): string {
   return `${hash ? '#' : ''}${(rgb & 0xffffff).toString(16).padStart(6, '0')}`;
 }
+
+/** A packed color's red, green and blue, each 0 to 255. */
+export const rgbChannels = (rgb: number): [number, number, number] => [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
+
+/** Red, green and blue (each 0 to 255) packed into one color. */
+export const packRgb = (r: number, g: number, b: number): number => ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);

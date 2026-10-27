@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { samplesToMotorSpec } from '../../../src/services/motors/thrustcurve';
+import { samplesToMotorSpec } from '../../../src/services/motors/motorSpec';
 import { defaultNode } from '../../../src/services/design/treeEdit';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 import type { ComponentType } from '../../../src/engine/openRocketEngine';
@@ -52,15 +52,12 @@ describe('the shipped motor catalog', () => {
         try {
           spec = samplesToMotorSpec(
             {
-              motorId: m.designation,
               designation: m.designation,
-              commonName: m.designation,
               manufacturerAbbrev: m.manufacturer,
               diameter: m.diameter,
               length: m.length,
               totalWeightG: m.mass,
               propWeightG: m.propWeightG,
-              availability: 'regular',
             },
             curve.samples.map(([time, thrust]) => ({ time, thrust })),
             6,

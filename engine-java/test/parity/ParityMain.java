@@ -61,6 +61,8 @@ public final class ParityMain {
         // Last, so the process-wide state it touches (the UUID counter, the
         // flight order) leaves every earlier line where it was.
         atmosphereProfileScenarios();
+        // After it, for the same reason: new lines go on the end of the run.
+        railLengthScenarios();
     }
 
     /**
@@ -398,6 +400,36 @@ public final class ParityMain {
                 api.JsonLite.dbl(summary, "maxAltitude", Double.NaN),
                 api.JsonLite.dbl(summary, "maxVelocity", Double.NaN),
                 api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
+    }
+
+    /**
+     * The rail-length probe (api.RailSpeedProbe): how long a rod the rocket needs
+     * to leave it at a given speed. Three asks against one rocket on a 1 m rod: a
+     * speed it reaches on the rod, so the answer is shorter than the rod; one it
+     * reaches only past it; and one no rod is long enough for, which reads null.
+     * The flight's own figures ride along to prove the probe leaves them alone.
+     */
+    private static void railLengthScenarios() {
+        String json = "{\"name\":\"Rail\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
+                + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
+                + "{\"type\":\"bodytube\",\"id\":\"body\",\"length\":0.45,\"outerRadius\":0.012,\"thickness\":0.0005,\"density\":950,\"motorMount\":true,\"motorOverhang\":0.006,\"children\":["
+                + "  {\"type\":\"trapezoidfinset\",\"finCount\":3,\"rootChord\":0.05,\"tipChord\":0.03,\"sweep\":0.02,\"height\":0.025,\"thickness\":0.003},"
+                + "  {\"type\":\"parachute\",\"diameter\":0.30}"
+                + "]}]}]}";
+        int r = api.OpenRocketEngine.buildRocket(json);
+        api.OpenRocketEngine.setMotorById(r, "body", "C6", 0.018, 0.070,
+                new double[] { 0, 0.1, 0.3, 0.5, 1.0, 1.5, 1.85, 2.0 },
+                new double[] { 0, 12.0, 6.0, 5.1, 4.9, 4.8, 4.5, 0 },
+                new double[] { 0.0240, 0.0231, 0.0215, 0.0202, 0.0174, 0.0147, 0.0133, 0.0132 },
+                0.035, 5.0);
+        for (double min : new double[] { 5.0, 20.0, 500.0 }) {
+            java.util.Map<String, Object> summary = asMap(api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                    r, "{\"rodLength\":1.0,\"railExitMinSpeed\":" + min + "}")).get("summary"));
+            line("rail.needed." + (int) min,
+                    api.JsonLite.dbl(summary, "railLengthNeeded", Double.NaN),
+                    api.JsonLite.dbl(summary, "launchRodVelocity", Double.NaN),
+                    api.JsonLite.dbl(summary, "maxAltitude", Double.NaN));
+        }
     }
 
     /**

@@ -14,7 +14,7 @@ export type { StaticInfo, FlightResult } from './openRocketEngine';
  * Seated into any mount that has no motor (`flightConfigs.reconcileConfig`), so
  * it is what the default design flies until somebody picks something. The
  * masses fall from loaded to burnout in proportion to cumulative impulse, as
- * `thrustcurve.samplesToMotorSpec` builds them for a catalog row, so this motor
+ * `motorSpec.samplesToMotorSpec` builds them for a catalog row, so this motor
  * flies the same as the Estes C6 picked from the catalog.
  *
  * The 5 s delay is the one the picker itself would choose: Estes sells the C6 in

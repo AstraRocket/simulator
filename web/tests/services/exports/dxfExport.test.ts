@@ -214,3 +214,46 @@ describe('the text layer', () => {
     expect(lines.join('\n')).not.toContain('?');
   });
 });
+
+/**
+ * A DXF reader takes every value as a number, so a non-finite one (a bad
+ * dimension off a hand-edited file) must never reach the file as "NaN" or
+ * "Infinity": the other file writers guard theirs (`plainDecimal`).
+ */
+describe('a non-finite dimension', () => {
+  it('never writes NaN or Infinity into the file', () => {
+    const bad = {
+      name: 'R',
+      components: [
+        {
+          type: 'stage',
+          id: 's',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'tube',
+              length: 0.3,
+              outerRadius: 0.025,
+              thickness: 0.001,
+              children: [
+                {
+                  type: 'trapezoidfinset',
+                  id: 'fins',
+                  finCount: 3,
+                  rootChord: 0.05,
+                  tipChord: 0.03,
+                  sweep: 0.02,
+                  height: 0.03,
+                  thickness: Number.NaN,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree;
+    const dxf = componentToDxf(bad, 'fins');
+    expect(dxf).not.toBeNull();
+    expect(dxf).not.toMatch(/NaN|Infinity/);
+  });
+});

@@ -17,13 +17,13 @@ import {
   defaultNode,
   addPart,
   addStage,
-  stageNodes,
   isFirstStage,
 } from '../../../src/services/design/treeEdit';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import type { Component } from '../../../src/services/parts/componentDb';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
+import { stageNodes } from '../../../src/tree/treeWalk';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 

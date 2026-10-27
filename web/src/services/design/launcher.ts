@@ -1,4 +1,5 @@
-import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
+import type { RocketTree } from '../../engine/openRocketEngine';
+import { walkNodes } from '../../tree/treeWalk';
 
 /**
  * What the design is launched from, as its own guides say.
@@ -14,14 +15,10 @@ export type LauncherKind = 'rail' | 'rod';
 export function launcherKind(tree: RocketTree): LauncherKind | null {
   let lug = false;
   let button = false;
-  const walk = (nodes: readonly ComponentNode[] | undefined) => {
-    for (const n of nodes ?? []) {
-      if (n.type === 'launchlug') lug = true;
-      else if (n.type === 'railbutton') button = true;
-      walk(n.children);
-    }
-  };
-  walk(tree.components);
+  for (const n of walkNodes(tree.components)) {
+    if (n.type === 'launchlug') lug = true;
+    else if (n.type === 'railbutton') button = true;
+  }
   return lug === button ? null : button ? 'rail' : 'rod';
 }
 

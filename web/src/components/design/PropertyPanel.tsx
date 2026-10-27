@@ -27,7 +27,7 @@ import { useUnits } from '../../prefs/useUnits';
 import { num } from '../../tree/nodeProps';
 import { freeformPoints } from '../../tree/position';
 import { tubeFinMaxCount, tubeFinMaxRadius } from '../../tree/tubefins';
-import { FieldRow, FieldSection, ShoulderSections, sectionFields, visibleFields } from './DimensionFields';
+import { FieldRow, FieldSection, ShoulderSections, commitWith, sectionFields, visibleFields } from './DimensionFields';
 import { CordMaterialSection, MaterialSection, RecoveryMaterialSection } from './MaterialSection';
 import { StageRecovery } from './StageRecovery';
 import { ComponentActions } from './ComponentActions';
@@ -38,6 +38,7 @@ import { OverridesSection } from './OverridesSection';
 import { ShapeDescription } from './ShapeDescription';
 import { PlacementSection } from './PlacementSection';
 import { PropSection } from './PropSection';
+import { PanelButton } from './PanelButton';
 
 /**
  * The property panel shell: the header (move / delete), the name row, the
@@ -130,12 +131,7 @@ export function PropertyPanel({
   const label = t(`part.${node.type}`, { defaultValue: node.type });
   // The catalog row this part was picked from, as `presetRef` recorded it.
   const catalogPart = node['preset'] as { manufacturer?: string; partNo?: string } | undefined;
-  // Discrete controls (select / checkbox / pickers) finish the moment they
-  // change, so patch and close the undo entry in one shot.
-  const commitChange = (patch: Partial<ComponentNode>) => {
-    onChange(patch);
-    onCommit?.();
-  };
+  const commitChange = commitWith(onChange, onCommit);
 
   return (
     <section className={`space-y-3 p-3${card}`}>
@@ -144,24 +140,22 @@ export function PropertyPanel({
         <div className="flex items-center gap-1">
           {onMove && (
             <>
-              <button
+              <PanelButton
                 onClick={() => onMove(-1)}
                 disabled={!canMoveUp}
                 title={t('prop.moveUp')}
                 aria-label={t('prop.moveUp')}
-                className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:text-ink-dim disabled:hover:bg-raised"
               >
                 ↑
-              </button>
-              <button
+              </PanelButton>
+              <PanelButton
                 onClick={() => onMove(1)}
                 disabled={!canMoveDown}
                 title={t('prop.moveDown')}
                 aria-label={t('prop.moveDown')}
-                className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:text-ink-dim disabled:hover:bg-raised"
               >
                 ↓
-              </button>
+              </PanelButton>
             </>
           )}
           <button

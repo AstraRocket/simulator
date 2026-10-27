@@ -1,9 +1,11 @@
 import type { ComponentNode, MotorSpec, RocketTree } from '../../engine/openRocketEngine';
 import { clusterCount } from '../../tree/cluster';
-import { curveStats } from '../motors/motorMath';
+import { curveStats, specSamples } from '../motors/motorMath';
 import { motorStatistics } from '../../engine/openRocketEngine';
 import type { FlightConfig } from './flightConfigs';
 import { propellantMass } from './recoverySizing';
+import { countOf } from '../../tree/nodeProps';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
 /**
  * Whether a configuration flies as a model rocket or a high power rocket, in
@@ -39,15 +41,14 @@ export interface SeatedMotor {
 }
 
 /**
- * Copies of a pod set or parallel stage. A node with no count flies two, the
- * bridge's default (`ComponentFactory.applyAssembly`), as the drawings show.
+ * Copies of a pod set or parallel stage, read as every other count is
+ * (`countOf`). A node with no count flies two, the bridge's default
+ * (`ComponentFactory.applyAssembly`), as the drawings show.
  */
-const instancesOf = (n: ComponentNode): number => {
-  if (n.type !== 'podset' && n.type !== 'parallelstage') return 1;
-  if (n['instanceCount'] == null) return 2;
-  const c = Number(n['instanceCount']);
-  return Number.isFinite(c) && c >= 1 ? Math.floor(c) : 1;
-};
+const instancesOf = (n: ComponentNode): number =>
+  n.type === 'podset' || n.type === 'parallelstage'
+    ? countOf(n, 'instanceCount', KERNEL_DEFAULTS[n.type].instanceCount)
+    : 1;
 
 /**
  * Every motor a configuration puts on the pad, with its copy count. A mount in
@@ -96,7 +97,7 @@ export function powerClass(motors: readonly SeatedMotor[], dryMassKg: number | n
   let loaded = 0;
   let propellant = 0;
   for (const { spec, count } of motors) {
-    const curve = spec.times.map((t, i) => [t, spec.thrusts[i] ?? 0] as [number, number]);
+    const curve = specSamples(spec);
     const stats = curveStats(curve);
     // The average thrust over the burn the kernel measures (between the
     // crossings of 5% of peak), once it has loaded; the curve's own until then.

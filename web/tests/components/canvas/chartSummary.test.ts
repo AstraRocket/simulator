@@ -4,6 +4,7 @@ import {
   crosshairReadout,
   eventsSummary,
   machSeriesSummary,
+  peakAcross,
   peakOf,
   rangeOf,
   timeSeriesSummary,
@@ -34,6 +35,15 @@ describe('peakOf and rangeOf', () => {
   it('gives nothing for no samples', () => {
     expect(peakOf([], [])).toBeNull();
     expect(rangeOf([])).toBeNull();
+  });
+
+  it('takes the peak across every line, and nothing when no line has a sample', () => {
+    const lines = [
+      { xs: [0, 1], ys: [2, 4] },
+      { xs: [0, 1, 2], ys: [1, -7, 3] },
+    ];
+    expect(peakAcross(lines)).toEqual({ value: -7, at: 1 });
+    expect(peakAcross([{ xs: [], ys: [] }])).toBeNull();
   });
 });
 

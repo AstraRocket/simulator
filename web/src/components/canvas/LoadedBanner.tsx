@@ -6,6 +6,7 @@ import { useCanBuildDesign } from '../design/useCanBuildDesign';
 import { useSettings } from '../../state/SettingsProvider';
 import { importNoteText, type ImportNote } from '../../services/files/importNote';
 import type { DesignFormat } from '../../services/files/designFile';
+import { designNameOf } from '../../services/app/appInfo';
 
 /**
  * The design card at the head of the center pane: the rocket's name, the ✎ that
@@ -72,7 +73,8 @@ export function LoadedBanner({
   }, [importSeq, count, open, update]);
   // The tree's name is the live one: it is what the editor changes and what an
   // export writes. `loaded.name` is only the value the file arrived with.
-  const name = (typeof treeName === 'string' && treeName) || loaded?.name || t('tree.rocket');
+  // `designNameOf` is the chain every filename and report header uses.
+  const name = designNameOf({ name: treeName }, loaded);
 
   // A design that came from a file gets the full card: it has a label, notes and
   // a Close. One that did not has only its name, so it gets a slim title row

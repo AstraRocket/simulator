@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { useLauncherT } from '../common/useLauncher';
 import { fmtNum } from '../../i18n/format';
-import { UnitChip } from '../common/UnitChip';
-import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
+import { useScopedUnit } from '../common/UnitChip';
+import { fmtDegrees, useUnits } from '../../prefs/useUnits';
+import { NO_VALUE } from '../../i18n/noValue';
+import { degToRad, unitScope } from '../../prefs/units';
 import type { FlightResult } from '../../engine/api';
 import { forwardFlightEnd, maxQ, maxQAlpha, maxRollRate, seriesAt } from '../../services/flight/flightEvents';
 import { distanceFromPad, landingPoint } from '../../services/flight/groundTrack';
@@ -17,6 +18,7 @@ import { deploymentVerdict, lastDeployment } from './speedWarnings';
 import { sharedDeviceNames } from '../../services/flight/recoveryFlown';
 import { selectShownSim, useWorkspaceStore } from '../../state/store';
 import { effectivePrefs, type SimPrefs } from '../../services/flight/simulations';
+import { WEATHERCOCK_LIMIT_DEG, maxWindMs } from '../../services/flight/weathercock';
 
 /**
  * What the numbers below are and are not, as a card of its own above them.
@@ -170,16 +172,18 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
   const u = useUnits();
   // Each result tile owns its unit: reading apogee in feet should not drag
   // landing speed, downrange and the rest along with it.
-  const rodExit = u.at(unitScope('sim', 'rodExit'), 'velocity');
-  const railCpUnit = u.at(unitScope('sim', 'railCp'), 'length');
-  const apogee = u.at(unitScope('sim', 'apogee'), 'distance');
-  const deployVel = u.at(unitScope('sim', 'deployVelocity'), 'velocity');
-  const landingVel = u.at(unitScope('sim', 'landing'), 'velocity');
-  const downrangeUnit = u.at(unitScope('sim', 'downrange'), 'distance');
-  const maxAccel = u.at(unitScope('sim', 'maxAccel'), 'acceleration');
-  const maxQUnit = u.at(unitScope('sim', 'maxQ'), 'pressure');
-  const maxSpeed = u.at(unitScope('sim', 'maxSpeed'), 'velocity');
-  const maxRollUnit = u.at(unitScope('sim', 'maxRoll'), 'rollRate');
+  const rodExit = useScopedUnit(unitScope('sim', 'rodExit'), 'velocity');
+  const railCpUnit = useScopedUnit(unitScope('sim', 'railCp'), 'length');
+  const apogee = useScopedUnit(unitScope('sim', 'apogee'), 'distance');
+  const deployVel = useScopedUnit(unitScope('sim', 'deployVelocity'), 'velocity');
+  const landingVel = useScopedUnit(unitScope('sim', 'landing'), 'velocity');
+  const downrangeUnit = useScopedUnit(unitScope('sim', 'downrange'), 'distance');
+  const maxAccel = useScopedUnit(unitScope('sim', 'maxAccel'), 'acceleration');
+  const maxQUnit = useScopedUnit(unitScope('sim', 'maxQ'), 'pressure');
+  const maxSpeed = useScopedUnit(unitScope('sim', 'maxSpeed'), 'velocity');
+  const maxRollUnit = useScopedUnit(unitScope('sim', 'maxRoll'), 'rollRate');
+  const railNeededUnit = useScopedUnit(unitScope('sim', 'railNeeded'), 'length');
+  const maxWindUnit = useScopedUnit(unitScope('sim', 'maxWind'), 'windspeed');
   // No fixed digits on these tiles: the ladder's precision follows the size of
   // the number in the reader's unit, and is what the simulations table shows.
   const { settings } = useSettings();
@@ -191,6 +195,13 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
     return shown.result === sim ? shown.prefs : undefined;
   });
   const { deploymentSpeedWarn } = effectivePrefs(settings.simulation, ownPrefs);
+  // The rod or rail this flight left, to judge the length it needed against.
+  // Only the shown row's own, as `ownPrefs` above: another row's rod says
+  // nothing about this flight.
+  const rodLengthM = useWorkspaceStore((st): number | null => {
+    const shown = selectShownSim(st);
+    return shown.result === sim ? shown.launch.launchRodLengthM : null;
+  });
   // Names more than one recovery device flies under: a warning without node
   // ids that names one of them cannot be pinned to this branch.
   const tree = useWorkspaceStore((st) => st.tree);
@@ -216,6 +227,12 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
   const rodTime = sim?.events.find((e) => e.type === 'LAUNCHROD')?.time;
   const railMargin = sim && rodTime != null ? seriesAt(sim.series, 'stability', rodTime) : null;
   const railCp = sim && rodTime != null ? seriesAt(sim.series, 'cpLocation', rodTime) : null;
+  // The engine's thrust-to-weight and angle of attack as it left the launcher.
+  // The angle of attack there is the weathercocking: the angle the relative
+  // wind meets the rocket at, flown with the run's own wind. Null on a result
+  // recorded without the full series.
+  const railTwr = sim && rodTime != null ? seriesAt(sim.series, 'Twr', rodTime) : null;
+  const railAoa = sim && rodTime != null ? seriesAt(sim.series, 'aoa', rodTime) : null;
   // Downrange (lateral) landing distance: the last sample where both halves of
   // the drift are finite, the same point the ground track reports.
   const landing = sim ? landingPoint(sim.series) : null;
@@ -248,7 +265,7 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
           card
           label={t('sim.rodExit')}
           value={rodExit.fmt(s.launchRodVelocity)}
-          sub={<UnitChip label={t('sim.rodExit')} quantity="velocity" scope={unitScope('sim', 'rodExit')} />}
+          sub={rodExit.chip(t('sim.rodExit'))}
           // The threshold is stored in SI, so the comparison stays in SI;
           // only the number on screen changes unit.
           tone={s.launchRodVelocity >= railExitVelocityMin ? goodTone : warnTone}
@@ -263,7 +280,7 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
               railCp != null ? (
                 <>
                   {t('stability.caliber')} · {t('flight.cp')} {railCpUnit.fmt(railCp)}{' '}
-                  <UnitChip label={t('sim.railMargin')} quantity="length" scope={unitScope('sim', 'railCp')} />
+                  {railCpUnit.chip(t('sim.railMargin'))}
                 </>
               ) : (
                 t('stability.caliber')
@@ -273,13 +290,63 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             status={t(railVerdictKey(railMargin))}
           />
         )}
-        {s.optimumDelay != null && <Stat card label={t('sim.optDelay')} value={fmtNum(s.optimumDelay, 1)} sub="s" />}
-        <Stat card label={t('sim.toApogee')} value={fmtNum(s.timeToApogee, 1)} sub="s" />
+        {rodTime != null && <Stat card label={t('sim.exitTime')} value={fmtNum(rodTime, 2)} sub={t('units.second')} />}
+        {railTwr != null && <Stat card label={t('sim.exitTwr')} value={fmtNum(railTwr, 1)} sub={t('sim.exitTwrSub')} />}
+        {railAoa != null && (
+          <Stat
+            card
+            label={t('sim.exitAoa')}
+            value={u.fmt('angle', Math.abs(railAoa))}
+            sub={u.sym('angle')}
+            // The usual weathercocking limit, as the max-wind tile beside it uses.
+            tone={Math.abs(railAoa) > degToRad(WEATHERCOCK_LIMIT_DEG) ? warnTone : goodTone}
+            status={Math.abs(railAoa) > degToRad(WEATHERCOCK_LIMIT_DEG) ? t('limits.aboveMax') : undefined}
+          />
+        )}
+        {/* The steadiest wind that keeps the angle at rail exit within the usual
+            20° rule: the engine's exit speed times tan 20°. */}
+        <Stat
+          card
+          label={t('sim.maxWind', { angle: fmtDegrees(u, WEATHERCOCK_LIMIT_DEG) })}
+          value={maxWindUnit.fmt(maxWindMs(s.launchRodVelocity))}
+          sub={maxWindUnit.chip(t('sim.maxWind', { angle: fmtDegrees(u, WEATHERCOCK_LIMIT_DEG) }))}
+        />
+        {/* Absent from a run that did not ask, or recorded before the engine
+            reported it; null when no rod is long enough. */}
+        {s.railLengthNeeded !== undefined && (
+          <Stat
+            card
+            label={t('sim.railNeeded')}
+            value={s.railLengthNeeded == null ? NO_VALUE : railNeededUnit.fmt(s.railLengthNeeded)}
+            sub={
+              <>
+                {s.railLengthNeeded != null && <>{railNeededUnit.chip(t('sim.railNeeded'))} · </>}
+                {t('sim.railNeededFor', { speed: rodExit.fmtSym(railExitVelocityMin) })}
+              </>
+            }
+            tone={
+              s.railLengthNeeded == null || (rodLengthM != null && s.railLengthNeeded > rodLengthM)
+                ? warnTone
+                : goodTone
+            }
+            status={
+              s.railLengthNeeded == null
+                ? t('sim.railNeverReaches')
+                : rodLengthM != null && s.railLengthNeeded > rodLengthM
+                  ? t('sim.railLonger')
+                  : undefined
+            }
+          />
+        )}
+        {s.optimumDelay != null && (
+          <Stat card label={t('sim.optDelay')} value={fmtNum(s.optimumDelay, 1)} sub={t('units.second')} />
+        )}
+        <Stat card label={t('sim.toApogee')} value={fmtNum(s.timeToApogee, 1)} sub={t('units.second')} />
         <Stat
           card
           label={t('sim.apogee')}
           value={apogee.fmt(s.maxAltitude)}
-          sub={<UnitChip label={t('sim.apogee')} quantity="distance" scope={unitScope('sim', 'apogee')} />}
+          sub={apogee.chip(t('sim.apogee'))}
           tone="text-accent-400"
         />
         {s.deploymentVelocity != null && (
@@ -287,13 +354,7 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             card
             label={t('sim.deployVelocity')}
             value={deployVel.fmt(s.deploymentVelocity)}
-            sub={
-              <UnitChip
-                label={t('sim.deployVelocity')}
-                quantity="velocity"
-                scope={unitScope('sim', 'deployVelocity')}
-              />
-            }
+            sub={deployVel.chip(t('sim.deployVelocity'))}
             tone={deployVerdict ? warnTone : goodTone}
             status={
               deployVerdict === 'tooSlow'
@@ -309,43 +370,36 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             card
             label={t('sim.landing')}
             value={landingVel.fmt(s.groundHitVelocity)}
-            sub={<UnitChip label={t('sim.landing')} quantity="velocity" scope={unitScope('sim', 'landing')} />}
+            sub={landingVel.chip(t('sim.landing'))}
           />
         )}
-        <Stat card label={t('sim.flightTime')} value={fmtNum(s.flightTime, 1)} sub="s" />
+        <Stat card label={t('sim.flightTime')} value={fmtNum(s.flightTime, 1)} sub={t('units.second')} />
         {Number.isFinite(s.groundHitVelocity) && downrange != null && (
           <Stat
             card
             label={t('sim.downrange')}
             value={downrangeUnit.fmt(downrange)}
-            sub={<UnitChip label={t('sim.downrange')} quantity="distance" scope={unitScope('sim', 'downrange')} />}
+            sub={downrangeUnit.chip(t('sim.downrange'))}
           />
         )}
         <Stat
           card
           label={t('sim.maxAccel')}
           value={maxAccel.fmt(s.maxAcceleration)}
-          sub={<UnitChip label={t('sim.maxAccel')} quantity="acceleration" scope={unitScope('sim', 'maxAccel')} />}
+          sub={maxAccel.chip(t('sim.maxAccel'))}
         />
         <Stat
           card
           label={t('sim.maxSpeed')}
           value={maxSpeed.fmt(s.maxVelocity)}
-          sub={<UnitChip label={t('sim.maxSpeed')} quantity="velocity" scope={unitScope('sim', 'maxSpeed')} />}
+          sub={maxSpeed.chip(t('sim.maxSpeed'))}
         />
         <Stat card label={t('sim.maxMach')} value={fmtNum(s.maxMachNumber, 2)} sub={t('flight.mach')} />
         {/* The number that decides whether the airframe holds together, which
             is why it sits with the other peaks rather than only in the events
             table. Both read the same figure and share the one unit scope, so
             changing it here changes it there. */}
-        {peakQ && (
-          <Stat
-            card
-            label={t('sim.maxQ')}
-            value={maxQUnit.fmt(peakQ.q)}
-            sub={<UnitChip label={t('sim.maxQ')} quantity="pressure" scope={unitScope('sim', 'maxQ')} />}
-          />
-        )}
+        {peakQ && <Stat card label={t('sim.maxQ')} value={maxQUnit.fmt(peakQ.q)} sub={maxQUnit.chip(t('sim.maxQ'))} />}
         {/* The side load on the airframe scales with q·α, so it is the figure a
             fin or a coupler is judged against. It is shown in the Max q
             figure's pressure unit times the reader's angle unit, so the two
@@ -363,7 +417,7 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             card
             label={t('sim.maxRollRate')}
             value={maxRollUnit.fmt(peakRoll)}
-            sub={<UnitChip label={t('sim.maxRollRate')} quantity="rollRate" scope={unitScope('sim', 'maxRoll')} />}
+            sub={maxRollUnit.chip(t('sim.maxRollRate'))}
           />
         )}
       </section>

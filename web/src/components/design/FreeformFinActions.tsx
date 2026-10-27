@@ -14,6 +14,8 @@ import { partLabel } from '../../i18n/format';
 import { updateNode } from '../../services/design/treeEdit';
 import { selectDesignName, useWorkspaceStore } from '../../state/store';
 import { useFilePick } from '../common/useFilePick';
+import { StatusLine } from '../common/StatusLine';
+import { PanelButton } from './PanelButton';
 
 /**
  * The three things OpenRocket's freeform editor does besides dragging points:
@@ -115,37 +117,27 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
             className="w-16 rounded bg-raised px-1.5 py-0.5 text-right tabular-nums text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
           />
         </label>
-        <button
+        <PanelButton
           onClick={() => apply((tree) => scaleComponent(tree, id, factor))}
           // The bounds the Scale dialog applies: below SCALE_MIN a mistyped
           // factor shrinks the fin to nothing.
           disabled={!(factor >= SCALE_MIN && factor <= SCALE_MAX) || factor === 1}
           title={t('freeform.scaleFinTip')}
-          className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:text-ink-dim disabled:hover:bg-raised"
         >
           {t('freeform.applyScale')}
-        </button>
-        <button
-          onClick={imageFile.pick}
-          title={t('freeform.importHint')}
-          className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
-        >
+        </PanelButton>
+        <PanelButton onClick={imageFile.pick} title={t('freeform.importHint')}>
           {t('freeform.importImage')}
-        </button>
-        <button
-          onClick={exportCsv}
-          className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
-        >
-          {t('freeform.exportCsv')}
-        </button>
+        </PanelButton>
+        <PanelButton onClick={exportCsv}>{t('freeform.exportCsv')}</PanelButton>
         {imageFile.input}
       </div>
       <p className="text-[11px] leading-snug text-ink-faint">{t('freeform.importHint')}</p>
       {/* Always mounted, empty until there is something to say: a live region
           created together with its text is not announced (see UpdateToast). */}
-      <p role="status" aria-live="polite" className="text-[11px] leading-snug text-warn-400">
+      <StatusLine tone="warn" size="fine">
         {error}
-      </p>
+      </StatusLine>
     </div>
   );
 }

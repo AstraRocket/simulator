@@ -21,8 +21,10 @@ import { num } from '../../tree/nodeProps';
 import { finRootChord } from '../../tree/finPlanform';
 import { isPlanarFinSet } from '../../tree/tubefins';
 import type { ComponentNode } from '../../engine/openRocketEngine';
-import { fmtNum } from '../../i18n/format';
-import { DialogButton } from '../common/DialogButton';
+import { fmtNum, fmtPercent } from '../../i18n/format';
+import { DialogButton, DialogActions } from '../common/DialogButton';
+import { Check } from '../common/Check';
+import { smallButton } from '../common/smallButton';
 
 /**
  * The size "Scale from" starts at, as desktop's Scale dialog picks it: a body
@@ -90,7 +92,7 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
   // the usual intent is a bigger part at the same station.
   const [offsets, setOffsets] = useState(what !== 'part');
 
-  const pct = fmtNum(factor * 100, 0);
+  const pct = fmtPercent(factor * 100);
   const usable =
     Number.isFinite(factor) &&
     factor >= SCALE_MIN &&
@@ -104,7 +106,7 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
   };
   const input =
     'w-24 rounded-md bg-raised px-2 py-1.5 text-sm tabular-nums text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
-  const chip = 'rounded-md bg-raised px-2 py-1 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated';
+  const chip = smallButton('xs', 'ink');
   const rowLabel = 'w-28 shrink-0 text-xs font-medium uppercase tracking-wide text-ink-muted';
   const SCOPE_LABEL: Record<ScaleScope, string> = {
     rocket: t('scale.scopeRocket'),
@@ -155,7 +157,7 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
                 max={SCALE_MAX}
                 className={input}
               />
-              <span className="text-xs tabular-nums text-ink-faint">× · {pct}%</span>
+              <span className="text-xs tabular-nums text-ink-faint">× · {pct}</span>
               <div className="ml-auto flex gap-1">
                 {[0.5, 2].map((f) => (
                   <button key={f} type="button" onClick={() => setFactor(f)} className={chip}>
@@ -199,28 +201,21 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
               <UnitChip quantity="length" scope={scope} />
             </div>
 
-            <label
-              className="flex items-center gap-2 text-sm text-ink"
+            <Check
+              checked={masses && explicitMass}
+              disabled={!explicitMass}
+              onChange={setMasses}
+              label={t('scale.masses')}
               title={explicitMass ? t('scale.massesTip') : t('scale.massesNone')}
-            >
-              <input
-                type="checkbox"
-                checked={masses && explicitMass}
-                disabled={!explicitMass}
-                onChange={(e) => setMasses(e.target.checked)}
-                className="accent-accent-500"
-              />
-              <span className={explicitMass ? '' : 'text-ink-dim'}>{t('scale.masses')}</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-ink" title={t('scale.offsetsTip')}>
-              <input
-                type="checkbox"
-                checked={offsets}
-                onChange={(e) => setOffsets(e.target.checked)}
-                className="accent-accent-500"
-              />
-              {t('scale.offsets')}
-            </label>
+              className="text-sm text-ink"
+            />
+            <Check
+              checked={offsets}
+              onChange={setOffsets}
+              label={t('scale.offsets')}
+              title={t('scale.offsetsTip')}
+              className="text-sm text-ink"
+            />
           </div>
 
           {what === 'rocket' && (
@@ -238,14 +233,14 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
             {t('scale.massNote', { cube: fmtNum(factor ** 3, 2) })}
           </p>
 
-          <div className="mt-5 flex justify-end gap-2">
+          <DialogActions>
             <DialogButton onClick={onClose} variant="secondary">
               {t('common.cancel')}
             </DialogButton>
             <DialogButton onClick={apply} disabled={!usable} variant="primary">
               {t('scale.apply', { pct })}
             </DialogButton>
-          </div>
+          </DialogActions>
         </>
       )}
     </Dialog>

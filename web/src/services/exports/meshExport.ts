@@ -23,7 +23,7 @@ export const GLB_MIME = 'model/gltf-binary';
 // with every other dimensional export rather than redeclared here.
 import { M_TO_MM } from '../../prefs/units';
 import { UNKNOWN_PART_COLOR } from '../design/partColors';
-import { errorMessage } from '../app/errorMessage';
+import { toError } from '../app/errorMessage';
 
 /** A watertight mesh of one solid, ready for an exporter, at `scale` units per meter. */
 function meshGroup(geometry: THREE.BufferGeometry, scale = M_TO_MM): THREE.Group {
@@ -52,7 +52,7 @@ export function solidToGlb(geometry: THREE.BufferGeometry): Promise<ArrayBuffer>
       // Meters, glTF's own unit.
       meshGroup(geometry, 1),
       (result) => resolve(result as ArrayBuffer),
-      (err) => reject(err instanceof Error ? err : new Error(errorMessage(err))),
+      (err) => reject(toError(err)),
       { binary: true },
     );
   });

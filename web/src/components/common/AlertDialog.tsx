@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useFocusTrap } from './useFocusTrap';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import { layerClass, widthClass, type DialogLayer, type DialogSize } from './dialogSize';
-import { DialogButton } from './DialogButton';
+import { DialogButton, DialogActions } from './DialogButton';
 
 /**
  * The one short-prompt shell: a heading, a sentence, and a button or two.
@@ -103,7 +103,7 @@ export function AlertDialog({
         <p id={messageId} className="mt-3 text-sm leading-relaxed text-ink-soft">
           {message}
         </p>
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogActions>
           {/* Cancel first in the DOM, with the focus on confirm (`autoFocus`).
               The focus trap must respect `autoFocus` rather than move focus to
               the first focusable child, or the focus ring sits on Cancel while
@@ -116,7 +116,7 @@ export function AlertDialog({
           <DialogButton autoFocus onClick={onConfirm} variant={danger ? 'danger' : 'primary'}>
             {confirmLabel}
           </DialogButton>
-        </div>
+        </DialogActions>
       </div>
     </div>
   );

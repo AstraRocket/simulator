@@ -9,7 +9,10 @@ export function PropertyPane() {
 
   return (
     <div className="space-y-4 p-3">
-      <PropertyPanel {...sel} />
+      {/* Keyed on the part, so selecting another one mounts a fresh editor:
+          an await still running in the old one (a material being added) then
+          lands on an unmounted panel rather than on the new part. */}
+      <PropertyPanel key={sel.node?.id ?? ''} {...sel} />
     </div>
   );
 }

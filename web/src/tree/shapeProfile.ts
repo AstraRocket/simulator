@@ -19,9 +19,9 @@
  *   false draws the unclipped delta shape r1 + shape(x, r2−r1, length), the
  *   same profile the engine then flies.
  */
-import type { ComponentNode } from '../engine/openRocketEngine';
-import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS, KERNEL_SHAPES } from './kernelDefaults';
-import { bodyTubeRadius, num, numOpt } from './nodeProps';
+import type { ComponentNode, NoseShape } from '../engine/openRocketEngine';
+import { KERNEL_AUTO_RADIUS, KERNEL_SHAPES } from './kernelDefaults';
+import { bodyTubeRadius, noseConeAftRadius, num, numOpt } from './nodeProps';
 import { partLength } from './position';
 
 const MINFEATURE = 0.001;
@@ -276,6 +276,27 @@ export function outerProfile(
  * profile goes through this, so a keyless node is drawn, meshed and measured as
  * the shape that flies.
  */
+/**
+ * Every profile shape, in `Transition.Shape` order: the one list the editor's
+ * shape selects, the catalog check and the `.ork` reader take. Keyed by
+ * `NoseShape`, so a shape added to the type and left out here does not compile.
+ */
+const SHAPE_ORDER: Record<NoseShape, true> = {
+  conical: true,
+  ogive: true,
+  ellipsoid: true,
+  power: true,
+  parabolic: true,
+  haack: true,
+};
+export const PROFILE_SHAPES: readonly NoseShape[] = Object.keys(SHAPE_ORDER) as NoseShape[];
+
+/** {@link PROFILE_SHAPES} with a part's kernel default first, as its shape select offers them. */
+export const shapeOptions = (type: keyof typeof KERNEL_SHAPES): string[] => {
+  const first = KERNEL_SHAPES[type];
+  return [first, ...PROFILE_SHAPES.filter((s) => s !== first)];
+};
+
 export function nodeShape(node: ComponentNode): string {
   const shape = node['shape'];
   if (typeof shape === 'string') return shape;
@@ -299,10 +320,43 @@ export function nodeShape(node: ComponentNode): string {
  */
 export function profileEnds(node: ComponentNode): { fore: number; aft: number } {
   if (node.type === 'nosecone') {
-    const base = num(node, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius);
+    const base = noseConeAftRadius(node);
     return node['flipped'] === true ? { fore: base, aft: 0 } : { fore: 0, aft: base };
   }
   return { fore: num(node, 'foreRadius', KERNEL_AUTO_RADIUS), aft: num(node, 'aftRadius', KERNEL_AUTO_RADIUS) };
+}
+
+/** A shoulder: the reduced-diameter stub that plugs into the part next door. */
+export interface Shoulder {
+  radius: number;
+  length: number;
+  thickness: number;
+  capped: boolean;
+}
+
+/** Whether a shoulder is there to draw or build: a radius and a length, each above a micron. */
+export const hasShoulder = (s: Shoulder): boolean => s.radius > 1e-6 && s.length > 1e-6;
+
+/**
+ * The shoulders of a nose cone or transition, fore and aft, as the kernel
+ * holds them. A nose cone keeps one shoulder, at its base: aft, or fore once it
+ * is flipped into a tail cone (`NoseCone.getShoulderRadius` and its siblings
+ * read the fore fields when flipped). The one reader of the shoulder keys, for
+ * the 2D and 3D views, the printed solid and the Onshape export.
+ */
+export function shouldersOf(node: ComponentNode): { fore: Shoulder; aft: Shoulder } {
+  const read = (prefix: string): Shoulder => ({
+    radius: num(node, `${prefix}Radius`, 0),
+    length: num(node, `${prefix}Length`, 0),
+    thickness: num(node, `${prefix}Thickness`, 0),
+    capped: node[`${prefix}Capped`] === true,
+  });
+  const none: Shoulder = { radius: 0, length: 0, thickness: 0, capped: false };
+  if (node.type === 'nosecone') {
+    const base = read('shoulder');
+    return node['flipped'] === true ? { fore: base, aft: none } : { fore: none, aft: base };
+  }
+  return { fore: read('foreShoulder'), aft: read('aftShoulder') };
 }
 
 /**

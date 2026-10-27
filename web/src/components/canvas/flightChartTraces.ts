@@ -1,5 +1,5 @@
 import type { FlightResult, FlightSeries } from '../../engine/openRocketEngine';
-import type { Quantity } from '../../prefs/units';
+import { type Quantity, radToDeg } from '../../prefs/units';
 import type { Units } from '../../prefs/useUnits';
 import { flightBranches } from '../../services/flight/flightColumns';
 import { dynamicPressure, qAlpha, rollRate } from '../../services/flight/flightEvents';
@@ -96,7 +96,7 @@ export const SERIES: Meta[] = [
     quantity: 'length',
   },
   { key: 'cgLocation', label: 'flight.cg', unit: 'cm', digits: 1, scale: 100, level: true, quantity: 'length' },
-  { key: 'aoa', label: 'flight.aoa', unit: '°', digits: 1, scale: 180 / Math.PI, quantity: 'angle' },
+  { key: 'aoa', label: 'flight.aoa', unit: '°', digits: 1, scale: radToDeg(1), quantity: 'angle' },
   // Derived in buildTraces from what the kernel records; see flightEvents.ts.
   { key: 'dynamicPressure', label: 'flight.dynamicPressure', unit: 'Pa', digits: 0, quantity: 'pressure' },
   {

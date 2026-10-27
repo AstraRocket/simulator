@@ -1,3 +1,4 @@
+import { PAD_L, PAD_R } from './flightChartAxis';
 import { PanelExpandButton } from './PanelExpandButton';
 
 /**
@@ -46,5 +47,57 @@ export function ChartPanelFrame({
         {children}
       </svg>
     </div>
+  );
+}
+
+/**
+ * The clip that keeps a panel's time- or distance-mapped marks inside the plot
+ * area, so a point zoomed out of the window does not spill over the y labels.
+ * Goes in the panel's `<defs>`, with the marks in a group clipped to `id`.
+ */
+export function PanelClip({ id, w, height }: { id: string; w: number; height: number }) {
+  return (
+    <clipPath id={id}>
+      <rect x={PAD_L} y={0} width={Math.max(0, w - PAD_L - PAD_R)} height={height} />
+    </clipPath>
+  );
+}
+
+/** One stroked path per line, in its stage's color; a line with no path draws nothing. */
+export function PanelLines({ paths, colors }: { paths: readonly string[]; colors: readonly string[] }) {
+  return (
+    <>
+      {paths.map((d, i) =>
+        d ? (
+          <path key={i} d={d} fill="none" stroke={colors[i]} strokeWidth={1.75} vectorEffect="non-scaling-stroke" />
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/** The y axis's two end labels, already formatted: the top of the plot and its bottom. */
+export function YEnds({
+  top,
+  bottom,
+  padT,
+  padB,
+  height,
+}: {
+  top: string;
+  bottom: string;
+  padT: number;
+  padB: number;
+  height: number;
+}) {
+  return (
+    <>
+      <text x={PAD_L - 4} y={padT + 7} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
+        {top}
+      </text>
+      <text x={PAD_L - 4} y={height - padB} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
+        {bottom}
+      </text>
+    </>
   );
 }

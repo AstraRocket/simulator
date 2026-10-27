@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import type { LaunchConditions } from '../../services/design/orkTree';
@@ -9,14 +9,38 @@ import { defaultToolSite } from './remembered';
 import { SiteMapDialog } from '../sim/SiteMapDialog';
 import { QNum } from '../sim/LaunchPanel';
 import { LatLonRows } from '../sim/LatLonRows';
+import { SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
+import { smallButton } from '../common/smallButton';
 
-export const toolBtn =
-  'rounded-md bg-raised px-3 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
+const toolBtn = smallButton('sm', 'soft');
 
 export interface ToolSite {
   latitudeDeg: number | null;
   longitudeDeg: number | null;
   launchAltitudeM: number | null;
+}
+
+/**
+ * A site's elevation as every tool takes it: in the launch panel's unit scope
+ * (`SITE_ALTITUDE_FIELD`), held to the site limits, in 10 m steps.
+ */
+export function SiteElevationField(
+  props: Omit<ComponentProps<typeof QNum>, 'label' | 'field' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
+) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  return (
+    <QNum
+      label={t('landing.siteElevation')}
+      field={SITE_ALTITUDE_FIELD}
+      kind="distance"
+      u={u}
+      stepSi={10}
+      minSi={LAUNCH_SITE_LIMITS.launchAltitudeM.min}
+      maxSi={LAUNCH_SITE_LIMITS.launchAltitudeM.max}
+      {...props}
+    />
+  );
 }
 
 /**
@@ -33,7 +57,6 @@ export function SiteFields({
   elevation?: boolean;
 }) {
   const { t } = useTranslation();
-  const u = useUnits();
   const [mapOpen, setMapOpen] = useState(false);
   return (
     <>
@@ -54,14 +77,7 @@ export function SiteFields({
         onChange={(patch) => onChange((s) => ({ ...s, ...patch }))}
       />
       {elevation && (
-        <QNum
-          label={t('landing.siteElevation')}
-          field="landingSiteElevation"
-          kind="distance"
-          u={u}
-          stepSi={10}
-          minSi={LAUNCH_SITE_LIMITS.launchAltitudeM.min}
-          maxSi={LAUNCH_SITE_LIMITS.launchAltitudeM.max}
+        <SiteElevationField
           placeholder={t('landing.terrain')}
           hint={t('landing.siteElevationHint')}
           value={site.launchAltitudeM}

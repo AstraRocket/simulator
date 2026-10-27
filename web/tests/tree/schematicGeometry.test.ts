@@ -16,6 +16,7 @@ import {
   zoomStep,
   MAX_ZOOM,
   marginText,
+  figureToken,
   internalExtent,
 } from '../../src/tree/schematicGeometry';
 import i18n from '../../src/i18n';
@@ -297,14 +298,45 @@ describe('colorOf', () => {
 describe('marginText', () => {
   const t = (k: string) => i18n.t(k);
 
-  it('marks each band with its own glyph and word', () => {
+  // The words are the stats strip's (`stabilityVerdictKey`), so the drawing
+  // and the strip beside it grade one margin alike, and a negative margin reads
+  // as unstable rather than under-stable.
+  it('marks each band with its own glyph and the stats strip word', () => {
     expect(marginText(7, 12, t)!.text).toBe(`△ 7.00 cal · 12.0% (${t('schematic.overStable')})`);
-    expect(marginText(0.5, 1, t)!.text).toBe(`⚠ 0.50 cal · 1.0% (${t('schematic.underStable')})`);
-    expect(marginText(2, 8, t)!.text).toBe(`✓ 2.00 cal · 8.0% (${t('schematic.ok')})`);
+    expect(marginText(2, 8, t)!.text).toBe(`✓ 2.00 cal · 8.0% (${t('stability.stable')})`);
+    expect(marginText(0.5, 1, t)!.text).toBe(`⚠ 0.50 cal · 1.0% (${t('stability.marginal')})`);
+    expect(marginText(-0.5, -1, t)!.text).toBe(`⚠ -0.50 cal · -1.0% (${t('stability.unstable')})`);
+  });
+
+  it('hands back the glyph and figures without the word, for the info card', () => {
+    const m = marginText(2, 8, t)!;
+    expect(`${m.glyph} ${m.figures}`).toBe('✓ 2.00 cal · 8.0%');
   });
 
   it('prints nothing without a finite margin and percentage', () => {
     expect(marginText(Number.NaN, 8, t)).toBeNull();
     expect(marginText(2, null, t)).toBeNull();
+  });
+});
+
+/**
+ * One default color per part type, for the side view, the aft view and the
+ * "use default color" toggle, which writes this color into the part when it is
+ * cleared. The toggle used to write `sch-shell` for a body tube drawn in
+ * `sch-shell-light`, so starting an edit darkened the tube.
+ */
+describe('figureToken', () => {
+  it('gives each part type the ink it is drawn in', () => {
+    expect(figureToken('bodytube')).toBe('sch-shell-light');
+    expect(figureToken('nosecone')).toBe('sch-shell');
+    expect(figureToken('transition')).toBe('sch-shell');
+    expect(figureToken('trapezoidfinset')).toBe('sch-part');
+    expect(figureToken('launchlug')).toBe('sch-part-light');
+    expect(figureToken('parachute')).toBe('sch-parachute');
+    expect(figureToken('innertube')).toBe('sch-innertube');
+  });
+
+  it('falls back to the plain ink for a type with none of its own', () => {
+    expect(figureToken('stage')).toBe('sch-ink');
   });
 });

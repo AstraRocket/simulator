@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import type { ComponentNode } from '../../engine/openRocketEngine';
 import { MaterialPicker } from './MaterialPicker';
-import { FieldRow, sectionFields } from './DimensionFields';
+import { FieldRow, sectionFields, type CommitEditProps } from './DimensionFields';
 
 /**
  * The property panel's material sections: the bulk material a structural part
@@ -11,14 +10,7 @@ import { FieldRow, sectionFields } from './DimensionFields';
  */
 
 /** The bulk material of a structural part, and the finish of an external one. */
-export function MaterialSection({
-  node,
-  onCommitChange,
-}: {
-  node: ComponentNode;
-  /** Patch and close the undo entry in one shot (pickers are discrete controls). */
-  onCommitChange: (patch: Partial<ComponentNode>) => void;
-}) {
+export function MaterialSection({ node, onCommitChange }: CommitEditProps) {
   return (
     <div className="space-y-2 border-t border-line/5 pt-3">
       <MaterialPicker
@@ -44,15 +36,7 @@ export function MaterialSection({
 }
 
 /** The line material a parachute's shroud lines or a shock cord is weighed by. */
-function LineMaterialPicker({
-  label,
-  node,
-  onCommitChange,
-}: {
-  label: string;
-  node: ComponentNode;
-  onCommitChange: (patch: Partial<ComponentNode>) => void;
-}) {
+function LineMaterialPicker({ label, node, onCommitChange }: CommitEditProps & { label: string }) {
   return (
     <MaterialPicker
       type="line"
@@ -66,13 +50,7 @@ function LineMaterialPicker({
 
 /** Recovery devices use surface (fabric) + line (cord) materials, not the
  *  bulk material above; each feeds the device's mass. */
-export function RecoveryMaterialSection({
-  node,
-  onCommitChange,
-}: {
-  node: ComponentNode;
-  onCommitChange: (patch: Partial<ComponentNode>) => void;
-}) {
+export function RecoveryMaterialSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
   return (
     <div className="space-y-3 border-t border-line/5 pt-3">
@@ -92,13 +70,7 @@ export function RecoveryMaterialSection({
 
 /** A shock cord's line material, which the kernel weighs the cord by, as the
  *  desktop shock cord dialog offers it. */
-export function CordMaterialSection({
-  node,
-  onCommitChange,
-}: {
-  node: ComponentNode;
-  onCommitChange: (patch: Partial<ComponentNode>) => void;
-}) {
+export function CordMaterialSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
   return (
     <div className="border-t border-line/5 pt-3">

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import {
   deployOverride,
-  loadoutLabel,
+  configLabel,
   sepOverride,
   stageFlies,
   type FlightConfig,
@@ -74,7 +74,7 @@ function NamedConfigs({ label, configs, sub }: { label: string; configs: FlightC
             }}
             className="underline decoration-dotted hover:text-warn-200"
           >
-            {c.name || loadoutLabel(tree, c) || t('configs.noMotors')}
+            {configLabel(tree, c) || t('configs.noMotors')}
           </button>
         </span>
       ))}

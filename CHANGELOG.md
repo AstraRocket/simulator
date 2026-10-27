@@ -6,6 +6,20 @@ All notable changes to AstraRocket are recorded here. The engine is validated
 against desktop **OpenRocket** (`.ork` round-trips and its Component Analysis),
 so most entries describe getting a computation to match OpenRocket exactly.
 
+## [0.5.1]
+
+### Added
+- **Motor guide.** **Motor guide** on the Simulations tab flies a filtered set of up to 8 candidate motors in one mount of the active simulation and lists every flight in one sortable table, the question thrustcurve.org's Motor Guide answers, flown on the design itself. Each motor flies once to find the engine's optimum delay and again at the delay it offers nearest to it, so the deployment speed shown is the one that delay gives. The **Status** column holds the warnings a normal run gives (launcher exit speed against the Settings minimum, the margin at exit, deployment speed, the engine's flight warnings), with no new limits. A motor a single run would refuse is listed with the reason. It flies only motors whose curve is on the device, bundled or imported, and never looks one up on thrustcurve.org. **Use** keeps one motor as a new flight configuration and simulation, and **⬇ CSV** downloads the table. The flights are throwaway, like the drift sweep's.
+- **Performance filters.** The motor picker, the Motor Dashboard and the motor guide have **More filters**: minimum and maximum average thrust, max thrust, burn time, total weight, propellant weight and length, in your own units. A motor the catalog gives no figure for is hidden once that figure has a bound.
+
+- **Rail exit figures from the engine.** The results summary adds the time, thrust to weight and angle of attack at launcher exit, the max wind for the 20° rule, and **Rail length needed**: how long a launcher the design needs to leave it at the minimum exit speed in **Settings > Simulation**. The engine works it out by flying a short probe of the same design on a very long launcher, so it is the engine's figure, not one the app computes. The minimum exit speed now reaches the engine, so changing it marks results outdated.
+
+### Removed
+- **Off the rail on the Tools tab.** It ran a flight model of its own in the app for a rocket with no design. A designed rocket gets every one of its figures from the engine after a run, so the tool is gone.
+
+### Changed
+- **The app no longer looks up thrust curves on thrustcurve.org.** Every catalog motor's curve is bundled by the weekly sync. The 93 motors without one used to be looked up again when picked, asking the same question the sync had already asked and getting the same empty answer. They are now listed for their specs but cannot be selected or flown; import an `.eng` or `.rse` file to fly one. Picking a motor and opening a `.ork` never touch the network.
+
 ## [0.5.0]
 
 ### Added

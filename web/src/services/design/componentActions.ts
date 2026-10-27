@@ -1,8 +1,8 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { clusterCount, clusterPoints, isClusterPattern } from '../../tree/cluster';
+import { clusterCount, clusterPlacesOf, isClusterPattern } from '../../tree/cluster';
 import { finPlanformPoints } from '../../tree/finPlanform';
 import { countOf, num } from '../../tree/nodeProps';
-import { findNode } from '../../tree/treeWalk';
+import { findNode, replaceNode } from '../../tree/treeWalk';
 import { scaleNode } from '../../tree/scaleRocket';
 import { syncDerived } from './treeEdit';
 import { uuid } from '../app/uuid';
@@ -72,21 +72,8 @@ function keepFirstId(copies: ComponentNode[], id: string, origins?: Map<string, 
  * values. One node replaces it in place; several fan out from its position.
  */
 function replaceInPlace(tree: RocketTree, id: string, replacements: ComponentNode[]): RocketTree {
-  let done = false;
-  const rec = (nodes: ComponentNode[]): ComponentNode[] => {
-    const i = nodes.findIndex((n) => n.id === id);
-    if (i >= 0) {
-      done = true;
-      return [...nodes.slice(0, i), ...replacements, ...nodes.slice(i + 1)];
-    }
-    return nodes.map((n) => {
-      if (done || !n.children) return n;
-      const kids = rec(n.children);
-      return kids === n.children ? n : { ...n, children: kids };
-    });
-  };
-  const components = rec(tree.components);
-  return done ? syncDerived({ ...tree, components }) : tree;
+  const components = replaceNode(tree.components, id, () => replacements);
+  return components === tree.components ? tree : syncDerived({ ...tree, components });
 }
 
 /** Whether this fin set has a planform a freeform outline can be built from. */
@@ -189,14 +176,7 @@ export function splitCluster(
   if (!node || !canSplitCluster(node)) return tree;
   // InnerTube.getClusterPoints, so a cluster that was already off-center splits
   // into tubes that stay where they were drawn.
-  const places = clusterPoints(
-    node['cluster'] as string,
-    num(node, 'outerRadius'),
-    num(node, 'clusterScale', 1),
-    num(node, 'clusterRotation', 0),
-    num(node, 'radialPosition', 0),
-    num(node, 'radialDirection', 0),
-  );
+  const places = clusterPlacesOf(node);
   const copies = places.map((p, i) => {
     const copy = reid(node, origins);
     copy['cluster'] = 'single';

@@ -25,7 +25,7 @@
  */
 
 import { AnonymousFetchError, anonymousGet } from './anonymousFetch';
-import { isFiniteNumber, roundTo } from '../app/numbers';
+import { isFiniteNumber, roundTo, isRecord } from '../app/numbers';
 
 // --------------------------------------------------------------- endpoints
 
@@ -150,12 +150,22 @@ export function ymdInZone(ms: number, timeZone: string | undefined): string {
 export const todayYmd = (): string => ymdInZone(Date.now(), undefined);
 
 /** An hour from now: the default forecast time, so the hour picked is not already past. */
-export const nextHourMs = (): number => Date.now() + 3_600_000;
+const nextHourMs = (): number => Date.now() + 3_600_000;
 
 /** The hour (0 to 23) of an instant on the calendar of `timeZone`. */
-export function hourInZone(ms: number, timeZone: string | undefined): number {
+function hourInZone(ms: number, timeZone: string | undefined): number {
   const parts = partsInZone(ms, timeZone, { hour: '2-digit', hourCycle: 'h23' });
   return Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+}
+
+/**
+ * The default forecast date and hour, an hour from now on the browser's
+ * calendar. Both come from one instant, so a call just before midnight cannot
+ * pair today's date with the hour after it.
+ */
+export function forecastStart(): { date: string; hour: number } {
+  const at = nextHourMs();
+  return { date: ymdInZone(at, undefined), hour: hourInZone(at, undefined) };
 }
 
 const YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -257,10 +267,15 @@ export function forecastUrl(q: {
   );
 }
 
-/** The terrain model's ground height at a point. */
-function elevationUrl(latitudeDeg: number, longitudeDeg: number, apiKey?: string): string {
-  return `${(apiKey ? PAID : FREE).forecast}/v1/elevation?latitude=${dp3(latitudeDeg)}&longitude=${dp3(longitudeDeg)}${keyParam(apiKey)}`;
+/** The terrain model's ground height at each point, in one request. */
+function elevationUrl(points: readonly { latitudeDeg: number; longitudeDeg: number }[], apiKey?: string): string {
+  const latitudes = points.map((p) => dp3(p.latitudeDeg)).join(',');
+  const longitudes = points.map((p) => dp3(p.longitudeDeg)).join(',');
+  return `${(apiKey ? PAID : FREE).forecast}/v1/elevation?latitude=${latitudes}&longitude=${longitudes}${keyParam(apiKey)}`;
 }
+
+/** A 2xx answer. */
+const ok = (status: number): boolean => status >= 200 && status < 300;
 
 // ------------------------------------------------------------------ errors
 
@@ -330,13 +345,12 @@ export interface ForecastVariant {
   samples: HourSample[];
 }
 
-const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
 const finiteOrNull = (x: unknown): number | null => (isFiniteNumber(x) ? x : null);
 
 /** Open-Meteo's own refusal, `{"error": true, "reason": "..."}`, or null. */
 function refusalReason(body: unknown): string | null {
   const one: unknown = Array.isArray(body) ? body[0] : body;
-  return isObj(one) && one['error'] === true
+  return isRecord(one) && one['error'] === true
     ? typeof one['reason'] === 'string'
       ? one['reason']
       : 'no reason given'
@@ -361,7 +375,7 @@ export function parseForecast(body: unknown, elevationsM: readonly number[]): Fo
   }
   let anyValue = false;
   const variants = items.map((item, i): ForecastVariant => {
-    if (!isObj(item) || !isObj(item['hourly_units']) || !isObj(item['hourly'])) {
+    if (!isRecord(item) || !isRecord(item['hourly_units']) || !isRecord(item['hourly'])) {
       throw new WeatherError('shape', 'no hourly data');
     }
     const units = item['hourly_units'];
@@ -438,14 +452,14 @@ const ELEVATION_BATCH = 100;
 
 /** The terrain heights for several points, in request order, as an elevation answer gives them. */
 function parseElevations(body: unknown, count: number): number[] | null {
-  if (!isObj(body) || !Array.isArray(body['elevation']) || body['elevation'].length !== count) return null;
+  if (!isRecord(body) || !Array.isArray(body['elevation']) || body['elevation'].length !== count) return null;
   const out = body['elevation'].map(finiteOrNull);
   return out.every((e): e is number => e !== null) ? out : null;
 }
 
 /** The terrain model's ground height from an elevation answer, to 1 m, or null. */
 function parseElevation(body: unknown): number | null {
-  if (!isObj(body) || !Array.isArray(body['elevation'])) return null;
+  if (!isRecord(body) || !Array.isArray(body['elevation'])) return null;
   const e = finiteOrNull(body['elevation'][0]);
   return e === null ? null : Math.round(e);
 }
@@ -534,7 +548,7 @@ async function getJson(url: string, o: FetchOpts): Promise<{ status: number; jso
 /** A non-2xx answer as a `WeatherError`, in Open-Meteo's words where it gave any. */
 function httpError(status: number, json: unknown): WeatherError {
   const reason =
-    refusalReason(json) ?? (isObj(json) && typeof json['reason'] === 'string' ? json['reason'] : undefined);
+    refusalReason(json) ?? (isRecord(json) && typeof json['reason'] === 'string' ? json['reason'] : undefined);
   if (status === 401 || status === 403) return new WeatherError('badKey', reason);
   if (status === 429) return new WeatherError('quota', reason);
   if (status === 400) return new WeatherError('refused', reason);
@@ -576,11 +590,11 @@ export async function fetchElevation(
   apiKey: string | undefined,
   o: FetchOpts = {},
 ): Promise<number | null> {
-  const url = elevationUrl(latitudeDeg, longitudeDeg, apiKey);
+  const url = elevationUrl([{ latitudeDeg, longitudeDeg }], apiKey);
   try {
     return await cached(url, o, async () => {
       const a = await getJson(url, o);
-      const e = a.status >= 200 && a.status < 300 ? parseElevation(a.json) : null;
+      const e = ok(a.status) ? parseElevation(a.json) : null;
       if (e === null) throw new WeatherError('shape', 'no elevation');
       return e;
     });
@@ -627,20 +641,20 @@ export async function searchPlaces(
     `&count=${PLACE_MATCHES}&language=${encodeURIComponent(language)}&format=json${keyParam(apiKey)}`;
   return cached(url, o, async () => {
     const a = await getJson(url, o);
-    if (a.status < 200 || a.status >= 300) throw httpError(a.status, a.json);
+    if (!ok(a.status)) throw httpError(a.status, a.json);
     return parsePlaces(a.json);
   });
 }
 
 /** The matches in a geocoding answer. No `results` at all is Open-Meteo's "nothing found". */
 function parsePlaces(json: unknown): PlaceMatch[] {
-  if (!isObj(json)) throw new WeatherError('shape', 'not an object');
+  if (!isRecord(json)) throw new WeatherError('shape', 'not an object');
   const results = json['results'];
   if (results === undefined) return [];
   if (!Array.isArray(results)) throw new WeatherError('shape', 'results is not a list');
   const text = (x: unknown) => (typeof x === 'string' && x.trim() !== '' ? x : null);
   return results.flatMap((r): PlaceMatch[] => {
-    if (!isObj(r)) return [];
+    if (!isRecord(r)) return [];
     const name = text(r['name']);
     const lat = r['latitude'];
     const lon = r['longitude'];
@@ -672,12 +686,10 @@ export async function fetchElevations(
   const out: number[] = [];
   for (let i = 0; i < points.length; i += ELEVATION_BATCH) {
     const batch = points.slice(i, i + ELEVATION_BATCH);
-    const url =
-      `${(apiKey ? PAID : FREE).forecast}/v1/elevation?latitude=${batch.map((p) => dp3(p.latitudeDeg)).join(',')}` +
-      `&longitude=${batch.map((p) => dp3(p.longitudeDeg)).join(',')}${keyParam(apiKey)}`;
+    const url = elevationUrl(batch, apiKey);
     const heights = await cached(url, o, async () => {
       const a = await getJson(url, o);
-      if (a.status < 200 || a.status >= 300) throw httpError(a.status, a.json);
+      if (!ok(a.status)) throw httpError(a.status, a.json);
       const e = parseElevations(a.json, batch.length);
       if (!e) throw new WeatherError('shape', 'elevation');
       return e;
@@ -732,7 +744,7 @@ export async function fetchWeather(
     asked = true;
     await spaced(o);
     const a = await getJson(url, o);
-    if (a.status < 200 || a.status >= 300) throw httpError(a.status, a.json);
+    if (!ok(a.status)) throw httpError(a.status, a.json);
     return { variants: parseForecast(a.json, elevationsM), fetchedAtMs: (o.now ?? Date.now)() };
   });
   const timezone = variants[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;

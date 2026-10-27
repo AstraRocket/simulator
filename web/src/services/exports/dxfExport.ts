@@ -1,5 +1,5 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { num } from '../../tree/nodeProps';
+import { countOf, num } from '../../tree/nodeProps';
 import { finCutContour, finMountOf, finRootPoints, type FinParent } from '../../tree/finPlanform';
 // Shared with the .ork reader and writer, so a part that lost a tag is cut at the
 // size it was read and saved as.
@@ -32,6 +32,7 @@ export const DXF_MIME = 'image/vnd.dxf';
 // Imported, not redeclared: this is the unit constant for every dimensional
 // export.
 import { M_TO_MM } from '../../prefs/units';
+import { fixedDecimal } from '../files/numberText';
 const EPS = 1e-6;
 /** Center cross-hair arm as a fraction of the outer radius. */
 const CROSS_FRAC = 0.6;
@@ -123,7 +124,7 @@ function finPart(node: ComponentNode, parent: FinParent, l: LabelText): Part | n
   // `reduce`, not a spread: a long freeform outline spread into Math.max can
   // die with an opaque "Maximum call stack size exceeded" instead of exporting.
   const span = outline.reduce((m, p) => (p.y > m ? p.y : m), -Infinity);
-  const count = Math.round(num(node, 'finCount', COMPONENT_DEFAULTS.finset.finCount));
+  const count = countOf(node, 'finCount', COMPONENT_DEFAULTS.finset.finCount);
   const thickness = num(node, 'thickness', COMPONENT_DEFAULTS.finset.thickness);
   const labels = [
     count ? l('export.dxf.cutCount', { name: node.name || label, qty: count }) : node.name || label,
@@ -267,8 +268,9 @@ function ascii(s: string): string {
     .trim();
 }
 
-const toMm = (m: number) => (m * M_TO_MM).toFixed(4);
-const dim = (m: number) => (m * M_TO_MM).toFixed(1);
+const toMm = (m: number) => fixedDecimal(m * M_TO_MM, 4);
+// A dimension in a label: '?' rather than a figure for one that cannot be read.
+const dim = (m: number) => fixedDecimal(m * M_TO_MM, 1, '?');
 
 function serialize(ents: Ent[]): string {
   const out: string[] = [];

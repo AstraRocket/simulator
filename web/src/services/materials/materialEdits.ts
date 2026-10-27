@@ -7,29 +7,20 @@ import { mapTreePreserving, walkNodes } from '../../tree/treeWalk';
 import { mathEquals } from '../motors/mathEquals';
 import type { DocumentMaterial } from './documentMaterials';
 import type { MaterialType } from './materialTypes';
+import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, type MaterialKeys } from '../design/materialSlots';
 
 /** A material as a part names it: what a usage check compares. */
 export type MaterialRef = Pick<DocumentMaterial, 'name' | 'type' | 'density'> & { group?: string };
-
-/** The node keys one material of a part is stored under. */
-interface MaterialSlot {
-  name: string;
-  density: string;
-  group?: string;
-}
 
 /**
  * Every place a part keeps a material of each type: a structural part's bulk
  * material and a fin's fillet bead, a recovery device's canopy or strip, and
  * the line material of shroud lines and shock cords.
  */
-const SLOTS: Record<MaterialType, MaterialSlot[]> = {
-  bulk: [
-    { name: 'materialName', density: 'density', group: 'materialGroup' },
-    { name: 'filletMaterialName', density: 'filletDensity', group: 'filletMaterialGroup' },
-  ],
-  surface: [{ name: 'surfaceMaterialName', density: 'surfaceDensity' }],
-  line: [{ name: 'lineMaterialName', density: 'lineDensity' }],
+const SLOTS: Record<MaterialType, MaterialKeys[]> = {
+  bulk: [MATERIAL_KEYS.bulk, FILLET_MATERIAL_KEYS],
+  surface: [MATERIAL_KEYS.surface],
+  line: [MATERIAL_KEYS.line],
 };
 
 /**
@@ -37,7 +28,7 @@ const SLOTS: Record<MaterialType, MaterialSlot[]> = {
  * `getComponentsThatUseMaterial` compares with `Material.equals`. The group is
  * left out, since only the bulk slots store one.
  */
-function holds(node: ComponentNode, slot: MaterialSlot, m: MaterialRef): boolean {
+function holds(node: ComponentNode, slot: MaterialKeys, m: MaterialRef): boolean {
   const density = node[slot.density];
   return node[slot.name] === m.name && typeof density === 'number' && mathEquals(density, m.density);
 }

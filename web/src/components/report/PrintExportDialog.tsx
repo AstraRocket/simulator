@@ -6,6 +6,7 @@ import { printableParts } from '../../services/exports/printableParts';
 import { partLabel } from '../../i18n/format';
 import { Check } from '../common/Check';
 import { DialogButton } from '../common/DialogButton';
+import { toggled } from '../../services/app/collections';
 
 /**
  * The whole-rocket 3D-print export.
@@ -35,12 +36,7 @@ export function PrintExportDialog({ onClose }: { onClose: () => void }) {
   // Tracked as exclusions, not inclusions: everything is on by default, and a
   // design edited behind this dialog would otherwise silently drop a new part.
   const selected = parts.filter((p) => !excluded.has(p.id));
-  const toggle = (id: string) =>
-    setExcluded((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  const toggle = (id: string) => setExcluded((prev) => toggled(prev, id));
 
   const empty = parts.length === 0;
   return (

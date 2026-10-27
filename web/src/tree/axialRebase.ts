@@ -1,9 +1,7 @@
 import type { ComponentNode, ComponentPosition, RocketTree } from '../engine/openRocketEngine';
-import { isAssembly } from './assembly';
-import { isChainType } from './componentKinds';
 import { num } from './nodeProps';
 import { tabOffsetAt, tabPosition } from './finPlanform';
-import { axialLength, axialStart, partLength, startFromPosition } from './position';
+import { axialLength, axialStart, layStages, partLength, stacksInParent, startFromPosition } from './position';
 
 /**
  * Changing how a position is measured keeps the part where it is.
@@ -38,7 +36,7 @@ export function axialFrames(tree: RocketTree): Map<string, AxialFrame> {
     if (n.id) out.set(n.id, { start, length });
     let chained = start;
     for (const c of n.children ?? []) {
-      if (isAssembly(n.type) && isChainType(c.type)) {
+      if (stacksInParent(n, c)) {
         const len = partLength(c);
         visit(c, chained, len);
         chained += len;
@@ -48,22 +46,8 @@ export function axialFrames(tree: RocketTree): Map<string, AxialFrame> {
       visit(c, axialStart(c, own, start, length), own);
     }
   };
-  let x = 0;
-  for (const stage of tree.components) {
-    const kids = stage.type === 'stage' ? (stage.children ?? []) : [stage];
-    const stageStart = x;
-    const stageLen = kids.reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
-    if (stage.type === 'stage' && stage.id) out.set(stage.id, { start: stageStart, length: stageLen });
-    for (const n of kids) {
-      if (isChainType(n.type)) {
-        const len = partLength(n);
-        visit(n, x, len);
-        x += len;
-      } else {
-        const own = axialLength(n);
-        visit(n, axialStart(n, own, stageStart, stageLen), own);
-      }
-    }
+  for (const { stage, start, length } of layStages(tree, visit)) {
+    if (stage.type === 'stage' && stage.id) out.set(stage.id, { start, length });
   }
   return out;
 }

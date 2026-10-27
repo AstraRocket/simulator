@@ -3,6 +3,7 @@ import { fmtList, fmtNum, partLabel } from '../../i18n/format';
 import { hexToRgbTuple } from './layout';
 import { drawText, ensure, heading, paragraph, sectionBreak, setStyle, writeRuler, type PdfPage } from './pdfPage';
 import { GUIDE_WIDTH_MM, cutPoints, type GuideSlot, type MarkingGuide, type MarkingGuideSet } from './markingGuide';
+import { radToDeg } from '../../prefs/units';
 
 /**
  * The fin marking guide: one wrap-around strip per body tube, drawn 1:1.
@@ -136,7 +137,7 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
   const W = GUIDE_WIDTH_MM;
   const stroke = hexToRgbTuple(opts.templateStroke);
   const y = top + HEADER_MM;
-  const name = guide.name || t('report.bodyTube');
+  const name = partLabel(t, { name: guide.name, type: 'bodytube' });
 
   // --- header: what this strip is, and which way is forward ---
   setStyle(p, 'bold').setFontSize(8).setTextColor(20);
@@ -222,7 +223,7 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
       .setFontSize(6.5)
       .setTextColor(...stroke);
     drawText(p, label, x + W / 3, yStart + (W / 3) * Math.tan(mark.cant) - 1.2, {
-      angle: (-mark.cant * 180) / Math.PI,
+      angle: radToDeg(-mark.cant),
     });
   }
 }

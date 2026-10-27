@@ -1,20 +1,27 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LaunchConditions } from '../../services/design/orkTree';
-import { getLaunchLocationStore, locationFrom, type LaunchLocation } from '../../services/storage/launchLocationStore';
+import {
+  getLaunchLocationStore,
+  locationFrom,
+  type LaunchLocation,
+  siteOf,
+} from '../../services/storage/launchLocationStore';
 import { loadSettings } from '../../services/storage/settings';
 import { useLocationList } from './useLocationList';
+import { confirm } from '../../state/confirmStore';
 import { DesignPropertiesDialog } from '../layout/DesignPropertiesDialog';
 import { LocationsDialog } from './LocationsDialog';
 import { PlaceSearchDialog } from './PlaceSearchDialog';
+import { StatusLine } from '../common/StatusLine';
+import { smallButton } from '../common/smallButton';
 
 /** The three fields a location sets. */
 type LocationSite = Pick<LaunchConditions, 'latitudeDeg' | 'longitudeDeg' | 'launchAltitudeM'>;
 
 /** The launch defaults from Settings, as a site. */
 const launchDefaultSite = (): LocationSite => {
-  const site = loadSettings().launchDefaults;
-  return { latitudeDeg: site.latitudeDeg, longitudeDeg: site.longitudeDeg, launchAltitudeM: site.launchAltitudeM };
+  return siteOf(loadSettings().launchDefaults);
 };
 
 /**
@@ -53,18 +60,14 @@ export function LocationPicker({
 
   // Shared with the manage dialog, and ordered: see `useLocationList` for why a
   // late-landing first read would otherwise empty this dropdown.
-  const { locations: loaded, refresh } = useLocationList();
+  const { locations: loaded, error: listError, refresh, write } = useLocationList();
   const locations = loaded ?? [];
 
   // A location with no known elevation leaves the elevation blank: a tool then
   // takes the terrain model's, and a simulation asks for it before it runs.
   // Keeping the previous site's elevation would fly the wrong air unannounced.
   const apply = (location: LaunchLocation) => {
-    onChange({
-      latitudeDeg: location.latitudeDeg,
-      longitudeDeg: location.longitudeDeg,
-      launchAltitudeM: location.launchAltitudeM,
-    });
+    onChange(siteOf(location));
     onCommit?.();
   };
 
@@ -92,17 +95,7 @@ export function LocationPicker({
     onCommit?.();
   };
 
-  const store = async (fn: () => Promise<void>) => {
-    setErr(null);
-    try {
-      await fn();
-      await refresh();
-    } catch {
-      // The store reports a refused write by throwing; told nothing, the user
-      // would see a list that simply does not contain what they just saved.
-      setErr(t('location.saveFailed'));
-    }
-  };
+  const store = (fn: () => Promise<void>) => write(fn, setErr);
 
   /**
    * Which saved location the current fields correspond to, if any.
@@ -122,6 +115,31 @@ export function LocationPicker({
       near(launch.longitudeDeg, p.longitudeDeg, 1e-4) &&
       sameAlt(launch.launchAltitudeM, p.launchAltitudeM),
   );
+
+  /** Save the fields on screen under `name`. */
+  const saveUnder = async (name: string) => {
+    // Saving under an existing location's name updates it, rather than
+    // leaving two entries a user cannot tell apart in the dropdown. Matched
+    // without case, as the name dialog's duplicate warning is.
+    const key = name.trim().toLowerCase();
+    const existing = locations.find((p) => p.name.toLowerCase() === key);
+    // A location can be the only record of coordinates somebody measured at a
+    // field, so replacing one other than the location on screen asks first.
+    if (
+      existing &&
+      existing.id !== current?.id &&
+      !(await confirm({
+        message: t('location.replaceConfirm', { name: existing.name }),
+        confirmLabel: t('location.replace'),
+        danger: true,
+      }))
+    )
+      return;
+    await store(async () => {
+      const location = locationFrom(name, launch);
+      await getLaunchLocationStore().save(existing ? { ...location, id: existing.id } : location);
+    });
+  };
 
   /**
    * A location is a place, so it cannot be captured from a half-filled site.
@@ -161,7 +179,7 @@ export function LocationPicker({
           onClick={() => setSearching(true)}
           title={t('placeSearch.open')}
           aria-label={t('placeSearch.open')}
-          className="rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
+          className={smallButton('row', 'soft')}
         >
           🔍
         </button>
@@ -170,7 +188,7 @@ export function LocationPicker({
           disabled={!savable}
           title={savable ? t('location.save') : t('location.needsSite')}
           aria-label={t('location.save')}
-          className="rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-40"
+          className={smallButton('row', 'soft')}
         >
           💾
         </button>
@@ -179,7 +197,7 @@ export function LocationPicker({
           disabled={locations.length === 0}
           title={t('location.manage')}
           aria-label={t('location.manage')}
-          className="rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:opacity-40"
+          className={smallButton('row', 'soft')}
         >
           ⚙
         </button>
@@ -187,9 +205,9 @@ export function LocationPicker({
       {/* Always mounted, empty until there is something to say: a live region
           created together with its text is not announced by most screen
           readers. */}
-      <p role="status" aria-live="polite" className="text-[11px] leading-snug text-warn-400">
-        {err}
-      </p>
+      <StatusLine tone="danger" size="fine">
+        {err ?? listError}
+      </StatusLine>
 
       {naming && (
         <DesignPropertiesDialog
@@ -197,18 +215,11 @@ export function LocationPicker({
           confirmLabel={t('common.save')}
           initialName={current?.name ?? ''}
           takenNames={locations.filter((p) => p.id !== current?.id).map((p) => p.name)}
+          duplicateText={t('location.duplicateName')}
           onCancel={() => setNaming(false)}
           onConfirm={(name) => {
             setNaming(false);
-            // Saving under an existing location's name updates it, rather than
-            // leaving two entries a user cannot tell apart in the dropdown.
-            // Matched without case, as the name dialog's duplicate warning is.
-            const key = name.trim().toLowerCase();
-            const existing = locations.find((p) => p.name.toLowerCase() === key);
-            void store(async () => {
-              const location = locationFrom(name, launch);
-              await getLaunchLocationStore().save(existing ? { ...location, id: existing.id } : location);
-            });
+            void saveUnder(name);
           }}
         />
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { loadHideOop, saveHideOop } from './motorPrefs';
 import { useTranslation } from 'react-i18next';
 import { withUnit } from '../../i18n/format';
@@ -9,11 +9,24 @@ import { RangeSlider } from './RangeSlider';
 import { ToggleButton } from '../common/ToggleButton';
 import { UnitBound } from '../common/UnitBound';
 import { CheckMenu } from '../common/CheckMenu';
+import { toggled } from '../../services/app/collections';
+import { usePersistedState } from '../common/usePersistedState';
+import { Check } from '../common/Check';
+import { NumberInput } from '../common/NumberInput';
+import type { Quantity } from '../../prefs/units';
+import {
+  PERF_FIELDS,
+  activePerfCount,
+  type PerfDef,
+  type PerfField,
+  type PerfRange,
+  type PerfRanges,
+} from '../../services/motors/motorPerf';
 
 /**
- * The filter controls the motor picker and the motor dashboard share: the same
- * manufacturer dropdown, class chips, impulse bounds, diameter range and
- * plugged box, over the same filter state. Each dialog lays them out
+ * The filter controls the motor picker, the motor dashboard and the motor guide
+ * share: the same manufacturer dropdown, class chips, impulse and performance
+ * bounds, diameter range and plugged box, over the same filter state. Each dialog lays them out
  * differently (the picker stacks them, the dashboard puts them on two rows), so
  * this is a set of pieces rather than one bar. Kept as two copies they would
  * drift, for example a diameter readout in raw millimeters on one side and the
@@ -35,6 +48,11 @@ export interface MotorFilterInit {
    * fit and never shows the checkbox.
    */
   mount?: MountFit | null;
+  /**
+   * The performance fields offered, when not the standard set: a list with a
+   * rocket to lift adds thrust-to-weight (`twrField`).
+   */
+  perfFields?: readonly PerfDef[];
 }
 
 const EMPTY: ReadonlySet<string> = new Set();
@@ -50,14 +68,15 @@ export function useMotorFilter(
   used: ReadonlySet<string> = EMPTY,
 ) {
   const [text, setText] = useState('');
-  const [hideOop, setHideOop] = useState(loadHideOop);
+  const [hideOop, setHideOop] = usePersistedState(loadHideOop, saveHideOop);
   const [hideUsed, setHideUsed] = useState(false);
-  useEffect(() => saveHideOop(hideOop), [hideOop]);
   const [cls, setCls] = useState<string | null>(null);
   const [mfrs, setMfrs] = useState<Set<string>>(() => init.mfrs ?? new Set());
   const [imp, setImp] = useState<ImpulseRange>([null, null]);
+  const [perf, setPerfAll] = useState<PerfRanges>({});
   const [plugged, setPlugged] = useState(false);
   const mount = init.mount ?? null;
+  const perfFields = init.perfFields ?? PERF_FIELDS;
   /** The slider stop the mount can take, and the ceiling the box pulls down to. */
   const mountIdx = mount ? fitIdx(mount.bore) : MAX_IDX;
   // On by default wherever there is a mount. Hiding motors too fat for the bore
@@ -129,12 +148,30 @@ export function useMotorFilter(
         maxDiameter: highIdx < MAX_IDX ? STD_DIAMS[highIdx] : undefined,
         minImpulse: impMin ?? undefined,
         maxImpulse: impMax ?? undefined,
+        perf,
+        perfFields,
         fit,
         plugged,
         hideOop,
         hide: hideUsed ? used : undefined,
       }),
-    [catalog, text, cls, mfrs, lowIdx, highIdx, impMin, impMax, fit, plugged, hideOop, hideUsed, used],
+    [
+      catalog,
+      text,
+      cls,
+      mfrs,
+      lowIdx,
+      highIdx,
+      impMin,
+      impMax,
+      perf,
+      perfFields,
+      fit,
+      plugged,
+      hideOop,
+      hideUsed,
+      used,
+    ],
   );
   return {
     text,
@@ -148,6 +185,10 @@ export function useMotorFilter(
     diaSaved,
     imp,
     setImp,
+    perf,
+    perfFields,
+    setPerf: (field: PerfField, range: PerfRange) => setPerfAll((cur) => ({ ...cur, [field]: range })),
+    clearPerf: () => setPerfAll({}),
     plugged,
     setPlugged,
     hideOop,
@@ -208,12 +249,7 @@ export function ManufacturerMenu({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const toggle = (m: string) => {
-    const n = new Set(mfrs);
-    if (n.has(m)) n.delete(m);
-    else n.add(m);
-    onChange(n);
-  };
+  const toggle = (m: string) => onChange(toggled(mfrs, m));
   return (
     <CheckMenu
       summary={
@@ -277,34 +313,142 @@ export function DiameterRange({ dia, onChange }: { dia: [number, number]; onChan
  */
 export function ImpulseRange({ imp, onChange }: { imp: ImpulseRange; onChange: (imp: ImpulseRange) => void }) {
   const { t } = useTranslation();
-  const u = useUnits();
-  const field =
-    'w-16 rounded-md bg-canvas px-2 py-1 text-right text-xs tabular-nums text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
   // Held in N·s like the catalog; only what is typed and shown moves to the
   // user's unit.
+  return <BoundPair label={t('motorDlg.totalImpulse')} quantity="impulse" range={imp} onChange={onChange} />;
+}
+
+const BOUND_FIELD =
+  'w-16 rounded-md bg-canvas px-2 py-1 text-right text-xs tabular-nums text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
+
+/**
+ * A min and a max box under one label, held in SI and typed in the user's unit
+ * for `quantity`. Without a quantity the figure has one unit (a burn time in
+ * seconds) and is typed as it is held.
+ */
+function BoundPair({
+  label,
+  quantity,
+  range,
+  onChange,
+  labelClass = 'shrink-0',
+  ratio = false,
+}: {
+  label: string;
+  quantity?: Quantity;
+  /** A plain ratio, with no unit to name (thrust-to-weight). */
+  ratio?: boolean;
+  range: [number | null, number | null];
+  onChange: (range: [number | null, number | null]) => void;
+  labelClass?: string;
+}) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  const end = (i: 0 | 1) => {
+    const word = i === 0 ? t('motorDlg.min') : t('motorDlg.max');
+    const set = (si: number | null) => onChange(i === 0 ? [si, range[1]] : [range[0], si]);
+    return quantity ? (
+      <UnitBound
+        quantity={quantity}
+        min={0}
+        value={range[i]}
+        onChange={set}
+        placeholder={word}
+        ariaLabel={`${label} ${word}`}
+        className={BOUND_FIELD}
+      />
+    ) : (
+      <NumberInput
+        value={range[i]}
+        onChange={set}
+        min={0}
+        placeholder={word}
+        ariaLabel={`${label} ${word}`}
+        className={BOUND_FIELD}
+      />
+    );
+  };
   return (
     <div className="flex items-center gap-2 text-xs text-ink-soft">
-      <span className="shrink-0 text-ink-faint">{t('motorDlg.totalImpulse')}</span>
-      <UnitBound
-        quantity="impulse"
-        min={0}
-        value={imp[0]}
-        onChange={(si) => onChange([si, imp[1]])}
-        placeholder={t('motorDlg.min')}
-        ariaLabel={`${t('motorDlg.totalImpulse')} ${t('motorDlg.min')}`}
-        className={field}
-      />
+      <span className={`${labelClass} text-ink-faint`}>{label}</span>
+      {end(0)}
       <span aria-hidden="true">–</span>
-      <UnitBound
-        quantity="impulse"
-        min={0}
-        value={imp[1]}
-        onChange={(si) => onChange([imp[0], si])}
-        placeholder={t('motorDlg.max')}
-        ariaLabel={`${t('motorDlg.totalImpulse')} ${t('motorDlg.max')}`}
-        className={field}
-      />
-      <span className="shrink-0 text-ink-faint">{u.sym('impulse')}</span>
+      {end(1)}
+      <span className="min-w-8 shrink-0 text-ink-faint">
+        {quantity ? u.sym(quantity) : ratio ? '' : t('units.second')}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The performance bounds behind one toggle: average and peak thrust, burn time,
+ * total and propellant weight, length. thrustcurve.org's advanced search asks
+ * the same questions.
+ *
+ * Folded away by default, because most lists are narrowed by class and bore
+ * and six more pairs of boxes would push the list itself off a phone. The
+ * toggle counts the bounds that are set, so a folded panel that is still
+ * filtering says so.
+ */
+export function PerfFilters({
+  perf,
+  onChange,
+  onClear,
+  fields = PERF_FIELDS,
+}: {
+  perf: PerfRanges;
+  onChange: (field: PerfField, range: PerfRange) => void;
+  onClear: () => void;
+  /** The fields to offer; the hook's `perfFields`. */
+  fields?: readonly PerfDef[];
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const active = activePerfCount(perf, fields);
+  return (
+    <div className="@container text-xs">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="rounded-md px-2 py-1 font-medium text-ink-soft ring-1 ring-line/10 hover:bg-raised"
+        >
+          <span aria-hidden="true">{open ? '▾' : '▸'}</span>{' '}
+          {active ? t('motorDlg.moreFiltersN', { count: active }) : t('motorDlg.moreFilters')}
+        </button>
+        {active > 0 && (
+          <button onClick={onClear} className="text-accent-400 hover:underline">
+            {t('motorDlg.clearFilters')}
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="mt-2 space-y-1.5">
+          {/* Container queries: columns track the panel this sits in, not the
+              window, since the picker's list is a 440px column inside a wide
+              dialog. A pair is about 300px, so one column below 672px, two up
+              to 1024px (the dashboard's list), three above (the motor guide),
+              which puts thrust and burn time on the first row and the motor's
+              own weights and length on the second. */}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 @2xl:grid-cols-2 @5xl:grid-cols-3">
+            {fields.map((f) => (
+              <BoundPair
+                key={f.id}
+                label={t(f.label)}
+                quantity={f.quantity}
+                range={perf[f.id] ?? [null, null]}
+                onChange={(r) => onChange(f.id, r)}
+                labelClass="w-24 shrink-0"
+                ratio={f.ratio}
+              />
+            ))}
+          </div>
+          {/* Said where the bound is typed: a motor whose figure the catalog
+              does not state cannot be checked, so a bound on it hides it. */}
+          <p className="text-[11px] leading-snug text-ink-faint">{t('motorDlg.perfMissingNote')}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -321,12 +465,7 @@ function FilterCheck({
   on: boolean;
   onChange: (on: boolean) => void;
 }) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-ink-soft" title={hint}>
-      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="accent-accent-500" />
-      {label}
-    </label>
-  );
+  return <Check checked={on} onChange={onChange} label={label} title={hint} className="text-xs text-ink-soft" />;
 }
 
 /**

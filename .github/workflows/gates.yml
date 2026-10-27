@@ -3,9 +3,10 @@ name: Gates
 # The gate set, called by ci.yml on a PR. A reusable workflow
 # (`workflow_call`), so the jobs live apart from the trigger that runs them.
 #
-# The web jobs (build-and-test, unit, e2e) run in parallel, and the PR is
-# gated on all of them. Each is split three ways, each slice on its own runner,
-# so the wait is one slice, not the whole job. The service worker checks (update-flow) run by hand in e2e-full.yml. The engine checks (parity, the reproducible extract,
+# The web jobs (build-and-test, unit, e2e) and the docs site typecheck
+# (website) run in parallel, and the PR is gated on all of them. Each web job is
+# split three ways, each slice on its own runner, so the wait is one slice, not
+# the whole job. The service worker checks (update-flow) run by hand in e2e-full.yml. The engine checks (parity, the reproducible extract,
 # the aero scorecards) are not here: they only move when the engine changes,
 # and are run by hand with `npm run audit` in engine-java.
 #
@@ -95,8 +96,8 @@ jobs:
       - run: npx vitest run --shard=${{ matrix.shard }}/3
 
   # The core end-to-end specs: the paths a broken build breaks first (the list is
-  # CORE_SPECS in web/playwright.config.ts). Every pull request and push to a
-  # branch other than master and beta runs them. The full suite runs in e2e-full.yml, by hand.
+  # CORE_SPECS in web/playwright.config.ts). Every pull request runs them
+  # (ci.yml). The full suite runs in e2e-full.yml, by hand.
   # Separate job so a Playwright failure is legible on its own and the browser
   # download does not slow the unit gate.
   e2e:
@@ -148,3 +149,31 @@ jobs:
           name: playwright-report-core-${{ matrix.shard }}
           path: web/playwright-report/
           retention-days: 7
+
+  # The docs site's TypeScript (website/src, docusaurus.config.ts, sidebars.ts).
+  # Docusaurus builds through Babel, which strips the types without checking
+  # them, so without this a type error there deploys with every gate green.
+  website:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # node_modules from the cache; `npm ci` only when the lockfile changed.
+      - id: website-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: website/node_modules
+          key: website-modules-${{ runner.os }}-node24-${{ hashFiles('website/package-lock.json') }}
+
+      - if: steps.website-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - run: npm run typecheck

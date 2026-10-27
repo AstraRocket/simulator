@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isFiniteNumber, roundTo } from '../../../src/services/app/numbers';
+import { isFiniteNumber, isRecord, roundTo } from '../../../src/services/app/numbers';
 
 describe('roundTo', () => {
   it('rounds to the given places with Math.round', () => {
@@ -13,5 +13,14 @@ describe('isFiniteNumber', () => {
   it('accepts a real number and nothing else', () => {
     expect(isFiniteNumber(1.5)).toBe(true);
     for (const v of [Number.NaN, Infinity, '1', null, undefined]) expect(isFiniteNumber(v)).toBe(false);
+  });
+});
+
+describe('isRecord', () => {
+  it('takes a plain object and refuses null, an array and a primitive', () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord('x')).toBe(false);
   });
 });

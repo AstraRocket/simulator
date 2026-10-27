@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 import type { CatalogMotor } from '../../services/motors/motorDb';
 import { avgThrustOf as avgOf, ispOf, massFracOf } from '../../services/motors/motorMath';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { motorTypeLabel } from './motorFormat';
 import type { Units } from '../../prefs/useUnits';
 import type { Quantity } from '../../prefs/units';
 import { nsKey } from '../../services/storage/storageKeys';
 import { readLocalJson, writeLocalJson } from '../../services/storage/localPref';
+import { motorName } from '../../services/motors/motorName';
+import { CATALOG_TO_SI } from '../../services/motors/catalogUnits';
+import { usePersistedState } from '../common/usePersistedState';
 
 /**
  * The motor dashboard's column table: every column the grid can show, how each
@@ -40,8 +43,13 @@ export interface Col {
 export const heading = (c: Col, t: TFunction, u: Units): string =>
   c.quantity ? `${t(`dash.${c.label}`)} ${u.sym(c.quantity)}` : t(`dash.${c.label}`);
 
-/** A catalog value in the user's unit, the catalog's mm/g lifted to SI first. */
-const cell = (u: Units, q: Quantity, v: number | undefined, siScale: number, d: number): string =>
+/**
+ * A catalog value in the user's unit, the catalog's mm/g lifted to SI first.
+ * `d` fixes the decimals; absent, the magnitude ladder of the value as shown
+ * picks them, as the detail pane does, so a 29 mm motor reads 1.14 in rather
+ * than 1 in beside every 13 to 38 mm one.
+ */
+const cell = (u: Units, q: Quantity, v: number | undefined, siScale: number, d?: number): string =>
   v != null && Number.isFinite(v) ? u.fmt(q, v * siScale, d) : NO_VALUE;
 
 // Every column the grid can show. `always` = the anchor (Motor), never hidden.
@@ -61,7 +69,7 @@ export const COLUMNS: Col[] = [
     label: 'colDia',
     align: 'right',
     quantity: 'motorDimensions',
-    cell: (m, u) => cell(u, 'motorDimensions', m.diameter, 0.001, 0),
+    cell: (m, u) => cell(u, 'motorDimensions', m.diameter, CATALOG_TO_SI),
     sortVal: (m) => m.diameter,
   },
   {
@@ -69,7 +77,7 @@ export const COLUMNS: Col[] = [
     label: 'colImpulse',
     align: 'right',
     quantity: 'impulse',
-    cell: (m, u) => u.fmt('impulse', m.impulse, m.impulse < 10 ? 1 : 0),
+    cell: (m, u) => cell(u, 'impulse', m.impulse, 1),
     sortVal: (m) => m.impulse,
   },
   {
@@ -94,7 +102,7 @@ export const COLUMNS: Col[] = [
     label: 'colLength',
     align: 'right',
     quantity: 'motorDimensions',
-    cell: (m, u) => cell(u, 'motorDimensions', m.length, 0.001, 0),
+    cell: (m, u) => cell(u, 'motorDimensions', m.length, CATALOG_TO_SI),
     sortVal: (m) => m.length ?? NaN,
   },
   {
@@ -102,7 +110,7 @@ export const COLUMNS: Col[] = [
     label: 'colMass',
     align: 'right',
     quantity: 'mass',
-    cell: (m, u) => cell(u, 'mass', m.mass, 0.001, 0),
+    cell: (m, u) => cell(u, 'mass', m.mass, CATALOG_TO_SI),
     sortVal: (m) => m.mass ?? NaN,
   },
   {
@@ -110,7 +118,7 @@ export const COLUMNS: Col[] = [
     label: 'colProp',
     align: 'right',
     quantity: 'mass',
-    cell: (m, u) => cell(u, 'mass', m.propWeightG, 0.001, 0),
+    cell: (m, u) => cell(u, 'mass', m.propWeightG, CATALOG_TO_SI),
     sortVal: (m) => m.propWeightG ?? NaN,
   },
   { id: 'delays', label: 'colDelays', align: 'center', cell: (m) => m.delays ?? NO_VALUE },
@@ -125,15 +133,15 @@ export const COLUMNS: Col[] = [
     id: 'code',
     label: 'colCode',
     align: 'left',
-    cell: (m) => m.code || m.designation,
-    sortVal: (m) => m.code || m.designation,
+    cell: (m) => motorName(m),
+    sortVal: (m) => motorName(m),
   },
   { id: 'isp', label: 'colIsp', align: 'right', cell: (m) => fmtCell(ispOf(m), 0), sortVal: (m) => ispOf(m) },
   {
     id: 'massFrac',
     label: 'colMassFrac',
     align: 'right',
-    cell: (m) => (Number.isFinite(massFracOf(m)) ? `${fmtNum(massFracOf(m), 0)}%` : NO_VALUE),
+    cell: (m) => fmtPercent(massFracOf(m)),
     sortVal: (m) => massFracOf(m),
   },
   {
@@ -163,10 +171,7 @@ const saveCols = (ids: string[]): void => void writeLocalJson(COLS_KEY, ids);
 
 /** The user's column choice (persisted) and the columns to render from it. */
 export function useVisibleColumns() {
-  const [visCols, setVisCols] = useState<string[]>(loadCols);
-  useEffect(() => {
-    saveCols(visCols);
-  }, [visCols]);
+  const [visCols, setVisCols] = usePersistedState<string[]>(loadCols, saveCols);
 
   // Columns to render, in canonical COLUMNS order regardless of toggle order.
   const cols = useMemo(() => COLUMNS.filter((c) => c.always || visCols.includes(c.id)), [visCols]);

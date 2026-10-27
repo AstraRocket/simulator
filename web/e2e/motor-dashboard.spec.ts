@@ -27,7 +27,7 @@ test('opens from the menu and shows a motor detail on row selection', async ({ p
   // row that is replaced when the catalog arrives, losing the selection. Under a
   // loaded suite the catalog load can take longer than the assertion's 5 s budget.
   const row = dialog.locator('tbody tr').first();
-  await expect(row).toContainText('C6');
+  await expect(row).toContainText('C6', { timeout: 30_000 });
   await row.click();
   await expect(dialog.getByText('View on ThrustCurve.org')).toBeVisible();
   await expect(dialog.locator('svg').first()).toBeVisible();
@@ -75,7 +75,7 @@ test('adding many columns scrolls the grid, it does not shove the detail pane', 
   const search = dialog.getByPlaceholder(/Search by code/i);
   await search.fill('C6');
   const row = dialog.locator('tbody tr').first();
-  await expect(row).toContainText('C6');
+  await expect(row).toContainText('C6', { timeout: 30_000 });
   await row.click();
   await expect(dialog.getByText('View on ThrustCurve.org')).toBeVisible();
   await search.fill('');

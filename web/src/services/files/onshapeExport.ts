@@ -4,13 +4,13 @@ import { resolveDisc } from '../design/discGeometry';
 import { COMPONENT_DEFAULTS } from '../design/componentDefaults';
 import { DEFAULT_PART_COLORS, type PartPalette } from '../design/partColors';
 import { outsideAppearance, type PartAppearance } from '../design/appearance';
-import { parseHexColor } from '../design/colorHex';
+import { parseHexColor, rgbChannels } from '../design/colorHex';
 import { stageFileName } from '../design/orkTree';
 import { designSeparation } from '../flight/flightConfigs';
 import { axialFrames, type AxialFrame } from '../../tree/axialRebase';
 import { assemblyChainLength, assemblyParentRadius, isAssembly, resolveAssemblyRadius } from '../../tree/assembly';
 import { clusterPoints } from '../../tree/cluster';
-import { isChainType } from '../../tree/componentKinds';
+import { MASS_OBJECT_TYPES, isChainType } from '../../tree/componentKinds';
 import {
   bodyRadiusAt,
   finMountOf,
@@ -31,9 +31,13 @@ import { bodyTubeRadius, countOf, finCant, num, numOpt, str } from '../../tree/n
 import { freeformRootChord, partLength } from '../../tree/position';
 import { nodeShape, profileEnds, shapeIsClippable, shapeParamDefault } from '../../tree/shapeProfile';
 import { isFinSet, tubeFinRadius } from '../../tree/tubefins';
-import { shouldersOf, symmetricSections, type Pt, type Section } from './onshape/meridian';
+import { symmetricSections, type Pt, type Section } from './onshape/meridian';
+import { shouldersOf } from '../../tree/shapeProfile';
 import type { OrkExportMotor } from './orkTypes';
 import { exportFilename, saveBlob } from './saveFile';
+import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, kernelPartMaterial, statedMaterial } from '../design/materialSlots';
+import { stageNodes } from '../../tree/treeWalk';
+import { radToDeg } from '../../prefs/units';
 
 /**
  * The JSON the OpenRocket-Onshape custom feature builds a part studio from
@@ -229,24 +233,33 @@ const infoOf = (ctx: Ctx, node: ComponentNode): ComponentInfo | undefined =>
 function colorOf(a: PartAppearance): OnshapeColor | undefined {
   const n = parseHexColor(a.paint);
   if (n === null) return undefined;
-  return { red: ((n >> 16) & 255) / 255, green: ((n >> 8) & 255) / 255, blue: (n & 255) / 255, alpha: a.alpha / 255 };
+  const [r, g, b] = rgbChannels(n);
+  return { red: r / 255, green: g / 255, blue: b / 255, alpha: a.alpha / 255 };
 }
 
-/** The part's material, as the `.ork` writer names it. */
+/** A fin set's fillet material, by the rule every writer reads; the kernel's bulk material when it states none. */
+function filletMaterialOf(node: ComponentNode): OnshapeMaterial {
+  const m = statedMaterial(node, FILLET_MATERIAL_KEYS, true);
+  return m
+    ? { name: m.name, type: 'bulk', density: m.density, group: m.group ?? '' }
+    : { ...KERNEL_MATERIALS.bulk, type: 'bulk' };
+}
+
+/** The part's material, by the rule every writer reads (`statedMaterial`). */
 function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
   switch (node.type) {
     case 'parachute':
     case 'streamer': {
-      const density = node['surfaceDensity'];
-      if (typeof density === 'number')
-        return { name: str(node, 'surfaceMaterialName', 'custom'), type: 'surface', density, group: '' };
-      return { ...KERNEL_MATERIALS.surface, type: 'surface' };
+      const m = statedMaterial(node, MATERIAL_KEYS.surface, false);
+      return m
+        ? { name: m.name, type: 'surface', density: m.density, group: '' }
+        : { ...KERNEL_MATERIALS.surface, type: 'surface' };
     }
     case 'shockcord': {
-      const density = node['lineDensity'];
-      if (typeof density === 'number')
-        return { name: str(node, 'lineMaterialName', 'custom'), type: 'line', density, group: '' };
-      return { ...KERNEL_MATERIALS.line, type: 'line' };
+      const m = statedMaterial(node, MATERIAL_KEYS.line, false);
+      return m
+        ? { name: m.name, type: 'line', density: m.density, group: '' }
+        : { ...KERNEL_MATERIALS.line, type: 'line' };
     }
     case 'masscomponent':
     case 'stage':
@@ -256,21 +269,19 @@ function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
     default:
       break;
   }
-  if (typeof node.density === 'number' && node.density > 0) {
+  const bulk = statedMaterial(node, MATERIAL_KEYS.bulk, true);
+  if (bulk) {
     const shear = node['shearModulus'];
     return {
-      name: str(node, 'materialName', 'custom'),
+      name: bulk.name,
       type: 'bulk',
-      density: node.density,
-      ...(typeof shear === 'number' && Number.isFinite(shear) ? { shearModulus: shear } : {}),
-      group: str(node, 'materialGroup', ''),
+      density: bulk.density,
+      // The `.ork` writer's rule for the modulus: finite and not negative.
+      ...(typeof shear === 'number' && Number.isFinite(shear) && shear >= 0 ? { shearModulus: shear } : {}),
+      group: bulk.group ?? '',
     };
   }
-  if (node.type === 'railbutton') {
-    const rb = COMPONENT_DEFAULTS.railbutton;
-    return { name: rb.materialName, type: 'bulk', density: rb.materialDensity, group: rb.materialGroup };
-  }
-  return { ...KERNEL_MATERIALS.bulk, type: 'bulk' };
+  return { ...(kernelPartMaterial(node.type, 'bulk') ?? KERNEL_MATERIALS.bulk), type: 'bulk' };
 }
 
 /**
@@ -386,7 +397,6 @@ function symmetricParams(node: ComponentNode): Record<string, unknown> {
 function finParams(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
   const tabHeight = num(node, 'tabHeight', 0);
   const tabLength = num(node, 'tabLength', 0);
-  const fillet = num(node, 'filletDensity', 0);
   const common = {
     // The same for all three planar sets (ComponentFactory's count(node, "finCount", 3)).
     finCount: countOf(node, 'finCount', KERNEL_DEFAULTS.trapezoidfinset.finCount),
@@ -403,15 +413,7 @@ function finParams(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
       positionMethod: str(node, 'tabOffsetMethod', 'middle'),
     },
     filletRadius: num(node, 'filletRadius', 0),
-    filletMaterial:
-      fillet > 0
-        ? {
-            name: str(node, 'filletMaterialName', 'custom'),
-            type: 'bulk',
-            density: fillet,
-            group: str(node, 'filletMaterialGroup', ''),
-          }
-        : { ...KERNEL_MATERIALS.bulk, type: 'bulk' },
+    filletMaterial: filletMaterialOf(node),
     offsetRadius: (node.id ? mountRadius(finMountOf(ctx.tree, node.id)) : null) ?? 0,
   };
   const planform = finPlanformPoints(node) ?? [];
@@ -507,7 +509,7 @@ function paramsOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Record<
         filled: false,
         clusterConfiguration: 'single',
         clusterScale: num(node, 'clusterScale', 1),
-        clusterRotation: (num(node, 'clusterRotation', 0) * 180) / Math.PI,
+        clusterRotation: radToDeg(num(node, 'clusterRotation', 0)),
         ...motorMountOf(ctx, node),
       };
     }
@@ -599,7 +601,7 @@ function componentOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Onsh
 }
 
 /** Parts the feature builds as a solid packed cylinder. */
-const PACKED_TYPES: ReadonlySet<string> = new Set(['parachute', 'streamer', 'shockcord', 'masscomponent']);
+const PACKED_TYPES = MASS_OBJECT_TYPES as ReadonlySet<string>;
 
 /**
  * The material the feature weighs a packed part by. It reads every material's
@@ -697,7 +699,7 @@ export function exportOnshape(input: OnshapeExportInput): OnshapeExport {
     palette: input.palette ?? DEFAULT_PART_COLORS,
     skipped: [],
   };
-  const stages = tree.components.filter((n) => n.type === 'stage');
+  const stages = stageNodes(tree);
   const payload: OnshapePayload = {
     schemaVersion: ONSHAPE_SCHEMA_VERSION,
     rocket: {

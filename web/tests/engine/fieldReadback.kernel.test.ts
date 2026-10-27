@@ -22,7 +22,7 @@ vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIM
 /**
  * The panel shows what flies.
  *
- * For every field the Design tab edits, the value the panel shows
+ * For every field in the Design tab's field table, the value the panel shows
  * (`fieldValue`, after the app's own automatic rules in `syncDerived`) has to be
  * the value the kernel holds once the rocket is built (`getComponentFields` on
  * the bridge, read back through the part's own getters). That catches every way
@@ -39,6 +39,7 @@ vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIM
  * is built from the part the editor creates and from SEEDS, which put the fields
  * that apply only in some states (a tab, a cluster, a shape with a parameter, an
  * altitude event) into them; the test fails if any field is never compared.
+ * The overrides and materials, edited beside the table, are read back below.
  * Expected values are the kernel's, never an app constant.
  *
  * KNOWN lists accepted disagreements by `type.key`, each stating in words what
@@ -362,5 +363,102 @@ describe('the panel shows what the kernel flies', () => {
       fields.filter((f) => !NO_KEY.has(f.kind) && !compared.has(`${type}.${f.key}`)).map((f) => `${type}.${f.key}`),
     );
     expect(never).toEqual([]);
+  });
+});
+
+/**
+ * The rows the Design tab edits beside the field table: the overrides
+ * (OverridesSection) and the materials (the material pickers). Each is set on
+ * the part the editor creates and read back from the kernel, under the key
+ * `ComponentFields` reports it by, for every part type the table covers.
+ */
+describe('the overrides and materials the panel edits are what the kernel flies', () => {
+  const OVERRIDES = {
+    overrideMass: 0.123,
+    overrideCGX: 0.045,
+    overrideCD: 0.33,
+    overrideSubcomponentsMass: true,
+    overrideSubcomponentsCG: true,
+    overrideSubcomponentsCD: true,
+  };
+  /** Node key to the kernel's readback key, per material the part carries. */
+  const MATERIAL_KEYS: [string, string, string, string][] = [
+    // node name, node density, kernel name, kernel density
+    ['materialName', 'density', 'materialName', 'density'],
+    ['surfaceMaterialName', 'surfaceDensity', 'materialName', 'density'],
+    ['lineMaterialName', 'lineDensity', 'lineMaterialName', 'lineDensity'],
+    ['filletMaterialName', 'filletDensity', 'filletMaterialName', 'filletDensity'],
+  ];
+  // A shock cord's own material is its line (ShockCord.getMaterial, a LINE material).
+  const SHOCK_CORD_KEYS: [string, string, string, string][] = [
+    ['lineMaterialName', 'lineDensity', 'materialName', 'density'],
+  ];
+
+  const build = async (node: ComponentNode) => {
+    const engine = await loadEngine();
+    const tree = syncDerived(host(node));
+    engine.reset();
+    const handle = engine.buildRocket(JSON.stringify(tree));
+    return {
+      app: find(tree.components, 'p')!,
+      built: JSON.parse(engine.getComponentFields(handle, 'p')) as Record<string, unknown>,
+    };
+  };
+
+  it('for the mass, CG and drag overrides and the flags that spread them over the parts below', async () => {
+    const misses: string[] = [];
+    for (const type of Object.keys(FIELDS).filter((t) => t !== 'stage')) {
+      const { app, built } = await build({ ...defaultNode(type as ComponentType), id: 'p', ...OVERRIDES });
+      if (typeof built.error === 'string') {
+        misses.push(`${type} builds: ${built.error}`);
+        continue;
+      }
+      const expected: Record<string, unknown> = {
+        massOverridden: true,
+        overrideMass: app['overrideMass'],
+        cgOverridden: true,
+        overrideCGX: app['overrideCGX'],
+        cdOverridden: true,
+        overrideCD: app['overrideCD'],
+        overrideSubcomponentsMass: true,
+        overrideSubcomponentsCG: true,
+        overrideSubcomponentsCD: true,
+      };
+      for (const [key, want] of Object.entries(expected))
+        if (!agrees(want, built[key], false))
+          misses.push(`${type}.${key}: app ${String(want)}, kernel ${String(built[key])}`);
+      const { built: plain } = await build({ ...defaultNode(type as ComponentType), id: 'p' });
+      for (const flag of ['massOverridden', 'cgOverridden', 'cdOverridden'])
+        if (plain[flag] !== false) misses.push(`${type}.${flag} with no override: kernel ${String(plain[flag])}`);
+    }
+    expect(misses).toEqual([]);
+  });
+
+  it('for every material name and density the part carries', async () => {
+    const misses: string[] = [];
+    let compared = 0;
+    for (const type of Object.keys(FIELDS).filter((t) => t !== 'stage')) {
+      const keys = type === 'shockcord' ? SHOCK_CORD_KEYS : MATERIAL_KEYS;
+      const base = { ...defaultNode(type as ComponentType), id: 'p' } as ComponentNode;
+      const { built: probe } = await build(base);
+      // Recovery devices carry their canopy or strip as the surface material,
+      // every other part its bulk material under the same kernel key.
+      const recovery = type === 'parachute' || type === 'streamer';
+      const carried = keys.filter(
+        ([nName, , kName]) =>
+          kName in probe &&
+          (kName !== 'materialName' || (nName === 'surfaceMaterialName') === recovery || type === 'shockcord'),
+      );
+      for (const [nName, nDensity, kName, kDensity] of carried) {
+        const { app, built } = await build({ ...base, [nName]: 'Test stock', [nDensity]: 777 } as ComponentNode);
+        compared++;
+        if (built[kName] !== app[nName])
+          misses.push(`${type}.${nName}: app ${String(app[nName])}, kernel ${String(built[kName])}`);
+        if (!agrees(app[nDensity], built[kDensity], false))
+          misses.push(`${type}.${nDensity}: app ${String(app[nDensity])}, kernel ${String(built[kDensity])}`);
+      }
+    }
+    expect(misses).toEqual([]);
+    expect(compared).toBeGreaterThan(15);
   });
 });

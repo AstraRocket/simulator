@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import i18nGlobal, { isLanguageReady, languageReady } from '../i18n';
 import { useWorkspaceStore, selectConfig, saveFailure, workspaceSnapshot, type WorkspaceState } from './store';
 import { simPrefsOf } from './workspaceSelectors';
-import { currentAutosaveToken, markWritten, savesHeld, unchangedSinceWrite } from './writtenWorkspace';
+import { currentAutosaveToken, markWritten, recordWrite, savesHeld, unchangedSinceWrite } from './writtenWorkspace';
 import { setKernelLengthUnit, type RocketTree } from '../engine/openRocketEngine';
 
 import { useEngineStore } from './engineStore';
@@ -76,13 +76,10 @@ function persist(fields: Parameters<typeof workspaceSnapshot>[0]): void {
   getWorkspaceStore()
     .save(workspaceSnapshot(fields))
     .then(() => {
-      markWritten(fields);
-      useWorkspaceStore.getState().clearSaveWarning();
-      // The header's save status reads this. It is the only thing that
-      // reports a save, since the File menu has no Save item, so it is
-      // set here, where a write actually landed, rather than anywhere that
-      // merely asked for one.
-      useWorkspaceStore.getState().markSaved();
+      // Where a write actually landed, rather than anywhere that merely asked
+      // for one: the header's save status is the only thing that reports a
+      // save, since the File menu has no Save item.
+      recordWrite(fields, useWorkspaceStore.getState());
       void requestPersistentStorage();
     })
     .catch((e: unknown) => {
@@ -140,6 +137,16 @@ export function useWorkspaceEffects() {
     // now; only what is kept from it waits.
     const language = languageReady();
     const boot: Boot = useWorkspaceStore.getState();
+    // The default rocket, still untouched, named and marked written: not worth
+    // storing until it is edited, as after New (see `writtenWorkspace`).
+    const keepDefault = () => {
+      nameDefaultDesign(boot);
+      markWritten(useWorkspaceStore.getState());
+    };
+    const finish = () => {
+      hydrated.current = true;
+      setReady(true);
+    };
     getWorkspaceStore()
       .load()
       .then(async (w) => {
@@ -161,17 +168,14 @@ export function useWorkspaceEffects() {
           getWorkspaceStore().setActiveId?.(null);
           persist(useWorkspaceStore.getState());
         } else if (untouchedSinceBoot(boot)) {
-          nameDefaultDesign(boot);
-          // Nothing stored: the default rocket is not worth storing until it is
-          // edited, as after New (see `writtenWorkspace`). Edited while the read
-          // and the language wait ran, the design on screen is the user's and
-          // stays unwritten, as after a rejected load: marked written, the
-          // autosave (which does not run before this resolves), the unload
-          // flush and the hidden-tab save would all skip it.
-          markWritten(useWorkspaceStore.getState());
+          // Nothing stored. Edited while the read and the language wait ran,
+          // the design on screen is the user's and stays unwritten, as after a
+          // rejected load: marked written, the autosave (which does not run
+          // before this resolves), the unload flush and the hidden-tab save
+          // would all skip it.
+          keepDefault();
         }
-        hydrated.current = true;
-        setReady(true);
+        finish();
       })
       // Without this, a rejected load would leave `hydrated` and `ready` false
       // forever: no autosave, no unload flush, no engine rebuild, `info` null,
@@ -190,17 +194,13 @@ export function useWorkspaceEffects() {
         await language;
         if (!live) return;
         getWorkspaceStore().setActiveId?.(null);
-        if (untouchedSinceBoot(boot)) {
-          nameDefaultDesign(boot);
-          // The default rocket on screen is no more worth storing than after an
-          // empty load: hiding the tab must not save it as a library entry.
-          markWritten(useWorkspaceStore.getState());
-        }
-        // Edited while the load ran: the design on screen is the user's and
+        // The default rocket on screen is no more worth storing than after an
+        // empty load: hiding the tab must not save it as a library entry.
+        // Edited while the load ran, the design on screen is the user's and
         // stays unwritten, so the next autosave or the unload flush stores it,
         // detached, as a design of its own.
-        hydrated.current = true;
-        setReady(true);
+        if (untouchedSinceBoot(boot)) keepDefault();
+        finish();
         useWorkspaceStore.getState().setStorageWarning(i18nGlobal.t('storage.loadFailed'), 'loadFailed');
       });
     return () => {
@@ -289,10 +289,7 @@ export function useWorkspaceEffects() {
       if (unchangedSinceWrite(fields)) return;
       getWorkspaceStore()
         .save(workspaceSnapshot(fields))
-        .then(() => {
-          markWritten(fields);
-          useWorkspaceStore.getState().clearSaveWarning();
-        })
+        .then(() => recordWrite(fields, useWorkspaceStore.getState()))
         .catch(() => {});
       flush();
     };

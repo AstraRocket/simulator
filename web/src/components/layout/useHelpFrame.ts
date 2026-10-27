@@ -11,6 +11,9 @@ import { type HelpTarget, helpTarget, helpTargetFromUrl } from '../../services/a
  */
 const SPY_OFFSET_PX = 96;
 
+/** A search result's word marked in the page (helpSearch.markMatches). */
+const HELP_MARK = 'mark[data-astra-help-mark]';
+
 /** How long an anchor is held against the page settling under it. */
 const ANCHOR_HOLD_MS = 10_000;
 
@@ -32,10 +35,14 @@ const ANCHOR_HOLD_MS = 10_000;
  * itself once it has rendered, which changes no content. A reader's own scroll
  * comes with a wheel, pointer, key or touch, which has already ended the hold.
  *
+ * A search result's words marked in the page end the hold as well: the marking
+ * goes to the first match below the anchor (useFrameHighlight), and putting
+ * the page back on the heading would undo exactly that.
+ *
  * Returns the release, so a newer jump can end this one: two holds would each
  * keep putting the page back on their own anchor.
  */
-function holdAnchor(doc: Document, win: Window, id: string): () => void {
+export function holdAnchor(doc: Document, win: Window, id: string): () => void {
   // Looked up by id each time: hydration can replace the element.
   const go = () => {
     const el = id ? doc.getElementById(id) : null;
@@ -46,6 +53,10 @@ function holdAnchor(doc: Document, win: Window, id: string): () => void {
   // One jump per frame however many nodes a re-render touches.
   let queued = false;
   const settle = () => {
+    if (doc.querySelector(HELP_MARK)) {
+      release();
+      return;
+    }
     if (queued) return;
     queued = true;
     win.requestAnimationFrame(() => {

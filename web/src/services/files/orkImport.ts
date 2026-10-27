@@ -98,6 +98,10 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   if (docMaterials.skipped) {
     notes.push(keyedNote('importNote.docMaterialsSkipped', { count: docMaterials.skipped }));
   }
+  // The bridge measures calibers against the widest body tube whatever the
+  // file says (the reference type is carried for the round trip only), so a
+  // design measured against anything else is told its margin can differ.
+  if (referenceType) notes.push(keyedNote('importNote.referenceType', { type: referenceType }));
 
   const launch = readLaunchConditions(doc);
 

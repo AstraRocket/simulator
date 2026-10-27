@@ -5,7 +5,7 @@ import { __setEngineForTests, type MotorSpec } from '../../../src/engine/openRoc
 import { motorStats } from '../../../src/services/report/rocketReport';
 import { powerClass } from '../../../src/services/flight/powerClass';
 import { loadEngine } from '../../testing/kernelGeometry';
-import { fetchMotorSpec } from '../../../src/services/motors/thrustcurve';
+import { catalogMotorSpec } from '../../../src/services/motors/motorSpec';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
@@ -21,7 +21,7 @@ async function apogeeC6(): Promise<MotorSpec> {
     readFileSync(join(__dirname, '../../../public/data/motors.generated.json'), 'utf8'),
   ) as CatalogMotor[];
   const row = rows.find((r) => r.manufacturer === 'Apogee' && /^C6\b/.test(r.designation))!;
-  return fetchMotorSpec(row, 6);
+  return catalogMotorSpec(row, 6);
 }
 
 /**

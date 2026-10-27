@@ -6,7 +6,7 @@ import { embeddedMotorFile } from '../../../../src/services/files/ork/embeddedMo
 import { importOrk } from '../../../../src/services/files/orkFile';
 import { orkArchive } from '../../../../src/services/files/saveOrk';
 import { parseRse } from '../../../../src/services/motors/rseParser';
-import { customMotorToSpec } from '../../../../src/services/motors/thrustcurve';
+import { customMotorToSpec } from '../../../../src/services/motors/motorSpec';
 
 /**
  * A motor's type survives from the `.rse` it came in on to the `.rse` a save

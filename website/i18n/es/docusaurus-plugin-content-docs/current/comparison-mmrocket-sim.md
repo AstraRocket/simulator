@@ -31,7 +31,7 @@ Ambos son aplicaciones de navegador de autores independientes, sin instalación,
 | **Protuberancias** (bultos que solo aportan resistencia, como canaletas) | No disponible. |
 | **Orificios de ventilación y de marcado en un tubo** | No disponible, ni previsto. |
 | **Ajuste a la masa y el CG medidos** | Disponible, mediante las sustituciones de masa y CG. No hay una masa de lastre sugerida. |
-| **Simulación por lotes sobre el catálogo de motores** | No disponible. Varias simulaciones guardadas se ejecutan a la vez. |
+| **Simulación por lotes sobre el catálogo de motores** | Disponible como la **[guía de motores](./motors.md#motor-guide)**: hasta 8 motores filtrados en un soporte a la vez, con una sola elección de motor para todo un racimo. |
 | **Pantalla de vuelo para el móvil** | No disponible. La disposición del móvil usa las mismas pestañas que el resto de la aplicación. |
 | **Compartir un diseño por enlace** | No disponible. Un diseño se comparte enviando el `.ork`. |
 | **Plantillas de alineación de aletas** | No disponible. |

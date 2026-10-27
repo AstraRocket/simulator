@@ -7,8 +7,8 @@ import { hoverValue } from './FlightChartHover';
 import { PAD_L, PAD_R } from './flightChartAxis';
 import type { Branch, Meta } from './flightChartTraces';
 import { polylinePath } from '../common/svgPath';
-import { ChartPanelFrame } from './ChartPanelFrame';
-import { peakOf, velocityAltitudeSummary } from './chartSummary';
+import { ChartPanelFrame, PanelClip, PanelLines, YEnds } from './ChartPanelFrame';
+import { peakAcross, velocityAltitudeSummary } from './chartSummary';
 
 /**
  * Velocity against altitude, one line per shown stage.
@@ -110,8 +110,9 @@ export function FlightXYPanel({
   const head = hovered[0];
   const xDigits = ladderDigits(x1 - x0);
   const yDigits = ladderDigits(y1 - y0);
-  // The largest magnitude, sign kept: the same top speed the summary below reads.
-  const peak = (lines[0] && peakOf(lines[0].alt, lines[0].vel)?.value) ?? 0;
+  // The largest magnitude across every shown stage, sign kept: the time
+  // panels' rule, and the top speed the summary below reads.
+  const peak = peakAcross(lines.map((l) => ({ xs: l.alt, ys: l.vel })))?.value ?? null;
   // What a screen reader hears for this panel: the top speed and the altitude
   // it was reached at, per shown stage (see chartSummary).
   const summary = useMemo(
@@ -139,7 +140,9 @@ export function FlightXYPanel({
           {hoverT == null && <span className="text-[10px] text-ink-faint">{t('flight.peakTag')}</span>}
           <span className="text-xs font-semibold tabular-nums text-ink-strong">
             {hoverT == null
-              ? withUnit(fmtNum(peak, yDigits), u.sym('velocity'))
+              ? peak == null
+                ? NO_VALUE
+                : withUnit(fmtNum(peak, yDigits), u.sym('velocity'))
               : head && head.v != null && head.a != null
                 ? t('flight.velocityAtAltitude', {
                     velocity: withUnit(fmtNum(head.v, yDigits), u.sym('velocity')),
@@ -156,33 +159,15 @@ export function FlightXYPanel({
       summary={summary}
     >
       <defs>
-        <clipPath id={`${uid}-clip`}>
-          <rect x={PAD_L} y={0} width={iw} height={height} />
-        </clipPath>
+        <PanelClip id={`${uid}-clip`} w={w} height={height} />
       </defs>
       <g clipPath={`url(#${uid}-clip)`}>
-        {lines.map((l, i) =>
-          paths[i] ? (
-            <path
-              key={i}
-              d={paths[i]}
-              fill="none"
-              stroke={l.color}
-              strokeWidth={1.75}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null,
-        )}
+        <PanelLines paths={paths} colors={lines.map((l) => l.color)} />
         {hovered.map(({ l, a, v }, i) =>
           a != null && v != null ? <circle key={i} cx={X(a)} cy={Y(v)} r={3} fill={l.color} /> : null,
         )}
       </g>
-      <text x={PAD_L - 4} y={padT + 7} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
-        {fmtNum(y1, yDigits)}
-      </text>
-      <text x={PAD_L - 4} y={height - padB} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
-        {fmtNum(y0, yDigits)}
-      </text>
+      <YEnds top={fmtNum(y1, yDigits)} bottom={fmtNum(y0, yDigits)} padT={padT} padB={padB} height={height} />
       <text x={PAD_L} y={height - 3} className="fill-ink-faint text-[9px] tabular-nums">
         {fmtNum(x0, xDigits)}
       </text>

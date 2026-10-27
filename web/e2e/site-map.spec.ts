@@ -151,7 +151,9 @@ test('a saved Esri key goes on every tile, and its absence is noted', async ({ p
   await dialog.getByRole('button', { name: 'How to get one' }).click();
   const help = page.getByRole('dialog', { name: 'Help' });
   await expect(help).toBeVisible();
-  await expect(page.frameLocator('iframe[title="Help"]').locator('#esri-key')).toBeInViewport();
+  // The docs load into the frame and then scroll to the anchor, which on a
+  // loaded machine outlasts the default 5 s.
+  await expect(page.frameLocator('iframe[title="Help"]').locator('#esri-key')).toBeInViewport({ timeout: 20_000 });
   await help.getByRole('button', { name: 'Close' }).click();
   await expect(help).toBeHidden();
 

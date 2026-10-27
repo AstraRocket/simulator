@@ -74,16 +74,12 @@ import {
   type FlightConfig,
   type SepOverride,
 } from '../../../src/services/flight/flightConfigs';
-import {
-  DEFAULT_HEADING_DEG,
-  effectivePrefs,
-  newSimulation,
-  type SimPrefs,
-} from '../../../src/services/flight/simulations';
+import { effectivePrefs, newSimulation, type SimPrefs } from '../../../src/services/flight/simulations';
 import { buildExportMotorMap } from '../../../src/services/motors/exportMotors';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import type { OrkExportMotor, OrkTreeExportInput } from '../../../src/services/files/orkTypes';
 import { selectConfig } from '../../../src/state/workspaceSelectors';
+import { DEFAULT_HEADING_DEG } from '../../../src/services/flight/windLevels';
 
 const EXAMPLES = join(__dirname, '../../../public/examples');
 const OUT = process.env.ORK_SAMPLES_DIR;

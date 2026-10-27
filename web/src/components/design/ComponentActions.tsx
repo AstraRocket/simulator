@@ -15,6 +15,7 @@ import { isFinSet } from '../../tree/tubefins';
 import { isAssembly } from '../../tree/assembly';
 import { useWorkspaceStore } from '../../state/store';
 import { partLabel } from '../../i18n/format';
+import { PanelButton } from './PanelButton';
 
 /**
  * The buttons on OpenRocket's config dialogs that change the tree rather than a
@@ -83,15 +84,9 @@ export function ComponentActions({ node }: { node: ComponentNode }) {
   return (
     <div className="flex flex-wrap gap-2 border-t border-line/5 pt-3">
       {buttons.map((b) => (
-        <button
-          key={b.key}
-          onClick={b.run}
-          disabled={!b.enabled}
-          title={b.title}
-          className="rounded-md bg-raised px-2 py-1 text-xs text-ink-soft ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:text-ink-dim disabled:hover:bg-raised"
-        >
+        <PanelButton key={b.key} onClick={b.run} disabled={!b.enabled} title={b.title}>
           {b.label}
-        </button>
+        </PanelButton>
       ))}
     </div>
   );

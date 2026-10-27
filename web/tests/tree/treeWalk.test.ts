@@ -5,6 +5,7 @@ import {
   findSiblings,
   findWithParent,
   mapTreePreserving,
+  replaceNode,
   walkNodes,
   type MapContext,
 } from '../../src/tree/treeWalk';
@@ -143,5 +144,46 @@ describe('mapTreePreserving', () => {
     );
     expect(calls[0]!.index).toBe(1);
     expect(calls[0]!.siblings).toBe(tree[0]!.children);
+  });
+});
+
+/**
+ * The one "replace the node with this id" walk: the node `findNode` finds, the
+ * path to it copied, everything else shared.
+ */
+describe('replaceNode', () => {
+  const kids = [{ type: 'innertube', id: 'm' }] as ComponentNode[];
+  const tree = [
+    { type: 'bodytube', id: 'a', children: kids },
+    { type: 'bodytube', id: 'b' },
+  ] as ComponentNode[];
+
+  it('replaces the node and shares every untouched subtree', () => {
+    const out = replaceNode(tree, 'b', (n) => ({ ...n, length: 1 }));
+    expect(out[1]).toMatchObject({ id: 'b', length: 1 });
+    expect(out[0]).toBe(tree[0]);
+  });
+
+  it('copies only the path to a nested node', () => {
+    const out = replaceNode(tree, 'm', (n) => ({ ...n, length: 2 }));
+    expect(out[0]!.children![0]).toMatchObject({ id: 'm', length: 2 });
+    expect(out[1]).toBe(tree[1]);
+  });
+
+  it('fans several nodes out from the place of one', () => {
+    const out = replaceNode(
+      tree,
+      'b',
+      () =>
+        [
+          { type: 'bodytube', id: 'b1' },
+          { type: 'bodytube', id: 'b2' },
+        ] as ComponentNode[],
+    );
+    expect(out.map((n) => n.id)).toEqual(['a', 'b1', 'b2']);
+  });
+
+  it('hands back the same array when there is no such node', () => {
+    expect(replaceNode(tree, 'nope', (n) => n)).toBe(tree);
   });
 });

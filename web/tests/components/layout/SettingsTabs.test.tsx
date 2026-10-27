@@ -20,6 +20,13 @@ describe('a Settings tab alone', () => {
     expect(screen.getByLabelText('Time step')).toBeTruthy();
     expect(screen.getByLabelText('Max angle step')).toBeTruthy();
   });
+
+  // The simulation editor and Settings describe the same solver options from
+  // one table, so the hint the editor gives the angle step shows here too.
+  it('explains the max angle step, as the simulation editor does', () => {
+    renderWithProviders(<SimTab />);
+    expect(screen.getByText(/The most the rocket may rotate in one integration step/)).toBeTruthy();
+  });
 });
 
 /**

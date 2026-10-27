@@ -1,15 +1,15 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
 import { UnitChip } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
+import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { uuid } from '../../services/app/uuid';
 import { SiteMap } from './SiteMap';
 import { LAUNCH_SITE_LIMITS as LIMITS, type LaunchLocation } from '../../services/storage/launchLocationStore';
-import { EditorFooter } from '../common/MasterDetail';
+import { EditorFooter, useReportDirty, EditorBack } from '../common/MasterDetail';
 
 /**
  * The detail half of the saved locations dialog: one location in full (name,
@@ -67,7 +67,7 @@ export function LocationEditor({
 
   // Altitude shares the launch panel's own unit and scope, so a user working in
   // feet sees feet in both places rather than meters in one of them.
-  const altUnit = u.at(unitScope('launch', 'altitude'), LAUNCH_SI.distance.q);
+  const altUnit = u.at(unitScope('launch', SITE_ALTITUDE_FIELD), LAUNCH_SI.distance.q);
 
   /**
    * Focus and select the name synchronously, before the browser paints.
@@ -105,9 +105,7 @@ export function LocationEditor({
     lon !== (location?.longitudeDeg ?? null) ||
     alt !== (location?.launchAltitudeM ?? null);
 
-  useEffect(() => {
-    onDirtyChange(dirty);
-  }, [dirty, onDirtyChange]);
+  useReportDirty(dirty, onDirtyChange);
 
   /**
    * Bumped by Discard to remount the number fields.
@@ -155,14 +153,7 @@ export function LocationEditor({
           }
         }}
       >
-        {/* Phone only: at `md` and up the list is beside this. */}
-        <button
-          onClick={onBack}
-          className="-mb-1 self-start rounded px-1 text-sm text-ink-muted hover:text-ink md:hidden"
-          aria-label={t('location.back')}
-        >
-          ‹
-        </button>
+        <EditorBack onBack={onBack} label={t('location.back')} className="-mb-1 self-start" />
 
         <label className="block text-xs text-ink-muted">
           {t('location.name')}
@@ -205,7 +196,7 @@ export function LocationEditor({
               <UnitChip
                 label={t('launch.altitude')}
                 quantity={LAUNCH_SI.distance.q}
-                scope={unitScope('launch', 'altitude')}
+                scope={unitScope('launch', SITE_ALTITUDE_FIELD)}
               />
             }
           >

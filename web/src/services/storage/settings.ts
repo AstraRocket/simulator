@@ -2,8 +2,9 @@ import { nsKey } from './storageKeys';
 import type { PartKey } from '../design/partColors';
 import { readFigureStyles, type FigureStyles } from '../design/figureStyle';
 import type { CompleteLaunch } from '../flight/requiredLaunch';
-import { DEFAULT_HEADING_DEG, MAX_ANGLE_STEP_RANGE, seedFromInput } from '../flight/simulations';
-import { defaultCsvFormat } from '../flight/flightColumns';
+import { MAX_ANGLE_STEP_RANGE, seedFromInput } from '../flight/simulations';
+import { DEFAULT_HEADING_DEG } from '../flight/windLevels';
+import { defaultCsvFormat, type CsvFormat } from '../flight/flightColumns';
 import { usableWindLevels } from '../flight/windLevels';
 import { usableAtmosphereLevels } from '../flight/atmosphereLevels';
 import {
@@ -14,6 +15,7 @@ import {
   normalizeUnits,
   type UnitOverrides,
   type UnitSelection,
+  degToRad,
 } from '../../prefs/units';
 import { hexOf, parseHexColor } from '../design/colorHex';
 import { parseDefaultMaterialKey } from '../design/materialSlots';
@@ -114,7 +116,8 @@ export interface SimulationSettings {
    */
   drogueLowSpeedWarn: number;
   /** Minimum safe rod/rail-exit velocity (m/s): the rod-exit tile is green at or
-   *  above this, and warns below it (too slow to be stable off the rail). */
+   *  above this, and warns below it (too slow to be stable off the rail). Each
+   *  run also asks the engine how long a launcher reaches it. */
   railExitVelocityMin: number;
   /**
    * Which launch-guide clearance model to fly. Default false, OpenRocket's own.
@@ -311,16 +314,7 @@ export interface Settings {
    * export time rather than here, so a list written by another version costs a
    * column instead of breaking the dialog.
    */
-  flightCsv: {
-    columns: string[];
-    separator: string;
-    decimals: number;
-    exponential: boolean;
-    simDescription: boolean;
-    fieldDescriptions: boolean;
-    flightEvents: boolean;
-    commentChar: string;
-  };
+  flightCsv: CsvFormat;
   /** Whether the user has dismissed the pre-1.0 "work in progress" notice. */
   wipAcknowledged: boolean;
 }
@@ -451,11 +445,21 @@ export const DEFAULT_REPORT: ReportSettings = {
   orientation: 'portrait',
 };
 
-/** Playback rate: a real, positive multiplier within a usable range. */
-const clampPlayback = (v: unknown): number =>
-  typeof v === 'number' && Number.isFinite(v) && v > 0
-    ? Math.min(10, Math.max(0.05, v))
-    : DEFAULT_SETTINGS.playbackSpeed;
+/** The playback rates both speed pickers offer (the 3D flight view and Settings). */
+export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4] as const;
+
+/** A playback rate as the pickers label it: ¼×, ½×, 1×, 2×, 4×. */
+export const playbackLabel = (s: number): string => (s === 0.25 ? '¼×' : s === 0.5 ? '½×' : `${s}×`);
+
+/**
+ * Playback rate: one the pickers offer, the nearest as a ratio, so a stored
+ * value never leaves a select showing a speed it is not running at.
+ */
+const clampPlayback = (v: unknown): number => {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return DEFAULT_SETTINGS.playbackSpeed;
+  const gap = (s: number) => Math.abs(Math.log(v / s));
+  return PLAYBACK_SPEEDS.reduce((best, s) => (gap(s) < gap(best) ? s : best), PLAYBACK_SPEEDS[0]);
+};
 
 /**
  * Bounds for the solver inputs, in SI, shared by both surfaces that offer them
@@ -486,7 +490,7 @@ export const DEFAULT_SETTINGS: Settings = {
     timeStep: 0.05,
     maxTime: 1200,
     // The kernel's own RECOMMENDED_ANGLE_STEP (AbstractRKSimulationStepper).
-    maxAngleStep: (3 * Math.PI) / 180,
+    maxAngleStep: degToRad(3),
     randomSeed: null,
     confirmDelete: true,
     autoRunOutdated: false,
@@ -573,20 +577,29 @@ function loadPathExport(raw: unknown): PathExportSettings {
   return out;
 }
 
-/** A CSS hex color: #rgb, #rgba, #rrggbb or #rrggbbaa. */
-const HEX_COLOR = /^#[0-9a-f]{3,8}$/i;
+/**
+ * A stored color every reader can use: `#`-prefixed (it reaches a style
+ * attribute as written) and one `parseHexColor` reads, as the KML, 3MF and
+ * drawing code all do.
+ */
+const isHexColor = (v: unknown): v is string =>
+  typeof v === 'string' && v.startsWith('#') && v.trim() === v && parseHexColor(v) !== null;
+
+/**
+ * A fresh copy of the defaults, never the constant: callers spread and patch
+ * nested blocks of the live settings (`{ ...s.simulation, timeStep }`), and
+ * handing out the shared DEFAULT_SETTINGS object would let one such edit
+ * rewrite the defaults every later fresh load or reset is built from.
+ */
+export const defaultSettings = (): Settings => structuredClone(DEFAULT_SETTINGS);
 
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    // A copy, not the constant: callers spread and patch nested blocks of what
-    // this returns (`{ ...s.simulation, timeStep }`), and handing out the
-    // shared DEFAULT_SETTINGS object would let one such edit rewrite the
-    // defaults every later fresh load is built from.
-    if (!raw) return structuredClone(DEFAULT_SETTINGS);
+    if (!raw) return defaultSettings();
     return settingsFrom(JSON.parse(raw));
   } catch {
-    return structuredClone(DEFAULT_SETTINGS);
+    return defaultSettings();
   }
 }
 
@@ -616,9 +629,7 @@ export function settingsFrom(value: unknown): Settings {
     // reasoning as the treePaneWidth clamp below), so any other value type
     // (an object, an array, a CSS payload) must not ride through to the renderer.
     partColors: Object.fromEntries(
-      Object.entries((s.partColors ?? {}) as Record<string, unknown>).filter(
-        ([, v]) => typeof v === 'string' && HEX_COLOR.test(v),
-      ),
+      Object.entries((s.partColors ?? {}) as Record<string, unknown>).filter(([, v]) => isHexColor(v)),
     ),
     // A color and a line style per part type, each checked: both reach the
     // drawing's style attributes.
@@ -651,7 +662,7 @@ export function settingsFrom(value: unknown): Settings {
       const c = { ...DEFAULT_SETTINGS.phaseColors };
       for (const k of ['boost', 'coast', 'descent'] as const) {
         const v = (s.phaseColors as Record<string, unknown> | undefined)?.[k];
-        if (typeof v === 'string' && HEX_COLOR.test(v)) c[k] = v;
+        if (isHexColor(v)) c[k] = v;
       }
       return c;
     })(),
@@ -736,6 +747,24 @@ export function settingsFrom(value: unknown): Settings {
       }
       if (l.geodetic !== undefined && !['flat', 'spherical', 'wgs84'].includes(l.geodetic)) {
         l.geodetic = DEFAULT_SETTINGS.launchDefaults.geodetic;
+      }
+      // The bridge reads these with typed getters that throw on the wrong type
+      // (JsonLite.dbl, JsonLite.str), and a constant gravity of 0 or less would
+      // fly every run without one. Absent stays absent, as the kernel default.
+      if (l.gravityModel !== undefined && !['wgs', 'constant'].includes(l.gravityModel)) delete l.gravityModel;
+      if (l.constantGravity !== undefined && !(Number.isFinite(l.constantGravity) && l.constantGravity > 0)) {
+        delete l.constantGravity;
+      }
+      const humidity = l.relativeHumidity;
+      if (
+        humidity !== undefined &&
+        humidity !== null &&
+        !(Number.isFinite(humidity) && humidity >= 0 && humidity <= 1)
+      ) {
+        delete l.relativeHumidity;
+      }
+      if (l.windAltitudeReference !== undefined && !['msl', 'agl'].includes(l.windAltitudeReference)) {
+        delete l.windAltitudeReference;
       }
       // Elements too, not just the array. Everything in this block
       // reaches simConditions() and then simulate() for each new simulation,

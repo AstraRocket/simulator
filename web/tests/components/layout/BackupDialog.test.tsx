@@ -12,6 +12,9 @@ import { KeyValuePresetStore, setPresetStore } from '../../../src/services/parts
 import { KeyValueLaunchLocationStore, setLaunchLocationStore } from '../../../src/services/storage/launchLocationStore';
 import { KeyValueMotorStore, setMotorStore } from '../../../src/services/motors/motorStore';
 import { KeyValueTemplateStore, setTemplateStore } from '../../../src/services/exports/templateStore';
+import { exportFilename } from '../../../src/services/files/saveFile';
+import { appName } from '../../../src/services/app/appInfo';
+import { todayYmd } from '../../../src/services/weather/openMeteo';
 
 const saved = vi.hoisted(() => ({ text: '', name: '' }));
 vi.mock('../../../src/services/files/saveFile', async (orig) => ({
@@ -49,7 +52,9 @@ describe('Export ▸ Backup and Import ▸ Backup', () => {
     expect(within(backup).queryByRole('button', { name: 'Open backup file…' })).toBeNull();
     fireEvent.click(within(backup).getByRole('button', { name: 'Save backup file' }));
     await waitFor(() => expect(screen.getByText('Backup saved.')).toBeTruthy());
-    expect(saved.name).toMatch(/^astrarocket-backup-\d{4}-\d{2}-\d{2}\.json$/);
+    // Named as every other export is, dated on the user's own calendar (not
+    // UTC, which dates an evening backup in the Americas tomorrow).
+    expect(saved.name).toBe(exportFilename([appName(), 'backup', todayYmd()], 'json'));
     unmount();
 
     await getMaterialStore().remove('G10', 'bulk');

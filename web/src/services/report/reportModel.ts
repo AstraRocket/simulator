@@ -1,15 +1,17 @@
 import type { ComponentNode, OpenRocketDesign, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { useWorkspaceStore, selectConfig, selectOutdated, configOf } from '../../state/store';
 import { buildConfiguredRocket, buildKey } from '../design/buildRocket';
-import { findStages } from '../design/treeEdit';
+import { isRecoveryDevice } from '../design/treeEdit';
+import { MATERIAL_KEYS } from '../design/materialSlots';
+import { activateThrough, stageIdsByTopStage } from '../design/stageStack';
 import { liveMotors, type FlightConfig } from '../flight/flightConfigs';
 import { motorStats, type MotorStats } from './rocketReport';
 import { numOpt } from '../../tree/nodeProps';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
-import { finMount, finSpan } from '../../tree/finPlanform';
+import { cantFrontShift, finMount, finSpan } from '../../tree/finPlanform';
 import { parentStartOf } from '../../tree/axialRebase';
 import { axialLength } from '../../tree/position';
-import { walkNodes } from '../../tree/treeWalk';
+import { stageNodes, walkNodes } from '../../tree/treeWalk';
 import { designNameOf } from '../app/appInfo';
 import { stageFileName } from '../design/orkTree';
 import i18n from '../../i18n';
@@ -51,14 +53,14 @@ export type MaterialDensity = 'density' | 'surfaceDensity' | 'lineDensity';
 function rowMaterial(
   node: ComponentNode,
 ): Required<Pick<PartRow, 'densityKind'>> & Pick<PartRow, 'material' | 'density'> {
-  const [name, density, densityKind]: [string, string, MaterialDensity] =
-    node.type === 'parachute' || node.type === 'streamer'
-      ? ['surfaceMaterialName', 'surfaceDensity', 'surfaceDensity']
-      : node.type === 'shockcord'
-        ? ['lineMaterialName', 'lineDensity', 'lineDensity']
-        : ['materialName', 'density', 'density'];
-  const n = node[name];
-  return { material: typeof n === 'string' ? n : undefined, density: numOpt(node, density), densityKind };
+  const kind = isRecoveryDevice(node.type) ? 'surface' : node.type === 'shockcord' ? 'line' : 'bulk';
+  const keys = MATERIAL_KEYS[kind];
+  const n = node[keys.name];
+  return {
+    material: typeof n === 'string' ? n : undefined,
+    density: numOpt(node, keys.density),
+    densityKind: keys.density as MaterialDensity,
+  };
 }
 
 /**
@@ -262,15 +264,14 @@ export function configMotors(
   build: (tree: RocketTree, config: FlightConfig) => MassBuild,
   whole?: number,
 ): ConfigMotor[] {
-  const top = tree.components.filter((n) => n.type === 'stage');
+  const top = stageNodes(tree);
   const last = Math.max(0, top.length - 1);
   // Mount id → index of the top-level stage it is in.
   const stageOf = new Map<string, number>();
   top.forEach((st, i) => {
     for (const n of walkNodes([st])) if (typeof n.id === 'string') stageOf.set(n.id, i);
   });
-  // Every stage id (nested parallel boosters included) under each top-level stage.
-  const stageIds = top.map((st) => findStages({ ...tree, components: [st] }).map((n) => n.id as string));
+  const stageIds = stageIdsByTopStage(tree);
 
   const masses = new Map<number, number>();
   if (whole != null && !config.grounded?.length) masses.set(last, whole);
@@ -284,7 +285,7 @@ export function configMotors(
       try {
         built ??= build(tree, config);
         const r = built;
-        stageIds.forEach((ids, i) => ids.forEach((id) => r.setStageActiveById(id, i <= k)));
+        activateThrough(r, stageIds, k);
         mass = r.staticInfo().mass;
       } catch {
         // A configuration the kernel cannot build has no mass to divide by; its
@@ -320,7 +321,7 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
   const { tree, info, rocket } = s;
   if (!info || !rocket) return null;
   const name = designNameOf(tree, s.loadedMeta);
-  const stages = tree.components.filter((n) => n.type === 'stage');
+  const stages = stageNodes(tree);
   const stageList = stages.length
     ? stages
     : [{ type: 'stage', name: '', children: tree.components } as unknown as ComponentNode];
@@ -428,7 +429,9 @@ export function finSetPositions(
     // 50 mm root it does not have.
     const root = axialLength(n);
     try {
-      const topX = rocket.componentInfo(n.id).positionX;
+      // The kernel locates a canted set by its first fin turned about the
+      // root's midpoint; the marks go at the root's own station.
+      const topX = rocket.componentInfo(n.id).positionX - cantFrontShift(n, root);
       const own = typeof n.name === 'string' ? n.name.trim() : '';
       out.push({ ...(own ? { name: own } : {}), type: String(n.type), topX, bottomX: topX + root });
     } catch {

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { FieldLabel, markRing } from './FieldMark';
 import { NumberInput } from './NumberInput';
 
@@ -88,32 +88,62 @@ export function NumberRow({
   return (
     <label className="flex items-center justify-between gap-3">
       <FieldLabel text={label} required={required} missing={missing} mixed={mixed} className={labelClassName} />
-      <span className="flex items-center gap-1">
-        <NumberInput
-          ariaLabel={label}
-          value={value}
-          /* An empty required box writes nothing, so the field simply keeps what
+      <NumberWithUnit
+        unit={unit}
+        missing={missing}
+        mixed={mixed}
+        ariaLabel={label}
+        value={value}
+        /* An empty required box writes nothing, so the field simply keeps what
              it had. Not a focus trap -- tabbing away still works, which a trap
              would forbid (WCAG 2.1.2) and which would fight anyone clearing a
              field to retype it. NumberInput holds its own draft string while
              focused, so the box still looks empty as you type; only the commit
              is withheld. An imported .ork that omits the field still arrives
              blank, which is what the marker and the run gate are for. */
-          onChange={(v) => (v === null && required ? undefined : onChange(v))}
-          onCommit={onCommit}
-          commitOnBlur={commitOnBlur}
-          step={step}
-          min={min}
-          max={max}
-          placeholder={placeholder}
-          className={markRing(
-            'w-24 rounded-md bg-raised px-2 py-1 text-right text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500',
-            missing,
-            mixed,
-          )}
-        />
-        {unit && <span className="min-w-10 text-xs text-ink-faint">{unit}</span>}
-      </span>
+        onChange={(v) => (v === null && required ? undefined : onChange(v))}
+        onCommit={onCommit}
+        commitOnBlur={commitOnBlur}
+        step={step}
+        min={min}
+        max={max}
+        placeholder={placeholder}
+      />
     </label>
+  );
+}
+
+/**
+ * The number box and its unit, as every labeled number row draws them. `fill`
+ * is the box's background and text (a muted one for an automatic value, a
+ * `disabled:` dimming); `missing` and `mixed` ring it as `markRing` does.
+ */
+export function NumberWithUnit({
+  unit,
+  className = '',
+  fill = 'bg-raised text-ink-strong',
+  missing,
+  mixed,
+  ...input
+}: Omit<ComponentProps<typeof NumberInput>, 'className'> & {
+  /** A symbol, or a unit chip. */
+  unit?: ReactNode;
+  className?: string;
+  fill?: string;
+  missing?: boolean;
+  mixed?: boolean;
+}) {
+  return (
+    <span className={`flex items-center gap-1 ${className}`}>
+      <NumberInput
+        {...input}
+        className={markRing(
+          `w-24 rounded-md px-2 py-1 text-right text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${fill}`,
+          missing,
+          mixed,
+        )}
+      />
+      {unit && <span className="min-w-10 text-xs text-ink-faint">{unit}</span>}
+    </span>
   );
 }

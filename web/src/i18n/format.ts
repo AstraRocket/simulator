@@ -21,6 +21,26 @@ export function fmtNum(n: number, digits = 0): string {
   return f.format(n);
 }
 
+const percentCache = new Map<string, Intl.NumberFormat>();
+
+/**
+ * A percentage in the current locale's own form: "12%" in English, "12 %" in
+ * French and German. `pct` is in percent points (12 for 12%), as every caller
+ * holds it. The one percent readout, so two figures side by side cannot be
+ * spaced two ways.
+ */
+export function fmtPercent(pct: number, digits = 0): string {
+  if (!Number.isFinite(pct)) return NO_VALUE;
+  const lng = i18n.resolvedLanguage || 'en';
+  const key = `${lng}:${digits}`;
+  let f = percentCache.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(lng, { style: 'percent', minimumFractionDigits: digits, maximumFractionDigits: digits });
+    percentCache.set(key, f);
+  }
+  return f.format(pct / 100);
+}
+
 /**
  * `n` to `sig` significant figures in the current locale, for a figure that spans
  * orders of magnitude (an inertia tile). Scientific notation below 1e-4, where
@@ -38,13 +58,26 @@ export function fmtSig(n: number, sig: number): string {
 }
 
 /**
- * Decimal places the magnitude ladder gives a value: the precision a readout
- * wants when the unit can change under it, since the same quantity is 1234 in
- * one unit and 48.6 in another.
+ * The magnitude ladder, defined beside `fmtSi` in prefs/units (which cannot
+ * import this file: it is reached from here through the warning texts) and
+ * offered here with the other display digits.
  */
-export function ladderDigits(v: number): number {
-  const a = Math.abs(v);
-  return a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3;
+export { ladderDigits } from '../prefs/units';
+
+/** The short ladder for a small axis or scale figure: one decimal below 10, none from 10 up. */
+export const shortDigits = (v: number): number => (Math.abs(v) < 10 ? 1 : 0);
+
+/**
+ * Decimals a tick label needs to read as itself: as many as `value` has (to
+ * `maxDigits`), and never fewer than the axis's own `axisDigits`. Ticks on a
+ * nice step all need the step's decimals, so a 2.5 step labels 2.5 and 7.5
+ * rather than rounding them to 3 and 8. The schematic ruler and the Mach axis
+ * both read it.
+ */
+export function tickDigits(value: number, axisDigits = 0, maxDigits = 2): number {
+  const text = String(Number(value.toFixed(maxDigits)));
+  const dot = text.indexOf('.');
+  return Math.max(axisDigits, dot < 0 ? 0 : text.length - dot - 1);
 }
 
 /**
@@ -68,6 +101,14 @@ export function fmtUpTo(v: number, digits: number): string {
 export function withUnit(text: string, sym: string): string {
   return sym === '°' ? `${text}${sym}` : `${text} ${sym}`;
 }
+
+/**
+ * A number with a fixed unit (seconds, a percent): "1.20 s", or the no-value
+ * dash when absent, never a dash with the unit after it. Pass the translated
+ * symbol (`t('units.second')`), so it is the reader's own.
+ */
+export const withFixedUnit = (v: number | null | undefined, unit: string, digits = 1): string =>
+  v == null || !Number.isFinite(v) ? NO_VALUE : withUnit(fmtNum(v, digits), unit);
 
 /**
  * A stage as every view labels it: its own name, else "Stage n" through one

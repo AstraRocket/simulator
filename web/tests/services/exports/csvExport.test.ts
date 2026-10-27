@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { flightDataCsv, aeroTableCsv, flightEventsCsv, runTableCsv } from '../../../src/services/exports/csvExport';
+import {
+  flightDataCsv,
+  aeroTableCsv,
+  flightEventsCsv,
+  runTableCsv,
+  motorGuideCsv,
+} from '../../../src/services/exports/csvExport';
+import type { GuideRow } from '../../../src/services/flight/motorGuide';
 import { METRIC_UNITS, IMPERIAL_UNITS, UNITS } from '../../../src/prefs/units';
 import type { FlightResult, AeroSweep } from '../../../src/engine/openRocketEngine';
 import en from '../../../src/i18n/locales/en.json';
@@ -531,5 +538,58 @@ describe('runTableCsv', () => {
     expect(head('rail')).toContain('Rail exit velocity (m/s)');
     expect(head('rod')).toContain('Rod exit velocity (m/s)');
     expect(head(null)).toContain('Launcher exit velocity (m/s)');
+  });
+});
+
+describe('motorGuideCsv', () => {
+  const row = {
+    key: 'k',
+    motor: { designation: 'F67', impulse: 70, burn: 1.1, avgThrust: 63.6 },
+    delay: 7,
+    apogee: 304.8,
+    maxVelocity: 100,
+    maxAcceleration: 50,
+    maxMach: 0.29,
+    timeToApogee: 7.5,
+    railExit: 15,
+    railMargin: 1.8,
+    railTwr: 9.2,
+    deployVelocity: 8,
+    landingVelocity: null,
+    optimumDelay: 6.6,
+    warnings: [],
+    deployEvents: [],
+  } as unknown as GuideRow;
+
+  it('writes one row per motor, in the chosen units, headers naming them', () => {
+    const csv = motorGuideCsv(
+      [{ motor: 'F67W', manufacturer: 'AeroTech', delay: '7', status: 'Slow off the launcher', row }],
+      IMPERIAL_UNITS,
+      tEn,
+    );
+    const [head, line] = csv.trimEnd().split('\r\n');
+    expect(
+      head!.startsWith(
+        'Motor,Manufacturer,Delay (s),Total impulse (lbf·s),Avg. thrust (lbf),Burn time (s),Optimum delay (s),Apogee (ft),',
+      ),
+    ).toBe(true);
+    expect(head).toContain('Margin at exit (cal)');
+    expect(head).toContain('Thrust/weight');
+    const cells = line!.split(',');
+    expect(cells.slice(0, 3)).toEqual(['"F67W"', '"AeroTech"', '"7"']);
+    // The motor's own figures, in the reader's units: 70 N·s and 63.6 N in pounds-force.
+    expect(Number(cells[3])).toBeCloseTo(70 / 4.4482216152605, 3);
+    expect(Number(cells[4])).toBeCloseTo(63.6 / 4.4482216152605, 3);
+    expect(cells.slice(5, 7)).toEqual(['1.1', '6.6']);
+    expect(Number(cells[7])).toBeCloseTo(1000, 6);
+    // No landing figure: a blank cell, not a zero.
+    expect(cells[cells.length - 2]).toBe('');
+    expect(cells[cells.length - 1]).toBe('"Slow off the launcher"');
+  });
+
+  it('writes its headers in the language of its cells', () => {
+    const head = motorGuideCsv([], METRIC_UNITS, tFor(de), 'rail').split('\r\n')[0]!;
+    expect(head.startsWith(`${de.csv.head.motor},${de.csv.head.manufacturer},`)).toBe(true);
+    expect(head).toContain(`${de.csv.head.exitVelocity_rail} (m/s)`);
   });
 });

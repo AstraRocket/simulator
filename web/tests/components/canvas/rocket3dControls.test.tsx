@@ -54,7 +54,7 @@ describe('3D image export failure', () => {
     const r3f = { current: { gl, scene: {}, camera: {}, setFrameloop: () => {} } as unknown as R3fHandles };
     const onError = vi.fn();
     const { result } = renderHook(() =>
-      useRocketExport(r3f, [], 0.05, { name: 'T' } as Parameters<typeof useRocketExport>[3], onError),
+      useRocketExport(r3f, [], { name: 'T' } as Parameters<typeof useRocketExport>[2], onError),
     );
     await expect(result.current('png', 1920)).resolves.toBeUndefined();
     expect(onError).toHaveBeenCalledTimes(1);
@@ -75,7 +75,7 @@ describe('3D image export failure', () => {
       const r3f = { current: { gl, scene: {}, camera: {}, setFrameloop } as unknown as R3fHandles };
       const onError = vi.fn();
       const { result } = renderHook(() =>
-        useRocketExport(r3f, [], 0.05, { name: 'T' } as Parameters<typeof useRocketExport>[3], onError),
+        useRocketExport(r3f, [], { name: 'T' } as Parameters<typeof useRocketExport>[2], onError),
       );
       await result.current('png', 7680);
       expect((onError.mock.calls[0]![0] as KeyedError).key).toBe('errors.export.imageTooLarge');

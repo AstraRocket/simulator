@@ -76,11 +76,11 @@
 //
 // Exit 0 on success, 1 with the failing catalog named.
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { catalogHash, rowCount } from './lib/dataManifest.mjs';
 
 // The callbacks handed to page.evaluate() run in the browser; the lint config
 // for scripts/ knows only Node globals.
@@ -196,7 +196,11 @@ function readCatalogs(page, sources) {
         }
         try {
           const body = await get(`${base}${name}.generated.json?v=${hash}`);
-          const n = Array.isArray(body) ? body.length : Object.keys(body).length;
+          // Rows, as lib/dataManifest.mjs `rowCount` counts them (this runs in
+          // the page, so it cannot import it): the array, or the one array a
+          // catalog wraps. An empty `components` list is an empty catalog.
+          const arrays = Array.isArray(body) ? [body] : Object.values(body).filter(Array.isArray);
+          const n = arrays.length === 1 ? arrays[0].length : Object.keys(body).length;
           out[name] = { ok: n > 0, hash, entries: n, error: n > 0 ? undefined : 'empty body' };
         } catch (e) {
           out[name] = { ok: false, hash, error: String(e).slice(0, 120) };
@@ -280,7 +284,7 @@ function checkNoAge(outDir) {
  */
 function hostVersions() {
   const files = new Map(readdirSync(DATA).map((f) => [f, readFileSync(resolve(DATA, f))]));
-  const entriesOf = (data) => (Array.isArray(data) ? data.length : Object.keys(data).length);
+  const entriesOf = (data) => rowCount(data) ?? Object.keys(data).length;
   const version = (name, manifest, bodies) => ({
     name,
     manifest,
@@ -294,8 +298,14 @@ function hostVersions() {
   const manifestB = { ...manifest };
   for (const n of HOSTED) {
     const data = JSON.parse(files.get(`${n}.generated.json`));
-    const next = Array.isArray(data) ? [...data, data[0]] : { ...data, refreshed: true };
-    manifestB[n] = createHash('sha256').update(JSON.stringify(next)).digest('hex').slice(0, 12);
+    // One row more, in the array the catalog wraps when it wraps one.
+    const rows = Array.isArray(data) ? null : Object.keys(data).find((k) => Array.isArray(data[k]));
+    const next = Array.isArray(data)
+      ? [...data, data[0]]
+      : rows
+        ? { ...data, [rows]: [...data[rows], data[rows][0]] }
+        : { ...data, refreshed: true };
+    manifestB[n] = catalogHash(next);
     refreshed.set(`${n}.generated.json`, Buffer.from(JSON.stringify(next)));
   }
   refreshed.set('manifest.json', Buffer.from(JSON.stringify(manifestB)));

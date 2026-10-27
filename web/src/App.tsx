@@ -34,6 +34,7 @@ import {
   TREE_PANE_MAX,
   TREE_PANE_MIN,
 } from './services/storage/settings';
+import { Banner } from './components/common/Banner';
 
 export default function App() {
   useWorkspaceEffects();
@@ -119,23 +120,23 @@ export default function App() {
           it says the user's work is not being kept, which stays true until a
           save succeeds, while `err` is about the last thing they did. */}
       {storageWarning && (
-        <p role="status" className="border-b border-warn-500/30 bg-warn-950/60 px-4 py-2 text-sm text-warn-200">
+        <Banner tone="warn" role="status">
           {storageWarning}
-        </p>
+        </Banner>
       )}
       {/* The design not building, and the last action failing, are two facts
           and can both stand; a run refused for the same fault the build reports
           says it once. `role="alert"`, so a failure is announced and not only
           painted. */}
       {buildErr && (
-        <p role="alert" className="border-b border-danger-500/30 bg-danger-950/60 px-4 py-2 text-sm text-danger-300">
+        <Banner tone="danger" role="alert">
           {buildErr}
-        </p>
+        </Banner>
       )}
       {err && err !== buildErr && (
-        <p role="alert" className="border-b border-danger-500/30 bg-danger-950/60 px-4 py-2 text-sm text-danger-300">
+        <Banner tone="danger" role="alert">
           {err}
-        </p>
+        </Banner>
       )}
       {/* Third banner, and the one that outranks both: without the kernel there
           are no numbers to be wrong about. It renders nothing once the engine is

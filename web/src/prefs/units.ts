@@ -146,11 +146,11 @@ export const UNITS: Record<Quantity, UnitDef[]> = {
   ],
   force: [
     { symbol: 'N', toSI: 1 },
-    { symbol: 'lbf', toSI: 4.4482216 },
+    { symbol: 'lbf', toSI: 4.44822162 },
   ],
   impulse: [
     { symbol: 'N·s', toSI: 1 },
-    { symbol: 'lbf·s', toSI: 4.4482216 },
+    { symbol: 'lbf·s', toSI: 4.44822162 },
   ],
   // Desktop UnitGroup.UNITS_ROLL, unit for unit; SI is rad/s.
   rollRate: [
@@ -325,17 +325,26 @@ export function niceStep(x: number): number {
 }
 
 /**
+ * Decimal places the magnitude ladder gives a value: the precision a readout
+ * wants when the unit can change under it, since the same quantity is 1234 in
+ * one unit and 48.6 in another.
+ */
+export function ladderDigits(v: number): number {
+  const a = Math.abs(v);
+  return a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3;
+}
+
+/**
  * Format an SI value in the selected unit. With `digits`, shows up to that many
  * decimals (trailing zeros stripped); without, a magnitude ladder. Plain ASCII
  * digits; locale-aware display goes through i18n/format's `fmtNum` instead
- * (see prefs/useUnits), so this stays usable from non-React export code.
+ * (see prefs/useUnits).
  */
 export function fmtSi(quantity: Quantity, symbol: string, si: number, digits?: number): string {
   if (si === null || si === undefined || !Number.isFinite(si)) return NO_VALUE;
   const v = siToUi(quantity, symbol, si);
   if (digits !== undefined) return String(Number(v.toFixed(digits)));
-  const a = Math.abs(v);
-  return v.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3);
+  return v.toFixed(ladderDigits(v));
 }
 
 /**
@@ -396,10 +405,11 @@ export function unitFor(units: UnitSelection, overrides: UnitOverrides, quantity
  * `useUnits` satisfies this, so a component passes itself.
  */
 export interface UnitSymbols {
-  sym: (q: Quantity) => string;
+  /** The unit a quantity is shown in: the field's own when `scope` names one with a chip choice, else the default. */
+  sym: (q: Quantity, scope?: string) => string;
 }
 
 /** {@link UnitSymbols} from a stored preference blob, for code outside React. */
 export function unitSymbols(units: UnitSelection, overrides: UnitOverrides): UnitSymbols {
-  return { sym: (q) => unitFor(units, overrides, q) };
+  return { sym: (q, scope) => unitFor(units, overrides, q, scope) };
 }

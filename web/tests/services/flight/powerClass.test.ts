@@ -91,6 +91,19 @@ describe('seatedMotors', () => {
     expect(seatedMotors(t, config).map((m) => m.count)).toEqual([3, 6]);
   });
 
+  it('reads a pod count the way every other count is read (rounded, capped)', () => {
+    const pods = (instanceCount: number): ComponentNode => ({
+      type: 'podset',
+      id: 'pods',
+      instanceCount,
+      children: [{ type: 'bodytube', id: 'pod', children: [mountTube('podMount')] }],
+    });
+    const config = newFlightConfig({ podMount: { spec: motor(10, 1) } });
+    const counts = (n: number) => seatedMotors(tree(pods(n)), config).map((m) => m.count);
+    expect(counts(2.6)).toEqual([3]);
+    expect(counts(Number.NaN)).toEqual([2]);
+  });
+
   it('leaves out the motors of a grounded stage', () => {
     const t = {
       components: [

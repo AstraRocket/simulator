@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fmtNum } from '../../i18n/format';
+import { fmtNum, tickDigits } from '../../i18n/format';
 import { lerpAt } from '../../services/flight/interpolate';
 import {
   buildLinePath,
@@ -33,6 +33,8 @@ interface ChartGeom {
   yMin: number;
   yMax: number;
   X: (m: number) => number;
+  /** `X`'s inverse: the Mach number under a pixel column. */
+  invX: (x: number) => number;
   Y: (v: number) => number;
 }
 
@@ -45,6 +47,7 @@ const chartGeom = (w: number, machMin: number, machMax: number, yMin: number, yM
     yMin,
     yMax,
     X: (m: number) => PAD_L + ((m - machMin) / span) * iw,
+    invX: (x: number) => machMin + ((x - PAD_L) / iw) * span,
     Y: (v: number) => PAD_T + (1 - (v - yMin) / (yMax - yMin)) * ih,
   };
 };
@@ -152,9 +155,7 @@ export function ChartCard({
     const host = hostRef.current;
     if (!host) return;
     const x = e.clientX - host.getBoundingClientRect().left;
-    const iw = w - PAD_L - PAD_R;
-    const span = machMax - machMin || 1;
-    setHoverM(Math.max(machMin, Math.min(machMax, machMin + ((x - PAD_L) / iw) * span)));
+    setHoverM(Math.max(machMin, Math.min(machMax, geom.invX(x))));
   };
 
   return (
@@ -306,7 +307,9 @@ const ChartBody = memo(function ChartBody({
           ))}
       {xTicks.map((m, i) => (
         <text key={i} x={X(m)} y={CHART_H - 5} textAnchor="middle" className="fill-ink-faint text-[9px] tabular-nums">
-          {i === 0 ? `M ${fmtNum(m, machDecimals)}` : fmtNum(m, machDecimals)}
+          {/* A tick reads as itself (to the hundredth): the first is the sweep's
+          first sample, 0.05, which one decimal would round to 0.1 beside 0.2. */}
+          {i === 0 ? `M ${fmtNum(m, tickDigits(m, machDecimals))}` : fmtNum(m, tickDigits(m, machDecimals))}
         </text>
       ))}
     </>

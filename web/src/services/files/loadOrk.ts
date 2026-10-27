@@ -13,20 +13,20 @@ import { parseDesignFile, type DesignFormat } from './designFile';
 import type { OrkExportMotor } from './orkFile';
 import type { LaunchConditions } from '../design/orkTree';
 import { loadCatalog, matchCatalogMotor, type CatalogMotor, type MotorMatchDoubt } from '../motors/motorDb';
-import { customMotorToSpec, fetchMotorSpec } from '../motors/thrustcurve';
+import { customMotorToSpec, catalogMotorSpec } from '../motors/motorSpec';
 import { parseRse, removeDelay } from '../motors/rseParser';
 import type { CustomMotor } from '../motors/motorStore';
-import type { OrkMotorRef } from './orkTypes';
+import { type OrkMotorRef, defaultOrkConfig } from './orkTypes';
 import { findMounts } from '../design/treeEdit';
 import { IGNITION_EVENTS } from '../design/componentFields';
 import { motorFitsMount, mountFit } from '../motors/motorPicker';
 import { hasUsableCurve } from '../motors/motorCurve';
-import { uuid } from '../app/uuid';
 import { mountIgnition, type FlightConfig, type MountMotor } from '../flight/flightConfigs';
 import { errorReason } from '../../i18n/keyedError';
 import { roundTo } from '../app/numbers';
 import { rseDigest } from './ork/embeddedMotors';
 import { keyedNote, noteList, notePartName, type ImportNote } from './importNote';
+import { toCatalogMm } from '../motors/catalogUnits';
 
 /**
  * One of the file's flight configurations, with its motors resolved: the same
@@ -347,19 +347,20 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
       return unresolvedMotor(ref);
     }
     try {
-      return await fetchMotorSpec(cat, ref.delay);
+      return await catalogMotorSpec(cat, ref.delay);
     } catch (e) {
-      // Same fallback as the not-in-catalog branch: a network failure should not
-      // cost a design the curve it was carrying all along.
+      // Same fallback as the not-in-catalog branch: a catalog row with no
+      // published curve should not cost a design the curve it was carrying all
+      // along.
       const curve = own();
       if (curve) {
-        notes.push(keyedNote('importNote.motorFetchFileCurve', { motor: ref.designation }));
+        notes.push(keyedNote('importNote.motorNoCurveFileCurve', { motor: ref.designation }));
         return customMotorToSpec(curve, ref.delay);
       }
       // Seat the unresolved motor, as the `!cat` branch above does.
       // Leaving the mount empty is not neutral: a mount without an entry is
-      // seeded with a default C6 (flightConfigs.reconcileConfig), so a single
-      // transient thrustcurve.org failure while opening an L-motor design would
+      // seeded with a default C6 (flightConfigs.reconcileConfig), so a catalog
+      // row without a curve while opening an L-motor design would
       // produce a runnable simulation flying a C6, with the only warning
       // buried in the import notes that settings.showImportNotes can hide.
       notes.push(keyedNote('importNote.motorFetchFailed', { motor: ref.designation, reason: errorReason(e) }));
@@ -370,19 +371,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
   // The file's configurations, or one standing in for a file that declares
   // none: a `.rkt`, a bare-XML `.ork`, or a hand-rolled one whose <motor>
   // elements were read without a declaration table (importConfigs).
-  const declared = res.configs?.length
-    ? res.configs
-    : [
-        {
-          id: uuid(),
-          name: null,
-          isDefault: true,
-          motors: res.motors ?? {},
-          deployments: {},
-          separations: {},
-          grounded: [],
-        },
-      ];
+  const declared = res.configs?.length ? res.configs : [defaultOrkConfig({ motors: res.motors ?? {} })];
   const chosenConfigId = declared.some((c) => c.id === res.chosenConfigId) ? res.chosenConfigId! : declared[0]!.id;
 
   const mountNodes = findMounts(res.tree);
@@ -404,7 +393,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
     const node = byId.get(mountId);
     const fit = node ? mountFit(node) : null;
     if (!fit || !spec.designation || !(spec.diameter > 0)) return;
-    const motor = { diameter: spec.diameter * 1000, length: spec.length ? spec.length * 1000 : undefined };
+    const motor = { diameter: toCatalogMm(spec.diameter), length: spec.length ? toCatalogMm(spec.length) : undefined };
     if (motorFitsMount(motor, fit)) return;
     const key = `${mountId}|${spec.designation}`;
     if (misfits.has(key)) return;

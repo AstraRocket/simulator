@@ -3,7 +3,7 @@ import { appName, APP_VERSION, CONTRIBUTORS_URL, isPreRelease, UPSTREAM } from '
 import { catalogInfo, fetchCatalog, type CatalogInfo } from '../../services/app/remoteData';
 import { fmtNum } from '../../i18n/format';
 import { Dialog } from '../common/Dialog';
-import { DialogButton } from '../common/DialogButton';
+import { DialogButton, DialogActions } from '../common/DialogButton';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 
 interface Contributor {
@@ -201,11 +201,11 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </p>
       </div>
 
-      <div className="mt-5 flex justify-end">
+      <DialogActions>
         <DialogButton onClick={onClose} variant="primary">
           {t('about.close')}
         </DialogButton>
-      </div>
+      </DialogActions>
     </Dialog>
   );
 }

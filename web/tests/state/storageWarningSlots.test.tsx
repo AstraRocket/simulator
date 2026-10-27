@@ -163,7 +163,7 @@ describe('a standing notice', () => {
 
       await editAndAutosave();
       expect(s().storageWarning).toBe(msg);
-      expect(s().storageWarningKind).toBe(kind);
+      expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe(kind);
     },
   );
 

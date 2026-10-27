@@ -6,6 +6,7 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import en from './locales/en.json';
 import { nsKey } from '../services/storage/storageKeys';
+import { toError } from '../services/app/errorMessage';
 
 /** A locale file's module, as a dynamic import returns it. */
 type LocaleModule = Promise<{ default: ResourceKey }>;
@@ -63,7 +64,7 @@ export const localeBackend: BackendModule = {
     }
     row.load().then(
       (m) => done(null, m.default),
-      (e: unknown) => done(e instanceof Error ? e : new Error(String(e)), false),
+      (e: unknown) => done(toError(e), false),
     );
   },
 };

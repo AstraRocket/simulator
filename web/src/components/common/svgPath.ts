@@ -31,3 +31,25 @@ export function polylinePath(
   });
   return out.join(' ');
 }
+
+/**
+ * SVG `d` for the filled area between a line through screen points and a
+ * horizontal baseline at `baseY`: down to the baseline at `ends[0]`, along the
+ * points, back down at `ends[1]`, closed. `ends` defaults to the first and last
+ * finite points' x. Non-finite points are skipped; with none left the path is
+ * empty, so nothing is drawn rather than a broken `d`.
+ */
+export function areaPath(
+  pts: readonly ScreenPoint[],
+  baseY: number,
+  style: 'comma' | 'space' = 'space',
+  ends?: readonly [x0: number, x1: number],
+): string {
+  const finite = pts.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (!finite.length) return '';
+  const at = (cmd: string, x: number, y: number) =>
+    style === 'comma' ? `${cmd}${x.toFixed(1)},${y.toFixed(1)}` : `${cmd} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  const x0 = ends?.[0] ?? finite[0]![0];
+  const x1 = ends?.[1] ?? finite[finite.length - 1]![0];
+  return [at('M', x0, baseY), ...finite.map(([x, y]) => at('L', x, y)), at('L', x1, baseY), 'Z'].join(' ');
+}

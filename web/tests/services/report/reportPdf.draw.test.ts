@@ -443,8 +443,8 @@ describe('the PDF report', () => {
       ).toBe(true);
     }
     // The engine's stabilityPercent, not (cp - cg) / length (12.5).
-    expect(all).toContain('13.6 %');
-    expect(all).not.toContain('12.5 %');
+    expect(all).toContain('13.6%');
+    expect(all).not.toContain('12.5%');
     // The 70-row parts table runs onto pages of its own rather than off the bottom.
     expect(all).toContain('Ring 69');
     expect(of('addPage').length).toBeGreaterThan(2);

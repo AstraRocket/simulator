@@ -3,11 +3,13 @@ import {
   boreAt,
   discDims,
   plateOuter,
+  resolveDisc,
   ringBore,
   tubeRadii,
   type Tube,
 } from '../../../src/services/design/discGeometry';
-import type { ComponentNode } from '../../../src/engine/openRocketEngine';
+import { withKernelEnds } from '../../../src/services/design/autoRadius';
+import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 
 const node = (o: object) => o as unknown as ComponentNode;
@@ -163,5 +165,61 @@ describe('boreAt on a nose cone', () => {
     expect(boreAt(cone(false), 'fore')).toBeNull();
     expect(boreAt(cone(true), 'fore')).toBeCloseTo(0.023, 12);
     expect(boreAt(cone(true), 'aft')).toBeNull();
+  });
+});
+
+/**
+ * A centering ring stored with no bore (a workspace from an older build) is
+ * resolved on the way in, as the kernel resolves it (`CenteringRing.getInnerRadius`:
+ * the widest inner tube whose span overlaps the ring's), so every reader of the
+ * stored tree, the DXF sheet and the print solids among them, cuts the bore
+ * that flies rather than the first inner tube it finds.
+ */
+describe('a centering ring with no bore on record', () => {
+  const tree = {
+    name: 'R',
+    components: [
+      {
+        type: 'stage',
+        id: 'st',
+        children: [
+          {
+            type: 'bodytube',
+            id: 'tube',
+            length: 0.3,
+            outerRadius: 0.025,
+            thickness: 0.001,
+            children: [
+              // First in the list, but aft of the ring: the ring misses it.
+              {
+                type: 'innertube',
+                id: 'aft',
+                length: 0.05,
+                outerRadius: 0.009,
+                position: { method: 'top', offset: 0.2 },
+              },
+              {
+                type: 'innertube',
+                id: 'mount',
+                length: 0.07,
+                outerRadius: 0.015,
+                position: { method: 'top', offset: 0 },
+              },
+              {
+                type: 'centeringring',
+                id: 'ring',
+                length: 0.002,
+                outerRadius: 0.024,
+                position: { method: 'top', offset: 0 },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as RocketTree;
+
+  it('takes the bore of the mount it actually rings', () => {
+    expect(resolveDisc(withKernelEnds(tree), 'ring')!.innerR).toBeCloseTo(0.015, 12);
   });
 });

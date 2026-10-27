@@ -65,6 +65,7 @@ describe('changedPrefKeys', () => {
         'mainLowSpeedWarn',
         'maxAngleStep',
         'maxTime',
+        'railExitVelocityMin',
         'randomSeed',
         'timeStep',
       ].sort(),
@@ -72,16 +73,15 @@ describe('changedPrefKeys', () => {
   });
 
   /**
-   * These three live in `SimulationSettings` and are deliberately not here:
-   * two are interface behavior and the third is a display threshold (the
-   * rod-exit tile and the Off the Rail tool) that no flight reads. Listing them
-   * would age every result for a change that cannot move a number.
+   * These two live in `SimulationSettings` and are deliberately not here: they
+   * are interface behavior, and listing them would age every result for a
+   * change that cannot move a number. The minimum rail exit speed is listed: the
+   * engine is asked how long a launcher reaches it, so a run records it.
    */
   it('excludes the settings that never reach the engine', () => {
     const keys: readonly string[] = SIM_PREF_KEYS;
     expect(keys).not.toContain('confirmDelete');
     expect(keys).not.toContain('autoRunOutdated');
-    expect(keys).not.toContain('railExitVelocityMin');
   });
 });
 

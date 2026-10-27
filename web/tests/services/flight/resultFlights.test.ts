@@ -38,6 +38,12 @@ describe('resultFlight', () => {
     expect(resultFlight(sims, 'gone', 'a')?.name).toBe('C6');
   });
 
+  it('reads a stale active id as the first row, as the tiles beside the charts do', () => {
+    // selectActive falls back to sims[0]; returning nothing here would leave the
+    // charts empty while the tiles describe the first row's flight.
+    expect(resultFlight(sims, null, 'gone')?.name).toBe('C6');
+  });
+
   it('draws nothing when even the active row has not flown', () => {
     expect(resultFlight(sims, null, 'c')).toBeNull();
     expect(resultFlight([], null, 'a')).toBeNull();

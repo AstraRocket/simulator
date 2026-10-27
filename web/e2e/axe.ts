@@ -42,7 +42,6 @@ export const AERO_PANE: Record<AeroPane, string> = { charts: 'Charts', component
 export const CONFIGS: Record<ConfigsTab, string> = { motors: 'Motors', recovery: 'Recovery', separation: 'Staging' };
 export const TOOL: Record<Tool, string> = {
   landing: 'Landing estimator',
-  rail: 'Off the rail',
   chute: 'Parachute sizing',
 };
 

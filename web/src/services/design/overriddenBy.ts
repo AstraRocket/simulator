@@ -1,5 +1,5 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { findParent } from './treeEdit';
+import { lineageOf } from '../../tree/treeWalk';
 
 /** Which override: the node's value key and the "all subcomponents" flag beside it. */
 export type OverrideKind = 'mass' | 'cg' | 'cd';
@@ -21,9 +21,9 @@ const KEYS: Record<OverrideKind, { value: string; sub: string }> = {
  */
 export function overriddenBy(tree: RocketTree, id: string, kind: OverrideKind): ComponentNode | null {
   const { value, sub } = KEYS[kind];
-  let found: ComponentNode | null = null;
-  for (let p = findParent(tree, id); p; p = p.id ? findParent(tree, p.id) : null) {
-    if (typeof p[value] === 'number' && p[sub] === true) found = p;
-  }
-  return found;
+  // The outermost such ancestor: the one whose override covers the rest.
+  const overriding = lineageOf(tree.components, id)
+    .slice(1)
+    .filter((p) => typeof p[value] === 'number' && p[sub] === true);
+  return overriding[overriding.length - 1] ?? null;
 }

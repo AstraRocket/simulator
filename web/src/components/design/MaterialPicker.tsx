@@ -22,11 +22,14 @@ import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { DENSITY_LABEL, QUANTITY, groupLabel } from './materialUnits';
 import { MyMaterialsDialog } from './MyMaterialsDialog';
-import { withUnit } from '../../i18n/format';
 import { listWriteErrorText } from '../../services/storage/jsonListStore';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { useLatest } from '../common/useLatest';
 import { mathEquals } from '../../services/motors/mathEquals';
+import { Check } from '../common/Check';
+import { DialogButton } from '../common/DialogButton';
+import { StatusLine } from '../common/StatusLine';
+import { groupBy } from '../../services/app/collections';
 
 /**
  * What the material is for, which decides whether the adhesives belong in the
@@ -119,7 +122,8 @@ export function MaterialPicker({
   // reloaded on the library's change signal.
   const libraryVersion = useSyncExternalStore(onCustomMaterialsChanged, customMaterialsVersion, customMaterialsVersion);
   // The add's store round trip finishes after an await, and selecting a
-  // different component unmounts this picker in between.
+  // different component unmounts this picker in between (the property panel
+  // is keyed on the part).
   const { observe } = useLatest();
   const u = useUnits();
   const quantity = QUANTITY[type];
@@ -194,14 +198,7 @@ export function MaterialPicker({
     return mats.filter((m) => m.group !== ADHESIVE_GROUP || m.name === current?.name);
   }, [mats, use, current?.name]);
 
-  const groups = useMemo(() => {
-    const g = new Map<string, Material[]>();
-    for (const m of visible) {
-      if (!g.has(m.group)) g.set(m.group, []);
-      g.get(m.group)!.push(m);
-    }
-    return [...g.entries()];
-  }, [visible]);
+  const groups = useMemo(() => [...groupBy(visible, (m) => m.group).entries()], [visible]);
 
   const handleSelect = (v: string) => {
     if (v === '__default__') return onChange(undefined, 0);
@@ -290,7 +287,7 @@ export function MaterialPicker({
           <optgroup label={t('material.thisPart')}>
             <option value={own.name}>
               {own.name}
-              {own.density ? ` · ${withUnit(density(own.density), fu.sym)}` : ''}
+              {own.density ? ` · ${fu.fmtSym(own.density)}` : ''}
             </option>
           </optgroup>
         )}
@@ -298,7 +295,7 @@ export function MaterialPicker({
           <optgroup label={t('material.inDesign')}>
             {docMats.map((m, i) => (
               <option key={`${m.name}:${m.density}`} value={`${DOC_PREFIX}${i}`}>
-                {m.name} · {density(m.density)} {fu.sym}
+                {m.name} · {fu.fmtSym(m.density)}
               </option>
             ))}
           </optgroup>
@@ -308,7 +305,7 @@ export function MaterialPicker({
             {list.map((m) => (
               <option key={`${g}:${m.name}`} value={m.name}>
                 {m.custom ? '★ ' : ''}
-                {m.name} · {density(m.density)} {fu.sym}
+                {m.name} · {fu.fmtSym(m.density)}
               </option>
             ))}
           </optgroup>
@@ -322,9 +319,9 @@ export function MaterialPicker({
       )}
       {/* Always mounted, empty until there is something to say: a live region
           created together with its text is not announced (see UpdateToast). */}
-      <p role="status" aria-live="polite" className="mt-1 text-xs text-danger-400">
+      <StatusLine tone="danger" className="mt-1">
         {loadErr}
-      </p>
+      </StatusLine>
       {managing && <MyMaterialsDialog onClose={() => setManaging(false)} />}
 
       {adding && (
@@ -363,32 +360,30 @@ export function MaterialPicker({
             className="w-full rounded bg-surface px-2 py-1.5 text-sm tabular-nums ring-1 ring-line/10 placeholder:text-ink-faint"
           />
           {design && (
-            <label className="flex items-center gap-2 text-xs text-ink-muted">
-              <input type="checkbox" checked={toLibrary} onChange={(e) => setToLibrary(e.target.checked)} />
-              {t('material.addToLibrary')}
-            </label>
+            <Check
+              checked={toLibrary}
+              onChange={setToLibrary}
+              label={t('material.addToLibrary')}
+              className="text-xs text-ink-muted"
+            />
           )}
           {/* Always mounted, as the two lines above the form are. */}
-          <p role="status" aria-live="polite" className="text-xs text-danger-400">
-            {addErr}
-          </p>
+          <StatusLine tone="danger">{addErr}</StatusLine>
           <div className="flex gap-2">
-            <button
-              onClick={submitCustom}
-              className="flex-1 rounded bg-accent-600 py-1.5 text-sm font-medium text-on-accent"
-            >
+            <DialogButton variant="primary" size="sm" className="flex-1" onClick={submitCustom}>
               {t('material.save')}
-            </button>
-            <button
+            </DialogButton>
+            <DialogButton
+              size="sm"
+              className="flex-1"
               onClick={() => {
                 setAdding(false);
                 setToLibrary(false);
                 setAddErr(null);
               }}
-              className="flex-1 rounded bg-raised py-1.5 text-sm text-ink-soft"
             >
               {t('material.cancel')}
-            </button>
+            </DialogButton>
           </div>
         </div>
       )}

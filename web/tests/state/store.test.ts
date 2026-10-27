@@ -1422,7 +1422,7 @@ describe('openDesign honors a refused setActive', () => {
     } as never);
     await s().openDesign('b');
     expect(s().tree).toBe(before);
-    expect(s().storageWarningKind).toBe('full');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('full');
   });
 
   it('rejects a blob whose tree.components is not an array, like the boot path does', async () => {
@@ -1834,7 +1834,7 @@ describe('importing a rocket whose name is already saved', () => {
     await s().openOrkFile(orkFile('Big Bertha'));
 
     expect(s().tree).toBe(before); // what the user had is still what they have
-    expect(s().storageWarningKind).toBe('full');
+    expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('full');
   });
 });
 

@@ -298,6 +298,24 @@ body {
   }
 }
 
+/* The same full bleed, up to `xl`, for a dialog that asks for it
+   (`fullBleed="xl"`): the motor dashboard, picker and guide are working
+   surfaces whose table or two panes need the whole of a laptop screen, where a
+   centered card leaves a band of dimmed app around them. Below `lg` the rule
+   above already applies; this extends it to the next breakpoint. */
+@media (width < theme(--breakpoint-xl)) {
+  .dialog-overlay-xl {
+    padding: 0 0 env(safe-area-inset-bottom) 0;
+  }
+  .dialog-panel-xl {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+}
+
 /* <button> uses the arrow cursor by default; the finger/pointer is a browser
    default only for links, and Tailwind v4's Preflight doesn't add it. Give every
    enabled button (and role=button / summary) the pointer; disabled ones keep the

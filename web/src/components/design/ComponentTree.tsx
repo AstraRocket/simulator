@@ -9,6 +9,8 @@ import { partLabel } from '../../i18n/format';
 import { isFinSet } from '../../tree/tubefins';
 import { token } from '../common/colorTokens';
 import type { TreeCommands } from './useTreeEdit';
+import { toggled } from '../../services/app/collections';
+import { collectNodes } from '../../tree/treeWalk';
 
 // Parts offered in the "Add part" menu, grouped like OpenRocket's palette.
 // Labels come from the `part.*` / `tree.*` i18n keys at render time.
@@ -47,12 +49,8 @@ const ADD_GROUPS: { group: string; items: ComponentType[] }[] = [
  * to be wrong about.
  */
 /** Every id-bearing node that has children (the collapsible ones), in tree order. */
-function collectBranchIds(nodes: ComponentNode[], out: string[]): string[] {
-  for (const n of nodes) {
-    if (typeof n.id === 'string' && (n.children?.length ?? 0) > 0) out.push(n.id);
-    collectBranchIds(n.children ?? [], out);
-  }
-  return out;
+function collectBranchIds(nodes: ComponentNode[]): string[] {
+  return collectNodes(nodes, (n) => (n.children?.length ?? 0) > 0).map((n) => n.id as string);
 }
 /** The visible, selectable rows in the order they are drawn: children of a
  *  collapsed branch are skipped, and nothing is selectable without `onSelect`. */
@@ -306,18 +304,12 @@ export function ComponentTree({
   const { t } = useTranslation();
   // Ids of collapsed (folded) branches: ephemeral view state per node id.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
-  const toggleCollapse = (id: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleCollapse = (id: string) => setCollapsed((prev) => toggled(prev, id));
   // Every id-bearing node that has children (the collapsible ones), so the
   // header toggle can fold or unfold the whole tree at once. Memoized: it walks
   // the whole tree and only changes when the components do, not on every
   // selection/hover re-render.
-  const branchIds = useMemo(() => collectBranchIds(tree.components, []), [tree.components]);
+  const branchIds = useMemo(() => collectBranchIds(tree.components), [tree.components]);
   const allCollapsed = branchIds.length > 0 && branchIds.every((id) => collapsed.has(id));
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(branchIds));
 

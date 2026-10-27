@@ -11,10 +11,12 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
  * edit them like every other field the part carries.
  */
 
-const update = vi.fn((_id: string, _meta: unknown, node: Partial<ComponentNode>) => Promise.resolve(node));
+const update = vi.fn((_id: string, meta: object, node: Partial<ComponentNode>) =>
+  Promise.resolve({ ...part, ...meta, node }),
+);
 vi.mock('../../../src/services/parts/customParts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/services/parts/customParts')>()),
-  updateCustomPart: (id: string, meta: unknown, node: Partial<ComponentNode>) => update(id, meta, node),
+  updateCustomPart: (id: string, meta: object, node: Partial<ComponentNode>) => update(id, meta, node),
 }));
 
 const { SavedPartEditor } = await import('../../../src/components/design/SavedPartEditor');

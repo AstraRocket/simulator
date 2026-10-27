@@ -3,6 +3,7 @@ import { catalogDigest, loadCatalog, matchCatalogMotor, sameMaker } from './moto
 import { liveMotors, type FlightConfig } from '../flight/flightConfigs';
 import type { OrkExportMotor } from '../files/orkFile';
 import { embeddedMotorFile } from '../files/ork/embeddedMotors';
+import { toCatalogMm } from './catalogUnits';
 
 /**
  * Build the mount-id -> export-motor map shared verbatim by the `.ork` and
@@ -23,7 +24,7 @@ import { embeddedMotorFile } from '../files/ork/embeddedMotors';
  * The manufacturer is the motor's own when it has one. The desktop's findMotors
  * filters by manufacturer when the file names one, so a made-up one resolves
  * nothing, and with none it goes by the designation alone. Every motor the
- * picker seats carries its manufacturer (thrustcurve.ts), and this map writes
+ * picker seats carries its manufacturer (motorSpec.ts), and this map writes
  * it through.
  *
  * The digest is the other half of resolving it, and it is filled in separately,
@@ -134,7 +135,7 @@ export async function fillMotorDigests(
     // the full code where the seated motor has one: a maker can sell two
     // motors under one common name (AeroTech's F67C and F67W are both F67),
     // which the common name alone leaves in doubt.
-    const sized = catalog.filter((row) => Math.abs(row.diameter - m.diameter * 1000) <= DIAMETER_TOLERANCE_MM);
+    const sized = catalog.filter((row) => Math.abs(row.diameter - toCatalogMm(m.diameter)) <= DIAMETER_TOLERANCE_MM);
     const match = matchCatalogMotor(sized, m.seated?.code || m.designation, m.manufacturer);
     const maker = m.manufacturer?.trim().toLowerCase();
     const row =

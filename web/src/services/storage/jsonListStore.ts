@@ -68,9 +68,48 @@ export class JsonListStore<T> {
     return parseJsonList(raw, this.isItem).map(this.normalize);
   }
 
+  /**
+   * Rewrite the list with `fn` applied to the rows this build can use, and
+   * every other stored row written back as it was.
+   *
+   * A newer build of this installable app shares the storage and may store a
+   * row this one does not accept (a field it widened); dropping those on an
+   * unrelated write would erase them for good. A kept row that `fn`'s result
+   * now holds an item with the same id for is the one an upsert replaced, so
+   * it goes.
+   */
   private async mutate(fn: (list: T[]) => T[]): Promise<void> {
-    const ok = await this.kv.update(this.key, (raw) => JSON.stringify(fn(this.parse(raw))));
+    const ok = await this.kv.update(this.key, (raw) => {
+      const next = fn(this.parse(raw));
+      const ids = new Set(next.map(this.idOf));
+      const others = this.foreignRows(raw).filter((row) => {
+        const id = this.foreignId(row);
+        return id === undefined || !ids.has(id);
+      });
+      return JSON.stringify([...next, ...others]);
+    });
     if (!ok) throw new Error(WRITE_REFUSED);
+  }
+
+  /** The stored rows `isItem` refuses, as stored. */
+  private foreignRows(raw: string | null): unknown[] {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? parsed.filter((row) => !this.isItem(row)) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** A refused row's id, when `idOf` can read one from it. */
+  private foreignId(row: unknown): string | undefined {
+    try {
+      const id = row && typeof row === 'object' ? this.idOf(row as T) : undefined;
+      return typeof id === 'string' ? id : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** The stored items in stored order; empty when storage cannot be read. */

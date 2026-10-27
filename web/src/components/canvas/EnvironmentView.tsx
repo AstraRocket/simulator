@@ -18,6 +18,8 @@ import { NO_VALUE } from '../../i18n/noValue';
 import { degToRad, radToDeg } from '../../prefs/units';
 import { norm360 } from '../../services/flight/groundTrack';
 import { polylinePath } from '../common/svgPath';
+import { LegendSwatch } from '../sim/chartAxes';
+import { token } from '../common/colorTokens';
 
 /**
  * The air the flight met, as the kernel recorded it: what it was at the pad,
@@ -71,7 +73,7 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
     <div
       role="region"
       aria-label={t('view.environment')}
-      // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the pane scrolls and holds nothing focusable, so without a tab stop the keyboard cannot scroll it
+      // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- the pane scrolls, and most of what it shows holds nothing focusable, so without a tab stop the keyboard cannot always scroll it
       tabIndex={0}
       className="h-full space-y-3 overflow-auto p-2"
     >
@@ -208,18 +210,12 @@ function ProfileChart({
       <figcaption className="flex items-center justify-between px-1 pb-1 text-xs">
         <span className="font-semibold text-ink-soft">{title}</span>
         <span className="flex gap-3 text-ink-muted">
-          <span className="flex items-center gap-1">
-            <svg width="16" height="4" aria-hidden="true">
-              <line x1="0" y1="2" x2="16" y2="2" className="stroke-accent-400" strokeWidth="2" />
-            </svg>
+          <LegendSwatch color={token('accent-400')} width={16}>
             {ascentLabel}
-          </span>
-          <span className="flex items-center gap-1">
-            <svg width="16" height="4" aria-hidden="true">
-              <line x1="0" y1="2" x2="16" y2="2" className="stroke-warn-400" strokeWidth="2" strokeOpacity={0.6} />
-            </svg>
+          </LegendSwatch>
+          <LegendSwatch color={token('warn-400')} width={16} opacity={0.6}>
             {descentLabel}
-          </span>
+          </LegendSwatch>
         </span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={label}>

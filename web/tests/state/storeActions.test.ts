@@ -80,6 +80,30 @@ describe('scaleDesign', () => {
     s().scaleDesign(2);
     expect(s().selectedId).toBeNull();
   });
+
+  // Scaling one part changes the radius its automatic neighbors follow, so the
+  // stored figures must be re-resolved, as every other tree edit does.
+  it('re-resolves an automatic neighbor after scaling one part', () => {
+    useWorkspaceStore.setState({
+      tree: {
+        components: [
+          {
+            type: 'stage',
+            id: 'st',
+            children: [
+              { type: 'bodytube', id: 'bt', length: 0.3, outerRadius: 0.02 },
+              { type: 'transition', id: 'tr', length: 0.05, foreRadiusAuto: true, foreRadius: 0.02, aftRadius: 0.01 },
+            ],
+          },
+        ],
+      } as unknown as ReturnType<typeof s>['tree'],
+      selectedId: 'bt',
+    });
+    s().scaleDesign(2, 'part');
+    const [bt, tr] = s().tree.components[0]!.children! as unknown as Record<string, number>[];
+    expect(bt!['outerRadius']).toBeCloseTo(0.04, 12);
+    expect(tr!['foreRadius']).toBeCloseTo(0.04, 12);
+  });
 });
 
 describe('saveDesignAs when storage refuses the write', () => {

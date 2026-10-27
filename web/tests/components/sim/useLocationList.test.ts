@@ -105,3 +105,38 @@ describe('useLocationList', () => {
     await waitFor(() => expect(result.current.locations).toEqual([]));
   });
 });
+
+/**
+ * A store that cannot be read is not an empty one. Read as an empty list, the
+ * dialog would say "no saved locations yet" over a database that has them;
+ * the failure is reported instead, as Custom Materials reports its own.
+ */
+describe('useLocationList when storage fails', () => {
+  it('reports the failure rather than reading it as no locations', async () => {
+    setLaunchLocationStore({
+      list: async () => {
+        throw new Error('IndexedDB is unavailable');
+      },
+      ...noWrites,
+    });
+    const { result } = renderHook(() => useLocationList());
+    await waitFor(() => expect(result.current.error).toMatch(/IndexedDB is unavailable/));
+  });
+
+  it('clears the failure once a read succeeds', async () => {
+    let fail = true;
+    setLaunchLocationStore({
+      list: async () => {
+        if (fail) throw new Error('busy');
+        return [HOME];
+      },
+      ...noWrites,
+    });
+    const { result } = renderHook(() => useLocationList());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    fail = false;
+    await act(() => result.current.refresh());
+    expect(result.current.error).toBeNull();
+    expect(result.current.locations).toEqual([HOME]);
+  });
+});

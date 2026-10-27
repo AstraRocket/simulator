@@ -1,18 +1,13 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  SVG_MIME,
-  IMAGE_FORMAT_EXT,
-  schematicSvg,
-  svgToImage,
-  type ExportData,
-} from '../../services/exports/schematicExport.js';
+import { IMAGE_FORMAT_EXT, schematicSvg, svgToImage, type ExportData } from '../../services/exports/schematicExport.js';
 import { download, exportFilename } from '../../services/files/saveFile.js';
 import { ImageExportMenu } from './ImageExportMenu.js';
 import type { ZoomState } from '../../tree/schematicGeometry';
 import { ZoomButtons } from './ZoomButtons';
 import { errorText } from '../../i18n/keyedError';
 import { token } from '../common/colorTokens';
+import { SvgExportButton } from './SvgExportButton';
 
 /**
  * The TreeSchematic control strip: SVG / image export, the two caliper
@@ -31,7 +26,6 @@ export function SchematicControls({
   scale,
   w,
   h,
-  vHalf,
   totalLen,
   maxR,
   caliperH,
@@ -46,12 +40,11 @@ export function SchematicControls({
    *  handlers, never during render. */
   svgRef: RefObject<SVGSVGElement | null>;
   /** When set, the SVG / image export buttons appear. */
-  exportData?: Omit<ExportData, 'spanM'>;
+  exportData?: ExportData;
   onError?: (message: string) => void;
   scale: number;
   w: number;
   h: number;
-  vHalf: number;
   totalLen: number;
   maxR: number;
   caliperH: Caliper;
@@ -67,25 +60,13 @@ export function SchematicControls({
     <>
       {exportData && (
         <>
-          <button
-            className="file-btn"
+          <SvgExportButton
             title={t('export.svgTitle')}
-            onClick={() => {
-              if (!svgRef.current) return;
-              try {
-                const data = { ...exportData, spanM: 2 * vHalf };
-                download(
-                  exportFilename([data.name, '2d'], 'svg'),
-                  schematicSvg(svgRef.current, scale, w, h, data),
-                  SVG_MIME,
-                );
-              } catch (e) {
-                onError?.(t('export.svgFailed', { message: errorText(e, t) }));
-              }
-            }}
-          >
-            <span aria-hidden>⬇</span> SVG
-          </button>
+            name={exportData.name}
+            view="2d"
+            build={() => (svgRef.current ? schematicSvg(svgRef.current, scale, w, h, exportData) : null)}
+            onError={onError}
+          />
           <ImageExportMenu
             icon="⬇"
             label={t('export.image')}
@@ -93,7 +74,7 @@ export function SchematicControls({
             onPick={async (format, widthPx) => {
               if (!svgRef.current) return;
               try {
-                const data = { ...exportData, spanM: 2 * vHalf };
+                const data = exportData;
                 const svg = schematicSvg(svgRef.current, scale, w, h, data);
                 download(
                   exportFilename([data.name, '2d'], IMAGE_FORMAT_EXT[format]),

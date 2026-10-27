@@ -3,6 +3,7 @@ import { useUnits } from '../../prefs/useUnits';
 import type { FlightResult } from '../../engine/api';
 import { warningText, warningHelp } from '../../services/app/warningText';
 import { WARNING_ROW, WARNING_TONE } from './warningTone';
+import { CardGroup } from '../common/CardGroup';
 
 /**
  * What the kernel flagged about this flight: a recovery device out too fast, a
@@ -18,10 +19,7 @@ export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
   if (!sim || !warnings.length) return null;
 
   return (
-    <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
-      <div className="mb-2 text-[10px] uppercase tracking-wide text-ink-muted">
-        {t('sim.warnings', { count: warnings.length })}
-      </div>
+    <CardGroup title={t('sim.warnings', { count: warnings.length })}>
       <ul className="space-y-1.5">
         {warnings.map((w, i) => {
           // What it means, not just what tripped. A deployment-speed warning
@@ -45,6 +43,6 @@ export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
           );
         })}
       </ul>
-    </section>
+    </CardGroup>
   );
 }

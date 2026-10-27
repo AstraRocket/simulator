@@ -96,6 +96,21 @@ export const PLANAR_FIN_TYPES: ReadonlySet<PlanarFinSetType> = typesOfKind('plan
 /** Every fin set, tube fins included. */
 export const FIN_SET_TYPES: ReadonlySet<FinSetType> = typesOfKind('planarfin', 'tubefin');
 
+/** The kernel's `MassObject`s: recovery devices and mass components, packed into the part they sit in. */
+export const MASS_OBJECT_TYPES: ReadonlySet<TypesOfKind<'recovery' | 'mass'>> = typesOfKind('recovery', 'mass');
+
+/**
+ * The parts the kernel builds as an `ExternalComponent`: the airframe chain,
+ * every fin set, lugs and rail buttons. A fairing is external hardware here but
+ * is built as a mass component, so it is not one.
+ */
+export const EXTERNAL_COMPONENT_TYPES: ReadonlySet<ComponentType> = new Set<ComponentType>([
+  ...CHAIN_TYPES,
+  ...FIN_SET_TYPES,
+  'launchlug',
+  'railbutton',
+]);
+
 /**
  * The guards take a plain `string` on purpose: a node's `type` arrives from a
  * persisted design or an imported file and may be anything, and a caller

@@ -1,12 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type RefObject,
-} from 'react';
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { HOST_INSET, PAD_L, clampWindow, resolveWindow, zoomWindow, type TimeWindow } from './flightChartAxis';
+import { useNativeWheel } from '../common/useNativeWheel';
 
 /**
  * Owns the flight chart's x-axis interaction: the zoom window state, the
@@ -40,23 +34,13 @@ export function useChartZoom(hostRef: RefObject<HTMLDivElement | null>, maxT: nu
   // listener is attached once and reads the latest handler through a ref.
   // Closing over the window directly re-attaches on every zoom, pan and resize,
   // which is a remove/add pair per wheel notch.
-  const onWheelRef = useRef<(e: WheelEvent) => void>(() => {});
-  useEffect(() => {
-    onWheelRef.current = (e: WheelEvent) => {
-      const el = hostRef.current;
-      if (!el || !(e.ctrlKey || e.metaKey)) return;
-      e.preventDefault();
-      const px = e.clientX - el.getBoundingClientRect().left - HOST_INSET;
-      zoomAt(e.deltaY > 0 ? 1.2 : 1 / 1.2, invX(px));
-    };
-  });
-  useEffect(() => {
+  useNativeWheel(hostRef, (e) => {
     const el = hostRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => onWheelRef.current(e);
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [hostRef]);
+    if (!el || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const px = e.clientX - el.getBoundingClientRect().left - HOST_INSET;
+    zoomAt(e.deltaY > 0 ? 1.2 : 1 / 1.2, invX(px));
+  });
 
   // Pointer: drag pans (only when zoomed in). Each handler reports whether it
   // took the event, so the caller can hand the rest to the hover crosshair.

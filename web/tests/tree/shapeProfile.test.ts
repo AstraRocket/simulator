@@ -9,6 +9,8 @@ import {
   nodeShape,
   stationRadius,
   profileEnds,
+  hasShoulder,
+  shouldersOf,
 } from '../../src/tree/shapeProfile';
 import { KERNEL_DEFAULTS, KERNEL_SHAPES } from '../../src/tree/kernelDefaults';
 import type { ComponentNode } from '../../src/engine/openRocketEngine';
@@ -291,5 +293,42 @@ describe('profileEnds for a transition with no radius on record', () => {
       fore: 0.01,
       aft: 0.025,
     });
+  });
+});
+
+/**
+ * One reader of the shoulder keys for the 2D and 3D views, the printed solid
+ * and the Onshape export: a nose cone's one shoulder sits on its base, fore once
+ * it is flipped, and a shoulder is there only with a radius and a length.
+ */
+describe('shouldersOf', () => {
+  const nose = (o: Record<string, unknown>) =>
+    ({ type: 'nosecone', shoulderRadius: 0.02, shoulderLength: 0.03, ...o }) as unknown as ComponentNode;
+
+  it('puts a nose cone shoulder on its base, fore once flipped', () => {
+    expect(shouldersOf(nose({})).aft).toMatchObject({ radius: 0.02, length: 0.03 });
+    expect(hasShoulder(shouldersOf(nose({})).fore)).toBe(false);
+    expect(shouldersOf(nose({ flipped: true })).fore).toMatchObject({ radius: 0.02, length: 0.03 });
+    expect(hasShoulder(shouldersOf(nose({ flipped: true })).aft)).toBe(false);
+  });
+
+  it('reads a transition’s two shoulders under their own keys', () => {
+    const tr = {
+      type: 'transition',
+      foreShoulderRadius: 0.01,
+      foreShoulderLength: 0.02,
+      aftShoulderRadius: 0.015,
+      aftShoulderLength: 0.025,
+      aftShoulderCapped: true,
+    } as unknown as ComponentNode;
+    const { fore, aft } = shouldersOf(tr);
+    expect(fore).toMatchObject({ radius: 0.01, length: 0.02, capped: false });
+    expect(aft).toMatchObject({ radius: 0.015, length: 0.025, capped: true });
+  });
+
+  it('counts a shoulder only with a radius and a length', () => {
+    expect(hasShoulder(shouldersOf(nose({ shoulderLength: 0 })).aft)).toBe(false);
+    expect(hasShoulder(shouldersOf(nose({ shoulderRadius: 1e-9 })).aft)).toBe(false);
+    expect(hasShoulder(shouldersOf(nose({})).aft)).toBe(true);
   });
 });

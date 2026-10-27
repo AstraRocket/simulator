@@ -115,7 +115,12 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   // trajectory, and the descent color would never appear.
   const lastT = rows[rows.length - 1]?.t ?? 0;
   const apT = evT('APOGEE') ?? result.summary.timeToApogee ?? lastT;
-  const dpT = evT('RECOVERY_DEVICE_DEPLOYMENT') ?? evT('EJECTION_CHARGE') ?? apT;
+  // The model turns over at the recovery deployment, else at apogee: the end
+  // of forward flight the chart uses (`forwardFlightEnd`). An ejection charge
+  // is not one: a booster's charge lands in the sustainer's branch at booster
+  // burnout, and a charge with nothing to open leaves the rocket flying on.
+  const deployed = evT('RECOVERY_DEVICE_DEPLOYMENT');
+  const dpT = deployed ?? apT;
   const sp = rows.map((r) => sceneFromEnu(r.east * s, r.a * s, r.north * s));
   const cols = rows.map((r): [number, number, number] => {
     const c = new THREE.Color(isBoosting(r.t, burns) ? phase.boost : r.t <= apT ? phase.coast : phase.descent);
@@ -141,7 +146,7 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   const wanted: [string, number | undefined][] = [
     ['BURNOUT', lastBurnout],
     ['APOGEE', apT],
-    ['RECOVERY_DEVICE_DEPLOYMENT', evT('RECOVERY_DEVICE_DEPLOYMENT') ?? evT('EJECTION_CHARGE')],
+    ['RECOVERY_DEVICE_DEPLOYMENT', deployed],
     ['GROUND_HIT', evT('GROUND_HIT') ?? rows[rows.length - 1]?.t],
   ];
   const cos: { type: string; pos: THREE.Vector3; time: number }[] = [];

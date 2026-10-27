@@ -1,12 +1,14 @@
 // The motor catalog, produced by the build-time sync utility
 // (scripts/sync-motors.mjs), which sweeps thrustcurve.org for every available,
 // license-clean motor and ships the factual specs plus, where one is
-// published, the bundled thrust curve (`curves`). A motor without one has its
-// curve fetched on demand at pick time (see thrustcurve.ts).
+// published, the bundled thrust curve (`curves`). A motor without one is listed
+// for its specs but cannot be flown: the sync already asked thrustcurve.org for
+// its curve and found none, so nothing is fetched at pick time (motorSpec.ts).
 //
 // The catalog is a runtime file fetched through remoteData.ts and memoized for
 // the session. There is no localStorage mirror of it: a catalog-with-curves is
-// too large for that budget, and the bundle is always available offline.
+// too large for that budget. Offline it is the copy the service worker cached
+// (warmCatalogs.ts); a data-host build leaves it out of the precache.
 import { getMotorStore, type CustomMotor } from './motorStore';
 import { MIN_CURVE_SAMPLES } from './motorCurve';
 import { parseEng, totalImpulse } from './engParser';
@@ -19,8 +21,10 @@ import { fetchCatalog } from '../app/remoteData';
 import { noteCatalogLoad } from '../app/catalogUpdates';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
 import { keyOf } from './motorKey';
-import { errorMessage } from '../app/errorMessage';
+import { toError } from '../app/errorMessage';
 import { assertImportSize, readFileText } from '../files/decodeText';
+import { distinctSorted } from '../app/collections';
+import { passesPerf, type PerfDef, type PerfRanges } from './motorPerf';
 
 /** One catalog row: the sync utility's schema, plus optional custom-motor tags. */
 export interface CatalogMotor {
@@ -103,6 +107,14 @@ export function catalogDigest(cat: CatalogMotor, ejectionDelay: number): string 
  *  catalog's `[t, F]` pairs. "Can we plot / compare / combine this offline". */
 export function hasCurve(m: CatalogMotor): boolean {
   return (m.curves?.[0]?.samples?.length ?? 0) >= MIN_CURVE_SAMPLES;
+}
+
+/**
+ * Whether a motor can be flown from what is on this device: an imported motor,
+ * which carries its own curve, or a catalog motor with a bundled one.
+ */
+export function hasLocalCurve(m: CatalogMotor): boolean {
+  return !!m.custom || hasCurve(m);
 }
 
 /** Project a stored custom motor down to a catalog row for the picker. */
@@ -257,7 +269,7 @@ export async function importCustomMotors(
       motors.push(...(text.trimStart().startsWith('<') ? parseRse(text) : parseEng(text)));
     } catch (err) {
       failed.push(name);
-      firstError ??= err instanceof Error ? err : new Error(errorMessage(err));
+      firstError ??= toError(err);
     }
   }
   // Nothing read at all: the parser's own message says what is wrong with it.
@@ -321,6 +333,10 @@ export interface MotorFilter {
    */
   minImpulse?: number;
   maxImpulse?: number;
+  /** Performance bounds (average and peak thrust, burn, weights, length), SI; see motorPerf. */
+  perf?: PerfRanges;
+  /** The fields `perf` is read against; the standard set when absent (see motorPerf). */
+  perfFields?: readonly PerfDef[];
   /** Keep only motors that go in this mount (see motorFitsMount). */
   fit?: MountFit;
   /**
@@ -344,6 +360,7 @@ export function filterMotors(catalog: CatalogMotor[], filter: MotorFilter): Cata
     if (filter.maxDiameter != null && m.diameter > filter.maxDiameter) return false;
     if (filter.minImpulse != null && m.impulse < filter.minImpulse) return false;
     if (filter.maxImpulse != null && m.impulse > filter.maxImpulse) return false;
+    if (filter.perf && !passesPerf(m, filter.perf, filter.perfFields)) return false;
     if (filter.fit && !motorFitsMount(m, filter.fit)) return false;
     if (filter.plugged && !offersPlugged(m)) return false;
     if (filter.hideOop && m.oop) return false;
@@ -355,12 +372,12 @@ export function filterMotors(catalog: CatalogMotor[], filter: MotorFilter): Cata
 
 /** Distinct impulse classes present, in canonical A→O order. */
 export function allClasses(catalog: CatalogMotor[]): string[] {
-  return [...new Set(catalog.map((m) => m.class))].sort((a, b) => a.localeCompare(b));
+  return distinctSorted(catalog, (m) => m.class);
 }
 
 /** Distinct manufacturers present, alphabetical. */
 export function allManufacturers(catalog: CatalogMotor[]): string[] {
-  return [...new Set(catalog.map((m) => m.manufacturer))].sort((a, b) => a.localeCompare(b));
+  return distinctSorted(catalog, (m) => m.manufacturer);
 }
 
 /**

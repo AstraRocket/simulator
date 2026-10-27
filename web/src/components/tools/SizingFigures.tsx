@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtNum, fmtUpTo, withUnit } from '../../i18n/format';
-import { UnitChip } from '../common/UnitChip';
+import { useScopedUnit } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { QNum } from '../sim/LaunchPanel';
@@ -13,6 +13,7 @@ import {
   MAIN_BAND,
   type RateVerdict,
 } from '../../services/flight/recoverySizing';
+import { smallButton } from '../common/smallButton';
 
 /** Tone for the current-chute descent rate: green inside a band, amber outside. */
 const VERDICT_TONE: Record<RateVerdict, string> = {
@@ -23,8 +24,7 @@ const VERDICT_TONE: Record<RateVerdict, string> = {
   fast: 'text-warn-400',
 };
 
-const useBtn =
-  'rounded-md bg-raised px-2 py-0.5 text-[11px] font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated';
+const useBtn = smallButton('tight', 'soft');
 
 /**
  * The descent-sizing figures for one descent mass and canopy Cd: how fast the
@@ -55,10 +55,10 @@ export function SizingFigures({
 }) {
   const { t } = useTranslation();
   const u = useUnits();
-  const rateUnit = u.at(unitScope('recovery', 'rate'), 'velocity');
-  const mainUnit = u.at(unitScope('recovery', 'mainD'), 'length');
-  const drogueUnit = u.at(unitScope('recovery', 'drogueD'), 'length');
-  const targetUnit = u.at(unitScope('recovery', 'targetD'), 'length');
+  const rateUnit = useScopedUnit(unitScope('recovery', 'rate'), 'velocity');
+  const mainUnit = useScopedUnit(unitScope('recovery', 'mainD'), 'length');
+  const drogueUnit = useScopedUnit(unitScope('recovery', 'drogueD'), 'length');
+  const targetUnit = useScopedUnit(unitScope('recovery', 'targetD'), 'length');
   const [target, setTarget] = useState<number | null>(null);
 
   // The bands are authored in ft/s, so they are round there and nowhere else:
@@ -73,12 +73,12 @@ export function SizingFigures({
   const drogueD = canopyDiameter(massKg, DROGUE_BAND.target, cd, rho);
   const targetD = target != null && target > 0 ? canopyDiameter(massKg, target, cd, rho) : null;
 
-  const row = (label: string, d: number, unit: typeof mainUnit, scope: string, useLabel: string) => (
+  const row = (label: string, d: number, unit: typeof mainUnit, useLabel: string) => (
     <div className="flex items-baseline justify-between gap-3">
       <span className="text-xs text-ink-muted">{label}</span>
       <span className="flex items-baseline gap-2 text-sm tabular-nums text-ink">
         <span>
-          Ø {unit.fmt(d)} <UnitChip label={label} quantity="length" scope={unitScope('recovery', scope)} />
+          Ø {unit.fmt(d)} {unit.chip(label)}
         </span>
         {onUse && Number.isFinite(d) && (
           <button type="button" className={useBtn} aria-label={useLabel} onClick={() => onUse(d)}>
@@ -96,7 +96,7 @@ export function SizingFigures({
           <span className="text-xs text-ink-muted">{t('recovery.thisChute')}</span>
           <span className="text-sm tabular-nums">
             <span className={VERDICT_TONE[verdict]}>{rateUnit.fmt(rate, 1)}</span>{' '}
-            <UnitChip label={t('recovery.thisChute')} quantity="velocity" scope={unitScope('recovery', 'rate')} />{' '}
+            {rateUnit.chip(t('recovery.thisChute'))}{' '}
             <span className="text-ink-faint">({t(`recovery.verdict.${verdict}`)})</span>
           </span>
         </div>
@@ -105,14 +105,12 @@ export function SizingFigures({
         t('recovery.mainTarget', { range: rateBand(MAIN_BAND.min, MAIN_BAND.max) }),
         mainD,
         mainUnit,
-        'mainD',
         t('recovery.useMain'),
       )}
       {row(
         t('recovery.drogueTarget', { range: rateBand(DROGUE_BAND.min, DROGUE_BAND.max) }),
         drogueD,
         drogueUnit,
-        'drogueD',
         t('recovery.useDrogue'),
       )}
       <QNum
@@ -126,7 +124,7 @@ export function SizingFigures({
         value={target}
         onChange={setTarget}
       />
-      {targetD != null && row(t('recovery.atTarget'), targetD, targetUnit, 'targetD', t('recovery.useTarget'))}
+      {targetD != null && row(t('recovery.atTarget'), targetD, targetUnit, t('recovery.useTarget'))}
       <p className="text-[10px] text-ink-faint">
         {t('recovery.atCd', { cd: fmtNum(cd, 2) })} {t('recovery.diametersEstimated')}
       </p>

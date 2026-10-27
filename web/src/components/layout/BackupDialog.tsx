@@ -6,7 +6,9 @@ import { useFilePick } from '../common/useFilePick';
 import { errorText } from '../../i18n/keyedError';
 import { useSettings } from '../../state/SettingsProvider';
 import { assertImportSize, readFileText } from '../../services/files/decodeText';
-import { saveText } from '../../services/files/saveFile';
+import { exportFilename, saveText } from '../../services/files/saveFile';
+import { appName } from '../../services/app/appInfo';
+import { todayYmd } from '../../services/weather/openMeteo';
 import {
   BACKUP_LIBRARIES,
   libraryCounts,
@@ -17,6 +19,8 @@ import {
   type ReadBackup,
   type RestoreCount,
 } from '../../services/storage/backup';
+import { Check } from '../common/Check';
+import { StatusLine } from '../common/StatusLine';
 
 const button =
   'rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
@@ -48,20 +52,31 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
     return next;
   };
 
-  const save = async () => {
+  /**
+   * A save or a restore: busy while it runs, and its failure in the status
+   * line. The store's own message, since a refused write is not always
+   * "storage full".
+   */
+  const run = async (work: () => Promise<void>) => {
     setBusy(true);
     setStatus(null);
     try {
-      const text = await makeBackup(toSave, settings);
-      const day = new Date().toISOString().slice(0, 10);
-      await saveText(text, `astrarocket-backup-${day}.json`, 'application/json');
-      setStatus(t('backup.saved'));
+      await work();
     } catch (e) {
       setStatus(errorText(e, t));
     } finally {
       setBusy(false);
     }
   };
+
+  const save = () =>
+    run(async () => {
+      const text = await makeBackup(toSave, settings);
+      // The user's own calendar day: a UTC date names an evening backup in the
+      // Americas tomorrow.
+      await saveText(text, exportFilename([appName(), 'backup', todayYmd()], 'json'), 'application/json');
+      setStatus(t('backup.saved'));
+    });
 
   const open = useFilePick({
     accept: '.json,application/json',
@@ -84,17 +99,10 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
 
   const restore = async () => {
     if (!file) return;
-    setBusy(true);
-    setStatus(null);
-    try {
+    await run(async () => {
       setResults(await restoreBackup(file, toRestore, (s) => update(s)));
       counts.retry();
-    } catch (e) {
-      // The store's own message: a refused write is not always "storage full".
-      setStatus(errorText(e, t));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   // Alphabetical by the name shown, in the reader's language.
@@ -125,17 +133,20 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
           <section className="space-y-2">
             <p className="leading-snug text-ink-muted">{t('backup.intro')}</p>
             {libraries.map((lib) => (
-              <label key={lib} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={toSave.has(lib)}
-                  onChange={(e) => setToSave((s) => toggle(s, lib, e.target.checked))}
-                />
-                {t(`backup.lib.${lib}`)}
-                {lib !== 'settings' && counts.data && (
-                  <span className="tabular-nums text-ink-faint">({counts.data[lib]})</span>
-                )}
-              </label>
+              <Check
+                key={lib}
+                checked={toSave.has(lib)}
+                onChange={(v) => setToSave((s) => toggle(s, lib, v))}
+                className=""
+                label={
+                  <>
+                    {t(`backup.lib.${lib}`)}
+                    {lib !== 'settings' && counts.data && (
+                      <span className="tabular-nums text-ink-faint">({counts.data[lib]})</span>
+                    )}
+                  </>
+                }
+              />
             ))}
             <button onClick={() => void save()} disabled={busy || toSave.size === 0} className={button}>
               {t('backup.save')}
@@ -152,17 +163,22 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
             {libraries.map((lib) => {
               const held = file?.entries[lib];
               return (
-                <label key={lib} className={`flex items-center gap-2 ${file && !held ? 'text-ink-faint' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={toRestore.has(lib) && !!held}
-                    disabled={!held}
-                    onChange={(e) => setToRestore((s) => toggle(s, lib, e.target.checked))}
-                  />
-                  {t(`backup.lib.${lib}`)}
-                  {file && !held && <span className="text-ink-faint">({t('backup.notInFile')})</span>}
-                  {held && lib !== 'settings' && <span className="tabular-nums text-ink-faint">({held.length})</span>}
-                </label>
+                <Check
+                  key={lib}
+                  checked={toRestore.has(lib) && !!held}
+                  disabled={!held}
+                  onChange={(v) => setToRestore((s) => toggle(s, lib, v))}
+                  className=""
+                  label={
+                    <>
+                      {t(`backup.lib.${lib}`)}
+                      {file && !held && <span>({t('backup.notInFile')})</span>}
+                      {held && lib !== 'settings' && (
+                        <span className="tabular-nums text-ink-faint">({held.length})</span>
+                      )}
+                    </>
+                  }
+                />
               );
             })}
             <p className="text-xs leading-snug text-ink-faint">{t('backup.skipNote')}</p>
@@ -198,9 +214,7 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
         )}
 
         {/* Always mounted, empty until there is something to say (see UpdateToast). */}
-        <p role="status" aria-live="polite" className="text-xs text-ink-muted">
-          {status}
-        </p>
+        <StatusLine tone="muted">{status}</StatusLine>
       </div>
     </Dialog>
   );

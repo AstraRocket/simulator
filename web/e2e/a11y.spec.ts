@@ -319,6 +319,31 @@ const SCREENS: Scan[] = [
     name: `Results / ${VIEW[view]}`,
     open: (page) => resultView(page, view),
   })),
+  // The alternate layouts a control switches to: the drawing over the whole
+  // window, one flight chart panel alone, and a dialog widened.
+  {
+    name: 'Design / whole window',
+    open: async (page) => {
+      await openTab(page, 'Design');
+      const toggle = page.getByRole('button', { name: 'Expand the drawing to the whole window' });
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    },
+  },
+  {
+    name: 'Results / Flight / one panel',
+    open: async (page) => {
+      await resultView(page, 'flight');
+      await page.getByRole('button', { name: 'Show only this panel' }).first().click();
+    },
+  },
+  {
+    name: 'Settings / widened',
+    open: async (page) => {
+      await dialogTab(page, 'Settings', SETTINGS.general);
+      await page.getByRole('button', { name: 'Make this dialog wider' }).click();
+    },
+  },
   ...keys(TOOL).map((tool): Scan => ({
     name: `Tools / ${TOOL[tool]}`,
     open: (page) => openTool(page, TOOL[tool]),
@@ -332,21 +357,6 @@ const SCREENS: Scan[] = [
       await openTool(page, TOOL.landing);
       await page.getByRole('button', { name: 'Estimate landing' }).click();
       await expect(page.getByText('Lands at')).toBeVisible({ timeout: 20_000 });
-    },
-  },
-  {
-    name: 'Tools / Off the rail / result',
-    open: async (page) => {
-      await openTool(page, TOOL.rail);
-      await page.getByRole('button', { name: 'Choose…' }).click();
-      const dialog = page.getByRole('dialog');
-      await dialog.getByPlaceholder(/Search by code/i).fill('F50');
-      await dialog.locator('ul li button[aria-pressed]').first().click();
-      await dialog.getByRole('button', { name: 'Select', exact: true }).click();
-      await expect(dialog).toBeHidden();
-      await expect(
-        page.getByRole('region', { name: 'Off the rail result' }).getByText('Rail exit speed'),
-      ).toBeVisible();
     },
   },
 ];
@@ -760,6 +770,17 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  MotorGuideDialog: [
+    {
+      name: 'Motor guide',
+      open: async (page) => {
+        await openTab(page, 'Simulations');
+        await page.getByRole('button', { name: 'Motor guide' }).click();
+        const dialog = await dialogOpen(page);
+        await expect(dialog.getByRole('button', { name: /^Fly\b/})).toBeVisible();
+      },
+    },
+  ],
   WeatherDialog: [
     {
       name: 'Weather',
@@ -894,8 +915,7 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
     {
       name: 'Popup / motor manufacturers',
       open: async (page) => {
-        await openTool(page, TOOL.rail);
-        await page.getByRole('button', { name: 'Choose…' }).click();
+        await menu(page, 'Motor Dashboard');
         const dialog = await dialogOpen(page);
         await openDetails(dialog.locator('summary', { hasText: 'All manufacturers' }).first());
       },
@@ -988,12 +1008,15 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
-  OffTheRail: [
+  MotorFilterBar: [
     {
-      name: 'Popup / Off the rail forecast',
+      name: 'Popup / motor performance filters',
       open: async (page) => {
-        await openTool(page, TOOL.rail);
-        await openDetails(page.locator('summary', { hasText: 'Wind from a forecast' }));
+        await menu(page, 'Motor Dashboard');
+        const dialog = await dialogOpen(page);
+        const more = dialog.getByRole('button', { name: /^More filters/ });
+        await more.click();
+        await expect(more).toHaveAttribute('aria-expanded', 'true');
       },
     },
   ],

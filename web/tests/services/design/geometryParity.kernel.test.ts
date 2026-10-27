@@ -1714,17 +1714,19 @@ function compare(
     // report places it by. Lengths alone decide it, so it is checked whatever
     // the part's size did.
     // A canted fin set's kernel position is its first fin's root front after
-    // the cant turns the fin about its root's midpoint (`FinSet.getInstanceOffsets`),
-    // which is not a station along the axis.
-    const canted = typeof node['cant'] === 'number' && node['cant'] !== 0;
-    if (k.positionX !== undefined && !canted) {
+    // the cant turns the fin about its root's midpoint (`FinSet.getInstanceOffsets`:
+    // a Transformation by length/2, the cant rotation, and back), which puts it
+    // (length / 2)(1 - cos cant) aft of the root's station.
+    const cant = typeof node['cant'] === 'number' ? node['cant'] : 0;
+    if (k.positionX !== undefined) {
       const absolute = positionOf(node).method === 'absolute' && node.position !== undefined;
       const rule = keyless
         ? `station of a part with no position key${parent ? ` in a ${parent.type}` : ''}`
-        : `${node.type} station${absolute ? ', placed absolute' : ''}${inside}`;
+        : `${node.type} station${absolute ? ', placed absolute' : ''}${cant !== 0 ? ', canted' : ''}${inside}`;
       checked.set(rule, (checked.get(rule) ?? 0) + 1);
       const start = frames.get(id)?.start;
-      if (!close(start, k.positionX)) misses.push({ rule, design, part: id, app: start ?? NaN, kernel: k.positionX });
+      const station = k.positionX - (cant !== 0 ? (axialLength(node) / 2) * (1 - Math.cos(cant)) : 0);
+      if (!close(start, station)) misses.push({ rule, design, part: id, app: start ?? NaN, kernel: station });
     }
     // The profile every drawing, mesh and report reads, station by station.
     if ((node.type === 'nosecone' || node.type === 'transition') && k.profile && !skip.has(id)) {
@@ -2090,6 +2092,75 @@ describe('app geometry matches the kernel', () => {
     expect(report(misses, Object.keys(CHAIN_DESIGNS).length)).toEqual([]);
     expect(tubes).toBeGreaterThan(30);
   });
+
+  // The generator puts a flipped nose cone only at the front of the sustainer;
+  // a tail cone sits at the aft end, follows the tube ahead of it, and can
+  // carry a shape parameter, a wall or none, and a freeform fin set.
+  it('over flipped nose cones at the aft end of the chain', async () => {
+    const engine = await loadEngine();
+    const misses: Miss[] = [];
+    let profiles = 0;
+    const shapes: [string, number | undefined][] = [
+      ['ogive', 0.5],
+      ['conical', undefined],
+      ['power', 0.5],
+      ['haack', 0.2],
+      ['ellipsoid', undefined],
+      ['parabolic', 0.75],
+    ];
+    for (const [shape, shapeParameter] of shapes) {
+      for (const filled of [false, true]) {
+        const name = `tail cone ${shape}${filled ? ', filled' : ''}`;
+        const tree = syncDerived({
+          components: [
+            {
+              id: 'stage',
+              type: 'stage',
+              children: [
+                { id: 'nose', type: 'nosecone', shape: 'ogive', length: 0.12, aftRadius: 0.025, thickness: 0.002 },
+                { id: 'body', type: 'bodytube', length: 0.3, outerRadius: 0.025, thickness: 0.001 },
+                {
+                  id: 'tail',
+                  type: 'nosecone',
+                  shape,
+                  ...(shapeParameter !== undefined ? { shapeParameter } : {}),
+                  length: 0.08,
+                  aftRadiusAuto: true,
+                  thickness: 0.002,
+                  filled,
+                  flipped: true,
+                  children: [
+                    {
+                      id: 'tail-fins',
+                      type: 'freeformfinset',
+                      finCount: 3,
+                      thickness: 0.003,
+                      points: [
+                        [0, 0],
+                        [0.02, 0.03],
+                        [0.04, 0],
+                      ],
+                      tabHeight: 0.004,
+                      tabLength: 0.02,
+                      tabOffsetMethod: 'middle',
+                      tabOffset: 0,
+                      position: { method: 'top', offset: 0.01 },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as unknown as RocketTree);
+        const r = compare(name, tree, kernelGeometry(engine, tree, { fields: true }));
+        misses.push(...r.misses);
+        expect(r.unresolved, name).toBe(0);
+        profiles += r.checked.get('side view flipped nosecone profile') ?? 0;
+      }
+    }
+    expect(report(misses, shapes.length * 2)).toEqual([]);
+    expect(profiles).toBe(shapes.length * 2);
+  });
 });
 
 /**
@@ -2125,6 +2196,56 @@ describe('a keyless body tube is read at the kernel radius', () => {
     expect(stationRadius(tube, 0.1)).toBeCloseTo(want!, 12);
     expect(bodyRadiusAt(tube, 0.1)).toBeCloseTo(want!, 12);
     expect(assemblyParentRadius(tube)).toBeCloseTo(want!, 12);
+  });
+});
+
+/**
+ * A nose cone or body tube with no radius on record is the part the bridge
+ * builds (ComponentFactory: base 0.025 m, tube 0.025 m), so what follows it or
+ * sits in it is resolved against that: an automatic tube behind a keyless nose
+ * cone, and a bulkhead with no radius inside a keyless tube.
+ */
+describe('keyless nose cones and tubes are read at the kernel radius', () => {
+  it('by an automatic tube behind a keyless nose cone', async () => {
+    const engine = await loadEngine();
+    const tree = syncDerived({
+      components: [
+        {
+          id: 'stage',
+          type: 'stage',
+          children: [
+            { id: 'nose', type: 'nosecone', length: 0.1, thickness: 0.001 },
+            { id: 'tube', type: 'bodytube', length: 0.3, thickness: 0.0005, outerRadiusAuto: true },
+          ],
+        },
+      ],
+    } as unknown as RocketTree);
+    const want = kernelGeometry(engine, tree).get('tube')!.outerRadius;
+    expect(findNode(tree, 'tube')!['outerRadius']).toBeCloseTo(want!, 12);
+  });
+
+  it('by a bulkhead with no radius inside a keyless tube', async () => {
+    const engine = await loadEngine();
+    const tree = syncDerived({
+      components: [
+        {
+          id: 'stage',
+          type: 'stage',
+          children: [
+            { id: 'nose', type: 'nosecone', length: 0.1, aftRadius: 0.025, thickness: 0.001 },
+            {
+              id: 'tube',
+              type: 'bodytube',
+              length: 0.3,
+              thickness: 0.0005,
+              children: [{ id: 'bh', type: 'bulkhead', length: 0.005, outerRadiusAuto: true }],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree);
+    const want = kernelGeometry(engine, tree).get('bh')!.outerRadius;
+    expect(findNode(tree, 'bh')!['outerRadius']).toBeCloseTo(want!, 12);
   });
 });
 

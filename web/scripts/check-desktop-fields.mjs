@@ -153,16 +153,6 @@ const KNOWN = [
     why: 'a freeform outline on a tapered parent: FreeformFinSet.setPoints snaps the outline desktop reads from the point list to the root it computes, which moves the area by under 2 %',
     when: (a, d) => Math.abs(a - d) < 0.02 * Math.max(a, d),
   },
-  {
-    rule: 'rkt:shockcord.density',
-    why: 'RockSim has no line material for a cord: MassObjectHandler leaves it weightless, and the app flies its default elastic cord',
-    when: (a, d) => d === 0,
-  },
-  {
-    rule: 'rkt:shockcord.materialName',
-    why: 'RockSim has no line material for a cord: MassObjectHandler leaves it unnamed, and the app flies its default elastic cord',
-    when: (a, d) => d === '',
-  },
   // What RockSim carries as a number only, or not at all.
   {
     rule: 'rkt:*.outerRadiusAuto',
@@ -233,6 +223,11 @@ const KNOWN = [
     why: "desktop's RockSim import creates no simulation; the app adds its default one",
   },
   // What 24.12 cannot carry in a .ork.
+  {
+    rule: 'ork:shockcord.materialName',
+    why: "a RockSim cord's line has no name (MassObjectHandler), and desktop refuses a .ork material without one, so the writer names it custom",
+    when: (a, d) => a === '' && d === 'custom',
+  },
   {
     rule: 'ork:config.motor',
     why: '24.12 looks motors up in its own database only and does not read the curve the app embeds under thrustcurves/ (upstream OpenRocket does)',

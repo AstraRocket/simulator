@@ -1,5 +1,5 @@
 import { nsKey } from '../../../src/services/storage/storageKeys';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { KeyValueMotorStore, type CustomMotor } from '../../../src/services/motors/motorStore';
 import type { KeyValueStore } from '../../../src/services/storage/keyValueStore';
 
@@ -47,38 +47,7 @@ let kv: FakeKv;
 let store: KeyValueMotorStore;
 beforeEach(() => {
   kv = new FakeKv();
-  store = new KeyValueMotorStore(kv, 1000);
-});
-afterEach(() => vi.useRealTimers());
-
-describe('per-entry TTL freshness', () => {
-  it('marks entries fresh within the TTL and stale past it', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(0);
-    await store.writeEntry('m:1', { spec: 1 });
-
-    vi.setSystemTime(500);
-    const fresh = await store.readEntry<{ spec: number }>('m:1', () => true);
-    expect(fresh).toEqual({ value: { spec: 1 }, stale: false });
-
-    vi.setSystemTime(2000); // now − t = 2000 > ttl 1000
-    const stale = await store.readEntry<{ spec: number }>('m:1', () => true);
-    expect(stale!.stale).toBe(true);
-  });
-
-  it('drops and returns null for a malformed envelope or invalid value', async () => {
-    await kv.set('m:2', JSON.stringify({ v: { spec: 1 } })); // no timestamp
-    expect(await store.readEntry('m:2', () => true)).toBeNull();
-    expect(kv.map.has('m:2')).toBe(false); // evicted
-
-    await kv.set('m:3', JSON.stringify({ t: 0, v: { spec: 1 } }));
-    expect(await store.readEntry('m:3', () => false)).toBeNull(); // fails validator
-    expect(kv.map.has('m:3')).toBe(false);
-  });
-
-  it('returns null for a missing key', async () => {
-    expect(await store.readEntry('absent', () => true)).toBeNull();
-  });
+  store = new KeyValueMotorStore(kv);
 });
 
 describe('custom motors', () => {
@@ -110,14 +79,14 @@ describe('custom motors report refused writes', () => {
   // resolve, and re-renders a catalog that does not contain the motor.
   it('throws when an import cannot be stored', async () => {
     const kv = new FakeKv();
-    const store = new KeyValueMotorStore(kv, 1000);
+    const store = new KeyValueMotorStore(kv);
     kv.full = true;
     await expect(store.addCustomMotor(custom('m1'))).rejects.toThrow(/storage-full/);
   });
 
   it('throws when a removal cannot be stored', async () => {
     const kv = new FakeKv();
-    const store = new KeyValueMotorStore(kv, 1000);
+    const store = new KeyValueMotorStore(kv);
     await store.addCustomMotor(custom('m1'));
     kv.full = true;
     await expect(store.removeCustomMotor('m1')).rejects.toThrow(/storage-full/);
@@ -153,6 +122,18 @@ describe('isCustomMotor rejects what would reach the kernel broken', () => {
 
   it('keeps a well-formed motor', async () => {
     expect(await survives(good())).toBe(1);
+  });
+
+  it('drops a row the .eng and .rse readers would refuse for its size or masses', async () => {
+    // engParser and rseParser refuse a non-positive size, a non-positive loaded
+    // mass and a propellant mass below 0 or above the loaded one; a negative
+    // propellant mass flies a motor that gains mass as it burns.
+    expect(await survives({ ...good(), propWeightG: -1 })).toBe(0);
+    expect(await survives({ ...good(), totalWeightG: 0, propWeightG: 0 })).toBe(0);
+    expect(await survives({ ...good(), propWeightG: 25 })).toBe(0);
+    expect(await survives({ ...good(), diameter: 0 })).toBe(0);
+    expect(await survives({ ...good(), length: -70 })).toBe(0);
+    expect(await survives({ ...good(), propWeightG: 0 })).toBe(1);
   });
 
   it('drops a row whose delay list, type or source is malformed', async () => {

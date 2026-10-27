@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { useEngineStore } from '../../state/engineStore';
 import { fmtMb } from '../../i18n/format';
+import { keyedText } from '../../i18n/keyedError';
+import { Banner } from '../common/Banner';
 
 /**
  * The banner that stands in for the numbers while the physics kernel is not
@@ -27,6 +29,7 @@ export function EngineNotice() {
   const reload = useEngineStore((s) => s.reload);
   // A retry that cannot recover this load is not offered; a reload is.
   const needsReload = useEngineStore((s) => s.needsReload);
+  const error = useEngineStore((s) => s.error);
 
   if (phase === 'ready') return null;
 
@@ -55,13 +58,9 @@ export function EngineNotice() {
           : t('boot.downloading');
 
   return (
-    <div
-      // Amber once it is stuck, because by then it is a warning rather than a
-      // progress line; the app's shared warning tone, as the flight warnings use.
-      className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm ${
-        stuck ? 'border-warn-500/30 bg-warn-950/40 text-warn-200' : 'border-line/10 bg-surface text-ink-soft'
-      }`}
-    >
+    // Amber once it is stuck, because by then it is a warning rather than a
+    // progress line; the app's shared warning tone, as the flight warnings use.
+    <Banner tone={stuck ? 'warn' : 'neutral'}>
       <span role="status" className="sr-only">
         {spoken}
       </span>
@@ -77,6 +76,10 @@ export function EngineNotice() {
           {t('engine.needsIt')}
         </span>
       )}
+      {/* The reason a failed load gives, for a tester to report. */}
+      {phase === 'failed' && error && (
+        <span className="w-full text-xs opacity-90">{typeof error === 'string' ? error : keyedText(error, t)}</span>
+      )}
       {stuck && (
         <button
           type="button"
@@ -86,6 +89,6 @@ export function EngineNotice() {
           {needsReload ? t('engine.reload') : t('engine.retry')}
         </button>
       )}
-    </div>
+    </Banner>
   );
 }

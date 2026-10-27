@@ -7,7 +7,9 @@ import { QNum } from '../sim/LaunchPanel';
 import { SizingFigures } from './SizingFigures';
 import { CardGroup } from '../common/CardGroup';
 import { LAUNCH_SI } from '../../prefs/launchUnits';
+import { SiteElevationField } from './SiteFields';
 import { NumberRow } from '../common/NumberRow';
+import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
 /**
  * Parachute sizing with no design: a descent mass, a canopy's Cd and the site's
@@ -42,12 +44,8 @@ export function ParachuteTool() {
   const ready = massKg != null && massKg > 0 && cd != null && cd > 0;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,28rem)]">
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">{t('chuteTool.title')}</h2>
-          <p className="mt-1 text-xs text-ink-muted">{t('chuteTool.intro')}</p>
-        </div>
+    <ToolLayout>
+      <ToolForm title={t('chuteTool.title')} intro={t('chuteTool.intro')}>
         <CardGroup title={t('chuteTool.rocket')}>
           <QNum
             label={t('chuteTool.mass')}
@@ -87,19 +85,7 @@ export function ParachuteTool() {
           />
         </CardGroup>
         <CardGroup title={t('chuteTool.air')}>
-          <QNum
-            label={t('landing.siteElevation')}
-            field="chuteSiteElevation"
-            kind="distance"
-            u={u}
-            stepSi={10}
-            minSi={LAUNCH_SITE_LIMITS.launchAltitudeM.min}
-            maxSi={LAUNCH_SITE_LIMITS.launchAltitudeM.max}
-            required
-            missing={siteM == null}
-            value={siteM}
-            onChange={setSiteM}
-          />
+          <SiteElevationField required missing={siteM == null} value={siteM} onChange={setSiteM} />
           <QNum
             label={t('launch.temperature')}
             field="chuteTemperature"
@@ -113,14 +99,14 @@ export function ParachuteTool() {
             onChange={setTemperatureC}
           />
         </CardGroup>
-      </div>
-      <section className="h-fit rounded-xl bg-surface p-3 ring-1 ring-line/10" aria-label={t('chuteTool.result')}>
+      </ToolForm>
+      <ToolResultCard label={t('chuteTool.result')}>
         {ready ? (
           <SizingFigures massKg={massKg} cd={cd} rho={rho} diameterM={diameterM} />
         ) : (
           <p className="text-xs text-ink-muted">{t('chuteTool.empty')}</p>
         )}
-      </section>
-    </div>
+      </ToolResultCard>
+    </ToolLayout>
   );
 }

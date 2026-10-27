@@ -159,7 +159,7 @@ Defaults for the 2D view. You can also toggle these on the view itself.
 
 Also on the **Simulation** tab: five thresholds, in the units you have chosen for velocity.
 
-- **Min launcher-exit velocity**: below this the fins have too little airflow to steer, so the rocket can weathercock into the wind or go unstable as it leaves the launcher. The launcher-exit tile is green at or above this and warns below it. This one only colors the tile and the [Off the rail](./tools.md#off-the-rail) figures: it does not reach the flight engine, it has no per-simulation override, and changing it does not mark results outdated.
+- **Min launcher-exit velocity**: below this the fins have too little airflow to steer, so the rocket can weathercock into the wind or go unstable as it leaves the launcher. The launcher-exit tile is green at or above this and warns below it, and each run asks the engine how long a launcher the rocket needs to reach it (the **Rail length needed** tile). Because that figure is part of the result, changing this marks results outdated. It has no per-simulation override.
 
 The other four are deployment thresholds. They color the result tiles *and* reach the flight engine, so they decide which warnings a run reports rather than only how the numbers are colored.
 

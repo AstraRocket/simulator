@@ -2,7 +2,7 @@
 title: "Herramientas"
 sidebar_position: 12.5
 ---
-La pestaña **Herramientas** reúne respuestas rápidas que no necesitan un diseño: dónde aterriza un cohete, cómo sale del raíl y qué tamaño de paracaídas necesita. Sirven para un cohete que no has modelado o para una comprobación rápida en el campo. En un teléfono es **🧰 Herramientas** en la barra inferior. Elige una herramienta en la fila de pestañas de arriba. Cada una conserva sus datos y su último resultado al cambiar de herramienta o de pestaña, hasta que se recarga la página.
+La pestaña **Herramientas** reúne respuestas rápidas que no necesitan un diseño: dónde aterriza un cohete y qué tamaño de paracaídas necesita. Sirven para un cohete que no has modelado o para una comprobación rápida en el campo. En un teléfono es **🧰 Herramientas** en la barra inferior. Elige una herramienta en la fila de pestañas de arriba. Cada una conserva sus datos y su último resultado al cambiar de herramienta o de pestaña, hasta que se recarga la página.
 
 Todas las herramientas de aquí son estimaciones, y lo indican. Un cohete diseñado aquí obtiene mejores respuestas de su propia simulación.
 
@@ -51,37 +51,6 @@ Debajo del mapa:
 - **Fecha / hora**: la hora del pronóstico, en la zona horaria del sitio.
 
 Debajo se muestra la atribución CC BY 4.0 de Open-Meteo.
-
-## Salida del raíl {#off-the-rail}
-
-Cómo sale un cohete del raíl con un motor dado: su relación empuje-peso, la velocidad con la que sale del raíl y cuánto lo gira un viento cruzado al salir. Un cohete diseñado obtiene estas cifras de su simulación, en el [evento de salida del raíl](./running-a-simulation.md#flight-events).
-
-### Introduce el cohete {#enter-the-rocket}
-
-- **Motor.** **Elegir…** abre el mismo selector de motores que una simulación, con todo el catálogo y los motores que hayas importado. La curva de empuje del motor y su masa mientras se quema vienen de ahí.
-- **Masa del cohete sin el motor.** Se le suma la masa cargada del motor.
-- **Longitud del raíl.**
-- **Velocidad del viento.** Escríbela, o abre **Viento de un pronóstico**, elige un sitio, una fecha y una hora, y pulsa **Obtener el viento pronosticado** para rellenarla con el viento a 10 m de Open-Meteo. También se usan las rachas de esa hora.
-
-### Cómo funciona {#how-it-works-rail}
-
-El cohete se queda en el raíl hasta que el empuje del motor supera su peso, y luego acelera por el raíl según el empuje menos el peso, dividido entre su masa, que baja a medida que se quema el propulsante. Sale del raíl cuando ha recorrido su longitud. No hay arrastre ni rozamiento en el raíl, y el raíl se toma como vertical, así que un cohete real sale algo más despacio.
-
-Un viento cruzado llega a un cohete que sube en vertical, así que el aire que ve viene en ángulo: el arcotangente de la velocidad del viento entre la velocidad de salida del raíl. Las aletas giran el cohete hacia ese aire, y eso es el veleteo.
-
-### Leer el resultado {#read-the-result-rail}
-
-- **Masa al despegue**: el cohete y el motor cargado.
-- **Empuje-peso**: el empuje medio del motor durante su combustión, su empuje máximo cada uno entre el peso al despegue, y su empuje en el momento en que el cohete sale del raíl entre el peso en ese momento, con parte del propulsante ya quemado. El último es la cifra que da una simulación en la salida del raíl.
-- **Velocidad de salida del raíl** y **Tiempo hasta salir del raíl**.
-- **Raíl para** la velocidad mínima de salida: cuánto raíl hace falta para alcanzar esa velocidad, en ámbar cuando es más que el raíl que indicaste.
-- **Ángulo de veleteo** con el viento que introdujiste, y **con las rachas** cuando el viento viene de un pronóstico.
-- **Viento máximo por debajo de 20°**: el viento que lo gira exactamente 20° a esta velocidad de salida.
-- **Cohete más pesado sin el motor**: lo máximo que puede pesar y seguir cumpliendo tanto una relación empuje-peso media de 5 : 1 como la velocidad mínima de salida del raíl.
-
-Una cifra se marca en ámbar cuando la relación empuje-peso media es menor que 5 : 1, la salida del raíl es más lenta que el mínimo fijado en [Ajustes](./settings.md) (15 m/s salvo que lo cambies) o el ángulo de veleteo supera 20°. Son reglas prácticas habituales, no parte de ningún código de seguridad.
-
-Si el empuje nunca supera el peso, o el cohete se frena hasta detenerse antes del final del raíl, el resultado lo indica en su lugar.
 
 ## Dimensionado de paracaídas {#parachute-sizing}
 

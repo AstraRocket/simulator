@@ -39,7 +39,7 @@ import { arg } from './lib/args.mjs';
 import { builtInMaterials } from './lib/builtInMaterials.mjs';
 import { installedJar } from './lib/openrocketJava.mjs';
 import { checkJar, RELEASE, UNPINNED } from './lib/openrocketRelease.mjs';
-import { lenM, num, str, tag, xmlText } from './lib/orcText.mjs';
+import { byFileName, lenM, num, str, tag, xmlText } from './lib/orcText.mjs';
 import { uniqueRows } from './lib/partRows.mjs';
 
 // Source: the OpenRocket-Components DB (openrocket/openrocket-database), the
@@ -73,15 +73,19 @@ function blocks(text, name) {
 }
 
 const orcFiles = (dir) =>
-  readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith('.orc'))
-    .map((f) => ({ name: f, text: readFileSync(join(dir, f), 'utf8') }));
+  byFileName(
+    readdirSync(dir)
+      .filter((f) => f.toLowerCase().endsWith('.orc'))
+      .map((f) => ({ name: f, text: readFileSync(join(dir, f), 'utf8') })),
+  );
 
 /** The `.orc` files under one folder of the jar, as `{ name, text }`. */
 function jarFiles(entries, prefix) {
-  return Object.entries(entries)
-    .filter(([name]) => name.startsWith(prefix))
-    .map(([name, bytes]) => ({ name: name.slice(prefix.length), text: new TextDecoder().decode(bytes) }));
+  return byFileName(
+    Object.entries(entries)
+      .filter(([name]) => name.startsWith(prefix))
+      .map(([name, bytes]) => ({ name: name.slice(prefix.length), text: new TextDecoder().decode(bytes) })),
+  );
 }
 
 /** The pinned release's jar: `--jar`, `OPENROCKET_JAR`, or the installed OpenRocket. */
@@ -137,7 +141,7 @@ if (shipped.database) {
   console.warn('Read the internal files from --internal, so the database is not compared with the release.');
 }
 
-// The database first, then the internal files, the order desktop loads them.
+// The database first, then the internal files, each set by file name.
 const sources = [...database, ...shipped.internal];
 
 // Desktop's built-in materials come from the release jar even when the part

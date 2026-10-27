@@ -23,8 +23,9 @@ import { findMounts, findRecoveryDevices, findSeparators, findStages, updateNode
 import { uuid } from '../app/uuid';
 import type { ComponentNode, IgnitionEvent, MotorSpec, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_DEPLOYMENT, KERNEL_SEPARATION } from '../../tree/kernelDefaults';
-import { motorName } from '../motors/motorName';
+import { motorFullName } from '../motors/motorName';
 import { hasUsableCurve } from '../motors/motorCurve';
+import { num } from '../../tree/nodeProps';
 
 /** One mount's cell: the motor seated in it, and when that motor ignites. */
 export interface MountMotor {
@@ -97,17 +98,13 @@ const designString = (node: ComponentNode, key: string, fallback: string): strin
   const v = node[key];
   return typeof v === 'string' && v ? v : fallback;
 };
-const designNumber = (node: ComponentNode, key: string, fallback: number): number => {
-  const v = node[key];
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
-};
 
 /** A recovery device's deployment as the design states it, kernel defaults filling the gaps. */
 export function designDeployment(device: ComponentNode): Required<DeployOverride> {
   return {
     deployEvent: designString(device, 'deployEvent', KERNEL_DEPLOYMENT.deployEvent),
-    deployAltitude: designNumber(device, 'deployAltitude', KERNEL_DEPLOYMENT.deployAltitude),
-    deployDelay: designNumber(device, 'deployDelay', KERNEL_DEPLOYMENT.deployDelay),
+    deployAltitude: num(device, 'deployAltitude', KERNEL_DEPLOYMENT.deployAltitude),
+    deployDelay: num(device, 'deployDelay', KERNEL_DEPLOYMENT.deployDelay),
   };
 }
 
@@ -115,8 +112,8 @@ export function designDeployment(device: ComponentNode): Required<DeployOverride
 export function designSeparation(stage: ComponentNode): Required<SepOverride> {
   return {
     separationEvent: designString(stage, 'separationEvent', KERNEL_SEPARATION.separationEvent),
-    separationAltitude: designNumber(stage, 'separationAltitude', KERNEL_SEPARATION.separationAltitude),
-    separationDelay: designNumber(stage, 'separationDelay', KERNEL_SEPARATION.separationDelay),
+    separationAltitude: num(stage, 'separationAltitude', KERNEL_SEPARATION.separationAltitude),
+    separationDelay: num(stage, 'separationDelay', KERNEL_SEPARATION.separationDelay),
   };
 }
 
@@ -131,7 +128,7 @@ export function mountIgnition(
 ): Pick<MountMotor, 'ignitionEvent' | 'ignitionDelay'> {
   if (!mount) return {};
   const ignitionEvent = designString(mount, 'ignitionEvent', 'automatic') as IgnitionEvent;
-  const ignitionDelay = designNumber(mount, 'ignitionDelay', 0);
+  const ignitionDelay = num(mount, 'ignitionDelay', 0);
   return ignitionEvent === 'automatic' && ignitionDelay === 0 ? {} : { ignitionEvent, ignitionDelay };
 }
 
@@ -370,8 +367,17 @@ export function reconcileConfigs(tree: RocketTree, configs: FlightConfig[]): Fli
 export function loadoutLabel(tree: RocketTree, config: FlightConfig): string {
   return motorSpecs(tree, config)
     .filter((m) => m.designation)
-    .map((m) => (m.manufacturer ? `${m.manufacturer} ${motorName(m)}` : motorName(m)))
+    .map(motorFullName)
     .join(' + ');
+}
+
+/**
+ * A configuration's display name: its own name, else the motors it flies
+ * ({@link loadoutLabel}). Empty for an unnamed configuration with nothing
+ * seated: the caller says what to print then (`configs.noMotors`).
+ */
+export function configLabel(tree: RocketTree, config: FlightConfig): string {
+  return config.name || loadoutLabel(tree, config);
 }
 
 /** The deployment fields a configuration overrides for one device, if any. */

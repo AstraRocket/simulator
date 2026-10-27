@@ -159,7 +159,7 @@ Valores predeterminados para la vista 2D. También puedes alternarlos en la prop
 
 También en la pestaña **Simulación**: cinco umbrales, en las unidades que hayas elegido para la velocidad.
 
-- **Vel. mínima de salida de la guía**: por debajo de esto las aletas reciben muy poco flujo de aire para gobernar el cohete, así que puede orientarse hacia el viento o volverse inestable al salir de la guía. La ficha de salida de la guía está en verde a partir de este valor y avisa por debajo. Este solo colorea la ficha y las cifras de [Salida del raíl](./tools.md#off-the-rail): no llega al motor de vuelo, no se puede sobrescribir por simulación y cambiarlo no marca resultados como desactualizados.
+- **Vel. mínima de salida de la guía**: por debajo de esto las aletas reciben muy poco flujo de aire para gobernar el cohete, así que puede orientarse hacia el viento o volverse inestable al salir de la guía. La ficha de salida de la guía está en verde a partir de este valor y avisa por debajo, y cada simulación pregunta al motor de vuelo qué longitud de guía necesita el cohete para alcanzarlo (la ficha **Longitud de raíl necesaria**). Como esa cifra forma parte del resultado, cambiar este valor marca los resultados como desactualizados. No se puede sobrescribir por simulación.
 
 Los otros cuatro son umbrales de despliegue. Colorean las fichas de resultados *y* llegan al motor de vuelo, así que deciden qué avisos informa una simulación y no solo cómo se colorean los números.
 

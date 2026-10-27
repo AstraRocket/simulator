@@ -147,3 +147,34 @@ describe('the option buttons with several rows ticked', () => {
     expect((screen.getByRole('button', { name: 'Save as default' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
+
+/**
+ * Ticking a second row turns the editor on every ticked simulation. The status
+ * that says so has to be on the page, empty, before the tick: a live region
+ * created together with its text is not announced.
+ */
+describe('the multi-edit status', () => {
+  it('is the same live region before and after a second row is ticked', () => {
+    const first = selectActive(st()).id;
+    act(() => {
+      st().duplicateSim(first);
+      useWorkspaceStore.setState({ selectedSimIds: [] });
+    });
+    try {
+      renderWithProviders(<SimEditor />);
+      const status = screen.getAllByRole('status').find((el) => el.textContent === '' && el.closest('.sticky'))!;
+      expect(status).toBeTruthy();
+      act(() => {
+        for (const sim of st().sims) st().toggleSimSelected(sim.id);
+      });
+      expect(status.isConnected).toBe(true);
+      expect(status.textContent).toContain(`Editing ${st().sims.length} selected simulations.`);
+    } finally {
+      act(() => {
+        useWorkspaceStore.setState({ selectedSimIds: [] });
+        const extra = st().sims.find((sim) => sim.id !== first);
+        if (extra) st().deleteSim(extra.id);
+      });
+    }
+  });
+});

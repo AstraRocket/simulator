@@ -3,6 +3,7 @@ import { EXPORT_FORMATS } from '../../services/exports/flightPathExport';
 import type { UserTemplate } from '../../services/exports/templateStore';
 import { USER_PREFIX } from './useExportTemplates';
 import { useFilePick } from '../common/useFilePick';
+import { smallButton } from '../common/smallButton';
 
 /**
  * The flight-path export dialog's format block: the format select (built-ins,
@@ -57,17 +58,14 @@ export function ExportFormatPicker({
       </label>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={templateFile.pick}
-            className="rounded-md bg-raised px-2 py-1 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
-          >
+          <button onClick={templateFile.pick} className={smallButton('chip', 'ink')}>
             {t('pathExport.import')}
           </button>
           {templateFile.input}
           <button
             onClick={onDownloadTemplate}
             title={t('pathExport.downloadTemplateTitle')}
-            className="rounded-md bg-raised px-2 py-1 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
+            className={smallButton('chip', 'ink')}
           >
             {t('pathExport.downloadTemplate')}
           </button>

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { toggleDaylight } from '../../services/app/theme';
 import { useSettings } from '../../state/SettingsProvider';
+import { ToggleButton } from '../common/ToggleButton';
 
 /**
  * One tap between the chosen theme and daylight (high contrast), for a screen
@@ -13,19 +14,14 @@ export function DaylightToggle() {
   const on = settings.theme === 'daylight';
   const label = t('settings.themeOption.daylight');
   return (
-    <button
-      type="button"
+    <ToggleButton
+      active={on}
       onClick={() => update(toggleDaylight(settings.theme, settings.themeBeforeDaylight))}
-      aria-pressed={on}
-      aria-label={label}
+      label={label}
       title={label}
-      className={`rounded-lg px-2 py-1.5 text-sm xl:px-2.5 leading-none ring-1 ${
-        on
-          ? 'bg-accent-600 text-on-accent ring-accent-500 hover:bg-accent-700'
-          : 'bg-raised text-ink ring-line/10 hover:bg-elevated'
-      }`}
+      className="rounded-lg px-2 py-1.5 text-sm leading-none ring-1 ring-line/10 xl:px-2.5"
     >
       ☀︎
-    </button>
+    </ToggleButton>
   );
 }

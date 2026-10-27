@@ -123,3 +123,23 @@ describe('useExportTemplates', () => {
     expect(result.current.error).toBe('Could not delete that template.');
   });
 });
+
+/**
+ * A template store that cannot be read is not an empty one: the dialog says so
+ * in its error line, as the saved-part and location lists do, rather than
+ * offering the built-in formats as though nobody had imported anything.
+ */
+describe('useExportTemplates when storage fails', () => {
+  it('reports the failed listing in the error line', async () => {
+    setTemplateStore({
+      list: () => Promise.reject(new Error('IndexedDB is unavailable')),
+      add: async () => {},
+      remove: async () => {},
+    });
+    const { result } = renderHook(() => useExportTemplates());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.error).toMatch(/IndexedDB is unavailable/);
+  });
+});
