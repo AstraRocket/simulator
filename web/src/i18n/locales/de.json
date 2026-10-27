@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "Keine Raketenkonstruktionsdatei. Erwartet wird OpenRocket (.ork) oder RockSim (.rkt).",
+      "rktDesktopOnly": "RockSim-Dateien lassen sich nur auf einem Desktop-Computer öffnen, da RockSim nicht auf einem Smartphone oder Tablet läuft.",
       "notOrk": "Keine .ork-Datei (<rocket> fehlt).",
       "notRkt": "Keine .rkt-Datei (<RocketDesign> fehlt).",
       "noStage": "Diese .ork-Datei enthält keine Stufe.",

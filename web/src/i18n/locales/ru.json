@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "Это не файл проекта ракеты. Ожидается OpenRocket (.ork) или RockSim (.rkt).",
+      "rktDesktopOnly": "Файлы RockSim открываются только на настольном компьютере, так как RockSim не работает на телефоне или планшете.",
       "notOrk": "Это не файл .ork (нет <rocket>).",
       "notRkt": "Это не файл .rkt (нет <RocketDesign>).",
       "noStage": "В этом файле .ork нет ни одной ступени.",

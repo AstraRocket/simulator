@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "ロケット設計ファイルではありません。OpenRocket (.ork) または RockSim (.rkt) のファイルを選んでください。",
+      "rktDesktopOnly": "RockSim はスマートフォンやタブレットでは動作しないため、RockSim ファイルはデスクトップコンピューターでのみ開けます。",
       "notOrk": ".ork ファイルではありません（<rocket> がありません）。",
       "notRkt": ".rkt ファイルではありません（<RocketDesign> がありません）。",
       "noStage": "この .ork には段がありません。",

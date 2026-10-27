@@ -33,6 +33,16 @@ const row = (name: RegExp) => screen.getByRole('treeitem', { name });
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {};
+  // jsdom has no matchMedia; each row's export button asks it whether this is
+  // a desktop window (useCapability). Answer "desktop".
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
 });
 
 beforeEach(() => {

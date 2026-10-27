@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "Não é um ficheiro de projeto de foguete. Esperava-se OpenRocket (.ork) ou RockSim (.rkt).",
+      "rktDesktopOnly": "Os ficheiros do RockSim só abrem num computador de secretária, porque o RockSim não funciona num telemóvel nem num tablet.",
       "notOrk": "Não é um ficheiro .ork (falta <rocket>).",
       "notRkt": "Não é um ficheiro .rkt (falta <RocketDesign>).",
       "noStage": "Este .ork não tem nenhum andar.",

@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "No es un archivo de diseño de cohete. Se esperaba OpenRocket (.ork) o RockSim (.rkt).",
+      "rktDesktopOnly": "Los archivos de RockSim solo se abren en un ordenador de escritorio, porque RockSim no funciona en un teléfono ni en una tableta.",
       "notOrk": "No es un archivo .ork (falta <rocket>).",
       "notRkt": "No es un archivo .rkt (falta <RocketDesign>).",
       "noStage": "Este .ork no tiene ninguna etapa.",

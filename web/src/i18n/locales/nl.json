@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "Geen raketontwerpbestand. Verwacht wordt OpenRocket (.ork) of RockSim (.rkt).",
+      "rktDesktopOnly": "RockSim-bestanden openen alleen op een desktopcomputer, omdat RockSim niet op een telefoon of tablet werkt.",
       "notOrk": "Geen .ork-bestand (<rocket> ontbreekt).",
       "notRkt": "Geen .rkt-bestand (<RocketDesign> ontbreekt).",
       "noStage": "Dit .ork-bestand heeft geen trap.",

@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "Not a rocket design file. Expected OpenRocket (.ork) or RockSim (.rkt).",
+      "rktDesktopOnly": "RockSim files open on a desktop computer only, since RockSim does not run on a phone or tablet.",
       "notOrk": "Not a .ork file (missing <rocket>).",
       "notRkt": "Not a .rkt file (missing <RocketDesign>).",
       "noStage": "This .ork has no stage.",

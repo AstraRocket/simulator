@@ -31,7 +31,8 @@ import { defaultDesignName, designNameOf } from '../services/app/appInfo';
 import { getDesignLibrary, type DesignMeta } from '../services/storage/designLibrary';
 import { getWorkspaceStore, lean, resultsOf } from '../services/storage/workspaceStore';
 import { migrateWorkspace } from '../services/storage/workspaceMigrate';
-import { errorText, keyedText, type Keyed } from '../i18n/keyedError';
+import { errorText, keyedText, KeyedError, type Keyed } from '../i18n/keyedError';
+import { hasCapability } from '../services/app/device';
 import { fmtList, partLabel } from '../i18n/format';
 import {
   configOf,
@@ -374,6 +375,13 @@ export const createFileSlice =
           assertImportSize(file.size);
           const bytes = await file.arrayBuffer();
           if (stale()) return;
+          // RockSim import is a capability (services/app/capabilities.ts): the
+          // menu leaves it off a device without it, and a `.rkt` handed to the
+          // `.ork` picker is refused here, since the reader goes by the bytes.
+          const { sniffDesignFormat } = await import('../services/files/designFile');
+          if (!hasCapability('import.rocksim') && sniffDesignFormat(bytes) === 'rkt') {
+            throw new KeyedError('errors.file.rktDesktopOnly');
+          }
           const { loadOrk } = await import('../services/files/loadOrk');
           engineTouched = true;
           const res = await loadOrk(bytes);

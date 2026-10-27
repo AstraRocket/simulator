@@ -6,6 +6,11 @@ All notable changes to AstraRocket are recorded here. The engine is validated
 against desktop **OpenRocket** (`.ork` round-trips and its Component Analysis),
 so most entries describe getting a computation to match OpenRocket exactly.
 
+## [0.5.3]
+
+### Changed
+- **Exports for desktop programs are desktop only.** A phone or tablet no longer offers files that only a desktop program reads: RockSim, RASAero II, the 3D print `.3mf`, a part's STL, OBJ, 3MF and DXF, and the JSON for Onshape. Each was a file nothing on the device could open. RockSim import goes too, and a `.rkt` picked through **Import → OpenRocket** is refused with a message. `.ork`, a part's GLB, the PDF report, CSV, the flight path and images stay everywhere. A window under 1024 pixels wide, an iPhone or iPad, or an Android device counts as a phone or tablet at any width; Android is read from the browser's Client Hints where it has them. Files & Exports lists it all under **On a phone or tablet**.
+
 ## [0.5.2]
 
 ### Changed

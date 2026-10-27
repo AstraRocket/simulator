@@ -36,6 +36,7 @@
     },
     "file": {
       "notDesign": "Ce n'est pas un fichier de conception de fusée. Format attendu : OpenRocket (.ork) ou RockSim (.rkt).",
+      "rktDesktopOnly": "Les fichiers RockSim ne s'ouvrent que sur un ordinateur de bureau, car RockSim ne fonctionne pas sur un téléphone ou une tablette.",
       "notOrk": "Ce n'est pas un fichier .ork (<rocket> manquant).",
       "notRkt": "Ce n'est pas un fichier .rkt (<RocketDesign> manquant).",
       "noStage": "Ce .ork ne contient aucun étage.",
