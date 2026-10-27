@@ -131,9 +131,11 @@ describe('saveDesignAs when storage refuses the write', () => {
     await s().saveDesignAs('With flights');
     const [meta] = await new DesignLibrary(kv).list();
     const blob = [...kv.map.entries()].find(([k]) => k.endsWith(`designs:${meta!.id}`))![1];
-    expect(blob).not.toContain('321');
+    // The field, not the bare digits: the sim and config ids are random UUIDs,
+    // and one that happens to contain "321" would fail a digits-only check.
+    expect(blob).not.toContain('"maxAltitude"');
     const stored = [...kv.map.entries()].find(([k]) => k.endsWith(`designs:${meta!.id}:results`));
-    expect(stored?.[1]).toContain('321');
+    expect(stored?.[1]).toContain('"maxAltitude":321');
   });
 });
 
