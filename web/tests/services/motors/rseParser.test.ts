@@ -392,6 +392,13 @@ describe('parseRse refuses what ThrustCurveMotor.Builder.build() refuses', () =>
     );
   });
 
+  it('a curve with no thrust anywhere', () => {
+    const zero = DATA.replace('f="400"', 'f="0"').replace('f="380"', 'f="0"');
+    expect(() => parseRse(rse(ATTRS, zero))).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.rseNoThrust', values: { motor: 'J350' } }),
+    );
+  });
+
   it('a negative sample time', () => {
     // A (0, 0) point goes ahead of a curve that does not start at zero, and the
     // builder then refuses a time that runs backward.
