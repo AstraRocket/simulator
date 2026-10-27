@@ -9,11 +9,11 @@ import type { Capability } from '../../services/app/capabilities';
 
 /** The capability behind each format (services/app/capabilities.ts). */
 const CAPABILITY: Record<ExportFormat, Capability> = {
-  stl: 'export.part.stl',
-  obj: 'export.part.obj',
-  glb: 'export.part.glb',
-  '3mf': 'export.part.3mf',
-  dxf: 'export.part.dxf',
+  stl: 'export:part:stl',
+  obj: 'export:part:obj',
+  glb: 'export:part:glb',
+  '3mf': 'export:part:3mf',
+  dxf: 'export:part:dxf',
 };
 
 const LABEL: Record<ExportFormat, string> = {

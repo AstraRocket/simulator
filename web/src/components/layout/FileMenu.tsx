@@ -193,7 +193,7 @@ function FileMenu({
           {t('file.importOrk')}
         </MenuItem>
       )}
-      {importOpen && can('import.rocksim') && (
+      {importOpen && can('import:rocksim') && (
         <MenuItem sub label={t('file.importRktLabel')} onClick={run(actions.onImportRkt)}>
           {t('file.importRkt')}
         </MenuItem>
@@ -221,22 +221,22 @@ function FileMenu({
           {t('file.exportOrk')}
         </MenuItem>
       )}
-      {exportOpen && can('export.rocksim') && (
+      {exportOpen && can('export:rocksim') && (
         <MenuItem sub label={t('file.exportRktLabel')} disabled={!canSave} onClick={run(actions.onExportRkt)}>
           {t('file.exportRkt')}
         </MenuItem>
       )}
-      {exportOpen && can('export.print3mf') && (
+      {exportOpen && can('export:print3mf') && (
         <MenuItem sub label={t('file.exportPrintLabel')} disabled={!canSave} onClick={run(actions.onExportPrint)}>
           {t('file.exportPrint')}
         </MenuItem>
       )}
-      {exportOpen && can('export.rasaero') && (
+      {exportOpen && can('export:rasaero') && (
         <MenuItem sub disabled={!canSave} onClick={run(actions.onExportRasaero)}>
           {t('file.rasaero')}
         </MenuItem>
       )}
-      {exportOpen && can('export.onshapeJson') && (
+      {exportOpen && can('export:onshapeJson') && (
         <MenuItem sub label={t('file.exportJsonLabel')} disabled={!canSave} onClick={run(actions.onExportJson)}>
           {t('file.exportJson')}
         </MenuItem>

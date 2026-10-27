@@ -379,7 +379,7 @@ export const createFileSlice =
           // menu leaves it off a device without it, and a `.rkt` handed to the
           // `.ork` picker is refused here, since the reader goes by the bytes.
           const { sniffDesignFormat } = await import('../services/files/designFile');
-          if (!hasCapability('import.rocksim') && sniffDesignFormat(bytes) === 'rkt') {
+          if (!hasCapability('import:rocksim') && sniffDesignFormat(bytes) === 'rkt') {
             throw new KeyedError('errors.file.rktDesktopOnly');
           }
           const { loadOrk } = await import('../services/files/loadOrk');
