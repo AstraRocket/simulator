@@ -101,8 +101,8 @@ Some features make sense only on a desktop computer, because the file they make 
 
 **Each one is a capability.** `web/src/services/app/capabilities.ts` is the config: one entry per capability, naming the device classes it is available on (`desktop`, `mobile`) and why. `web/src/services/app/device.ts` classes the device and reads the config. Code asks by capability name and never tests the device itself:
 
-- **React:** `const can = useCapability()` (`components/common/useMediaQuery.ts`), then `can('export.rasaero')`. It re-renders on a resize and when the browser's `formFactors` answer arrives. `useDeviceClass()` gives the class itself.
-- **Outside React:** `hasCapability('import.rocksim')`, read once (the file-open path uses it to refuse a `.rkt`).
+- **React:** `const can = useCapability()` (`components/common/useMediaQuery.ts`), then `can('export:rasaero')`. It re-renders on a resize and when the browser's `formFactors` answer arrives. `useDeviceClass()` gives the class itself.
+- **Outside React:** `hasCapability('import:rocksim')`, read once (the file-open path uses it to refuse a `.rkt`).
 
 To restrict a new feature, add an entry to `CAPABILITIES` and ask for it where the feature is offered. To change where an existing one is available, change its `availableOn`; nothing else moves. Do not add another user agent test anywhere.
 
