@@ -94,8 +94,12 @@ export function Dialog({
    * filling it: the report's print settings opens on top of an already
    * full-screen dialog, and blowing it up to full bleed reads as that dialog
    * being replaced rather than something opening over it.
+   *
+   * `'xl'` fills the window up to the `xl` breakpoint rather than `lg`: for a
+   * working surface (the motor browsers) whose table or two panes need more
+   * than a centered card leaves them on a laptop screen.
    */
-  fullBleed?: boolean;
+  fullBleed?: boolean | 'xl';
   /**
    * Controls before the title, for a dialog you navigate within rather than
    * just read: a contents toggle and a back arrow. They lead the header because
@@ -136,7 +140,7 @@ export function Dialog({
     <div
       // A backdrop press is the mouse twin of Escape, which the focus trap
       // handles (useBackdropDismiss).
-      className={`dialog-overlay fixed inset-0 ${layerClass[layer]} flex items-center justify-center bg-shade/60 p-4`}
+      className={`dialog-overlay ${fullBleed === 'xl' ? 'dialog-overlay-xl' : ''} fixed inset-0 ${layerClass[layer]} flex items-center justify-center bg-shade/60 p-4`}
       {...backdrop}
     >
       <div // eslint-disable-line jsx-a11y-x/click-events-have-key-events, jsx-a11y-x/no-noninteractive-element-interactions -- a backdrop click is the mouse twin of Escape, which the focus trap handles; the panel only stops that click
@@ -148,7 +152,7 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={name === undefined ? headingId : undefined}
         aria-label={name}
-        className={`${fullBleed ? 'dialog-panel' : ''} flex w-full flex-col overflow-hidden rounded-xl bg-surface ring-1 ring-line/10 ${sizeClasses(size, expanded, layout === 'fill' && height === undefined)} ${height === undefined ? '' : 'h-[var(--dialog-height)]'}`}
+        className={`${fullBleed ? 'dialog-panel' : ''} ${fullBleed === 'xl' ? 'dialog-panel-xl' : ''} flex w-full flex-col overflow-hidden rounded-xl bg-surface ring-1 ring-line/10 ${sizeClasses(size, expanded, layout === 'fill' && height === undefined)} ${height === undefined ? '' : 'h-[var(--dialog-height)]'}`}
         // The pixel height arrives as a custom property read by a class, not as
         // an inline `height`. Inline styles beat a stylesheet, so an inline
         // height would defeat the full-bleed phone rule in index.css and leave

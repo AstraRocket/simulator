@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTabs } from '../common/useTabs';
 import { LandingEstimator } from './LandingEstimator';
-import { OffTheRail } from './OffTheRail';
 import { ParachuteTool } from './ParachuteTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 
@@ -48,7 +47,6 @@ export function ToolsPane() {
       </div>
       <div {...tabs.panel} className="min-h-0 flex-1 overflow-auto p-3">
         {tool === 'landing' && <LandingEstimator />}
-        {tool === 'rail' && <OffTheRail />}
         {tool === 'chute' && <ParachuteTool />}
       </div>
     </div>

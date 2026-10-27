@@ -112,9 +112,6 @@
       "rseTooManyMotors": "Ten plik .rse deklaruje ponad {{max}} silników (możliwe uszkodzenie)."
     },
     "thrustcurve": {
-      "http": "thrustcurve.org odpowiedział kodem HTTP {{status}} dla {{path}}.",
-      "tooLarge": "Odpowiedź thrustcurve.org dla {{path}} jest zbyt duża.",
-      "timeout": "Przekroczono czas oczekiwania na thrustcurve.org. Sprawdź połączenie i spróbuj ponownie.",
       "noSamples": "Brak próbek ciągu dla {{motor}}.",
       "noWeight": "thrustcurve.org nie podaje masy startowej ani masy paliwa dla {{motor}}, więc nie można go symulować. Wybierz inny silnik.",
       "propOverTotal": "{{motor}} ma w katalogu więcej paliwa ({{prop}} g) niż masy startowej ({{total}} g), więc jego spalanie skończyłoby się ujemną masą. Wybierz inny silnik.",
@@ -122,10 +119,8 @@
       "badSize": "thrustcurve.org podaje dla {{motor}} błędny rozmiar (średnica {{diameter}} mm, długość {{length}} mm), więc nie można go symulować. Wybierz inny silnik.",
       "negativeThrust": "Dane krzywej ciągu dla {{motor}} zawierają ujemny ciąg, więc nie można go symulować. Wybierz inny silnik.",
       "badCg": "Podany środek ciężkości {{motor}} leży poza silnikiem (od 0 do {{length}} mm), więc nie można go symulować. Wybierz inny silnik.",
-      "notFound": "Nie znaleziono {{maker}} {{motor}} w thrustcurve.org.",
-      "noData": "Brak danych krzywej ciągu dla {{motor}}.",
-      "badData": "Dane krzywej ciągu dla {{motor}} są nieprawidłowe.",
-      "importGone": "Zaimportowany silnik {{motor}} nie jest już zapisany. Zaimportuj ponownie jego plik silnika."
+      "importGone": "Zaimportowany silnik {{motor}} nie jest już zapisany. Zaimportuj ponownie jego plik silnika.",
+      "noCurve": "{{motor}} nie ma opublikowanej krzywej ciągu, więc nie można nim polecieć. Zamiast tego zaimportuj dla niego plik .eng lub .rse."
     },
     "motorCurve": {
       "notFinite": "Silnik {{motor}}: wartość „{{what}}” nie jest liczbą skończoną (niepełne dane katalogowe).",
@@ -470,7 +465,6 @@
     "ariaFor": "Jednostka dla „{{quantity}}”",
     "ariaForOverridden": "Jednostka dla „{{quantity}}”, ustawiona dla tego pola",
     "second": "s",
-    "ratio": "{{ratio}} : 1",
     "q": {
       "length": "Wymiary części",
       "motorDimensions": "Wymiary silnika",
@@ -776,7 +770,18 @@
     "maxRollRate": "Maks. prędkość przechylania",
     "safetyAckTitle": "Potwierdź uwagi o bezpieczeństwie",
     "safetyAckBody": "Zwinięcie tego nie zmienia tego, czego symulacja nie potrafi powiedzieć: flatteru stateczników, obciążeń konstrukcji, wypełniania spadochronu i szarpnięcia przy otwarciu ani tego, jak twój silnik zachowa się w dniu startu. Nadal odpowiadasz za sprawdzenie rakiety na warsztacie i za lot zgodny ze swoimi zasadami bezpieczeństwa. Nagłówek zostaje nad liczbami, a uwagi są jedno kliknięcie dalej.",
-    "safetyAckConfirm": "Rozumiem"
+    "safetyAckConfirm": "Rozumiem",
+    "exitTime": "Czas zejścia",
+    "exitTwr": "Ciąg/ciężar przy zejściu",
+    "exitTwrSub": "stosunek",
+    "exitAoa": "Kąt natarcia przy zejściu",
+    "maxWind": "Maks. wiatr dla {{angle}}",
+    "railNeeded": "Potrzebna długość wyrzutni",
+    "railNeeded_rail": "Potrzebna długość szyny",
+    "railNeeded_rod": "Potrzebna długość pręta",
+    "railNeededFor": "dla {{speed}}",
+    "railNeverReaches": "Nigdy jej nie osiąga",
+    "railLonger": "Dłuższa niż twoja"
   },
   "warn": {
     "deletePart": "Usunąć „{{name}}”?",
@@ -956,7 +961,14 @@
       "optimumDelay": "Optymalne opóźnienie",
       "maxQ": "Maks. ciśnienie dynamiczne",
       "maxQAlpha": "Maks. q·alfa",
-      "maxRollRate": "Maks. prędkość przechylania"
+      "maxRollRate": "Maks. prędkość przechylania",
+      "motor": "Silnik",
+      "manufacturer": "Producent",
+      "delay": "Opóźnienie",
+      "railMargin": "Zapas przy zejściu",
+      "totalImpulse": "Impuls całkowity",
+      "avgThrust": "Średni ciąg",
+      "burnTime": "Czas pracy"
     }
   },
   "flightVar": {
@@ -1316,7 +1328,6 @@
     "motorFileCurve": "Silnika „{{motor}}” nie ma w katalogu, więc użyto krzywej ciągu zapisanej w pliku.",
     "motorOtherMaker": "Silnik „{{motor}}” jest w tym pliku przypisany do {{maker}}, a katalog nie ma silnika tego producenta o tej nazwie (tylko od {{catalogMaker}}). Wybierz silnik dla tego gniazda. Żaden silnik nie jest podstawiany.",
     "motorNotInCatalog": "Silnika „{{motor}}” nie ma w katalogu. Wybierz silnik dla tego gniazda. Żaden silnik nie jest podstawiany.",
-    "motorFetchFileCurve": "Nie udało się pobrać silnika „{{motor}}”, więc użyto krzywej ciągu zapisanej w pliku.",
     "motorFetchFailed": "Nie udało się wczytać silnika „{{motor}}” ({{reason}}). Wybierz silnik dla tego gniazda. Żaden silnik nie jest podstawiany.",
     "motorTooWide": "Silnik „{{motor}}” ma {{diameter}} mm, a gniazdo „{{mount}}” przyjmuje {{bore}} mm, więc się nie mieści. Sprawdź go przed lotem.",
     "motorTooLong": "Silnik „{{motor}}” ma {{length}} mm długości, a gniazdo „{{mount}}” mieści {{maxLength}} mm, więc się nie mieści. Sprawdź go przed lotem.",
@@ -1335,7 +1346,8 @@
       "airStart": "Start w powietrzu",
       "javaCode": "Kod Java",
       "script": "Skrypt {{language}}"
-    }
+    },
+    "motorNoCurveFileCurve": "Silnik „{{motor}}” nie ma krzywej ciągu w katalogu, więc użyto krzywej ciągu zapisanej w pliku."
   },
   "part": {
     "stage": "Stopień",
@@ -1964,8 +1976,8 @@
     "curve": "Krzywa",
     "commonName": "Nazwa zwyczajowa",
     "viewOnTc": "Zobacz na ThrustCurve.org",
-    "noCurve": "Dla tego silnika nie dołączono krzywej ciągu; zostanie pobrana przy wyborze.",
-    "noBundledCurve": "Brak dołączonej krzywej ciągu; pobierana z thrustcurve.org przy wyborze.",
+    "noCurve": "Dla tego silnika nie opublikowano krzywej ciągu, więc nie można nim polecieć. Zamiast tego zaimportuj dla niego plik .eng lub .rse.",
+    "noBundledCurve": "Brak opublikowanej krzywej ciągu, więc nie można nim polecieć.",
     "motorType": "Rodzaj silnika",
     "delays": "Opóźnienia",
     "totalWeight": "Masa całkowita",
@@ -1991,7 +2003,15 @@
     "calcNote": "* Ciąg początkowy, Isp i udział masowy są obliczone z krzywej ciągu oraz mas.",
     "initialNote": "* Ciąg początkowy jest obliczony z krzywej ciągu.",
     "rangeMin": "{{label}}: minimum",
-    "rangeMax": "{{label}}: maksimum"
+    "rangeMax": "{{label}}: maksimum",
+    "moreFilters": "Więcej filtrów",
+    "moreFiltersN_one": "Więcej filtrów ({{count}})",
+    "moreFiltersN_few": "Więcej filtrów ({{count}})",
+    "moreFiltersN_many": "Więcej filtrów ({{count}})",
+    "moreFiltersN_other": "Więcej filtrów ({{count}})",
+    "clearFilters": "Wyczyść",
+    "perfMissingNote": "Silnik, dla którego katalog nie podaje wartości, jest ukrywany, gdy ta wartość ma granicę.",
+    "twr": "Ciąg/ciężar"
   },
   "lang": {
     "label": "Język"
@@ -2123,7 +2143,6 @@
     "aboveMax": "Powyżej limitu",
     "tooFast": "Za szybko",
     "tooSlow": "Za wolno",
-    "overRail": "Dłuższa niż prowadnica",
     "rodAngleModel": "Prowadnica startowa jest odchylona od pionu o {{value}}, a zasady bezpieczeństwa NAR dla rakiet modelarskich dopuszczają najwyżej {{limit}}.",
     "rodAngleModel_rail": "Szyna startowa jest odchylona od pionu o {{value}}, a zasady bezpieczeństwa NAR dla rakiet modelarskich dopuszczają najwyżej {{limit}}.",
     "rodAngleModel_rod": "Pręt startowy jest odchylony od pionu o {{value}}, a zasady bezpieczeństwa NAR dla rakiet modelarskich dopuszczają najwyżej {{limit}}.",
@@ -2402,7 +2421,6 @@
   "tools": {
     "label": "Narzędzia",
     "tool_landing": "Szacowanie lądowania",
-    "tool_rail": "Zejście z prowadnicy",
     "tool_chute": "Dobór spadochronu"
   },
   "chuteTool": {
@@ -2419,42 +2437,69 @@
     "result": "Wynik doboru spadochronu",
     "empty": "Wpisz masę przy opadaniu i Cd czaszy."
   },
-  "rail": {
-    "title": "Zejście z prowadnicy",
-    "intro": "Jak rakieta schodzi z prowadnicy z danym silnikiem: stosunek ciągu do ciężaru, prędkość zejścia z prowadnicy i jak bardzo obraca ją wiatr boczny. Rakieta zaprojektowana tutaj otrzymuje te wartości z symulacji, przy zdarzeniu zejścia z prowadnicy.",
-    "motor": "Silnik",
-    "noMotor": "Nie wybrano silnika",
-    "chooseMotor": "Wybierz…",
-    "rocket": "Rakieta i prowadnica",
-    "dryMass": "Masa rakiety bez silnika",
-    "dryMassHint": "Masa załadowanego silnika pochodzi z katalogu i jest do niej dodawana.",
-    "wind": "Prędkość wiatru",
-    "fromForecast": "Wiatr z prognozy",
-    "fetchWind": "Pobierz prognozowany wiatr",
-    "fetching": "Pobieranie…",
-    "forecastWind": "Prognozowany wiatr {{wind}} na 10 m, {{when}}.",
-    "forecastWindGust": "Prognozowany wiatr {{wind}} na 10 m, w porywach do {{gust}}, {{when}}.",
-    "result": "Wynik zejścia z prowadnicy",
-    "empty": "Wybierz silnik i wpisz masę rakiety oraz długość prowadnicy.",
-    "noLiftoff": "Ciąg silnika nigdy nie przekracza ciężaru rakiety, więc nie startuje.",
-    "stalls": "Rakieta zwalnia do zatrzymania, zanim dotrze do końca prowadnicy.",
-    "liftoffMass": "Masa startowa",
-    "twrAverage": "Ciąg do ciężaru, średni",
-    "twrPeak": "Ciąg do ciężaru, szczytowy",
-    "twrAtExit": "Ciąg do ciężaru przy zejściu z prowadnicy",
-    "exitSpeed": "Prędkość zejścia z prowadnicy",
-    "exitTime": "Czas do zejścia z prowadnicy",
-    "railNeeded": "Prowadnica dla {{speed}}",
-    "weathercock": "Kąt wiatrowskazowy",
-    "weathercockGust": "Kąt wiatrowskazowy w porywach",
-    "maxWind": "Najsilniejszy wiatr poniżej {{angle}}",
-    "maxDryMass": "Najcięższa rakieta bez silnika",
-    "none": "Brak",
-    "rules": "Na bursztynowo: średni stosunek ciągu do ciężaru poniżej {{ratio}} : 1, zejście z prowadnicy wolniej niż {{speed}} (minimum z Ustawień) lub kąt wiatrowskazowy powyżej {{angle}}. Najcięższa rakieta spełnia dwa pierwsze.",
-    "estimateNote": "Szacunek: bez oporu powietrza, bez tarcia o prowadnicę i z pionową prowadnicą, więc rzeczywiste zejście jest nieco wolniejsze."
-  },
   "stageName": {
     "sustainer": "Człon główny",
     "booster": "Człon startowy {{n}}"
+  },
+  "guide": {
+    "open": "Przewodnik silników",
+    "openHint": "Oblatać zestaw kandydujących silników w tej symulacji i porównać je w jednej tabeli",
+    "title": "Przewodnik silników",
+    "noMount": "Ten projekt nie ma mocowania silnika, w którym można oblatać kandydatów.",
+    "mount": "Mocowanie",
+    "fly_one": "Oblataj {{count}} silnik",
+    "fly_few": "Oblataj {{count}} silniki",
+    "fly_many": "Oblataj {{count}} silników",
+    "fly_other": "Oblataj {{count}} silnika",
+    "progress": "{{done}} / {{total}} silników",
+    "cost": "Każdy silnik leci raz, a drugi raz z najbliższym opóźnieniem, gdy jest inne.",
+    "hint": "To silniki, które oblata przycisk Oblataj. Odznacz te, których nie chcesz. Każdy leci w warunkach tej symulacji, a pozostałe mocowania zostają bez zmian.",
+    "flown": "Oblatano {{flown}} z {{asked}} silników.",
+    "flownPartial": "Oblatano {{flown}} z {{asked}} silników przed anulowaniem przewodnika.",
+    "exportCsv": "Pobierz tabelę przewodnika silników jako CSV",
+    "clear": "Wyczyść",
+    "stale": "Od oblatania tych silników zmienił się projekt lub ta symulacja.",
+    "colMotor": "Silnik",
+    "colDelay": "Opóźnienie (s)",
+    "colMargin": "Zapas przy zejściu (kal)",
+    "colTwr": "Ciąg/ciężar przy zejściu",
+    "colToApogee": "Do apogeum (s)",
+    "colOptimum": "Najlepsze opóźnienie (s)",
+    "colStatus": "Stan",
+    "colUse": "Użyj",
+    "ok": "OK",
+    "issue": {
+      "slowExit": "Wolne zejście z wyrzutni",
+      "railMarginal": "Na granicy przy zejściu",
+      "railUnstable": "Niestabilna przy zejściu",
+      "deployFast": "Szybkie otwarcie",
+      "deploySlow": "Wolne otwarcie",
+      "warnings_one": "{{count}} ostrzeżenie",
+      "warnings_few": "{{count}} ostrzeżenia",
+      "warnings_many": "{{count}} ostrzeżeń",
+      "warnings_other": "{{count}} ostrzeżenia"
+    },
+    "use": "Użyj",
+    "useHint": "Zachowaj ten silnik jako nową konfigurację i symulację",
+    "useStale": "Najpierw oblataj przewodnik ponownie: projekt się od tego czasu zmienił",
+    "useNamed": "Użyj {{motor}}",
+    "notFlown_one": "{{count}} silnik nieoblatany",
+    "notFlown_few": "{{count}} silniki nieoblatane",
+    "notFlown_many": "{{count}} silników nieoblatanych",
+    "notFlown_other": "{{count}} silnika nieoblatanego",
+    "simName": "{{name}} ({{motor}})",
+    "noCurve": "Brak opublikowanej krzywej ciągu. Zaimportuj plik .eng lub .rse, aby nim polecieć.",
+    "noCurveLeftOut_one": "Pasuje jeszcze {{count}}, ale nie ma krzywej ciągu, więc nie można nim polecieć.",
+    "noCurveLeftOut_few": "Pasują jeszcze {{count}}, ale nie mają krzywej ciągu, więc nie można nimi polecieć.",
+    "noCurveLeftOut_many": "Pasuje jeszcze {{count}}, ale nie mają krzywej ciągu, więc nie można nimi polecieć.",
+    "noCurveLeftOut_other": "Pasuje jeszcze {{count}}, ale nie mają krzywej ciągu, więc nie można nimi polecieć.",
+    "flyIdle": "Oblataj",
+    "tooMany_one": "Zaznaczono {{count}} silnik. Odznacz część lub zawęź filtry do {{max}} lub mniej.",
+    "tooMany_few": "Zaznaczono {{count}} silniki. Odznacz część lub zawęź filtry do {{max}} lub mniej.",
+    "tooMany_many": "Zaznaczono {{count}} silników. Odznacz część lub zawęź filtry do {{max}} lub mniej.",
+    "tooMany_other": "Zaznaczono {{count}} silnika. Odznacz część lub zawęź filtry do {{max}} lub mniej.",
+    "tickNamed": "Oblataj {{motor}}",
+    "tickAll": "Oblataj wszystkie wymienione silniki",
+    "colBurn": "Czas pracy (s)"
   }
 }

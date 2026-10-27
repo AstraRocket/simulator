@@ -20,7 +20,7 @@ On your first visit the browser quietly stores, in the background:
 
 About 16 MB in total. You don't need to do anything to trigger it: just let the first load finish.
 
-The motor catalog carries each motor's **thrust curve** with it, so simulating offline works for motors you've never opened before: 1,063 of the 1,156 motors. The remaining 93 have no published curve to bundle; the picker marks them, and they need a connection to fetch one from thrustcurve.org (cached once you do).
+The motor catalog carries each motor's **thrust curve** with it, so simulating offline works for motors you've never opened before: 1,063 of the 1,156 motors. The remaining 93 have no published curve to bundle. The picker lists them with their specs, but they can't be flown unless you import an `.eng` or `.rse` file for them.
 
 **Map imagery is the exception.** It is fetched as you look at it rather than downloaded up front, and the tiles you have viewed are kept, so a field you checked at home still shows at the launch with no signal. Ground you have never viewed cannot be drawn offline: the launch-site map falls back to a coordinate grid, and the ground track and 3D path to their plain plots, which carry the measurements anyway.
 
@@ -57,7 +57,7 @@ Motor and component catalogs refresh separately from the app itself, in the back
 
 When a refreshed catalog arrives, a banner at the top says so and gives how many entries are new and how many were removed; the **✕** hides it. **About** gives the size of each catalog and the date it last changed, the **Motor Dashboard** gives the motor catalog's in its title bar, and the motor picker shows that date under its list.
 
-While you are offline, the buttons that need a connection are grayed out and say so when you point at them: fetching weather, fetching the forecast wind in Off the rail, a place search by name, the landing estimate, flying the forecast hours and checking for updates. Everything else works as usual.
+While you are offline, the buttons that need a connection are grayed out and say so when you point at them: fetching weather, a place search by name, the landing estimate, flying the forecast hours and checking for updates. Everything else works as usual.
 
 ## Clearing it
 

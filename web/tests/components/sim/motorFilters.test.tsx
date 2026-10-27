@@ -30,7 +30,7 @@ vi.mock('../../../src/services/motors/motorDb', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   loadCatalog: () => Promise.resolve(CATALOG),
 }));
-vi.mock('../../../src/services/motors/thrustcurve', () => ({ fetchMotorSpec: vi.fn() }));
+vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec: vi.fn() }));
 
 const { MotorDialog } = await import('../../../src/components/sim/MotorDialog');
 

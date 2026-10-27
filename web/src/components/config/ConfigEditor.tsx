@@ -107,6 +107,7 @@ export function ConfigEditor() {
               title={mounts.length > 1 ? `${t('sims.motor')} - ${partName(mt, i, t)}` : undefined}
               motor={seated?.spec ?? null}
               onChange={(m) => setMountMotor(config.id, id, m)}
+              liftoff={{ configId: config.id, mountId: id }}
               onError={onError}
               mount={mount}
               ignition={ignition}

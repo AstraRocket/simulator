@@ -59,10 +59,10 @@ vi.mock('../../../src/services/files/designFile', () => ({
   }),
 }));
 
-const fetchMotorSpec = vi.fn();
+const catalogMotorSpec = vi.fn();
 const customMotorToSpec = vi.fn();
-vi.mock('../../../src/services/motors/thrustcurve', () => ({
-  fetchMotorSpec: (...a: unknown[]) => fetchMotorSpec(...a),
+vi.mock('../../../src/services/motors/motorSpec', () => ({
+  catalogMotorSpec: (...a: unknown[]) => catalogMotorSpec(...a),
   customMotorToSpec: (...a: unknown[]) => customMotorToSpec(...a),
 }));
 
@@ -131,16 +131,16 @@ describe('a motor the catalog does not have', () => {
   });
 });
 
-describe('a motor the catalog has but cannot fetch', () => {
+describe('a motor the catalog lists with no thrust curve', () => {
   beforeEach(() => {
     catalogHit.value = true;
-    fetchMotorSpec.mockRejectedValue(new Error('network down'));
+    catalogMotorSpec.mockRejectedValue(new Error('no curve'));
   });
 
   it('falls back to the file’s own curve rather than a placeholder', async () => {
     const res = await loadOrk(new ArrayBuffer(0));
     expect(res.configs[0]!.motors['mount1']!.spec).toBe(SPEC);
-    expect(noteTexts(res.notes).join('\n')).toMatch(/could not be fetched/i);
+    expect(noteTexts(res.notes).join('\n')).toMatch(/no thrust curve in the catalog/i);
   });
 
   it('keeps the placeholder when there is no embedded curve to fall back to', async () => {
@@ -149,10 +149,10 @@ describe('a motor the catalog has but cannot fetch', () => {
     expect(res.configs[0]!.motors['mount1']!.spec.thrusts).toEqual([]);
   });
 
-  it('prefers the catalog when the fetch works, so nothing changes for a normal design', async () => {
-    fetchMotorSpec.mockResolvedValue(SPEC);
+  it('prefers the catalog when it has the curve, so nothing changes for a normal design', async () => {
+    catalogMotorSpec.mockResolvedValue(SPEC);
     await loadOrk(new ArrayBuffer(0));
-    expect(fetchMotorSpec).toHaveBeenCalledTimes(1);
+    expect(catalogMotorSpec).toHaveBeenCalledTimes(1);
     expect(customMotorToSpec).not.toHaveBeenCalled();
   });
 });

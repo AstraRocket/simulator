@@ -23,8 +23,8 @@ export const POPUP_SURFACES = {
   ImageExportMenu: 1,
   // The import notes list under the loaded design's name.
   LoadedBanner: 1,
-  // Off the rail's wind from a forecast.
-  OffTheRail: 1,
+  // The motor filters' performance bounds (More filters).
+  MotorFilterBar: 1,
   // The flight picker in the results heading.
   ResultPicker: 1,
   // The safety card's fold.

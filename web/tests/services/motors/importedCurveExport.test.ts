@@ -9,7 +9,7 @@ import { importOrk } from '../../../src/services/files/orkFile';
 import { orkArchive } from '../../../src/services/files/saveOrk';
 import { loadOrk } from '../../../src/services/files/loadOrk';
 import { parseEng } from '../../../src/services/motors/engParser';
-import { customMotorToSpec } from '../../../src/services/motors/thrustcurve';
+import { customMotorToSpec } from '../../../src/services/motors/motorSpec';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
 
 /**
@@ -39,10 +39,10 @@ vi.mock('../../../src/engine/openRocketEngine', async (original) => ({
 
 // A catalog motor reopened from the catalog would come back with the
 // catalog's own curve; this stands in for that download.
-const fetchMotorSpec = vi.hoisted(() => vi.fn());
-vi.mock('../../../src/services/motors/thrustcurve', async (original) => ({
-  ...(await original<typeof import('../../../src/services/motors/thrustcurve')>()),
-  fetchMotorSpec,
+const catalogMotorSpec = vi.hoisted(() => vi.fn());
+vi.mock('../../../src/services/motors/motorSpec', async (original) => ({
+  ...(await original<typeof import('../../../src/services/motors/motorSpec')>()),
+  catalogMotorSpec,
 }));
 
 const catalogC6 = CATALOG.find((m) => m.manufacturer === 'Estes' && m.designation === 'C6')!;
@@ -104,7 +104,7 @@ describe('a user-imported curve under a catalog motor’s maker and name', () =>
     expect(seated.designation).toBe(catalogC6.designation);
     const stock = catalogC6.curves![0]!.samples.map(([, f]) => f);
     expect(seated.thrusts).not.toEqual(stock);
-    fetchMotorSpec.mockImplementation(async (cat: CatalogMotor, delay: number): Promise<MotorSpec> => ({
+    catalogMotorSpec.mockImplementation(async (cat: CatalogMotor, delay: number): Promise<MotorSpec> => ({
       ...seated,
       designation: cat.designation,
       times: cat.curves![0]!.samples.map(([t]) => t),
@@ -124,7 +124,7 @@ describe('a user-imported curve under a catalog motor’s maker and name', () =>
     const seatedAgain = Object.values(reopened.configs[0]!.motors);
     expect(seatedAgain).toHaveLength(1);
     const spec = seatedAgain[0]!.spec;
-    expect(fetchMotorSpec).not.toHaveBeenCalled();
+    expect(catalogMotorSpec).not.toHaveBeenCalled();
     expect(spec.times).toEqual(seated.times);
     expect(spec.thrusts).toEqual(seated.thrusts);
     expect(spec.masses.map((m) => m.toFixed(9))).toEqual(seated.masses.map((m) => m.toFixed(9)));

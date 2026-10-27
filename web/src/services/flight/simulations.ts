@@ -359,6 +359,13 @@ export interface SimPrefs {
    */
   guideAwareRodClearance: boolean;
   /**
+   * The minimum speed off the rod or rail, m/s. The rod-exit tile is colored by
+   * it, and the engine is asked how long a rod reaches it
+   * (`FlightSummary.railLengthNeeded`), so a run records a figure that depends
+   * on it.
+   */
+  railExitVelocityMin: number;
+  /**
    * The user's length unit. The kernel decides its airframe diameter-step, gap
    * and overlap warnings by comparing lengths as text in this unit, and those
    * warnings land in the flight, so a unit switch changes what a run records.
@@ -374,8 +381,7 @@ export interface SimPrefs {
  * `SimPrefs` is exactly the settings a flight reads, which is what makes it the
  * right list for deciding whether a saved result still describes the current
  * ones: `SimulationSettings` also carries `confirmDelete` and `autoRunOutdated`
- * (interface only) and `railExitVelocityMin` (the rod-exit tile's color, never
- * passed to the engine), none of which can change a number.
+ * (interface only), neither of which can change a number.
  *
  * A type cannot be enumerated at runtime, so this list is hand-written, and a
  * key added to `SimPrefs` without being added here would never invalidate
@@ -391,6 +397,7 @@ export const SIM_PREF_KEYS = [
   'mainLowSpeedWarn',
   'drogueLowSpeedWarn',
   'guideAwareRodClearance',
+  'railExitVelocityMin',
   'lengthUnit',
 ] as const satisfies readonly (keyof SimPrefs)[];
 
@@ -498,6 +505,7 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
     mainLowSpeedWarn: prefs?.mainLowSpeedWarn,
     drogueLowSpeedWarn: prefs?.drogueLowSpeedWarn,
     guideAwareRodClearance: prefs?.guideAwareRodClearance,
+    railExitMinSpeed: prefs?.railExitVelocityMin,
     // Every series the branch records, not the friendly dozen. `summary` keeps
     // 17 of the 69 series the kernel computes either way, and the app can only
     // plot or export what it asked for; the flight is simulated the same and

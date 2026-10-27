@@ -76,8 +76,8 @@ vi.mock('../../../src/services/files/designFile', () => ({
   }),
 }));
 
-const fetchMotorSpec = vi.fn();
-vi.mock('../../../src/services/motors/thrustcurve', () => ({ fetchMotorSpec, customMotorToSpec: vi.fn() }));
+const catalogMotorSpec = vi.fn();
+vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec, customMotorToSpec: vi.fn() }));
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
   findCatalogMotor: (_c: unknown, designation: string) => ({ designation }),
@@ -99,7 +99,7 @@ const curve = (designation: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  fetchMotorSpec.mockImplementation((cat: { designation: string }) => Promise.resolve(curve(cat.designation)));
+  catalogMotorSpec.mockImplementation((cat: { designation: string }) => Promise.resolve(curve(cat.designation)));
 });
 
 describe('loadOrk with several flight configurations', () => {
@@ -131,7 +131,7 @@ describe('loadOrk with several flight configurations', () => {
   it('resolves each distinct motor once, however many configurations use it', async () => {
     // Three motors across the two configurations, and D12 appears in both.
     await loadOrk(new ArrayBuffer(0));
-    expect(fetchMotorSpec).toHaveBeenCalledTimes(3);
+    expect(catalogMotorSpec).toHaveBeenCalledTimes(3);
   });
 
   it('seats only the OPENED configuration into the handle the static info is read from', async () => {

@@ -13,7 +13,7 @@ import { parseDesignFile, type DesignFormat } from './designFile';
 import type { OrkExportMotor } from './orkFile';
 import type { LaunchConditions } from '../design/orkTree';
 import { loadCatalog, matchCatalogMotor, type CatalogMotor, type MotorMatchDoubt } from '../motors/motorDb';
-import { customMotorToSpec, fetchMotorSpec } from '../motors/thrustcurve';
+import { customMotorToSpec, catalogMotorSpec } from '../motors/motorSpec';
 import { parseRse, removeDelay } from '../motors/rseParser';
 import type { CustomMotor } from '../motors/motorStore';
 import { type OrkMotorRef, defaultOrkConfig } from './orkTypes';
@@ -347,19 +347,20 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
       return unresolvedMotor(ref);
     }
     try {
-      return await fetchMotorSpec(cat, ref.delay);
+      return await catalogMotorSpec(cat, ref.delay);
     } catch (e) {
-      // Same fallback as the not-in-catalog branch: a network failure should not
-      // cost a design the curve it was carrying all along.
+      // Same fallback as the not-in-catalog branch: a catalog row with no
+      // published curve should not cost a design the curve it was carrying all
+      // along.
       const curve = own();
       if (curve) {
-        notes.push(keyedNote('importNote.motorFetchFileCurve', { motor: ref.designation }));
+        notes.push(keyedNote('importNote.motorNoCurveFileCurve', { motor: ref.designation }));
         return customMotorToSpec(curve, ref.delay);
       }
       // Seat the unresolved motor, as the `!cat` branch above does.
       // Leaving the mount empty is not neutral: a mount without an entry is
-      // seeded with a default C6 (flightConfigs.reconcileConfig), so a single
-      // transient thrustcurve.org failure while opening an L-motor design would
+      // seeded with a default C6 (flightConfigs.reconcileConfig), so a catalog
+      // row without a curve while opening an L-motor design would
       // produce a runnable simulation flying a C6, with the only warning
       // buried in the import notes that settings.showImportNotes can hide.
       notes.push(keyedNote('importNote.motorFetchFailed', { motor: ref.designation, reason: errorReason(e) }));

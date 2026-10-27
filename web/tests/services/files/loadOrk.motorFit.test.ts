@@ -77,9 +77,9 @@ vi.mock('../../../src/services/files/designFile', () => ({
   }),
 }));
 
-const fetchMotorSpec = vi.fn();
-vi.mock('../../../src/services/motors/thrustcurve', () => ({
-  fetchMotorSpec: (...a: unknown[]) => fetchMotorSpec(...a),
+const catalogMotorSpec = vi.fn();
+vi.mock('../../../src/services/motors/motorSpec', () => ({
+  catalogMotorSpec: (...a: unknown[]) => catalogMotorSpec(...a),
 }));
 
 /** What the lookup says about its own confidence, set per test. */
@@ -111,20 +111,20 @@ const spec = (diameter: number, length: number) => ({
 
 describe('a motor the file names for a mount it does not go in', () => {
   beforeEach(() => {
-    fetchMotorSpec.mockReset();
+    catalogMotorSpec.mockReset();
     design.setMotorById.mockReset();
     doubt.value = undefined;
   });
 
   it('seats it anyway, as the file asks', async () => {
-    fetchMotorSpec.mockResolvedValue(spec(0.054, 0.3));
+    catalogMotorSpec.mockResolvedValue(spec(0.054, 0.3));
     const loaded = await loadOrk(new ArrayBuffer(0));
     expect(loaded.configs[0]!.motors['mount1']!.spec.designation).toBe('J360');
     expect(design.setMotorById).toHaveBeenCalled();
   });
 
   it('says it does not fit, naming both diameters', async () => {
-    fetchMotorSpec.mockResolvedValue(spec(0.054, 0.3));
+    catalogMotorSpec.mockResolvedValue(spec(0.054, 0.3));
     const notes = noteTexts((await loadOrk(new ArrayBuffer(0))).notes).join(' ');
     expect(notes).toMatch(/54 mm/);
     expect(notes).toMatch(/38 mm/);
@@ -133,7 +133,7 @@ describe('a motor the file names for a mount it does not go in', () => {
   });
 
   it('says nothing about a motor that fits', async () => {
-    fetchMotorSpec.mockResolvedValue(spec(0.038, 0.3));
+    catalogMotorSpec.mockResolvedValue(spec(0.038, 0.3));
     const notes = noteTexts((await loadOrk(new ArrayBuffer(0))).notes).join(' ');
     expect(notes).not.toMatch(/does not fit/i);
   });
@@ -141,7 +141,7 @@ describe('a motor the file names for a mount it does not go in', () => {
   it('judges the length too, against the tube plus its overhang', async () => {
     // 1 m of motor in 300 mm of tube. Length is the other half of a fit, and
     // the browser judges both.
-    fetchMotorSpec.mockResolvedValue(spec(0.038, 1.0));
+    catalogMotorSpec.mockResolvedValue(spec(0.038, 1.0));
     const notes = noteTexts((await loadOrk(new ArrayBuffer(0))).notes).join(' ');
     expect(notes).toMatch(/1000 mm long/);
     expect(notes).toMatch(/300 mm/);
@@ -150,7 +150,7 @@ describe('a motor the file names for a mount it does not go in', () => {
   it('complains once per mount and motor, not once per configuration', async () => {
     // Three configurations flying the same oversized motor in the same mount is
     // one thing to go and fix, the way an unresolvable motor already is.
-    fetchMotorSpec.mockResolvedValue(spec(0.054, 0.3));
+    catalogMotorSpec.mockResolvedValue(spec(0.054, 0.3));
     const loaded = await loadOrk(new ArrayBuffer(0));
     expect(noteTexts(loaded.notes).filter((n) => /does not fit/i.test(n))).toHaveLength(1);
   });
@@ -166,8 +166,8 @@ describe('a motor the file names for a mount it does not go in', () => {
  */
 describe('a motor the file did not confirm', () => {
   beforeEach(() => {
-    fetchMotorSpec.mockReset();
-    fetchMotorSpec.mockResolvedValue(spec(0.038, 0.3));
+    catalogMotorSpec.mockReset();
+    catalogMotorSpec.mockResolvedValue(spec(0.038, 0.3));
     doubt.value = undefined;
   });
 
@@ -175,7 +175,7 @@ describe('a motor the file did not confirm', () => {
     doubt.value = 'maker';
     fileDigest.value = undefined;
     const loaded = await loadOrk(new ArrayBuffer(0));
-    expect(fetchMotorSpec).not.toHaveBeenCalled();
+    expect(catalogMotorSpec).not.toHaveBeenCalled();
     const seated = loaded.configs[0]!.motors['mount1']!.spec;
     expect(seated.times).toHaveLength(0); // unresolved: it will not fly a stand-in
     const notes = noteTexts(loaded.notes).join(' ');
@@ -187,7 +187,7 @@ describe('a motor the file did not confirm', () => {
     doubt.value = 'maker';
     fileDigest.value = 'cat-j360';
     const loaded = await loadOrk(new ArrayBuffer(0));
-    expect(fetchMotorSpec).toHaveBeenCalled();
+    expect(catalogMotorSpec).toHaveBeenCalled();
     expect(loaded.configs[0]!.motors['mount1']!.spec.designation).toBe('J360');
     fileDigest.value = undefined;
   });

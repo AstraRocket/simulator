@@ -31,7 +31,7 @@ Both are browser apps from independent authors, with no install, an installable 
 | **Protuberances** (drag-only bumps such as raceways) | Not available. |
 | **Vent and marking holes on a tube** | Not available, and not planned. |
 | **Measured mass and CG matching** | Available, through mass and CG overrides. There is no suggested ballast mass. |
-| **Batch simulation across the motor catalog** | Not available. Several saved simulations run at once. |
+| **Batch simulation across the motor catalog** | Available as the **[motor guide](./motors.md#motor-guide)**: up to 8 filtered motors in one mount at a time, one motor choice for a whole cluster. |
 | **Fly screen for phones** | Not available. The phone layout uses the same tabs as the rest of the app. |
 | **Sharing a design by link** | Not available. Share a design by sending the `.ork`. |
 | **Fin alignment jigs** | Not available. |

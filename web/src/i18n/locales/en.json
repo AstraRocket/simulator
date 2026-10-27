@@ -112,9 +112,6 @@
       "rseTooManyMotors": "This .rse declares more than {{max}} motors (possibly malformed)."
     },
     "thrustcurve": {
-      "http": "thrustcurve.org answered HTTP {{status}} for {{path}}.",
-      "tooLarge": "The thrustcurve.org reply for {{path}} is too large.",
-      "timeout": "thrustcurve.org timed out. Check your connection and try again.",
       "noSamples": "No thrust samples for {{motor}}.",
       "noWeight": "thrustcurve.org publishes no loaded or propellant weight for {{motor}}, so it cannot be simulated. Pick another motor.",
       "propOverTotal": "{{motor}} is cataloged with more propellant ({{prop}} g) than loaded mass ({{total}} g), so its burn would end at a negative mass. Pick another motor.",
@@ -122,10 +119,8 @@
       "badSize": "thrustcurve.org gives {{motor}} a bad size (diameter {{diameter}} mm, length {{length}} mm), so it can't be simulated. Pick another motor.",
       "negativeThrust": "Thrust-curve data for {{motor}} has a negative thrust, so it can't be simulated. Pick another motor.",
       "badCg": "The center of gravity given for {{motor}} lies outside the motor (0 to {{length}} mm), so it can't be simulated. Pick another motor.",
-      "notFound": "Could not find {{maker}} {{motor}} on thrustcurve.org.",
-      "noData": "No thrust-curve data available for {{motor}}.",
-      "badData": "Thrust-curve data for {{motor}} is malformed.",
-      "importGone": "Imported motor {{motor}} is no longer stored. Import its motor file again."
+      "importGone": "Imported motor {{motor}} is no longer stored. Import its motor file again.",
+      "noCurve": "{{motor}} has no published thrust curve, so it can't be flown. Import an .eng or .rse file for it instead."
     },
     "motorCurve": {
       "notFinite": "Motor {{motor}}: the {{what}} is not a finite number (incomplete catalog data).",
@@ -470,7 +465,6 @@
     "ariaFor": "{{quantity}} unit",
     "ariaForOverridden": "{{quantity}} unit, set for this field",
     "second": "s",
-    "ratio": "{{ratio}} : 1",
     "q": {
       "length": "Component dimensions",
       "motorDimensions": "Motor dimensions",
@@ -772,7 +766,18 @@
     "maxRollRate": "Max roll rate",
     "safetyAckTitle": "Acknowledge the safety notes",
     "safetyAckBody": "Folding these away does not change what the simulation cannot tell you: fin flutter, structural loads, parachute inflation and opening shock, and how your motor performs on launch day. You are still responsible for verifying the rocket on the bench and for flying under your safety code. The heading stays above the numbers, and the notes are one click away.",
-    "safetyAckConfirm": "I understand"
+    "safetyAckConfirm": "I understand",
+    "exitTime": "Time at exit",
+    "exitTwr": "Thrust/weight at exit",
+    "exitTwrSub": "ratio",
+    "exitAoa": "Angle of attack at exit",
+    "maxWind": "Max wind for {{angle}}",
+    "railNeeded": "Launcher length needed",
+    "railNeeded_rail": "Rail length needed",
+    "railNeeded_rod": "Rod length needed",
+    "railNeededFor": "for {{speed}}",
+    "railNeverReaches": "Never reaches it",
+    "railLonger": "Longer than yours"
   },
   "warn": {
     "deletePart": "Delete {{name}}?",
@@ -950,7 +955,14 @@
       "optimumDelay": "Optimum delay",
       "maxQ": "Max dynamic pressure",
       "maxQAlpha": "Max q·alpha",
-      "maxRollRate": "Max roll rate"
+      "maxRollRate": "Max roll rate",
+      "motor": "Motor",
+      "manufacturer": "Manufacturer",
+      "delay": "Delay",
+      "railMargin": "Margin at exit",
+      "totalImpulse": "Total impulse",
+      "avgThrust": "Avg. thrust",
+      "burnTime": "Burn time"
     }
   },
   "flightVar": {
@@ -1306,7 +1318,6 @@
     "motorFileCurve": "Motor \"{{motor}}\" isn't in the catalog, so the thrust curve stored in the file is used.",
     "motorOtherMaker": "Motor \"{{motor}}\" is filed under {{maker}} in this file, and the catalog has no motor of theirs by that name (only {{catalogMaker}}'s). Pick a motor for that mount. No motor is substituted.",
     "motorNotInCatalog": "Motor \"{{motor}}\" isn't in the catalog. Pick a motor for that mount. No motor is substituted.",
-    "motorFetchFileCurve": "Motor \"{{motor}}\" could not be fetched, so the thrust curve stored in the file is used.",
     "motorFetchFailed": "Motor \"{{motor}}\" could not be loaded ({{reason}}). Pick a motor for that mount. No motor is substituted.",
     "motorTooWide": "Motor \"{{motor}}\" is {{diameter}} mm and mount \"{{mount}}\" takes {{bore}} mm, so it does not fit. Check it before flying.",
     "motorTooLong": "Motor \"{{motor}}\" is {{length}} mm long and mount \"{{mount}}\" holds {{maxLength}} mm, so it does not fit. Check it before flying.",
@@ -1325,7 +1336,8 @@
       "airStart": "Air-start",
       "javaCode": "Java code",
       "script": "{{language}} script"
-    }
+    },
+    "motorNoCurveFileCurve": "Motor \"{{motor}}\" has no thrust curve in the catalog, so the thrust curve stored in the file is used."
   },
   "part": {
     "stage": "Stage",
@@ -1948,8 +1960,8 @@
     "curve": "Curve",
     "commonName": "Common name",
     "viewOnTc": "View on ThrustCurve.org",
-    "noCurve": "No thrust curve bundled for this motor. It will be fetched when selected.",
-    "noBundledCurve": "No bundled thrust curve. It is fetched from thrustcurve.org when selected.",
+    "noCurve": "No thrust curve has been published for this motor, so it can't be flown. Import an .eng or .rse file for it instead.",
+    "noBundledCurve": "No published thrust curve, so it can't be flown.",
     "motorType": "Motor type",
     "delays": "Delays",
     "totalWeight": "Total weight",
@@ -1975,7 +1987,13 @@
     "calcNote": "* Initial thrust, Isp, and mass fraction are calculated from the thrust curve and weights.",
     "initialNote": "* Initial thrust is calculated from the thrust curve.",
     "rangeMin": "{{label}} min",
-    "rangeMax": "{{label}} max"
+    "rangeMax": "{{label}} max",
+    "moreFilters": "More filters",
+    "moreFiltersN_one": "More filters ({{count}})",
+    "moreFiltersN_other": "More filters ({{count}})",
+    "clearFilters": "Clear",
+    "perfMissingNote": "A motor the catalog gives no figure for is hidden once that figure has a bound.",
+    "twr": "Thrust/weight"
   },
   "lang": {
     "label": "Language"
@@ -2107,7 +2125,6 @@
     "aboveMax": "Over the limit",
     "tooFast": "Too fast",
     "tooSlow": "Too slow",
-    "overRail": "Longer than the rail",
     "rodAngleModel": "Launcher angle is {{value}} from vertical, above the {{limit}} the NAR Model Rocket Safety Code allows.",
     "rodAngleModel_rail": "Launch rail angle is {{value}} from vertical, above the {{limit}} the NAR Model Rocket Safety Code allows.",
     "rodAngleModel_rod": "Launch rod angle is {{value}} from vertical, above the {{limit}} the NAR Model Rocket Safety Code allows.",
@@ -2382,7 +2399,6 @@
   "tools": {
     "label": "Tools",
     "tool_landing": "Landing estimator",
-    "tool_rail": "Off the rail",
     "tool_chute": "Parachute sizing"
   },
   "chuteTool": {
@@ -2399,42 +2415,59 @@
     "result": "Parachute sizing result",
     "empty": "Enter the descent mass and the canopy's Cd."
   },
-  "rail": {
-    "title": "Off the rail",
-    "intro": "How a rocket leaves the rail on a given motor: its thrust to weight, the speed it leaves the rail at, and how far a crosswind turns it. A designed rocket gets these from its simulation, on the rail departure event.",
-    "motor": "Motor",
-    "noMotor": "No motor chosen",
-    "chooseMotor": "Choose…",
-    "rocket": "Rocket and rail",
-    "dryMass": "Rocket mass without the motor",
-    "dryMassHint": "The motor's loaded mass comes from the catalog and is added to this.",
-    "wind": "Wind speed",
-    "fromForecast": "Wind from a forecast",
-    "fetchWind": "Get the forecast wind",
-    "fetching": "Fetching…",
-    "forecastWind": "Forecast wind {{wind}} at 10 m, {{when}}.",
-    "forecastWindGust": "Forecast wind {{wind}} at 10 m, gusting to {{gust}}, {{when}}.",
-    "result": "Off the rail result",
-    "empty": "Choose a motor, and enter the rocket's mass and the rail length.",
-    "noLiftoff": "The motor's thrust never exceeds the rocket's weight, so it does not leave the pad.",
-    "stalls": "The rocket slows to a stop before it reaches the end of the rail.",
-    "liftoffMass": "Liftoff mass",
-    "twrAverage": "Thrust to weight, average",
-    "twrPeak": "Thrust to weight, peak",
-    "twrAtExit": "Thrust to weight, leaving the rail",
-    "exitSpeed": "Rail exit speed",
-    "exitTime": "Time to leave the rail",
-    "railNeeded": "Rail for {{speed}}",
-    "weathercock": "Weathercock angle",
-    "weathercockGust": "Weathercock angle in the gusts",
-    "maxWind": "Strongest wind under {{angle}}",
-    "maxDryMass": "Heaviest rocket without the motor",
-    "none": "None",
-    "rules": "Amber marks an average thrust to weight under {{ratio}} : 1, a rail exit under {{speed}} (the minimum in Settings), or a weathercock angle over {{angle}}. The heaviest rocket meets the first two.",
-    "estimateNote": "An estimate: no drag, no rail friction, and the rail taken as vertical, so the real exit is a little slower."
-  },
   "stageName": {
     "sustainer": "Sustainer",
     "booster": "Booster {{n}}"
+  },
+  "guide": {
+    "open": "Motor guide",
+    "openHint": "Fly a set of candidate motors in this simulation and compare them in one table",
+    "title": "Motor guide",
+    "noMount": "This design has no motor mount to fly candidates in.",
+    "mount": "Mount",
+    "fly_one": "Fly {{count}} motor",
+    "fly_other": "Fly {{count}} motors",
+    "progress": "{{done}} / {{total}} motors",
+    "cost": "Each motor is flown once, and again at its nearest delay when that differs.",
+    "hint": "These are the motors Fly will fly. Untick any you don't want. Each flies in this simulation's conditions, with every other mount left as it is.",
+    "flown": "{{flown}} of {{asked}} motors flown.",
+    "flownPartial": "{{flown}} of {{asked}} motors flown before the guide was canceled.",
+    "exportCsv": "Download the motor guide table as CSV",
+    "clear": "Clear",
+    "stale": "The design or this simulation has changed since these motors were flown.",
+    "colMotor": "Motor",
+    "colDelay": "Delay (s)",
+    "colMargin": "Margin at exit (cal)",
+    "colTwr": "Thrust/weight at exit",
+    "colToApogee": "To apogee (s)",
+    "colOptimum": "Best delay (s)",
+    "colStatus": "Status",
+    "colUse": "Use",
+    "ok": "OK",
+    "issue": {
+      "slowExit": "Slow off the launcher",
+      "railMarginal": "Marginal at exit",
+      "railUnstable": "Unstable at exit",
+      "deployFast": "Fast deployment",
+      "deploySlow": "Slow deployment",
+      "warnings_one": "{{count}} warning",
+      "warnings_other": "{{count}} warnings"
+    },
+    "use": "Use",
+    "useHint": "Keep this motor as a new configuration and simulation",
+    "useStale": "Fly the guide again first: the design has changed since",
+    "useNamed": "Use {{motor}}",
+    "notFlown_one": "{{count}} motor not flown",
+    "notFlown_other": "{{count}} motors not flown",
+    "simName": "{{name}} ({{motor}})",
+    "noCurve": "No published thrust curve. Import an .eng or .rse file to fly it.",
+    "noCurveLeftOut_one": "{{count}} more matches but has no thrust curve, so it can't be flown.",
+    "noCurveLeftOut_other": "{{count}} more match but have no thrust curve, so they can't be flown.",
+    "flyIdle": "Fly",
+    "tooMany_one": "{{count}} motor is ticked. Untick some or narrow the filters to {{max}} or fewer.",
+    "tooMany_other": "{{count}} motors are ticked. Untick some or narrow the filters to {{max}} or fewer.",
+    "tickNamed": "Fly {{motor}}",
+    "tickAll": "Fly every motor listed",
+    "colBurn": "Burn (s)"
   }
 }

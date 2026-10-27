@@ -2,7 +2,7 @@
 title: "Tools"
 sidebar_position: 12.5
 ---
-The **Tools** tab holds quick answers that need no design: where a rocket lands, how it leaves the rail, and what size parachute it needs. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
+The **Tools** tab holds quick answers that need no design: where a rocket lands, and what size parachute it needs. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
 
 Every tool here is an estimate, and says so. A rocket designed here gets better answers from its own simulation.
 
@@ -51,37 +51,6 @@ Under the map:
 - **Date / time**: the forecast hour, in the site's time zone.
 
 Open-Meteo's CC BY 4.0 attribution is shown below them.
-
-## Off the rail {#off-the-rail}
-
-How a rocket leaves the rail on a given motor: its thrust to weight, the speed it leaves the rail at, and how far a crosswind turns it as it does. A designed rocket gets these from its simulation, on the [rail departure event](./running-a-simulation.md#flight-events).
-
-### Enter the rocket {#enter-the-rocket}
-
-- **Motor.** **Choose…** opens the same motor picker as a simulation, with the whole catalog and any motors you have imported. The motor's thrust curve and its mass as it burns come from there.
-- **Rocket mass without the motor.** The motor's loaded mass is added to it.
-- **Launch rail length.**
-- **Wind speed.** Type it, or open **Wind from a forecast**, pick a site, date and hour, and press **Get the forecast wind** to fill it from Open-Meteo's wind at 10 m. The gusts for that hour are used too.
-
-### How it works {#how-it-works-rail}
-
-The rocket sits on the rail until the motor's thrust is more than its weight, then accelerates up the rail at thrust minus weight, divided by its mass, with the mass falling as the propellant burns. It leaves the rail when it has moved the rail's length. There is no drag and no rail friction, and the rail is taken as vertical, so a real rocket leaves a little slower.
-
-A crosswind meets a rocket moving straight up, so the air it sees comes from an angle: the arctangent of the wind speed over the rail exit speed. The fins turn the rocket into that air, which is weathercocking.
-
-### Read the result {#read-the-result-rail}
-
-- **Liftoff mass**: the rocket and the loaded motor.
-- **Thrust to weight**: the motor's average thrust over its burn, its peak thrust, each over the liftoff weight, and its thrust at the moment the rocket leaves the rail over the weight at that moment, with some propellant burned. The last one is the figure a simulation reports at rail departure.
-- **Rail exit speed** and **Time to leave the rail**.
-- **Rail for** the minimum rail exit speed: how much rail it takes to reach that speed, in amber when that is more than the rail you entered.
-- **Weathercock angle** at the wind you entered, and **in the gusts** when the wind came from a forecast.
-- **Strongest wind under 20°**: the wind that turns it exactly 20° at this exit speed.
-- **Heaviest rocket without the motor**: the most it can weigh and still meet both an average thrust to weight of 5 : 1 and the minimum rail exit speed.
-
-A figure is marked in amber when the average thrust to weight is under 5 : 1, the rail exit is slower than the minimum set in [Settings](./settings.md) (15 m/s unless you change it), or the weathercock angle is over 20°. These are common rules of thumb, not part of any safety code.
-
-If the thrust never exceeds the weight, or the rocket slows to a stop before the end of the rail, the result says so instead.
 
 ## Parachute sizing {#parachute-sizing}
 

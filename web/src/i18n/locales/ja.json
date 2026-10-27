@@ -112,9 +112,6 @@
       "rseTooManyMotors": "この .rse は {{max}} 個を超えるモーターを宣言しています（壊れている可能性があります）。"
     },
     "thrustcurve": {
-      "http": "thrustcurve.org が {{path}} に対して HTTP {{status}} を返しました。",
-      "tooLarge": "{{path}} に対する thrustcurve.org の応答が大きすぎます。",
-      "timeout": "thrustcurve.org からの応答がありませんでした。通信を確認して、もう一度お試しください。",
       "noSamples": "{{motor}} の推力データがありません。",
       "noWeight": "thrustcurve.org には {{motor}} の装填質量も推進剤質量も公開されていないため、シミュレーションできません。別のモーターを選んでください。",
       "propOverTotal": "{{motor}} はカタログ上、推進剤 ({{prop}} g) が装填質量 ({{total}} g) より多いため、燃焼の終わりに質量が負になります。別のモーターを選んでください。",
@@ -122,10 +119,8 @@
       "badSize": "thrustcurve.org にある {{motor}} の寸法が不正です（直径 {{diameter}} mm、長さ {{length}} mm）。シミュレーションできないので、別のモーターを選んでください。",
       "negativeThrust": "{{motor}} の推力曲線データに負の推力があります。シミュレーションできないので、別のモーターを選んでください。",
       "badCg": "{{motor}} の重心がモーターの外にあります（0〜{{length}} mm）。シミュレーションできないので、別のモーターを選んでください。",
-      "notFound": "thrustcurve.org に {{maker}} {{motor}} が見つかりませんでした。",
-      "noData": "{{motor}} の推力曲線データがありません。",
-      "badData": "{{motor}} の推力曲線データが不正です。",
-      "importGone": "インポートしたモーター {{motor}} はもう保存されていません。モーターファイルをもう一度インポートしてください。"
+      "importGone": "インポートしたモーター {{motor}} はもう保存されていません。モーターファイルをもう一度インポートしてください。",
+      "noCurve": "{{motor}} には公開された推力曲線がないため、飛ばせません。代わりに .eng または .rse ファイルを読み込んでください。"
     },
     "motorCurve": {
       "notFinite": "モーター {{motor}}: {{what}}が有限の数値ではありません（カタログのデータが不完全です）。",
@@ -470,7 +465,6 @@
     "ariaFor": "{{quantity}} の単位",
     "ariaForOverridden": "{{quantity}} の単位、この項目に設定済み",
     "second": "秒",
-    "ratio": "{{ratio}} : 1",
     "q": {
       "length": "部品の寸法",
       "motorDimensions": "モーターの寸法",
@@ -770,7 +764,18 @@
     "maxRollRate": "最大ロールレート",
     "safetyAckTitle": "安全に関する注意を確認",
     "safetyAckBody": "これを折りたたんでも、シミュレーションではわからないことは変わりません。フィンのフラッター、構造にかかる荷重、パラシュートの展開と開傘衝撃、そして当日のモーターの実際の挙動です。作業台でロケットを確認する責任と、ご自身の安全規定の範囲内で飛ばす責任は変わりません。見出しは数値の上に残り、注意事項はクリック 1 回で開けます。",
-    "safetyAckConfirm": "了解"
+    "safetyAckConfirm": "了解",
+    "exitTime": "離脱時刻",
+    "exitTwr": "離脱時の推力重量比",
+    "exitTwrSub": "比",
+    "exitAoa": "離脱時の迎角",
+    "maxWind": "{{angle}} までの最大風速",
+    "railNeeded": "必要なランチャー長",
+    "railNeeded_rail": "必要なレール長",
+    "railNeeded_rod": "必要なロッド長",
+    "railNeededFor": "{{speed}} に必要",
+    "railNeverReaches": "到達しません",
+    "railLonger": "お使いのものより長い"
   },
   "warn": {
     "deletePart": "{{name}} を削除しますか？",
@@ -947,7 +952,14 @@
       "optimumDelay": "最適な遅延",
       "maxQ": "最大動圧",
       "maxQAlpha": "最大 q·alpha",
-      "maxRollRate": "最大ロールレート"
+      "maxRollRate": "最大ロールレート",
+      "motor": "モーター",
+      "manufacturer": "メーカー",
+      "delay": "遅延",
+      "railMargin": "離脱時の余裕",
+      "totalImpulse": "総インパルス",
+      "avgThrust": "平均推力",
+      "burnTime": "燃焼時間"
     }
   },
   "flightVar": {
@@ -1301,7 +1313,6 @@
     "motorFileCurve": "モーター「{{motor}}」はカタログにないため、ファイルに格納された推力曲線を使います。",
     "motorOtherMaker": "モーター「{{motor}}」はこのファイルでは {{maker}} の製品とされていますが、カタログにはそのメーカーのこの名前のモーターがありません（{{catalogMaker}} のものだけです）。そのマウントのモーターを選んでください。代わりのモーターは入れません。",
     "motorNotInCatalog": "モーター「{{motor}}」はカタログにありません。そのマウントのモーターを選んでください。代わりのモーターは入れません。",
-    "motorFetchFileCurve": "モーター「{{motor}}」を取得できなかったため、ファイルに格納された推力曲線を使います。",
     "motorFetchFailed": "モーター「{{motor}}」を読み込めませんでした（{{reason}}）。そのマウントのモーターを選んでください。代わりのモーターは入れません。",
     "motorTooWide": "モーター「{{motor}}」は {{diameter}} mm ですが、マウント「{{mount}}」は {{bore}} mm までなので収まりません。飛行前に確認してください。",
     "motorTooLong": "モーター「{{motor}}」は長さ {{length}} mm ですが、マウント「{{mount}}」は {{maxLength}} mm までなので収まりません。飛行前に確認してください。",
@@ -1320,7 +1331,8 @@
       "airStart": "空中スタート",
       "javaCode": "Java コード",
       "script": "{{language}} スクリプト"
-    }
+    },
+    "motorNoCurveFileCurve": "モーター「{{motor}}」はカタログに推力曲線がないため、ファイルに格納された推力曲線を使います。"
   },
   "part": {
     "stage": "段",
@@ -1940,8 +1952,8 @@
     "curve": "曲線",
     "commonName": "一般名称",
     "viewOnTc": "ThrustCurve.org で見る",
-    "noCurve": "このモーターには推力曲線が同梱されていません。選択したときに取得します。",
-    "noBundledCurve": "推力曲線は同梱されていません。選択時に thrustcurve.org から取得します。",
+    "noCurve": "このモーターには公開された推力曲線がないため、飛ばせません。代わりに .eng または .rse ファイルを読み込んでください。",
+    "noBundledCurve": "公開された推力曲線がないため、飛ばせません。",
     "motorType": "モーターの種類",
     "delays": "遅延",
     "totalWeight": "全備重量",
@@ -1967,7 +1979,12 @@
     "calcNote": "* 初期推力、Isp、質量比は推力曲線と重量から計算した値です。",
     "initialNote": "* 初期推力は推力曲線から計算した値です。",
     "rangeMin": "{{label}}（最小）",
-    "rangeMax": "{{label}}（最大）"
+    "rangeMax": "{{label}}（最大）",
+    "moreFilters": "その他のフィルター",
+    "moreFiltersN_other": "その他のフィルター ({{count}})",
+    "clearFilters": "クリア",
+    "perfMissingNote": "カタログに値のないモーターは、その値に範囲を指定すると非表示になります。",
+    "twr": "推力重量比"
   },
   "lang": {
     "label": "言語"
@@ -2099,7 +2116,6 @@
     "aboveMax": "上限超過",
     "tooFast": "速すぎます",
     "tooSlow": "遅すぎます",
-    "overRail": "レールより長い",
     "rodAngleModel": "ランチャーの角度は鉛直から {{value}} で、NAR モデルロケット安全規定が認める {{limit}} を超えています。",
     "rodAngleModel_rail": "発射レールの角度は鉛直から {{value}} で、NAR モデルロケット安全規定が認める {{limit}} を超えています。",
     "rodAngleModel_rod": "発射ロッドの角度は鉛直から {{value}} で、NAR モデルロケット安全規定が認める {{limit}} を超えています。",
@@ -2372,7 +2388,6 @@
   "tools": {
     "label": "ツール",
     "tool_landing": "着地点の推定",
-    "tool_rail": "レール離脱",
     "tool_chute": "パラシュートの設計"
   },
   "chuteTool": {
@@ -2389,42 +2404,54 @@
     "result": "パラシュートの設計結果",
     "empty": "降下質量とキャノピーの Cd を入力してください。"
   },
-  "rail": {
-    "title": "レール離脱",
-    "intro": "指定したモーターでロケットがレールを離れる様子：推力重量比、レールを離れる速度、横風でどれだけ向きが変わるか。ここで設計したロケットは、シミュレーションのレール離脱イベントでこれらの値を得ます。",
-    "motor": "モーター",
-    "noMotor": "モーター未選択",
-    "chooseMotor": "選択…",
-    "rocket": "ロケットとレール",
-    "dryMass": "モーターを除くロケットの質量",
-    "dryMassHint": "モーターの装填質量はカタログから取得して加算します。",
-    "wind": "風速",
-    "fromForecast": "予報の風",
-    "fetchWind": "予報の風を取得",
-    "fetching": "取得中…",
-    "forecastWind": "予報の風 {{wind}}（高度 10 m）、{{when}}。",
-    "forecastWindGust": "予報の風 {{wind}}（高度 10 m）、突風 {{gust}}、{{when}}。",
-    "result": "レール離脱の結果",
-    "empty": "モーターを選び、ロケットの質量とレールの長さを入力してください。",
-    "noLiftoff": "モーターの推力がロケットの重量を超えないため、離陸しません。",
-    "stalls": "ロケットはレールの端に届く前に減速して止まります。",
-    "liftoffMass": "離陸質量",
-    "twrAverage": "推力重量比（平均）",
-    "twrPeak": "推力重量比（最大）",
-    "twrAtExit": "推力重量比（レール離脱時）",
-    "exitSpeed": "レール離脱速度",
-    "exitTime": "レール離脱までの時間",
-    "railNeeded": "{{speed}}に必要なレール長",
-    "weathercock": "ウェザーコック角",
-    "weathercockGust": "突風時のウェザーコック角",
-    "maxWind": "{{angle}} 以下に収まる最大風速",
-    "maxDryMass": "モーターを除く最大のロケット質量",
-    "none": "なし",
-    "rules": "黄色の表示：平均推力重量比が {{ratio}} : 1 未満、レール離脱速度が {{speed}}（設定の最小値）未満、またはウェザーコック角が {{angle}} を超える場合。最大のロケット質量は最初の 2 つを満たします。",
-    "estimateNote": "推定値：空気抵抗とレールの摩擦を含まず、レールは垂直とみなすため、実際の離脱はやや遅くなります。"
-  },
   "stageName": {
     "sustainer": "サステナー",
     "booster": "ブースター {{n}}"
+  },
+  "guide": {
+    "open": "モーターガイド",
+    "openHint": "候補のモーターをこのシミュレーションで飛ばし、1つの表で比較します",
+    "title": "モーターガイド",
+    "noMount": "この設計には候補を飛ばすモーターマウントがありません。",
+    "mount": "マウント",
+    "fly_other": "{{count}} 個のモーターを飛ばす",
+    "progress": "{{done}} / {{total}} モーター",
+    "cost": "各モーターは1回飛ばし、最も近い遅延が異なる場合はその遅延でもう一度飛ばします。",
+    "hint": "「飛ばす」で飛ばすモーターです。不要なものはチェックを外してください。各モーターはこのシミュレーションの条件で飛び、ほかのマウントはそのままです。",
+    "flown": "{{asked}} 個中 {{flown}} 個のモーターを飛ばしました。",
+    "flownPartial": "ガイドを取り消す前に {{asked}} 個中 {{flown}} 個のモーターを飛ばしました。",
+    "exportCsv": "モーターガイドの表を CSV でダウンロード",
+    "clear": "クリア",
+    "stale": "これらのモーターを飛ばしたあとで設計またはこのシミュレーションが変わっています。",
+    "colMotor": "モーター",
+    "colDelay": "遅延 (s)",
+    "colMargin": "離脱時の余裕 (cal)",
+    "colTwr": "離脱時の推力重量比",
+    "colToApogee": "最高点まで (s)",
+    "colOptimum": "最適な遅延 (s)",
+    "colStatus": "状態",
+    "colUse": "使用",
+    "ok": "OK",
+    "issue": {
+      "slowExit": "ランチャー離脱が遅い",
+      "railMarginal": "離脱時に境界",
+      "railUnstable": "離脱時に不安定",
+      "deployFast": "展開が速い",
+      "deploySlow": "展開が遅い",
+      "warnings_other": "警告 {{count}} 件"
+    },
+    "use": "使用",
+    "useHint": "このモーターを新しい構成とシミュレーションとして残します",
+    "useStale": "先にガイドを飛ばし直してください。設計が変わっています",
+    "useNamed": "{{motor}} を使用",
+    "notFlown_other": "{{count}} 個のモーターは飛ばしていません",
+    "simName": "{{name}} ({{motor}})",
+    "noCurve": "公開された推力曲線がありません。飛ばすには .eng または .rse ファイルを読み込んでください。",
+    "noCurveLeftOut_other": "ほかに {{count}} 個が該当しますが、推力曲線がないため飛ばせません。",
+    "flyIdle": "飛ばす",
+    "tooMany_other": "{{count}} 個のモーターにチェックが入っています。チェックを外すか、フィルターを {{max}} 個以下に絞り込んでください。",
+    "tickNamed": "{{motor}} を飛ばす",
+    "tickAll": "一覧のすべてのモーターを飛ばす",
+    "colBurn": "燃焼時間 (s)"
   }
 }

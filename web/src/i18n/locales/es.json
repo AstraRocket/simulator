@@ -112,9 +112,6 @@
       "rseTooManyMotors": "Este .rse declara más de {{max}} motores (posiblemente esté dañado)."
     },
     "thrustcurve": {
-      "http": "thrustcurve.org respondió HTTP {{status}} para {{path}}.",
-      "tooLarge": "La respuesta de thrustcurve.org para {{path}} es demasiado grande.",
-      "timeout": "thrustcurve.org no respondió a tiempo. Revisa la conexión y vuelve a intentarlo.",
       "noSamples": "No hay muestras de empuje para {{motor}}.",
       "noWeight": "thrustcurve.org no publica la masa cargada ni la de propelente de {{motor}}, así que no se puede simular. Elige otro motor.",
       "propOverTotal": "{{motor}} figura en el catálogo con más propelente ({{prop}} g) que masa cargada ({{total}} g), así que su combustión terminaría con una masa negativa. Elige otro motor.",
@@ -122,10 +119,8 @@
       "badSize": "thrustcurve.org da a {{motor}} un tamaño incorrecto (diámetro {{diameter}} mm, longitud {{length}} mm), así que no se puede simular. Elige otro motor.",
       "negativeThrust": "Los datos de la curva de empuje de {{motor}} tienen un empuje negativo, así que no se puede simular. Elige otro motor.",
       "badCg": "El centro de gravedad indicado para {{motor}} queda fuera del motor (0 a {{length}} mm), así que no se puede simular. Elige otro motor.",
-      "notFound": "No se encontró {{maker}} {{motor}} en thrustcurve.org.",
-      "noData": "No hay datos de curva de empuje disponibles para {{motor}}.",
-      "badData": "Los datos de curva de empuje de {{motor}} están mal formados.",
-      "importGone": "El motor importado {{motor}} ya no está guardado. Vuelve a importar su archivo de motor."
+      "importGone": "El motor importado {{motor}} ya no está guardado. Vuelve a importar su archivo de motor.",
+      "noCurve": "{{motor}} no tiene una curva de empuje publicada, así que no se puede volar. Importa un archivo .eng o .rse para él."
     },
     "motorCurve": {
       "notFinite": "Motor {{motor}}: el valor de {{what}} no es un número finito (datos de catálogo incompletos).",
@@ -470,7 +465,6 @@
     "ariaFor": "Unidad de {{quantity}}",
     "ariaForOverridden": "Unidad de {{quantity}}, fijada para este campo",
     "second": "s",
-    "ratio": "{{ratio}} : 1",
     "q": {
       "length": "Dimensiones de componentes",
       "motorDimensions": "Dimensiones del motor",
@@ -774,7 +768,18 @@
     "maxRollRate": "Alabeo máx.",
     "safetyAckTitle": "Confirma que has leído las notas de seguridad",
     "safetyAckBody": "Plegarlas no cambia lo que la simulación no puede decirte: el flutter de las aletas, las cargas estructurales, el inflado del paracaídas y su golpe de apertura, y cómo rinde tu motor ese día. Sigues siendo responsable de verificar el cohete en el banco y de volar según tu código de seguridad. El encabezado permanece sobre los números y las notas están a un clic.",
-    "safetyAckConfirm": "Entendido"
+    "safetyAckConfirm": "Entendido",
+    "exitTime": "Tiempo a la salida",
+    "exitTwr": "Empuje/peso a la salida",
+    "exitTwrSub": "relación",
+    "exitAoa": "Ángulo de ataque a la salida",
+    "maxWind": "Viento máx. para {{angle}}",
+    "railNeeded": "Longitud de lanzador necesaria",
+    "railNeeded_rail": "Longitud de raíl necesaria",
+    "railNeeded_rod": "Longitud de varilla necesaria",
+    "railNeededFor": "para {{speed}}",
+    "railNeverReaches": "Nunca la alcanza",
+    "railLonger": "Más largo que el tuyo"
   },
   "warn": {
     "deletePart": "¿Eliminar {{name}}?",
@@ -953,7 +958,14 @@
       "optimumDelay": "Retardo óptimo",
       "maxQ": "Presión dinámica máxima",
       "maxQAlpha": "q·alfa máx.",
-      "maxRollRate": "Alabeo máx."
+      "maxRollRate": "Alabeo máx.",
+      "motor": "Motor",
+      "manufacturer": "Fabricante",
+      "delay": "Retardo",
+      "railMargin": "Margen a la salida",
+      "totalImpulse": "Impulso total",
+      "avgThrust": "Empuje medio",
+      "burnTime": "Tiempo de combustión"
     }
   },
   "flightVar": {
@@ -1311,7 +1323,6 @@
     "motorFileCurve": "El motor «{{motor}}» no está en el catálogo, así que se usa la curva de empuje guardada en el archivo.",
     "motorOtherMaker": "El motor «{{motor}}» figura bajo {{maker}} en este archivo, y el catálogo no tiene ningún motor suyo con ese nombre (solo de {{catalogMaker}}). Elige un motor para ese soporte. No se usa ningún motor de sustitución.",
     "motorNotInCatalog": "El motor «{{motor}}» no está en el catálogo. Elige un motor para ese soporte. No se usa ningún motor de sustitución.",
-    "motorFetchFileCurve": "El motor «{{motor}}» no se pudo descargar, así que se usa la curva de empuje guardada en el archivo.",
     "motorFetchFailed": "El motor «{{motor}}» no se pudo cargar ({{reason}}). Elige un motor para ese soporte. No se usa ningún motor de sustitución.",
     "motorTooWide": "El motor «{{motor}}» mide {{diameter}} mm y el soporte «{{mount}}» admite {{bore}} mm, así que no cabe. Revísalo antes de volar.",
     "motorTooLong": "El motor «{{motor}}» mide {{length}} mm de largo y el soporte «{{mount}}» admite {{maxLength}} mm, así que no cabe. Revísalo antes de volar.",
@@ -1330,7 +1341,8 @@
       "airStart": "Arranque en aire",
       "javaCode": "Código Java",
       "script": "Script de {{language}}"
-    }
+    },
+    "motorNoCurveFileCurve": "El motor «{{motor}}» no tiene curva de empuje en el catálogo, así que se usa la curva de empuje guardada en el archivo."
   },
   "part": {
     "stage": "Etapa",
@@ -1956,8 +1968,8 @@
     "curve": "Curva",
     "commonName": "Nombre común",
     "viewOnTc": "Ver en ThrustCurve.org",
-    "noCurve": "No hay curva de empuje incluida para este motor. Se descargará al seleccionarlo.",
-    "noBundledCurve": "Sin curva incluida. Se descarga de thrustcurve.org al seleccionarlo.",
+    "noCurve": "No se ha publicado una curva de empuje para este motor, así que no se puede volar. Importa un archivo .eng o .rse para él.",
+    "noBundledCurve": "Sin curva de empuje publicada, así que no se puede volar.",
     "motorType": "Tipo de motor",
     "delays": "Retardos",
     "totalWeight": "Peso total",
@@ -1983,7 +1995,14 @@
     "calcNote": "* El empuje inicial, el Isp y la fracción de masa se calculan a partir de la curva de empuje y los pesos.",
     "initialNote": "* El empuje inicial se calcula a partir de la curva de empuje.",
     "rangeMin": "{{label}}: mínimo",
-    "rangeMax": "{{label}}: máximo"
+    "rangeMax": "{{label}}: máximo",
+    "moreFilters": "Más filtros",
+    "moreFiltersN_one": "Más filtros ({{count}})",
+    "moreFiltersN_many": "Más filtros ({{count}})",
+    "moreFiltersN_other": "Más filtros ({{count}})",
+    "clearFilters": "Borrar",
+    "perfMissingNote": "Un motor para el que el catálogo no da un valor queda oculto en cuanto ese valor tiene un límite.",
+    "twr": "Empuje/peso"
   },
   "lang": {
     "label": "Idioma"
@@ -2115,7 +2134,6 @@
     "aboveMax": "Por encima del límite",
     "tooFast": "Demasiado rápido",
     "tooSlow": "Demasiado lento",
-    "overRail": "Más largo que el raíl",
     "rodAngleModel": "El ángulo de la guía es de {{value}} respecto a la vertical, por encima de los {{limit}} que permite el código de seguridad de cohetes modelo de NAR.",
     "rodAngleModel_rail": "El ángulo del raíl es de {{value}} respecto a la vertical, por encima de los {{limit}} que permite el código de seguridad de cohetes modelo de NAR.",
     "rodAngleModel_rod": "El ángulo de la varilla es de {{value}} respecto a la vertical, por encima de los {{limit}} que permite el código de seguridad de cohetes modelo de NAR.",
@@ -2392,7 +2410,6 @@
   "tools": {
     "label": "Herramientas",
     "tool_landing": "Estimador de aterrizaje",
-    "tool_rail": "Salida del raíl",
     "tool_chute": "Dimensionado de paracaídas"
   },
   "chuteTool": {
@@ -2409,42 +2426,64 @@
     "result": "Resultado del dimensionado de paracaídas",
     "empty": "Introduce la masa de descenso y el Cd del paracaídas."
   },
-  "rail": {
-    "title": "Salida del raíl",
-    "intro": "Cómo sale un cohete del raíl con un motor dado: su relación empuje-peso, la velocidad con la que sale del raíl y cuánto lo gira un viento cruzado. Un cohete diseñado obtiene estas cifras de su simulación, en el evento de salida del raíl.",
-    "motor": "Motor",
-    "noMotor": "Ningún motor elegido",
-    "chooseMotor": "Elegir…",
-    "rocket": "Cohete y raíl",
-    "dryMass": "Masa del cohete sin el motor",
-    "dryMassHint": "La masa cargada del motor viene del catálogo y se suma a esta.",
-    "wind": "Velocidad del viento",
-    "fromForecast": "Viento de un pronóstico",
-    "fetchWind": "Obtener el viento pronosticado",
-    "fetching": "Obteniendo…",
-    "forecastWind": "Viento pronosticado de {{wind}} a 10 m, {{when}}.",
-    "forecastWindGust": "Viento pronosticado de {{wind}} a 10 m, con rachas de {{gust}}, {{when}}.",
-    "result": "Resultado de la salida del raíl",
-    "empty": "Elige un motor e introduce la masa del cohete y la longitud del raíl.",
-    "noLiftoff": "El empuje del motor nunca supera el peso del cohete, así que no sale de la plataforma.",
-    "stalls": "El cohete se frena hasta detenerse antes de llegar al final del raíl.",
-    "liftoffMass": "Masa al despegue",
-    "twrAverage": "Empuje-peso, medio",
-    "twrPeak": "Empuje-peso, máximo",
-    "twrAtExit": "Empuje-peso, al salir del raíl",
-    "exitSpeed": "Velocidad de salida del raíl",
-    "exitTime": "Tiempo hasta salir del raíl",
-    "railNeeded": "Raíl para {{speed}}",
-    "weathercock": "Ángulo de veleteo",
-    "weathercockGust": "Ángulo de veleteo con las rachas",
-    "maxWind": "Viento máximo por debajo de {{angle}}",
-    "maxDryMass": "Cohete más pesado sin el motor",
-    "none": "Ninguno",
-    "rules": "En ámbar: una relación empuje-peso media por debajo de {{ratio}} : 1, una salida del raíl por debajo de {{speed}} (el mínimo de Ajustes) o un ángulo de veleteo por encima de {{angle}}. El cohete más pesado cumple los dos primeros.",
-    "estimateNote": "Una estimación: sin arrastre, sin rozamiento en el raíl y con el raíl vertical, así que la salida real es algo más lenta."
-  },
   "stageName": {
     "sustainer": "Sostenedor",
     "booster": "Propulsor {{n}}"
+  },
+  "guide": {
+    "open": "Guía de motores",
+    "openHint": "Volar un conjunto de motores candidatos en esta simulación y compararlos en una tabla",
+    "title": "Guía de motores",
+    "noMount": "Este diseño no tiene un soporte de motor en el que volar candidatos.",
+    "mount": "Soporte",
+    "fly_one": "Volar {{count}} motor",
+    "fly_many": "Volar {{count}} motores",
+    "fly_other": "Volar {{count}} motores",
+    "progress": "{{done}} / {{total}} motores",
+    "cost": "Cada motor se vuela una vez, y otra vez con su retardo más cercano cuando es distinto.",
+    "hint": "Estos son los motores que volará «Volar». Desmarca los que no quieras. Cada uno vuela en las condiciones de esta simulación, con los demás soportes tal como están.",
+    "flown": "{{flown}} de {{asked}} motores volados.",
+    "flownPartial": "{{flown}} de {{asked}} motores volados antes de cancelar la guía.",
+    "exportCsv": "Descargar la tabla de la guía de motores como CSV",
+    "clear": "Borrar",
+    "stale": "El diseño o esta simulación han cambiado desde que se volaron estos motores.",
+    "colMotor": "Motor",
+    "colDelay": "Retardo (s)",
+    "colMargin": "Margen a la salida (cal)",
+    "colTwr": "Empuje/peso a la salida",
+    "colToApogee": "Hasta el apogeo (s)",
+    "colOptimum": "Mejor retardo (s)",
+    "colStatus": "Estado",
+    "colUse": "Usar",
+    "ok": "Correcto",
+    "issue": {
+      "slowExit": "Lento al dejar el lanzador",
+      "railMarginal": "Marginal a la salida",
+      "railUnstable": "Inestable a la salida",
+      "deployFast": "Despliegue rápido",
+      "deploySlow": "Despliegue lento",
+      "warnings_one": "{{count}} aviso",
+      "warnings_many": "{{count}} avisos",
+      "warnings_other": "{{count}} avisos"
+    },
+    "use": "Usar",
+    "useHint": "Conservar este motor como una nueva configuración y simulación",
+    "useStale": "Vuelve a volar la guía primero: el diseño ha cambiado desde entonces",
+    "useNamed": "Usar {{motor}}",
+    "notFlown_one": "{{count}} motor sin volar",
+    "notFlown_many": "{{count}} motores sin volar",
+    "notFlown_other": "{{count}} motores sin volar",
+    "simName": "{{name}} ({{motor}})",
+    "noCurve": "Sin curva de empuje publicada. Importa un archivo .eng o .rse para volarlo.",
+    "noCurveLeftOut_one": "Coincide {{count}} más, pero no tiene curva de empuje, así que no se puede volar.",
+    "noCurveLeftOut_many": "Coinciden {{count}} más, pero no tienen curva de empuje, así que no se pueden volar.",
+    "noCurveLeftOut_other": "Coinciden {{count}} más, pero no tienen curva de empuje, así que no se pueden volar.",
+    "flyIdle": "Volar",
+    "tooMany_one": "Hay {{count}} motor marcado. Desmarca algunos o reduce los filtros a {{max}} o menos.",
+    "tooMany_many": "Hay {{count}} motores marcados. Desmarca algunos o reduce los filtros a {{max}} o menos.",
+    "tooMany_other": "Hay {{count}} motores marcados. Desmarca algunos o reduce los filtros a {{max}} o menos.",
+    "tickNamed": "Volar {{motor}}",
+    "tickAll": "Volar todos los motores de la lista",
+    "colBurn": "Combustión (s)"
   }
 }

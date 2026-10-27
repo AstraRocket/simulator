@@ -81,6 +81,19 @@ import {
   type SweepLanding,
   type WindSweepSpec,
 } from '../services/flight/windSweep';
+import {
+  guideConfig,
+  guideRow,
+  nearestDelay,
+  probeDelay,
+  type GuideFailure,
+  type GuideRow,
+  type MotorGuide,
+} from '../services/flight/motorGuide';
+import { hasLocalCurve, type CatalogMotor } from '../services/motors/motorDb';
+import { catalogMotorSpec } from '../services/motors/motorSpec';
+import { keyOf } from '../services/motors/motorKey';
+import { motorName } from '../services/motors/motorName';
 import { loadSettings } from '../services/storage/settings';
 import { defaultMaterialPatch } from '../services/design/materialSlots';
 import { unflyable, unflyableText, designBlocker, designBlockerText } from '../services/flight/runnability';
@@ -323,6 +336,16 @@ export interface WorkspaceState extends ViewSlice, FileSlice {
    */
   driftSweepRun: { simId: string; done: number; total: number } | null;
   /**
+   * The last finished motor guide, or null.
+   *
+   * Held like the drift sweep: one workspace-wide, never persisted, dropped with
+   * the workspace, and carrying what it was flown on so the dialog can say when
+   * the design or the simulation has moved since.
+   */
+  motorGuide: MotorGuide | null;
+  /** The guide in flight: which row, and how many candidates are done. Null when none is. */
+  motorGuideRun: { simId: string; done: number; total: number } | null;
+  /**
    * The simulations the last run actually flew, in the order they were asked for.
    *
    * This, not "every simulation that has a result", is what decides whether the
@@ -543,6 +566,19 @@ export interface WorkspaceState extends ViewSlice, FileSlice {
   cancelDriftSweep: () => void;
   /** Throw the held sweep away. */
   clearDriftSweep: () => void;
+  /**
+   * Fly each of `motors` in mount `mountId` of simulation `simId`, as throwaway
+   * configurations, and hold the table (see services/flight/motorGuide).
+   */
+  runMotorGuide: (simId: string, mountId: string, motors: CatalogMotor[]) => Promise<void>;
+  cancelMotorGuide: () => void;
+  clearMotorGuide: () => void;
+  /**
+   * Keep one guide row: a new configuration flying that motor and a simulation
+   * of it beside the one the guide was flown from, made active. Returns the new
+   * simulation's id, or null when the row is gone or the guide is stale.
+   */
+  promoteGuideRow: (key: string) => string | null;
 }
 
 /**
@@ -578,6 +614,14 @@ export const selectDriftSweepFor = (s: WorkspaceState, simId: string): DriftSwee
  */
 export const isDriftSweepStale = (s: WorkspaceState, sweep: DriftSweep): boolean =>
   !flownStill(s, sweep.simId, { tree: sweep.tree, inputs: sweep.inputs, key: sweep.key });
+
+/** The motor guide, if it was flown for `simId`. */
+export const selectMotorGuideFor = (s: WorkspaceState, simId: string): MotorGuide | null =>
+  s.motorGuide && s.motorGuide.simId === simId ? s.motorGuide : null;
+
+/** Whether a held guide no longer describes its row, by the drift sweep's rule. */
+export const isMotorGuideStale = (s: WorkspaceState, guide: MotorGuide): boolean =>
+  !flownStill(s, guide.simId, { tree: guide.tree, inputs: guide.inputs, key: guide.key });
 
 /**
  * Whether row `simId` is still the one that was flown: the same design, the
@@ -749,6 +793,9 @@ let batchAbort: AbortController | null = null;
  * somebody started beside it.
  */
 let sweepAbort: AbortController | null = null;
+
+/** The motor guide in flight, if any: its own handle, for the reason the sweep has one. */
+let guideAbort: AbortController | null = null;
 
 /** `list` with row `id` replaced by `fn(row)`, every other row the same object. */
 const replaceById = <T extends { id: string }>(list: readonly T[], id: string, fn: (row: T) => T): T[] =>
@@ -965,6 +1012,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     // workspace.
     sweepAbort?.abort();
     sweepAbort = null;
+    guideAbort?.abort();
+    guideAbort = null;
     set((s) => ({
       simRuns: {},
       lastRunIds: [],
@@ -973,6 +1022,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
       simBusy: false,
       driftSweep: null,
       driftSweepRun: null,
+      motorGuide: null,
+      motorGuideRun: null,
       err: null,
       buildErr: null,
       // Notes about values repaired in the outgoing design. `hydrate` and
@@ -1017,6 +1068,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     lastRunIds: [],
     driftSweep: null,
     driftSweepRun: null,
+    motorGuide: null,
+    motorGuideRun: null,
     selectedId: null,
     selectionSeq: 0,
     clipboard: null,
@@ -1726,7 +1779,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
      * - `series: 'summary'`, against `simConditions`'s 'full'. The only thing
      *   read from a swept flight is where its track ends, and a full series set
      *   is about 1.5 MB per flight: fifty megabytes for thirty-two flights,
-     *   serialized out of a worker and never read.
+     *   serialized out of a worker and never read. For the same reason no
+     *   rail-length probe is asked for (`railExitMinSpeed`).
      * - One random seed for the whole grid, minted here when the preferences do
      *   not pin one. Letting each flight draw its own turbulence would mix the
      *   scatter the sweep exists to measure with random scatter, and the
@@ -1797,6 +1851,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
                   options: {
                     ...simConditions(sweepLaunch(launch, point), { ...runPrefs, randomSeed: seed }),
                     series: 'summary',
+                    railExitMinSpeed: undefined,
                   },
                   lengthUnit: runPrefs.lengthUnit,
                 },
@@ -1867,5 +1922,167 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     },
 
     clearDriftSweep: () => set({ driftSweep: null }),
+
+    /**
+     * The motor guide. Refused up front by the checks the Run button makes that
+     * would refuse every candidate alike, and each candidate is then refused on
+     * its own when a single run of it would be: a motor that makes the rocket
+     * high power tightens the launcher angle the codes allow.
+     *
+     * A candidate is flown once at its probe delay, which gives the kernel's
+     * optimum, and again at its nearest charge when that differs, so the
+     * deployment speed in its row is the one that charge gives. One turbulence
+     * seed for every flight, so the differences between rows are the motors'.
+     *
+     * Canceling keeps the rows already flown: unlike a drift sweep, whose region
+     * is only meaningful whole, each row stands on its own, and the guide says
+     * it is partial.
+     */
+    runMotorGuide: async (simId, mountId, motors) => {
+      const s = get();
+      const blocker = designBlocker(s.tree);
+      if (blocker) {
+        set({ err: designBlockerText(blocker, i18n.t) });
+        return;
+      }
+      const sim = s.sims.find((x) => x.id === simId);
+      if (!sim || !motors.length) return;
+      const config = configOf(s.configs, sim);
+      // The candidate supplies the motor and can change the rocket's class, so
+      // only the reasons no motor could cure are judged here.
+      const own = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
+      if (own && (own.kind === 'incomplete' || own.kind === 'windProfile')) {
+        set({ err: unflyableText({ id: sim.id, name: sim.name, reason: own }, launcherT(), displayUnits()) });
+        return;
+      }
+      const launch = sim.launch;
+      if (!isComplete(launch)) return;
+
+      const ranOn = s.tree;
+      const massEmpty = s.info?.massEmpty;
+      const flownFrom = simInputs(sim, config);
+      const flownKey = resultKey(ranOn, config, sim, s.simPrefs);
+      const runPrefs = effectivePrefs(s.simPrefs, sim.prefs);
+      const seed = runPrefs.randomSeed ?? freshSeed();
+
+      guideAbort?.abort();
+      const abort = new AbortController();
+      guideAbort = abort;
+      set({ motorGuide: null, motorGuideRun: { simId, done: 0, total: motors.length }, err: null });
+
+      const rows: GuideRow[] = [];
+      const failed: GuideFailure[] = [];
+      const fly = async (motor: CatalogMotor, key: string, delay: number): Promise<GuideRow> => {
+        // Named as not flown before anything else is tried: without a curve
+        // there is nothing to fly.
+        if (!hasLocalCurve(motor)) throw new Error(i18n.t('guide.noCurve'));
+        const spec = await catalogMotorSpec(motor, delay);
+        if (abort.signal.aborted) throw new SimCanceledError();
+        const cfg = guideConfig(config, mountId, spec);
+        const refused = unflyable(sim, primaryMotor(ranOn, cfg), configPowerClass(ranOn, cfg, massEmpty));
+        if (refused) {
+          const named = { id: sim.id, name: motorName(motor), reason: refused };
+          throw new Error(unflyableText(named, launcherT(), displayUnits()));
+        }
+        const result = await simulateInWorker(
+          {
+            tree: ranOn,
+            config: cfg,
+            // Full series, which `simConditions` asks for: the thrust-to-weight
+            // at rail exit is one of the series the summary set leaves out. Only
+            // the row's figures are kept, so the payload goes once it is read.
+            options: simConditions(launch, { ...runPrefs, randomSeed: seed }),
+            lengthUnit: runPrefs.lengthUnit,
+          },
+          { signal: abort.signal },
+        );
+        return guideRow(motor, key, spec, result);
+      };
+      const flyMotor = async (motor: CatalogMotor) => {
+        const key = keyOf(motor);
+        try {
+          const first = await fly(motor, key, probeDelay(motor));
+          const nearest = nearestDelay(motor, first.optimumDelay);
+          rows.push(nearest == null || nearest === first.delay ? first : await fly(motor, key, nearest));
+        } catch (e) {
+          // A canceled candidate is not a failed one; it is simply not in the table.
+          if (abort.signal.aborted) return;
+          failed.push({ key, motor, reason: errorText(e, i18n.t) });
+        } finally {
+          // Only while this guide still owns the counter, as the sweep's does.
+          if (guideAbort === abort) {
+            set((st) =>
+              st.motorGuideRun ? { motorGuideRun: { ...st.motorGuideRun, done: st.motorGuideRun.done + 1 } } : {},
+            );
+          }
+        }
+      };
+      try {
+        await Promise.all(motors.map(flyMotor));
+        // Superseded by another guide, or the workspace replaced: nothing to keep.
+        if (guideAbort !== abort) return;
+        // The design or the row moved while the flights were out: these rows
+        // describe a rocket that is no longer on screen.
+        if (!flownStill(get(), simId, { tree: ranOn, inputs: flownFrom, key: flownKey })) return;
+        // In the order asked for, which is the order of the list they were picked
+        // from, rather than the order the pool happened to finish them in.
+        const order = new Map(motors.map((m, i) => [keyOf(m), i]));
+        const byAsked = (a: { key: string }, b: { key: string }) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0);
+        set({
+          motorGuide: {
+            simId,
+            mountId,
+            tree: ranOn,
+            inputs: flownFrom,
+            key: flownKey,
+            asked: motors.length,
+            partial: abort.signal.aborted,
+            rows: rows.sort(byAsked),
+            failed: failed.sort(byAsked),
+          },
+        });
+      } finally {
+        if (guideAbort === abort) {
+          guideAbort = null;
+          set({ motorGuideRun: null });
+        }
+      }
+    },
+
+    cancelMotorGuide: () => {
+      guideAbort?.abort();
+    },
+
+    clearMotorGuide: () => set({ motorGuide: null }),
+
+    promoteGuideRow: (key) => {
+      const s = get();
+      const guide = s.motorGuide;
+      // A stale guide's rows describe a rocket that has since changed; keeping
+      // one would make a simulation whose first run disagrees with its row.
+      if (!guide || isMotorGuideStale(s, guide)) return null;
+      const row = guide.rows.find((r) => r.key === key);
+      const src = s.sims.find((x) => x.id === guide.simId);
+      if (!row || !src) return null;
+      recordStep();
+      const from = configOf(s.configs, src);
+      // Everything the guide flew it with, recovery and staging overrides
+      // included, as a copied configuration carries them: the kept row must fly
+      // the flight its table row described. Unnamed, so it reads as its motors.
+      const made: FlightConfig = {
+        ...guideConfig(from, guide.mountId, row.spec),
+        id: newFlightConfig().id,
+        name: null,
+      };
+      const label = i18n.t('guide.simName', { name: src.name, motor: motorName(row.motor) });
+      const name = uniqueSimName(s.sims, (n) => (n === 1 ? label : `${label} ${n}`), 1);
+      const sim0 = { ...newSimulation(name, made.id, src.launch), prefs: src.prefs };
+      set({
+        configs: insertAfter(s.configs, from.id, made),
+        sims: insertAfter(s.sims, src.id, sim0),
+        activeId: sim0.id,
+      });
+      return sim0.id;
+    },
   };
 });

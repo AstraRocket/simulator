@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectActive, selectOutdated } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
@@ -14,6 +15,7 @@ import { useUnits } from '../../prefs/useUnits';
 import { runTableCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
+import { MotorGuideDialog } from './MotorGuideDialog';
 
 /**
  * The Simulations tab: a toolbar, the table of runs, and (on a phone) the
@@ -52,6 +54,7 @@ export function SimulationsPane() {
   const staleCount = useWorkspaceStore((s) => s.sims.filter((x) => !x.result || selectOutdated(s, x)).length);
   const designName = useWorkspaceStore(selectDesignName);
   const u = useUnits();
+  const [guideOpen, setGuideOpen] = useState(false);
 
   /**
    * Every simulation as a row of the run table, in the units on screen. The
@@ -118,6 +121,11 @@ export function SimulationsPane() {
           <span aria-hidden>⬇ CSV</span>
           <span className="sr-only">{t('sims.exportRunTable')}</span>
         </ToolBtn>
+        {/* For the active simulation, as Duplicate is: a guide flies candidates
+            in that row's own conditions and configuration. */}
+        <ToolBtn onClick={() => setGuideOpen(true)} title={t('guide.openHint')}>
+          {t('guide.open')}
+        </ToolBtn>
         {/* At lg+ Run heads the right column, beside the simulation it flies.
             A phone has no right column, so it keeps the button here where it is
             reachable without scrolling past the table. One instance either way
@@ -150,6 +158,7 @@ export function SimulationsPane() {
 
         {!desktop && <SimEditor />}
       </div>
+      {guideOpen && <MotorGuideDialog simId={activeId} onClose={() => setGuideOpen(false)} />}
     </div>
   );
 }

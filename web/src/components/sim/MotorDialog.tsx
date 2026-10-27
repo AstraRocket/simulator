@@ -2,8 +2,14 @@ import { useLatest } from '../common/useLatest';
 import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
-import { hasCurve, importCustomMotors, deleteCustomMotor, type CatalogMotor } from '../../services/motors/motorDb';
-import { fetchMotorSpec } from '../../services/motors/thrustcurve';
+import {
+  hasCurve,
+  hasLocalCurve,
+  importCustomMotors,
+  deleteCustomMotor,
+  type CatalogMotor,
+} from '../../services/motors/motorDb';
+import { catalogMotorSpec } from '../../services/motors/motorSpec';
 import { MAX_IDX, parseDelays, type MountFit } from '../../services/motors/motorPicker';
 import { PLUGGED_DELAY, type MotorSpec } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
@@ -17,6 +23,7 @@ import {
   DiameterRange,
   FitsMount,
   ImpulseRange,
+  PerfFilters,
   ManufacturerMenu,
   PluggedFilter,
   OopFilter,
@@ -35,6 +42,7 @@ import { motorName } from '../../services/motors/motorName';
 import { roundTo } from '../../services/app/numbers';
 import { toCatalogMm } from '../../services/motors/catalogUnits';
 import { DialogButton } from '../common/DialogButton';
+import { useLiftoffFields, type LiftoffAt } from './useLiftoffFields';
 import { MotorSearch, useCatalogInfo } from './MotorPanelParts';
 
 /** The delay a motor with no delay data starts at (a common mid-range charge). */
@@ -82,6 +90,7 @@ export function MotorDialog({
   mount,
   current,
   used = [],
+  liftoff,
 }: {
   onClose: () => void;
   onSelect: (m: MotorSpec) => void;
@@ -96,6 +105,8 @@ export function MotorDialog({
   current?: MotorSpec | null;
   /** The motors this mount carries in its other flight configurations. */
   used?: MotorSpec[];
+  /** The configuration and mount being chosen for, which give thrust-to-weight its weight. */
+  liftoff?: LiftoffAt | null;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -107,7 +118,7 @@ export function MotorDialog({
   // Which of the motor's thrust curves to use (some motors have several).
   const [curveIdx, setCurveIdx] = useState(0);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
-  // The pick in flight. fetchMotorSpec can take seconds over the network, and a
+  // The pick in flight. catalogMotorSpec can take seconds over the network, and a
   // result that lands after the user canceled (this dialog is unmounted on
   // close) must not be applied to the mount.
   const pickWrite = useLatest();
@@ -147,6 +158,9 @@ export function MotorDialog({
    * to fly. Capping by the mount is the fit checkbox's job, which is per-mount,
    * visible, and can be turned off.
    */
+  // Thrust-to-weight joins the performance filters when the picker knows the
+  // rocket it is choosing for.
+  const liftoffFields = useLiftoffFields(liftoff);
   const [filterInit] = useState(() => ({
     mfrs: loadMfrs(),
     dia: loadDia() ?? ([0, MAX_IDX] as [number, number]),
@@ -164,6 +178,10 @@ export function MotorDialog({
     diaSaved,
     imp,
     setImp,
+    perf,
+    perfFields,
+    setPerf,
+    clearPerf,
     plugged,
     setPlugged,
     fits,
@@ -176,7 +194,7 @@ export function MotorDialog({
     setHideOop,
     hideUsed,
     setHideUsed,
-  } = useMotorFilter(catalog, filterInit, usedKeys);
+  } = useMotorFilter(catalog, { ...filterInit, perfFields: liftoffFields }, usedKeys);
 
   // Persist the manufacturer selection and diameter range across sessions.
   useEffect(() => {
@@ -203,11 +221,13 @@ export function MotorDialog({
   };
 
   const pick = async (m: CatalogMotor, curveIndex = 0) => {
+    // A motor with no curve is listed for its specs; there is nothing to seat.
+    if (!hasLocalCurve(m)) return;
     const mine = pickWrite.claim();
     setLoadingKey(keyOf(m));
     onError(null);
     try {
-      const spec = await fetchMotorSpec(m, delay, curveIndex);
+      const spec = await catalogMotorSpec(m, delay, curveIndex);
       // Canceled, or superseded by another pick, while the fetch was out.
       if (!mine()) return;
       onSelect(spec);
@@ -284,20 +304,21 @@ export function MotorDialog({
   return (
     <Dialog
       id="motorPicker"
+      fullBleed="xl"
       title={t('motorDlg.title')}
       onClose={onClose}
-      size="4xl"
+      size="6xl"
       // List beside detail, each scrolling itself and reaching the panel's
       // edges: the body takes the height and does its own padding.
       layout="fill"
       // Fixed rather than the viewport's height: the list is the working surface
       // and it should not become a screen-tall column on a large monitor.
-      height={720}
+      height={800}
     >
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* Left: filters + list + count */}
         <div
-          className={`flex min-h-0 flex-col md:w-[360px] md:shrink-0 md:border-r md:border-line/10 ${shown ? 'hidden md:flex' : 'flex'}`}
+          className={`flex min-h-0 flex-col md:w-[440px] md:shrink-0 md:border-r md:border-line/10 ${shown ? 'hidden md:flex' : 'flex'}`}
         >
           <div className="space-y-2 p-3">
             <div className="flex gap-2">
@@ -329,8 +350,9 @@ export function MotorDialog({
                 much motor this is. */}
             <ImpulseRange imp={imp} onChange={setImp} />
             <DiameterRange dia={dia} onChange={setDia} />
+            <PerfFilters perf={perf} onChange={setPerf} onClear={clearPerf} fields={perfFields} />
             {/* The checkboxes share one row: their labels are short, and stacked
-                they would push the list further down a 360px column. */}
+                they would push the list further down a 440px column. */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {fitMount && <FitsMount mount={fitMount} fits={fits} onChange={setFits} />}
               <PluggedFilter plugged={plugged} onChange={setPlugged} />
@@ -432,7 +454,8 @@ export function MotorDialog({
                   size="sm"
                   className="shrink-0"
                   onClick={() => pick(shown, curveIdx)}
-                  disabled={loadingKey !== null}
+                  disabled={loadingKey !== null || !hasLocalCurve(shown)}
+                  title={hasLocalCurve(shown) ? undefined : t('motorDlg.noBundledCurve')}
                 >
                   {loadingKey !== null ? t('motorDlg.loading') : t('motorDlg.select')}
                 </DialogButton>

@@ -20,7 +20,7 @@ En tu primera visita, el navegador almacena discretamente, en segundo plano:
 
 Unos 16 MB en total. No tienes que hacer nada para activarlo: basta con dejar que termine la primera carga.
 
-El catálogo de motores lleva consigo la **curva de empuje** de cada motor, así que simular sin conexión funciona incluso con motores que nunca has abierto: 1.063 de los 1.156. Los 93 restantes no tienen curva publicada que incluir; el selector los señala y necesitan conexión para descargarla de thrustcurve.org (y queda en caché una vez lo hagas).
+El catálogo de motores lleva consigo la **curva de empuje** de cada motor, así que simular sin conexión funciona incluso con motores que nunca has abierto: 1.063 de los 1.156. Los 93 restantes no tienen curva publicada que incluir. El selector los muestra con sus datos, pero no se pueden volar salvo que importes un archivo `.eng` o `.rse` para ellos.
 
 **Las imágenes de mapa son la excepción.** Se descargan según las miras, no de antemano, y las teselas que ya has visto se conservan, así que un campo que consultaste en casa sigue mostrándose en el lanzamiento sin cobertura. Un terreno que no has visto nunca no se puede dibujar sin conexión: el mapa del lugar de lanzamiento recurre a una retícula de coordenadas, y la traza en tierra y la trayectoria 3D a sus gráficos simples, que de todos modos llevan la medida.
 
@@ -57,7 +57,7 @@ Los catálogos de motores y componentes se actualizan aparte de la propia aplica
 
 Cuando llega un catálogo actualizado, un aviso en la parte superior lo indica y dice cuántas entradas son nuevas y cuántas se han eliminado; la **✕** lo oculta. **Acerca de** muestra el tamaño de cada catálogo y la fecha de su último cambio, el **Panel de motores** muestra los del catálogo de motores en su barra de título, y el selector de motores muestra esa fecha bajo su lista.
 
-Sin conexión, los botones que la necesitan aparecen atenuados y lo indican al señalarlos: consultar el tiempo, obtener el viento pronosticado en Salida del raíl, buscar un lugar por nombre, la estimación del aterrizaje, volar las horas del pronóstico y buscar actualizaciones. Todo lo demás funciona como siempre.
+Sin conexión, los botones que la necesitan aparecen atenuados y lo indican al señalarlos: consultar el tiempo, buscar un lugar por nombre, la estimación del aterrizaje, volar las horas del pronóstico y buscar actualizaciones. Todo lo demás funciona como siempre.
 
 ## Cómo borrarla {#clearing-it}
 

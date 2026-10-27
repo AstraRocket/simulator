@@ -154,7 +154,7 @@ final class GuideClearanceListener extends AbstractSimulationListener {
 	 * With no guide at all the full rod length stands, which is a tower launcher
 	 * and is what upstream means by leaving the length alone.
 	 */
-	private static double effectiveRodLength(FlightConfiguration configuration, double rodLength) {
+	static double effectiveRodLength(FlightConfiguration configuration, double rodLength) {
 		double lugX = Double.NaN;
 		List<Double> angles = new ArrayList<>();
 		List<Double> centers = new ArrayList<>();

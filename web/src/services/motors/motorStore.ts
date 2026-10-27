@@ -1,9 +1,7 @@
-// Swappable client-side store for motor data: the user's imported (custom)
-// motors and the per-motor thrustcurve caches (thrustcurve.ts). Like
-// MaterialStore this is a typed domain store: it owns the persistence policy
-// (per-entry TTL / freshness), so an implementer of `MotorStore` can use a
-// completely different caching strategy (a backend that does its own
-// expiry, IndexedDB, etc.). The default persists through a KeyValueStore.
+// Swappable client-side store for the user's imported (custom) motors. Like
+// MaterialStore this is a typed domain store, so an implementer of
+// `MotorStore` can keep them anywhere (a backend, IndexedDB, etc.). The
+// default persists through a KeyValueStore.
 //
 // Replace it on the client, independently of the material store:
 //   setMotorStore(new MyMotorStore())
@@ -14,15 +12,9 @@ import { JsonListStore } from '../storage/jsonListStore';
 import { MIN_CURVE_SAMPLES } from './motorCurve';
 import { nsKey } from '../storage/storageKeys';
 
-/** A cached value plus whether it is past its freshness window. */
-export interface CachedEntry<T> {
-  value: T;
-  stale: boolean;
-}
-
 /**
  * A user-imported motor (from a `.eng` or `.rse` file). Unlike a catalog motor
- * (bundled curves for most rows, the rest fetched from thrustcurve on demand), a custom motor
+ * (its curve bundled with the catalog), a custom motor
  * carries its own thrust curve, so it resolves to a MotorSpec entirely from
  * local data with no network. It is user content: created by import, listed in
  * the picker, and removable.
@@ -62,7 +54,7 @@ export interface CustomMotor {
    *
    * The real reason `.rse` is the richer format: with this the kernel flies the
    * measured mass curve, instead of one reconstructed from total impulse and a
-   * single header number (`thrustcurve.samplesToMotorSpec`, which is the path
+   * single header number (`motorSpec.samplesToMotorSpec`, which is the path
    * for every motor without it).
    */
   massesG?: number[];
@@ -72,10 +64,6 @@ export interface CustomMotor {
 }
 
 export interface MotorStore {
-  /** A per-motor cache entry (metadata / curve / spec), validated by `valid`. */
-  readEntry<T>(key: string, valid: (v: unknown) => boolean): Promise<CachedEntry<T> | null>;
-  /** Write a per-motor cache entry, stamped now for freshness (best-effort). */
-  writeEntry<T>(key: string, value: T): Promise<void>;
   /** The user's imported (custom) motors. */
   listCustomMotors(): Promise<CustomMotor[]>;
   /** Add or replace (by id) an imported motor. */
@@ -95,19 +83,12 @@ export interface MotorStore {
 }
 
 const CUSTOM_MOTORS_KEY = nsKey('motors:custom');
-const DEFAULT_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
-
-/** An entry stamped with its fetch time, for TTL freshness. */
-interface Envelope<T> {
-  t: number;
-  v: T;
-}
 
 /**
  * A thrust curve of at least {@link MIN_CURVE_SAMPLES} samples, every one a
  * finite `{time, thrust}`.
  *
- * Shared with thrustcurve.ts. Custom motors are the one store whose payload
+ * Custom motors are the one store whose payload
  * reaches `simulate()` without a second gate, so each element's shape is checked:
  * `samples: [{}]` out of a corrupted IndexedDB blob would become
  * `times: [undefined]` and NaN masses inside the kernel. `Number.isFinite`, not
@@ -185,46 +166,18 @@ const isMassArray = (v: unknown, samples: number): boolean =>
 
 /**
  * Default MotorStore: persists through a KeyValueStore (IndexedDB by
- * default), applying a fixed-TTL freshness policy to per-motor entries. Pass a
- * different KeyValueStore to move the bytes elsewhere, or a different `ttlMs` to
- * tune revalidation.
+ * default). Pass a different KeyValueStore to move the bytes elsewhere.
  */
 export class KeyValueMotorStore implements MotorStore {
   /** The imported motors: newest import first, one entry per id. */
   private readonly custom: JsonListStore<CustomMotor>;
 
-  constructor(
-    private readonly kv: KeyValueStore = new IndexedDbKeyValueStore(),
-    private readonly ttlMs: number = DEFAULT_TTL_MS,
-  ) {
+  constructor(kv: KeyValueStore = new IndexedDbKeyValueStore()) {
     this.custom = new JsonListStore(CUSTOM_MOTORS_KEY, isCustomMotor, (m) => m.id, kv);
   }
 
-  async readEntry<T>(key: string, valid: (v: unknown) => boolean): Promise<CachedEntry<T> | null> {
-    try {
-      const raw = await this.kv.get(key);
-      if (!raw) return null;
-      const env = JSON.parse(raw) as Envelope<T>;
-      if (typeof env?.t !== 'number' || !valid(env.v)) {
-        await this.kv.remove(key);
-        return null;
-      }
-      return { value: env.v, stale: Date.now() - env.t > this.ttlMs };
-    } catch {
-      return null; // storage unavailable / parse error
-    }
-  }
-
-  async writeEntry<T>(key: string, value: T): Promise<void> {
-    try {
-      await this.kv.set(key, JSON.stringify({ t: Date.now(), v: value } satisfies Envelope<T>));
-    } catch {
-      // cache writes are best-effort: a failure just means the next use refetches
-    }
-  }
-
-  // add/remove propagate write failures (an import must be known to have saved),
-  // unlike the best-effort cache writes above; see JsonListStore.
+  // add/remove propagate write failures (an import must be known to have saved);
+  // see JsonListStore.
   listCustomMotors(): Promise<CustomMotor[]> {
     return this.custom.list();
   }
