@@ -47,6 +47,7 @@ import { NO_VALUE } from '../../i18n/noValue';
 import { motorGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
+import { useIsDesktop } from '../common/useMediaQuery';
 
 /**
  * The motor guide: pick candidate motors with the motor filters, fly each one in
@@ -167,10 +168,13 @@ function GuideBody({
   const cancelMotorGuide = useWorkspaceStore((s) => s.cancelMotorGuide);
   const busy = run !== null;
   const tooMany = flying.length > MAX_GUIDE_MOTORS;
+  const desktop = useIsDesktop();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="space-y-2 border-b border-line/10 p-3">
+      {/* On a phone the filters fill the screen on their own, so with a guide
+          up they give it the room; Clear brings them back. */}
+      <div className={`space-y-2 border-b border-line/10 p-3 ${shown && !desktop ? 'hidden' : ''}`}>
         <div className="flex flex-wrap items-center gap-2">
           {mountPicker}
           <MotorSearch value={f.text} onChange={f.setText} className="min-w-[140px] py-1.5" />
@@ -232,7 +236,7 @@ function GuideBody({
           <CatalogLoading name="motors" label={t('motorDlg.loadingCatalog')} />
         </div>
       ) : shown ? (
-        <GuideTable simId={simId} guide={shown} stale={stale} onClose={onClose} />
+        <GuideTable simId={simId} guide={shown} stale={stale} cards={!desktop} onClose={onClose} />
       ) : (
         <CandidateList
           candidates={candidates}
@@ -253,18 +257,21 @@ function GuideBody({
  * ticked. Without this the guide flies a set the user has only ever seen as a
  * number.
  */
-function CandidateList({
+export function CandidateList({
   candidates,
   uncurved,
   dropped,
   onDropped,
   disabled,
+  hint,
 }: {
   candidates: CatalogMotor[];
   uncurved: CatalogMotor[];
   dropped: ReadonlySet<string>;
   onDropped: (next: ReadonlySet<string>) => void;
   disabled: boolean;
+  /** The line over the list; the simulation guide's own when absent. */
+  hint?: string;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -279,6 +286,7 @@ function CandidateList({
   };
   const toggleAll = () => onDropped(all ? new Set(candidates.map(keyOf)) : new Set());
   const box = 'accent-accent-500 disabled:opacity-30';
+  const pick = 'rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-elevated disabled:opacity-40';
 
   if (!candidates.length && !uncurved.length) {
     return (
@@ -291,7 +299,13 @@ function CandidateList({
     const k = keyOf(m);
     const name = motorName(m);
     return (
-      <tr key={k} className={`border-t border-line/5 ${flyable ? 'hover:bg-raised/50' : 'text-ink-faint'}`}>
+      <tr
+        key={k}
+        // The whole row toggles, so unticking a run of motors is not a hunt for
+        // a box the size of a letter.
+        onClick={flyable && !disabled ? () => toggle(m) : undefined}
+        className={`border-t border-line/5 ${flyable ? 'cursor-pointer hover:bg-raised/50' : 'text-ink-faint'}`}
+      >
         <td className="px-2 py-1.5">
           {flyable && (
             <input
@@ -299,6 +313,7 @@ function CandidateList({
               checked={!dropped.has(k)}
               disabled={disabled}
               onChange={() => toggle(m)}
+              onClick={(e) => e.stopPropagation()}
               aria-label={t('guide.tickNamed', { motor: name })}
               className={box}
             />
@@ -321,15 +336,33 @@ function CandidateList({
         </th>
         <td className="px-2 py-1.5 text-center">{m.class}</td>
         <td className="px-2 py-1.5 text-right">{u.fmt('impulse', m.impulse)}</td>
-        <td className="px-2 py-1.5 text-right">{u.fmt('force', avgThrustOf(m), 0)}</td>
-        <td className="px-2 py-1.5 text-right">{fmtNum(m.burn, 1)}</td>
+        <td className="hidden px-2 py-1.5 text-right sm:table-cell">{u.fmt('force', avgThrustOf(m), 0)}</td>
+        <td className="hidden px-2 py-1.5 text-right sm:table-cell">{fmtNum(m.burn, 1)}</td>
         <td className="px-2 py-1.5 text-center">{m.delays ?? NO_VALUE}</td>
       </tr>
     );
   };
   return (
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-      <p className="py-2 text-xs text-ink-faint">{t('guide.hint')}</p>
+      {/* Buttons as well as the header box: a list of hundreds starts ticked,
+          and the box alone is too small to be found as the way to clear it. */}
+      <div className="flex flex-wrap items-center gap-2 py-2">
+        <p className="mr-auto text-xs text-ink-faint">{hint ?? t('guide.hint')}</p>
+        <button
+          onClick={() => onDropped(new Set())}
+          disabled={disabled || !candidates.length || ticked === candidates.length}
+          className={pick}
+        >
+          {t('csv.selectAll')}
+        </button>
+        <button
+          onClick={() => onDropped(new Set(candidates.map(keyOf)))}
+          disabled={disabled || ticked === 0}
+          className={pick}
+        >
+          {t('csv.selectNone')}
+        </button>
+      </div>
       <table className="w-full text-xs tabular-nums text-ink-soft">
         <thead className="sticky top-0 bg-surface text-ink-muted">
           <tr>
@@ -355,9 +388,9 @@ function CandidateList({
             >{`${t('dash.colImpulse')} ${u.sym('impulse')}`}</th>
             <th
               scope="col"
-              className="px-2 py-1.5 text-right font-medium"
+              className="hidden px-2 py-1.5 text-right font-medium sm:table-cell"
             >{`${t('dash.colAvg')} ${u.sym('force')}`}</th>
-            <th scope="col" className="px-2 py-1.5 text-right font-medium">
+            <th scope="col" className="hidden px-2 py-1.5 text-right font-medium sm:table-cell">
               {t('dash.colBurn')}
             </th>
             <th scope="col" className="px-2 py-1.5 text-center font-medium">
@@ -431,11 +464,14 @@ function GuideTable({
   simId,
   guide,
   stale,
+  cards,
   onClose,
 }: {
   simId: string;
   guide: NonNullable<ReturnType<typeof selectMotorGuideFor>>;
   stale: boolean;
+  /** One card per motor rather than a table seventeen columns wide (phones). */
+  cards: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -506,6 +542,34 @@ function GuideTable({
     );
   };
   const colLabel = (c: GuideCol) => (c.quantity ? `${lt(c.label)} (${u.sym(c.quantity)})` : lt(c.label));
+  const pickButton = (r: GuideRow, name: string, size: string) => (
+    <button
+      onClick={() => {
+        if (promote(r.key)) onClose();
+      }}
+      disabled={stale}
+      title={stale ? t('guide.useStale') : t('guide.useHint')}
+      aria-label={t('guide.useNamed', { motor: name })}
+      className={`rounded-md bg-raised font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40 ${size}`}
+    >
+      {t('guide.use')}
+    </button>
+  );
+  const status = (r: GuideRow) => {
+    const v = verdicts.get(r.key)!;
+    const clean = !v.issues.length && !v.warnings;
+    return (
+      <span
+        className={clean ? 'text-ok-400' : 'text-warn-400'}
+        // The warnings themselves, as the warnings card words them.
+        title={r.warnings.map((w) => warningText(w.message, lt)).join('\n') || undefined}
+      >
+        {clean ? t('guide.ok') : verdictText(v, t)}
+      </span>
+    );
+  };
+  const select =
+    'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
 
   const exportCsv = () => {
     download(
@@ -545,62 +609,103 @@ function GuideTable({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-        <table className="w-full text-xs tabular-nums">
-          <thead className="sticky top-0 bg-surface text-ink-muted">
-            <tr>
-              {header('motor', t('guide.colMotor'), 'left')}
-              {header('delay', t('guide.colDelay'))}
-              {COLS.map((c) => header(c.id, colLabel(c)))}
-              {header('status', t('guide.colStatus'), 'left')}
-              <th scope="col" className="px-1.5 py-1.5 align-bottom">
-                <span className="sr-only">{t('guide.colUse')}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line/5">
-            {rows.map((r) => {
-              const v = verdicts.get(r.key)!;
-              const clean = !v.issues.length && !v.warnings;
-              const name = motorName(r.motor);
-              return (
-                <tr key={r.key} className="hover:bg-raised/50">
-                  <th scope="row" className="whitespace-nowrap px-1.5 py-1.5 text-left font-medium text-ink-strong">
-                    {name}
-                    <span className="ml-1.5 font-normal text-ink-faint">{r.motor.manufacturer}</span>
-                  </th>
-                  <td className="px-1.5 py-1.5 text-right" title={r.motor.delays ?? undefined}>
-                    {delayString(r.delay)}
-                  </td>
+        {cards ? (
+          <>
+            {/* No headers to click, so the sort is a pick and a direction. */}
+            <div className="flex items-center gap-2 pb-2 text-xs">
+              <label className="flex items-center gap-2 text-ink-muted">
+                {t('guide.sortBy')}
+                <select
+                  value={sort.key}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    setSort({ key, desc: key !== 'motor' && key !== 'status' });
+                  }}
+                  className={select}
+                >
+                  <option value="motor">{t('guide.colMotor')}</option>
+                  <option value="delay">{t('guide.colDelay')}</option>
                   {COLS.map((c) => (
-                    <td key={c.id} className="whitespace-nowrap px-1.5 py-1.5 text-right text-ink-soft">
-                      {cellText(c, r, u)}
-                    </td>
+                    <option key={c.id} value={c.id}>
+                      {colLabel(c)}
+                    </option>
                   ))}
-                  <td
-                    className={`px-1.5 py-1.5 ${clean ? 'text-ok-400' : 'text-warn-400'}`}
-                    // The warnings themselves, as the warnings card words them.
-                    title={r.warnings.map((w) => warningText(w.message, lt)).join('\n') || undefined}
-                  >
-                    {clean ? t('guide.ok') : verdictText(v, t)}
-                  </td>
-                  <td className="px-1.5 py-1.5 text-right">
-                    <button
-                      onClick={() => {
-                        if (promote(r.key)) onClose();
-                      }}
-                      disabled={stale}
-                      title={stale ? t('guide.useStale') : t('guide.useHint')}
-                      aria-label={t('guide.useNamed', { motor: name })}
-                      className="rounded-md bg-raised px-2 py-0.5 text-[11px] font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {t('guide.use')}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  <option value="status">{t('guide.colStatus')}</option>
+                </select>
+              </label>
+              <button onClick={() => setSort((s) => ({ ...s, desc: !s.desc }))} className={select}>
+                {sort.desc ? `▾ ${t('guide.sortDesc')}` : `▴ ${t('guide.sortAsc')}`}
+              </button>
+            </div>
+            <ul className="space-y-2">
+              {rows.map((r) => {
+                const name = motorName(r.motor);
+                return (
+                  <li key={r.key} className="rounded-lg bg-raised/40 p-3 text-xs ring-1 ring-line/10">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="text-sm font-medium text-ink-strong">{name}</span>
+                        <span className="ml-1.5 text-ink-faint">{r.motor.manufacturer}</span>
+                        <span className="ml-1.5 text-ink-soft" title={r.motor.delays ?? undefined}>
+                          {`${t('guide.colDelay')} ${delayString(r.delay)}`}
+                        </span>
+                        <div className="mt-0.5">{status(r)}</div>
+                      </div>
+                      {pickButton(r, name, 'shrink-0 px-3 py-1.5 text-xs')}
+                    </div>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
+                      {COLS.map((c) => (
+                        <div key={c.id} className="flex justify-between gap-2">
+                          <dt className={sort.key === c.id ? 'text-ink-strong' : 'text-ink-muted'}>{colLabel(c)}</dt>
+                          <dd className={sort.key === c.id ? 'font-medium text-ink-strong' : 'text-ink-soft'}>
+                            {cellText(c, r, u)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <table className="w-full text-xs tabular-nums">
+            <thead className="sticky top-0 bg-surface text-ink-muted">
+              <tr>
+                {header('motor', t('guide.colMotor'), 'left')}
+                {header('delay', t('guide.colDelay'))}
+                {COLS.map((c) => header(c.id, colLabel(c)))}
+                {header('status', t('guide.colStatus'), 'left')}
+                <th scope="col" className="px-1.5 py-1.5 align-bottom">
+                  <span className="sr-only">{t('guide.colUse')}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/5">
+              {rows.map((r) => {
+                const name = motorName(r.motor);
+                return (
+                  <tr key={r.key} className="hover:bg-raised/50">
+                    <th scope="row" className="whitespace-nowrap px-1.5 py-1.5 text-left font-medium text-ink-strong">
+                      {name}
+                      <span className="ml-1.5 font-normal text-ink-faint">{r.motor.manufacturer}</span>
+                    </th>
+                    <td className="px-1.5 py-1.5 text-right" title={r.motor.delays ?? undefined}>
+                      {delayString(r.delay)}
+                    </td>
+                    {COLS.map((c) => (
+                      <td key={c.id} className="whitespace-nowrap px-1.5 py-1.5 text-right text-ink-soft">
+                        {cellText(c, r, u)}
+                      </td>
+                    ))}
+                    <td className="px-1.5 py-1.5">{status(r)}</td>
+                    <td className="px-1.5 py-1.5 text-right">{pickButton(r, name, 'px-2 py-0.5 text-[11px]')}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
 
         {guide.failed.length > 0 && (
           <div className="mt-3 space-y-1 text-xs">

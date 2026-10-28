@@ -38,6 +38,7 @@ export function CenterCanvas({
   pathResult,
   ctrlSlot,
   presetSlot,
+  flow = false,
 }: {
   /** The flight the results views draw. */
   flight: ResultFlight | null;
@@ -47,6 +48,8 @@ export function CenterCanvas({
   ctrlSlot: HTMLDivElement | null;
   /** Header slot, left, the 3D model's camera presets portal into. */
   presetSlot: HTMLDivElement | null;
+  /** The flight charts run at full length in a page that scrolls (see FlightChart). */
+  flow?: boolean;
 }) {
   const { t } = useTranslation();
   const view = useWorkspaceStore((s) => s.view);
@@ -143,7 +146,9 @@ export function CenterCanvas({
         // same simulation keeps its id and so keeps the view. Resetting
         // both through effects keyed on the trace list instead blanks the
         // first frame and leaves a stale zoom on re-run.
-        <div className="h-full p-2">{flight ? <FlightChart key={flight.id} flight={flight} /> : prompt}</div>
+        <div className="h-full p-2">
+          {flight ? <FlightChart key={flight.id} flight={flight} flow={flow} /> : prompt}
+        </div>
       ) : view === 'path' ? (
         <div className="relative h-full p-2">
           {pathResult ? (

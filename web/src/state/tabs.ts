@@ -3,8 +3,9 @@
  *
  * `Tab` is what the whole workbench is doing, and it reads the same at every
  * width: Design changes geometry, Configurations holds the motor loadouts the
- * runs fly, Simulations manages the runs over it, Results reads one back, Tools holds the
- * standalone calculators. Each tab gets its own column layout (see App.tsx).
+ * runs fly, Simulations manages the runs over it, Results reads one back, Simple
+ * rocket flies a rocket from a few measurements, Tools holds the standalone
+ * calculators. Each tab gets its own column layout (see App.tsx).
  *
  * `DesignPane` is a phone concern and nothing more. The Design tab wants to show
  * the stats strip and the drawing together, which it does at lg+; a phone has
@@ -13,7 +14,7 @@
  * every desktop pane rule to carry an `lg:` override undoing a split that only
  * matters on a phone.
  */
-export type Tab = 'design' | 'configs' | 'sim' | 'results' | 'tools';
+export type Tab = 'design' | 'configs' | 'sim' | 'results' | 'simple' | 'tools';
 
 export type DesignPane = 'stats' | 'sketch';
 

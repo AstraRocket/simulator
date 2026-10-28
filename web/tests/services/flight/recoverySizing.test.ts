@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import {
   airDensity,
   canopyDiameter,
+  canopyRoundUp,
   classifyRate,
   descentMass,
   descentRate,
@@ -223,5 +224,24 @@ describe('rate classification', () => {
     expect(classifyRate(35 * 0.3048)).toBe('between');
     expect(classifyRate(DROGUE_BAND.target)).toBe('drogue');
     expect(classifyRate(100 * 0.3048)).toBe('fast');
+  });
+});
+
+describe('canopy round-up', () => {
+  const unit = (sym: string, toSI: number) => ({
+    sym,
+    toUi: (si: number) => si / toSI,
+    fromUi: (ui: number) => ui * toSI,
+  });
+
+  it('rounds a sized canopy up to the next whole centimeter or inch', () => {
+    expect(canopyRoundUp(0.15936414, unit('cm', 0.01))).toBeCloseTo(0.16, 9);
+    expect(canopyRoundUp(0.15936414, unit('in', 0.0254))).toBeCloseTo(7 * 0.0254, 9);
+    expect(canopyRoundUp(0.15936414, unit('mm', 0.001))).toBeCloseTo(0.16, 9);
+  });
+
+  it('leaves a size already on a step, and one that cannot be sized, alone', () => {
+    expect(canopyRoundUp(0.3, unit('cm', 0.01))).toBeCloseTo(0.3, 9);
+    expect(canopyRoundUp(Infinity, unit('cm', 0.01))).toBe(Infinity);
   });
 });

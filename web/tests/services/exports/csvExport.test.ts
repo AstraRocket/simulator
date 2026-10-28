@@ -5,8 +5,10 @@ import {
   flightEventsCsv,
   runTableCsv,
   motorGuideCsv,
+  simpleGuideCsv,
 } from '../../../src/services/exports/csvExport';
 import type { GuideRow } from '../../../src/services/flight/motorGuide';
+import type { SimpleGuideRow } from '../../../src/services/flight/simpleRocket';
 import { METRIC_UNITS, IMPERIAL_UNITS, UNITS } from '../../../src/prefs/units';
 import type { FlightResult, AeroSweep } from '../../../src/engine/openRocketEngine';
 import en from '../../../src/i18n/locales/en.json';
@@ -555,7 +557,7 @@ describe('motorGuideCsv', () => {
     railMargin: 1.8,
     railTwr: 9.2,
     deployVelocity: 8,
-    landingVelocity: null,
+    landingVelocity: null as number | null,
     optimumDelay: 6.6,
     warnings: [],
     deployEvents: [],
@@ -591,5 +593,55 @@ describe('motorGuideCsv', () => {
     const head = motorGuideCsv([], METRIC_UNITS, tFor(de), 'rail').split('\r\n')[0]!;
     expect(head.startsWith(`${de.csv.head.motor},${de.csv.head.manufacturer},`)).toBe(true);
     expect(head).toContain(`${de.csv.head.exitVelocity_rail} (m/s)`);
+  });
+});
+
+describe('simpleGuideCsv', () => {
+  const figures = {
+    railExit: 15,
+    railTwr: 9.2,
+    maxAcceleration: 50,
+    burnoutTime: 1.6,
+    burnoutAltitude: 40,
+    apogee: 304.8,
+    maxVelocity: 100,
+    maxMach: 0.29,
+    timeToApogee: 7.5,
+    optimumDelay: 5.9,
+    railStability: 1.8,
+    deployVelocity: null as number | null,
+    landingVelocity: null as number | null,
+    flightTime: null as number | null,
+  };
+  const guideRow = (f: Partial<typeof figures>) =>
+    ({
+      key: 'k',
+      motor: { designation: 'C6', impulse: 10, burn: 1.6, avgThrust: 6 },
+      spec: { ejectionDelay: 5 },
+      figures: { ...figures, ...f },
+      nearest: 5,
+    }) as unknown as SimpleGuideRow;
+  const line = (f: Partial<typeof figures>) =>
+    simpleGuideCsv(
+      [{ motor: 'C6', manufacturer: 'Estes', delay: '5', status: '', row: guideRow(f) }],
+      METRIC_UNITS,
+      tEn,
+    )
+      .trimEnd()
+      .split('\r\n');
+
+  it('writes the climb, in the chosen units, under the design guide’s headings', () => {
+    const [head, cells] = line({});
+    expect(head!.startsWith('Motor,Manufacturer,Delay (s),Total impulse (N·s),')).toBe(true);
+    expect(head).toContain('Apogee (m)');
+    expect(head).toContain('Margin at exit (cal)');
+    expect(cells!.split(',').slice(0, 3)).toEqual(['"C6"', '"Estes"', '"5"']);
+  });
+
+  it('writes the descent only for a guide flown under a parachute', () => {
+    expect(line({})[0]).not.toContain('Landing velocity');
+    const [head, cells] = line({ deployVelocity: 4, landingVelocity: 5.4, flightTime: 30 });
+    expect(head).toContain('Deployment velocity (m/s),Landing velocity (m/s),Flight time (s),Status');
+    expect(cells!.split(',').slice(-4)).toEqual(['4', '5.4', '30', '""']);
   });
 });

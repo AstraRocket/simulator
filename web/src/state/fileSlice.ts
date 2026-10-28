@@ -8,6 +8,7 @@ import { mergePalette } from '../services/design/partColors';
 import type { DesignInfo } from '../services/files/orkTypes';
 import type { buildRocketTree } from '../engine/api';
 import type { ComponentInfo, OpenRocketDesign, RocketTree } from '../engine/openRocketEngine';
+import type { LaunchConditions } from '../services/design/orkTree';
 import type { StageLaunch } from '../services/files/rasaero/stageLaunch';
 import { buildDesignInfo } from '../services/report/designInfo';
 import { buildExportMotorMap, fillMotorDigests } from '../services/motors/exportMotors';
@@ -71,6 +72,12 @@ export interface FileSlice {
   openOrkFile: (file: Blob) => Promise<void>;
   /** Open one of the bundled OpenRocket examples by its file name. */
   openExample: (file: string) => Promise<void>;
+  /**
+   * Open a rocket built elsewhere in the app (the Tools tab's simple rocket) as
+   * a design of its own, with one configuration and a simulation flying it from
+   * the launch defaults, `launch` over them.
+   */
+  openNewDesign: (tree: RocketTree, config: FlightConfig, launch: Partial<LaunchConditions>) => Promise<void>;
   resetWorkspace: () => void;
   /** Saved designs, newest first (designLibrary.ts). Refreshed on demand. */
   designs: DesignMeta[];
@@ -452,6 +459,37 @@ export const createFileSlice =
           // still on screen holds a voided handle until it is built again.
           if (engineTouched) set({ rebuildSeq: get().rebuildSeq + 1 });
         }
+      },
+      openNewDesign: async (tree, config, launch) => {
+        // An import in all but the file: a design of its own, named before it
+        // replaces what is open (homeForImport), with what is open saved first.
+        const stale = claimWorkspace();
+        const home = await homeForImport(tree.name ?? '', stale);
+        if (stale()) return;
+        if (!home) {
+          await pointAtShown();
+          return;
+        }
+        await flushOutgoing(stale);
+        if (stale()) return;
+        clearHistory();
+        getWorkspaceStore().setActiveId?.(home.id);
+        if (!home.id) getWorkspaceStore().setPendingName?.(home.name);
+        const s0 = newSimulation(i18n.t('sims.untitled', { n: 1 }), config.id, {
+          ...loadSettings().launchDefaults,
+          ...launch,
+        });
+        replaceWorkspace((s) => ({
+          tree: { ...tree, name: home.name },
+          loadedMeta: null,
+          sims: [s0],
+          configs: [config],
+          activeId: s0.id,
+          selectedId: null,
+          tab: 'design',
+          activeDesignId: home.id,
+          ...showing(s, '2d'),
+        }));
       },
       openExample: async (file) => {
         // Fetched, then handed to the ordinary import path: an example is an

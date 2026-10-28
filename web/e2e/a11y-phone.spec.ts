@@ -21,6 +21,7 @@ const BAR: Record<Exclude<Tab, 'design'>, string> = {
   configs: 'Config',
   sim: 'Simulate',
   results: 'Results',
+  simple: 'Benchtop',
   tools: 'Tools',
 };
 

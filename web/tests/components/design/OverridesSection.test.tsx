@@ -18,6 +18,45 @@ const node = {
   overrideCD: 0.6,
 } as unknown as ComponentNode;
 
+describe('OverridesSection on a part that only holds parts', () => {
+  const applyAll = () => screen.queryAllByRole('checkbox', { name: 'Apply to all subcomponents' });
+
+  it('covers the parts when an override is turned on, with no box to say so', () => {
+    const onChange = vi.fn();
+    const bare = { id: 's', type: 'stage' } as unknown as ComponentNode;
+    renderWithProviders(<OverridesSection node={bare} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: /^Mass/ }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ overrideSubcomponentsMass: true }));
+  });
+
+  it('hides the box while it is on, and shows it on a design that has it off', () => {
+    const on = {
+      ...node,
+      overrideSubcomponentsMass: true,
+      overrideSubcomponentsCG: true,
+      overrideSubcomponentsCD: true,
+    } as unknown as ComponentNode;
+    const { unmount } = renderWithProviders(<OverridesSection node={on} onChange={vi.fn()} />);
+    expect(applyAll()).toHaveLength(0);
+    unmount();
+    // `node` has all three overrides on and none covering the parts, as an imported .ork can.
+    renderWithProviders(<OverridesSection node={node} onChange={vi.fn()} />);
+    expect(applyAll()).toHaveLength(3);
+  });
+
+  it('leaves the choice to a part with a value of its own', () => {
+    const onChange = vi.fn();
+    const tube = { id: 'b', type: 'bodytube', overrideSubcomponentsMass: true } as unknown as ComponentNode;
+    renderWithProviders(<OverridesSection node={{ ...tube, overrideMass: 0.1 }} onChange={onChange} />);
+    expect(applyAll()).toHaveLength(1);
+    renderWithProviders(
+      <OverridesSection node={{ id: 'c', type: 'bodytube' } as unknown as ComponentNode} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /^Mass/ })[1]!);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ overrideSubcomponentsMass: undefined }));
+  });
+});
+
 describe('OverridesSection with a cleared box', () => {
   it.each([
     ['Mass', 'overrideMass'],

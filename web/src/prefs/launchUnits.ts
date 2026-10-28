@@ -36,6 +36,8 @@ export const LAUNCH_SI = {
   velocity: identity('velocity'),
   /** Masses (Tools): already kilograms. */
   mass: identity('mass'),
+  /** A motor mount's bore (Tools): already meters, shown as motors are measured. */
+  motorDimensions: identity('motorDimensions'),
   /** Rod angle, rod direction, wind direction: stored in degrees. */
   deg: {
     q: 'angle',

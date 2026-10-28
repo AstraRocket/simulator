@@ -7,6 +7,7 @@ import { unitScope } from '../../prefs/units';
 import { QNum } from '../sim/LaunchPanel';
 import {
   canopyDiameter,
+  canopyRoundUp,
   classifyRate,
   descentRate,
   DROGUE_BAND,
@@ -69,9 +70,10 @@ export function SizingFigures({
 
   const rate = rateMs ?? (diameterM != null && diameterM > 0 ? descentRate(massKg, diameterM, cd, rho) : null);
   const verdict = rate != null && Number.isFinite(rate) ? classifyRate(rate) : null;
-  const mainD = canopyDiameter(massKg, MAIN_BAND.target, cd, rho);
-  const drogueD = canopyDiameter(massKg, DROGUE_BAND.target, cd, rho);
-  const targetD = target != null && target > 0 ? canopyDiameter(massKg, target, cd, rho) : null;
+  const mainD = canopyRoundUp(canopyDiameter(massKg, MAIN_BAND.target, cd, rho), mainUnit);
+  const drogueD = canopyRoundUp(canopyDiameter(massKg, DROGUE_BAND.target, cd, rho), drogueUnit);
+  const targetD =
+    target != null && target > 0 ? canopyRoundUp(canopyDiameter(massKg, target, cd, rho), targetUnit) : null;
 
   const row = (label: string, d: number, unit: typeof mainUnit, useLabel: string) => (
     <div className="flex items-baseline justify-between gap-3">

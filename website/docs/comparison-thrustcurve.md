@@ -56,6 +56,7 @@ ThrustCurve.org's **Match a Rocket** and this app's **[motor guide](./motors.md#
 | Feature | Notes |
 | --- | --- |
 | **Your actual design, flown** | The motor guide flies the design's own parts, recovery and launch conditions, not a diameter and a drag coefficient. |
+| **No design, and still no drag coefficient** | The **[Benchtop](./benchtop.md)** takes what Match a Rocket takes, less the drag coefficient and plus the CG and fins, and flies it through the full engine, with a motor guide of its own. |
 | **Results past apogee** | Deployment speed, landing speed and where it came down, with the engine's warnings for each motor. |
 | **Each motor at a delay it offers** | Flown again at the charge nearest its best delay, so the deployment speed is the one that charge gives. |
 | **Keeping a motor** | **Use** makes a configuration and a simulation from a guide row, as one undo step. |
