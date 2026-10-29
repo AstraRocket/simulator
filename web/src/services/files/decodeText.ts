@@ -1,3 +1,4 @@
+// cspell:ignore Lóki -- a maker name with an accent, the case this reads
 import { MAX_ARCHIVE_ENTRY_BYTES } from './ork/importLimits';
 import { KeyedError } from '../../i18n/keyedError';
 

@@ -9,7 +9,7 @@ import { defaultToolSite } from './remembered';
 import { SiteMapDialog } from '../sim/SiteMapDialog';
 import { QNum } from '../sim/LaunchPanel';
 import { LatLonRows } from '../sim/LatLonRows';
-import { SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
+import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { smallButton } from '../common/smallButton';
 
 const toolBtn = smallButton('sm', 'soft');
@@ -38,6 +38,25 @@ export function SiteElevationField(
       stepSi={10}
       minSi={LAUNCH_SITE_LIMITS.launchAltitudeM.min}
       maxSi={LAUNCH_SITE_LIMITS.launchAltitudeM.max}
+      {...props}
+    />
+  );
+}
+
+/** The air temperature at a tool's site, held to the site limits, in 1 degree steps. */
+export function SiteTemperatureField(
+  props: Omit<ComponentProps<typeof QNum>, 'label' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
+) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  return (
+    <QNum
+      label={t('launch.temperature')}
+      kind="degC"
+      u={u}
+      stepSi={1}
+      minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
+      maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
       {...props}
     />
   );

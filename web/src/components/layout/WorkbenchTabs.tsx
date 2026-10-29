@@ -1,3 +1,4 @@
+// cspell:ignore Simuleren Simulaties -- Dutch tab names, quoted as written
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { useShowResultsTab } from './useShowResultsTab';

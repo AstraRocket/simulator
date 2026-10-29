@@ -45,6 +45,7 @@ astrarrocketjs
 atmo
 authorable
 axialoffset
+AZERTY
 barrowman
 Barrowman's
 baseheight
@@ -54,6 +55,7 @@ basepressure
 baserelativehumidity
 basetemperature
 bbody
+benchtop
 bfins
 blindnesses
 blobless
@@ -511,6 +513,7 @@ striplength
 stripwidth
 strmr
 subclassing
+subcomponent
 subcomponents
 subresource
 Substitutor
@@ -577,6 +580,8 @@ unscrolled
 unstub
 unsub
 untick
+unticking
+unticks
 unvalidated
 unwired
 uppercased

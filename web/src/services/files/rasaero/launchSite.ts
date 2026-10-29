@@ -20,7 +20,7 @@ const PSI_TO_PA = 6894.757;
  * back into the site's pressure. Desktop's
  * RASAeroCommonConstants.OPENROCKET_TO_RASAERO_BAROMETRIC_PRESSURE.
  */
-export function rasaeroBarometricPressure(pressurePa: number, altitudeFt: number): number {
+function rasaeroBarometricPressure(pressurePa: number, altitudeFt: number): number {
   const pressureAltitude =
     (1 - Math.pow(pressurePa / PSI_TO_PA / SEA_LEVEL_PSI, 1 / PRESSURE_EXPONENT)) / PRESSURE_LAPSE;
   return (

@@ -68,7 +68,7 @@ export const useIsWide = (): boolean => useMediaQuery('(min-width: 1536px)');
  * says how a device is told). The width test alone would class an iPad in
  * landscape as a desktop, hence the device test as well.
  */
-export const useDeviceClass = (): DeviceClass => {
+const useDeviceClass = (): DeviceClass => {
   const desktop = useIsDesktop();
   // Subscribed so the browser's `formFactors` answer, which arrives after the
   // first render, re-renders the caller.

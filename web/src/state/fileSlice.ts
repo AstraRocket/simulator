@@ -362,6 +362,38 @@ export const createFileSlice =
       return { id: null, name: chosen?.trim() || suggested };
     };
 
+    /**
+     * Makes a design that is not in the library yet the open one's home: names
+     * it (homeForImport), saves what is open, and ends the undo stack. Null when
+     * the user backed out or a later load overtook this one; nothing is replaced
+     * then.
+     */
+    const enterHome = async (
+      importedName: string,
+      stale: () => boolean,
+    ): Promise<{ id: string | null; name: string } | null> => {
+      // Where this rocket is going to live, settled while the previous design
+      // is still the open one (see homeForImport).
+      const home = await homeForImport(importedName, stale);
+      if (stale()) return null;
+      if (!home) {
+        await pointAtShown();
+        return null;
+      }
+      // Persist whatever is open before the new design replaces it, as
+      // openDesign does: the replace cancels the pending debounced autosave,
+      // so an edit inside its window would be lost.
+      await flushOutgoing(stale);
+      if (stale()) return null;
+      clearHistory(); // a new design is a fresh document; nothing to undo across it
+      // A new design becomes its own library entry rather than replacing
+      // whatever was open, unless the user chose to overwrite a design of the
+      // same name, in which case that entry is its home.
+      getWorkspaceStore().setActiveId?.(home.id);
+      if (!home.id) getWorkspaceStore().setPendingName?.(home.name);
+      return home;
+    };
+
     return {
       designs: [],
       activeDesignId: null,
@@ -398,25 +430,8 @@ export const createFileSlice =
             loadSettings().launchDefaults,
             get().simPrefs,
           );
-          // Where this rocket is going to live, settled while the previous design
-          // is still the open one (see homeForImport).
-          const home = await homeForImport(loadedMeta.name, stale);
-          if (stale()) return;
-          if (!home) {
-            await pointAtShown();
-            return;
-          }
-          // Persist whatever is open before the import replaces it, as
-          // openDesign does: the replace cancels the pending debounced
-          // autosave, so an edit inside its window would be lost.
-          await flushOutgoing(stale);
-          if (stale()) return;
-          clearHistory(); // a loaded design is a fresh document; nothing to undo across the load
-          // An imported rocket becomes its own library entry rather than
-          // replacing whatever was open, unless the user chose to overwrite a
-          // design of the same name, in which case that entry is its home.
-          getWorkspaceStore().setActiveId?.(home.id);
-          if (!home.id) getWorkspaceStore().setPendingName?.(home.name);
+          const home = await enterHome(loadedMeta.name, stale);
+          if (!home) return;
           // A file is the likeliest source of a value no material has, and the
           // one place the app can still say where it came from.
           const fixed = repairValues(tree);
@@ -464,17 +479,8 @@ export const createFileSlice =
         // An import in all but the file: a design of its own, named before it
         // replaces what is open (homeForImport), with what is open saved first.
         const stale = claimWorkspace();
-        const home = await homeForImport(tree.name ?? '', stale);
-        if (stale()) return;
-        if (!home) {
-          await pointAtShown();
-          return;
-        }
-        await flushOutgoing(stale);
-        if (stale()) return;
-        clearHistory();
-        getWorkspaceStore().setActiveId?.(home.id);
-        if (!home.id) getWorkspaceStore().setPendingName?.(home.name);
+        const home = await enterHome(tree.name ?? '', stale);
+        if (!home) return;
         const s0 = newSimulation(i18n.t('sims.untitled', { n: 1 }), config.id, {
           ...loadSettings().launchDefaults,
           ...launch,
