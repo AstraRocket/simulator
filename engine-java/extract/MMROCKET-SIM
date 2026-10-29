@@ -191,7 +191,33 @@
 # in importLimits.ts and importUnpack.ts.
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-10-29: reviewed e5ade0a1 through 58bdcc58 (v0.196, 2026-10-28), 273
+# commits, 677 files. No engine-java file changed.
+#
+# TAKEN, SCRIPT SIDE: thrustcurve.org now sits behind Cloudflare with a global
+# limit of 3 requests per 10 s (their 9b06c6bd). sync-motors.mjs paces its
+# requests 5 s apart, timed from each answer, and names a Cloudflare challenge
+# instead of reporting a bare 403.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND FIXED HERE: a RockSim centering ring
+# with ID 0 left automatic, as desktop's setInnerRadius(0) on a new ring leaves
+# it; a surface or line density of 0 kept on .ork and .rkt import; a thrust over
+# ThrustCurveMotor.MAX_THRUST refused at .eng/.rse import; a .eng weight whose
+# grams overflow refused; an undeclared file that is not UTF-8 read as
+# windows-1252; undo and redo by key position on non-Latin layouts.
+#
+# ALREADY COVERED: their .eng sort before the zero-tail trim (sortLists in
+# curveFinalize.ts); hex and octal typed into fields (ours are type="number");
+# the aft-view lug radius; prototype-key ids (ours are minted, never read).
+#
+# NOT TAKEN: .txt RockSim motor files (desktop loads .eng and .rse only); their
+# windows-1252 table (a Node 22.22 decoder fault, not a browser one); a foreign
+# write over the design file (we keep no file handle); the encoding label past
+# the first 256 bytes and nested <openrocket> roots, both crafted-file only.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = e5ade0a159f9f71761a082fdcdc1fb71c12f1a5d
-version = 0.192
-dated   = 2026-10-24
+ref     = 58bdcc58cfb4ed76953a13d034b052e7cf4a3592
+version = 0.196
+dated   = 2026-10-28

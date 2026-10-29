@@ -66,10 +66,26 @@ function declaredEncoding(bytes: Uint8Array): string | undefined {
   }
 }
 
-/** Decode an imported file, honoring a UTF-16 mark or shape, or a declared encoding. */
+/**
+ * Decode an imported file, honoring a UTF-16 mark or shape, or a declared
+ * encoding. A file that names no encoding is UTF-8 when its bytes are, and
+ * windows-1252 when they are not.
+ *
+ * The fallback is for the plain-text formats, which carry no declaration:
+ * desktop reads a RASP `.eng` as ISO-8859-1 (`RASPMotorLoader.CHARSET_NAME`),
+ * and Windows spreadsheets save CSV that way. Read as UTF-8, a maker named
+ * `Lóki` became `L�ki` and was stored under that id. Valid UTF-8 reads as
+ * before, so a UTF-8 file with the same name is not garbled the other way.
+ */
 export function decodeFileText(bytes: Uint8Array): string {
   assertImportSize(bytes.byteLength);
-  return new TextDecoder(encodingOf(bytes)).decode(bytes);
+  const encoding = encodingOf(bytes);
+  if (encoding !== 'utf-8' || declaredEncoding(bytes)) return new TextDecoder(encoding).decode(bytes);
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
 }
 
 /**

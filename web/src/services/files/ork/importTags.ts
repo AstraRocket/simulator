@@ -192,8 +192,11 @@ export function readSoftMaterial(
 ): void {
   const m = el.querySelector(selector);
   if (!m || m.getAttribute('type') !== kind) return;
-  const d = positiveAttr(m, 'density');
-  if (d !== undefined) node[densityKey] = d;
+  // 0 is a legal surface or line density: desktop's `MaterialSetter` takes it
+  // as written, and the bridge builds it, so a massless canopy stays massless
+  // rather than flying the default ripstop.
+  const d = finiteNum(m.getAttribute('density'));
+  if (d !== undefined && d >= 0) node[densityKey] = d;
   const name = matName(el, kind, selector);
   if (name) node[nameKey] = name;
 }

@@ -490,7 +490,13 @@ const readRing = (el: Element): ComponentNode => {
   put(n, 'outerRadius', od);
   // A bulkhead is solid and carries no inner radius in our tree (the kernel's
   // `Bulkhead.getInnerRadius` answers 0 whatever is set); the others do.
-  if (n.type === 'centeringring') put(n, 'innerRadius', id);
+  // An `ID` of 0 leaves the bore automatic: `RingHandler`'s `setInnerRadius(0)`
+  // on a new CenteringRing equals the stored 0 and returns before it turns
+  // Automatic off, so desktop sizes the hole to the mount, not a solid disc.
+  if (n.type === 'centeringring') {
+    if (id) put(n, 'innerRadius', id);
+    else n['innerRadiusAuto'] = true;
+  }
   if (n.type === 'tubecoupler' || n.type === 'engineblock') put(n, 'thickness', wallFrom(od, id));
   return n;
 };
@@ -798,7 +804,8 @@ const readParachute = (ctx: RktContext, el: Element, parent?: ComponentNode): Co
   // is an upstream naming quirk, not a unit - scaling by 1000 here would make
   // every shroud line a thousand times too heavy.
   const lineDensity = num(el, 'ShroudLineMassPerMM');
-  if (lineDensity !== undefined && lineDensity > 0) n['lineDensity'] = lineDensity;
+  // 0 is kept: desktop's `ParachuteHandler` applies it as stated, weightless lines.
+  if (lineDensity !== undefined && lineDensity >= 0) n['lineDensity'] = lineDensity;
   applySurfaceMaterial(n, canopyDensity(el, Math.PI * (diameter ?? 0) ** 2 * 0.25));
   const packed = packedRadius(parent, diameter);
   put(n, 'radius', packed);

@@ -6,6 +6,16 @@ All notable changes to AstraRocket are recorded here. The engine is validated
 against desktop **OpenRocket** (`.ork` round-trips and its Component Analysis),
 so most entries describe getting a computation to match OpenRocket exactly.
 
+## [0.5.7]
+
+### Fixed
+- **A RockSim centering ring with an ID of 0 opens with its hole sized to the motor tube**, as desktop OpenRocket opens it. It used to open as a solid disc, with the mass of one.
+- **A canopy, shroud line or shock cord density of 0 is kept** on `.ork` and `.rkt` import, as desktop keeps it. The part used to fly the default material's mass instead.
+- **A motor file with a thrust over 10,000,000 N is refused at import**, naming the motor. The engine refuses such a curve, so the motor used to import and then never fly.
+- **A `.eng` whose weights overflow when converted to grams is refused at import.** It used to report the motor as imported, then drop it without a word on the next load.
+- **A `.eng` or CSV saved as Latin-1 keeps its accented names.** A file that names no encoding and is not valid UTF-8 is read as windows-1252, as desktop reads a `.eng`. A maker named `Lóki` used to arrive as `L�ki`.
+- **Undo and redo work on non-Latin keyboard layouts.** With a Russian, Greek or Hebrew layout, Ctrl+Z sent that layout's letter and did nothing.
+
 ## [0.5.3]
 
 ### Changed

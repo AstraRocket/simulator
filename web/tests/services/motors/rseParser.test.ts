@@ -392,6 +392,12 @@ describe('parseRse refuses what ThrustCurveMotor.Builder.build() refuses', () =>
     );
   });
 
+  it('a thrust above the kernel’s 10,000,000 N MAX_THRUST', () => {
+    expect(() => parseRse(rse(ATTRS, DATA.replace('f="380"', 'f="2e7"')))).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.rseThrustTooHigh', values: { motor: 'J350' } }),
+    );
+  });
+
   it('a curve with no thrust anywhere', () => {
     const zero = DATA.replace('f="400"', 'f="0"').replace('f="380"', 'f="0"');
     expect(() => parseRse(rse(ATTRS, zero))).toThrow(

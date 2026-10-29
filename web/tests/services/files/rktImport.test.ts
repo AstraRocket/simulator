@@ -267,6 +267,21 @@ describe('importRkt', () => {
     expect(byName(stage.children, 'Thrust ring').type).toBe('engineblock');
   });
 
+  it('leaves a centering ring with an ID of 0 automatic, as desktop opens it', () => {
+    // `setInnerRadius(0)` on a new CenteringRing returns before it turns
+    // Automatic off, so desktop cuts the hole to the mount, not a solid disc.
+    const ring = byName(importRkt(RKT.replace('<ID>18.7</ID>', '<ID>0</ID>')).tree.components[0]!.children, 'Aft ring');
+    expect(ring['innerRadiusAuto']).toBe(true);
+    expect(ring['outerRadius']).toBeCloseTo(0.012, 9);
+    // A stated bore stays stated.
+    expect(byName(stage.children, 'Aft ring')['innerRadiusAuto']).toBeUndefined();
+  });
+
+  it('keeps a shroud line density of 0, weightless lines as desktop applies it', () => {
+    const doc = RKT.replace('<ShroudLineMassPerMM>0.0001</ShroudLineMassPerMM>', '<ShroudLineMassPerMM>0</ShroudLineMassPerMM>');
+    expect(byName(importRkt(doc).tree.components[0]!.children, 'Chute')['lineDensity']).toBe(0);
+  });
+
   it('reads a parachute, including the surface and line densities', () => {
     const chute = byName(stage.children, 'Chute');
     expect(chute.type).toBe('parachute');

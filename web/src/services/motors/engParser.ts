@@ -15,7 +15,7 @@ import type { CustomMotor } from './motorStore';
 import { impulseClass } from './motorCombine';
 import { trapezoidImpulse } from './motorMath';
 import { removeDelay } from './rseParser';
-import { MAX_CURVE_SAMPLES, finalizeCurve } from './curveFinalize';
+import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';
 import { delayList } from './motorPicker';
 import { KeyedError } from '../../i18n/keyedError';
 
@@ -72,7 +72,10 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
   const length = Number(lenS);
   const propKg = Number(propS);
   const totalKg = Number(totalS);
-  if (![diameter, length, propKg, totalKg].every(Number.isFinite)) {
+  // The weights are checked as the grams they are stored in: 1e306 kg is
+  // finite, but its grams are not, and a stored Infinity fails the custom
+  // motor screen on the next load, so the motor would vanish without a word.
+  if (![diameter, length, propKg * 1000, totalKg * 1000].every(Number.isFinite)) {
     throw new KeyedError('errors.motorFile.engHeaderNumbers');
   }
   // Finite is not enough. `samplesToMotorSpec` rejects a non-positive diameter
@@ -116,6 +119,7 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
     // builds every seated motor through it, so the file is refused here as
     // desktop drops it.
     if (f! < 0) throw new KeyedError('errors.motorFile.engNegativeThrust', { motor: designation, line: line.no });
+    if (f! > MAX_THRUST_N) throw new KeyedError('errors.motorFile.engThrustTooHigh', { motor: designation, line: line.no });
     if (t! < 0) throw new KeyedError('errors.motorFile.engNegativeTime', { motor: designation, line: line.no });
     // The ceiling `.rse` is held to, counted as the lines are read so a huge
     // file is refused before its samples are all in memory.

@@ -235,6 +235,12 @@ describe('a .eng header that is finite but impossible', () => {
     expect(() => parseEng(eng('0.5', '1.0', '0'))).toThrow(/diameter|length/i);
     expect(() => parseEng(eng('0.5', '1.0', '54', '-10'))).toThrow(/diameter|length/i);
   });
+
+  it('rejects a weight whose grams are not finite, which would vanish from the store on reload', () => {
+    expect(() => parseEng(eng('1e306', '1e306'))).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.engHeaderNumbers' }),
+    );
+  });
 });
 
 describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () => {
@@ -243,6 +249,13 @@ describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () =>
     expect(() => parseEng(ENG.replace('0.5 20', '0.5 -20'))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.engNegativeThrust', values: { motor: 'TC10', line: 6 } }),
     );
+  });
+
+  it('a thrust above the kernel’s 10,000,000 N MAX_THRUST, naming the motor and its line', () => {
+    expect(() => parseEng(ENG.replace('0.5 20', '0.5 2e7'))).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.engThrustTooHigh', values: { motor: 'TC10', line: 6 } }),
+    );
+    expect(() => parseEng(ENG.replace('0.5 20', '0.5 1e7'))).not.toThrow();
   });
 
   it('a curve with no thrust anywhere, naming the motor', () => {

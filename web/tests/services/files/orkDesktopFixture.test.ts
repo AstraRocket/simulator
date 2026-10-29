@@ -209,6 +209,16 @@ describe('a desktop-authored .ork', () => {
     expect(res.launch?.windLevels?.[1]?.directionDeg).toBeCloseTo(90, 10);
   });
 
+  it('keeps a canopy and line density of 0, as desktop’s MaterialSetter takes them', () => {
+    const doc = DESKTOP_ORK.replace('type="surface" density="0.067"', 'type="surface" density="0.0"').replace(
+      'type="line" density="0.0018"',
+      'type="line" density="0"',
+    );
+    const t = importOrk(doc).tree;
+    expect(findByType(t, 'parachute')?.['surfaceDensity']).toBe(0);
+    expect(findByType(t, 'parachute')?.['lineDensity']).toBe(0);
+  });
+
   it('reads an upper-case reference too', () => {
     const old = importOrk(DESKTOP_ORK.replace('altituderef="agl"', 'altituderef="AGL"'));
     expect(old.launch?.windAltitudeReference).toBe('agl');
