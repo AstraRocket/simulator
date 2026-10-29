@@ -218,7 +218,7 @@ function holedRingGeometry(outerR: number, holes: Hole[], length: number): THREE
   const pos = g.getAttribute('position');
   const sorted: Record<keyof typeof SURFACE, number[]> = { outside: [], inside: [], edges: [] };
   const onOuter = (i: number) => Math.hypot(pos.getX(i), pos.getY(i)) > outerR - 1e-6;
-  // ExtrudeGeometry is unindexed, with the faces in group 0 and the walls in group 1.
+  // ExtrudeGeometry has no index: with the faces in group 0 and the walls in group 1.
   for (const group of g.groups) {
     for (let i = group.start; i < group.start + group.count; i += 3) {
       const surface =

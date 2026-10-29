@@ -165,7 +165,7 @@ describe('the depth of the tab over a cluster or an offset mount', () => {
   });
 
   it('goes past a cluster whose tubes all sit between the fins', () => {
-    // A 4-ring unclocked and spread to 1.2 diameters: its tubes sit at 45
+    // A 4-ring at zero rotation, spread to 1.2 diameters: its tubes sit at 45
     // degrees off each of four fins, each center 1.2 R across every fin line,
     // so a thin tab passes them all and may go to the axis, as with no tube.
     const four = mount({ cluster: '4-ring', clusterScale: 1.2 });

@@ -644,6 +644,24 @@ function flownStill(
 }
 
 /**
+ * What a batch of flights of one simulation is of, captured before the awaits
+ * that can outlast it: the tree, inputs and key {@link flownStill} checks the
+ * answers against. The row's own overrides win over the globals, exactly as a
+ * normal run resolves them; only then is a missing seed filled in, one for
+ * every flight of the batch.
+ */
+function batchBasis(s: WorkspaceState, sim: Simulation, config: FlightConfig) {
+  const runPrefs = effectivePrefs(s.simPrefs, sim.prefs);
+  return {
+    ranOn: s.tree,
+    flownFrom: simInputs(sim, config),
+    flownKey: resultKey(s.tree, config, sim, s.simPrefs),
+    runPrefs,
+    seed: runPrefs.randomSeed ?? freshSeed(),
+  };
+}
+
+/**
  * What the Run button will fly: the ticked rows, or the active simulation when
  * nothing is ticked. One place decides it, so the button's label, its enabled
  * state and the action itself can never disagree.
@@ -841,6 +859,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
   const patchTargets = (make: (sim: Simulation) => Partial<Simulation>) => {
     const ids = new Set(selectEditIds(get()));
     set((s) => ({ sims: s.sims.map((x) => (ids.has(x.id) ? { ...x, ...make(x) } : x)) }));
+  };
+
+  /**
+   * Refuse a design the engine cannot build, before a drift sweep or the motor
+   * guide flies anything. True when it refused, with the reason in `err`.
+   */
+  const refusedDesign = (s: WorkspaceState): boolean => {
+    const blocker = designBlocker(s.tree);
+    if (blocker) set({ err: designBlockerText(blocker, i18n.t) });
+    return blocker !== null;
   };
 
   /**
@@ -1793,11 +1821,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
      */
     runDriftSweep: async (simId, spec) => {
       const s = get();
-      const blocker = designBlocker(s.tree);
-      if (blocker) {
-        set({ err: designBlockerText(blocker, i18n.t) });
-        return;
-      }
+      if (refusedDesign(s)) return;
       const sim = s.sims.find((x) => x.id === simId);
       if (!sim) return;
       // The same one refusal the Run button and the run loop share. A sweep
@@ -1822,13 +1846,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
       // What this sweep is of. The awaits below can outlast any of it, exactly
       // as a normal batch can, and a region drawn from a rocket that has since
       // changed is worse than no region.
-      const ranOn = s.tree;
-      const flownFrom = simInputs(sim, config);
-      const flownKey = resultKey(ranOn, config, sim, s.simPrefs);
-      // The row's own overrides win over the globals, exactly as a normal run
-      // resolves them; only then is a missing seed filled in.
-      const runPrefs = effectivePrefs(s.simPrefs, sim.prefs);
-      const seed = runPrefs.randomSeed ?? freshSeed();
+      const { ranOn, flownFrom, flownKey, runPrefs, seed } = batchBasis(s, sim, config);
 
       // A sweep supersedes whatever was held: two regions on one plan view
       // would be unreadable, and the held one answers a question that has just
@@ -1940,11 +1958,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
      */
     runMotorGuide: async (simId, mountId, motors) => {
       const s = get();
-      const blocker = designBlocker(s.tree);
-      if (blocker) {
-        set({ err: designBlockerText(blocker, i18n.t) });
-        return;
-      }
+      if (refusedDesign(s)) return;
       const sim = s.sims.find((x) => x.id === simId);
       if (!sim || !motors.length) return;
       const config = configOf(s.configs, sim);
@@ -1958,12 +1972,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
       const launch = sim.launch;
       if (!isComplete(launch)) return;
 
-      const ranOn = s.tree;
       const massEmpty = s.info?.massEmpty;
-      const flownFrom = simInputs(sim, config);
-      const flownKey = resultKey(ranOn, config, sim, s.simPrefs);
-      const runPrefs = effectivePrefs(s.simPrefs, sim.prefs);
-      const seed = runPrefs.randomSeed ?? freshSeed();
+      const { ranOn, flownFrom, flownKey, runPrefs, seed } = batchBasis(s, sim, config);
 
       guideAbort?.abort();
       const abort = new AbortController();

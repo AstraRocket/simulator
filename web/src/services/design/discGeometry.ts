@@ -130,20 +130,26 @@ export function boreAround(child: ComponentNode, parent: ComponentNode, parentSt
 /**
  * A centering ring's automatic bore: the widest inner tube beside it whose span
  * overlaps the ring's, 0 when none does, and never wider than the ring
- * (`CenteringRing.getInnerRadius`). The spans are compared as placed, not
- * clipped to the parent: a mount that overhangs the tube's aft end still
- * misses a ring placed past its own end.
+ * (`CenteringRing.getInnerRadius`).
  */
 export function ringBore(ring: ComponentNode, parent: ComponentNode, ringOuter: number, parentStart: number): number {
-  const [r0, r1] = rawSpanIn(ring, parent, parentStart);
   let bore = 0;
-  for (const sib of parent.children ?? []) {
-    if (sib.type !== 'innertube') continue;
-    const [t0, t1] = rawSpanIn(sib, parent, parentStart);
-    if (r1 < t0 || r0 > t1) continue;
-    bore = Math.max(bore, num(sib, 'outerRadius', 0));
-  }
+  for (const tube of tubesThrough(ring, parent, parentStart)) bore = Math.max(bore, num(tube, 'outerRadius', 0));
   return Math.min(bore, ringOuter);
+}
+
+/**
+ * The inner tubes beside a ring whose spans overlap the ring's, as placed and
+ * not clipped to the parent: a mount that overhangs the tube's aft end still
+ * misses a ring placed past its own end.
+ */
+function tubesThrough(ring: ComponentNode, parent: ComponentNode, parentStart: number): ComponentNode[] {
+  const [r0, r1] = rawSpanIn(ring, parent, parentStart);
+  return (parent.children ?? []).filter((sib) => {
+    if (sib.type !== 'innertube') return false;
+    const [t0, t1] = rawSpanIn(sib, parent, parentStart);
+    return !(r1 < t0 || r0 > t1);
+  });
 }
 
 /** One hole through a disc part: its center in the kernel's y/z frame and its radius (m). */
@@ -165,17 +171,13 @@ export interface Hole {
  * which the plain bore already draws. Touching holes are left touching: that is
  * the ring the tubes need.
  */
-export function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: number): Hole[] | null {
+function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: number): Hole[] | null {
   if (ring.type !== 'centeringring') return null;
   if (ring['innerRadiusAuto'] !== true && typeof ring['innerRadius'] === 'number') return null;
-  const [r0, r1] = rawSpanIn(ring, parent, parentStart);
   const holes: Hole[] = [];
-  for (const sib of parent.children ?? []) {
-    if (sib.type !== 'innertube') continue;
-    const [t0, t1] = rawSpanIn(sib, parent, parentStart);
-    if (r1 < t0 || r0 > t1) continue;
-    const r = num(sib, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
-    for (const { radialPosition: d, radialDirection: dir } of clusterPlacesOf(sib)) {
+  for (const tube of tubesThrough(ring, parent, parentStart)) {
+    const r = num(tube, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
+    for (const { radialPosition: d, radialDirection: dir } of clusterPlacesOf(tube)) {
       holes.push({ y: d * Math.cos(dir), z: d * Math.sin(dir), r });
     }
   }

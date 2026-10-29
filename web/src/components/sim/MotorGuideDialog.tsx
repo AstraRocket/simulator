@@ -15,8 +15,7 @@ import {
   useMotorFilter,
 } from './MotorFilterBar';
 import { MotorSearch } from './MotorPanelParts';
-import { useUnits, type Units } from '../../prefs/useUnits';
-import type { Quantity } from '../../prefs/units';
+import { useUnits } from '../../prefs/useUnits';
 import { useLauncherT } from '../common/useLauncher';
 import { useSettings } from '../../state/SettingsProvider';
 import {
@@ -32,7 +31,7 @@ import { liveMotors } from '../../services/flight/flightConfigs';
 import { hasUsableCurve } from '../../services/motors/motorCurve';
 import { mountFit } from '../../services/motors/motorPicker';
 import { MAX_GUIDE_MOTORS, type GuideRow } from '../../services/flight/motorGuide';
-import { hasLocalCurve, type CatalogMotor } from '../../services/motors/motorDb';
+import type { CatalogMotor } from '../../services/motors/motorDb';
 import { keyOf } from '../../services/motors/motorKey';
 import { avgThrustOf } from '../../services/motors/motorMath';
 import { effectivePrefs } from '../../services/flight/simulations';
@@ -48,6 +47,16 @@ import { motorGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
 import { useIsDesktop } from '../common/useMediaQuery';
+import {
+  GuideResults,
+  GuideToolbar,
+  GuideUseButton,
+  motorCols,
+  sortGuideRows,
+  useGuideCandidates,
+  type GuideCol,
+  type GuideSort,
+} from './GuideResults';
 
 /**
  * The motor guide: pick candidate motors with the motor filters, fly each one in
@@ -151,14 +160,8 @@ function GuideBody({
   });
   const liftoffFields = useLiftoffFields(configId ? { configId, mountId } : null);
   const f = useMotorFilter(catalog, { mount: fit, perfFields: liftoffFields });
-  // Only motors with a curve to fly; the rest are listed for their specs alone.
-  const candidates = useMemo(() => f.matches.filter(hasLocalCurve), [f.matches]);
-  const uncurved = useMemo(() => f.matches.filter((m) => !hasLocalCurve(m)), [f.matches]);
-  const leftOut = uncurved.length;
-  // The motors unticked in the list, by key. Kept as exclusions rather than a
-  // ticked set, so a motor a filter change brings in arrives ticked.
-  const [dropped, setDropped] = useState<ReadonlySet<string>>(() => new Set());
-  const flying = useMemo(() => candidates.filter((m) => !dropped.has(keyOf(m))), [candidates, dropped]);
+  const { candidates, noCurve, dropped, setDropped, flying } = useGuideCandidates(f.matches);
+  const leftOut = noCurve.length;
 
   const run = useWorkspaceStore((s) => s.motorGuideRun);
   const guide = useWorkspaceStore((s) => selectMotorGuideFor(s, simId));
@@ -240,7 +243,7 @@ function GuideBody({
       ) : (
         <CandidateList
           candidates={candidates}
-          uncurved={uncurved}
+          noCurve={noCurve}
           dropped={dropped}
           onDropped={setDropped}
           disabled={busy}
@@ -259,14 +262,14 @@ function GuideBody({
  */
 export function CandidateList({
   candidates,
-  uncurved,
+  noCurve,
   dropped,
   onDropped,
   disabled,
   hint,
 }: {
   candidates: CatalogMotor[];
-  uncurved: CatalogMotor[];
+  noCurve: CatalogMotor[];
   dropped: ReadonlySet<string>;
   onDropped: (next: ReadonlySet<string>) => void;
   disabled: boolean;
@@ -288,7 +291,7 @@ export function CandidateList({
   const box = 'accent-accent-500 disabled:opacity-30';
   const pick = 'rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-elevated disabled:opacity-40';
 
-  if (!candidates.length && !uncurved.length) {
+  if (!candidates.length && !noCurve.length) {
     return (
       <div className="grid min-h-0 flex-1 place-items-center p-6 text-center text-sm text-ink-faint">
         {t('motorDlg.noResults')}
@@ -400,29 +403,15 @@ export function CandidateList({
         </thead>
         <tbody>
           {candidates.map((m) => row(m, true))}
-          {uncurved.map((m) => row(m, false))}
+          {noCurve.map((m) => row(m, false))}
         </tbody>
       </table>
     </div>
   );
 }
 
-/** One table column: a figure off the row, in SI, and the unit it is shown in. */
-interface GuideCol {
-  id: string;
-  label: string;
-  /** Unit group; absent for a figure with one unit, which the label then names. */
-  quantity?: Quantity;
-  value: (r: GuideRow) => number | null;
-  /** Fixed decimals for a unitless figure. */
-  digits?: number;
-}
-
-const COLS: GuideCol[] = [
-  // The motor's own figures first, as the list before the flight shows them,
-  // so how much motor it is sits beside what it did.
-  { id: 'impulse', label: 'motorDlg.totalImpulse', quantity: 'impulse', value: (r) => r.motor.impulse },
-  { id: 'avgThrust', label: 'motorDlg.avgThrust', quantity: 'force', value: (r) => avgThrustOf(r.motor) },
+const COLS: GuideCol<GuideRow>[] = [
+  ...motorCols<GuideRow>(),
   { id: 'burn', label: 'guide.colBurn', value: (r) => r.motor.burn, digits: 1 },
   { id: 'apogee', label: 'sim.apogee', quantity: 'distance', value: (r) => r.apogee },
   { id: 'maxVelocity', label: 'sim.maxSpeed', quantity: 'velocity', value: (r) => r.maxVelocity },
@@ -435,15 +424,6 @@ const COLS: GuideCol[] = [
   { id: 'deployVelocity', label: 'sim.deployVelocity', quantity: 'velocity', value: (r) => r.deployVelocity },
   { id: 'landingVelocity', label: 'sim.landing', quantity: 'velocity', value: (r) => r.landingVelocity },
 ];
-
-/** 'motor', 'delay', 'status', or a column id. */
-type SortKey = string;
-
-const cellText = (c: GuideCol, r: GuideRow, u: Units): string => {
-  const v = c.value(r);
-  if (v == null || !Number.isFinite(v)) return NO_VALUE;
-  return c.quantity ? u.fmt(c.quantity, v) : fmtNum(v, c.digits ?? 1);
-};
 
 /** The status cell's words, in the order the issues are judged. */
 const ISSUE_KEY: Record<GuideIssue, string> = {
@@ -459,6 +439,9 @@ function verdictText(v: GuideVerdict, t: TFunction): string {
   if (v.warnings) parts.push(t('guide.issue.warnings', { count: v.warnings }));
   return parts.join(', ');
 }
+
+/** Names and the status run low to high first; figures high to low. */
+const descFirst = (key: string) => key !== 'motor' && key !== 'status';
 
 function GuideTable({
   simId,
@@ -498,7 +481,7 @@ function GuideTable({
   );
 
   // Highest apogee first: the column a guide is most often read by.
-  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'apogee', desc: true });
+  const [sort, setSort] = useState<GuideSort>({ key: 'apogee', desc: true });
   const rows = useMemo(() => {
     const val = (r: GuideRow): number | string => {
       if (sort.key === 'motor') return motorName(r.motor);
@@ -506,54 +489,20 @@ function GuideTable({
       if (sort.key === 'status') return verdictRank(verdicts.get(r.key)!);
       return COLS.find((c) => c.id === sort.key)?.value(r) ?? NaN;
     };
-    return [...guide.rows].sort((a, b) => {
-      const x = val(a);
-      const y = val(b);
-      // Unknown figures sort last whichever way the column runs.
-      const xn = typeof x === 'number' && !Number.isFinite(x);
-      const yn = typeof y === 'number' && !Number.isFinite(y);
-      if (xn || yn) return xn === yn ? 0 : xn ? 1 : -1;
-      const c = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
-      return sort.desc ? -c : c;
-    });
+    return sortGuideRows(guide.rows, val, sort.desc);
   }, [guide.rows, sort, verdicts]);
 
-  const header = (key: SortKey, label: string, align: 'left' | 'right' = 'right') => {
-    const active = sort.key === key;
-    return (
-      <th
-        key={key}
-        scope="col"
-        aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : 'none'}
-        // Headers wrap, onto two lines at most for these labels: held to one
-        // line, "Thrust/weight at exit" and its neighbors set the column
-        // widths, and fourteen columns then scroll sideways in a dialog that
-        // has room for every figure in them.
-        className={`px-1.5 py-1.5 align-bottom font-medium leading-tight ${align === 'left' ? 'text-left' : 'text-right'}`}
-      >
-        <button
-          onClick={() => setSort((s) => ({ key, desc: s.key === key ? !s.desc : key !== 'motor' && key !== 'status' }))}
-          className={`hover:text-ink-strong ${align === 'left' ? 'text-left' : 'text-right'} ${active ? 'text-ink-strong' : ''}`}
-        >
-          {label}
-          {active && <span aria-hidden="true">{sort.desc ? ' ▾' : ' ▴'}</span>}
-        </button>
-      </th>
-    );
-  };
-  const colLabel = (c: GuideCol) => (c.quantity ? `${lt(c.label)} (${u.sym(c.quantity)})` : lt(c.label));
+  const colLabel = (c: GuideCol<GuideRow>) => (c.quantity ? `${lt(c.label)} (${u.sym(c.quantity)})` : lt(c.label));
   const pickButton = (r: GuideRow, name: string, size: string) => (
-    <button
+    <GuideUseButton
+      name={name}
+      size={size}
+      disabled={stale}
+      title={stale ? t('guide.useStale') : t('guide.useHint')}
       onClick={() => {
         if (promote(r.key)) onClose();
       }}
-      disabled={stale}
-      title={stale ? t('guide.useStale') : t('guide.useHint')}
-      aria-label={t('guide.useNamed', { motor: name })}
-      className={`rounded-md bg-raised font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40 ${size}`}
-    >
-      {t('guide.use')}
-    </button>
+    />
   );
   const status = (r: GuideRow) => {
     const v = verdicts.get(r.key)!;
@@ -568,8 +517,6 @@ function GuideTable({
       </span>
     );
   };
-  const select =
-    'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
 
   const exportCsv = () => {
     download(
@@ -592,134 +539,26 @@ function GuideTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
-        <span className="text-ink-muted">
-          {t(guide.partial ? 'guide.flownPartial' : 'guide.flown', { flown: guide.rows.length, asked: guide.asked })}
-        </span>
-        <button onClick={exportCsv} disabled={!rows.length} className={`${btn} bg-raised text-ink hover:bg-elevated`}>
-          <span aria-hidden>⬇ CSV</span>
-          <span className="sr-only">{t('guide.exportCsv')}</span>
-        </button>
-        <button onClick={clearMotorGuide} className={`${btn} bg-raised text-ink-soft hover:bg-elevated`}>
-          {t('guide.clear')}
-        </button>
-        {/* The rows stay on screen and say so, as a stale drift sweep does: they
-            are still the honest answer for the rocket that flew them. */}
-        {stale && <span className="text-warn-400">{t('guide.stale')}</span>}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-        {cards ? (
-          <>
-            {/* No headers to click, so the sort is a pick and a direction. */}
-            <div className="flex items-center gap-2 pb-2 text-xs">
-              <label className="flex items-center gap-2 text-ink-muted">
-                {t('guide.sortBy')}
-                <select
-                  value={sort.key}
-                  onChange={(e) => {
-                    const key = e.target.value;
-                    setSort({ key, desc: key !== 'motor' && key !== 'status' });
-                  }}
-                  className={select}
-                >
-                  <option value="motor">{t('guide.colMotor')}</option>
-                  <option value="delay">{t('guide.colDelay')}</option>
-                  {COLS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {colLabel(c)}
-                    </option>
-                  ))}
-                  <option value="status">{t('guide.colStatus')}</option>
-                </select>
-              </label>
-              <button onClick={() => setSort((s) => ({ ...s, desc: !s.desc }))} className={select}>
-                {sort.desc ? `▾ ${t('guide.sortDesc')}` : `▴ ${t('guide.sortAsc')}`}
-              </button>
-            </div>
-            <ul className="space-y-2">
-              {rows.map((r) => {
-                const name = motorName(r.motor);
-                return (
-                  <li key={r.key} className="rounded-lg bg-raised/40 p-3 text-xs ring-1 ring-line/10">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="text-sm font-medium text-ink-strong">{name}</span>
-                        <span className="ml-1.5 text-ink-faint">{r.motor.manufacturer}</span>
-                        <span className="ml-1.5 text-ink-soft" title={r.motor.delays ?? undefined}>
-                          {`${t('guide.colDelay')} ${delayString(r.delay)}`}
-                        </span>
-                        <div className="mt-0.5">{status(r)}</div>
-                      </div>
-                      {pickButton(r, name, 'shrink-0 px-3 py-1.5 text-xs')}
-                    </div>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
-                      {COLS.map((c) => (
-                        <div key={c.id} className="flex justify-between gap-2">
-                          <dt className={sort.key === c.id ? 'text-ink-strong' : 'text-ink-muted'}>{colLabel(c)}</dt>
-                          <dd className={sort.key === c.id ? 'font-medium text-ink-strong' : 'text-ink-soft'}>
-                            {cellText(c, r, u)}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        ) : (
-          <table className="w-full text-xs tabular-nums">
-            <thead className="sticky top-0 bg-surface text-ink-muted">
-              <tr>
-                {header('motor', t('guide.colMotor'), 'left')}
-                {header('delay', t('guide.colDelay'))}
-                {COLS.map((c) => header(c.id, colLabel(c)))}
-                {header('status', t('guide.colStatus'), 'left')}
-                <th scope="col" className="px-1.5 py-1.5 align-bottom">
-                  <span className="sr-only">{t('guide.colUse')}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/5">
-              {rows.map((r) => {
-                const name = motorName(r.motor);
-                return (
-                  <tr key={r.key} className="hover:bg-raised/50">
-                    <th scope="row" className="whitespace-nowrap px-1.5 py-1.5 text-left font-medium text-ink-strong">
-                      {name}
-                      <span className="ml-1.5 font-normal text-ink-faint">{r.motor.manufacturer}</span>
-                    </th>
-                    <td className="px-1.5 py-1.5 text-right" title={r.motor.delays ?? undefined}>
-                      {delayString(r.delay)}
-                    </td>
-                    {COLS.map((c) => (
-                      <td key={c.id} className="whitespace-nowrap px-1.5 py-1.5 text-right text-ink-soft">
-                        {cellText(c, r, u)}
-                      </td>
-                    ))}
-                    <td className="px-1.5 py-1.5">{status(r)}</td>
-                    <td className="px-1.5 py-1.5 text-right">{pickButton(r, name, 'px-2 py-0.5 text-[11px]')}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        {guide.failed.length > 0 && (
-          <div className="mt-3 space-y-1 text-xs">
-            <h3 className="font-medium text-ink-muted">{t('guide.notFlown', { count: guide.failed.length })}</h3>
-            <ul className="space-y-0.5 text-ink-faint">
-              {guide.failed.map((x) => (
-                <li key={x.key}>
-                  <span className="font-medium text-ink-soft">{motorName(x.motor)}</span> {x.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      <GuideToolbar
+        guide={guide}
+        onCsv={exportCsv}
+        onClear={clearMotorGuide}
+        staleText={stale ? t('guide.stale') : null}
+      />
+      <GuideResults
+        rows={rows}
+        failed={guide.failed}
+        cols={COLS}
+        colLabel={colLabel}
+        sort={sort}
+        onSort={setSort}
+        descFirst={descFirst}
+        delay={(r) => ({ text: delayString(r.delay), title: r.motor.delays ?? undefined })}
+        statusSorts
+        status={status}
+        pick={pickButton}
+        cards={cards}
+      />
     </div>
   );
 }

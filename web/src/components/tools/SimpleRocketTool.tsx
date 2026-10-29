@@ -4,10 +4,8 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { useSettings } from '../../state/SettingsProvider';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
-import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { QNum } from '../sim/LaunchPanel';
-import { SiteElevationField } from './SiteFields';
+import { SiteElevationField, SiteTemperatureField } from './SiteFields';
 import { CardGroup } from '../common/CardGroup';
 import { NO_VALUE } from '../../i18n/noValue';
 import { NumberRow } from '../common/NumberRow';
@@ -82,11 +80,6 @@ const SECONDARY =
 
 /** An inline notice, as the Run button words one. */
 const NOTICE = 'rounded-lg px-3 py-1.5 text-xs leading-snug ring-1';
-
-/** Clears the remembered inputs, so each test starts from the defaults. */
-export function forgetSimpleRocketTool(): void {
-  remembered.forget();
-}
 
 /** One flight and what it was flown from, so an edit after it reads as stale. */
 interface Flown {
@@ -403,14 +396,8 @@ export function SimpleRocketTool() {
             onChange={setRodLengthM}
           />
           <SiteElevationField required missing={siteM == null} value={siteM} onChange={setSiteM} />
-          <QNum
-            label={t('launch.temperature')}
+          <SiteTemperatureField
             field="simpleTemperature"
-            kind="degC"
-            u={u}
-            stepSi={1}
-            minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
-            maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
             placeholder={t('simpleTool.standard')}
             value={temperatureC}
             onChange={setTemperatureC}

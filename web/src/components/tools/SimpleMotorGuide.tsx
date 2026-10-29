@@ -15,20 +15,25 @@ import {
 } from '../sim/MotorFilterBar';
 import { MotorSearch } from '../sim/MotorPanelParts';
 import { CandidateList } from '../sim/MotorGuideDialog';
+import {
+  GuideResults,
+  GuideToolbar,
+  GuideUseButton,
+  motorCols,
+  sortGuideRows,
+  useGuideCandidates,
+  type GuideCol,
+  type GuideSort,
+} from '../sim/GuideResults';
 import { useUnits } from '../../prefs/useUnits';
-import type { Quantity } from '../../prefs/units';
 import { useSettings } from '../../state/SettingsProvider';
 import { PERF_FIELDS, twrField } from '../../services/motors/motorPerf';
-import { hasLocalCurve } from '../../services/motors/motorDb';
 import { catalogMotorSpec } from '../../services/motors/motorSpec';
 import { keyOf } from '../../services/motors/motorKey';
-import { avgThrustOf } from '../../services/motors/motorMath';
 import { delayString, motorName } from '../../services/motors/motorName';
 import { nearestDelay, probeDelay } from '../../services/flight/motorGuide';
 import { SimCanceledError } from '../../engine/simClient';
 import { errorText } from '../../i18n/keyedError';
-import { fmtNum } from '../../i18n/format';
-import { NO_VALUE } from '../../i18n/noValue';
 import {
   SIMPLE_GUIDE_MAX,
   SIMPLE_MACH_CAUTION,
@@ -83,10 +88,7 @@ export function SimpleMotorGuide({
   );
   const { catalog, loading, error, retry } = useCatalog();
   const f = useMotorFilter(catalog, { mount: fit, perfFields });
-  const candidates = useMemo(() => f.matches.filter(hasLocalCurve), [f.matches]);
-  const uncurved = useMemo(() => f.matches.filter((m) => !hasLocalCurve(m)), [f.matches]);
-  const [dropped, setDropped] = useState<ReadonlySet<string>>(() => new Set());
-  const flying = useMemo(() => candidates.filter((m) => !dropped.has(keyOf(m))), [candidates, dropped]);
+  const { candidates, noCurve, dropped, setDropped, flying } = useGuideCandidates(f.matches);
   const tooMany = flying.length > SIMPLE_GUIDE_MAX;
 
   const [run, setRun] = useState<{ done: number; total: number } | null>(null);
@@ -147,7 +149,7 @@ export function SimpleMotorGuide({
 
   const btn =
     'rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-line/10 disabled:cursor-not-allowed disabled:opacity-40';
-  const leftOut = uncurved.length;
+  const leftOut = noCurve.length;
   const desktop = useIsDesktop();
   const showing = guide != null && !run;
 
@@ -233,7 +235,7 @@ export function SimpleMotorGuide({
         ) : (
           <CandidateList
             candidates={candidates}
-            uncurved={uncurved}
+            noCurve={noCurve}
             dropped={dropped}
             onDropped={setDropped}
             disabled={run !== null}
@@ -245,22 +247,12 @@ export function SimpleMotorGuide({
   );
 }
 
-/** One table column: a figure off the row, in SI, and the unit it is shown in. */
-interface Col {
-  id: string;
-  label: string;
-  quantity?: Quantity;
-  value: (r: SimpleGuideRow) => number | null;
-  digits?: number;
-}
-
 // `?? null`: a guide remembered from before a figure existed has no such field.
 const fig = (k: keyof SimpleFigures) => (r: SimpleGuideRow) => r.figures[k] ?? null;
 
 /** Off the launcher first, the figures drag barely touches; then the estimates. */
-const COLS: Col[] = [
-  { id: 'impulse', label: 'motorDlg.totalImpulse', quantity: 'impulse', value: (r) => r.motor.impulse },
-  { id: 'avgThrust', label: 'motorDlg.avgThrust', quantity: 'force', value: (r) => avgThrustOf(r.motor) },
+const COLS: GuideCol<SimpleGuideRow>[] = [
+  ...motorCols<SimpleGuideRow>(),
   { id: 'railExit', label: 'simpleTool.railExit', quantity: 'velocity', value: fig('railExit') },
   { id: 'railTwr', label: 'guide.colTwr', value: fig('railTwr'), digits: 1 },
   { id: 'maxAcceleration', label: 'sim.maxAccel', quantity: 'acceleration', value: fig('maxAcceleration') },
@@ -277,6 +269,9 @@ const COLS: Col[] = [
 
 /** Columns a guide has only when it flew them: stability needs a CG, the descent a parachute. */
 const OPTIONAL_COLS: ReadonlySet<string> = new Set(['railStability', 'deployVelocity', 'landingVelocity']);
+
+/** The motor's name runs low to high first; figures high to low. */
+const descFirst = (key: string) => key !== 'motor';
 
 function GuideTable({
   guide,
@@ -307,62 +302,29 @@ function GuideTable({
   const cols = COLS.filter((c) => !OPTIONAL_COLS.has(c.id) || guide.rows.some((r) => c.value(r) != null));
 
   // Highest apogee first, as the design's guide opens.
-  const [sort, setSort] = useState<{ key: string; desc: boolean }>({ key: 'apogee', desc: true });
+  const [sort, setSort] = useState<GuideSort>({ key: 'apogee', desc: true });
   const rows = useMemo(() => {
     const val = (r: SimpleGuideRow): number | string =>
       sort.key === 'motor' ? motorName(r.motor) : (COLS.find((c) => c.id === sort.key)?.value(r) ?? NaN);
-    return [...guide.rows].sort((a, b) => {
-      const x = val(a);
-      const y = val(b);
-      const xn = typeof x === 'number' && !Number.isFinite(x);
-      const yn = typeof y === 'number' && !Number.isFinite(y);
-      if (xn || yn) return xn === yn ? 0 : xn ? 1 : -1;
-      const c = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
-      return sort.desc ? -c : c;
-    });
+    return sortGuideRows(guide.rows, val, sort.desc);
   }, [guide.rows, sort]);
 
-  const header = (key: string, label: string, align: 'left' | 'right' = 'right') => {
-    const active = sort.key === key;
-    return (
-      <th
-        key={key}
-        scope="col"
-        aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : 'none'}
-        className={`px-1.5 py-1.5 align-bottom font-medium leading-tight ${align === 'left' ? 'text-left' : 'text-right'}`}
-      >
-        <button
-          onClick={() => setSort((s) => ({ key, desc: s.key === key ? !s.desc : key !== 'motor' }))}
-          className={`hover:text-ink-strong ${align === 'left' ? 'text-left' : 'text-right'} ${active ? 'text-ink-strong' : ''}`}
-        >
-          {label}
-          {active && <span aria-hidden="true">{sort.desc ? ' ▾' : ' ▴'}</span>}
-        </button>
-      </th>
-    );
-  };
-  const colLabel = (c: Col) => (c.quantity ? `${t(c.label)} (${u.sym(c.quantity)})` : t(c.label));
-  const cell = (c: Col, r: SimpleGuideRow) => {
-    const v = c.value(r);
-    if (v == null || !Number.isFinite(v)) return NO_VALUE;
-    return c.quantity ? u.fmt(c.quantity, v) : fmtNum(v, c.digits ?? 1);
-  };
+  const colLabel = (c: GuideCol<SimpleGuideRow>) => (c.quantity ? `${t(c.label)} (${u.sym(c.quantity)})` : t(c.label));
   const pickButton = (r: SimpleGuideRow, name: string, size: string) => (
-    <button
-      onClick={() => onUse(r)}
+    <GuideUseButton
+      name={name}
+      size={size}
       disabled={stale}
       title={stale ? t('simpleTool.guideStale') : t('simpleTool.useHint')}
-      aria-label={t('guide.useNamed', { motor: name })}
-      className={`rounded-md bg-raised font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40 ${size}`}
-    >
-      {t('guide.use')}
-    </button>
+      onClick={() => onUse(r)}
+    />
   );
-  const status = (n: string[]) => (
-    <span className={n.length ? 'text-warn-400' : 'text-ok-400'}>{n.length ? n.join(', ') : t('guide.ok')}</span>
-  );
-  const select =
-    'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
+  const status = (r: SimpleGuideRow) => {
+    const n = notes(r);
+    return (
+      <span className={n.length ? 'text-warn-400' : 'text-ok-400'}>{n.length ? n.join(', ') : t('guide.ok')}</span>
+    );
+  };
   // The table as sorted, in the user's units, as the design's guide exports.
   const exportCsv = () => {
     download(
@@ -384,131 +346,26 @@ function GuideTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
-        <span className="text-ink-muted">
-          {t(guide.partial ? 'guide.flownPartial' : 'guide.flown', { flown: guide.rows.length, asked: guide.asked })}
-        </span>
-        <button
-          onClick={exportCsv}
-          disabled={!rows.length}
-          className="rounded-lg bg-raised px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <span aria-hidden>⬇ CSV</span>
-          <span className="sr-only">{t('guide.exportCsv')}</span>
-        </button>
-        <button
-          onClick={onClear}
-          className="rounded-lg bg-raised px-3 py-1.5 text-xs font-medium text-ink-soft ring-1 ring-line/10 hover:bg-elevated"
-        >
-          {t('guide.clear')}
-        </button>
-        {stale && <span className="text-warn-400">{t('simpleTool.guideStale')}</span>}
-      </div>
+      <GuideToolbar
+        guide={guide}
+        onCsv={exportCsv}
+        onClear={onClear}
+        staleText={stale ? t('simpleTool.guideStale') : null}
+      />
       <p className="px-3 pb-2 text-xs text-ink-faint">{t('simpleTool.estimateNote')}</p>
-
-      <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-        {cards ? (
-          <>
-            {/* No headers to click, so the sort is a pick and a direction. */}
-            <div className="flex items-center gap-2 pb-2 text-xs">
-              <label className="flex items-center gap-2 text-ink-muted">
-                {t('guide.sortBy')}
-                <select
-                  value={sort.key}
-                  onChange={(e) => setSort({ key: e.target.value, desc: e.target.value !== 'motor' })}
-                  className={select}
-                >
-                  <option value="motor">{t('guide.colMotor')}</option>
-                  {cols.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {colLabel(c)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button onClick={() => setSort((s) => ({ ...s, desc: !s.desc }))} className={select}>
-                {sort.desc ? `▾ ${t('guide.sortDesc')}` : `▴ ${t('guide.sortAsc')}`}
-              </button>
-            </div>
-            <ul className="space-y-2">
-              {rows.map((r) => {
-                const name = motorName(r.motor);
-                return (
-                  <li key={r.key} className="rounded-lg bg-raised/40 p-3 text-xs ring-1 ring-line/10">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="text-sm font-medium text-ink-strong">{name}</span>
-                        <span className="ml-1.5 text-ink-faint">{r.motor.manufacturer}</span>
-                        <div className="mt-0.5">{status(notes(r))}</div>
-                      </div>
-                      {pickButton(r, name, 'shrink-0 px-3 py-1.5 text-xs')}
-                    </div>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
-                      {cols.map((c) => (
-                        <div key={c.id} className="flex justify-between gap-2">
-                          <dt className={sort.key === c.id ? 'text-ink-strong' : 'text-ink-muted'}>{colLabel(c)}</dt>
-                          <dd className={sort.key === c.id ? 'font-medium text-ink-strong' : 'text-ink-soft'}>
-                            {cell(c, r)}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        ) : (
-          <table className="w-full text-xs tabular-nums">
-            <thead className="sticky top-0 bg-surface text-ink-muted">
-              <tr>
-                {header('motor', t('guide.colMotor'), 'left')}
-                {cols.map((c) => header(c.id, colLabel(c)))}
-                <th scope="col" className="px-1.5 py-1.5 text-left align-bottom font-medium">
-                  {t('guide.colStatus')}
-                </th>
-                <th scope="col" className="px-1.5 py-1.5 align-bottom">
-                  <span className="sr-only">{t('guide.colUse')}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/5">
-              {rows.map((r) => {
-                const n = notes(r);
-                const name = motorName(r.motor);
-                return (
-                  <tr key={r.key} className="hover:bg-raised/50">
-                    <th scope="row" className="whitespace-nowrap px-1.5 py-1.5 text-left font-medium text-ink-strong">
-                      {name}
-                      <span className="ml-1.5 font-normal text-ink-faint">{r.motor.manufacturer}</span>
-                    </th>
-                    {cols.map((c) => (
-                      <td key={c.id} className="whitespace-nowrap px-1.5 py-1.5 text-right text-ink-soft">
-                        {cell(c, r)}
-                      </td>
-                    ))}
-                    <td className="px-1.5 py-1.5">{status(n)}</td>
-                    <td className="px-1.5 py-1.5 text-right">{pickButton(r, name, 'px-2 py-0.5 text-[11px]')}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        {guide.failed.length > 0 && (
-          <div className="mt-3 space-y-1 text-xs">
-            <h3 className="font-medium text-ink-muted">{t('guide.notFlown', { count: guide.failed.length })}</h3>
-            <ul className="space-y-0.5 text-ink-faint">
-              {guide.failed.map((x) => (
-                <li key={x.key}>
-                  <span className="font-medium text-ink-soft">{motorName(x.motor)}</span> {x.reason}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      <GuideResults
+        rows={rows}
+        failed={guide.failed}
+        cols={cols}
+        colLabel={colLabel}
+        sort={sort}
+        onSort={setSort}
+        descFirst={descFirst}
+        statusSorts={false}
+        status={status}
+        pick={pickButton}
+        cards={cards}
+      />
     </div>
   );
 }

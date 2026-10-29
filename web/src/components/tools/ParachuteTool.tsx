@@ -2,12 +2,10 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { siteAirDensity } from '../../services/flight/recoverySizing';
-import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { QNum } from '../sim/LaunchPanel';
 import { SizingFigures } from './SizingFigures';
 import { CardGroup } from '../common/CardGroup';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
-import { SiteElevationField } from './SiteFields';
+import { SiteElevationField, SiteTemperatureField } from './SiteFields';
 import { NumberRow } from '../common/NumberRow';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
@@ -86,14 +84,8 @@ export function ParachuteTool() {
         </CardGroup>
         <CardGroup title={t('chuteTool.air')}>
           <SiteElevationField required missing={siteM == null} value={siteM} onChange={setSiteM} />
-          <QNum
-            label={t('launch.temperature')}
+          <SiteTemperatureField
             field="chuteTemperature"
-            kind="degC"
-            u={u}
-            stepSi={1}
-            minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
-            maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
             placeholder={t('chuteTool.standard')}
             value={temperatureC}
             onChange={setTemperatureC}

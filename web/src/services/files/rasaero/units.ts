@@ -11,7 +11,6 @@ export const IN = 39.37; // inches per meter (desktop OPENROCKET_TO_RASAERO_LENG
 export const FT = 3.28084;
 export const LB = 2.20462262;
 export const MPH = 2.23694; // mph per m/s
-export const INHG = 33.8639; // hPa per in-Hg
 
 /** Four decimals, trailing zeros trimmed, never "-0"; a non-finite value is 0. */
 export const fmt = (v: number): string => plainDecimal(v, 4, '0');
