@@ -467,6 +467,41 @@ describe('the unload journal', () => {
     expect(saveSync).toHaveBeenCalledTimes(1);
   });
 
+  /** Fire `beforeunload` and report whether the page asked to stay. */
+  const leave = (): boolean => {
+    const e = new Event('beforeunload', { cancelable: true });
+    act(() => void window.dispatchEvent(e));
+    return e.defaultPrevented;
+  };
+
+  it('asks before leaving while a save is failing and edits are unwritten', async () => {
+    await mount();
+    save.mockRejectedValueOnce(new Error('QuotaExceeded'));
+    act(() => s().addPartToTree('bodytube'));
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(s().storageWarning).toBeTruthy();
+    expect(leave()).toBe(true);
+    // The journal is still tried first.
+    expect(saveSync).toHaveBeenCalled();
+  });
+
+  it('leaves without asking when the last write landed, or no save is failing', async () => {
+    await mount();
+    act(() => s().addPartToTree('bodytube'));
+    // Edits waiting on the debounce, but nothing has failed: the journal covers them.
+    expect(leave()).toBe(false);
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(leave()).toBe(false);
+  });
+
   it('does not journal a workspace it never hydrated', () => {
     load.mockReturnValue(new Promise(() => {})); // never settles
     renderWithProviders(<Host />);

@@ -293,12 +293,24 @@ export function useWorkspaceEffects() {
         .catch(() => {});
       flush();
     };
+    // While a save is failing (storage full, or another tab owns the design),
+    // the flush above is no promise: the journal skips a conflicted design and
+    // a full origin refuses it too. So the browser's own "Leave site?" asks
+    // first whenever there are edits no write has landed.
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      flush();
+      const s = useWorkspaceStore.getState();
+      if (!hydrated.current || s.storageNotices.save === null || unchangedSinceWrite(s)) return;
+      e.preventDefault();
+      // Chrome before 119 and older Safari ask only when this is set.
+      e.returnValue = '';
+    };
     window.addEventListener('pagehide', flush);
-    window.addEventListener('beforeunload', flush);
+    window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onHidden);
     return () => {
       window.removeEventListener('pagehide', flush);
-      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onHidden);
     };
   }, []);

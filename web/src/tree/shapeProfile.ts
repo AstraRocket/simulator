@@ -376,7 +376,9 @@ export function stationRadius(node: ComponentNode, x: number): number {
     case 'nosecone':
     case 'transition': {
       const { fore: foreR, aft: aftR } = profileEnds(node);
-      if (!(length > 0)) return Math.max(foreR, aftR);
+      // `Transition.getRadius` answers the fore radius before x = 0 and the aft
+      // radius from `length` on, so with no length the aft end wins at x = 0.
+      if (!(length > 0)) return x < 0 ? foreR : aftR;
       const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
       const at = Math.max(0, Math.min(length, x));
       const pts = outerProfile(nodeShape(node), numOpt(node, 'shapeParameter'), length, foreR, aftR, 1, [at], clipped);

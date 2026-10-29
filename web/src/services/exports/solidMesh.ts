@@ -346,6 +346,31 @@ export function discSolid(outerR: number, innerR: number, length: number): THREE
   return geo;
 }
 
+/**
+ * A centering ring cut with a hole per tube, along +X like {@link discSolid}:
+ * the cluster or offset mount `ringHoles` finds, the same holes the DXF cut
+ * sheet draws. Each hole's `y`/`z` is where its tube passes through the ring.
+ *
+ * Not put through the solid validation, on purpose: a cluster at its default
+ * spacing has tubes that touch, so the holes touch too, and that is the ring
+ * the motors need whether or not a given slicer is happy with it.
+ */
+export function ringSolid(
+  outerR: number,
+  holes: { y: number; z: number; r: number }[],
+  length: number,
+): THREE.BufferGeometry | null {
+  if (!(length > 1e-6) || !(outerR > 1e-6)) return null;
+  const shape = new THREE.Shape().absarc(0, 0, outerR, 0, 2 * Math.PI, false);
+  // Drawn at (−z, y) so the turn below lands each hole at its own (y, z).
+  for (const h of holes) shape.holes.push(new THREE.Path().absarc(-h.z, h.y, h.r, 0, 2 * Math.PI, true));
+  const g = new THREE.ExtrudeGeometry(shape, { depth: length, bevelEnabled: false, curveSegments: SEGMENTS });
+  g.rotateY(Math.PI / 2); // (a, b, depth) -> (depth, b, −a): the extrusion runs along world X
+  const geo = weldSolid(g);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /** One fin as a flat, watertight extruded solid at the origin (planform in XY,
  *  thickness centered on Z), ready to lay on a print bed. */
 function oneFinSolid(child: ComponentNode, parent: FinParent): THREE.BufferGeometry | null {

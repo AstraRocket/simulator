@@ -930,6 +930,12 @@ export function syncAutoRadii(tree: RocketTree): RocketTree {
     if (KEYLESS_AUTO_OUTER.has(node.type) && !hasRadius(node, 'outerRadius') && node['outerRadiusAuto'] !== true) {
       node = { ...node, outerRadiusAuto: true };
     }
+    // The same for a centering ring with no bore (`new CenteringRing()` has an
+    // automatic one), so once sized it still reads as automatic: a cluster or an
+    // offset mount is then cut with its holes, not a bore typed in by hand.
+    if (node.type === 'centeringring' && !hasRadius(node, 'innerRadius') && node['innerRadiusAuto'] !== true) {
+      node = { ...node, innerRadiusAuto: true };
+    }
     // Rings, tube fins and packed devices take their size from what they are
     // inside, not from the part beside them, so they resolve against the
     // parent rather than through the neighbor rules.

@@ -1,6 +1,8 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { finRootChord } from '../../tree/finPlanform';
-import { num, positionOf } from '../../tree/nodeProps';
+import { countOf, num, positionOf } from '../../tree/nodeProps';
+import { clusterPlacesOf } from '../../tree/cluster';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { axialLength, partLength, startFromPosition } from '../../tree/position';
 import { parentStartOf } from '../../tree/axialRebase';
 import { stationRadius } from '../../tree/shapeProfile';
@@ -27,6 +29,54 @@ import { isPlanarFinSet } from '../../tree/tubefins';
  * set on something that is not a symmetric body, which the desktop also does
  * nothing for.
  */
+
+/** Each fin's direction about the body axis and the half width of its tab. */
+type FinLines = { angles: number[]; halfThickness: number };
+
+/**
+ * The fins as `FinSet.getInstanceAngles` places them: the first at the set's
+ * `rotation`, the rest evenly around, in the same y/z frame a cluster tube's
+ * center is given in.
+ */
+function finLines(fin: ComponentNode): FinLines {
+  const defaults = KERNEL_DEFAULTS[fin.type as 'trapezoidfinset'];
+  const count = countOf(fin, 'finCount', defaults.finCount);
+  const rotation = num(fin, 'rotation', 0);
+  return {
+    angles: Array.from({ length: count }, (_, i) => rotation + (2 * Math.PI * i) / count),
+    halfThickness: num(fin, 'thickness', defaults.thickness) / 2,
+  };
+}
+
+/**
+ * How far out from the axis an inner tube meets a fin's tab, the deepest the
+ * tab may go: the highest point of any tube of the cluster that lies inside
+ * any fin's tab, the tab being a slab its thickness wide along the fin's line.
+ *
+ * Desktop's `calculateAutoTab` takes the tube's outer radius, as if every
+ * tube sat on the axis. For one centered tube that is exactly this answer.
+ * For a cluster or an offset mount it is not: a 3-ring of 12 mm tubes reaches
+ * about 26 mm out, so a tab cut down to 12 mm runs through them, while a fin
+ * that sits between the tubes misses them and may go deeper. 0 when no fin's
+ * line meets the tube.
+ */
+function tubeReach(tube: ComponentNode, fins: FinLines): number {
+  const r = num(tube, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
+  const h = fins.halfThickness;
+  let reach = 0;
+  for (const { radialPosition: d, radialDirection: dir } of clusterPlacesOf(tube)) {
+    for (const angle of fins.angles) {
+      // The tube's center, along the fin's line and across it.
+      const along = d * Math.cos(dir - angle);
+      const across = d * Math.sin(dir - angle);
+      // The tube's top over the slab is where the slab comes nearest its center.
+      const gap = Math.abs(across - Math.max(-h, Math.min(h, across)));
+      if (gap >= r) continue;
+      reach = Math.max(reach, along + Math.sqrt(r * r - gap * gap));
+    }
+  }
+  return reach;
+}
 
 /** A centering ring reduced to what the placement math needs. */
 type Ring = {
@@ -177,11 +227,12 @@ export function autoFinTab(tree: RocketTree, id: string): Partial<ComponentNode>
   let maxTubeRadius = 0;
   let maxRingRadius = 0;
   const rings: Ring[] = [];
+  const fins = finLines(node);
   for (const child of parent.children ?? []) {
     const top = offsetFromTop(child, parentLength, parentStart);
     if (child.type === 'innertube') {
       if (!overlapsFin(top, partLength(child), finTop, finLength)) continue;
-      maxTubeRadius = Math.max(maxTubeRadius, num(child, 'outerRadius'));
+      maxTubeRadius = Math.max(maxTubeRadius, tubeReach(child, fins));
     } else if (child.type === 'centeringring') {
       maxRingRadius = Math.max(maxRingRadius, num(child, 'outerRadius'));
       rings.push({ top, thickness: partLength(child), outerRadius: num(child, 'outerRadius') });

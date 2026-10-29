@@ -4,6 +4,15 @@ import { degToRad, radToDeg } from '../../prefs/units';
 /** The kernel's Earth radius (the WorldCoordinate constant), meters. */
 export const KERNEL_EARTH_RADIUS_M = 6371000;
 
+/** The ISA reference Earth radius the kernel's atmosphere converts altitudes with (`ExtendedISAModel`), meters. */
+export const ISA_EARTH_RADIUS_M = 6356766;
+
+/**
+ * A geopotential height as the geometric altitude the kernel flies, meters:
+ * `ExtendedISAModel`'s own geopotential-to-geometric conversion.
+ */
+export const geometricFromGeopotential = (z: number): number => (ISA_EARTH_RADIUS_M * z) / (ISA_EARTH_RADIUS_M - z);
+
 /**
  * A point `east`, `north` meters from a site, as latitude and longitude: a port
  * of the kernel's default SPHERICAL GeodeticComputationStrategy.addCoordinate,

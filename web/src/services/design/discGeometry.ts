@@ -3,6 +3,8 @@ import { noseConeAftRadius, num, positionOf } from '../../tree/nodeProps';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { partLength, startFromPosition } from '../../tree/position';
 import { stationRadius } from '../../tree/shapeProfile';
+import { clusterPlacesOf } from '../../tree/cluster';
+import { parentStartOf } from '../../tree/axialRebase';
 // Shared with the .ork reader and writer, so a part that lost a tag is sized the
 // way it was read and saved.
 import { COMPONENT_DEFAULTS } from './componentDefaults';
@@ -144,41 +146,99 @@ export function ringBore(ring: ComponentNode, parent: ComponentNode, ringOuter: 
   return Math.min(bore, ringOuter);
 }
 
-/** Locate a node plus the enclosing tube + siblings its cut part needs. */
+/** One hole through a disc part: its center in the kernel's y/z frame and its radius (m). */
+export interface Hole {
+  y: number;
+  z: number;
+  r: number;
+}
+
+/**
+ * The holes an automatic centering ring is cut with, when one centered bore is
+ * not the answer: a hole for every tube of every inner tube whose span overlaps
+ * the ring's, at the place the kernel flies it (`clusterPlacesOf`), each as wide
+ * as the tube. A cluster mount gets a hole per motor and an offset mount gets
+ * its hole off center, as the tubes really pass through the ring.
+ *
+ * Null when the ring's bore is stated, since a bore you typed is the one
+ * centered hole you asked for, and when the holes come to one centered hole,
+ * which the plain bore already draws. Touching holes are left touching: that is
+ * the ring the tubes need.
+ */
+export function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: number): Hole[] | null {
+  if (ring.type !== 'centeringring') return null;
+  if (ring['innerRadiusAuto'] !== true && typeof ring['innerRadius'] === 'number') return null;
+  const [r0, r1] = rawSpanIn(ring, parent, parentStart);
+  const holes: Hole[] = [];
+  for (const sib of parent.children ?? []) {
+    if (sib.type !== 'innertube') continue;
+    const [t0, t1] = rawSpanIn(sib, parent, parentStart);
+    if (r1 < t0 || r0 > t1) continue;
+    const r = num(sib, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
+    for (const { radialPosition: d, radialDirection: dir } of clusterPlacesOf(sib)) {
+      holes.push({ y: d * Math.cos(dir), z: d * Math.sin(dir), r });
+    }
+  }
+  const centered = holes.length === 1 && Math.hypot(holes[0]!.y, holes[0]!.z) < 1e-9;
+  return holes.length === 0 || centered ? null : holes;
+}
+
+/** Locate a node plus the enclosing tube + siblings its cut part needs, and the part they sit in. */
 export function nodeContext(
   tree: RocketTree,
   nodeId: string,
-): { node: ComponentNode; enclosing: Tube | null; siblings: ComponentNode[] } | null {
-  let found: { node: ComponentNode; enclosing: Tube | null; siblings: ComponentNode[] } | null = null;
-  const walk = (node: ComponentNode, enclosing: Tube | null, siblings: ComponentNode[]): boolean => {
+): { node: ComponentNode; enclosing: Tube | null; siblings: ComponentNode[]; parent: ComponentNode | null } | null {
+  let found: {
+    node: ComponentNode;
+    enclosing: Tube | null;
+    siblings: ComponentNode[];
+    parent: ComponentNode | null;
+  } | null = null;
+  const walk = (
+    node: ComponentNode,
+    enclosing: Tube | null,
+    siblings: ComponentNode[],
+    parent: ComponentNode | null,
+  ): boolean => {
     if (node.id === nodeId) {
-      found = { node, enclosing, siblings };
+      found = { node, enclosing, siblings, parent };
       return true;
     }
     const kids = node.children ?? [];
     const childEnclosing = tubeRadii(node) ?? enclosing; // a tube redefines the bore for its children
-    for (const kid of kids) if (walk(kid, childEnclosing, kids)) return true;
+    for (const kid of kids) if (walk(kid, childEnclosing, kids, node)) return true;
     return false;
   };
   for (const stage of tree.components) {
     const kids = stage.type === 'stage' ? (stage.children ?? []) : [stage];
-    for (const kid of kids) if (walk(kid, tubeRadii(kid) ?? null, kids)) break;
+    for (const kid of kids) if (walk(kid, tubeRadii(kid) ?? null, kids, stage.type === 'stage' ? stage : null)) break;
   }
   return found;
+}
+
+/** {@link ringHoles} for a part found by {@link nodeContext}. */
+export function ringHolesIn(
+  tree: RocketTree,
+  ctx: { node: ComponentNode; parent: ComponentNode | null },
+): Hole[] | null {
+  return ctx.parent ? ringHoles(ctx.node, ctx.parent, parentStartOf(tree, ctx.parent)) : null;
 }
 
 /**
  * Resolved solid dimensions of a disc / ring / tube part (centering ring,
  * bulkhead, coupler, engine block), for its 3D mesh export: the same radius
  * resolution the DXF uses (explicit radii, else the parent tube's bore, else the
- * mount an inner tube provides). Returns null for any other type.
+ * mount an inner tube provides). Returns null for any other type. `holes` is
+ * set when a centering ring's mount is a cluster or off center, and then
+ * replaces the centered bore (see {@link ringHoles}).
  */
 export function resolveDisc(
   tree: RocketTree,
   nodeId: string,
-): { outerR: number; innerR: number; length: number } | null {
+): { outerR: number; innerR: number; length: number; holes: Hole[] | null } | null {
   const ctx = nodeContext(tree, nodeId);
-  return ctx ? discDims(ctx.node, ctx.enclosing, ctx.siblings) : null;
+  const dims = ctx ? discDims(ctx.node, ctx.enclosing, ctx.siblings) : null;
+  return ctx && dims ? { ...dims, holes: ringHolesIn(tree, ctx) } : null;
 }
 
 /**

@@ -115,6 +115,16 @@ describe('parseForecast', () => {
     expect(s.levels).toHaveLength(PRESSURE_LEVELS.length);
     expect(s.levels[0]).toMatchObject({ pressureHPa: 1000, windSpeed: 10, humidityPct: 30 });
   });
+
+  it('places each pressure level at its geometric height, not the geopotential one', () => {
+    // The kernel's atmosphere reads altitudes as geometric (ExtendedISAModel),
+    // so a geopotential 24,000 m is flown at R·Z/(R − Z), about 91 m higher.
+    const body = answer(1600);
+    body.hourly['geopotential_height_30hPa'] = body.hourly['geopotential_height_30hPa']!.map(() => 24000);
+    const level = parseForecast(body, [1600])[0]!.samples[0]!.levels.find((l) => l.pressureHPa === 30)!;
+    expect(level.altitudeM).toBeCloseTo((6356766 * 24000) / (6356766 - 24000), 6);
+    expect(level.altitudeM! - 24000).toBeCloseTo(91, 0);
+  });
   it('reads the sky readouts, and visibility only from the forecast', () => {
     const [v] = parseForecast(answer(1600), [1600]);
     expect(v!.samples[0]).toMatchObject({ cloudCoverPct: 40, cloudCoverLowPct: 10, visibilityM: 24140 });

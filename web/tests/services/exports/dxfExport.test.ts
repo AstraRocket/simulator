@@ -257,3 +257,72 @@ describe('a non-finite dimension', () => {
     expect(dxf).not.toMatch(/NaN|Infinity/);
   });
 });
+
+/**
+ * A ring on Automatic around a cluster or an offset mount is cut with a hole
+ * where each tube really passes through it, not one centered bore the size of
+ * one tube. A bore typed in by hand stays the centered hole asked for.
+ */
+describe('centering ring holes for a cluster or offset mount', () => {
+  const withMount = (mount: Record<string, unknown>, ring: Record<string, unknown> = {}) =>
+    ({
+      name: 'Cluster',
+      components: [
+        {
+          type: 'stage',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'body',
+              length: 0.3,
+              outerRadius: 0.04,
+              thickness: 0.001,
+              children: [
+                { type: 'centeringring', id: 'cr', length: 0.003, ...ring },
+                { type: 'innertube', id: 'mount', outerRadius: 0.01, thickness: 0.0005, length: 0.07, ...mount },
+              ],
+            },
+          ],
+        },
+      ],
+    }) as unknown as RocketTree;
+
+  /** Every CIRCLE as [x, y, r] in mm, sheet offset taken off the outline's center. */
+  const circles = (dxf: string): [number, number, number][] => {
+    const all = pairs(dxf)
+      .map(([c, v], i, a) => {
+        if (c !== '0' || v !== 'CIRCLE') return null;
+        const at = (code: string) => Number(a.slice(i, i + 8).find(([cc]) => cc === code)?.[1]);
+        return [at('10'), at('20'), at('40')] as [number, number, number];
+      })
+      .filter((x): x is [number, number, number] => x !== null);
+    const outer = all.reduce((m, c) => (c[2] > m[2] ? c : m));
+    return all.map(([x, y, r]) => [x - outer[0], y - outer[1], r]);
+  };
+
+  it('cuts one hole per tube of a 3-ring cluster, each at its tube', () => {
+    const tree = withMount({ cluster: '3-ring' });
+    const holes = circles(componentToDxf(tree, 'cr')!).filter(([, , r]) => r === 10);
+    expect(holes).toHaveLength(3);
+    // Touching tubes of radius 10 mm: centers 20 mm apart, 20/√3 mm off the axis.
+    for (const [x, y] of holes) expect(Math.hypot(x, y)).toBeCloseTo(20 / Math.sqrt(3), 2);
+    expect(resolveDisc(tree, 'cr')!.holes).toHaveLength(3);
+  });
+
+  it('cuts an offset mount hole off center', () => {
+    const holes = circles(componentToDxf(withMount({ radialPosition: 0.015 }), 'cr')!).filter(([, , r]) => r === 10);
+    expect(holes).toHaveLength(1);
+    expect(Math.hypot(holes[0]![0], holes[0]![1])).toBeCloseTo(15, 3);
+  });
+
+  it('keeps one centered bore for a single centered mount', () => {
+    expect(resolveDisc(withMount({}), 'cr')!.holes).toBeNull();
+  });
+
+  it('keeps a stated bore as one centered hole', () => {
+    const tree = withMount({ cluster: '3-ring' }, { innerRadius: 0.005, innerRadiusAuto: false });
+    expect(resolveDisc(tree, 'cr')!.holes).toBeNull();
+    const cs = circles(componentToDxf(tree, 'cr')!);
+    expect(cs.filter(([, , r]) => r < 39)).toEqual([[0, 0, 5]]);
+  });
+});

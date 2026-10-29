@@ -2,7 +2,7 @@ import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { asStageNodes } from '../design/orkTree';
 import { finMountOf } from '../../tree/finPlanform';
 import { findNode } from '../../tree/treeWalk';
-import { discSolidForNode, makeWatertight, solidForNode } from './solidMesh';
+import { discSolidForNode, makeWatertight, ringSolid, solidForNode } from './solidMesh';
 import { resolveDisc } from '../design/discGeometry';
 import { DISC_TYPES } from '../files/componentFormats';
 import { printableParts } from './printableParts';
@@ -69,7 +69,9 @@ export function solidFor(tree: RocketTree, node: ComponentNode): ReturnType<type
   const id = node.id as string;
   if (DISC_TYPES.has(node.type)) {
     const d = resolveDisc(tree, id);
-    return d ? discSolidForNode(d.outerR, d.innerR, d.length) : null;
+    if (!d) return null;
+    // A cluster or offset mount cuts the ring with a hole per tube, as the DXF does.
+    return d.holes ? ringSolid(d.outerR, d.holes, d.length) : discSolidForNode(d.outerR, d.innerR, d.length);
   }
   return solidForNode(node, finMountOf(tree, id));
 }
