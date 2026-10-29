@@ -286,6 +286,16 @@ describe('stationRadius on a part with no length on record', () => {
   });
 });
 
+describe('stationRadius on a zero-length transition', () => {
+  it('answers as Transition.getRadius: fore before x = 0, aft from x = 0 on', () => {
+    // `x >= length` is true at x = 0, so the aft end wins there whichever is wider.
+    const t = { type: 'transition', length: 0, foreRadius: 0.03, aftRadius: 0.02 } as unknown as ComponentNode;
+    expect(stationRadius(t, -0.001)).toBe(0.03);
+    expect(stationRadius(t, 0)).toBe(0.02);
+    expect(stationRadius({ ...t, foreRadius: 0.01 } as ComponentNode, 0)).toBe(0.02);
+  });
+});
+
 describe('profileEnds for a transition with no radius on record', () => {
   it('reads each missing end as SymmetricComponent.DEFAULT_RADIUS, 0.025 m', () => {
     expect(profileEnds({ type: 'transition' } as unknown as ComponentNode)).toEqual({ fore: 0.025, aft: 0.025 });

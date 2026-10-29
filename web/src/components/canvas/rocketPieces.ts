@@ -36,7 +36,7 @@ import { DEFAULT_PART_COLORS, type PartPalette } from '../../services/design/par
 import { figureLooks, partLooks, type Look } from '../../services/design/appearance';
 import { COMPONENT_DEFAULTS } from '../../services/design/componentDefaults';
 import { DISC_TYPES } from '../../services/files/componentFormats';
-import { resolveDisc } from '../../services/design/discGeometry';
+import { resolveDisc, type Hole } from '../../services/design/discGeometry';
 import { axialStart, innerTubeExtent, internalExtent, type MotorDims } from '../../tree/schematicGeometry';
 import { withKernelEnds } from '../../services/design/autoRadius';
 import { railButtonSize } from './railButton';
@@ -200,6 +200,52 @@ function annulusGeometry(outerR: number, innerR: number, length: number): THREE.
     [bore ? lathe([v(bore, length), v(bore, 0)]) : null, 'inside'],
   ]);
   geo.rotateZ(-Math.PI / 2); // lathe axial (+Y) -> rocket axis (+X)
+  return geo;
+}
+
+/**
+ * A centering ring cut with a hole per tube, for a cluster or an offset mount
+ * (`ringHoles`): the same holes the DXF cut sheet and the print solid have,
+ * drawn where the mount's tubes pass through. The outline is extruded and its
+ * faces sorted onto the ring's surfaces: the faces, the outer wall, and the
+ * hole walls as its inside.
+ */
+function holedRingGeometry(outerR: number, holes: Hole[], length: number): THREE.BufferGeometry {
+  const shape = new THREE.Shape().absarc(0, 0, outerR, 0, 2 * Math.PI, false);
+  // Drawn at (−z, y) so the turn below lands each hole at its own (y, z).
+  for (const h of holes) shape.holes.push(new THREE.Path().absarc(-h.z, h.y, h.r, 0, 2 * Math.PI, true));
+  const g = new THREE.ExtrudeGeometry(shape, { depth: length, bevelEnabled: false, curveSegments: 24 });
+  const pos = g.getAttribute('position');
+  const sorted: Record<keyof typeof SURFACE, number[]> = { outside: [], inside: [], edges: [] };
+  const onOuter = (i: number) => Math.hypot(pos.getX(i), pos.getY(i)) > outerR - 1e-6;
+  // ExtrudeGeometry is unindexed, with the faces in group 0 and the walls in group 1.
+  for (const group of g.groups) {
+    for (let i = group.start; i < group.start + group.count; i += 3) {
+      const surface =
+        group.materialIndex === 0 ? 'edges' : onOuter(i) && onOuter(i + 1) && onOuter(i + 2) ? 'outside' : 'inside';
+      sorted[surface].push(i, i + 1, i + 2);
+    }
+  }
+  const part = (list: number[]): THREE.BufferGeometry | null => {
+    if (list.length === 0) return null;
+    const piece = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'uv'] as const) {
+      const src = g.getAttribute(name);
+      const out = new Float32Array(list.length * src.itemSize);
+      list.forEach((v, j) => {
+        for (let c = 0; c < src.itemSize; c++) out[j * src.itemSize + c] = src.array[v * src.itemSize + c]!;
+      });
+      piece.setAttribute(name, new THREE.BufferAttribute(out, src.itemSize));
+    }
+    return piece;
+  };
+  const geo = surfaced([
+    [part(sorted.edges), 'edges'],
+    [part(sorted.outside), 'outside'],
+    [part(sorted.inside), 'inside'],
+  ]);
+  g.dispose();
+  geo.rotateY(Math.PI / 2); // (a, b, depth) -> (depth, b, −a): the extrusion runs along the rocket axis
   return geo;
 }
 
@@ -542,7 +588,7 @@ export function buildPieces(
         if (d && d.outerR > 0 && d.length > 0) {
           place(
             `disc${k++}`,
-            annulusGeometry(d.outerR, d.innerR, d.length),
+            d.holes ? holedRingGeometry(d.outerR, d.holes, d.length) : annulusGeometry(d.outerR, d.innerR, d.length),
             nodeLooks(child, palette),
             [start, off!.y, off!.z],
             undefined,

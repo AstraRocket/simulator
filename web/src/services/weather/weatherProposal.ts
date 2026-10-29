@@ -12,8 +12,8 @@ import { stdDevForIntensity } from '../flight/windTurbulence';
  *
  * The mapping follows desktop OpenRocket's current-conditions client:
  * the surface wind at 10 m above the site, the 80, 120 and 180 m winds above the
- * site, then each pressure level at its geopotential height, all as MSL wind
- * levels; turbulence estimated from the gust spread at the surface and a fixed
+ * site, then each pressure level at its height above sea level (the forecast's
+ * geopotential height made geometric, `openMeteo.ts`), all as MSL wind levels; turbulence estimated from the gust spread at the surface and a fixed
  * intensity above it.
  */
 

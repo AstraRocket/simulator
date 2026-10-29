@@ -1472,7 +1472,10 @@ export function masscomponentComponentSketch(comp is map, sketch is Sketch, unit
 }
 
 export function centeringringComponentSketch(comp is map, sketch is Sketch, units is ValueWithUnits) {
-    annulusSketch(sketch, comp.params.innerRadius, comp.params.outerRadius, comp.params.length, units);
+    // A ring with `holes` is a solid disc here; they are cut after the revolve.
+    const holes = comp.params.holes;
+    const innerRadius = (holes != undefined && size(holes) > 0) ? 0 : comp.params.innerRadius;
+    annulusSketch(sketch, innerRadius, comp.params.outerRadius, comp.params.length, units);
 }
 
 /** Meridian section of a rail button, revolved about the z axis of its own frame

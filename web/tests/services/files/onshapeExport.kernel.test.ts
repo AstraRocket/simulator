@@ -212,6 +212,31 @@ describe.each(EXAMPLES)('the Onshape payload of %s', (file) => {
     }
   });
 
+  it('cuts a centering ring with a hole at each tube of a cluster through it', async () => {
+    const { placed } = await setup();
+    const tubes = placed.filter(({ comp }) => comp.type === 'innertube').map(({ comp }) => comp);
+    let cut = 0;
+    for (const { comp } of placed) {
+      const holes = comp.params['holes'] as
+        { radialPosition: number; radialDirection: number; radius: number }[] | undefined;
+      if (comp.type !== 'centeringring' || !holes) continue;
+      cut++;
+      for (const h of holes) {
+        expect(
+          tubes.some(
+            (t) =>
+              Math.abs(t.position.radialPosition - h.radialPosition) < 1e-9 &&
+              Math.abs(t.position.radialDirection - h.radialDirection) < 1e-9 &&
+              Math.abs((t.params['outerRadius'] as number) - h.radius) < 1e-9,
+          ),
+          `${comp.name}: hole at ${h.radialPosition}, ${h.radialDirection}`,
+        ).toBe(true);
+      }
+    }
+    // The two rings around its 4-ring mount.
+    if (file === 'clustered-motors.ork') expect(cut).toBe(2);
+  });
+
   it('puts each tube of a cluster where the kernel does', async () => {
     const { k, placed } = await setup();
     const copies = new Map<string, [number, number][]>();

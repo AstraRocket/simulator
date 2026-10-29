@@ -532,6 +532,18 @@ function paramsOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Record<
         clusterScale: 1,
         clusterRotation: 0,
         isMotorMount: false,
+        // A ring around a cluster or an offset mount: a hole where each tube
+        // passes, placed as the split tubes are. The feature cuts these from a
+        // solid disc; one that predates them reads `innerRadius` as before.
+        ...(disc?.holes
+          ? {
+              holes: disc.holes.map((h) => ({
+                radialPosition: Math.hypot(h.y, h.z),
+                radialDirection: Math.atan2(h.z, h.y),
+                radius: h.r,
+              })),
+            }
+          : {}),
       };
     }
     case 'parachute':

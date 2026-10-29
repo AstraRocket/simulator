@@ -154,3 +154,33 @@ describe("three.js's own primitives", () => {
     expect(isSurfaced(button.geometry)).toBe(false);
   });
 });
+
+/**
+ * A ring around a cluster is drawn with the holes it is cut with, one where
+ * each tube passes through, its walls as the ring's inside.
+ */
+describe('a centering ring around a cluster', () => {
+  const ring = pieceOf(
+    design([
+      { id: 'cr', type: 'centeringring', length: 0.003 },
+      { id: 'mount', type: 'innertube', outerRadius: 0.006, length: 0.07, cluster: '3-ring' },
+    ] as ComponentNode[]),
+    'cr',
+  );
+  const d = 0.012 / Math.sqrt(3);
+  const tubes = [Math.PI / 2, Math.PI / 2 + (2 * Math.PI) / 3, Math.PI / 2 - (2 * Math.PI) / 3].map((a) => ({
+    y: d * Math.cos(a),
+    z: d * Math.sin(a),
+  }));
+
+  it('has its outer wall at the body bore and a wall round each tube', () => {
+    expect(isSurfaced(ring.geometry)).toBe(true);
+    for (const v of surfaceVertices(ring, 'outside')) expect(radial(v)).toBeCloseTo(0.019, 6);
+    const inside = surfaceVertices(ring, 'inside');
+    for (const v of inside) {
+      expect(Math.min(...tubes.map((t) => Math.hypot(v.y - t.y, v.z - t.z)))).toBeCloseTo(0.006, 6);
+    }
+    for (const t of tubes) expect(inside.some((v) => Math.hypot(v.y - t.y, v.z - t.z) < 0.0061)).toBe(true);
+    for (const v of surfaceVertices(ring, 'edges')) expect([0, 0.003].some((x) => Math.abs(v.x - x) < 1e-6)).toBe(true);
+  });
+});

@@ -26,6 +26,7 @@
 
 import { AnonymousFetchError, anonymousGet } from './anonymousFetch';
 import { isFiniteNumber, roundTo, isRecord } from '../app/numbers';
+import { geometricFromGeopotential } from '../map/geodesy';
 
 // --------------------------------------------------------------- endpoints
 
@@ -300,13 +301,19 @@ export class WeatherError extends Error {
 
 // ------------------------------------------------------------------ parsing
 
+const geometricOrNull = (z: number | null): number | null => (z === null ? null : geometricFromGeopotential(z));
+
 /** A unit as the answer gave it, for an error message. */
 const unitText = (u: unknown): string => (u === undefined ? 'no unit' : typeof u === 'string' ? u : JSON.stringify(u));
 
 /** One pressure level at one hour. Null means missing, never zero. */
 interface PressureLevelSample {
   pressureHPa: number;
-  /** Geopotential height, which for a rocket's purposes is meters above sea level. */
+  /**
+   * Meters above sea level, geometric: the answer's geopotential height
+   * converted, since the kernel's atmosphere reads every altitude as geometric.
+   * Left as geopotential it sat about 22 m low at 200 hPa and 90 m low at 30 hPa.
+   */
   altitudeM: number | null;
   temperatureC: number | null;
   humidityPct: number | null;
@@ -427,7 +434,7 @@ export function parseForecast(body: unknown, elevationsM: readonly number[]): Fo
         levels: aloft.size
           ? PRESSURE_LEVELS.map((p) => ({
               pressureHPa: p,
-              altitudeM: at(`geopotential_height_${p}hPa`, j),
+              altitudeM: geometricOrNull(at(`geopotential_height_${p}hPa`, j)),
               temperatureC: at(`temperature_${p}hPa`, j),
               humidityPct: at(`relative_humidity_${p}hPa`, j),
               windSpeed: at(`wind_speed_${p}hPa`, j),

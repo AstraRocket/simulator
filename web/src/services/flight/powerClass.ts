@@ -36,7 +36,7 @@ const HIGH_POWER = {
 /** One seated motor and how many copies of it fly. */
 export interface SeatedMotor {
   spec: MotorSpec;
-  /** Cluster positions times every pod set or parallel stage around the mount. */
+  /** Cluster positions times every clustered tube, pod set or parallel stage around the mount. */
   count: number;
 }
 
@@ -63,10 +63,14 @@ export function seatedMotors(tree: RocketTree, config: FlightConfig): SeatedMoto
       if ((n.type === 'stage' || n.type === 'parallelstage') && typeof n.id === 'string' && grounded.has(n.id)) {
         continue;
       }
-      const here = copies * instancesOf(n);
+      // A clustered inner tube is one tube per cluster position, and the kernel
+      // places whatever sits inside it once per tube, so a mount nested in a
+      // clustered tube flies that many times over.
+      const here =
+        copies * instancesOf(n) * (n.type === 'innertube' ? clusterCount(n['cluster'] as string | undefined) : 1);
       if (n.motorMount === true && typeof n.id === 'string') {
         const seated = config.motors[n.id];
-        if (seated) out.push({ spec: seated.spec, count: here * clusterCount(n['cluster'] as string | undefined) });
+        if (seated) out.push({ spec: seated.spec, count: here });
       }
       if (n.children) walk(n.children, here);
     }

@@ -3,6 +3,7 @@ import { siToUi, uiToSi } from '../../prefs/units';
 import { G0 } from '../motors/motorMath';
 import type { AtmosphereLevel } from '../design/orkTree';
 import { usableAtmosphereLevels } from './atmosphereLevels';
+import { ISA_EARTH_RADIUS_M } from '../map/geodesy';
 /**
  * Recovery sizing: the descent half of the recovery story.
  *
@@ -130,8 +131,6 @@ export function siteAirDensity(siteM: number | null, temperatureC: number | null
   return p / (R_AIR * t);
 }
 
-/** ISA reference Earth radius (m), for the geopotential altitude. */
-const ISA_EARTH_RADIUS = 6356766;
 /** Spacing (m) of the kernel's precomputed standard-atmosphere table. */
 const ISA_TABLE_STEP = 500;
 /** The tropopause: geopotential altitude (m) and temperature (K). */
@@ -141,7 +140,7 @@ const P_TROPOPAUSE = P0 * Math.pow(T_TROPOPAUSE / T0, G0 / (R_AIR * LAPSE));
 
 /** The standard atmosphere's exact values at geometric altitude `h` m, up to 20 km. */
 function isaExact(h: number): { t: number; p: number } {
-  const geo = Math.min((ISA_EARTH_RADIUS * h) / (ISA_EARTH_RADIUS + h), 20000);
+  const geo = Math.min((ISA_EARTH_RADIUS_M * h) / (ISA_EARTH_RADIUS_M + h), 20000);
   if (geo < H_TROPOPAUSE) {
     const t = T0 - LAPSE * geo;
     return { t, p: P0 * Math.pow(t / T0, G0 / (R_AIR * LAPSE)) };

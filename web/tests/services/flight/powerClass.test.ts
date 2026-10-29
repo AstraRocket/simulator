@@ -91,6 +91,17 @@ describe('seatedMotors', () => {
     expect(seatedMotors(t, config).map((m) => m.count)).toEqual([3, 6]);
   });
 
+  it('multiplies a mount by every clustered inner tube it sits in', () => {
+    // A 3-ring of plain tubes, each holding a single mount: the kernel places
+    // the mount once per tube, so three motors fly.
+    const holder: ComponentNode = { type: 'innertube', id: 'holder', cluster: '3-ring', children: [mountTube('inner')] };
+    const config = newFlightConfig({ inner: { spec: motor(10, 1) } });
+    expect(seatedMotors(tree(holder), config).map((m) => m.count)).toEqual([3]);
+    // And a clustered mount inside it multiplies again.
+    const both: ComponentNode = { ...holder, children: [mountTube('inner', 'double')] };
+    expect(seatedMotors(tree(both), config).map((m) => m.count)).toEqual([6]);
+  });
+
   it('reads a pod count the way every other count is read (rounded, capped)', () => {
     const pods = (instanceCount: number): ComponentNode => ({
       type: 'podset',

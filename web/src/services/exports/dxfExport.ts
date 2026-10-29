@@ -7,7 +7,7 @@ import { COMPONENT_DEFAULTS } from '../design/componentDefaults';
 // The enclosing-tube walk and the ring radius resolution live in their own
 // module, shared with the 3D view and the 2D schematic: importing them from
 // here would pull the R12 serializer into the first-paint bundle.
-import { mountBore, nodeContext, plateOuter, type Tube } from '../design/discGeometry';
+import { mountBore, nodeContext, plateOuter, ringHolesIn, type Hole, type Tube } from '../design/discGeometry';
 import { englishText, type Translate } from '../../i18n/keyedError';
 
 /**
@@ -133,9 +133,25 @@ function finPart(node: ComponentNode, parent: FinParent, l: LabelText): Part | n
   return { ents: [...ents, ...textBlock(ents, labels)] };
 }
 
-function discPart(node: ComponentNode, outerR: number, boreR: number | null, label: string, l: LabelText): Part {
+/**
+ * A ring or bulkhead: the outline, then its bore, or one hole per tube when
+ * `holes` is given (a cluster or an offset mount, see `ringHoles`). The holes
+ * are drawn where the kernel places the tubes, in its y/z frame.
+ */
+function discPart(
+  node: ComponentNode,
+  outerR: number,
+  boreR: number | null,
+  label: string,
+  l: LabelText,
+  holes: Hole[] | null = null,
+): Part {
   const ents: Ent[] = [{ kind: 'circle', layer: 'CUT', c: { x: 0, y: 0 }, r: outerR }];
-  if (boreR !== null && boreR > EPS && boreR < outerR - EPS) {
+  if (holes) {
+    for (const h of holes) ents.push({ kind: 'circle', layer: 'CUT', c: { x: h.y, y: h.z }, r: h.r });
+    // The label's bore is the tube's, the same on every hole of a mount.
+    boreR = Math.max(...holes.map((h) => h.r));
+  } else if (boreR !== null && boreR > EPS && boreR < outerR - EPS) {
     ents.push({ kind: 'circle', layer: 'CUT', c: { x: 0, y: 0 }, r: boreR });
   }
   const arm = outerR * CROSS_FRAC;
@@ -161,6 +177,7 @@ function partForNode(
   siblings: ComponentNode[],
   finParent: FinParent,
   l: LabelText,
+  holes: Hole[] | null = null,
 ): Part | null {
   switch (node.type) {
     case 'trapezoidfinset':
@@ -175,7 +192,14 @@ function partForNode(
     case 'centeringring': {
       const outer = plateOuter(node, enclosing);
       const bore = num(node, 'innerRadius', NaN);
-      return discPart(node, outer, Number.isNaN(bore) ? mountBore(siblings) : bore, l('export.dxf.centeringring'), l);
+      return discPart(
+        node,
+        outer,
+        Number.isNaN(bore) ? mountBore(siblings) : bore,
+        l('export.dxf.centeringring'),
+        l,
+        holes,
+      );
     }
     // Tube couplers and engine blocks are tubes, not plate; they export as 3D
     // solids, not a DXF cut.
@@ -360,7 +384,14 @@ function serialize(ents: Ent[]): string {
 export function componentToDxf(tree: RocketTree, nodeId: string, t: Translate = englishText): string | null {
   const ctx = nodeContext(tree, nodeId);
   if (!ctx) return null;
-  const part = partForNode(ctx.node, ctx.enclosing, ctx.siblings, finMountOf(tree, nodeId), labelText(t));
+  const part = partForNode(
+    ctx.node,
+    ctx.enclosing,
+    ctx.siblings,
+    finMountOf(tree, nodeId),
+    labelText(t),
+    ringHolesIn(tree, ctx),
+  );
   if (!part) return null;
   const b = bounds(part.ents);
   return serialize(translate(part.ents, -b.minX, -b.minY));

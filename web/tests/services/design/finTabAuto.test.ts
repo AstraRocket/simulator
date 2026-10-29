@@ -147,6 +147,43 @@ describe('the depth of the tab', () => {
   });
 });
 
+/**
+ * Desktop takes a tube's outer radius as if it sat on the axis. That is exact
+ * for one centered mount, and these keep it so; a cluster or an offset mount
+ * is placed where the kernel flies its tubes, and the tab stops at the first
+ * one it would cut into.
+ */
+describe('the depth of the tab over a cluster or an offset mount', () => {
+  const height = (inside: ComponentNode[], fin = fins()) => tab(body(inside, fin))['tabHeight'] as number;
+
+  it('stops at the outer edge of a cluster tube under the fin', () => {
+    // A 4-ring clocked so one tube sits on the first fin's line: its center
+    // is one tube diameter apart from its neighbors, sqrt(2) R from the axis.
+    const four = mount({ cluster: '4-ring', clusterRotation: Math.PI / 4 });
+    const centerOut = Math.SQRT2 * MOUNT_R;
+    expect(height([four], fins({ finCount: 4 }))).toBeCloseTo(BODY_R - (centerOut + MOUNT_R), 9);
+  });
+
+  it('goes past a cluster whose tubes all sit between the fins', () => {
+    // A 4-ring unclocked and spread to 1.2 diameters: its tubes sit at 45
+    // degrees off each of four fins, each center 1.2 R across every fin line,
+    // so a thin tab passes them all and may go to the axis, as with no tube.
+    const four = mount({ cluster: '4-ring', clusterScale: 1.2 });
+    expect(height([four], fins({ finCount: 4, thickness: 0.001 }))).toBeCloseTo(BODY_R, 9);
+  });
+
+  it('counts the tab thickness: a tube just beside the fin line still stops it', () => {
+    // An offset mount 15 mm out and 10 mm beside the first fin's line: the line
+    // itself misses the 9.5 mm tube, but a 3 mm tab reaches 1.5 mm across and
+    // cuts into it, so the tab stops on the tube's top over the slab.
+    const off = mount({ radialPosition: Math.hypot(0.015, 0.01), radialDirection: Math.atan2(0.01, 0.015) });
+    const gap = 0.01 - 0.0015;
+    const top = 0.015 + Math.sqrt(MOUNT_R * MOUNT_R - gap * gap);
+    expect(height([off], fins({ thickness: 0.003 }))).toBeCloseTo(BODY_R - top, 9);
+    expect(height([off], fins({ thickness: 0.0001 }))).toBeCloseTo(BODY_R, 9);
+  });
+});
+
 describe('where the tab sits along the root', () => {
   it('is the whole root chord when no ring is in the way', () => {
     const t = tab(body([mount()], fins({ position: { method: 'top', offset: 0.1 } })));
