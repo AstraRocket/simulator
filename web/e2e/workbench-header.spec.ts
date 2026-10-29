@@ -33,7 +33,7 @@ const WIDE_FACE = 'html, body, header, header * { font-family: Verdana, sans-ser
  * mobile-layout.spec.ts is run by that project.
  */
 test('the workbench tabs live in the header rather than a row of their own', async ({ page }) => {
-  // The narrowest desktop width (the lg breakpoint), with all five tabs showing.
+  // The narrowest desktop width (the lg breakpoint), with all six tabs showing.
   await page.setViewportSize({ width: 1024, height: 900 });
   await ready(page);
   await runFlight(page);
@@ -46,7 +46,7 @@ test('the workbench tabs live in the header rather than a row of their own', asy
   await page.addStyleTag({ content: WIDE_FACE });
 
   const nav = page.getByRole('navigation', { name: /Workbench/i });
-  await expect(nav.getByRole('button')).toHaveCount(5);
+  await expect(nav.getByRole('button')).toHaveCount(6);
 
   const h = await box(header);
   const n = await box(nav);
@@ -62,7 +62,7 @@ test('the workbench tabs live in the header rather than a row of their own', asy
   expect((await box(page.locator('main'))).y).toBeLessThanOrEqual(h.y + h.height + 1);
 
   // One row at this width in English, in a face wider than the local one. The
-  // wordiest languages wrap here (there is not enough width at 1024 for five
+  // wordiest languages wrap here (there is not enough width at 1024 for six
   // tabs, the identity block, the save status and four controls in German); the
   // second test pins the width from which they fit.
   expect(h.height).toBeLessThan(70);

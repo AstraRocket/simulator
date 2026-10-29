@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { useShowResultsTab } from './useShowResultsTab';
 import { taskTabs } from './tabTable';
+import { useIsXl } from '../common/useMediaQuery';
 
 /**
  * Desktop tab strip, rendered inside the header (hidden below lg, where
@@ -20,6 +21,13 @@ import { taskTabs } from './tabTable';
  * the header, so the active tab's underline lands on the header's own bottom border
  * and reads as continuous with the pane it labels.
  *
+ * Under xl each tab takes the shorter of its name and the phone bar's
+ * ("Config" for "Configurations"): six tabs, the identity block, the save
+ * status and the controls are one row from 1180 in the wordiest languages
+ * only that way. Whichever is shorter, because a phone word is not always the
+ * shorter one ("Simuleren" for "Simulaties"). Chosen in script, not with
+ * classes, so the tab has one name in the document.
+ *
  * The phone keeps its bottom bar: a header this narrow already wraps, and a
  * horizontal tab row in it would wrap to the second row it was meant to save.
  */
@@ -28,15 +36,21 @@ export function WorkbenchTabs() {
   const tab = useWorkspaceStore((s) => s.tab);
   const onTab = useWorkspaceStore((s) => s.setTab);
   const showResults = useShowResultsTab();
+  const roomy = useIsXl();
+  const name = (label: string, short: string) => {
+    const full = t(label);
+    const brief = t(short);
+    return roomy || brief.length >= full.length ? full : brief;
+  };
 
   return (
     <nav
       aria-label={t('tabs.workbench')}
-      className="-my-3 ml-2 hidden self-stretch items-stretch gap-0.5 lg:flex 2xl:ml-3 2xl:gap-1"
+      className="-my-3 ml-2 hidden self-stretch items-stretch lg:flex 2xl:ml-3 2xl:gap-1"
     >
       <TabButton active={tab === 'design'} onClick={() => onTab('design')} label={t('tabs.design')} />
       {taskTabs(showResults).map((e) => (
-        <TabButton key={e.id} active={tab === e.id} onClick={() => onTab(e.id)} label={t(e.label)} />
+        <TabButton key={e.id} active={tab === e.id} onClick={() => onTab(e.id)} label={name(e.label, e.short)} />
       ))}
     </nav>
   );

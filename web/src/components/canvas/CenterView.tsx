@@ -73,9 +73,13 @@ export function CenterView() {
   const onDesign = tab === 'design';
   const showStats = onDesign && designPane === 'stats';
   const showDrawing = (onDesign && designPane === 'sketch') || tab === 'results';
+  // A phone's Results tab is one page that scrolls: the run's numbers at their
+  // full length, then the charts at a fixed height under them. Two scrolling
+  // boxes on one small screen meant scrolling inside each in turn.
+  const pageScroll = tab === 'results' && !desktop;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className={`flex h-full flex-col ${pageScroll ? 'relative overflow-y-auto' : ''}`}>
       {/* Always: it carries the design's name and the ✎ that edits it. The
           import label, the notes and Close only appear when the design came
           from a file. */}
@@ -85,13 +89,12 @@ export function CenterView() {
       {/* The run's numbers head the mobile Results tab, above the charts they
           describe: they are what you look at first, and this saves going back
           to the Simulate tab. `lg:hidden` because the desktop Results tab has
-          them in its own right-hand column (see App.tsx). Capped at 45% and
-          scrolling: the tiles are a fixed ~300px, which on a 568px-tall phone
-          would leave the chart about 90px of a pane it is supposed to fill. */}
+          them in its own right-hand column (see App.tsx). Full length, not
+          capped: the page scrolls past them to the charts (`pageScroll`). */}
       {tab === 'results' && (
         // `relative` so the CSV button's sr-only label scrolls with this block
         // instead of stretching the page (see the summary column in App.tsx).
-        <div className="relative max-h-[45%] shrink-0 space-y-3 overflow-y-auto px-3 pt-3 lg:hidden">
+        <div className="relative shrink-0 space-y-3 px-3 pt-3 lg:hidden">
           {!desktop && <FlightWarnings sim={result} />}
           <SimSummary sim={result} />
           <FlightEventsTable sim={result} simName={simName} designName={designName} />
@@ -108,7 +111,12 @@ export function CenterView() {
           toolbar across the short edge, detached from what it acts on, and
           moving it whenever the view changed. */}
       <div
-        className={`${showDrawing ? 'flex' : 'hidden'} ${sideways ? 'sketch-stage' : ''} min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex`}
+        className={`${showDrawing ? 'flex' : 'hidden'} ${sideways ? 'sketch-stage' : ''} ${
+          // Under the numbers on a phone: at least most of the screen, for the
+          // map and 3D views that fill what they are given, and taller when
+          // the flight charts run longer.
+          pageScroll ? 'min-h-[75dvh] shrink-0' : 'min-h-0 flex-1'
+        } w-full flex-col overflow-hidden lg:flex`}
       >
         <div className={sideways ? 'sketch-rotate flex flex-col' : 'flex min-h-0 flex-1 flex-col'}>
           <CenterToolbar
@@ -118,7 +126,13 @@ export function CenterView() {
             maxed={maxed}
             onToggleMaxed={toggleMaxed}
           />
-          <CenterCanvas flight={flight} pathResult={pathResult} ctrlSlot={ctrlSlot} presetSlot={presetSlot} />
+          <CenterCanvas
+            flight={flight}
+            pathResult={pathResult}
+            ctrlSlot={ctrlSlot}
+            presetSlot={presetSlot}
+            flow={pageScroll}
+          />
         </div>
       </div>
       {/* Static statistics + design warnings. Out of the way when maximized: they

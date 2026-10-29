@@ -9,6 +9,7 @@ import { MATERIAL_SLOTS } from '../../src/services/design/materialSlots';
 import { PART_KEYS } from '../../src/services/design/partColors';
 import { THEME_PREFS } from '../../src/services/app/theme';
 import { DESIGN_VIEWS, RESULT_VIEWS, TOOLS } from '../../src/state/tabs';
+import { SIMPLE_FIN_SHAPES } from '../../src/services/flight/simpleRocket';
 import { EXPORT_FORMATS } from '../../src/services/exports/flightPathExport';
 import { EXPORT_PRESETS } from '../../src/services/exports/pathExportPresets';
 import { PROPOSAL_GROUPS } from '../../src/services/weather/weatherProposal';
@@ -227,6 +228,7 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
   },
   { prefix: 'landing.recovery_', values: ['single', 'dual'] }, // LandingEstimator's radios
   { prefix: 'tools.tool_', values: TOOLS }, // ToolsPane's tab per tool
+  { prefix: 'simpleTool.finShape_', values: SIMPLE_FIN_SHAPES }, // SimpleRocketTool's fin shape menu
   { prefix: 'positionFrom.', values: ['top', 'middle', 'bottom', 'absolute'] }, // PlacementSection
   { prefix: 'units.q.', values: QUANTITIES }, // SettingsDialog, UnitChip
   { prefix: 'dash.', values: COLUMNS.map((c) => c.label) }, // motor dashboard columns

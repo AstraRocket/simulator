@@ -37,6 +37,13 @@ function useMediaQuery(query: string): boolean {
 export const useIsDesktop = (): boolean => useMediaQuery(DESKTOP_QUERY);
 
 /**
+ * The `xl:` breakpoint, as a boolean: wide enough for a tool page's third
+ * column (see tools/ToolLayout's `help`). Below it the Simple rocket's help
+ * folds at the top of the form instead of falling under it.
+ */
+export const useIsXl = (): boolean => useMediaQuery('(min-width: 1280px)');
+
+/**
  * The `2xl:` breakpoint, as a boolean.
  *
  * The Design tab's property column needs the window to be this wide: it is a

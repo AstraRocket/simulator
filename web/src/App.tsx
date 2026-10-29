@@ -16,6 +16,7 @@ import { SimSummary } from './components/sim/SimSummary';
 import { FlightWarnings } from './components/sim/FlightWarnings';
 import { TabBar } from './components/layout/TabBar';
 import { ToolsPane } from './components/tools/ToolsPane';
+import { SimpleRocketTool } from './components/tools/SimpleRocketTool';
 import { WorkInProgressDialog } from './components/layout/WorkInProgressDialog';
 import { ConfirmDialog } from './components/common/ConfirmDialog';
 import { PromptDialog } from './components/common/PromptDialog';
@@ -283,6 +284,19 @@ export default function App() {
             landing estimate for a rocket designed elsewhere. Mounted only while
             open: hidden, its site fields would be a second Latitude and
             Longitude in the document. The estimator keeps its own inputs. */}
+        {/* Simple rocket: a rocket flown from a few measurements, before (or
+            instead of) a design. Its own tab rather than one of the Tools, so
+            it can be found by someone who has no design yet. `relative` for its
+            sr-only labels, as on the Results column above: without it they
+            stretch the page and the whole app scrolls past the bottom bar. */}
+        {tab === 'simple' && (
+          <section
+            className="relative flex min-h-0 flex-1 flex-col overflow-auto p-3 lg:h-full"
+            aria-label={t('tabs.simple')}
+          >
+            <SimpleRocketTool />
+          </section>
+        )}
         {tab === 'tools' && (
           <section className="flex min-h-0 flex-1 flex-col lg:h-full lg:overflow-hidden" aria-label={t('tabs.tools')}>
             <ToolsPane />

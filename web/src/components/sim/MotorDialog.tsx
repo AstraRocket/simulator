@@ -60,7 +60,7 @@ const DEFAULT_DELAY = 3;
  * all of manufacturer, name, bore and curve label remain indistinguishable
  * from the spec alone, and the first catalog match wins.
  */
-function findSeated(catalog: CatalogMotor[], cur: MotorSpec): CatalogMotor | undefined {
+export function findSeated(catalog: CatalogMotor[], cur: MotorSpec): CatalogMotor | undefined {
   const named = catalog.filter(
     (m) => m.manufacturer === cur.manufacturer && (m.designation === cur.designation || m.code === cur.designation),
   );

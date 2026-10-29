@@ -1,5 +1,5 @@
 import { LAUNCH_SI } from '../../prefs/launchUnits';
-import { uiToSi } from '../../prefs/units';
+import { siToUi, uiToSi } from '../../prefs/units';
 import { G0 } from '../motors/motorMath';
 import type { AtmosphereLevel } from '../design/orkTree';
 import { usableAtmosphereLevels } from './atmosphereLevels';
@@ -236,6 +236,21 @@ export function canopyDiameter(massKg: number, rateMs: number, cd: number, rho: 
   if (!(massKg > 0) || !(rateMs > 0) || !(cd > 0) || !(rho > 0)) return Infinity;
   const area = (2 * massKg * G0) / (rho * cd * rateMs * rateMs);
   return Math.sqrt((4 * area) / Math.PI);
+}
+
+/** The size step canopies are sold in, per display unit: whole centimeters or inches. */
+const CANOPY_STEP: Record<string, number> = { mm: 10, cm: 1, m: 0.01, in: 1, ft: 0.1 };
+
+/**
+ * A sized canopy (m) rounded up to the next size step in the unit it is shown
+ * in, so the suggestion is one you can buy or cut, and lands a little slower
+ * than the target rather than a little faster.
+ */
+export function canopyRoundUp(diameterM: number, sym: string): number {
+  const step = CANOPY_STEP[sym];
+  if (step == null || !Number.isFinite(diameterM) || !(diameterM > 0)) return diameterM;
+  // The nudge keeps a size already on a step (from float noise) where it is.
+  return uiToSi('length', sym, Math.ceil(siToUi('length', sym, diameterM) / step - 1e-9) * step);
 }
 
 /** An accepted descent-rate window, plus the rate the SIZE line targets. */

@@ -149,13 +149,13 @@ test('the desktop workbench splits the view families across its tabs too', async
 });
 
 /**
- * The Results tab on the smallest phone we target, where the summary column is
- * capped at 45% of the pane and scrolls inside that cap.
+ * The Results tab on the smallest phone we target, where the tab is one page
+ * that scrolls: the numbers at their full length, then the views under them.
  *
  * The caution leads it and the numbers follow, which is the whole point of the
  * card being above the tiles rather than under them: what a reading is worth is
  * a thing to know before reading it. On a 320x568 phone that puts the tiles off
- * the bottom of the column until it is scrolled, so the thing worth pinning is
+ * the bottom of the page until it is scrolled, so the thing worth pinning is
  * that they are reachable: a caution that cost you the numbers entirely would
  * defeat the purpose of the order.
  */
@@ -169,34 +169,44 @@ test('the Results tab leads with the safety card, and the numbers scroll up behi
   const m = await page.evaluate(() => {
     const card = document.querySelector('main section[aria-label="Before you fly"]');
     const grid = document.querySelector('main section[aria-label="Simulation results"]');
-    const half = document.querySelector('main div.min-h-0.w-full.flex-1.flex-col');
-    const pane = half?.parentElement;
-    // The summary column, found by what it does rather than by its classes: the
-    // nearest ancestor that actually scrolls.
+    // The page that scrolls, found by what it does rather than by its classes:
+    // the nearest ancestor that actually scrolls.
     let col: HTMLElement | null = card?.parentElement ?? null;
     while (col && !(col.scrollHeight > col.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(col).overflowY)))
       col = col.parentElement;
+    // The page's blocks: the numbers, which lead it, and the views after them.
+    let lead: Element | null = card ?? null;
+    while (lead && col && lead.parentElement !== col) lead = lead.parentElement;
+    const half = lead?.nextElementSibling ?? null;
+    let before = lead?.previousElementSibling ?? null;
+    let firstShown = true;
+    for (; before; before = before.previousElementSibling)
+      if (before.getBoundingClientRect().height > 0) firstShown = false;
     const box = (el?: Element | null) => (el ? Math.round(el.getBoundingClientRect().top) : null);
     return {
       cardTop: box(card),
       cardBottom: card ? Math.round(card.getBoundingClientRect().bottom) : null,
       summaryTop: box(grid),
-      // The column's content edge: it carries a pt-3, so its border box starts
-      // 12px above anything inside it.
-      colTop: col ? Math.round(col.getBoundingClientRect().top + parseFloat(getComputedStyle(col).paddingTop)) : null,
+      // The numbers block's content edge: it carries a pt-3, so its border box
+      // starts 12px above anything inside it.
+      leadTop: lead
+        ? Math.round(lead.getBoundingClientRect().top + parseFloat(getComputedStyle(lead).paddingTop))
+        : null,
+      firstShown,
       colHolds: !!col && !!card && !!grid && col.contains(card) && col.contains(grid),
       colScrolls: col ? col.scrollHeight > col.clientHeight : false,
       chartHeight: half ? Math.round(half.getBoundingClientRect().height) : 0,
-      paneHeight: pane ? Math.round(pane.getBoundingClientRect().height) : 0,
+      viewport: window.innerHeight,
     };
   });
   note('results tab', JSON.stringify(m));
 
-  // The card and the tiles are one scrolling column, card first and flush with
+  // The card and the tiles scroll as one page, the card first and flush with
   // its top, so the caution is what the tab opens on.
   expect(m.colHolds).toBe(true);
   expect(m.colScrolls).toBe(true);
-  expect(m.cardTop).toBe(m.colTop);
+  expect(m.firstShown).toBe(true);
+  expect(m.cardTop).toBe(m.leadTop);
   expect(m.summaryTop).toBeGreaterThanOrEqual(m.cardBottom!);
 
   // And the numbers are a scroll away, not gone: Apogee reaches the viewport.
@@ -206,10 +216,9 @@ test('the Results tab leads with the safety card, and the numbers scroll up behi
   await summary.getByText('Apogee', { exact: true }).scrollIntoViewIfNeeded();
   await expect(summary.getByText('Apogee', { exact: true })).toBeInViewport();
 
-  // The column is capped rather than free to grow, so it scrolls instead of
-  // squeezing the chart it describes down to nothing.
-  expect(m.chartHeight).toBeGreaterThan(200);
-  expect(m.chartHeight).toBeGreaterThan(m.paneHeight * 0.5);
+  // The views follow at most of a screen's height, not squeezed into what the
+  // numbers leave over.
+  expect(m.chartHeight).toBeGreaterThanOrEqual(Math.floor(m.viewport * 0.75));
 });
 
 test('starting a new design does not strand you on an empty Results tab', async ({ page }) => {

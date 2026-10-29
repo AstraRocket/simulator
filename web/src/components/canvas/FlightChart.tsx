@@ -49,7 +49,18 @@ export { buildTraces, type ChartFlight } from './flightChartTraces';
  * (FlightChartEvents.tsx) and the panel (FlightChartPanel.tsx) each live in
  * their own module.
  */
-export function FlightChart({ flight }: { flight: ChartFlight }) {
+export function FlightChart({
+  flight,
+  flow = false,
+}: {
+  flight: ChartFlight;
+  /**
+   * The panels run at their full length and the page around them scrolls (a
+   * phone's Results tab, see CenterView), rather than scrolling in a box of
+   * their own inside a page that scrolls too.
+   */
+  flow?: boolean;
+}) {
   const { t } = useTranslation();
   const u = useUnits();
   // Which panels are open, remembered between visits (services/storage/settings.ts).
@@ -141,8 +152,10 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
   // rather than leaving the pane empty.
   const solo = expanded && on.includes(expanded) ? expanded : null;
   const shownMetas = solo ? activeMetas.filter((m) => m.key === solo) : activeMetas;
-  // The pane less the event strip and the panel's own header and margins.
-  const soloH = Math.max(PANEL_H, hostH - stripH - 48);
+  // The pane less the event strip and the panel's own header and margins. A
+  // phone's pane is as tall as its panels, so it has no height to fill: twice
+  // the usual panel instead.
+  const soloH = flow ? 2 * PANEL_H : Math.max(PANEL_H, hostH - stripH - 48);
   const panelH = solo ? soloH : PANEL_H;
   const toggleExpand = (k: Key) => setExpanded(solo === k ? null : k);
 
@@ -305,7 +318,7 @@ export function FlightChart({ flight }: { flight: ChartFlight }) {
         tabIndex={0}
         role="group"
         aria-label={t('flight.crosshairHint')}
-        className={`min-h-0 flex-1 overflow-y-auto px-3 pb-3 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-inset focus-visible:outline-none ${zoomed ? 'cursor-grab' : ''}`}
+        className={`${flow ? '' : 'min-h-0 flex-1 overflow-y-auto'} px-3 pb-3 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-inset focus-visible:outline-none ${zoomed ? 'cursor-grab' : ''}`}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={zoomCtl.endPan}

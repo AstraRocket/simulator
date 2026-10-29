@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { TabBar } from '../../../src/components/layout/TabBar';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import { useWorkspaceStore } from '../../../src/state/store';
@@ -15,6 +15,13 @@ describe('TabBar', () => {
     renderWithProviders(<TabBar />);
     expect(screen.getByRole('button', { name: 'Rocket' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sketch' })).toBeTruthy();
+  });
+
+  it('takes a phone straight to the Benchtop, a tab of its own', () => {
+    useWorkspaceStore.setState({ tab: 'design', designPane: 'stats' });
+    renderWithProviders(<TabBar />);
+    fireEvent.click(screen.getByRole('button', { name: 'Benchtop' }));
+    expect(useWorkspaceStore.getState().tab).toBe('simple');
   });
 
   it('marks the current tab with a bar and weight as well as color', () => {

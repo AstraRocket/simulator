@@ -159,12 +159,21 @@ export async function autosaved(page: Page, needle: string, atLeast = 1): Promis
  *
  * Scoped to the desktop strip by its label: the phone's bottom bar carries
  * overlapping names ("Simulate", "Results") and both are in the DOM at once.
+ * Under xl the strip itself uses the shorter names (see WorkbenchTabs), so a
+ * spec at a laptop width finds the tab by either.
  */
+const TAB_NAMES: Record<string, RegExp> = {
+  Configurations: /^(Configurations|Config)$/,
+  Simulations: /^(Simulations|Simulate)$/,
+};
 export async function openTab(
   page: Page,
-  name: 'Design' | 'Configurations' | 'Simulations' | 'Results' | 'Tools',
+  name: 'Design' | 'Configurations' | 'Simulations' | 'Results' | 'Benchtop' | 'Tools',
 ): Promise<void> {
-  await page.getByRole('navigation', { name: 'Workbench' }).getByRole('button', { name, exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Workbench' })
+    .getByRole('button', { name: TAB_NAMES[name] ?? name, exact: true })
+    .click();
 }
 
 /**

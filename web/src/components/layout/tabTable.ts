@@ -19,6 +19,7 @@ const TASK_TABS: readonly TabEntry[] = [
   { id: 'configs', label: 'tabs.configs', short: 'tabs.configsShort', icon: '🔥' },
   { id: 'sim', label: 'tabs.simulations', short: 'tabs.simulate', icon: '📈' },
   { id: 'results', label: 'tabs.results', short: 'tabs.results', icon: '📊' },
+  { id: 'simple', label: 'tabs.simple', short: 'tabs.simple', icon: '🚀' },
   { id: 'tools', label: 'tabs.tools', short: 'tabs.tools', icon: '🧰' },
 ];
 
