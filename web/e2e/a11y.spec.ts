@@ -770,6 +770,29 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  SimpleMotorGuide: [
+    {
+      name: 'Benchtop motor guide',
+      open: async (page) => {
+        // The guide needs a rocket to fit motors to: the sport model the kernel tests fly.
+        await openTab(page, 'Benchtop');
+        for (const [label, value] of [
+          ['Body diameter', '2.48'],
+          ['Overall length', '45'],
+          ['Dry mass', '40'],
+          ['CG, no motor', '25'],
+          ['Motor mount diameter', '18'],
+        ] as const) {
+          const box = page.getByLabel(label, { exact: true });
+          await box.fill(value);
+          await box.blur();
+        }
+        await page.getByRole('button', { name: 'Motor guide' }).click();
+        const dialog = await dialogOpen(page);
+        await expect(dialog.getByRole('button', { name: /^Fly\b/ })).toBeVisible();
+      },
+    },
+  ],
   MotorGuideDialog: [
     {
       name: 'Motor guide',
@@ -777,7 +800,7 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
         await openTab(page, 'Simulations');
         await page.getByRole('button', { name: 'Motor guide' }).click();
         const dialog = await dialogOpen(page);
-        await expect(dialog.getByRole('button', { name: /^Fly\b/})).toBeVisible();
+        await expect(dialog.getByRole('button', { name: /^Fly\b/ })).toBeVisible();
       },
     },
   ],
@@ -1045,6 +1068,20 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
         await fold.click();
         await page.getByRole('alertdialog').getByRole('button', { name: 'I understand' }).click();
         await expect(fold).toHaveAttribute('aria-expanded', 'false');
+      },
+    },
+  ],
+  SimpleHelp: [
+    {
+      name: 'Popup / Benchtop help open',
+      open: async (page) => {
+        // At xl and up the help is a column of its own with no fold; under it,
+        // it folds at the top of the form.
+        await page.setViewportSize({ width: 1100, height: 950 });
+        await openTab(page, 'Benchtop');
+        const help = page.locator('details').filter({ hasText: 'How it works' });
+        await help.locator('summary').click();
+        await expect(help).toHaveAttribute('open', '');
       },
     },
   ],

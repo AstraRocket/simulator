@@ -1,5 +1,5 @@
 import { LAUNCH_SI } from '../../prefs/launchUnits';
-import { uiToSi } from '../../prefs/units';
+import { siToUi, uiToSi } from '../../prefs/units';
 import { G0 } from '../motors/motorMath';
 import type { AtmosphereLevel } from '../design/orkTree';
 import { usableAtmosphereLevels } from './atmosphereLevels';
@@ -246,14 +246,11 @@ const CANOPY_STEP: Record<string, number> = { mm: 10, cm: 1, m: 0.01, in: 1, ft:
  * in, so the suggestion is one you can buy or cut, and lands a little slower
  * than the target rather than a little faster.
  */
-export function canopyRoundUp(
-  diameterM: number,
-  unit: { toUi: (si: number) => number; fromUi: (ui: number) => number; sym: string },
-): number {
-  const step = CANOPY_STEP[unit.sym];
+export function canopyRoundUp(diameterM: number, sym: string): number {
+  const step = CANOPY_STEP[sym];
   if (step == null || !Number.isFinite(diameterM) || !(diameterM > 0)) return diameterM;
   // The nudge keeps a size already on a step (from float noise) where it is.
-  return unit.fromUi(Math.ceil(unit.toUi(diameterM) / step - 1e-9) * step);
+  return uiToSi('length', sym, Math.ceil(siToUi('length', sym, diameterM) / step - 1e-9) * step);
 }
 
 /** An accepted descent-rate window, plus the rate the SIZE line targets. */

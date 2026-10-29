@@ -34,6 +34,8 @@ export const DIALOG_SURFACES = {
   SavedPartsDialog: 1,
   ScaleDialog: 1,
   SettingsDialog: 1,
+  // The Benchtop tab's motor guide.
+  SimpleMotorGuide: 1,
   SiteMapDialog: 1,
   StageColorDialog: 1,
   UpdateCheckDialog: 1,

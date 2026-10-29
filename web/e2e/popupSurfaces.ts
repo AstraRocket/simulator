@@ -29,6 +29,8 @@ export const POPUP_SURFACES = {
   ResultPicker: 1,
   // The safety card's fold.
   SimSummary: 1,
+  // The Benchtop's How it works, folded at the top of the form below xl.
+  SimpleHelp: 1,
   // The statistics strip's fold.
   StabilityBadge: 1,
 } as const;

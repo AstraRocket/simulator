@@ -16,7 +16,13 @@ import {
   type RocketTree,
 } from '../../../src/engine/openRocketEngine';
 import { buildRocketTree } from '../../../src/engine/api';
-import { airDensity, canopyDiameter, descentMass, MAIN_BAND } from '../../../src/services/flight/recoverySizing';
+import {
+  airDensity,
+  canopyDiameter,
+  canopyRoundUp,
+  descentMass,
+  MAIN_BAND,
+} from '../../../src/services/flight/recoverySizing';
 import { motorSpecs } from '../../../src/services/flight/flightConfigs';
 import { fmtNum } from '../../../src/i18n/format';
 
@@ -251,7 +257,8 @@ describe('the descent-sizing dialog on a chute whose Cd is on Auto', () => {
     const mass = descentMass(0.1, motorSpecs(tree, config))!;
     const rho = airDensity(selectActive(useWorkspaceStore.getState()).launch);
     const diameter = (patches[0] as { diameter: number }).diameter;
-    expect(diameter).toBeCloseTo(canopyDiameter(mass, MAIN_BAND.target, kernelCd, rho), 9);
+    // Rounded up to a size you can buy, in the default unit: whole centimeters.
+    expect(diameter).toBeCloseTo(canopyRoundUp(canopyDiameter(mass, MAIN_BAND.target, kernelCd, rho), 'cm'), 9);
     expect(document.body.textContent).toContain(`Cd ${fmtNum(kernelCd, 2)}`);
   });
 });

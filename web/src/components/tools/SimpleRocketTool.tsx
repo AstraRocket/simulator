@@ -130,7 +130,7 @@ export function SimpleRocketTool() {
   // rounded up to a size you can buy and shown in the box; the guide flies that one canopy on every motor.
   const chuteSized =
     dryMassKg != null && chuteCd != null
-      ? canopyRoundUp(simpleChuteDiameter(dryMassKg, motor, launch, chuteCd), lengthUnit('simpleChuteDiameter'))
+      ? canopyRoundUp(simpleChuteDiameter(dryMassKg, motor, launch, chuteCd), lengthUnit('simpleChuteDiameter').sym)
       : null;
   const chuteDiameter = chuteDiameterM ?? chuteSized;
   const chute = chuteOn && chuteCd != null && chuteDiameter != null ? { diameterM: chuteDiameter, cd: chuteCd } : null;

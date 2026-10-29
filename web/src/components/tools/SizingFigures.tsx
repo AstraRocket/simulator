@@ -70,10 +70,10 @@ export function SizingFigures({
 
   const rate = rateMs ?? (diameterM != null && diameterM > 0 ? descentRate(massKg, diameterM, cd, rho) : null);
   const verdict = rate != null && Number.isFinite(rate) ? classifyRate(rate) : null;
-  const mainD = canopyRoundUp(canopyDiameter(massKg, MAIN_BAND.target, cd, rho), mainUnit);
-  const drogueD = canopyRoundUp(canopyDiameter(massKg, DROGUE_BAND.target, cd, rho), drogueUnit);
+  const mainD = canopyRoundUp(canopyDiameter(massKg, MAIN_BAND.target, cd, rho), mainUnit.sym);
+  const drogueD = canopyRoundUp(canopyDiameter(massKg, DROGUE_BAND.target, cd, rho), drogueUnit.sym);
   const targetD =
-    target != null && target > 0 ? canopyRoundUp(canopyDiameter(massKg, target, cd, rho), targetUnit) : null;
+    target != null && target > 0 ? canopyRoundUp(canopyDiameter(massKg, target, cd, rho), targetUnit.sym) : null;
 
   const row = (label: string, d: number, unit: typeof mainUnit, useLabel: string) => (
     <div className="flex items-baseline justify-between gap-3">
