@@ -46,6 +46,15 @@ describe('readFileText', () => {
       expect(decodeFileText(bytes)).toContain('<a>€</a>');
     });
 
+    it('reads an undeclared file that is not valid UTF-8 as windows-1252, as desktop reads a .eng', () => {
+      // RASPMotorLoader reads ISO-8859-1: 0xF3 alone is ó there and invalid UTF-8.
+      expect(decodeFileText(latin1('G80 29 124 4-7-10 0.0625 0.123 Lóki\n'))).toBe(
+        'G80 29 124 4-7-10 0.0625 0.123 Lóki\n',
+      );
+      // The same name in UTF-8 is not read the other way.
+      expect(decodeFileText(new TextEncoder().encode('Lóki'))).toBe('Lóki');
+    });
+
     it('stays UTF-8 for a UTF-8 declaration, an unknown label or none', () => {
       const utf8 = new TextEncoder().encode('<a>é</a>');
       for (const head of [

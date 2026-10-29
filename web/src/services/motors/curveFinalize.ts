@@ -11,6 +11,13 @@ import { mathEquals } from './mathEquals';
 export const MAX_CURVE_SAMPLES = 20_000;
 
 /**
+ * The most thrust one curve point may state, in newtons: `ThrustCurveMotor.MAX_THRUST`.
+ * The kernel's builder refuses anything above it ("Invalid thrust"), so a file
+ * that passed import with one would seat a motor that can never fly.
+ */
+export const MAX_THRUST_N = 10.0e6;
+
+/**
  * Desktop's `AbstractMotorLoader.sortLists`: every list reordered by ascending
  * `primary`, ties kept in file order. Desktop runs it before
  * {@link finalizeThrustCurve} on every `.rse` and `.eng` it reads.

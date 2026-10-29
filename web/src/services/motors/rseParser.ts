@@ -36,7 +36,7 @@ import { impulseClass } from './motorCombine';
 import { delayList } from './motorPicker';
 import { totalImpulse } from './engParser';
 import { parseXmlText } from '../files/xmlUtil';
-import { MAX_CURVE_SAMPLES, finalizeCurve } from './curveFinalize';
+import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';
 import { KeyedError } from '../../i18n/keyedError';
 
 /** RockSim's `Type` attribute, mapped to the catalog's own vocabulary. */
@@ -148,6 +148,9 @@ function parseEngine(el: Element): CustomMotor {
   // seated motor through it, so the file is refused here as desktop drops it.
   if (points.some((p) => p.thrust < 0)) {
     throw new KeyedError('errors.motorFile.rseNegativeThrust', { motor: designation });
+  }
+  if (points.some((p) => p.thrust > MAX_THRUST_N)) {
+    throw new KeyedError('errors.motorFile.rseThrustTooHigh', { motor: designation });
   }
   // Zero all the way along: no impulse, a motor that would never leave the pad.
   if (!points.some((p) => p.thrust > 0)) {

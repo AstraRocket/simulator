@@ -22,12 +22,30 @@ const API = 'https://www.thrustcurve.org/api/v1';
 const DATA_DIR = fileURLToPath(new URL('../public/data', import.meta.url));
 const OUT = resolve(DATA_DIR, 'motors.generated.json');
 
+// thrustcurve.org sits behind Cloudflare, and its operator runs a global limit
+// of 3 requests per 10 s (found in the mmrocket-sim review, 2026-10-29). Sent
+// back to back, the curve batches trip it a few requests in, so each request
+// starts this long after the answer to the one before: about a minute a run.
+const PACE_MS = 5000;
+let lastAnswerAt = 0;
+
 async function post(path, body) {
-  const res = await fetchRetry(`${API}/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const wait = lastAnswerAt + PACE_MS - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  let res;
+  try {
+    res = await fetchRetry(`${API}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } finally {
+    lastAnswerAt = Date.now();
+  }
+  // A challenge page is not a rate limit: no pace or retry gets past it.
+  if (res.headers.get('cf-mitigated') === 'challenge') {
+    throw new Error(`${path} → thrustcurve.org answered with a Cloudflare challenge (HTTP ${res.status}), which a script cannot pass`);
+  }
   if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
   return res.json();
 }

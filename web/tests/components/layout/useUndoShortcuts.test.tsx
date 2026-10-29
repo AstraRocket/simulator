@@ -41,6 +41,20 @@ describe('useUndoShortcuts', () => {
     expect(redo).toHaveBeenCalledTimes(1);
   });
 
+  it('undoes and redoes by key position on a non-Latin layout, where Ctrl+Z sends `я`', () => {
+    renderHook(() => useUndoShortcuts());
+    const at = (key: string, code: string, shiftKey = false) =>
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey, ctrlKey: true, bubbles: true }));
+    at('я', 'KeyZ');
+    at('Я', 'KeyZ', true);
+    at('н', 'KeyY');
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(redo).toHaveBeenCalledTimes(2);
+    // A Latin layout keeps its own letter: AZERTY's `z` sits where QWERTY has W.
+    at('z', 'KeyW');
+    expect(undo).toHaveBeenCalledTimes(2);
+  });
+
   it('undoes with a checkbox, radio, range, color input or select focused, which have no undo of their own', () => {
     renderHook(() => useUndoShortcuts());
     const controls: HTMLElement[] = ['checkbox', 'radio', 'range', 'color'].map((type) => {

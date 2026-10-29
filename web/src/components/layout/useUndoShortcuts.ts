@@ -35,7 +35,11 @@ export function useUndoShortcuts(): void {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       if (isTextEntry(document.activeElement) || blockedBySurface()) return;
-      const key = e.key.toLowerCase();
+      // A non-Latin layout (Russian, Greek, Hebrew) sends the letter it types,
+      // `я` for the Z key, so the key's position stands in for it there, as
+      // browsers and the OS resolve Ctrl+Z. A Latin layout keeps its own letter,
+      // so AZERTY's Z is still the Z key wherever it sits.
+      const key = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^Key([A-Z])$/.exec(e.code)?.[1]?.toLowerCase();
       if (key === 'z' && !e.shiftKey) {
         e.preventDefault();
         useWorkspaceStore.getState().undo();
