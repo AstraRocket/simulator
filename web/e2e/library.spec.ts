@@ -184,7 +184,7 @@ test('an example opens from Import, as its own unsaved design', async ({ page })
   await page.goto('/');
   await page.getByRole('button', { name: 'Menu' }).click();
   await page.getByRole('menuitem', { name: /^Import$/ }).click();
-  await page.getByRole('menuitem', { name: 'Import an example rocket' }).click();
+  await page.getByRole('menuitem', { name: 'Import one of the examples' }).click();
 
   const dlg = page.getByRole('dialog', { name: 'Example rockets' });
   const entry = dlg.getByRole('button').filter({ hasText: 'Tube fin rocket' });

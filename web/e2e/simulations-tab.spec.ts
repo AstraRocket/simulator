@@ -433,7 +433,7 @@ test('the CSV export asks what to write instead of just downloading', async ({ p
 
   // By title, not by its ⬇ CSV label: the events table has a CSV button of its
   // own, so the label alone matches two buttons that write different files.
-  await page.getByTitle('Download flight data (.csv)').click();
+  await page.getByTitle('Download flight data as CSV').click();
   const dialog = page.getByRole('dialog', { name: 'Export flight data' });
   await expect(dialog).toBeVisible();
 
@@ -457,7 +457,7 @@ test('the CSV export asks what to write instead of just downloading', async ({ p
 
   // The choice is remembered, the way OpenRocket's export panel remembers its
   // own: reopening shows the one column still ticked.
-  await page.getByTitle('Download flight data (.csv)').click();
+  await page.getByTitle('Download flight data as CSV').click();
   await expect(dialog.getByRole('checkbox', { name: 'Altitude', exact: true })).toBeChecked();
   await expect(dialog.getByText(/Exporting 1 of \d+/)).toBeVisible();
 });
