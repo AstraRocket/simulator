@@ -203,6 +203,21 @@ TD20 24 90 4-6 0.02 0.05 Test
     );
   });
 
+  it('throws on hexadecimal header numbers, which Number() would read as 16', () => {
+    expect(() => parseEng('C6 0x10 70 0-3 0.01 0.02 Estes\n0 0\n1 5\n2 0')).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.engHeaderNumbers' }),
+    );
+  });
+
+  it('throws on a hexadecimal or binary data value instead of reading it', () => {
+    expect(() => parseEng('C6 18 70 0-3 0.01 0.02 Estes\n0 0\n0.5 0x10\n1 0')).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.engDataLine' }),
+    );
+    expect(() => parseEng('C6 18 70 0-3 0.01 0.02 Estes\n0 0\n0b1 10\n2 0')).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.engDataLine' }),
+    );
+  });
+
   it('throws when there are fewer than two thrust samples', () => {
     expect(() => parseEng('C6 18 70 0-3 0.01 0.02 Estes\n0 0')).toThrow(/thrust-curve/i);
   });

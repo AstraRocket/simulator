@@ -1,5 +1,9 @@
 {
+  // `types` is explicit because TypeScript 6 defaults it to `[]`: without it no
+  // `@types/*` package loads, and every test that reads a fixture off disk
+  // loses `node:fs`, `process` and `__dirname`.
   "compilerOptions": {
+    "types": ["node"],
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],

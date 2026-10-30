@@ -30,6 +30,22 @@ export function plainSig(v: number, sig: number, nonFinite = ''): string {
   return s.includes('.') ? s.replace(/\.?0+$/, '') : s;
 }
 
+/** Sign, digits with an optional '.', optional exponent: what a file number may be. */
+const DECIMAL_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/**
+ * File text to a number, read as plain decimal only, or NaN. `Number()` alone
+ * also takes "0x10" (16), "0b110" (6) and "0o7" (7), none of which a motor or
+ * design file writes, so a value like that is a damaged field, not a number.
+ * A blank is NaN too, where `Number('')` is 0. Surrounding whitespace is
+ * ignored; "Infinity" is refused here, and an exponent that overflows still
+ * comes back as Infinity for the caller's finite check.
+ */
+export function readDecimal(raw: string): number {
+  const t = raw.trim();
+  return DECIMAL_TEXT.test(t) ? Number(t) : NaN;
+}
+
 /**
  * {@link plainDecimal} with its trailing zeros kept, for a format that pads its
  * numbers to a fixed width (a DXF group value, an SVG length): `digits` places
