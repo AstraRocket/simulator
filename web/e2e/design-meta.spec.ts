@@ -25,7 +25,8 @@ test('the name is a control only where a design can be built', async ({ page }) 
   // A phone. The banner is on the Rocket half, and the name is still there,
   // just not a button: it titles the pane.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: /Rocket/ }).click();
+  // Exact: the banner's button is named after the design, "AstraRocket design".
+  await page.getByRole('button', { name: 'Rocket', exact: true }).click();
   await expect(edit).toHaveCount(0);
   await expect(page.getByText(title, { exact: true })).toBeVisible();
 });

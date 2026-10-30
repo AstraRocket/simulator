@@ -36,6 +36,7 @@ import { impulseClass } from './motorCombine';
 import { delayList } from './motorPicker';
 import { totalImpulse } from './engParser';
 import { parseXmlText } from '../files/xmlUtil';
+import { readDecimal } from '../files/numberText';
 import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';
 import { KeyedError } from '../../i18n/keyedError';
 
@@ -83,8 +84,9 @@ export function removeDelay(designation: string): string {
 function num(el: Element, name: string, whatKey: string): number {
   const raw = el.getAttribute(name);
   if (raw === null) throw new KeyedError('errors.motorFile.rseMissing', { what: { key: whatKey } });
-  // `Number('')` is 0, where upstream's `Double.parseDouble` refuses a blank.
-  const v = raw.trim() === '' ? NaN : Number(raw);
+  // Plain decimal only: a blank, which `Number('')` reads as 0, and "0x10",
+  // which it reads as 16, are both refused, as upstream's `Double.parseDouble` does.
+  const v = readDecimal(raw);
   if (!Number.isFinite(v)) throw new KeyedError('errors.motorFile.rseInvalid', { what: { key: whatKey }, raw });
   return v;
 }
@@ -92,8 +94,8 @@ function num(el: Element, name: string, whatKey: string): number {
 /** An optional numeric attribute; NaN when absent, blank or unparseable, as upstream. */
 function optNum(el: Element, name: string): number {
   const raw = el.getAttribute(name);
-  if (raw === null || raw.trim() === '') return NaN;
-  const v = Number(raw);
+  if (raw === null) return NaN;
+  const v = readDecimal(raw);
   return Number.isFinite(v) ? v : NaN;
 }
 

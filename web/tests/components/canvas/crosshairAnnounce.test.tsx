@@ -90,6 +90,6 @@ describe('flight chart crosshair', () => {
 
   it('names the CSV button by what it downloads', () => {
     renderWithProviders(<FlightChart flight={flight} />);
-    expect(screen.getByRole('button', { name: 'Download flight data (.csv)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download flight data as CSV' })).toBeTruthy();
   });
 });

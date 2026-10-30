@@ -4,8 +4,13 @@
 {
   "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    // TypeScript 7 removed `baseUrl`; null clears the one @docusaurus/tsconfig
+    // sets. Without it `paths` resolve from the file that declares them, so
+    // `@site/*` is restated here to point at this folder, not node_modules.
+    "baseUrl": null,
+    "paths": {
+      "@site/*": ["./*"]
+    },
     "strict": true
   },
   "exclude": [".docusaurus", "build"]

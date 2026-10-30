@@ -396,7 +396,7 @@ const HEADER_DIALOGS: Record<Exclude<HeaderDialog, 'settings' | 'library' | 'mot
   about: fromMenu('About'),
   privacy: fromMenu('Privacy'),
   updates: fromMenu('Check for updates'),
-  examples: fromMenu('Import an example rocket', 'Import'),
+  examples: fromMenu('Import one of the examples', 'Import'),
   print: fromMenu('Export printable parts as 3MF', 'Export'),
   locations: fromMenu('Launch Locations'),
   parts: fromMenu('Custom Parts'),
@@ -852,7 +852,7 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       name: 'Flight data CSV',
       open: async (page) => {
         await resultView(page, 'flight');
-        await page.getByRole('button', { name: 'Download flight data (.csv)' }).first().click();
+        await page.getByRole('button', { name: 'Download flight data as CSV' }).first().click();
         await dialogOpen(page);
       },
     },

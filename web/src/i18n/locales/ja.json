@@ -1055,7 +1055,7 @@
     "simEnd": "シミュレーション終了"
   },
   "flight": {
-    "pickAria": "表示する飛行を選択（現在は {{name}}）",
+    "pickAria": "表示する飛行を選択、現在は {{name}}",
     "pickTitle": "これらの表示に使う飛行を選択",
     "north": "北",
     "groundTrackLabel": "地上に投影した飛行経路。上が北で、中心が発射台です",
@@ -1103,7 +1103,7 @@
     "reset": "打ち上げに戻す",
     "loop": "繰り返し再生",
     "playbackSpeed": "再生速度",
-    "exportCsv": "飛行データをダウンロード（.csv）",
+    "exportCsv": "飛行データを CSV でダウンロード",
     "zoomIn": "拡大",
     "zoomOut": "縮小",
     "zoomReset": "拡大率をリセット",
@@ -1270,7 +1270,7 @@
     "wholeRocket": "ロケット全体",
     "splitUnavailable": "部品ごとの圧力 / 底面 / 摩擦の内訳には、より新しい物理計算基盤が必要です。ロケット全体の内訳は上の抗力の内訳グラフにあります。",
     "title": "空力解析",
-    "exportCsv": "空力テーブルをダウンロード（.csv）",
+    "exportCsv": "空力テーブルを CSV でダウンロード",
     "maxMach": "最大マッハ数",
     "cdVsMach": "Cd とマッハ数",
     "breakdown": "抗力の内訳",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { plainDecimal, plainSig } from '../../../src/services/files/numberText';
+import { plainDecimal, plainSig, readDecimal } from '../../../src/services/files/numberText';
 
 /**
  * Locale-free decimal text for a file. Each writer picks its precision and what
@@ -39,5 +39,33 @@ describe('plainSig', () => {
   it('writes the stand-in the caller gives for a non-finite value', () => {
     expect(plainSig(Number.NaN, 4)).toBe('');
     expect(plainSig(Infinity, 4, '0')).toBe('0');
+  });
+});
+
+describe('readDecimal', () => {
+  it('reads plain decimals: signs, a leading or trailing dot, exponents', () => {
+    expect(readDecimal('2.5')).toBe(2.5);
+    expect(readDecimal('-3')).toBe(-3);
+    expect(readDecimal('+4')).toBe(4);
+    expect(readDecimal('.5')).toBe(0.5);
+    expect(readDecimal('5.')).toBe(5);
+    expect(readDecimal('1e3')).toBe(1000);
+    expect(readDecimal('2.5E-3')).toBe(0.0025);
+    expect(readDecimal('  18 ')).toBe(18);
+  });
+
+  it('refuses hexadecimal, binary and octal, which Number() would read', () => {
+    expect(readDecimal('0x10')).toBeNaN();
+    expect(readDecimal('0b110')).toBeNaN();
+    expect(readDecimal('0o7')).toBeNaN();
+  });
+
+  it('refuses a blank, which Number() reads as 0, and the words', () => {
+    expect(readDecimal('')).toBeNaN();
+    expect(readDecimal('   ')).toBeNaN();
+    expect(readDecimal('Infinity')).toBeNaN();
+    expect(readDecimal('NaN')).toBeNaN();
+    expect(readDecimal('1,5')).toBeNaN();
+    expect(readDecimal('.')).toBeNaN();
   });
 });

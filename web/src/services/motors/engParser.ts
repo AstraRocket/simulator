@@ -18,6 +18,7 @@ import { removeDelay } from './rseParser';
 import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';
 import { delayList } from './motorPicker';
 import { KeyedError } from '../../i18n/keyedError';
+import { readDecimal } from '../files/numberText';
 
 /** Total impulse (Ns) of a thrust curve by the trapezoid rule. */
 export function totalImpulse(samples: { time: number; thrust: number }[]): number {
@@ -68,10 +69,10 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
   // delay field. Kept on, one motor would have two ids by file format and seat
   // as `C6-5-5`.
   const designation = removeDelay(rawDesignation!);
-  const diameter = Number(diaS);
-  const length = Number(lenS);
-  const propKg = Number(propS);
-  const totalKg = Number(totalS);
+  const diameter = readDecimal(diaS!);
+  const length = readDecimal(lenS!);
+  const propKg = readDecimal(propS!);
+  const totalKg = readDecimal(totalS!);
   // The weights are checked as the grams they are stored in: 1e306 kg is
   // finite, but its grams are not, and a stored Infinity fails the custom
   // motor screen on the next load, so the motor would vanish without a word.
@@ -110,7 +111,7 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
     const line = lines[i]!;
     const fields = line.text.split(/\s+/);
     if (fields.length >= 7) break; // the next motor's header
-    const [t, f] = fields.map(Number);
+    const [t, f] = fields.map(readDecimal);
     if (fields.length !== 2 || !Number.isFinite(t) || !Number.isFinite(f)) {
       throw new KeyedError('errors.motorFile.engDataLine', { line: line.no, text: line.text });
     }

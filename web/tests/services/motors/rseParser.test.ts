@@ -95,6 +95,12 @@ describe('parseRse, the header attributes', () => {
     expect(() => parseRse(rse(ATTRS.replace(' propWt="447"', ''), DATA))).toThrow(/propellant/i);
   });
 
+  it('refuses a hexadecimal attribute rather than reading 0x26 as 38', () => {
+    expect(() => parseRse(rse(ATTRS.replace('dia="38"', 'dia="0x26"'), DATA))).toThrow(
+      expect.objectContaining({ key: 'errors.motorFile.rseInvalid' }),
+    );
+  });
+
   it('refuses more propellant than total mass, as upstream does', () => {
     // Otherwise the rocket gains mass as the motor burns, and nothing
     // downstream would report it.
@@ -251,6 +257,10 @@ describe('parseRse, the file as a whole', () => {
 
   it('refuses a data point with no time or thrust', () => {
     expect(() => parseRse(rse(ATTRS, '      <eng-data f="100" m="1" cg="1"/>'))).toThrow(/time or thrust/i);
+  });
+
+  it('refuses a data point whose time or thrust is hexadecimal', () => {
+    expect(() => parseRse(rse(ATTRS, '      <eng-data t="0x1" f="100" m="1" cg="1"/>'))).toThrow(/time or thrust/i);
   });
 
   it('refuses a motor with no usable curve', () => {
