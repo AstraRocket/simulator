@@ -102,11 +102,11 @@ export function MotorDetail({
           <span aria-hidden="true">←</span> {t('motorDlg.backToList')}
         </button>
       )}
-      <MotorHeading kicker={motor.manufacturer} impulseClass={motor.class} title={title} />
+      <MotorHeading kicker={motor.manufacturer} impulseClass={motor.class} title={title} designation />
       <div className="mt-0.5 text-sm text-ink-muted">
         {showCommon && (
           <>
-            {t('motorDlg.commonName')} {motor.designation} ·{' '}
+            {t('motorDlg.commonName')} <span className="font-data">{motor.designation}</span> ·{' '}
           </>
         )}
         {motor.type ? motorTypeLabel(motor.type, t) : ''}

@@ -246,7 +246,7 @@ export function GuideResults<R extends GuideRowBase>({
                 <li key={r.key} className="rounded-lg bg-raised/40 p-3 text-xs ring-1 ring-line/10">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <span className="text-sm font-medium text-ink-strong">{name}</span>
+                      <span className="font-data text-sm font-medium text-ink-strong">{name}</span>
                       <span className="ml-1.5 text-ink-faint">{r.motor.manufacturer}</span>
                       {d && (
                         <span className="ml-1.5 text-ink-soft" title={d.title}>
@@ -298,7 +298,7 @@ export function GuideResults<R extends GuideRowBase>({
               return (
                 <tr key={r.key} className="hover:bg-raised/50">
                   <th scope="row" className="whitespace-nowrap px-1.5 py-1.5 text-left font-medium text-ink-strong">
-                    {name}
+                    <span className="font-data">{name}</span>
                     <span className="ml-1.5 font-normal text-ink-faint">{r.motor.manufacturer}</span>
                   </th>
                   {d && (
@@ -326,7 +326,7 @@ export function GuideResults<R extends GuideRowBase>({
           <ul className="space-y-0.5 text-ink-faint">
             {failed.map((x) => (
               <li key={x.key}>
-                <span className="font-medium text-ink-soft">{motorName(x.motor)}</span> {x.reason}
+                <span className="font-data font-medium text-ink-soft">{motorName(x.motor)}</span> {x.reason}
               </li>
             ))}
           </ul>

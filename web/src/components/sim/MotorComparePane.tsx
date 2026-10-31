@@ -66,7 +66,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-soft">
             {series.map((s) => (
               <LegendSwatch key={keyOf(s.m)} color={s.color} width={12}>
-                {motorName(s.m)}
+                <span className="font-data">{motorName(s.m)}</span>
               </LegendSwatch>
             ))}
           </div>
@@ -97,7 +97,7 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
                     className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
                     style={{ background: colorFor.get(keyOf(m)) ?? token('ink-dim') }}
                   />
-                  {motorName(m)}
+                  <span className="font-data">{motorName(m)}</span>
                   {!colorFor.has(keyOf(m)) && (
                     <span className="ml-1 text-[10px] font-normal text-ink-faint">({t('dash.noCurve')})</span>
                   )}

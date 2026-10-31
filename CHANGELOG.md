@@ -8,6 +8,9 @@ so most entries describe getting a computation to match OpenRocket exactly.
 
 ## [0.5.7]
 
+### Changed
+- **Motor names are set in a monospace font with a slashed zero**, so an `I200` cannot be read as `1200`, nor an `O` class as a zero. This covers the motor picker, its grid and detail, the compare and combine panes, the motor guides, the simulation cards and the configuration table. The font is the system's own monospace (Cascadia Mono or Consolas on Windows, SF Mono or Menlo on Apple), so nothing extra downloads.
+
 ### Fixed
 - **A RockSim centering ring with an ID of 0 opens with its hole sized to the motor tube**, as desktop OpenRocket opens it. It used to open as a solid disc, with the mass of one.
 - **A canopy, shroud line or shock cord density of 0 is kept** on `.ork` and `.rkt` import, as desktop keeps it. The part used to fly the default material's mass instead.

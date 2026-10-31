@@ -175,7 +175,7 @@ export function MotorGrid({
                             e.stopPropagation();
                             onSelect(m);
                           }}
-                          className="rounded-sm text-left font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                          className="rounded-sm text-left font-data font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                         >
                           {m.custom && <ImportedStar />}
                           {c.cell(m, u, t)}

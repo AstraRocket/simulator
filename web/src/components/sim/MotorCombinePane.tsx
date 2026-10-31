@@ -88,7 +88,7 @@ function CombineChart({ combined, series }: { combined: Sample[]; series: MotorS
         </LegendSwatch>
         {usable.map((s) => (
           <LegendSwatch key={keyOf(s.m)} color={s.color} width={12}>
-            {motorName(s.m)}
+            <span className="font-data">{motorName(s.m)}</span>
           </LegendSwatch>
         ))}
       </div>
@@ -123,7 +123,7 @@ export function MotorCombinePane({ motors }: { motors: CatalogMotor[] }) {
         impulseClass={impulseClass(combined.totalImpulse)}
         title={t('dash.cluster', { n: combined.motorCount })}
       />
-      <div className="mt-0.5 text-sm text-ink-muted">{motors.map((m) => m.designation).join(' + ')}</div>
+      <div className="mt-0.5 font-data text-sm text-ink-muted">{motors.map((m) => m.designation).join(' + ')}</div>
       {combined.samples.length >= 2 && <CombineChart combined={combined.samples} series={seriesFor(motors)} />}
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
         <SpecItem label={t('dash.motors')} value={String(combined.motorCount)} />

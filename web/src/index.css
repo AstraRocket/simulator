@@ -69,6 +69,17 @@
   --color-ok-500: var(--c-ok-500);
 }
 
+/*
+ * A motor designation, where a misread is a different motor: "I200" read as
+ * "1200", or an "O" class read as a zero. The system monospace fonts draw I,
+ * l and 1 apart, and the slashed zero sets 0 apart from O. Nothing to
+ * download, so it works offline and in every locale's fallback.
+ */
+@utility font-data {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SF Mono', Menlo, 'Liberation Mono', monospace;
+  font-variant-numeric: slashed-zero tabular-nums;
+}
+
 :root {
   --c-canvas: oklch(12.9% 0.042 264.695); /* slate-950 */
   --c-surface: oklch(20.8% 0.042 265.755); /* slate-900 */
