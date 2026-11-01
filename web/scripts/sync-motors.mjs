@@ -15,6 +15,7 @@ import { STAGED_MOTORS } from './lib/catalogStaging.mjs';
 import { motorRow } from './lib/motorRow.mjs';
 import { collidingRowKeys } from './lib/motorRowKey.mjs';
 import { fetchRetry } from './lib/fetchRetry.mjs';
+import { httpsFetch } from './lib/thrustcurveHttps.mjs';
 
 const API = 'https://www.thrustcurve.org/api/v1';
 // public/data is served as-is (not bundled) so the catalog can be refreshed
@@ -34,17 +35,23 @@ async function post(path, body) {
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   let res;
   try {
-    res = await fetchRetry(`${API}/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    // node:https rather than fetch: fetch draws the Cloudflare challenge below
+    // (lib/thrustcurveHttps.mjs).
+    res = await fetchRetry(
+      `${API}/${path}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+      { fetchImpl: httpsFetch },
+    );
   } finally {
     lastAnswerAt = Date.now();
   }
-  // A challenge page is not a rate limit: no pace or retry gets past it.
+  // A challenge page is not a rate limit: no pace or retry gets past it. If one
+  // comes back even through node:https, letting this script through is the
+  // site operator's call.
   if (res.headers.get('cf-mitigated') === 'challenge') {
-    throw new Error(`${path} → thrustcurve.org answered with a Cloudflare challenge (HTTP ${res.status}), which a script cannot pass`);
+    throw new Error(
+      `${path} → thrustcurve.org answered with a Cloudflare challenge (HTTP ${res.status}), which a script cannot pass`,
+    );
   }
   if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
   return res.json();
