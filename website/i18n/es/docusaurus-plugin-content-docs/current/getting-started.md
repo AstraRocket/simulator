@@ -20,17 +20,17 @@ En un ordenador el banco de trabajo son cinco **pestañas**, en la barra superio
 - **Resultados.** Las gráficas de vuelo, la traza en tierra y la trayectoria 3D en el centro, y los números de la ejecución a la derecha. Aparece en cuanto una simulación ha producido un resultado, y al terminar una ejecución te lleva directamente allí.
 - **Herramientas.** [Respuestas rápidas que no necesitan un diseño](./tools.md): una estimación del aterrizaje, una comprobación de la salida del raíl y el dimensionado de paracaídas.
 
-La **vista del cohete** del centro tiene una barra para cambiar de vista (2D · 3D · Aero en la pestaña Diseño; Vuelo · Ruta 3D · Traza en tierra · Entorno en la pestaña Resultados), interruptores para los marcadores **CG / CP** y la tarjeta rápida de **Datos**, y, en 2D, preajustes, calibres y zoom. Una franja de **estadísticas estáticas** en la parte inferior muestra longitud, masa, CG, CP, estabilidad y más.
+La **vista del cohete** del centro tiene una barra para cambiar de vista (2D · 3D · Aero en la pestaña Diseño; Vuelo · Ruta 3D · Traza en tierra · Entorno en la pestaña Resultados), interruptores para los marcadores **CG / CP** y la tarjeta rápida de **Datos**, y, en 2D, preajustes y calibres, con el zoom en la esquina del dibujo. Una franja de **Información** en la parte inferior muestra longitud, masa, CG, CP, estabilidad y más.
 
 ### Ajustar el tamaño de los paneles {#sizing-the-panes}
 
 Puedes cambiar el tamaño de las columnas laterales. Arrastra el divisor entre una columna y la vista del cohete, o dale el foco del teclado y usa las flechas (Mayús para pasos mayores, Inicio y Fin para los extremos). Haz doble clic en un divisor para devolverlo a su sitio. Las tres columnas de la derecha comparten una misma anchura, así que ajustarla en cualquier pestaña la ajusta en todas, y ambas anchuras se recuerdan de una visita a otra.
 
-El botón **⤢** del extremo derecho de la barra de la vista del cohete le da la ventana entera al dibujo: las dos columnas laterales y la franja de estadísticas se ocultan, lo que casi duplica el espacio disponible. Un fuselaje es de 15 a 25 veces más largo que ancho, así que ese espacio horizontal es el primero que se agota. Pulsa **Escape**, o el mismo botón, para recuperar los paneles.
+El botón **⤢** del extremo derecho de la barra de la vista del cohete le da la ventana entera al dibujo: las dos columnas laterales y la franja Información se ocultan, lo que casi duplica el espacio disponible. Un fuselaje es de 15 a 25 veces más largo que ancho, así que ese espacio horizontal es el primero que se agota. Pulsa **Escape**, o el mismo botón, para recuperar los paneles.
 
 En un **teléfono** las mismas áreas pasan a ser pestañas en la parte inferior, porque no hay sitio para mostrarlas una al lado de otra:
 
-- **Cohete**: el aviso del diseño cargado y la franja de estadísticas.
+- **Cohete**: el aviso del diseño cargado y la franja Información.
 - **Croquis**: la vista del cohete y su barra de herramientas (2D · 3D · Aero). Las vistas 2D y 3D se giran un cuarto de vuelta cuando sostienes el teléfono en vertical, para que el cohete recorra el lado largo de la pantalla en vez de quedar aplastado en su anchura; gira el teléfono y vuelven a su posición. Los diálogos también ocupan toda la pantalla allí.
 - **Config.**: las configuraciones de vuelo.
 - **Simular**: configuración de vuelo, configuración del lanzamiento, **Ejecutar** y el resumen de resultados.

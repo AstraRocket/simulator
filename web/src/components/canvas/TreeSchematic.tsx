@@ -16,14 +16,15 @@ import {
   zoomStep,
   MAX_ZOOM,
   WHEEL_ZOOM_FACTOR,
-  type MotorDims,
   isZoomIdentity,
+  type MotorDims,
 } from '../../tree/schematicGeometry';
 import { buildSchematicShapes } from './schematicShapes';
 import { useWheelZoom } from './useWheelZoom';
 import { zoomSurfaceProps } from './keyPan';
 import { HorizontalCaliper, VerticalCaliper } from './SchematicCalipers';
 import { SchematicControls } from './SchematicControls';
+import { ZoomButtons } from './ZoomButtons';
 import { HoverOverlay, StabilityOverlay } from './SchematicOverlay';
 import { LengthRuler, RadialRuler } from './SchematicRulers';
 import { useElementResize } from '../common/useElementResize';
@@ -54,6 +55,9 @@ const PAN_SLOP = 4;
 const DEFAULT_RULERS = { top: true, bottom: false, left: true, right: false };
 /** Wheel step and zoom ceiling; hoisted so the hook's options keep one identity. */
 const WHEEL_ZOOM = { factor: WHEEL_ZOOM_FACTOR, max: MAX_ZOOM };
+/** Height the zoom block takes at the drawing's foot (its 28 px plus the 8 px
+ *  inset), kept clear of the callouts' lower lane. */
+const ZOOM_CLEAR = 36;
 
 export function TreeSchematic({
   tree,
@@ -104,7 +108,7 @@ export function TreeSchematic({
    *  zoomed in, a drag pans instead: the roll slider still turns the rocket,
    *  and nothing else can bring a part outside the view into it. */
   onRoll?: (deltaRadians: number) => void;
-  /** When set, the drawing's control buttons (calipers, zoom, export) render into
+  /** When set, the drawing's control buttons (calipers, export) render into
    *  this element (a slot in the pane header) instead of over the drawing. */
   controlsSlot?: HTMLElement | null;
   /** Draw the CG/CP/margin markers and callouts (default true). */
@@ -323,21 +327,37 @@ export function TreeSchematic({
   );
   // The hovered part's extent, resolved from the memoized map (see above).
   const hovered = hoverId ? extents.get(hoverId) : undefined;
+  // Its extent on screen, through the view transform, as the tag is drawn there.
+  const hoverBox = hovered
+    ? {
+        x0: zoom.x + zoom.k * hovered.box.x0,
+        x1: zoom.x + zoom.k * hovered.box.x1,
+        y0: zoom.y + zoom.k * hovered.box.y0,
+        y1: zoom.y + zoom.k * hovered.box.y1,
+      }
+    : null;
 
-  // Dimension ruler (side view, only at the default fit): nice-round marks every
-  // `rulerStep` meters, labeled in the user's length unit. 0 sits at the nose (the datum) but the
+  // Dimension ruler (side view): nice-round marks every `rulerStep` meters,
+  // labeled in the user's length unit. 0 sits at the nose (the datum) but the
   // baseline + ticks run the full viewport width, so it reads as a workbench
   // rule spanning the canvas rather than a bar clipped to the airframe.
-  // Rulers only at the default fit (a pan/zoom would slide them off scale). Each
-  // side is toggled independently; length (top/bottom) and radial (left/right)
-  // marks are computed if either ruler of that pair is on.
-  const rulersActive = isZoomIdentity(zoom);
-  const showLen = rulersActive && (rulers.top || rulers.bottom);
-  const showRad = rulersActive && (rulers.left || rulers.right);
+  // The frame stays at the viewport's edges through a zoom or pan, and the
+  // graduations follow the drawing: they are placed through the view transform
+  // and stepped by the zoomed scale, so a zoom-in reads finer marks rather than
+  // losing the rulers. Each side is toggled independently; length (top/bottom)
+  // and radial (left/right) marks are computed if either ruler of that pair is on.
+  const showLen = rulers.top || rulers.bottom;
+  const showRad = rulers.left || rulers.right;
+  // Screen px per meter under the zoom.
+  const viewScale = scale * zoom.k;
+  const zoomed = !isZoomIdentity(zoom);
+  // The drawing's frame on screen: the datum and centerline through the view
+  // transform, for what is drawn outside it (see the render).
+  const viewCtx = { ...ctx, x0: zoom.x + zoom.k * ctx.x0, cy: zoom.y + zoom.k * ctx.cy };
   // Labeled majors are dense: about one per 22 screen px at least (rounded up
   // to a nice 1/2/2.5/5 step in the user's unit), so the scale reads like a
   // real drafting ruler rather than a handful of marks across the canvas.
-  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / scale));
+  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / viewScale));
   const rulerStep = u.fromUi('length', rulerStepUi);
   // Enough decimals to tell one graduation from the next, and no more: the
   // step's own, so a 2.5 step labels 2.5 and 7.5 rather than 3 and 8.
@@ -355,7 +375,7 @@ export function TreeSchematic({
   // same scale, labeled in the user's length unit.
   const vTop = rTop + 4;
   const vBot = h - rBot - 4;
-  const vSpanM = (vBot - vTop) / scale;
+  const vSpanM = (vBot - vTop) / viewScale;
   /**
    * The graduations, memoized.
    *
@@ -364,19 +384,22 @@ export function TreeSchematic({
    * be regenerated, and that many SVG nodes re-rendered, on every hover and
    * selection change. The rulers are on by default.
    *
-   * The datum is read out of `ctx` first so the memo is keyed on the number:
-   * keyed on `ctx.x0` inside the closure, the compiler infers `ctx` as the
-   * dependency and refuses to preserve the memo.
+   * The datums are read out of `ctx` and the zoom first so the memo is keyed
+   * on numbers: keyed on `ctx.x0` inside the closure, the compiler infers `ctx`
+   * as the dependency and refuses to preserve the memo. Both are on screen,
+   * through the view transform: the nose for the length rulers, the radial
+   * rulers' top for the radial ones.
    */
-  const x0 = ctx.x0;
+  const x0 = zoom.x + zoom.k * ctx.x0;
+  const vy0 = zoom.y + zoom.k * vTop;
   const { rulerMarks, vTicks, rulerMinorMarks, vMinorTicks } = useMemo(
-    () => rulerGraduations({ showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale, vSpanM, vTop }),
-    [showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale, vSpanM, vTop],
+    () => rulerGraduations({ showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale: viewScale, vSpanM, vTop, vy0 }),
+    [showLen, showRad, rulerStep, rulerX0, rulerX1, x0, viewScale, vSpanM, vTop, vy0],
   );
   // The values every ruler of one kind shares; the per-edge placement is
   // passed at the call site below.
-  const lengthRulerProps = { x0: rulerX0, x1: rulerX1, ctxX0: x0, scale, rulerStep, rulerDigits };
-  const radialRulerProps = { frameTopY, frameBotY, vTop, scale, rulerStep, rulerDigits };
+  const lengthRulerProps = { x0: rulerX0, x1: rulerX1, ctxX0: x0, scale: viewScale, rulerStep, rulerDigits };
+  const radialRulerProps = { frameTopY, frameBotY, vTop, originY: vy0, scale: viewScale, rulerStep, rulerDigits };
 
   // The drawing's control strip.
   const controls = (
@@ -393,11 +416,16 @@ export function TreeSchematic({
       caliperV={caliperV}
       setCaliperH={setCaliperH}
       setCaliperV={setCaliperV}
-      zoom={zoom}
-      setZoom={setZoom}
-      zoomBy={zoomBy}
     />
   );
+  // Zoom sits on the drawing itself, as on the aft view, whether the strip
+  // above goes to the header or not: in its bottom-right corner, inside the
+  // bottom and right rulers when those are on so it never covers a graduation.
+  const zoomButtons = <ZoomButtons zoom={zoom} setZoom={setZoom} zoomBy={zoomBy} />;
+  const zoomCorner = {
+    right: rulers.right ? RULER_W + 4 : 8,
+    bottom: rulers.bottom ? RULER_H + 4 : 8,
+  };
 
   const surface = zoomSurfaceProps(zoom, setZoom, w, t('schematic.sideAria'), t('schematic.panHint'));
   return (
@@ -431,36 +459,22 @@ export function TreeSchematic({
           {overlay}
           {/* Wireframe fin outlines while the view is rolled (paint topmost). */}
           {wires}
-          <StabilityOverlay info={info} showMarkers={showMarkers} ctx={ctx} scale={scale} vHalf={vHalf} w={w} h={h} />
-          <HoverOverlay box={hovered?.box ?? null} name={hovered?.name ?? ''} w={w} h={h} />
-          {caliperH && (
-            <HorizontalCaliper
-              cal={caliperH}
-              ctx={ctx}
-              scale={scale}
-              h={h}
-              rBot={rBot}
-              totalLen={totalLen}
-              onDragStart={(end) => beginCaliperDrag('h', end)}
-              onKey={(end) => caliperKeys('h', end)}
-            />
-          )}
-          {caliperV && (
-            <VerticalCaliper
-              cal={caliperV}
-              ctx={ctx}
-              scale={scale}
-              totalLen={totalLen}
-              vHalf={vHalf}
-              onDragStart={(end) => beginCaliperDrag('v', end)}
-              onKey={(end) => caliperKeys('v', end)}
-            />
-          )}
         </g>
         {/* Length rulers frame the top + bottom edges; radial rulers the left +
             right, each drawn only when that side is toggled on (see
-            SchematicRulers). */}
-        {rulersActive && rulers.bottom && (
+            SchematicRulers). Zoomed in, the drawing runs under them, so each
+            lane gets a backing of the theme's surface first: the numbers stay
+            readable over the airframe. At the fitted view nothing reaches the
+            lanes and none is drawn. */}
+        {zoomed && (
+          <g pointerEvents="none" fill={token('surface')} opacity={0.9}>
+            {rulers.top && <rect x={0} y={0} width={w} height={RULER_H} />}
+            {rulers.bottom && <rect x={0} y={h - RULER_H} width={w} height={RULER_H} />}
+            {rulers.left && <rect x={0} y={0} width={RULER_W} height={h} />}
+            {rulers.right && <rect x={w - RULER_W} y={0} width={RULER_W} height={h} />}
+          </g>
+        )}
+        {rulers.bottom && (
           <LengthRuler
             {...lengthRulerProps}
             baseY={h - RULER_H + 4}
@@ -471,7 +485,7 @@ export function TreeSchematic({
             minorMarks={rulerMinorMarks}
           />
         )}
-        {rulersActive && rulers.top && (
+        {rulers.top && (
           <LengthRuler
             {...lengthRulerProps}
             baseY={RULER_H - 4}
@@ -482,7 +496,7 @@ export function TreeSchematic({
             minorMarks={rulerMinorMarks}
           />
         )}
-        {rulersActive && rulers.right && vTicks.length > 0 && (
+        {rulers.right && vTicks.length > 0 && (
           <RadialRuler
             {...radialRulerProps}
             baseX={w - RULER_W + 4}
@@ -493,7 +507,7 @@ export function TreeSchematic({
             minorTicks={vMinorTicks}
           />
         )}
-        {rulersActive && rulers.left && vTicks.length > 0 && (
+        {rulers.left && vTicks.length > 0 && (
           <RadialRuler
             {...radialRulerProps}
             baseX={RULER_W - 4}
@@ -504,8 +518,63 @@ export function TreeSchematic({
             minorTicks={vMinorTicks}
           />
         )}
+        {/* The markers, callouts, hover tag and calipers are drawn on screen,
+            outside the pan/zoom group, through the zoomed frame (`viewCtx`): they
+            follow the drawing but keep their size, rather than growing with a
+            zoom-in until the labels run off the edge. After the rulers, so a
+            ruler's backing never covers them. */}
+        <StabilityOverlay
+          info={info}
+          showMarkers={showMarkers}
+          ctx={viewCtx}
+          scale={viewScale}
+          vHalf={vHalf}
+          w={w}
+          h={h - ZOOM_CLEAR}
+        />
+        <HoverOverlay box={hoverBox} name={hovered?.name ?? ''} w={w} h={h} />
+        {caliperH && (
+          <HorizontalCaliper
+            cal={caliperH}
+            ctx={viewCtx}
+            scale={viewScale}
+            h={h}
+            rBot={rBot}
+            rTop={rTop}
+            totalLen={totalLen}
+            viewX0={rulerX0}
+            viewX1={rulerX1}
+            onDragStart={(end) => beginCaliperDrag('h', end)}
+            onKey={(end) => caliperKeys('h', end)}
+          />
+        )}
+        {caliperV && (
+          <VerticalCaliper
+            cal={caliperV}
+            ctx={viewCtx}
+            scale={viewScale}
+            totalLen={totalLen}
+            viewX0={rulerX0}
+            viewX1={rulerX1}
+            vHalf={vHalf}
+            onDragStart={(end) => beginCaliperDrag('v', end)}
+            onKey={(end) => caliperKeys('v', end)}
+          />
+        )}
       </svg>
-      {controlsSlot ? createPortal(controls, controlsSlot) : <div className="schematic-controls">{controls}</div>}
+      {controlsSlot ? (
+        <>
+          {createPortal(controls, controlsSlot)}
+          <div className="schematic-controls" style={zoomCorner}>
+            {zoomButtons}
+          </div>
+        </>
+      ) : (
+        <div className="schematic-controls" style={zoomCorner}>
+          {controls}
+          {zoomButtons}
+        </div>
+      )}
     </div>
   );
 }

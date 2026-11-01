@@ -62,6 +62,18 @@ describe('rulerGraduations', () => {
     expect(g.rulerMinorMarks).toEqual([]);
   });
 
+  it('follows a zoom: radial majors from a datum above the window, at the zoomed scale', () => {
+    // Zoomed 2x with the datum panned 150 px above the window's top: the
+    // window (40..540 px, 0.25 m at 2000 px/m) starts 0.075 m down the scale,
+    // so the first major is 0.1 m, at 40 - 150 + 200 = 90 px.
+    const g = rulerGraduations({ ...base, scale: 2000, vy0: -110, showLen: false, showRad: true });
+    expect(g.vTicks).toHaveLength(3);
+    expect(g.vTicks[0]!.label).toBeCloseTo(0.1, 9);
+    expect(g.vTicks[2]!.label).toBeCloseTo(0.3, 9);
+    expect(g.vTicks[0]!.y).toBeCloseTo(90, 9);
+    expect(g.vMinorTicks[0]).toBeCloseTo(0.08, 9);
+  });
+
   it('returns four empty arrays when both rulers are off', () => {
     expect(rulerGraduations({ ...base, showLen: false, showRad: false })).toEqual({
       rulerMarks: [],

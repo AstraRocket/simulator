@@ -3,9 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/SettingsProvider';
 import {
   DEFAULT_SETTINGS,
+  HEADER_SUMMARY_PREFS,
   PLAYBACK_SPEEDS,
+  STATS_LAYOUTS,
   playbackLabel,
+  type HeaderSummaryPref,
   type SimulationSettings,
+  type StatsLayout,
 } from '../../services/storage/settings';
 import { PART_KEYS, mergePalette } from '../../services/design/partColors';
 import type { FigureStyle } from '../../services/design/figureStyle';
@@ -62,6 +66,36 @@ export function GeneralTab() {
         </select>
       </label>
       <p className="-mt-1 text-[11px] leading-snug text-ink-faint">{t('settings.themeHint')}</p>
+      <label className="flex items-center justify-between gap-3 text-sm text-ink">
+        <span>{t('settings.headerSummary')}</span>
+        <select
+          value={settings.headerSummary}
+          onChange={(e) => update({ headerSummary: e.target.value as HeaderSummaryPref })}
+          className="rounded-md bg-raised px-2 py-1 text-sm text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+        >
+          {HEADER_SUMMARY_PREFS.map((p) => (
+            <option key={p} value={p}>
+              {t(`settings.headerSummaryOption.${p}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="-mt-1 text-[11px] leading-snug text-ink-faint">{t('settings.headerSummaryHint')}</p>
+      <label className="flex items-center justify-between gap-3 text-sm text-ink">
+        <span>{t('settings.statsLayout')}</span>
+        <select
+          value={settings.statsLayout}
+          onChange={(e) => update({ statsLayout: e.target.value as StatsLayout })}
+          className="rounded-md bg-raised px-2 py-1 text-sm text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+        >
+          {STATS_LAYOUTS.map((p) => (
+            <option key={p} value={p}>
+              {t(`settings.statsLayoutOption.${p}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="-mt-1 text-[11px] leading-snug text-ink-faint">{t('settings.statsLayoutHint')}</p>
       <Check
         label={t('settings.saveDesignInfo')}
         checked={settings.saveDesignInfo}

@@ -3,8 +3,12 @@ import { useWorkspaceStore, selectOutdated, selectShownSim, type WorkspaceState 
 import { simStatus, simStatusLabel, type SimStatus } from '../../services/flight/simulations';
 import { ResultPicker } from '../sim/ResultPicker';
 import { ViewToggle } from './ViewToggle';
-import { ViewBtn } from './ViewBtn';
+import { JOINED, ToolDivider, ToolGroup, ViewBtn } from './ViewBtn';
+import { Segmented } from '../common/Segmented';
+import { ToggleButton } from '../common/ToggleButton';
 import { useViewPrefs } from './useViewPrefs';
+
+const TWO_D_VIEWS = ['side', 'aft'] as const;
 
 /**
  * The status of the flight the Results tab shows, as the simulations table
@@ -64,7 +68,9 @@ export function CenterToolbar({
     // portalled canvas controls and the view toggle do not fit a phone's
     // width in one row, and an unwrapped row scrolls the whole page
     // sideways.
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 pt-3">
+    // `@container/bar`: the dividers and the calipers' words show by this
+    // row's width, not the window's (ToolDivider in ViewBtn).
+    <div className="@container/bar flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 pt-3">
       {/* 2D view presets + the CG/CP · Info toggles, left-justified in the
       same row as the view toggle. The toggles apply to both 2D and 3D. */}
       <div className="flex flex-wrap items-center gap-1">
@@ -98,15 +104,22 @@ export function CenterToolbar({
             )}
           </div>
         )}
+        {/* Grouped by what each control is for, with a rule between groups:
+            the view (Reset, and Side or Aft as one joined choice), the
+            overlays (CG/CP, Info), and the rulers (one joined block of four
+            sides). Every control stays one click away. */}
         {view === '2d' && (
           <>
             <ViewBtn onClick={onResetView}>{t('view.reset')}</ViewBtn>
-            <ViewBtn active={twoD === 'side'} onClick={() => onTwoD('side')}>
-              {t('view.side')}
-            </ViewBtn>
-            <ViewBtn active={twoD === 'aft'} onClick={() => onTwoD('aft')}>
-              {t('view.aft')}
-            </ViewBtn>
+            <Segmented
+              size="bar"
+              options={TWO_D_VIEWS}
+              value={twoD}
+              onChange={onTwoD}
+              fmt={(v) => t(`view.${v}`)}
+              title={(v) => t(`view.${v}Title`)}
+            />
+            <ToolDivider />
           </>
         )}
         {view === '3d' && <div ref={onPresetSlot} className="flex items-center gap-1" />}
@@ -120,25 +133,29 @@ export function CenterToolbar({
             </ViewBtn>
             {/* Rulers only frame the 2D side view; one toggle per side (T/B/L/R). */}
             {view === '2d' && (
-              <div className="flex items-center gap-1">
-                <span className="pl-1 text-xs font-medium text-ink-muted">{t('view.rulers')}</span>
-                {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
-                  <ViewBtn
-                    key={side}
-                    active={rulers[side]}
-                    onClick={() => toggleRulerSide(side)}
-                    title={t(`view.ruler_${side}`)}
-                    label={t(`view.ruler_${side}`)}
-                  >
-                    {t(`view.ruler_${side}_abbr`)}
-                  </ViewBtn>
-                ))}
-              </div>
+              <>
+                <ToolDivider />
+                <span className="text-xs font-medium text-ink-muted">{t('view.rulers')}</span>
+                <ToolGroup label={t('view.rulers')}>
+                  {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
+                    <ToggleButton
+                      key={side}
+                      active={rulers[side]}
+                      onClick={() => toggleRulerSide(side)}
+                      title={t(`view.ruler_${side}`)}
+                      label={t(`view.ruler_${side}`)}
+                      className={`${JOINED} w-6`}
+                    >
+                      {t(`view.ruler_${side}_abbr`)}
+                    </ToggleButton>
+                  ))}
+                </ToolGroup>
+              </>
             )}
           </>
         )}
       </div>
-      {/* Center slot: the 2D schematic portals its caliper / zoom / export
+      {/* Center slot: the 2D schematic portals its caliper / export
       buttons here, and the 3D model its cutaway, view type and export. */}
       <div ref={onCtrlSlot} className="flex items-center gap-1" />
       {/* ml-auto keeps it hard right even when it wraps onto a line of its

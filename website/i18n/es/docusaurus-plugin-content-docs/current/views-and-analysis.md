@@ -10,9 +10,9 @@ En un teléfono las vistas de diseño viven en la pestaña **Croquis** y las de 
 
 Una vista lateral a escala del cohete con los marcadores de **CG** (▲) y **CP** (●) y el margen de estabilidad indicado.
 
-- **Calibres**: herramientas de medición que se arrastran. El calibre horizontal mide la distancia entre dos líneas verticales (longitudes); el vertical mide en transversal (diámetros y envergaduras). Las líneas se **ajustan** a los bordes de los componentes.
-- **Reglas**: un marco de medición alrededor del dibujo, con un **interruptor por lado** (arriba / abajo / izquierda / derecha) junto a los botones de CG/CP y **Datos**.
-- **Zoom y desplazamiento**: los botones +/− o la rueda para acercar. Con el dibujo ampliado, arrastra para desplazarte.
+- **Calibres**: **↔ Longitud** y **↕ Diámetro** en la barra son herramientas de medición que se arrastran. **Longitud** mide la distancia entre dos líneas verticales; **Diámetro** mide en transversal (diámetros y envergaduras). Las líneas se **ajustan** a los bordes de los componentes. Con el dibujo ampliado, la lectura de cada calibre sigue a la vista, y los tiradores de Diámetro pasan al borde izquierdo de la vista cuando la ojiva queda fuera.
+- **Reglas**: un marco de medición alrededor del dibujo, con un **interruptor por lado** (arriba / abajo / izquierda / derecha) junto a los botones de CG/CP y **Datos**. Las reglas se mantienen al ampliar o desplazar: sus marcas siguen al dibujo y se afinan al acercar, así que una pieza ampliada se sigue pudiendo medir con ellas.
+- **Zoom y desplazamiento**: **+**, **−** y **Ajustar** en la esquina inferior derecha del dibujo, o la rueda, para acercar. Con el dibujo ampliado, arrastra para desplazarte; **Ajustar** vuelve a mostrar el cohete entero. Los marcadores de CG / CP, sus etiquetas y los calibres mantienen su tamaño al ampliar. La vista trasera tiene el mismo bloque de zoom.
 - **Giro**: con el encuadre ajustado, arrastrar el dibujo hacia los lados gira el cohete sobre su eje longitudinal, para ver los juegos de aletas de canto o de frente. El deslizador del borde izquierdo hace lo mismo con cualquier zoom.
 - **Lateral / Trasera**: cambia entre el perfil lateral y una vista posterior (de frente); **Restablecer** recupera el encuadre por defecto.
 
@@ -21,7 +21,7 @@ Una vista lateral a escala del cohete con los marcadores de **CG** (▲) y **CP*
 Dos botones de la barra controlan lo que se superpone en las vistas **2D** y **3D**:
 
 - **CG / CP**: muestra u oculta los marcadores de **CG / CP / estabilidad** y sus etiquetas.
-- **Datos**: muestra u oculta la tarjeta de vistazo rápido con **longitud · masa · CG · CP · estabilidad** en la esquina superior izquierda (el mismo resumen que la [franja de estadísticas](#reading-the-stats-strip), útil en un teléfono, donde la franja está en la otra pestaña).
+- **Datos**: muestra u oculta la tarjeta de vistazo rápido con **longitud · masa · CG · CP · estabilidad** en la esquina superior izquierda. Empieza desactivada, porque la [franja Información](#reading-the-stats-strip) bajo el dibujo muestra las mismas cifras; es útil en un teléfono, donde la franja está en la otra pestaña.
 
 ## Modelo 3D {#3d-model}
 
@@ -155,9 +155,9 @@ Una hora cuyo viento o ángulo de lanzamiento supera el límite de seguridad no 
 
 Sin un pronóstico, la sección explica cómo obtenerlo. Para un cohete no diseñado aquí, el [estimador de aterrizaje](./tools.md#landing-estimator) de la pestaña Herramientas da una estimación a partir de velocidades de descenso escritas.
 
-## Leer la franja de estadísticas {#reading-the-stats-strip}
+## Leer la franja Información {#reading-the-stats-strip}
 
-La franja inferior resume el diseño actual como una cuadrícula de fichas (se pliega con el galón de su cabecera):
+La franja **Información** bajo el dibujo resume el diseño actual como una cuadrícula de fichas (se pliega con el galón de su cabecera):
 
 - **Longitud**, **Diámetro máx.** y **Esbeltez** (longitud / diámetro).
 - **Masa** y **CG**, cada uno mostrado **vacío / cargado** (en seco y con el motor) en una sola ficha.

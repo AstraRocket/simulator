@@ -536,7 +536,11 @@ export interface RulerGraduations {
  * viewport, plus minor subdivisions at a fifth of that. Pure so the schematic
  * can memoize it on primitives; `x0` is the datum (model 0) in viewBox px,
  * `rulerX0..rulerX1` the length baseline's extent, `vTop` and `vSpanM` the
- * radial ruler's start (viewBox px) and length (meters).
+ * radial ruler's start (viewBox px) and length (meters), and `vy0` the radial
+ * datum (viewBox px, `vTop` at the fitted view).
+ *
+ * Under a zoom the caller passes the zoomed datums and scale, so the rulers
+ * keep measuring the drawing they frame instead of going away.
  */
 export function rulerGraduations({
   showLen,
@@ -548,6 +552,7 @@ export function rulerGraduations({
   scale,
   vSpanM,
   vTop,
+  vy0 = vTop,
 }: {
   showLen: boolean;
   showRad: boolean;
@@ -558,6 +563,7 @@ export function rulerGraduations({
   scale: number;
   vSpanM: number;
   vTop: number;
+  vy0?: number;
 }): RulerGraduations {
   const marks: number[] = [];
   if (showLen) {
@@ -566,7 +572,14 @@ export function rulerGraduations({
     for (let m = mLo; m <= mHi + 1e-6; m += rulerStep) marks.push(m);
   }
   const ticks: { y: number; label: number }[] = [];
-  if (showRad) for (let m = 0; m <= vSpanM + 1e-6; m += rulerStep) ticks.push({ y: vTop + m * scale, label: m });
+  // The radial window, in meters from the radial datum.
+  const vLo = (vTop - vy0) / scale;
+  const vHi = vLo + vSpanM;
+  if (showRad) {
+    // `+ 0`: ceil of a hair under zero is -0, which would label as "-0".
+    const mLo = Math.ceil(vLo / rulerStep - 1e-6) * rulerStep + 0;
+    for (let m = mLo; m <= vHi + 1e-6; m += rulerStep) ticks.push({ y: vy0 + m * scale, label: m });
+  }
   // Minor subdivisions: 5 per labeled major.
   const minorMarks: number[] = [];
   const minorTicks: number[] = [];
@@ -578,7 +591,8 @@ export function rulerGraduations({
   }
   if (showRad) {
     const minorV = rulerStep / 5;
-    for (let m = 0; m <= vSpanM + 1e-6; m += minorV) minorTicks.push(m);
+    const mLo = Math.ceil(vLo / minorV - 1e-6) * minorV;
+    for (let m = mLo; m <= vHi + 1e-6; m += minorV) minorTicks.push(m);
   }
   return { rulerMarks: marks, vTicks: ticks, rulerMinorMarks: minorMarks, vMinorTicks: minorTicks };
 }

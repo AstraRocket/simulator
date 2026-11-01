@@ -550,6 +550,19 @@
     "askWhereToSaveHint": "Öffnet den Speicherdialog des Browsers, sodass Sie Namen und Ordner wählen. Wenn aus, landen Dateien direkt im Download-Ordner.",
     "theme": "Design",
     "themeHint": "Tageslicht ist ein helles Design mit schwarzer Schrift und dunkleren Farben, um den Bildschirm im Sonnenlicht auf dem Startgelände zu lesen.",
+    "headerSummary": "Zusammenfassung in der Kopfzeile",
+    "headerSummaryOption": {
+      "full": "Vollständig",
+      "compact": "Kompakt",
+      "off": "Aus"
+    },
+    "headerSummaryHint": "Stabilität, Masse, Konfiguration, Gipfelhöhe und eine Start-Schaltfläche in der Kopfzeile, auf jedem Tab. Kompakt behält Stabilität, Gipfelhöhe und Start. Wo die Kopfzeile zu wenig Platz hat, zeigt Vollständig die kompakte Form und Kompakt nichts; unter 1280 Pixeln erscheint keine.",
+    "statsLayout": "Informationen",
+    "statsLayoutOption": {
+      "compact": "Kompakt",
+      "standard": "Standard"
+    },
+    "statsLayoutHint": "Die Werte unter der Zeichnung. Kompakt zeigt jeden auf zwei Zeilen, sechs pro Reihe, und lässt der Zeichnung mehr Höhe. Standard gibt jedem eine dreizeilige Karte.",
     "themeOption": {
       "dark": "Dunkel",
       "light": "Hell",
@@ -703,6 +716,15 @@
     "ruler_right_abbr": "R",
     "environment": "Umgebung"
   },
+  "summary": {
+    "label": "Zusammenfassung des Entwurfs",
+    "stability": "Stabilität",
+    "configuration": "Konfiguration",
+    "run": "Starten",
+    "runTitle": "„{{name}}“ starten",
+    "stop": "Stopp",
+    "openResults": "Diesen Flug in den Ergebnissen öffnen"
+  },
   "stability": {
     "onPad": "Stabilität (auf der Rampe)",
     "mass": "Masse",
@@ -714,7 +736,7 @@
     "unstable": "Instabil"
   },
   "stats": {
-    "title": "Statische Kennwerte",
+    "title": "Informationen",
     "length": "Länge",
     "maxDiameter": "Max. Durchmesser",
     "fineness": "Schlankheitsgrad",
@@ -1660,11 +1682,14 @@
       "tubecoupler": "RV",
       "innertube": "IR"
     },
-    "calipersH": "Längenmessschieber – die beiden senkrechten Linien zum Messen ziehen (rastet an Kanten ein)",
-    "calipersV": "Durchmessermessschieber – die beiden waagerechten Linien ziehen, um eine Spanne zu messen",
+    "calipersH": "Messschieber Länge – die beiden senkrechten Linien zum Messen ziehen (rastet an Kanten ein)",
+    "calipersV": "Messschieber Durchmesser – die beiden waagerechten Linien ziehen, um eine Spanne zu messen",
+    "caliperLength": "Länge",
+    "caliperDiameter": "Durchmesser",
     "zoomIn": "Vergrößern – oder auf der Zeichnung scrollen; zum Verschieben ziehen",
     "zoomOut": "Verkleinern",
     "fit": "An die Ansicht anpassen",
+    "fitShort": "Anpassen",
     "aftAria": "Heckansicht – Blick von hinten auf die Rakete; zum Drehen ziehen, zum Zoomen scrollen",
     "sideAria": "Seitenansicht der Rakete mit CG- und CP-Markern; zum Zoomen scrollen, zum Verschieben den Hintergrund ziehen",
     "panHint": "Pfeiltasten verschieben die vergrößerte Ansicht, mit Umschalt in größeren Schritten",

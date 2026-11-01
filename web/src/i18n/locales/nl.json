@@ -550,6 +550,19 @@
     "askWhereToSaveHint": "Opent het opslagvenster van de browser, zodat je de naam en de map kiest. Uit: bestanden gaan direct naar je downloadmap.",
     "theme": "Thema",
     "themeHint": "Daglicht is een licht thema met zwarte tekst en donkerdere kleuren, om het scherm in de zon op het veld te lezen.",
+    "headerSummary": "Overzicht in de kopbalk",
+    "headerSummaryOption": {
+      "full": "Volledig",
+      "compact": "Compact",
+      "off": "Uit"
+    },
+    "headerSummaryHint": "Stabiliteit, massa, configuratie, apogeum en een Start-knop in de kopbalk, op elk tabblad. Compact houdt stabiliteit, apogeum en Start. Waar de kopbalk te weinig ruimte heeft, toont Volledig compact en Compact niets; onder 1280 pixels verschijnt geen van beide.",
+    "statsLayout": "Informatie",
+    "statsLayoutOption": {
+      "compact": "Compact",
+      "standard": "Standaard"
+    },
+    "statsLayoutHint": "De waarden onder de tekening. Compact zet elke waarde op twee regels, zes per rij, en laat de tekening meer hoogte. Standaard geeft elke waarde een kaart van drie regels.",
     "themeOption": {
       "dark": "Donker",
       "light": "Licht",
@@ -703,6 +716,15 @@
     "ruler_right_abbr": "R",
     "environment": "Omgeving"
   },
+  "summary": {
+    "label": "Overzicht van het ontwerp",
+    "stability": "Stabiliteit",
+    "configuration": "Configuratie",
+    "run": "Starten",
+    "runTitle": "\"{{name}}\" starten",
+    "stop": "Stoppen",
+    "openResults": "Deze vlucht openen in Resultaten"
+  },
   "stability": {
     "onPad": "Stabiliteit (op het platform)",
     "mass": "Massa",
@@ -714,7 +736,7 @@
     "unstable": "Instabiel"
   },
   "stats": {
-    "title": "Statische gegevens",
+    "title": "Informatie",
     "length": "Lengte",
     "maxDiameter": "Max. diameter",
     "fineness": "Slankheid",
@@ -1662,9 +1684,12 @@
     },
     "calipersH": "Schuifmaat voor lengte: sleep de twee verticale lijnen om te meten (klikt vast op randen)",
     "calipersV": "Schuifmaat voor diameter: sleep de twee horizontale lijnen om een afstand te meten",
+    "caliperLength": "Lengte",
+    "caliperDiameter": "Diameter",
     "zoomIn": "Inzoomen, of scroll op de tekening; sleep om te verschuiven",
     "zoomOut": "Uitzoomen",
     "fit": "Passend maken",
+    "fitShort": "Passend",
     "aftAria": "Achteraanzicht: de raket van achteren gezien; sleep om te draaien, scrolwiel om te zoomen",
     "sideAria": "Zijaanzicht van de raket met de markers voor CG en CP; scrolwiel om te zoomen, sleep de achtergrond om te verschuiven",
     "panHint": "Pijltoetsen verschuiven de ingezoomde weergave, met Shift in grotere stappen",

@@ -23,9 +23,12 @@ import { CG_INK, CP_INK } from './stabilityInks';
 import { token } from '../common/colorTokens';
 import { useSceneColors } from './sceneColors';
 import { errorText } from '../../i18n/keyedError';
-import { ViewBtn } from './ViewBtn';
+import { ToolDivider, ViewBtn } from './ViewBtn';
 import { Segmented } from '../common/Segmented';
 import { SvgExportButton } from './SvgExportButton';
+
+/** The camera presets, in the 2D view's order. */
+const CAMERA_VIEWS = ['side', 'aft'] as const;
 
 /**
  * 3D rocket view (react-three-fiber). Geometry is generated from the
@@ -150,20 +153,24 @@ export function Rocket3D({
   const resetView = () => moveCam(preset === 'side' ? sidePos : aftPos);
 
   // The camera presets go where the 2D view has its own, left in the header
-  // row; the rest goes in the row's middle, as the 2D view's tools do. Three
-  // kinds of control, so three shapes: Side / Aft move the camera, Cutaway is
-  // an on/off switch, and Figure | Finished is one choice of two.
+  // row; the rest goes in the row's middle, as the 2D view's tools do. The
+  // same shapes as 2D's: Reset, then Side | Aft as one joined choice of two,
+  // then a rule before the overlays. Cutaway is an on/off switch, and
+  // Figure | Finished another choice of two.
   const presets = (
     <>
       <ViewBtn onClick={resetView} title={t('view.reset3dTitle')}>
         {t('view.reset')}
       </ViewBtn>
-      <ViewBtn active={preset === 'side'} onClick={() => showView('side')} title={t('view.sideTitle')}>
-        {t('view.side')}
-      </ViewBtn>
-      <ViewBtn active={preset === 'aft'} onClick={() => showView('aft')} title={t('view.aftTitle')}>
-        {t('view.aft')}
-      </ViewBtn>
+      <Segmented
+        size="bar"
+        options={CAMERA_VIEWS}
+        value={preset}
+        onChange={showView}
+        fmt={(v) => t(`view.${v}`)}
+        title={(v) => t(`view.${v}Title`)}
+      />
+      <ToolDivider />
     </>
   );
   const tools = (

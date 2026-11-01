@@ -549,6 +549,19 @@
     "askWhereToSaveHint": "ブラウザの保存ダイアログを開き、名前とフォルダーを選べます。オフの場合、ファイルはそのままダウンロードフォルダーに保存されます。",
     "theme": "テーマ",
     "themeHint": "デイライトは黒い文字と濃い色の明るいテーマで、発射場の日差しの下で画面を読むためのものです。",
+    "headerSummary": "ヘッダーの概要",
+    "headerSummaryOption": {
+      "full": "すべて",
+      "compact": "コンパクト",
+      "off": "オフ"
+    },
+    "headerSummaryHint": "安定性、質量、構成、最高高度、実行ボタンを、どのタブでもヘッダーに表示します。コンパクトは安定性、最高高度、実行のみ。ヘッダーに余裕がないときは、すべてはコンパクトに、コンパクトは非表示になります。1280 ピクセル未満ではどちらも表示されません。",
+    "statsLayout": "情報",
+    "statsLayoutOption": {
+      "compact": "コンパクト",
+      "standard": "標準"
+    },
+    "statsLayoutHint": "図の下の数値です。コンパクトは各項目を 2 行で 1 列に 6 つ並べ、図により多くの高さを残します。標準は各項目を 3 行のカードで表示します。",
     "themeOption": {
       "dark": "ダーク",
       "light": "ライト",
@@ -702,6 +715,15 @@
     "ruler_right_abbr": "右",
     "environment": "環境"
   },
+  "summary": {
+    "label": "設計の概要",
+    "stability": "安定性",
+    "configuration": "構成",
+    "run": "実行",
+    "runTitle": "「{{name}}」を実行",
+    "stop": "停止",
+    "openResults": "この飛行を結果で開く"
+  },
   "stability": {
     "onPad": "安定性（発射台上）",
     "mass": "質量",
@@ -713,7 +735,7 @@
     "unstable": "不安定"
   },
   "stats": {
-    "title": "静的な諸元",
+    "title": "情報",
     "length": "全長",
     "maxDiameter": "最大直径",
     "fineness": "細長比",
@@ -1656,9 +1678,12 @@
     },
     "calipersH": "長さのキャリパー：2 本の縦線をドラッグして測ります（端に吸着します）",
     "calipersV": "直径のキャリパー：2 本の横線をドラッグして幅を測ります",
+    "caliperLength": "長さ",
+    "caliperDiameter": "直径",
     "zoomIn": "拡大、または図の上でスクロール。ドラッグで移動します",
     "zoomOut": "縮小",
     "fit": "画面に合わせる",
+    "fitShort": "合わせる",
     "aftAria": "後方からの表示：ロケットを後ろから見た図。ドラッグで回転、ホイールで拡大縮小します",
     "sideAria": "CG と CP のマーカー付きのロケット側面図。ホイールで拡大縮小、背景をドラッグで移動します",
     "panHint": "矢印キーで拡大表示を移動します。Shift で大きく移動します",

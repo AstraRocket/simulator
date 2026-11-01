@@ -55,7 +55,7 @@ export function motorColumns(tree: RocketTree, t: TFunction): ConfigColumn[] {
       if (!seated?.spec.designation) return <span className="text-ink-dim">{NO_VALUE}</span>;
       return (
         <>
-          {motorDesignation(seated.spec)}
+          <span className="font-data">{motorDesignation(seated.spec)}</span>
           {/* Ignition only when it is not the default: an "automatic" on every
               cell is noise, and the one cell that air-starts is the thing worth
               seeing here. */}

@@ -10,9 +10,9 @@ On a phone the design views live on the **Sketch** tab and the flight views on *
 
 A to-scale side view of the rocket with **CG** (▲) and **CP** (●) markers and the stability margin called out.
 
-- **Calipers**: drag-to-measure tools. The horizontal caliper measures the distance between two vertical lines (lengths); the vertical caliper measures across (diameters / spans). Lines **snap** to component edges.
-- **Rulers**: a measurement frame around the drawing, with a **toggle per side** (top / bottom / left / right) next to the CG/CP and Info buttons.
-- **Zoom / pan**: the +/− buttons or scroll to zoom. Once zoomed in, drag to pan.
+- **Calipers**: **↔ Length** and **↕ Diameter** in the toolbar are drag-to-measure tools. **Length** measures the distance between two vertical lines; **Diameter** measures across (diameters / spans). Lines **snap** to component edges. Zoomed in, each caliper's readout stays in view, and Diameter's grips move to the view's left edge once the nose is off screen.
+- **Rulers**: a measurement frame around the drawing, with a **toggle per side** (top / bottom / left / right) next to the CG/CP and Info buttons. The rulers stay through a zoom or pan: their marks follow the drawing and get finer as you zoom in, so a zoomed-in part can still be read off them.
+- **Zoom / pan**: **+**, **−** and **Fit** in the drawing's bottom-right corner, or scroll, to zoom. Once zoomed in, drag to pan; **Fit** brings the whole rocket back. The CG / CP markers, their labels and the calipers keep their size as you zoom. The aft view has the same zoom block.
 - **Roll**: at the fitted view, a sideways drag on the drawing spins the rocket about its long axis, so you can see fin sets edge-on or broadside. The slider along the left edge does the same at any zoom.
 - **Side / Aft**: switch between the side profile and an aft (head-on) view; **Reset** restores the default framing.
 
@@ -21,7 +21,7 @@ A to-scale side view of the rocket with **CG** (▲) and **CP** (●) markers an
 Two toolbar buttons control what's overlaid on the **2D** and **3D** views:
 
 - **CG / CP**: show or hide the **CG / CP / stability** markers and their callouts.
-- **Info**: show or hide the quick-glance **length · mass · CG · CP · stability** card in the upper-left corner (the same summary as the [stats strip](#reading-the-stats-strip), handy on a phone, where the strip is on the other tab).
+- **Info**: show or hide the quick-glance **length · mass · CG · CP · stability** card in the upper-left corner. It starts off, since the [Information strip](#reading-the-stats-strip) under the drawing shows the same figures; it is handy on a phone, where the strip is on the other tab.
 
 ## 3D model
 
@@ -155,9 +155,9 @@ An hour whose wind or launch angle is over the safety limit is not flown, the sa
 
 Without a forecast, the section says how to get one. For a rocket not designed here, the [landing estimator](./tools.md#landing-estimator) on the Tools tab gives an estimate from typed descent rates.
 
-## Reading the stats strip
+## Reading the Information strip {#reading-the-stats-strip}
 
-The bottom strip summarizes the current design as a grid of tiles (collapse it with the chevron on its header):
+The **Information** strip under the drawing summarizes the current design as a grid of tiles (collapse it with the chevron on its header):
 
 - **Length**, **Max diameter**, **Fineness** (length / diameter).
 - **Mass** and **CG**, each shown **empty / loaded** (dry, and with the motor) in one tile.

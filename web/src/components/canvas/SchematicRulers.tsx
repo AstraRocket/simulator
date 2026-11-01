@@ -97,6 +97,7 @@ export function RadialRuler({
   frameTopY,
   frameBotY,
   vTop,
+  originY = vTop,
   scale,
   rulerStep,
   rulerDigits,
@@ -112,6 +113,9 @@ export function RadialRuler({
   frameBotY: number;
   /** Where the graduations start (viewBox px). */
   vTop: number;
+  /** The radial datum, where a minor tick of 0 sits (viewBox px): `vTop` at
+   *  the fitted view, wherever the zoom has moved it otherwise. */
+  originY?: number;
   scale: number;
   rulerStep: number;
   rulerDigits: number;
@@ -127,7 +131,7 @@ export function RadialRuler({
           into one frame; the ticks stay in vTop..vBot. */}
       <line x1={baseX} y1={frameTopY} x2={baseX} y2={frameBotY} className="stroke-line/55" />
       {minorTicks.map((m, i) => {
-        const y = vTop + m * scale;
+        const y = originY + m * scale;
         const medium = isHalfStep(m, rulerStep);
         return (
           <line

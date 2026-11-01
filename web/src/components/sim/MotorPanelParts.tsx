@@ -36,14 +36,28 @@ export function MotorSearch({
   );
 }
 
-/** A motor's (or a cluster's) heading: who makes it over its class and name. */
-export function MotorHeading({ kicker, impulseClass, title }: { kicker: string; impulseClass: string; title: string }) {
+/**
+ * A motor's (or a cluster's) heading: who makes it over its class and name.
+ * `designation` sets the title as a motor name (`font-data`); a cluster's
+ * title is words.
+ */
+export function MotorHeading({
+  kicker,
+  impulseClass,
+  title,
+  designation,
+}: {
+  kicker: string;
+  impulseClass: string;
+  title: string;
+  designation?: boolean;
+}) {
   return (
     <>
       <div className="text-[11px] font-semibold uppercase tracking-wider text-warn-300">{kicker}</div>
       <div className="mt-1 flex items-center gap-2">
         <span className="rounded bg-ok-500/15 px-1.5 py-0.5 text-xs font-semibold text-ok-300">{impulseClass}</span>
-        <h3 className="text-2xl font-bold text-ink-strong">{title}</h3>
+        <h3 className={`${designation ? 'font-data ' : ''}text-2xl font-bold text-ink-strong`}>{title}</h3>
       </div>
     </>
   );

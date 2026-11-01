@@ -5,7 +5,7 @@ import type { StaticInfo } from '../../../src/engine/api';
 import { StabilityBadge } from '../../../src/components/canvas/StabilityBadge';
 import { InfoOverlay } from '../../../src/components/canvas/InfoOverlay';
 import { StabilityOverlay } from '../../../src/components/canvas/SchematicOverlay';
-import { renderWithProviders } from '../../testing/renderWithProviders';
+import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { NO_VALUE } from '../../../src/i18n/noValue';
 
 /**
@@ -90,6 +90,26 @@ describe('the collapsed stability margin', () => {
     const toggle = screen.getByRole('button');
     expect(toggle.querySelector('.sr-only')).toBeNull();
     expect(toggle.textContent).not.toMatch(/[⚠△✓]/);
+  });
+});
+
+/** Settings ▸ General ▸ Static statistics picks the tiles' layout. */
+describe('the static statistics layout', () => {
+  afterEach(() => localStorage.clear());
+
+  it('is the two-line tiles by default, with the verdict beside the label', () => {
+    renderWithProviders(<StabilityBadge info={info()} expanded onToggle={() => {}} />);
+    const tile = screen.getByText('L/D').parentElement!.parentElement!;
+    expect(tile.className).toContain('text-left');
+    expect(screen.getByText('Stable').parentElement!.textContent).toMatch(/^Stability \(on pad\)/);
+  });
+
+  it('is the three-line cards when set to standard, with the verdict after the unit', () => {
+    seedSettings({ statsLayout: 'standard' });
+    renderWithProviders(<StabilityBadge info={info()} expanded onToggle={() => {}} />);
+    const tile = screen.getByText('L/D').parentElement!;
+    expect(tile.className).toContain('text-center');
+    expect(screen.getByText('Stable').parentElement!.textContent).toBe('cal / % · Stable');
   });
 });
 

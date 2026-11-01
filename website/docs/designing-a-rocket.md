@@ -263,4 +263,4 @@ Mounts and motors stay in sync automatically: add a mount and it comes pre-loade
 
 ## Stability at a glance
 
-The bottom **Static statistics** strip shows the current design's length, max diameter, fineness ratio, empty/loaded mass and CG, CP, recovery weight (descent mass), stability (in calibers on the pad and as % of length), the Mach-0.3 drag coefficient and normal-force slope, and the loaded roll/pitch moments of inertia. Click its title to collapse it to the length and the on-pad stability, and again to expand it. More detail is in **[Views & Analysis](./views-and-analysis.md)**.
+The bottom **Information** strip shows the current design's length, max diameter, fineness ratio, empty/loaded mass and CG, CP, recovery weight (descent mass), stability (in calibers on the pad and as % of length), the Mach-0.3 drag coefficient and normal-force slope, and the loaded roll/pitch moments of inertia. Click its title to collapse it to the length and the on-pad stability, and again to expand it. More detail is in **[Views & Analysis](./views-and-analysis.md)**.

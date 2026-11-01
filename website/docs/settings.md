@@ -30,11 +30,11 @@ Every quantity has its own unit, set on the **Units** tab. **Metric defaults** a
 
 A fresh install starts on the **metric defaults**, and the reset buttons restore the same set.
 
-Everything follows your choice: the property fields you type into, the component tree, the stats strip, the 2D rulers and calipers, the 3D callouts, the flight and drag charts, the motor browser, and the PDF and CSV exports (which name the unit they used, and can be set to metric or imperial separately; see [Files & Exports](./files-and-exports.md)). The **Component dimensions** unit also reaches the flight: see [What units don't change](#what-units-dont-change).
+Everything follows your choice: the property fields you type into, the component tree, the Information strip, the 2D rulers and calipers, the 3D callouts, the flight and drag charts, the motor browser, and the PDF and CSV exports (which name the unit they used, and can be set to metric or imperial separately; see [Files & Exports](./files-and-exports.md)). The **Component dimensions** unit also reaches the flight: see [What units don't change](#what-units-dont-change).
 
 ### Changing a unit on one field
 
-The unit printed next to a value is also a picker: click it and pick another. That changes **that field and nothing else**: set a nose cone's *Length* to inches and its *Thickness*, the component tree, the rulers and the stats strip all stay in your default unit. The change sticks across reloads.
+The unit printed next to a value is also a picker: click it and pick another. That changes **that field and nothing else**: set a nose cone's *Length* to inches and its *Thickness*, the component tree, the rulers and the Information strip all stay in your default unit. The change sticks across reloads.
 
 A field showing something other than your default is **tinted amber**, so an inch value among centimeters is clearly something you chose and not an error. Hovering over it shows your default.
 

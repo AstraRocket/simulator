@@ -550,6 +550,19 @@
     "askWhereToSaveHint": "Opens the browser's save dialog, so you choose the name and the folder. When off, files go straight to your downloads folder.",
     "theme": "Theme",
     "themeHint": "Daylight is a light theme with black text and darker colors, for reading a screen in sunlight at the field.",
+    "headerSummary": "Header summary",
+    "headerSummaryOption": {
+      "full": "Full",
+      "compact": "Compact",
+      "off": "Off"
+    },
+    "headerSummaryHint": "Stability, mass, configuration, apogee and a Run button in the header, on every tab. Compact keeps stability, apogee and Run. Where the header has too little room, Full shows compact and compact shows nothing; neither shows below 1280 pixels.",
+    "statsLayout": "Information",
+    "statsLayoutOption": {
+      "compact": "Compact",
+      "standard": "Standard"
+    },
+    "statsLayoutHint": "The figures under the drawing. Compact puts each on two lines, six to a row, and leaves the drawing more height. Standard gives each a three-line card.",
     "themeOption": {
       "dark": "Dark",
       "light": "Light",
@@ -703,6 +716,15 @@
     "ruler_right_abbr": "R",
     "environment": "Environment"
   },
+  "summary": {
+    "label": "Design summary",
+    "stability": "Stability",
+    "configuration": "Configuration",
+    "run": "Run",
+    "runTitle": "Run \"{{name}}\"",
+    "stop": "Stop",
+    "openResults": "Open this flight on Results"
+  },
   "stability": {
     "onPad": "Stability (on pad)",
     "mass": "Mass",
@@ -714,7 +736,7 @@
     "unstable": "Unstable"
   },
   "stats": {
-    "title": "Static statistics",
+    "title": "Information",
     "length": "Length",
     "maxDiameter": "Max diameter",
     "fineness": "Fineness",
@@ -1662,9 +1684,12 @@
     },
     "calipersH": "Length calipers: drag the two vertical lines to measure (snaps to edges)",
     "calipersV": "Diameter calipers: drag the two horizontal lines to measure a span",
+    "caliperLength": "Length",
+    "caliperDiameter": "Diameter",
     "zoomIn": "Zoom in, or scroll on the drawing; drag to pan",
     "zoomOut": "Zoom out",
     "fit": "Fit to view",
+    "fitShort": "Fit",
     "aftAria": "Aft end view: looking at the rocket from behind; drag to rotate, wheel to zoom",
     "sideAria": "Rocket side view with CG and CP markers; wheel to zoom, drag background to pan",
     "panHint": "Arrow keys pan the zoomed view, Shift for a larger step",

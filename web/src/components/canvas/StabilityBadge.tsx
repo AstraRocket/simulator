@@ -8,6 +8,7 @@ import { UnitChip } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { STABILITY_GLYPH } from '../../tree/schematicGeometry';
+import { useSettings } from '../../state/SettingsProvider';
 
 /**
  * "All stats" strip under the canvas: length, max diameter,
@@ -39,6 +40,10 @@ export function StabilityBadge({
 }) {
   const { t } = useTranslation();
   const u = useUnits();
+  // Settings ▸ General ▸ Static statistics: the two-line tiles or the
+  // three-line cards.
+  const compact = useSettings().settings.statsLayout === 'compact';
+  const tile = compact ? { inline: true } : { card: true, dense: true };
   // Each tile carries its own unit, so reading CP in inches does not drag the
   // length tile, the tree and the rulers along with it.
   const lengthTile = u.at(unitScope('stats', 'length'), 'length');
@@ -87,16 +92,23 @@ export function StabilityBadge({
       {expanded && (
         /* Container queries: columns track this strip's width (see the @container
            parent), not the browser window, so the side panels don't throw the
-           count off. <576px → 2, 576–1151 → 3, ≥1152 → 6. */
-        <div className="mt-2 grid grid-cols-2 gap-2 @xl:grid-cols-3 @6xl:grid-cols-6">
+           count off. The compact tiles are narrow enough for six from 768px, so
+           the dozen take two rows beside a desktop's side panels:
+           <448px → 2, 448–671 → 3, 672–767 → 4, ≥768 → 6. The cards need
+           more: <576px → 2, 576–1151 → 3, ≥1152 → 6. */
+        <div
+          className={`mt-2 grid grid-cols-2 gap-1.5 ${
+            compact ? '@md:grid-cols-3 @2xl:grid-cols-4 @3xl:grid-cols-6' : '@xl:grid-cols-3 @6xl:grid-cols-6'
+          }`}
+        >
           <Stat
-            card
+            {...tile}
             label={t('stats.length')}
             value={lengthTile.fmt(info.length)}
             sub={<UnitChip label={t('stats.length')} quantity="length" scope={unitScope('stats', 'length')} />}
           />
           <Stat
-            card
+            {...tile}
             label={t('stats.maxDiameter')}
             value={diameterTile.fmt(info.refDiameter)}
             sub={
@@ -104,15 +116,11 @@ export function StabilityBadge({
             }
           />
           <Stat
-            card
+            {...tile}
             label={t('stability.mass')}
             value={`${massTile.fmt(info.massEmpty)} / ${massTile.fmt(info.mass)}`}
-            sub={
-              <>
-                <UnitChip label={t('stability.mass')} quantity="mass" scope={unitScope('stats', 'mass')} /> ·{' '}
-                {t('stats.emptyLoaded')}
-              </>
-            }
+            sub={<UnitChip label={t('stability.mass')} quantity="mass" scope={unitScope('stats', 'mass')} />}
+            note={t('stats.emptyLoaded')}
           />
           {/* What the recovery system brings down. Estimated from the design
               (loaded minus the propellant that burns off) until a run reports the
@@ -124,7 +132,7 @@ export function StabilityBadge({
               chip below: the chip is the control that sets this tile's unit, and
               a marker is not worth a control. */}
           <Stat
-            card
+            {...tile}
             label={recoveryEstimated ? t('stats.recoveryWeightEstimated') : t('stats.recoveryWeight')}
             value={recoveryWeight != null ? recoveryTile.fmt(recoveryWeight) : NO_VALUE}
             sub={
@@ -140,44 +148,41 @@ export function StabilityBadge({
             }
           />
           <Stat
-            card
+            {...tile}
             label={t('stability.cg')}
             value={`${cgTile.fmt(info.cgEmpty)} / ${cgTile.fmt(info.cg)}`}
-            sub={
-              <>
-                <UnitChip label={t('stability.cg')} quantity="length" scope={unitScope('stats', 'cg')} /> ·{' '}
-                {t('stats.emptyLoaded')}
-              </>
-            }
+            sub={<UnitChip label={t('stability.cg')} quantity="length" scope={unitScope('stats', 'cg')} />}
+            note={t('stats.emptyLoaded')}
           />
           <Stat
-            card
+            {...tile}
             label={t('stability.cp')}
             value={cpTile.fmt(info.cp)}
             sub={<UnitChip label={t('stability.cp')} quantity="length" scope={unitScope('stats', 'cp')} />}
           />
           <Stat
-            card
+            {...tile}
             label={t('stats.fineness')}
             value={info.refDiameter > 0 ? fmtNum(info.length / info.refDiameter, 1) : NO_VALUE}
             sub="L/D"
           />
           {/* One card, both conventions for the same margin: calibers and % of
               length as paired values (like Mass/CG's empty / loaded), with the
-              verdict in the sub. */}
+              verdict beside the label. */}
           <Stat
-            card
+            {...tile}
             label={t('stability.onPad')}
             value={`${fmtNum(cal, 2)} / ${fmtNum(pct, 1)}`}
-            sub={`${t('stability.caliber')} / %${padState ? ` · ${t(stabilityVerdictKey(cal))}` : ''}`}
+            sub={`${t('stability.caliber')} / %`}
+            status={padState ? t(stabilityVerdictKey(cal)) : undefined}
             tone={padTone}
           />
-          <Stat card label={t('stats.cd')} value={info.cd != null ? fmtNum(info.cd, 3) : NO_VALUE} sub="Ma 0.3" />
+          <Stat {...tile} label={t('stats.cd')} value={info.cd != null ? fmtNum(info.cd, 3) : NO_VALUE} sub="Ma 0.3" />
           {/* Symbol lives in the sub: the tile label is uppercased, which would
               turn the Greek α into Α (a plain "A"). */}
-          <Stat card label={t('stats.cna')} value={fmtNum(info.cna, 2)} sub="CNα · rad⁻¹" />
-          <Stat card label={t('stats.pitchInertia')} value={fmtInertia(info.pitchInertia)} sub="kg·m²" />
-          <Stat card label={t('stats.rollInertia')} value={fmtInertia(info.rollInertia)} sub="kg·m²" />
+          <Stat {...tile} label={t('stats.cna')} value={fmtNum(info.cna, 2)} sub="CNα · rad⁻¹" />
+          <Stat {...tile} label={t('stats.pitchInertia')} value={fmtInertia(info.pitchInertia)} sub="kg·m²" />
+          <Stat {...tile} label={t('stats.rollInertia')} value={fmtInertia(info.rollInertia)} sub="kg·m²" />
         </div>
       )}
     </div>

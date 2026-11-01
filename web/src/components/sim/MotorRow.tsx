@@ -83,7 +83,7 @@ export function MotorRow({
           </div>
           {motor ? (
             <>
-              <div className="truncate text-lg font-semibold text-accent-400">{motorName(motor)}</div>
+              <div className="truncate font-data text-lg font-semibold text-accent-400">{motorName(motor)}</div>
               <div className="text-xs text-ink-faint">
                 {u.fmt('motorDimensions', motor.diameter)} × {u.fmt('motorDimensions', motor.length)}{' '}
                 {u.sym('motorDimensions')}

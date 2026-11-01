@@ -17,7 +17,7 @@ test('the drawing can take the whole window, and come back', async ({ page }) =>
   expect(await width()).toBe(850);
   await expect(tree).toBeVisible();
 
-  const stats = page.getByText('Static statistics');
+  const stats = page.getByText('Information', { exact: true });
   await expect(stats).toBeVisible();
 
   await page.getByRole('button', { name: /whole window/ }).click();
@@ -58,7 +58,7 @@ test('maximizing is a desktop mode and leaves a phone alone', async ({ page }) =
   await expect(page.getByRole('button', { name: /whole window/ })).toBeHidden();
   await expect(page.getByRole('button', { name: /Rocket/ })).toBeVisible();
   await page.getByRole('button', { name: /Rocket/ }).click();
-  await expect(page.getByText('Static statistics')).toBeVisible();
+  await expect(page.getByText('Information', { exact: true })).toBeVisible();
 });
 
 test('maximizing does not strand the simulation editor', async ({ page }) => {

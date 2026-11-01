@@ -387,7 +387,7 @@ export function MotorDialog({
                     >
                       <span className="min-w-0">
                         {m.custom && <ImportedStar />}
-                        <span className="font-medium text-ink-strong">{motorName(m)}</span>
+                        <span className="font-data font-medium text-ink-strong">{motorName(m)}</span>
                         <span className="ml-2 text-xs text-ink-faint">{m.manufacturer}</span>
                         {!m.custom && !hasCurve(m) && (
                           <span

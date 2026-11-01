@@ -147,6 +147,14 @@ interface RulerSides {
   right: boolean;
 }
 
+/** The header summary's sizes, in the order Settings lists them. */
+export const HEADER_SUMMARY_PREFS = ['full', 'compact', 'off'] as const;
+export type HeaderSummaryPref = (typeof HEADER_SUMMARY_PREFS)[number];
+
+/** The static-statistics tiles' layouts, in the order Settings lists them. */
+export const STATS_LAYOUTS = ['compact', 'standard'] as const;
+export type StatsLayout = (typeof STATS_LAYOUTS)[number];
+
 /**
  * App-wide user preferences (not tied to a design). Persisted to localStorage
  * synchronously so the very first render already has the user's choices.
@@ -208,9 +216,21 @@ export interface Settings {
    * back to the built-in default, and the Settings panel refuses to store one.
    */
   launchDefaults: CompleteLaunch;
+  /**
+   * How much of the header's design summary to show (layout/HeaderSummary):
+   * every cell, a one-line strip of stability, apogee and Run, or none.
+   */
+  headerSummary: HeaderSummaryPref;
+  /**
+   * The static statistics under the drawing (canvas/StabilityBadge): two-line
+   * tiles six to a row, or the three-line cards they replaced.
+   */
+  statsLayout: StatsLayout;
   /** Show the CG / CP / margin markers on the 2D & 3D views. */
   showMarkers: boolean;
-  /** Show the length · mass · CG · CP · stability info card on the 2D & 3D views. */
+  /** Show the length · mass · CG · CP · stability info card on the 2D & 3D views.
+   *  Off by default: the static statistics under the drawing carry the same
+   *  figures, and the card covers the drawing's top-left corner. */
   showInfoCard: boolean;
   /** Expand the "All stats" strip under the canvas (collapsed = just its header). */
   showStats: boolean;
@@ -503,8 +523,10 @@ export const DEFAULT_SETTINGS: Settings = {
     guideAwareRodClearance: false,
   },
   launchDefaults: DEFAULT_LAUNCH,
+  headerSummary: 'full',
+  statsLayout: 'compact',
   showMarkers: true,
-  showInfoCard: true,
+  showInfoCard: false,
   showStats: true,
   showImportNotes: true,
   showSafetyCard: true,
@@ -669,6 +691,12 @@ export function settingsFrom(value: unknown): Settings {
     // A store may have no value here, and an unrecognized one falls back
     // rather than leaving the tables with a style nothing renders.
     aeroHeat: s.aeroHeat === 'openrocket' ? 'openrocket' : DEFAULT_SETTINGS.aeroHeat,
+    headerSummary: HEADER_SUMMARY_PREFS.includes(s.headerSummary as HeaderSummaryPref)
+      ? (s.headerSummary as HeaderSummaryPref)
+      : DEFAULT_SETTINGS.headerSummary,
+    statsLayout: STATS_LAYOUTS.includes(s.statsLayout as StatsLayout)
+      ? (s.statsLayout as StatsLayout)
+      : DEFAULT_SETTINGS.statsLayout,
     // Clamped like every adjacent field: a bare `typeof === 'number'` admits
     // NaN, 0, Infinity and negatives, and a stored NaN leaves the
     // flight-playback clock never advancing with no way back but clearing

@@ -551,6 +551,19 @@
     "askWhereToSaveHint": "Ouvre la boîte d’enregistrement du navigateur pour choisir le nom et le dossier. Désactivé, les fichiers vont directement dans votre dossier de téléchargements.",
     "theme": "Thème",
     "themeHint": "Plein jour est un thème clair au texte noir et aux couleurs plus sombres, pour lire l’écran au soleil sur le terrain.",
+    "headerSummary": "Résumé dans l’en-tête",
+    "headerSummaryOption": {
+      "full": "Complet",
+      "compact": "Compact",
+      "off": "Désactivé"
+    },
+    "headerSummaryHint": "Stabilité, masse, configuration, apogée et un bouton Lancer dans l’en-tête, sur chaque onglet. Compact garde la stabilité, l’apogée et Lancer. Quand l’en-tête manque de place, Complet affiche la version compacte et Compact n’affiche rien ; aucun ne s’affiche sous 1280 pixels.",
+    "statsLayout": "Informations",
+    "statsLayoutOption": {
+      "compact": "Compact",
+      "standard": "Standard"
+    },
+    "statsLayoutHint": "Les valeurs sous le dessin. Compact met chacune sur deux lignes, six par rangée, et laisse plus de hauteur au dessin. Standard donne à chacune une carte de trois lignes.",
     "themeOption": {
       "dark": "Sombre",
       "light": "Clair",
@@ -704,6 +717,15 @@
     "ruler_right_abbr": "D",
     "environment": "Environnement"
   },
+  "summary": {
+    "label": "Résumé de la conception",
+    "stability": "Stabilité",
+    "configuration": "Configuration",
+    "run": "Lancer",
+    "runTitle": "Lancer « {{name}} »",
+    "stop": "Arrêter",
+    "openResults": "Ouvrir ce vol dans Résultats"
+  },
   "stability": {
     "onPad": "Stabilité (sur la rampe)",
     "mass": "Masse",
@@ -715,7 +737,7 @@
     "unstable": "Instable"
   },
   "stats": {
-    "title": "Caractéristiques statiques",
+    "title": "Informations",
     "length": "Longueur",
     "maxDiameter": "Diamètre max.",
     "fineness": "Finesse",
@@ -1668,9 +1690,12 @@
     },
     "calipersH": "Pied à coulisse en longueur – faites glisser les deux lignes verticales pour mesurer (aimantation sur les bords)",
     "calipersV": "Pied à coulisse en diamètre – faites glisser les deux lignes horizontales pour mesurer un écart",
+    "caliperLength": "Longueur",
+    "caliperDiameter": "Diamètre",
     "zoomIn": "Zoom avant – ou molette sur le dessin ; glisser pour déplacer",
     "zoomOut": "Zoom arrière",
     "fit": "Ajuster à la vue",
+    "fitShort": "Ajuster",
     "aftAria": "Vue arrière – la fusée vue de derrière ; glisser pour tourner, molette pour zoomer",
     "sideAria": "Vue de côté de la fusée avec les repères CG et CP ; molette pour zoomer, glisser le fond pour déplacer",
     "panHint": "Les flèches déplacent la vue agrandie ; Maj pour un pas plus grand",
