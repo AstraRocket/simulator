@@ -41,7 +41,7 @@ describe('httpsFetch', () => {
     const body = JSON.stringify({ availability: 'all' });
     await httpsFetch(URL_OK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }, request);
     expect(calls).toHaveLength(1);
-    const { options } = calls[0];
+    const [{ options, body: sent }] = calls as [(typeof calls)[number]];
     expect(options.method).toBe('POST');
     expect(options.agent).toBe(false);
     expect(options.headers).toEqual({
@@ -49,7 +49,7 @@ describe('httpsFetch', () => {
       'user-agent': USER_AGENT,
       'content-length': String(Buffer.byteLength(body)),
     });
-    expect(calls[0].body).toBe(body);
+    expect(sent).toBe(body);
   });
 
   it('answers like fetch: ok, status, headers and a JSON body', async () => {

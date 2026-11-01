@@ -1,5 +1,7 @@
 # Patch ledger: extracted OpenRocket core
 
+<!-- cspell:ignore Monitorable -->
+
 Every `PATCH(...)` comment in `src/java/` points here. This is that file.
 
 Entries below are dated and are a RECORD: their counts and findings were true when
@@ -1363,3 +1365,48 @@ No patched file, shim or example file changed upstream in this range, so
 - **Parity:** JS and WASM agree with the JVM on all 362 lines.
 - **Validation:** supersonic 61/135, at its floor; `npm run audit` passed all
   five checks.
+
+## Repinned to upstream `b047c95d7` - 2026-11-01
+
+From `f5ac8a152` (2026-10-26) to `b047c95d7` (2026-11-01), the head of canonical
+`unstable` on the day. 18 commits: the damping moment fix (PR #3410), a
+Javadoc cleanup across core, multi-component edit tests, translations, and the
+bundled motor database. Eighteen extracted files moved:
+
+- **`aerodynamics/BarrowmanStabilityCalculator.java`** (patched, PR #3410).
+  The body's share of the pitch and yaw damping is measured from the CG to the
+  body's actual fore and aft ends; it used to assume the body starts at x = 0
+  and runs the summed length of its parts. The pitch and yaw rates are turned
+  into the angle-of-attack plane (by theta) before the moment is applied, and
+  the two components share one magnitude, clamped to the moment about the CG,
+  where each used to be clamped on its own to `Cm` or `Cyaw` (moments about the
+  nose). The `mul *= 3` fudge factor is gone. The body geometry is cached per
+  configuration `ModID`, so it is recomputed when stages separate; it used to be
+  computed once per calculator. Our patch touches only the calculator dispatch
+  and `buildCalcMap`'s access, so the upstream hunks merged in unchanged, apart
+  from the import block: upstream's new `ModID` import is kept and its
+  `Reflection` import stays removed. Divergence stays 56, re-blessed for the new
+  upstream content.
+- **Sixteen unpatched files** (`RocketComponentCalc`, `AppearanceBuilder`,
+  `MessageSet`, `WarningSet`, `MassCalculator`, `MotorConfigurationSet`,
+  `MotorMount`, `RadialParent`, `AnglePositionable`, `FlightDataBranch`,
+  `FlightEvent`, `ArrayUtils`, `MathUtil`, `ModID`, `Monitorable`, `TextUtil`)
+  and **`simulation/AbstractRKSimulationStepper.java`**: Javadoc only.
+
+Shim re-reviewed and blessed in `SHIMS.txt`: upstream's `ApplicationPreferences`
+changed a Javadoc tag on `setShowSaveRocketInfo`. No example file changed. The
+RockSim and RASAero loader and `.ork` saver changes are Javadoc too, so the
+app's own file code needs nothing. The bundled motor database bump does not
+reach the app, which takes its motors from thrustcurve.org, and the parts
+database stays on the 24.12 release's commit (`web/scripts/data/openrocket-release.json`).
+
+- **Golden:** 31 values moved, every one through the damping moment, and all of
+  them small. The reference flight's apogee moves by 0.03 mm (330.6801 m) and
+  its time by 9 ms (6.910 s to 6.918 s); the descent samples shift by the same
+  9 ms, which is most of the 31 lines, and the run takes 702 rows, not 704. The
+  largest apogee change is `flight.para.summary`, 335.37 m to 335.14 m. The
+  stepper scenarios move by about 6 cm (RK4 324.45 m to 324.39 m, RK6 324.48 m
+  to 324.41 m), the timed staging booster by 3 cm, and the dual-deploy main
+  opens 21 ms later. Re-recorded.
+- **Parity:** JS and WASM agree with the JVM on all 368 lines.
+- **Validation:** classic 9/135 and supersonic 61/135, both at their floors.
