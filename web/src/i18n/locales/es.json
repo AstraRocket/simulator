@@ -725,7 +725,8 @@
     "run": "Simular",
     "runTitle": "Simular «{{name}}»",
     "stop": "Detener",
-    "openResults": "Abrir este vuelo en Resultados"
+    "openResults": "Abrir este vuelo en Resultados",
+    "openSketch": "Abrir el croquis"
   },
   "stability": {
     "onPad": "Estabilidad (en plataforma)",

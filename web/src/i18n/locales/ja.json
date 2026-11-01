@@ -723,7 +723,8 @@
     "run": "実行",
     "runTitle": "「{{name}}」を実行",
     "stop": "停止",
-    "openResults": "この飛行を結果で開く"
+    "openResults": "この飛行を結果で開く",
+    "openSketch": "スケッチを開く"
   },
   "stability": {
     "onPad": "安定性（発射台上）",

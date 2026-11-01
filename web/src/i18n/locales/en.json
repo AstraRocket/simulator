@@ -724,7 +724,8 @@
     "run": "Run",
     "runTitle": "Run \"{{name}}\"",
     "stop": "Stop",
-    "openResults": "Open this flight on Results"
+    "openResults": "Open this flight on Results",
+    "openSketch": "Open the sketch"
   },
   "stability": {
     "onPad": "Stability (on pad)",

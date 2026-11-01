@@ -108,7 +108,7 @@ To restrict a new feature, add an entry to `CAPABILITIES` and ask for it where t
 
 The device is `desktop` when both hold, else `mobile`:
 
-1. **It is at least 1024 px wide** (`(min-width: 1024px)`, Tailwind's `lg:`), where the phone layout ends.
+1. **It is wide enough for the desktop layout**: at least 1024 px, or 1040 px on a touch screen (`(pointer: coarse)`), which is Tailwind's `lg:` as redefined at the top of `src/index.css`. The extra 16 px keep a 13" iPad Pro in portrait (1032 px) on the phone layout. `DESKTOP_QUERY` in `services/app/device.ts` and the two phone-only `@media` rules in `index.css` say the same thing and must change with it.
 2. **The device is not a phone or tablet:**
    - In **Chromium** (Chrome, Edge, Samsung Internet): the `formFactors` User-Agent Client Hint, from `navigator.userAgentData.getHighEntropyValues(['formFactors'])`. A device that lists `"Desktop"` is a desktop; one that does not (`"Mobile"`, `"Tablet"`, `"XR"`, ...) is not. It is asynchronous, so it is asked for once and cached, and the fallback below answers until it lands.
    - Everywhere else, or before that answer: **iOS/iPadOS** when the user agent contains `iPhone`, `iPad` or `iPod`, or `navigator.platform === 'MacIntel'` with `navigator.maxTouchPoints > 1`. **Android** when `navigator.userAgentData.platform === 'Android'`, else when the user agent contains `Android`.

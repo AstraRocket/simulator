@@ -725,7 +725,8 @@
     "run": "Lancer",
     "runTitle": "Lancer « {{name}} »",
     "stop": "Arrêter",
-    "openResults": "Ouvrir ce vol dans Résultats"
+    "openResults": "Ouvrir ce vol dans Résultats",
+    "openSketch": "Ouvrir le croquis"
   },
   "stability": {
     "onPad": "Stabilité (sur la rampe)",
