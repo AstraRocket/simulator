@@ -178,7 +178,7 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 **Instance**: A repeat of a part: a pair of rail buttons, a ring of pods, a cluster of tubes. *In the app:* **Instance count** and **Instance spacing** on a part that can repeat.
 
-**Integration**: Stepping the flight forward in small slices of time, which is how the whole trajectory is computed. The engine uses **RK4**, a fourth-order Runge-Kutta integrator, with an adaptive step. See **Time step**.
+**Integration**: Stepping the flight forward in small slices of time, which is how the whole trajectory is computed. The engine uses **RK4**, a fourth-order Runge-Kutta integrator, with an adaptive step, or **RK6** when the simulation method asks for it. See **Time step**.
 
 **ISA**: The International Standard Atmosphere: an agreed model of how temperature, pressure and density change with altitude. *In the app:* what a flight uses when the launch conditions leave temperature and pressure blank.
 

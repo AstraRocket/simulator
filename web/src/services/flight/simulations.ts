@@ -2,7 +2,7 @@
 // flight configuration it flies + launch conditions + last result. The
 // Simulations tab is a table of these; the active one is the row the editor
 // is pointed at.
-import type { FlightResult, RocketTree, FlightSummary } from '../../engine/openRocketEngine';
+import type { FlightResult, RocketTree, FlightSummary, SimStepper } from '../../engine/openRocketEngine';
 import type { FlightConfig } from './flightConfigs';
 import type { LaunchConditions } from '../design/orkTree';
 import type { CompleteLaunch } from './requiredLaunch';
@@ -25,6 +25,15 @@ export const MAX_ANGLE_STEP_RANGE = { min: degToRad(1), max: degToRad(20) } as c
 /** A maximum angle step brought into {@link MAX_ANGLE_STEP_RANGE}. */
 export const clampMaxAngleStep = (rad: number): number =>
   Math.min(MAX_ANGLE_STEP_RANGE.max, Math.max(MAX_ANGLE_STEP_RANGE.min, rad));
+
+/** Every flight stepper the kernel offers, in the order the pickers list them. */
+export const SIM_STEPPERS: readonly SimStepper[] = ['rk4', 'rk6'];
+
+/** A stored or file value as a stepper, or `fallback` when it names none. */
+export const stepperOf = <F extends SimStepper | null>(v: unknown, fallback: F): SimStepper | F =>
+  typeof v === 'string' && (SIM_STEPPERS as readonly string[]).includes(v.toLowerCase())
+    ? (v.toLowerCase() as SimStepper)
+    : fallback;
 
 export interface Simulation {
   id: string;
@@ -343,6 +352,8 @@ export interface SimPrefs {
    * fast pitch-over without paying for it over the whole coast.
    */
   maxAngleStep: number;
+  /** The flight stepper, RK4 or RK6; see `SimStepper`. */
+  stepper: SimStepper;
   randomSeed: number | null;
   /** Recovery-deployment warning thresholds (m/s); see SimulationSettings. */
   deploymentSpeedWarn: number;
@@ -391,6 +402,7 @@ export const SIM_PREF_KEYS = [
   'timeStep',
   'maxTime',
   'maxAngleStep',
+  'stepper',
   'randomSeed',
   'deploymentSpeedWarn',
   'mainHighSpeedWarn',
@@ -481,6 +493,7 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
     constantGravity: launch.constantGravity,
     // A stored value can hold a step outside the range the kernel flies.
     maxAngleStep: prefs?.maxAngleStep == null ? undefined : clampMaxAngleStep(prefs.maxAngleStep),
+    stepper: prefs?.stepper,
     launchAltitude: launch.launchAltitudeM,
     launchLatitude: launch.latitudeDeg,
     launchLongitude: launch.longitudeDeg,

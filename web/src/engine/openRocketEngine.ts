@@ -546,6 +546,13 @@ export const PLUGGED_DELAY = 1e9;
 /** Map the stored ejection delay to what the kernel expects (Infinity = plugged). */
 const toKernelDelay = (d: number): number => (d >= PLUGGED_DELAY ? Infinity : d);
 
+/**
+ * The kernel's flight steppers (upstream `SimulationStepperMethod`): the
+ * Runge-Kutta order the flight is integrated with. Descent and tumble have
+ * steppers of their own and are not affected.
+ */
+export type SimStepper = 'rk4' | 'rk6';
+
 export interface SimulationOptions {
   launchRodLength?: number;
   /** Radians from vertical. */
@@ -571,6 +578,8 @@ export interface SimulationOptions {
   constantGravity?: number;
   /** Max rotation per RK4 step, radians. Default: the kernel's 3 degrees. */
   maxAngleStep?: number;
+  /** The flight stepper: 'rk4' (default) | 'rk6'. The bridge refuses any other name. */
+  stepper?: SimStepper;
   launchAltitude?: number;
   /** Launch-site temperature (K). Default: ISA standard. */
   temperature?: number;
@@ -1323,6 +1332,7 @@ export class OpenRocketDesign {
           gravityModel: options.gravityModel,
           constantGravity: options.constantGravity,
           maxAngleStep: options.maxAngleStep,
+          stepper: options.stepper,
           launchAltitude: options.launchAltitude ?? 0,
           temperature: options.temperature,
           pressure: options.pressure,

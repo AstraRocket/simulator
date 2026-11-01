@@ -2,6 +2,7 @@ import type { FieldUnit } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { SIM_BOUNDS } from '../../services/storage/settings';
 import { degToRad } from '../../prefs/units';
+import type { SimStepper } from '../../engine/openRocketEngine';
 
 /**
  * The solver options, in the order both editors show them: Settings (the
@@ -32,14 +33,17 @@ export type SimOptionField = (typeof SIM_OPTION_FIELDS)[number];
 
 /**
  * What the kernel runs, stated rather than assumed, as the desktop states it.
- * Fixed, not chosen: the bridge always builds a BarrowmanCalculator and the RK4
- * stepper, and the supersonic-aero extensions the engine can carry are not
- * wired into the web app.
+ * Fixed, not chosen: the bridge always builds a BarrowmanCalculator, and the
+ * supersonic-aero extensions the engine can carry are not wired into the web
+ * app. The stepper is chosen (`STEPPER_LABELS`).
  */
-export const KERNEL_METHOD_ROWS = [
-  { label: 'settings.calcMethod', value: 'settings.calcMethodValue' },
-  { label: 'settings.simMethod', value: 'settings.simMethodValue' },
-] as const;
+export const KERNEL_METHOD_ROWS = [{ label: 'settings.calcMethod', value: 'settings.calcMethodValue' }] as const;
+
+/** Each stepper's name in the pickers, worded as the desktop's simulation method. */
+export const STEPPER_LABELS: Record<SimStepper, string> = {
+  rk4: 'settings.simMethodRk4',
+  rk6: 'settings.simMethodRk6',
+};
 
 /** One option row in the unit it is shown in: symbol, step and bounds there. */
 export interface SimOptionUnit {

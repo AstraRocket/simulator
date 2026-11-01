@@ -51,6 +51,7 @@ import info.openrocket.core.simulation.FlightDataBranch;
 import info.openrocket.core.simulation.FlightDataType;
 import info.openrocket.core.simulation.FlightEvent;
 import info.openrocket.core.simulation.SimulationConditions;
+import info.openrocket.core.simulation.SimulationStepperMethod;
 import info.openrocket.core.simulation.exception.SimulationException;
 import info.openrocket.core.material.Material;
 import info.openrocket.core.util.Coordinate;
@@ -1723,7 +1724,7 @@ public final class OpenRocketEngine {
      * { rodLength, rodAngle, rodDirection, windAverage, windStdDeviation,
      *   launchAltitude, launchLatitude, launchLongitude,
      *   temperature (K, launch-site), pressure (Pa, launch-site),
-     *   timeStep, maxTime, randomSeed,
+     *   timeStep, maxTime, randomSeed, stepper: "rk4" (default) | "rk6",
      *   series: "summary" (default) | "full" (see appendBranchSeries) }
      * Forecast atmosphereLevels select a profile; otherwise any of temperature,
      * pressure or relativeHumidity selects an ISA model based at the launch
@@ -1797,7 +1798,11 @@ public final class OpenRocketEngine {
         double humidity = JsonLite.dbl(o, "relativeHumidity", Double.NaN);
         double timeStep = JsonLite.dbl(o, "timeStep", 0.05);
         SimulationConditions conditions = new SimulationConditions();
-        conditions.setSimulation(new Simulation(ctx.rocket, ctx.fcid));
+        Simulation simulation = new Simulation(ctx.rocket, ctx.fcid);
+        // The flight stepper. BasicEventSimulationEngine reads it from the
+        // simulation's options, not from the conditions, so it is set there.
+        simulation.getOptions().setSimulationStepperMethodChoice(stepperOf(JsonLite.str(o, "stepper", "rk4")));
+        conditions.setSimulation(simulation);
         conditions.setLaunchRodLength(JsonLite.dbl(o, "rodLength", 1.0));
         conditions.setLaunchRodAngle(JsonLite.dbl(o, "rodAngle", 0));
         conditions.setLaunchRodDirection(JsonLite.dbl(o, "rodDirection", Math.PI / 2));
@@ -2023,6 +2028,19 @@ public final class OpenRocketEngine {
             case "wgs84": return GeodeticComputationStrategy.WGS84;
             case "spherical":
             default: return GeodeticComputationStrategy.SPHERICAL;
+        }
+    }
+
+    /**
+     * Map a stepper name to the kernel's method (default RK4). An unknown name
+     * is refused rather than defaulted: a run that asked for RK6 and quietly
+     * flew RK4 would look identical to one that did not.
+     */
+    private static SimulationStepperMethod stepperOf(String name) {
+        switch (name == null ? "" : name.toLowerCase()) {
+            case "rk4": return SimulationStepperMethod.RK4;
+            case "rk6": return SimulationStepperMethod.RK6;
+            default: throw new IllegalArgumentException("Unknown stepper: " + name + " (expected rk4 or rk6)");
         }
     }
 

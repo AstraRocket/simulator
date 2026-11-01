@@ -2,7 +2,8 @@ import { nsKey } from './storageKeys';
 import type { PartKey } from '../design/partColors';
 import { readFigureStyles, type FigureStyles } from '../design/figureStyle';
 import type { CompleteLaunch } from '../flight/requiredLaunch';
-import { MAX_ANGLE_STEP_RANGE, seedFromInput } from '../flight/simulations';
+import { MAX_ANGLE_STEP_RANGE, seedFromInput, stepperOf } from '../flight/simulations';
+import type { SimStepper } from '../../engine/openRocketEngine';
 import { DEFAULT_HEADING_DEG } from '../flight/windLevels';
 import { defaultCsvFormat, type CsvFormat } from '../flight/flightColumns';
 import { usableWindLevels } from '../flight/windLevels';
@@ -81,6 +82,8 @@ export interface SimulationSettings {
    * without paying for it over the whole coast. OR default: 3 degrees.
    */
   maxAngleStep: number;
+  /** The flight stepper, RK4 or RK6. OR default: RK4. */
+  stepper: SimStepper;
   /** Fixed seed for wind-turbulence reproducibility; null = random each run. */
   randomSeed: number | null;
   /** Ask for confirmation before deleting a simulation. */
@@ -511,6 +514,7 @@ export const DEFAULT_SETTINGS: Settings = {
     maxTime: 1200,
     // The kernel's own RECOMMENDED_ANGLE_STEP (AbstractRKSimulationStepper).
     maxAngleStep: degToRad(3),
+    stepper: 'rk4',
     randomSeed: null,
     confirmDelete: true,
     autoRunOutdated: false,
@@ -729,6 +733,9 @@ export function settingsFrom(value: unknown): Settings {
       // options parser refuses anything but a boolean and takes the whole run
       // down rather than the one key.
       sim.guideAwareRodClearance = sim.guideAwareRodClearance === true;
+      // The bridge refuses a stepper it does not know and fails the run, so an
+      // unknown stored name falls back to the default.
+      sim.stepper = stepperOf(sim.stepper, DEFAULT_SETTINGS.simulation.stepper);
       // The bridge reads the seed as a number and fails every run on anything
       // else, so a stored string falls back to a random seed, and a number is
       // held to the integer range the Settings field allows.

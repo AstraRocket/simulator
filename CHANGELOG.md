@@ -8,6 +8,9 @@ so most entries describe getting a computation to match OpenRocket exactly.
 
 ## [0.5.7]
 
+### Added
+- **Choose the simulation method: Runge-Kutta 4 or Runge-Kutta 6**, the two steppers the OpenRocket engine has. **Settings → Simulation** sets the default (RK4, as in desktop), and each simulation can override it in its options. The choice is saved in the `.ork` as desktop saves it and read back from a desktop file.
+
 ### Changed
 - **The header sums up the active simulation on every tab**: on-pad stability, loaded mass, the configuration it flies, the apogee of its last run, and a Run button that turns into Stop while it flies. The apogee dims and reads **Outdated** as soon as an edit changes what would fly, and clicking it opens that flight on Results. **Settings → General → Header summary** picks **Full**, **Compact** (stability, apogee and Run on one line) or **Off**. Where the header has too little room for Full, as in a longer language, it shows the compact strip instead, and where it has too little for that, nothing; neither shows below 1280 pixels. It never pushes the header onto a second row.
 - **Motor names are set in a monospace font with a slashed zero**, so an `I200` cannot be read as `1200`, nor an `O` class as a zero. This covers the motor picker, its grid and detail, the compare and combine panes, the motor guides, the simulation cards and the configuration table. The font is the system's own monospace (Cascadia Mono or Consolas on Windows, SF Mono or Menlo on Apple), so nothing extra downloads.

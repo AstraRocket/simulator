@@ -63,6 +63,7 @@ public final class ParityMain {
         atmosphereProfileScenarios();
         // After it, for the same reason: new lines go on the end of the run.
         railLengthScenarios();
+        stepperScenarios();
     }
 
     /**
@@ -430,6 +431,38 @@ public final class ParityMain {
                     api.JsonLite.dbl(summary, "launchRodVelocity", Double.NaN),
                     api.JsonLite.dbl(summary, "maxAltitude", Double.NaN));
         }
+    }
+
+    /**
+     * The flight stepper (the "stepper" option): the same rocket flown on RK4,
+     * the default, and on RK6, in a crosswind so the attitude terms the two
+     * integrate differently are in play. An unknown stepper must fail the run
+     * rather than fly RK4; the last line is 1 when it does.
+     */
+    private static void stepperScenarios() {
+        String json = "{\"name\":\"Stepper\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
+                + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
+                + "{\"type\":\"bodytube\",\"id\":\"body\",\"length\":0.45,\"outerRadius\":0.012,\"thickness\":0.0005,\"density\":950,\"motorMount\":true,\"children\":["
+                + "  {\"type\":\"trapezoidfinset\",\"finCount\":3,\"rootChord\":0.05,\"tipChord\":0.03,\"sweep\":0.02,\"height\":0.025,\"thickness\":0.003},"
+                + "  {\"type\":\"parachute\",\"diameter\":0.30}"
+                + "]}]}]}";
+        int r = api.OpenRocketEngine.buildRocket(json);
+        api.OpenRocketEngine.setMotorById(r, "body", "C6", 0.018, 0.070,
+                new double[] { 0, 0.1, 0.3, 0.5, 1.0, 1.5, 1.85, 2.0 },
+                new double[] { 0, 12.0, 6.0, 5.1, 4.9, 4.8, 4.5, 0 },
+                new double[] { 0.0240, 0.0231, 0.0215, 0.0202, 0.0174, 0.0147, 0.0133, 0.0132 },
+                0.035, 5.0);
+        for (String stepper : new String[] { "rk4", "rk6" }) {
+            java.util.Map<String, Object> summary = asMap(api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                    r, "{\"rodLength\":1.0,\"windAverage\":4.0,\"stepper\":\"" + stepper + "\"}")).get("summary"));
+            line("flight.stepper." + stepper,
+                    api.JsonLite.dbl(summary, "maxAltitude", Double.NaN),
+                    api.JsonLite.dbl(summary, "maxVelocity", Double.NaN),
+                    api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
+        }
+        Object error = api.JsonLite.parseObject(
+                api.OpenRocketEngine.simulateJson(r, "{\"rodLength\":1.0,\"stepper\":\"euler\"}")).get("error");
+        line("flight.stepper.unknown", error != null ? 1 : 0);
     }
 
     /**

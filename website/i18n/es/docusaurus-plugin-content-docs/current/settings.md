@@ -107,11 +107,12 @@ Estos valores están en la pestaña **Simulación** e inicializan cada nueva sim
 - **Tiempo máx. de sim.**: un límite de seguridad sobre el tiempo de vuelo simulado, que corta una ejecución que nunca aterriza.
 - **Paso angular máximo**: lo máximo que el cohete puede girar en un paso de integración. Más pequeño es más preciso en un cabeceo rápido, y más lento.
 - **Semilla aleatoria**: fija la aleatoriedad del viento y la turbulencia para que una simulación sea reproducible; déjala sin definir para obtener resultados variados.
-- **Método de cálculo** y **método de simulación**: se muestran solo como referencia, no se eligen. Todo vuelo usa aerodinámica de Barrowman extendido con un integrador Runge-Kutta 4 de 6 grados de libertad.
+- **Método de simulación**: el integrador con el que avanza el vuelo, **Runge-Kutta 4 de 6 DOF** (el predeterminado, como en OpenRocket de escritorio) o **Runge-Kutta 6 de 6 DOF**. RK6 da un paso de orden mayor y es algo más lento; los dos suelen coincidir de cerca. El descenso con paracaídas y el vuelo en tumbo usan sus propios integradores en ambos casos. Se guarda en el `.ork`; un OpenRocket de escritorio sin RK6 vuela RK4.
+- **Método de cálculo**: se muestra solo como referencia, no se elige. Todo vuelo usa aerodinámica de Barrowman extendido.
 
 Cada simulación puede sobrescribir cualquiera de estos valores. Una sobrescritura **vacía** no está ausente: significa *seguir el valor global*, y el campo muestra ese valor global como marcador de posición. Por eso las opciones de ejecución nunca bloquean un vuelo: siempre hay un valor por defecto debajo. **Restablecer valores predeterminados** borra las sobrescrituras de una simulación; **Guardar como predeterminado** copia los valores actuales de la simulación a estos ajustes globales.
 
-Cambiar el paso de tiempo, el tiempo máximo de simulación, el paso angular máximo o la semilla aleatoria marca como **desactualizadas** todas las simulaciones que ya se han ejecutado. Una simulación que sobrescribe ese ajuste no se toca, porque su propio valor sigue aplicándose.
+Cambiar el método de simulación, el paso de tiempo, el tiempo máximo de simulación, el paso angular máximo o la semilla aleatoria marca como **desactualizadas** todas las simulaciones que ya se han ejecutado. Una simulación que sobrescribe ese ajuste no se toca, porque su propio valor sigue aplicándose.
 
 ## Lanzamiento {#launch}
 

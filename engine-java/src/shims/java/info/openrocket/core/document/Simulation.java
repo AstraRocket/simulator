@@ -30,7 +30,7 @@ public class Simulation {
     /**
      * SHIM: simulation options (upstream BasicEventSimulationEngine reads
      * getOptions().getSimulationStepperMethodChoice() to pick the stepper; the
-     * default is RK4, matching the web engine's behavior).
+     * default is RK4).
      *
      * Upstream invariant, and why this is lazily created rather than wired:
      * upstream sets conditions.setSimulation(this) immediately after
@@ -39,10 +39,11 @@ public class Simulation {
      * SimulationConditions by hand and never hands its options in, so this
      * returns an unrelated default instead.
      *
-     * That is harmless only because the facade exposes no stepper option, so
-     * the read above lands on RK4 either way. A stepper option set on the
-     * conditions alone would be ignored and the engine would keep running RK4
-     * with no error, so any such option must also be wired through here.
+     * The stepper is the one field the engine reads from here, and the facade
+     * sets it on these options in buildConditions (the "stepper" option). Any
+     * other option the engine comes to read from getOptions() has to be set
+     * here the same way: set on the conditions alone it would be ignored with
+     * no error.
      */
     public SimulationOptions getOptions() {
         if (options == null) {

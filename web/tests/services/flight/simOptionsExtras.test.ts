@@ -24,6 +24,7 @@ const prefs: SimPrefs = {
   timeStep: 0.05,
   maxTime: 1200,
   maxAngleStep: deg2rad(3),
+  stepper: 'rk4',
   randomSeed: 42,
   deploymentSpeedWarn: 20,
   mainHighSpeedWarn: 30.48,
@@ -68,6 +69,12 @@ describe('simConditions carries humidity, gravity and the angle step', () => {
 
   it('leaves the angle step out when there are no prefs at all', () => {
     expect(simConditions(base).maxAngleStep).toBeUndefined();
+  });
+
+  it('passes the stepper, and leaves it to the kernel when there are no prefs', () => {
+    expect(simConditions(base, prefs).stepper).toBe('rk4');
+    expect(simConditions(base, { ...prefs, stepper: 'rk6' }).stepper).toBe('rk6');
+    expect(simConditions(base).stepper).toBeUndefined();
   });
 });
 
