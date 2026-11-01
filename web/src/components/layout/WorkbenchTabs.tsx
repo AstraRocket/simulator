@@ -31,6 +31,12 @@ import { useIsXl } from '../common/useMediaQuery';
  *
  * The phone keeps its bottom bar: a header this narrow already wraps, and a
  * horizontal tab row in it would wrap to the second row it was meant to save.
+ *
+ * The nav's own margin shrinks as the header's gap grows (4px and 4px at lg,
+ * none and 8px at xl), so the space before the first tab's word is 12px from
+ * lg to 2xl. Not a pixel more: Dutch at 1180 and Portuguese at 1280 have only
+ * a few to spare, and one more digit in the version badge has wrapped the row
+ * before (workbench-header.spec.ts).
  */
 export function WorkbenchTabs() {
   const { t } = useTranslation();
@@ -47,7 +53,7 @@ export function WorkbenchTabs() {
   return (
     <nav
       aria-label={t('tabs.workbench')}
-      className="-my-3 ml-2 hidden self-stretch items-stretch lg:flex 2xl:ml-3 2xl:gap-1"
+      className="-my-3 ml-1 hidden self-stretch items-stretch lg:flex xl:ml-0 2xl:ml-3 2xl:gap-1"
     >
       <TabButton active={tab === 'design'} onClick={() => onTab('design')} label={t('tabs.design')} />
       {taskTabs(showResults).map((e) => (

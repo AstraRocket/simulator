@@ -140,6 +140,17 @@ const ALL: FlightColumn[] = [...KNOWN, ...KERNEL];
 
 const KNOWN_KEYS = new Set(ALL.map((c) => c.key));
 
+const BY_KEY = new Map(ALL.map((c, order) => [c.key, { ...c, order }]));
+
+/**
+ * One series' name and unit group, with its place in the catalog, or nothing
+ * for a symbol the app has no name for. The flight chart builds its added
+ * panels from this, so a series reads the same there as in the CSV.
+ */
+export function seriesColumn(key: string): (FlightColumn & { order: number }) | undefined {
+  return BY_KEY.get(key);
+}
+
 /**
  * Every branch a result carries, as one list. `branches` is present only once a
  * staged rocket separates, and then its [0] is the sustainer, the same data the

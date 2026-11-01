@@ -130,18 +130,16 @@ export function eventsSummary(
   return items.length ? t('flight.summaryEvents', { list: fmtList(items) }) : null;
 }
 
-/** The velocity-over-altitude panel: the top speed and the altitude it was reached at. */
-export function velocityAltitudeSummary(
+/** A panel of one series against another: the y's peak and the x it was reached at. */
+export function xySummary(
   t: T,
   label: string,
-  stages: readonly { name: string; alt: readonly number[]; vel: readonly number[] }[],
-  fmt: { velocity: (v: number) => string; altitude: (a: number) => string },
+  stages: readonly { name: string; xs: readonly number[]; ys: readonly number[] }[],
+  fmt: { y: (v: number) => string; x: (v: number) => string },
 ): string {
-  const part = (s: { alt: readonly number[]; vel: readonly number[] }) => {
-    const p = peakOf(s.alt, s.vel);
-    return p
-      ? t('flight.summaryVelocityAltitude', { velocity: fmt.velocity(p.value), altitude: fmt.altitude(p.at) })
-      : t('flight.summaryNoData');
+  const part = (s: { xs: readonly number[]; ys: readonly number[] }) => {
+    const p = peakOf(s.xs, s.ys);
+    return p ? t('flight.summaryPeakAtX', { y: fmt.y(p.value), x: fmt.x(p.at) }) : t('flight.summaryNoData');
   };
   return `${label}: ${perStage(stages, part)}`;
 }

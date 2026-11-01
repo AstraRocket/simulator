@@ -316,16 +316,18 @@ export interface Settings {
   /** Flight-path export preferences that outlive one export. */
   pathExport: PathExportSettings;
   /**
-   * Which flight-chart panels are open, by series key (`altitude`, `thrust`…).
+   * Which flight-chart panels are open, by series key: a built-in panel's
+   * (`altitude`, `thrust`…) or a kernel symbol for an added one (`Cd`, `Vz`…).
    *
    * A preference rather than component state: the panels you read are a working
    * habit, not a property of one flight, and re-ticking thrust and mass on every
    * visit to the Results tab is the kind of friction nobody reports. The chart
-   * owns the list of legal keys and ignores any it does not know, so a value
-   * saved by a later version (or hand-edited) cannot blank the view.
+   * draws only the keys a flight can fill and keeps the rest here, so a value
+   * saved by a later version (or hand-edited), or a series one flight did not
+   * record, cannot blank the view.
    *
    * Empty is allowed and means every panel closed - a deliberate state, since
-   * the chips are how you get one back.
+   * the chips and the add picker are how you get one back.
    */
   flightSeries: string[];
   /**

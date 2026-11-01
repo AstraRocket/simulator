@@ -10,13 +10,17 @@ import { PAD_L, PAD_R, PANEL_H, maxFlightTime, minWindow } from './flightChartAx
 import {
   SERIES,
   buildTraces,
+  extraSeries,
+  pairKey,
+  pairSeries,
   panelDigits,
   panelSeries,
+  traceLabel,
+  traceOffset,
   traceScale,
   traceUnit,
   visibleSeries,
   type ChartFlight,
-  type Key,
   type PanelLine,
 } from './flightChartTraces';
 import { hoverValue } from './FlightChartHover';
@@ -34,12 +38,17 @@ import { smallButton } from '../common/smallButton';
 // builder through this one.
 export { buildTraces, type ChartFlight } from './flightChartTraces';
 
+/** The add picker's entry that opens the pair row rather than adding a panel. */
+const PAIR = '__pair';
+
 /**
  * Flight data as small MULTIPLES: time on a shared x, and one
  * stacked single-series panel per measure, each with its own y-scale, because
  * measures of different magnitude are never dual-axed. A chip bar toggles which
- * panels show; a single hover drives a synchronized crosshair + value readout
- * across every visible panel. Every series rides in on every sim run.
+ * panels show, and a picker beside it adds a panel for any other series the run
+ * recorded (`extraSeries`); a single hover drives a synchronized crosshair +
+ * value readout across every visible panel. Every series rides in on every sim
+ * run.
  * The x (time) axis zooms/pans (buttons, drag, ctrl/pinch-wheel); a sticky strip
  * up top row-packs the event labels so they never overlap.
  *
@@ -67,16 +76,24 @@ export function FlightChart({
   // Component state seeded from a constant would have anyone who works with
   // thrust or mass re-ticking them on every visit to the Results tab.
   const { settings, update } = useSettings();
-  const on = useMemo(() => visibleSeries(settings.flightSeries), [settings.flightSeries]);
   const [csvOpen, setCsvOpen] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(640);
   const [hostH, setHostH] = useState(0);
   // One panel shown at the pane's full height, or null for all of them.
-  const [expanded, setExpanded] = useState<Key | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   // Every branch as a colored, selectable trace.
   const branches = useMemo(() => buildTraces(flight, (i, name) => stageLabel(t, i, name)), [flight, t]);
+  // The built-in panels, then every other series this flight recorded. Built
+  // once per flight, so each added panel's meta is a stable memo key.
+  const extras = useMemo(() => extraSeries(branches), [branches]);
+  // What a pair's axes can be: every time panel's series, built-in and added.
+  const plain = useMemo(() => [...SERIES.filter((m) => !m.xy), ...extras], [extras]);
+  // The pairs the reader added, each one series against another.
+  const pairs = useMemo(() => pairSeries(settings.flightSeries, plain), [settings.flightSeries, plain]);
+  const available = useMemo(() => [...SERIES, ...extras, ...pairs], [extras, pairs]);
+  const on = useMemo(() => visibleSeries(settings.flightSeries, available), [settings.flightSeries, available]);
   const multistage = branches.length >= 2;
 
   // Which traces are hidden. Exclusions rather than inclusions: a new set of
@@ -146,8 +163,21 @@ export function FlightChart({
   // order, including the ones the strip clusters or the zoom window hides.
   const eventsText = useMemo(() => eventsSummary(t, events, (type) => t(EVENT_LABEL[type] ?? type)), [events, t]);
 
-  const toggle = (k: Key) => update({ flightSeries: on.includes(k) ? on.filter((x) => x !== k) : [...on, k] });
-  const activeMetas = SERIES.filter((m) => on.includes(m.key));
+  // Edits the saved list itself rather than `on`, so a series this flight did
+  // not record keeps its place for the next flight that does.
+  const saved = settings.flightSeries;
+  const toggle = (k: string) =>
+    update({ flightSeries: saved.includes(k) ? saved.filter((x) => x !== k) : [...saved, k] });
+  const activeMetas = useMemo(() => available.filter((m) => on.includes(m.key)), [available, on]);
+  // The added panels that are open get a chip like the built-in ones, which is
+  // how one is closed again; the rest are offered by the picker.
+  const openExtras = extras.filter((m) => on.includes(m.key));
+  const addable = extras.filter((m) => !on.includes(m.key));
+  // The two axes of a pair being chosen, or null when no pair is.
+  const [pairing, setPairing] = useState<{ y: string; x: string } | null>(null);
+  const pairReady = !!pairing?.y && !!pairing.x && pairing.y !== pairing.x;
+  const pill =
+    'rounded-full bg-raised px-2.5 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
   // An expanded panel that has since been switched off drops the expansion
   // rather than leaving the pane empty.
   const solo = expanded && on.includes(expanded) ? expanded : null;
@@ -157,7 +187,7 @@ export function FlightChart({
   // the usual panel instead.
   const soloH = flow ? 2 * PANEL_H : Math.max(PANEL_H, hostH - stripH - 48);
   const panelH = solo ? soloH : PANEL_H;
-  const toggleExpand = (k: Key) => setExpanded(solo === k ? null : k);
+  const toggleExpand = (k: string) => setExpanded(solo === k ? null : k);
 
   // The live region's text: the time the keyboard moved to and each shown
   // panel's primary-stage value there, the figures its header reads. Only key
@@ -169,15 +199,15 @@ export function FlightChart({
   // writes the live region.
   const announcing = keyT != null;
   const panelOf = useMemo(() => {
-    const out = new Map<Key, { digits: number; primary: PanelLine | undefined }>();
+    const out = new Map<string, { digits: number; primary: PanelLine | undefined }>();
     if (!announcing) return out;
-    for (const m of SERIES) {
-      if (m.xy || !on.includes(m.key)) continue;
-      const { list, lo, hi } = panelSeries(selectedBranches, m, traceScale(m, u), clipT);
+    for (const m of activeMetas) {
+      if (m.xy) continue;
+      const { list, lo, hi } = panelSeries(selectedBranches, m, traceScale(m, u), clipT, traceOffset(m, u));
       out.set(m.key, { digits: panelDigits(m, lo, hi), primary: list[0] });
     }
     return out;
-  }, [announcing, on, selectedBranches, u, clipT]);
+  }, [announcing, activeMetas, selectedBranches, u, clipT]);
   const announcement =
     keyT == null || !primary
       ? ''
@@ -189,7 +219,7 @@ export function FlightChart({
               // The header's own figure: none outside the primary stage's span.
               const panel = panelOf.get(m.key);
               return {
-                label: t(m.label),
+                label: traceLabel(m, t),
                 value: panel?.primary ? hoverValue(panel.primary, keyT) : null,
                 digits: panel?.digits ?? m.digits,
                 unit: traceUnit(m, u, t),
@@ -290,8 +320,8 @@ export function FlightChart({
           })}
         </div>
       )}
-      <div className="flex flex-wrap gap-1.5 px-3 py-2">
-        {SERIES.map((m) => {
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+        {[...SERIES, ...openExtras, ...pairs].map((m) => {
           const active = on.includes(m.key);
           return (
             <ToggleButton
@@ -300,11 +330,67 @@ export function FlightChart({
               onClick={() => toggle(m.key)}
               className="rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ring-line/10"
             >
-              {t(m.label)}
+              {traceLabel(m, t)}
             </ToggleButton>
           );
         })}
+        {/* Every other series the run recorded, each as a panel of its own,
+            and the way to plot one series against another. A select rather
+            than more chips: there are dozens, and a reset value keeps it
+            reading as an action, not a setting. */}
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value === PAIR) setPairing({ y: '', x: '' });
+            else if (e.target.value) toggle(e.target.value);
+          }}
+          aria-label={t('flight.addSeries')}
+          className={`max-w-48 ${pill}`}
+        >
+          <option value="">{t('flight.addSeries')}</option>
+          <option value={PAIR}>{t('flight.addPair')}</option>
+          {addable.map((m) => (
+            <option key={m.key} value={m.key}>
+              {traceLabel(m, t)}
+            </option>
+          ))}
+        </select>
       </div>
+      {pairing && (
+        <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
+          {(['y', 'x'] as const).map((axis) => (
+            <select
+              key={axis}
+              value={pairing[axis]}
+              onChange={(e) => setPairing({ ...pairing, [axis]: e.target.value })}
+              aria-label={t(axis === 'y' ? 'flight.pairY' : 'flight.pairX')}
+              className={`max-w-48 ${pill}`}
+            >
+              <option value="">{t(axis === 'y' ? 'flight.pairY' : 'flight.pairX')}</option>
+              {plain.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {traceLabel(m, t)}
+                </option>
+              ))}
+            </select>
+          ))}
+          <button
+            type="button"
+            disabled={!pairReady}
+            onClick={() => {
+              const key = pairKey(pairing.y, pairing.x);
+              if (!saved.includes(key)) toggle(key);
+              setPairing(null);
+            }}
+            className={smallButton('chip', 'ink')}
+          >
+            {t('flight.pairAdd')}
+          </button>
+          <button type="button" onClick={() => setPairing(null)} className={smallButton('chip', 'ink')}>
+            {t('common.cancel')}
+          </button>
+        </div>
+      )}
       {/*
         Focusable, so every number these charts carry can be reached without a
         pointer: the arrows step the crosshair, Shift for a coarse step,
@@ -345,6 +431,7 @@ export function FlightChart({
                   w={w}
                   height={panelH}
                   hoverT={hoverT}
+                  clipT={clipT}
                   expanded={solo === m.key}
                   onToggleExpand={() => toggleExpand(m.key)}
                 />
