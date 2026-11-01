@@ -146,12 +146,12 @@ describe('loadSettings', () => {
     expect(loadSettings().report.units).toBe('current');
   });
 
-  it('defaults the CG/CP marker + info-card toggles to on and round-trips a stored false', () => {
+  it('defaults the CG/CP markers on and the info card off, and round-trips the opposite of each', () => {
     expect(loadSettings().showMarkers).toBe(true);
-    expect(loadSettings().showInfoCard).toBe(true);
-    localStorage.setItem(KEY, JSON.stringify({ showMarkers: false, showInfoCard: false }));
-    expect(loadSettings().showMarkers).toBe(false);
     expect(loadSettings().showInfoCard).toBe(false);
+    localStorage.setItem(KEY, JSON.stringify({ showMarkers: false, showInfoCard: true }));
+    expect(loadSettings().showMarkers).toBe(false);
+    expect(loadSettings().showInfoCard).toBe(true);
   });
 
   it('clamps a stored tree-pane width into the usable range', () => {

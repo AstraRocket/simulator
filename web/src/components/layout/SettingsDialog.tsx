@@ -84,6 +84,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         askWhereToSave: DEFAULT_SETTINGS.askWhereToSave,
         theme: DEFAULT_SETTINGS.theme,
         themeBeforeDaylight: DEFAULT_SETTINGS.themeBeforeDaylight,
+        headerSummary: DEFAULT_SETTINGS.headerSummary,
+        statsLayout: DEFAULT_SETTINGS.statsLayout,
       });
     else if (tab === 'units') update({ units: DEFAULT_SETTINGS.units, unitOverrides: {} });
     else if (tab === 'colors')

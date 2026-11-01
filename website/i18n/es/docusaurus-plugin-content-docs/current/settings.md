@@ -30,11 +30,11 @@ Cada magnitud tiene su propia unidad, configurable en la pestaña **Unidades**. 
 
 Una instalación nueva arranca con los **valores métricos**, y los botones de restablecer restauran ese mismo conjunto.
 
-Todo sigue tu elección: los campos donde escribes, el árbol de componentes, la tira de estadísticas, las reglas y los calibres del 2D, las anotaciones del 3D, las gráficas de vuelo y de resistencia, el explorador de motores y las exportaciones a PDF y CSV (que indican la unidad utilizada y pueden fijarse por separado en métricas o imperiales; consulta [Archivos y exportaciones](./files-and-exports.md)). La unidad de **Dimensiones de componentes** también llega al vuelo: consulta [Lo que las unidades no cambian](#what-units-dont-change).
+Todo sigue tu elección: los campos donde escribes, el árbol de componentes, la franja Información, las reglas y los calibres del 2D, las anotaciones del 3D, las gráficas de vuelo y de resistencia, el explorador de motores y las exportaciones a PDF y CSV (que indican la unidad utilizada y pueden fijarse por separado en métricas o imperiales; consulta [Archivos y exportaciones](./files-and-exports.md)). La unidad de **Dimensiones de componentes** también llega al vuelo: consulta [Lo que las unidades no cambian](#what-units-dont-change).
 
 ### Cambiar la unidad de un solo campo {#changing-a-unit-on-one-field}
 
-La unidad impresa junto a un valor también es un selector: haz clic y elige otra. Eso cambia **ese campo y nada más**: si pones la *Longitud* de una ojiva en pulgadas, su *Espesor*, el árbol de componentes, las reglas y la tira de estadísticas siguen en tu unidad por defecto. El cambio se mantiene al recargar.
+La unidad impresa junto a un valor también es un selector: haz clic y elige otra. Eso cambia **ese campo y nada más**: si pones la *Longitud* de una ojiva en pulgadas, su *Espesor*, el árbol de componentes, las reglas y la franja Información siguen en tu unidad por defecto. El cambio se mantiene al recargar.
 
 Un campo que muestra algo distinto de tu valor por defecto aparece **en ámbar**, para que un valor en pulgadas entre centímetros se vea claramente como algo que elegiste y no como un error. Al pasar el ratón por encima muestra tu valor por defecto.
 

@@ -552,6 +552,19 @@
     "askWhereToSaveHint": "Otwiera okno zapisu przeglądarki, w którym wybierasz nazwę i folder. Gdy wyłączone, pliki trafiają od razu do folderu pobranych.",
     "theme": "Motyw",
     "themeHint": "Światło dzienne to jasny motyw z czarnym tekstem i ciemniejszymi kolorami, do czytania ekranu w słońcu na polu startowym.",
+    "headerSummary": "Podsumowanie w nagłówku",
+    "headerSummaryOption": {
+      "full": "Pełne",
+      "compact": "Kompaktowe",
+      "off": "Wyłączone"
+    },
+    "headerSummaryHint": "Stabilność, masa, konfiguracja, apogeum i przycisk Uruchom w nagłówku, na każdej karcie. Kompaktowe zostawia stabilność, apogeum i Uruchom. Gdy w nagłówku brakuje miejsca, Pełne pokazuje kompaktowe, a Kompaktowe nic; poniżej 1280 pikseli nie ma żadnego.",
+    "statsLayout": "Informacje",
+    "statsLayoutOption": {
+      "compact": "Kompaktowe",
+      "standard": "Standardowe"
+    },
+    "statsLayoutHint": "Wartości pod rysunkiem. Kompaktowe pokazuje każdą w dwóch wierszach, po sześć w rzędzie, i zostawia rysunkowi więcej wysokości. Standardowe daje każdej kartę w trzech wierszach.",
     "themeOption": {
       "dark": "Ciemny",
       "light": "Jasny",
@@ -705,6 +718,15 @@
     "ruler_right_abbr": "P",
     "environment": "Otoczenie"
   },
+  "summary": {
+    "label": "Podsumowanie projektu",
+    "stability": "Stabilność",
+    "configuration": "Konfiguracja",
+    "run": "Uruchom",
+    "runTitle": "Uruchom „{{name}}”",
+    "stop": "Zatrzymaj",
+    "openResults": "Otwórz ten lot w Wynikach"
+  },
   "stability": {
     "onPad": "Stabilność (na wyrzutni)",
     "mass": "Masa",
@@ -716,7 +738,7 @@
     "unstable": "Niestabilna"
   },
   "stats": {
-    "title": "Dane statyczne",
+    "title": "Informacje",
     "length": "Długość",
     "maxDiameter": "Maks. średnica",
     "fineness": "Wydłużenie",
@@ -1672,11 +1694,14 @@
       "tubecoupler": "ZR",
       "innertube": "RW"
     },
-    "calipersH": "Suwmiarka długości: przeciągaj dwie linie pionowe, aby zmierzyć (przyciągają się do krawędzi)",
-    "calipersV": "Suwmiarka średnicy: przeciągaj dwie linie poziome, aby zmierzyć rozpiętość",
+    "calipersH": "Długość – suwmiarka: przeciągaj dwie linie pionowe, aby zmierzyć (przyciągają się do krawędzi)",
+    "calipersV": "Średnica – suwmiarka: przeciągaj dwie linie poziome, aby zmierzyć rozpiętość",
+    "caliperLength": "Długość",
+    "caliperDiameter": "Średnica",
     "zoomIn": "Powiększ, albo przewijaj nad rysunkiem; przeciągaj, aby przesuwać",
     "zoomOut": "Pomniejsz",
     "fit": "Dopasuj do widoku",
+    "fitShort": "Dopasuj",
     "aftAria": "Widok z tyłu: rakieta widziana od tyłu; przeciągaj, aby obracać, kółko zmienia powiększenie",
     "sideAria": "Widok rakiety z boku ze znacznikami SC i SP; kółko zmienia powiększenie, przeciąganie tła przesuwa widok",
     "panHint": "Strzałki przesuwają powiększony widok, z Shift o większy krok",

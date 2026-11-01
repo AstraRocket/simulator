@@ -5,6 +5,7 @@ import { fireAction } from '../../state/fireAction';
 import { useHelpStore } from '../../state/helpStore';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { WorkbenchTabs } from './WorkbenchTabs';
+import { HeaderSummary } from './HeaderSummary';
 import { EngineBadge } from './EngineBadge';
 import { SaveStatus } from './SaveStatus';
 import { UndoRedoButtons } from './UndoRedoButtons';
@@ -91,6 +92,9 @@ export function AppHeader() {
           in a strip of their own below it. Hidden below lg, where the bottom
           TabBar takes over. */}
       <WorkbenchTabs />
+      {/* It takes the spare width and centers itself in it, between the tabs
+          and the buttons, and gives way rather than wrapping the row. */}
+      <HeaderSummary />
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-1 xl:gap-2">
         <UndoRedoButtons />

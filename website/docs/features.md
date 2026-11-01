@@ -7,7 +7,7 @@ sidebar_position: 2
 - Flight simulations run in a **Web Worker**, off the main thread, so the interface stays responsive during a run.
 
 ## Design & analysis
-- **Component-tree editor** (collapsible branches and list) with live **CG / CP / stability** as you edit (calibers and % of length) plus fineness ratio, **recovery weight** (descent mass), Mach-0.3 **drag coefficient** and **normal-force slope** (CNα), and the loaded **roll / pitch moments of inertia**, in the stats strip.
+- **Component-tree editor** (collapsible branches and list) with live **CG / CP / stability** as you edit (calibers and % of length) plus fineness ratio, **recovery weight** (descent mass), Mach-0.3 **drag coefficient** and **normal-force slope** (CNα), and the loaded **roll / pitch moments of inertia**, in the Information strip.
 - **Multi-stage rockets**: add booster stages, pods, and parallel (strap-on) boosters; configure stage **separation** (ignition / burnout / ejection / apogee / altitude / never) and **upper-stage ignition** timing.
 - **Freeform fins**: shape a fin outline point by point. Drag the amber vertices, tap a blue edge midpoint to add one, and select a point to delete it or type exact coordinates. See **[Designing a Rocket](./designing-a-rocket.md#freeform-fins)**.
 - **Mass, CG and drag overrides**: replace a part's computed mass, CG or drag coefficient with a measured one, each with an "apply to all subcomponents" toggle, matching OpenRocket. See **[Safety](./safety.md)**.

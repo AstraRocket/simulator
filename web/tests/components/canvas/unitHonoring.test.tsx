@@ -44,7 +44,14 @@ const exportData = {
  */
 describe('the schematic caliper readouts', () => {
   const noop = () => () => {};
-  const props = { cal: { a: 0, b: 0.5 }, ctx: { scale: 100, cy: 100, x0: 10 }, scale: 100, totalLen: 1 };
+  const props = {
+    cal: { a: 0, b: 0.5 },
+    ctx: { scale: 100, cy: 100, x0: 10 },
+    scale: 100,
+    totalLen: 1,
+    viewX0: 0,
+    viewX1: 400,
+  };
 
   it('carry the length symbol on the length span', () => {
     seedSettings({ units: { length: 'ft' } });
@@ -103,9 +110,6 @@ describe('button glyphs are not part of the name', () => {
         caliperV={null}
         setCaliperH={() => {}}
         setCaliperV={() => {}}
-        zoom={{ k: 1, x: 0, y: 0 } as never}
-        setZoom={() => {}}
-        zoomBy={() => {}}
       />,
     );
     expect(screen.getByRole('button', { name: 'SVG' })).toBeTruthy();

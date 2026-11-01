@@ -70,6 +70,7 @@ Busemann
 bypassable
 caffeine
 cands
+Cascadia
 caseairframe
 catchable
 ccna
@@ -91,6 +92,7 @@ commonmark
 compname
 configdialog
 configid
+Consolas
 constantgravity
 constructability
 cordlength
@@ -328,6 +330,7 @@ maxq
 maxtime
 maxvelocity
 mbar
+Menlo
 mesher
 meshers
 metalness

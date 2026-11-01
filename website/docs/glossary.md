@@ -172,6 +172,8 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 **Impulse**: Thrust multiplied by the time it lasts, in newton-seconds: the total push a motor gives. Motors are grouped into **impulse classes** (A, B, C and up), each twice the one below. *In the app:* the motor browser and the **Total impulse** report row.
 
+**Information strip**: The row of tiles under the design views, headed **Information** (once called the stats strip): length, diameter, fineness ratio, empty and loaded mass, CG, CP, recovery weight, stability, drag coefficient, normal-force slope and the moments of inertia. Every figure in it comes from the engine as you edit, except the ones marked an estimate. See **Estimate**.
+
 **Inner tube**: A tube inside another, most often the **motor mount** the motor sits in. *In the app:* **Inner tube**, with **Motor mount** checked to make it one.
 
 **Instance**: A repeat of a part: a pair of rail buttons, a ring of pods, a cluster of tubes. *In the app:* **Instance count** and **Instance spacing** on a part that can repeat.
@@ -335,8 +337,6 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 **Stage**: A section with its own motor that can separate. **Serial staging** is stages stacked nose to tail; see **Parallel stage** for alongside.
 
 **Standard deviation (σ)**: How much a random quantity varies about its average. *In the app:* the wind's gust σ, which sets how much the wind fluctuates around the average you gave.
-
-**Stats strip**: The row of tiles under the design views: length, diameter, fineness ratio, empty and loaded mass, CG, CP, recovery weight, stability, drag coefficient, normal-force slope and the moments of inertia. Every figure in it comes from the engine as you edit, except the ones marked an estimate. See **Estimate**.
 
 **Streamer**: A ribbon used instead of a chute for a fast, drifting descent on small rockets. *In the app:* **Streamer**, sized by strip length and width.
 

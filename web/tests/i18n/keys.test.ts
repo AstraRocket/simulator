@@ -8,6 +8,7 @@ import { REQUIRED_COMPONENT_FIELDS } from '../../src/services/design/requiredCom
 import { MATERIAL_SLOTS } from '../../src/services/design/materialSlots';
 import { PART_KEYS } from '../../src/services/design/partColors';
 import { THEME_PREFS } from '../../src/services/app/theme';
+import { HEADER_SUMMARY_PREFS, STATS_LAYOUTS } from '../../src/services/storage/settings';
 import { DESIGN_VIEWS, RESULT_VIEWS, TOOLS } from '../../src/state/tabs';
 import { SIMPLE_FIN_SHAPES } from '../../src/services/flight/simpleRocket';
 import { EXPORT_FORMATS } from '../../src/services/exports/flightPathExport';
@@ -145,13 +146,17 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
     values: MATERIAL_SLOTS.map(({ part, material }) => (material === 'bulk' ? part : `${part}_${material}`)),
   },
   { prefix: 'settings.themeOption.', values: THEME_PREFS }, // SettingsDialog's Theme choices
+  { prefix: 'settings.headerSummaryOption.', values: HEADER_SUMMARY_PREFS }, // SettingsDialog's header summary choices
+  { prefix: 'settings.statsLayoutOption.', values: STATS_LAYOUTS }, // SettingsDialog's static statistics layouts
   { prefix: 'settings.part.', values: PART_KEYS }, // SettingsDialog's part colors
-  // t(`view.${v}`) - ViewToggle; t(`view.ruler_${side}`) and `_abbr` - CenterToolbar, SettingsDialog
+  // t(`view.${v}`) - ViewToggle; t(`view.ruler_${side}`) and `_abbr` - CenterToolbar, SettingsDialog;
+  // t(`view.${v}`) and `${v}Title` - the Side | Aft switch in CenterToolbar (2D) and Rocket3D
   {
     prefix: 'view.',
     values: [
       ...DESIGN_VIEWS,
       ...RESULT_VIEWS,
+      ...['side', 'aft'].flatMap((v) => [v, `${v}Title`]),
       ...['top', 'bottom', 'left', 'right'].flatMap((s) => [`ruler_${s}`, `ruler_${s}_abbr`]),
     ],
   },

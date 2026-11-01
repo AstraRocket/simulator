@@ -551,6 +551,19 @@
     "askWhereToSaveHint": "Abre a janela de guardar do navegador, para escolher o nome e a pasta. Desligado, os ficheiros vão diretamente para a pasta de transferências.",
     "theme": "Tema",
     "themeHint": "Luz do dia é um tema claro com texto preto e cores mais escuras, para ler o ecrã ao sol no campo.",
+    "headerSummary": "Resumo no cabeçalho",
+    "headerSummaryOption": {
+      "full": "Completo",
+      "compact": "Compacto",
+      "off": "Desligado"
+    },
+    "headerSummaryHint": "Estabilidade, massa, configuração, apogeu e um botão Simular no cabeçalho, em todos os separadores. O compacto mantém estabilidade, apogeu e Simular. Onde falta espaço no cabeçalho, o completo mostra o compacto e o compacto não mostra nada; nenhum aparece abaixo de 1280 píxeis.",
+    "statsLayout": "Informações",
+    "statsLayoutOption": {
+      "compact": "Compacto",
+      "standard": "Padrão"
+    },
+    "statsLayoutHint": "Os valores sob o desenho. O compacto põe cada um em duas linhas, seis por fila, e deixa mais altura ao desenho. O padrão dá a cada um um cartão de três linhas.",
     "themeOption": {
       "dark": "Escuro",
       "light": "Claro",
@@ -704,6 +717,15 @@
     "ruler_right_abbr": "D",
     "environment": "Ambiente"
   },
+  "summary": {
+    "label": "Resumo do projeto",
+    "stability": "Estabilidade",
+    "configuration": "Configuração",
+    "run": "Simular",
+    "runTitle": "Simular \"{{name}}\"",
+    "stop": "Parar",
+    "openResults": "Abrir este voo em Resultados"
+  },
   "stability": {
     "onPad": "Estabilidade (na rampa)",
     "mass": "Massa",
@@ -715,7 +737,7 @@
     "unstable": "Instável"
   },
   "stats": {
-    "title": "Estatísticas estáticas",
+    "title": "Informações",
     "length": "Comprimento",
     "maxDiameter": "Diâmetro máx.",
     "fineness": "Esbeltez",
@@ -1668,9 +1690,12 @@
     },
     "calipersH": "Craveira de comprimento: arraste as duas linhas verticais para medir (encaixa nos bordos)",
     "calipersV": "Craveira de diâmetro: arraste as duas linhas horizontais para medir uma distância",
+    "caliperLength": "Comprimento",
+    "caliperDiameter": "Diâmetro",
     "zoomIn": "Ampliar, ou desloque sobre o desenho; arraste para mover",
     "zoomOut": "Reduzir",
     "fit": "Ajustar à vista",
+    "fitShort": "Ajustar",
     "aftAria": "Vista traseira: a olhar o foguetão por trás; arraste para rodar, use a roda para ampliar",
     "sideAria": "Vista lateral do foguetão com os marcadores de CG e CP; roda para ampliar, arraste o fundo para mover",
     "panHint": "As setas deslocam a vista ampliada; com Shift, em passos maiores",

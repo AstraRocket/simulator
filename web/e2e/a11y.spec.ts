@@ -1090,7 +1090,12 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       name: 'Popup / statistics folded',
       open: async (page) => {
         await openTab(page, 'Design');
-        await toggle(page.getByRole('button', { name: /Static statistics/ }).first());
+        await toggle(
+          page
+            .getByRole('button')
+            .filter({ has: page.getByText('Information', { exact: true }) })
+            .first(),
+        );
       },
     },
   ],

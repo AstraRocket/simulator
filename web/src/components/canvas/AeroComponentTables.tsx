@@ -257,9 +257,9 @@ export function ComponentTable({ sweep, machs, mach }: SweepTableProps) {
       </SweepTable>
       <HeatLegend max={totalCd} unit="Cd" style={heatStyle} />
       {unattributed > 1e-6 && (
-        <p className="px-1 pt-1.5 text-[10px] leading-snug text-ink-dim">{t('aero.unattributedNote')}</p>
+        <p className="px-1 pt-1.5 text-[10px] leading-snug text-ink-faint">{t('aero.unattributedNote')}</p>
       )}
-      {!hasSplit && <p className="px-1 pt-1.5 text-[10px] leading-snug text-ink-dim">{t('aero.splitUnavailable')}</p>}
+      {!hasSplit && <p className="px-1 pt-1.5 text-[10px] leading-snug text-ink-faint">{t('aero.splitUnavailable')}</p>}
     </div>
   );
 }
@@ -440,12 +440,12 @@ export function RollTable({ sweep, machs, mach }: SweepTableProps) {
         ))}
       </SweepTable>
       {shaded && (
-        <div className="flex items-center gap-1.5 px-1 pt-1.5 text-[10px] text-ink-dim">
+        <div className="flex items-center gap-1.5 px-1 pt-1.5 text-[10px] text-ink-faint">
           <span>{t('aero.columnShare')}</span>
           <HeatRamp top={1} style="sky" />
         </div>
       )}
-      <p className="px-1 pt-1.5 text-[10px] leading-snug text-ink-dim">{t('aero.rollNote')}</p>
+      <p className="px-1 pt-1.5 text-[10px] leading-snug text-ink-faint">{t('aero.rollNote')}</p>
     </div>
   );
 }

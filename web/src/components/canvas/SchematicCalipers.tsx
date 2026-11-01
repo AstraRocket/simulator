@@ -10,6 +10,9 @@ import { token } from '../common/colorTokens';
  * positions and the drag/key handlers; this file owns how a caliper looks.
  */
 
+/** `x` held within `lo..hi`, or at `lo` when the span is too narrow for it. */
+const clampX = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+
 /** What both calipers take from the schematic: the two ends, the drawing's
  *  frame, and the handlers that move an end. */
 interface CaliperProps {
@@ -17,6 +20,11 @@ interface CaliperProps {
   ctx: Ctx;
   scale: number;
   totalLen: number;
+  /** The span of the drawing a viewer can see (viewBox px), inside the side
+   *  rulers: under a zoom the readout and the grips are kept in it, so a
+   *  caliper whose lines are on screen never has them off it. */
+  viewX0: number;
+  viewX1: number;
   onDragStart: (end: 'a' | 'b') => (e: React.PointerEvent) => void;
   onKey: (end: 'a' | 'b') => (e: React.KeyboardEvent) => void;
 }
@@ -32,18 +40,27 @@ export function HorizontalCaliper({
   scale,
   h,
   rBot,
+  rTop = 0,
   totalLen,
+  viewX0,
+  viewX1,
   onDragStart,
   onKey,
-}: CaliperProps & { h: number; rBot: number }) {
+}: CaliperProps & {
+  h: number;
+  rBot: number;
+  /** Height of the top ruler's lane when it is on (viewBox px), which the
+   *  lines and their readout start below rather than covering its numbers. */
+  rTop?: number;
+}) {
   const { t } = useTranslation();
   const u = useUnits();
   const ax = ctx.x0 + cal.a * scale,
     bx = ctx.x0 + cal.b * scale;
-  const top = 4,
+  const top = rTop + 4,
     bot = h - rBot - 2,
-    dimY = 14,
-    mid = (ax + bx) / 2;
+    dimY = rTop + 14,
+    mid = clampX((ax + bx) / 2, viewX0 + 28, viewX1 - 28);
   return (
     <g>
       {(['a', 'b'] as const).map((k) => {
@@ -121,6 +138,7 @@ export function VerticalCaliper({
   scale,
   totalLen,
   vHalf,
+  viewX0,
   onDragStart,
   onKey,
 }: CaliperProps & { vHalf: number }) {
@@ -130,7 +148,10 @@ export function VerticalCaliper({
     by = ctx.cy - cal.b * scale;
   const left = ctx.x0,
     right = ctx.x0 + totalLen * scale;
-  const dimX = ctx.x0 + 20,
+  // The grips and readout sit just behind the nose, or at the view's left
+  // edge once the nose has been zoomed or panned past it (never beyond the tail).
+  const grip = Math.min(right, Math.max(left, viewX0));
+  const dimX = grip + 20,
     mid = (ay + by) / 2;
   const vMin = -vHalf;
   return (
@@ -150,7 +171,7 @@ export function VerticalCaliper({
               vectorEffect="non-scaling-stroke"
             />
             <rect
-              x={left - 4}
+              x={grip - 4}
               y={y - 8}
               width={34}
               height={16}
@@ -167,7 +188,7 @@ export function VerticalCaliper({
               aria-valuetext={`${u.fmtSym('length', cal[k])}`}
               onKeyDown={onKey(k)}
             />
-            <circle cx={left + 4} cy={y} r={3.5} fill="var(--accent)" pointerEvents="none" />
+            <circle cx={grip + 4} cy={y} r={3.5} fill="var(--accent)" pointerEvents="none" />
           </g>
         );
       })}

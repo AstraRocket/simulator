@@ -13,14 +13,18 @@ import {
 import { token } from '../common/colorTokens';
 
 /**
- * The decoration drawn over the TreeSchematic's part outlines, inside the
- * pan/zoom group: the CG/CP station markers with their leader-line callouts
+ * The decoration drawn over the TreeSchematic's part outlines, on screen
+ * through the zoomed frame rather than inside the pan/zoom group, so it keeps
+ * its size: the CG/CP station markers with their leader-line callouts
  * and the stability margin text (`StabilityOverlay`), and the accent wash +
  * name tag on the hovered part (`HoverOverlay`). Every group here is
  * `pointerEvents="none"`: the markers sit on the centerline, precisely where
  * you click to select a nose cone or body tube, and an opaque disc with no
  * handler of its own would swallow the click.
  */
+
+/** Rough width of one character of a callout label (11 px bold). */
+const LABEL_CHAR_W = 7;
 
 const STABILITY_VAR: Record<StabilityState, string> = {
   under: 'var(--status-serious)',
@@ -60,6 +64,12 @@ export function StabilityOverlay({
   const cgLabel = info ? `${t('schematic.cg')} · ${u.fmtSym('length', info.cg)}` : t('schematic.cg');
   const cpLabel = info ? `${t('schematic.cp')} · ${u.fmtSym('length', info.cp)}` : t('schematic.cp');
   const callouts = calloutLayout(cgX, cpX, ctx.cy, vHalf * scale, w, h, margin?.text ?? null);
+  // A label reads right of its leader, or left of it where it would run off
+  // the drawing's right edge (a station near the tail, or zoomed in on one).
+  const side = (x: number, label: string) =>
+    x + 8 + label.length * LABEL_CHAR_W > w
+      ? { x: x - 8, textAnchor: 'end' as const }
+      : { x: x + 8, textAnchor: 'start' as const };
 
   return (
     <>
@@ -104,7 +114,7 @@ export function StabilityOverlay({
               />
               <circle cx={callouts.cg.x} cy={callouts.cg.leaderY2} r={4} fill="var(--text-primary)" />
               <text
-                x={callouts.cg.x + 8}
+                {...side(callouts.cg.x, cgLabel)}
                 y={callouts.cg.leaderY2}
                 dominantBaseline="central"
                 fontSize="11"
@@ -128,7 +138,7 @@ export function StabilityOverlay({
               />
               <circle cx={callouts.cp.x} cy={callouts.cp.leaderY2} r={4} fill="var(--status-serious)" />
               <text
-                x={callouts.cp.x + 8}
+                {...side(callouts.cp.x, cpLabel)}
                 y={callouts.cp.leaderY2}
                 dominantBaseline="central"
                 fontSize="11"
