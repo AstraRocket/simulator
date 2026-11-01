@@ -1,4 +1,4 @@
-// cspell:ignore randomseed recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
+// cspell:ignore randomseed simulationsteppermethod recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
 import type { ComponentNode, RocketTree } from '../../../engine/openRocketEngine';
 import { KeyedError } from '../../../i18n/keyedError';
 import { MAX_PASSTHROUGH } from './importLimits';
@@ -206,12 +206,12 @@ export const KNOWN_SIMULATION_TAGS: ReadonlySet<string> = new Set([
 
 /**
  * Children of a simulation's `<conditions>` that our own reader or writer
- * handles, lower case. The writer states the run's time step, time limit and
- * recovery warning thresholds from the simulation preferences, so a file's own
- * are not carried beside them.
+ * handles, lower case. The writer states the run's stepper, time step, time
+ * limit and recovery warning thresholds from the simulation preferences, so a
+ * file's own are not carried beside them.
  *
- * The rest are carried: the stepper choice and the drag and stability lookup
- * tables have no counterpart here, and `randomseed` is written back as the file
+ * The rest are carried: the drag and stability lookup tables have no
+ * counterpart here, and `randomseed` is written back as the file
  * had it unless the preferences fix a seed of their own.
  */
 export const KNOWN_CONDITIONS_TAGS: ReadonlySet<string> = new Set([
@@ -229,6 +229,7 @@ export const KNOWN_CONDITIONS_TAGS: ReadonlySet<string> = new Set([
   'launchlatitude',
   'launchlongitude',
   'geodeticmethod',
+  'simulationsteppermethod',
   'atmosphere',
   'launchrelativehumidity',
   'gravity',

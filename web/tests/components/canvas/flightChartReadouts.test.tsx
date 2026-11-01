@@ -306,3 +306,96 @@ describe('the aero window', () => {
     expect(text).toMatch(/Stability/);
   });
 });
+
+describe('adding a panel for another recorded series', () => {
+  const recorded = {
+    ...flight,
+    result: { ...flight.result, series: { ...flight.result.series, Cd: [0.4, 0.5, 0.6, 0.5, 0.4] } },
+  } as unknown as ChartFlight;
+
+  it('opens it from the picker, and its chip closes it again', () => {
+    seedSettings({ flightSeries: ['altitude'] });
+    renderWithProviders(<FlightChart flight={recorded} />);
+    const picker = screen.getByRole('combobox', { name: 'Add a series…' });
+    expect(screen.queryByRole('button', { name: 'Drag coefficient (CD)' })).toBeNull();
+
+    fireEvent.change(picker, { target: { value: 'Cd' } });
+    const chip = screen.getByRole('button', { name: 'Drag coefficient (CD)' });
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    // Offered once: an open panel leaves the picker.
+    expect(screen.queryByRole('option', { name: 'Drag coefficient (CD)' })).toBeNull();
+
+    fireEvent.click(chip);
+    expect(screen.queryByRole('button', { name: 'Drag coefficient (CD)' })).toBeNull();
+    expect(screen.getAllByRole('option', { name: 'Drag coefficient (CD)' })).toHaveLength(1);
+  });
+});
+
+describe('plotting one series against another', () => {
+  it('adds a pair from the picker, and its chip removes it', () => {
+    seedSettings({ flightSeries: ['altitude'] });
+    renderWithProviders(<FlightChart flight={flight} />);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a series…' }), { target: { value: '__pair' } });
+    const add = screen.getByRole('button', { name: 'Add chart' });
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Y axis' }), { target: { value: 'acceleration' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'X axis' }), { target: { value: 'altitude' } });
+    fireEvent.click(add);
+
+    const chip = screen.getByRole('button', { name: 'Acceleration vs Altitude' });
+    expect(screen.queryByRole('button', { name: 'Add chart' })).toBeNull();
+    // The chip and the new panel's title.
+    expect(screen.getAllByText('Acceleration vs Altitude').length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(chip);
+    expect(screen.queryByRole('button', { name: 'Acceleration vs Altitude' })).toBeNull();
+  });
+
+  // North against east only reads as a track over the ground if a meter is the
+  // same length on both axes.
+  it('draws two distances to one scale', () => {
+    const north = { key: 'Py', label: 'flightVar.Py', unit: '', digits: 0, quantity: 'distance' as const, level: true };
+    const east = { key: 'Px', label: 'flightVar.Px', unit: '', digits: 0, quantity: 'distance' as const, level: true };
+    const pair = { key: 'xy:Py:Px', label: '', unit: '', digits: 0, xy: { x: east, y: north } };
+    const { container } = renderWithProviders(
+      <FlightXYPanel
+        meta={pair}
+        branches={[branch('only', { time: [0, 1, 2], Px: [0, 100, 200], Py: [0, 10, 20] } as never)]}
+        w={400}
+        height={200}
+        hoverT={null}
+        expanded={false}
+        onToggleExpand={() => {}}
+      />,
+    );
+    const d = container.querySelector('path')!.getAttribute('d')!;
+    const pts = d
+      .replace(/[ML]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .map((p) => p.split(',').map(Number));
+    const [x0, y0] = pts[0]!;
+    const [x1, y1] = pts[pts.length - 1]!;
+    // 200 m east and 20 m north: ten times as far across as up.
+    expect(Math.abs(x1! - x0!) / Math.abs(y1! - y0!)).toBeCloseTo(10, 1);
+  });
+
+  it('stops an aero series where forward flight ends', () => {
+    const stab = meta('stability');
+    const pair = { key: 'xy:stability:mach', label: '', unit: '', digits: 0, xy: { x: meta('mach'), y: stab } };
+    const { container } = renderWithProviders(
+      <FlightXYPanel
+        meta={pair}
+        branches={[branch('only', { time: [0, 1, 2, 3], mach: [0, 0.3, 0.2, 0.1], stability: [2, 2.1, 2.2, 9] })]}
+        w={400}
+        height={200}
+        hoverT={null}
+        clipT={2}
+        expanded={false}
+        onToggleExpand={() => {}}
+      />,
+    );
+    // The peak reads 2.2, not the 9 a tumbling rocket records after apogee.
+    expect(container.querySelector('.text-ink-strong')!.textContent).toMatch(/^2\.2/);
+  });
+});

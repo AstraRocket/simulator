@@ -18,7 +18,7 @@ import { LineStyleRow } from '../design/LineStyleRow';
 import { NumberRow } from '../common/NumberRow';
 import { DefaultMaterials } from './DefaultMaterials';
 import { LaunchPanel } from '../sim/LaunchPanel';
-import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, simOptionUnit } from '../sim/simOptionFields';
+import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from '../sim/simOptionFields';
 import { withRequiredFrom, type CompleteLaunch } from '../../services/flight/requiredLaunch';
 import { launchPatchFor } from '../../services/design/orkTree';
 import { IMPERIAL_UNITS, METRIC_UNITS, QUANTITIES, UNITS, unitScope } from '../../prefs/units';
@@ -31,7 +31,7 @@ import { SPEED_WARNINGS } from '../sim/speedWarnings';
 import { EsriKeyField } from '../sim/EsriKeyField';
 import { CardGroup } from '../common/CardGroup';
 import { THEME_PREFS, type ThemePref } from '../../services/app/theme';
-import { seedFromInput } from '../../services/flight/simulations';
+import { SIM_STEPPERS, seedFromInput, stepperOf } from '../../services/flight/simulations';
 import { withKey } from '../../services/app/objectKeys';
 import { useLatestRef } from '../common/useLatestRef';
 import { smallButton } from '../common/smallButton';
@@ -368,6 +368,20 @@ export function SimTab() {
       {KERNEL_METHOD_ROWS.map((r) => (
         <InfoRow key={r.label} label={t(r.label)} value={t(r.value)} />
       ))}
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-sm text-ink-soft">{t('settings.simMethod')}</span>
+        <select
+          value={settings.simulation.stepper}
+          onChange={(e) => setSim({ stepper: stepperOf(e.target.value, DEFAULT_SETTINGS.simulation.stepper) })}
+          className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+        >
+          {SIM_STEPPERS.map((s) => (
+            <option key={s} value={s}>
+              {t(STEPPER_LABELS[s])}
+            </option>
+          ))}
+        </select>
+      </label>
       {SIM_OPTION_FIELDS.map((f) => {
         const fu = simOptionUnit(f, angle, t('units.second'));
         return (

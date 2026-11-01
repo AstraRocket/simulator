@@ -2,7 +2,8 @@ import { nsKey } from './storageKeys';
 import type { PartKey } from '../design/partColors';
 import { readFigureStyles, type FigureStyles } from '../design/figureStyle';
 import type { CompleteLaunch } from '../flight/requiredLaunch';
-import { MAX_ANGLE_STEP_RANGE, seedFromInput } from '../flight/simulations';
+import { MAX_ANGLE_STEP_RANGE, seedFromInput, stepperOf } from '../flight/simulations';
+import type { SimStepper } from '../../engine/openRocketEngine';
 import { DEFAULT_HEADING_DEG } from '../flight/windLevels';
 import { defaultCsvFormat, type CsvFormat } from '../flight/flightColumns';
 import { usableWindLevels } from '../flight/windLevels';
@@ -81,6 +82,8 @@ export interface SimulationSettings {
    * without paying for it over the whole coast. OR default: 3 degrees.
    */
   maxAngleStep: number;
+  /** The flight stepper, RK4 or RK6. OR default: RK4. */
+  stepper: SimStepper;
   /** Fixed seed for wind-turbulence reproducibility; null = random each run. */
   randomSeed: number | null;
   /** Ask for confirmation before deleting a simulation. */
@@ -313,16 +316,18 @@ export interface Settings {
   /** Flight-path export preferences that outlive one export. */
   pathExport: PathExportSettings;
   /**
-   * Which flight-chart panels are open, by series key (`altitude`, `thrust`…).
+   * Which flight-chart panels are open, by series key: a built-in panel's
+   * (`altitude`, `thrust`…) or a kernel symbol for an added one (`Cd`, `Vz`…).
    *
    * A preference rather than component state: the panels you read are a working
    * habit, not a property of one flight, and re-ticking thrust and mass on every
    * visit to the Results tab is the kind of friction nobody reports. The chart
-   * owns the list of legal keys and ignores any it does not know, so a value
-   * saved by a later version (or hand-edited) cannot blank the view.
+   * draws only the keys a flight can fill and keeps the rest here, so a value
+   * saved by a later version (or hand-edited), or a series one flight did not
+   * record, cannot blank the view.
    *
    * Empty is allowed and means every panel closed - a deliberate state, since
-   * the chips are how you get one back.
+   * the chips and the add picker are how you get one back.
    */
   flightSeries: string[];
   /**
@@ -511,6 +516,7 @@ export const DEFAULT_SETTINGS: Settings = {
     maxTime: 1200,
     // The kernel's own RECOMMENDED_ANGLE_STEP (AbstractRKSimulationStepper).
     maxAngleStep: degToRad(3),
+    stepper: 'rk4',
     randomSeed: null,
     confirmDelete: true,
     autoRunOutdated: false,
@@ -729,6 +735,9 @@ export function settingsFrom(value: unknown): Settings {
       // options parser refuses anything but a boolean and takes the whole run
       // down rather than the one key.
       sim.guideAwareRodClearance = sim.guideAwareRodClearance === true;
+      // The bridge refuses a stepper it does not know and fails the run, so an
+      // unknown stored name falls back to the default.
+      sim.stepper = stepperOf(sim.stepper, DEFAULT_SETTINGS.simulation.stepper);
       // The bridge reads the seed as a number and fails every run on anything
       // else, so a stored string falls back to a random seed, and a number is
       // held to the integer range the Settings field allows.

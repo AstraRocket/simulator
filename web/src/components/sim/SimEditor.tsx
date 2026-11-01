@@ -13,11 +13,12 @@ import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import type { SimPrefs, Simulation } from '../../services/flight/simulations';
-import { clampMaxAngleStep, seedFromInput } from '../../services/flight/simulations';
+import { SIM_STEPPERS, clampMaxAngleStep, seedFromInput, stepperOf } from '../../services/flight/simulations';
+import { FieldLabel, markRing } from '../common/FieldMark';
 import { NumberRow } from '../common/NumberRow';
 import { fmtUpTo } from '../../i18n/format';
 import { SPEED_WARNINGS } from './speedWarnings';
-import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, simOptionUnit } from './simOptionFields';
+import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from './simOptionFields';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
 
@@ -269,6 +270,31 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
           </div>
         ))}
       </dl>
+
+      {/* The stepper, like the numbers below: blank follows the global, and
+          the global's name stands in the blank option so it reads as what runs. */}
+      <label className="mb-2 flex items-center justify-between gap-3">
+        <FieldLabel text={t('settings.simMethod')} mixed={mixed('stepper')} />
+        <select
+          value={prefs?.stepper ?? ''}
+          onChange={(e) => {
+            setSimPref('stepper', e.target.value ? stepperOf(e.target.value, g.stepper) : null);
+            onCommit();
+          }}
+          className={markRing(
+            'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500',
+            false,
+            mixed('stepper'),
+          )}
+        >
+          <option value="">{t('sims.stepperDefault', { method: t(STEPPER_LABELS[g.stepper]) })}</option>
+          {SIM_STEPPERS.map((s) => (
+            <option key={s} value={s}>
+              {t(STEPPER_LABELS[s])}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="space-y-2">
         {SIM_OPTION_FIELDS.map((f) => {

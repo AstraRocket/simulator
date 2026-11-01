@@ -1,17 +1,18 @@
 import type { FlightResult, FlightSeries } from '../../engine/openRocketEngine';
 import { type Quantity, radToDeg } from '../../prefs/units';
 import type { Units } from '../../prefs/useUnits';
-import { flightBranches } from '../../services/flight/flightColumns';
+import { flightBranches, seriesColumn } from '../../services/flight/flightColumns';
 import { dynamicPressure, qAlpha, rollRate } from '../../services/flight/flightEvents';
 import { token } from '../common/colorTokens';
 import { ladderDigits } from '../../i18n/format';
 
 /**
  * Owns what the flight chart draws: the series catalog (one panel per
- * measure, with its unit group and y-domain rules), the saved-panel filter,
- * and the flight-to-branch build that turns one simulation into one colored
- * line per stage. Pure data and functions; FlightChart re-exports
- * `buildTraces` and `ChartFlight` for GroundTrack.
+ * measure, with its unit group and y-domain rules), the panels a flight can
+ * add beyond it (`extraSeries`), the saved-panel filter, and the
+ * flight-to-branch build that turns one simulation into one colored line per
+ * stage. Pure data and functions; FlightChart re-exports `buildTraces` and
+ * `ChartFlight` for GroundTrack.
  */
 
 export type Key =
@@ -32,8 +33,15 @@ export type Key =
   | 'velocityAltitude';
 
 export interface Meta {
-  key: Key;
+  /** A {@link Key} for the built-in panels; a kernel symbol (`Cd`, `Vz`) for an added one. */
+  key: string;
+  /** i18n key for the panel's name, or the name itself when `literal`. */
   label: string;
+  /**
+   * The label is the kernel symbol itself, not an i18n key: a series the run
+   * recorded that the app has no name for.
+   */
+  literal?: boolean;
   /** Fixed unit label, for series that have no user-selectable unit (Mach). */
   unit: string;
   /** A fixed unit label that is a word, so it is translated (calibers). */
@@ -51,6 +59,12 @@ export interface Meta {
    * pressure unit times their angle unit.
    */
   times?: Quantity;
+  /**
+   * The readout decimals follow the span on screen, as a quantity's do, for a
+   * unitless series whose magnitude is not known ahead (a coefficient, a
+   * Reynolds number).
+   */
+  ladder?: boolean;
   /** Multiply the raw SI series into display units (kg→g, m→cm, rad→deg). */
   scale?: number;
   /** Level bands (CG/CP/mass/stability) get a tight y-domain + no area fill;
@@ -61,16 +75,20 @@ export interface Meta {
    *  the series is clipped to the boost→apogee window. */
   aero?: boolean;
   /**
-   * Plotted against altitude rather than time: velocity over altitude. It sits
-   * outside the shared time axis, so it neither zooms with it nor shows event
-   * lines; the crosshair's moment is marked on the curve instead.
+   * Plotted as one series against another rather than against time (velocity
+   * over altitude, or any pair the reader adds). It sits outside the shared
+   * time axis, so it neither zooms with it nor shows event lines; the
+   * crosshair's moment is marked on the curve instead.
    */
-  xy?: boolean;
+  xy?: { x: Meta; y: Meta };
 }
 
+const ALTITUDE: Meta = { key: 'altitude', label: 'flight.altitude', unit: 'm', digits: 0, quantity: 'distance' };
+const VELOCITY: Meta = { key: 'velocity', label: 'flight.velocity', unit: 'm/s', digits: 0, quantity: 'velocity' };
+
 export const SERIES: Meta[] = [
-  { key: 'altitude', label: 'flight.altitude', unit: 'm', digits: 0, quantity: 'distance' },
-  { key: 'velocity', label: 'flight.velocity', unit: 'm/s', digits: 0, quantity: 'velocity' },
+  ALTITUDE,
+  VELOCITY,
   { key: 'acceleration', label: 'flight.acceleration', unit: 'm/s²', digits: 0, quantity: 'acceleration' },
   { key: 'mach', label: 'flight.mach', unit: '', digits: 2 },
   { key: 'thrust', label: 'flight.thrust', unit: 'N', digits: 1, quantity: 'force' },
@@ -109,11 +127,27 @@ export const SERIES: Meta[] = [
     times: 'angle',
   },
   { key: 'rollRate', label: 'flight.rollRate', unit: 'r/s', digits: 2, quantity: 'rollRate' },
-  { key: 'velocityAltitude', label: 'flight.velocityAltitude', unit: '', digits: 0, xy: true },
+  { key: 'velocityAltitude', label: 'flight.velocityAltitude', unit: '', digits: 0, xy: { x: ALTITUDE, y: VELOCITY } },
 ];
 /** What a series is multiplied by to show it in the reader's units. */
 export const traceScale = (m: Meta, u: Pick<Units, 'factor'>): number =>
   m.quantity ? u.factor(m.quantity) * (m.times ? u.factor(m.times) : 1) : (m.scale ?? 1);
+
+/**
+ * What is added after the scale: the display value of SI zero. Zero for every
+ * unit but a temperature's, where 0 K is -273.15 °C and a scale alone would
+ * plot kelvins labeled as degrees.
+ */
+export const traceOffset = (m: Meta, u: Pick<Units, 'toUi'>): number =>
+  m.quantity && !m.times ? u.toUi(m.quantity, 0) : 0;
+
+/** The name a panel shows: translated, or the symbol a literal label carries. */
+export const traceLabel = (m: Meta, t: (key: string, values?: Record<string, string>) => string): string =>
+  m.literal
+    ? m.label
+    : m.xy && !m.label
+      ? t('flight.yAgainstX', { y: traceLabel(m.xy.y, t), x: traceLabel(m.xy.x, t) })
+      : t(m.label);
 
 /** The unit a series is labeled in: the reader's, or its fixed label. */
 export const traceUnit = (m: Meta, u: Pick<Units, 'sym'>, t: (key: string) => string): string =>
@@ -146,6 +180,7 @@ export function panelSeries(
   meta: Meta,
   scale: number,
   clipT: number,
+  offset = 0,
 ): { list: PanelLine[]; lo: number; hi: number } {
   let dMin = Infinity;
   let dMax = -Infinity;
@@ -163,7 +198,7 @@ export function panelSeries(
       const v = raw[i];
       if (ti == null || v == null || !Number.isFinite(ti) || !Number.isFinite(v)) continue;
       if (meta.aero && ti > clipT) continue;
-      const y = v * scale;
+      const y = v * scale + offset;
       p.push([ti, y] as const);
       xa.push(ti);
       ya.push(y);
@@ -196,22 +231,89 @@ export function panelSeries(
  * and the live region both read it, so what is heard is what is shown.
  */
 export const panelDigits = (meta: Meta, lo: number, hi: number): number =>
-  meta.quantity ? ladderDigits(Math.abs(hi - lo)) : meta.digits;
+  meta.quantity || meta.ladder ? ladderDigits(Math.abs(hi - lo)) : meta.digits;
 
-/** Every key the chart can draw, for validating what comes back from settings. */
-const KEYS = new Set<string>(SERIES.map((m) => m.key));
+/** The keys the built-in panels and the time axis take, never offered again as added ones. */
+const BUILT_IN = new Set<string>(['time', ...SERIES.map((m) => m.key)]);
 
 /**
- * The saved panel choice, narrowed to keys this build actually has.
+ * Every other series the flight recorded, as a panel it can add: the kernel's
+ * own variables (position, rates, coefficients, the atmosphere, the time step),
+ * named and unit-grouped as the flight CSV names them (`seriesColumn`), in the
+ * kernel table's order, then any symbol the app has no name for.
  *
- * A list saved by another version can name a series this build does not have;
- * dropping those here means a stale preference costs you
- * one panel rather than blanking the chart. The order is the series order, so
- * the panels stack the same way however the preference was written.
+ * Drawn with a tight y-domain and no fill (`level`), because most of them sit
+ * far from zero (a latitude, a pressure, a temperature) or cross it (a moment
+ * coefficient), and a zero baseline would flatten them to a line. Not clipped
+ * at the end of forward flight the way the built-in aero panels are: a
+ * coefficient after deployment is what the kernel recorded, and desktop plots
+ * it too. A series with no finite sample in any branch is not offered.
  */
-export function visibleSeries(saved: readonly string[]): Key[] {
-  const want = new Set(saved.filter((k) => KEYS.has(k)));
-  return SERIES.filter((m) => want.has(m.key)).map((m) => m.key);
+export function extraSeries(branches: readonly Branch[]): Meta[] {
+  const found = new Set<string>();
+  for (const b of branches) {
+    for (const [k, v] of Object.entries(b.series)) {
+      if (BUILT_IN.has(k) || found.has(k) || !Array.isArray(v)) continue;
+      if (v.some((x) => x != null && Number.isFinite(x))) found.add(k);
+    }
+  }
+  const order = (k: string) => seriesColumn(k)?.order ?? Infinity;
+  return [...found]
+    .sort((a, b) => order(a) - order(b) || a.localeCompare(b))
+    .map((key): Meta => {
+      const c = seriesColumn(key);
+      return {
+        key,
+        label: c?.labelKey ?? key,
+        literal: !c?.labelKey,
+        unit: c?.unit ?? '',
+        digits: 2,
+        ladder: true,
+        level: true,
+        quantity: c?.quantity,
+        scale: c?.scale,
+      };
+    });
+}
+
+/** The preference key a pair is saved under; velocity over altitude keeps its built-in one. */
+export const pairKey = (y: string, x: string): string =>
+  y === 'velocity' && x === 'altitude' ? 'velocityAltitude' : `xy:${y}:${x}`;
+
+/**
+ * The pairs the saved list names (`xy:<y>:<x>`) whose two series this flight
+ * can draw (`plain`: the time panels' metas, built-in and added), each as a
+ * panel of its own, in the order they were added. A pair whose series this
+ * flight did not record is left in the preference and drawn here as nothing,
+ * the same rule as an added panel. Its label is built from the two series'
+ * names (`traceLabel`), so it reads in the reader's language.
+ */
+export function pairSeries(saved: readonly string[], plain: readonly Meta[]): Meta[] {
+  const byKey = new Map(plain.filter((m) => !m.xy).map((m) => [m.key, m]));
+  const out: Meta[] = [];
+  for (const key of new Set(saved)) {
+    const parts = key.split(':');
+    if (parts.length !== 3 || parts[0] !== 'xy') continue;
+    const y = byKey.get(parts[1]!);
+    const x = byKey.get(parts[2]!);
+    if (y && x && y !== x) out.push({ key, label: '', unit: '', digits: 0, xy: { x, y } });
+  }
+  return out;
+}
+
+/**
+ * The saved panel choice, narrowed to the panels this flight can draw
+ * (`available`: the built-in ones, then the flight's `extraSeries`).
+ *
+ * A key saved by another version, or one naming a series this flight did not
+ * record, stays in the preference and simply draws nothing here, so a flight
+ * that lacks a series does not cost the next one its panel. The order is the
+ * catalog order, so the panels stack the same way however the preference was
+ * written.
+ */
+export function visibleSeries(saved: readonly string[], available: readonly Meta[] = SERIES): string[] {
+  const want = new Set(saved);
+  return available.filter((m) => want.has(m.key)).map((m) => m.key);
 }
 
 // One color per trace, in series-token order.

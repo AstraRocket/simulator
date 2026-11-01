@@ -1,4 +1,4 @@
-// cspell:ignore randomseed recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
+// cspell:ignore randomseed simulationsteppermethod recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
 import type { AtmosphereLevel, LaunchConditions } from '../../design/orkTree';
 import { escapeXml } from '../xmlUtil';
 import { isWeatherSource, sourceStatus } from '../../weather/weatherSource';
@@ -128,6 +128,9 @@ function conditionsXml(
   // Degrees; the desktop's preference default when the site was never set.
   emit(depth, `<launchlongitude>${launch.longitudeDeg ?? -80.6}</launchlongitude>`);
   emit(depth, `<geodeticmethod>${launch.geodetic ?? 'spherical'}</geodeticmethod>`);
+  // Lower case, as upstream writes the enum. Desktop releases older than the
+  // RK6 stepper skip the element without a warning and fly RK4.
+  emit(depth, `<simulationsteppermethod>${prefs.stepper}</simulationsteppermethod>`);
   // A fixed seed is written as the desktop writes one; with none, the file's
   // own seed (carried below) is what stands, since a run here drew a fresh one.
   const seed = prefs.randomSeed;

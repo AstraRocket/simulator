@@ -194,7 +194,7 @@ Usa el buscador de la parte superior de este sitio, o el buscador del diálogo *
 
 **Instancia**: Una repetición de una pieza: un par de botones de riel, un anillo de cápsulas, un racimo de tubos. *En la aplicación:* **Número de instancias** y **Separación entre copias** en una pieza que se puede repetir.
 
-**Integración**: Avanzar el vuelo en pequeñas porciones de tiempo, que es como se calcula toda la trayectoria. El motor usa **RK4**, un integrador Runge-Kutta de cuarto orden, con paso adaptativo. Ver **Paso de tiempo**.
+**Integración**: Avanzar el vuelo en pequeñas porciones de tiempo, que es como se calcula toda la trayectoria. El motor usa **RK4**, un integrador Runge-Kutta de cuarto orden, con paso adaptativo, o **RK6** cuando el método de simulación lo pide. Ver **Paso de tiempo**.
 
 **Intensidad de turbulencia**: La σ de las rachas expresada como porcentaje del viento medio, que a menudo es la forma más fácil de pensarla. *En la aplicación:* **Intensidad de turbulencia** en las condiciones de lanzamiento y en el editor del perfil de viento, donde ella y la desviación estándar se siguen.
 

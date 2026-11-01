@@ -249,6 +249,7 @@ describe('simulation options in the conditions', () => {
   const prefs = {
     timeStep: 0.01,
     maxTime: 600,
+    stepper: 'rk6' as const,
     randomSeed: 42,
     deploymentSpeedWarn: 18,
     mainHighSpeedWarn: 25,
@@ -271,6 +272,7 @@ describe('simulation options in the conditions', () => {
     });
     expect(cond(xml, 'timestep')).toBe('0.01');
     expect(cond(xml, 'maxtime')).toBe('600');
+    expect(cond(xml, 'simulationsteppermethod')).toBe('rk6');
     expect(cond(xml, 'randomseed')).toBe('42');
     expect(cond(xml, 'recoveryspeedwarning')).toBe('18');
     expect(cond(xml, 'drogueLowspeedwarning')).toBe('2.5');
@@ -280,7 +282,7 @@ describe('simulation options in the conditions', () => {
 
   const desktopFile = write([{ name: 'Calm day', configId: 'cfg-c6', launch, summary, status: 'uptodate' }]).replace(
     '<timestep>',
-    '<simulationsteppermethod>rk6</simulationsteppermethod><randomseed>1234</randomseed><timestep>',
+    '<draglookupcsv>drag.csv</draglookupcsv><randomseed>1234</randomseed><timestep>',
   );
 
   it('carries the conditions children it does not model back inside the conditions', () => {
@@ -295,7 +297,7 @@ describe('simulation options in the conditions', () => {
         { name: sim.name, configId: 'cfg-c6', launch, summary, status: 'uptodate', xmlExtra: sim.xmlExtra },
       ],
     });
-    expect(cond(xml, 'simulationsteppermethod')).toBe('rk6');
+    expect(cond(xml, 'draglookupcsv')).toBe('drag.csv');
     // No seed of its own, so the file's stands.
     expect(cond(xml, 'randomseed')).toBe('1234');
     expect(xml.match(/<timestep>/g)).toHaveLength(1);
@@ -318,6 +320,36 @@ describe('simulation options in the conditions', () => {
     expect(xml.match(/<randomseed>/g)).toHaveLength(1);
     expect(cond(xml, 'randomseed')).toBe('42');
   });
+
+  it("reads the stepper as the simulation's own, not as a carried child", () => {
+    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>RK6<');
+    const sim = importOrk(file).simulations![0]!;
+    expect(sim.prefs?.stepper).toBe('rk6');
+    expect(sim.xmlExtra?.join('') ?? '').not.toMatch(/simulationsteppermethod/);
+  });
+
+  it('leaves a stepper this kernel does not have to the global', () => {
+    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>euler<');
+    expect(importOrk(file).simulations![0]!.prefs?.stepper).toBeUndefined();
+  });
+
+  it('writes the stepper once, the one the run used', () => {
+    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>rk6<');
+    const sim = importOrk(file).simulations![0]!;
+    const xml = exportOrk({
+      name: 'Sims',
+      tree,
+      configs,
+      activeConfigId: 'cfg-c6',
+      launch,
+      simulations: [
+        { name: sim.name, configId: 'cfg-c6', launch, summary, status: 'uptodate', xmlExtra: sim.xmlExtra },
+      ],
+      simPrefs: { ...prefs, stepper: 'rk4' },
+    });
+    expect(xml.match(/<simulationsteppermethod>/g)).toHaveLength(1);
+    expect(cond(xml, 'simulationsteppermethod')).toBe('rk4');
+  });
 });
 
 /**
@@ -330,12 +362,13 @@ describe("each simulation's own run settings", () => {
   const globals = {
     timeStep: 0.05,
     maxTime: 1200,
+    stepper: 'rk4',
     deploymentSpeedWarn: 20,
     mainHighSpeedWarn: 30.48,
     mainLowSpeedWarn: 15.24,
     drogueLowSpeedWarn: 3.048,
   } as SimPrefs;
-  const fine = { ...globals, timeStep: 0.01 };
+  const fine = { ...globals, timeStep: 0.01, stepper: 'rk6' as const };
   const xml = write([
     { name: 'Fine', configId: 'cfg-c6', launch, status: 'notsimulated', prefs: fine },
     { name: 'Plain', configId: 'cfg-d12', launch, status: 'notsimulated', prefs: globals },
@@ -361,7 +394,7 @@ describe("each simulation's own run settings", () => {
       launch,
       globals,
     );
-    expect(w.sims[0]!.prefs).toEqual({ timeStep: 0.01 });
+    expect(w.sims[0]!.prefs).toEqual({ timeStep: 0.01, stepper: 'rk6' });
     expect(w.sims[1]!.prefs).toBeUndefined();
   });
 

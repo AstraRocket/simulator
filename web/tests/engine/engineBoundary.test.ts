@@ -726,6 +726,23 @@ describe('the bridge passes these options through to the physics', () => {
       expect(fly({ ...rotating, maxAngleStep: deg(3) })).toBe(fly(rotating));
     });
   });
+
+  describe('the stepper', () => {
+    const windy = { windAverage: 4, windStdDeviation: 0 };
+
+    it('flies RK6 differently from RK4, and RK4 when we send nothing', () => {
+      const rk4 = fly({ ...windy, stepper: 'rk4' });
+      const rk6 = fly({ ...windy, stepper: 'rk6' });
+      expect(rk6).not.toBe(rk4);
+      // A different integrator on the same flight, not a different flight.
+      expect(Math.abs(rk6 - rk4)).toBeLessThan(1);
+      expect(fly(windy)).toBe(rk4);
+    });
+
+    it('refuses a stepper the kernel does not have', () => {
+      expect(() => fly({ ...windy, stepper: 'euler' })).toThrow(/stepper/i);
+    });
+  });
 });
 
 /**

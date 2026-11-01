@@ -3,7 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { fmtNum } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import { PAD_L, PAD_R, PANEL_H } from './flightChartAxis';
-import { panelDigits, panelSeries, traceScale, traceUnit, type Branch, type Meta } from './flightChartTraces';
+import {
+  panelDigits,
+  panelSeries,
+  traceLabel,
+  traceOffset,
+  traceScale,
+  traceUnit,
+  type Branch,
+  type Meta,
+} from './flightChartTraces';
 import { PanelHover, hoverValue } from './FlightChartHover';
 import { NO_VALUE } from '../../i18n/noValue';
 import { polylinePath, areaPath } from '../common/svgPath';
@@ -51,9 +60,11 @@ export function FlightChartPanel({
   const ih = height - padT - padB;
   // A quantity-backed series scales and labels itself from the preference; the
   // rest keep their fixed unit. `factor`, not `toUi`, because this scales a
-  // whole series; none of these carry a temperature-style offset.
+  // whole series; a temperature's offset is added after it.
   const scale = traceScale(meta, u);
+  const offset = traceOffset(meta, u);
   const unit = traceUnit(meta, u, t);
+  const title = traceLabel(meta, t);
   // Namespaced ids. With a fixed id, two charts in one document (a comparison
   // view, or the mobile and desktop copies during a breakpoint transition)
   // would make `url(#...)` resolve to whichever rendered first, clipping one
@@ -65,8 +76,12 @@ export function FlightChartPanel({
   // One line per selected stage; the y-domain spans them all so they share a
   // scale and read against each other. Keyed on the (stable) branch list so a
   // hover doesn't rebuild every stage's path.
-  // `meta` is an entry of the static SERIES table, so it is a stable key.
-  const { list, lo, hi } = useMemo(() => panelSeries(branches, meta, scale, clipT), [branches, meta, scale, clipT]);
+  // `meta` is an entry of the static SERIES table, or of the added panels the
+  // chart builds once per flight, so it is a stable key.
+  const { list, lo, hi } = useMemo(
+    () => panelSeries(branches, meta, scale, clipT, offset),
+    [branches, meta, scale, clipT, offset],
+  );
   const digits = panelDigits(meta, lo, hi);
 
   const Y = useCallback((v: number) => padT + (1 - (v - lo) / (hi - lo)) * ih, [lo, hi, ih]);
@@ -112,8 +127,8 @@ export function FlightChartPanel({
   // What a screen reader hears for this panel: its peak and when, or the span a
   // level series covers, per shown stage (see chartSummary).
   const summary = useMemo(
-    () => timeSeriesSummary(t, t(meta.label), unit, digits, !!meta.level, list),
-    [t, meta.label, meta.level, unit, digits, list],
+    () => timeSeriesSummary(t, title, unit, digits, !!meta.level, list),
+    [t, title, meta.level, unit, digits, list],
   );
 
   // Header: with a crosshair, the primary (first / sustainer) stage's value
@@ -126,7 +141,7 @@ export function FlightChartPanel({
 
   return (
     <ChartPanelFrame
-      title={t(meta.label)}
+      title={title}
       reading={
         <>
           {showsPeak && <span className="text-[10px] text-ink-faint">{t('flight.peakTag')}</span>}

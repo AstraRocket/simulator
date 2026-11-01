@@ -1,4 +1,4 @@
-// cspell:ignore recoveryspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
+// cspell:ignore simulationsteppermethod recoveryspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
 import i18n from '../../../i18n';
 import type { FlightSummary } from '../../../engine/openRocketEngine';
 import type { LaunchConditions } from '../../design/orkTree';
@@ -8,7 +8,7 @@ import { KNOWN_CONDITIONS_TAGS, KNOWN_SIMULATION_TAGS, readPassthrough, wrapCond
 import { KeyedError } from '../../../i18n/keyedError';
 import { MAX_SIMULATIONS } from './importLimits';
 import { finiteNum } from './numbers';
-import type { SimPrefs } from '../../flight/simulations';
+import { stepperOf, type SimPrefs } from '../../flight/simulations';
 import { SIM_BOUNDS } from '../../storage/settings';
 import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS, OPTIONAL_FLIGHT_DATA } from './simulationTags';
 
@@ -90,13 +90,18 @@ const PREF_BOUNDS: Partial<Record<keyof SimPrefs, { min: number; max: number }>>
 /** A simulation's own run settings, as `{ prefs }`, or nothing when it states none. */
 function simulationPrefs(condEl: Element | null): { prefs?: Partial<SimPrefs> } {
   if (!condEl) return {};
-  const prefs: Partial<Record<keyof SimPrefs, number>> = {};
+  const numbers: Partial<Record<keyof SimPrefs, number>> = {};
   for (const [key, tag] of SIM_PREF_TAGS) {
     const { min, max } = PREF_BOUNDS[key] ?? WARN_BOUNDS;
     const v = finiteNum(text(condEl, `:scope > ${tag}`) ?? undefined);
-    if (v !== undefined && v >= min && v <= max) prefs[key] = v;
+    if (v !== undefined && v >= min && v <= max) numbers[key] = v;
   }
-  return Object.keys(prefs).length ? { prefs: prefs as Partial<SimPrefs> } : {};
+  const prefs = numbers as Partial<SimPrefs>;
+  // Upstream writes the enum in lower case. A name this kernel does not have is
+  // left out, so the simulation follows the global stepper.
+  const stepper = stepperOf(text(condEl, ':scope > simulationsteppermethod')?.trim(), null);
+  if (stepper) prefs.stepper = stepper;
+  return Object.keys(prefs).length ? { prefs } : {};
 }
 
 /** The <flightdata> attributes as a summary; a figure the file left out reads as missing. */

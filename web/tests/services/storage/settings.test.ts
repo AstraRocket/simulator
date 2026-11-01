@@ -41,6 +41,18 @@ describe('loadSettings', () => {
     expect(s.maxAngleStep).toBe(SIM_BOUNDS.maxAngleStep.max);
   });
 
+  // The bridge refuses a stepper it does not know, which would fail every run.
+  it('keeps a known stepper and falls back for any other', () => {
+    const stepper = (v: unknown) => {
+      localStorage.setItem(KEY, JSON.stringify({ simulation: { stepper: v } }));
+      return loadSettings().simulation.stepper;
+    };
+    expect(stepper('rk6')).toBe('rk6');
+    expect(stepper('RK6')).toBe('rk6');
+    expect(stepper('euler')).toBe('rk4');
+    expect(stepper(6)).toBe('rk4');
+  });
+
   // The bridge reads the seed as a number, so a stored string fails every run
   // until the seed is retyped.
   it('falls back for a seed or a flag of the wrong type, and keeps a usable one', () => {

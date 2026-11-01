@@ -67,6 +67,7 @@ describe('changedPrefKeys', () => {
         'maxTime',
         'railExitVelocityMin',
         'randomSeed',
+        'stepper',
         'timeStep',
       ].sort(),
     );

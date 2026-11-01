@@ -3,6 +3,12 @@ import type { ChartFlight } from '../../../src/components/canvas/FlightChart';
 import {
   SERIES,
   buildTraces,
+  extraSeries,
+  pairKey,
+  pairSeries,
+  panelSeries,
+  traceLabel,
+  traceOffset,
   traceScale,
   traceUnit,
   visibleSeries,
@@ -83,7 +89,7 @@ describe('visibleSeries', () => {
     expect(visibleSeries(['altitude', 'thrust'])).toEqual(['altitude', 'thrust']);
   });
 
-  it('drops a key this build does not have', () => {
+  it('draws nothing for a key this build does not have', () => {
     expect(visibleSeries(['altitude', 'sideslip', 'mach'])).toEqual(['altitude', 'mach']);
   });
 
@@ -160,5 +166,91 @@ describe('the stability panel', () => {
     const stability = SERIES.find((m) => m.key === 'stability')!;
     const u = { sym: () => '' };
     expect(traceUnit(stability, u as never, (k) => (k === 'stability.caliber' ? 'kal' : k))).toBe('kal');
+  });
+});
+
+/**
+ * Every other series a run records can be added as a panel of its own: named
+ * and unit-grouped as the flight CSV names it, in the kernel table's order.
+ */
+describe('the added panels', () => {
+  const lines = (s: Record<string, unknown>) =>
+    buildTraces(
+      {
+        id: 'f',
+        name: 'F',
+        result: { summary: { flightTime: 2 }, events: [], series: { time: [0, 1, 2], ...s } },
+      } as unknown as ChartFlight,
+      stageLabel,
+    );
+
+  it('offers what the run recorded beyond the built-in panels, in catalog order', () => {
+    const extras = extraSeries(lines({ altitude: [0, 1, 2], Cd: [0.5, 0.6, 0.7], Vz: [0, 1, 0] }));
+    expect(extras.map((m) => m.key)).toEqual(['Vz', 'Cd']);
+    const vz = extras[0]!;
+    expect(vz.label).toBe('flightVar.Vz');
+    expect(vz.quantity).toBe('velocity');
+    expect(vz.literal).toBeFalsy();
+  });
+
+  it('names a symbol the app does not know by the symbol itself, after the named ones', () => {
+    const extras = extraSeries(lines({ zz: [1, 2, 3], Cd: [0.5, 0.6, 0.7] }));
+    expect(extras.map((m) => m.key)).toEqual(['Cd', 'zz']);
+    expect(traceLabel(extras[1]!, () => 'translated')).toBe('zz');
+    expect(traceLabel(extras[0]!, (k) => `t:${k}`)).toBe('t:flightVar.Cd');
+  });
+
+  it('does not offer a series with nothing finite in it', () => {
+    expect(extraSeries(lines({ Cd: [null, null, null] })).map((m) => m.key)).toEqual([]);
+  });
+
+  it('draws an added panel only for a flight that recorded it', () => {
+    const extras = extraSeries(lines({ Cd: [0.5, 0.6, 0.7] }));
+    expect(visibleSeries(['altitude', 'Cd', 'Vz'], [...SERIES, ...extras])).toEqual(['altitude', 'Cd']);
+  });
+});
+
+describe('a temperature panel', () => {
+  it('adds the offset a scale alone would drop', () => {
+    const t = { key: 'T', label: 'flightVar.T', unit: '', digits: 2, quantity: 'temperature' } as const;
+    const u = { factor: () => 1, toUi: (_q: string, si: number) => si - 273.15 };
+    const { list } = panelSeries(
+      [{ key: 'b', name: 'b', color: '#000', events: [], series: { time: [0], T: [288.15] } } as never],
+      t,
+      traceScale(t, u as never),
+      Infinity,
+      traceOffset(t, u as never),
+    );
+    expect(list[0]!.ys[0]).toBeCloseTo(15, 9);
+  });
+});
+
+/**
+ * A pair plots one series against another: saved as `xy:<y>:<x>`, drawn only
+ * when the flight can fill both axes.
+ */
+describe('the pairs', () => {
+  const plain = SERIES.filter((m) => !m.xy);
+
+  it('builds a panel for a saved pair whose two series the flight has', () => {
+    const [pair] = pairSeries(['altitude', 'xy:drag:mach'], plain);
+    expect(pair!.key).toBe('xy:drag:mach');
+    expect(pair!.xy!.y.key).toBe('drag');
+    expect(pair!.xy!.x.key).toBe('mach');
+  });
+
+  it('leaves out a pair naming a series this flight lacks, or one series twice', () => {
+    expect(pairSeries(['xy:Cd:mach', 'xy:mach:mach', 'xy:bad'], plain)).toEqual([]);
+  });
+
+  it('keeps velocity over altitude under its built-in key', () => {
+    expect(pairKey('velocity', 'altitude')).toBe('velocityAltitude');
+    expect(pairKey('altitude', 'velocity')).toBe('xy:altitude:velocity');
+  });
+
+  it('names a pair from its two series, in the reader’s words', () => {
+    const [pair] = pairSeries(['xy:drag:mach'], plain);
+    const t = (k: string, v?: Record<string, string>) => (v ? `${v.y} / ${v.x}` : `t:${k}`);
+    expect(traceLabel(pair!, t)).toBe('t:flight.drag / t:flight.mach');
   });
 });

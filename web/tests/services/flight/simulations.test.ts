@@ -27,6 +27,7 @@ const PREFS: SimPrefs = {
   timeStep: 0.01,
   maxTime: 60,
   maxAngleStep: deg2rad(3),
+  stepper: 'rk4',
   randomSeed: null,
   deploymentSpeedWarn: 20,
   mainHighSpeedWarn: 30.48,

@@ -17,6 +17,7 @@ export type OrkSimPrefs = Pick<
   SimPrefs,
   | 'timeStep'
   | 'maxTime'
+  | 'stepper'
   | 'randomSeed'
   | 'deploymentSpeedWarn'
   | 'mainHighSpeedWarn'
