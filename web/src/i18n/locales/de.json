@@ -724,7 +724,8 @@
     "run": "Starten",
     "runTitle": "„{{name}}“ starten",
     "stop": "Stopp",
-    "openResults": "Diesen Flug in den Ergebnissen öffnen"
+    "openResults": "Diesen Flug in den Ergebnissen öffnen",
+    "openSketch": "Skizze öffnen"
   },
   "stability": {
     "onPad": "Stabilität (auf der Rampe)",

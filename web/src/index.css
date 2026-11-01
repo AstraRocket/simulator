@@ -1,6 +1,26 @@
 @import 'tailwindcss';
 
 /*
+ * Where the phone layout ends: 1024px, or 1040px on a touch screen.
+ *
+ * A 13" iPad Pro is 1032px wide in portrait, which the plain 1024 breakpoint
+ * hands the desktop layout: mouse-sized targets and side panels with no room.
+ * The extra 16px reach it and nothing a desktop is likely to be.
+ *
+ * `lg:` is redefined rather than `--breakpoint-lg` moved, so a desktop window
+ * still switches at 1024. Tailwind keeps an overridden breakpoint in its place
+ * between `md:` and `xl:`. Three more places must say the same thing: the two
+ * phone-only `@media` rules further down, which are its inverse, and
+ * DESKTOP_QUERY in services/app/device.ts. `max-lg:` is not redefined and still
+ * flips at 1024: use those rules, not it.
+ */
+@custom-variant lg {
+  @media (width >= 65rem), (width >= 64rem) and (not (pointer: coarse)) {
+    @slot;
+  }
+}
+
+/*
  * The app's colors, by role, in one place. Components use these names
  * (`bg-surface`, `text-ink-muted`, `ring-line/10`, `text-accent-300`), never a
  * Tailwind palette color, so a theme is a second set of values for the
@@ -255,10 +275,9 @@ body {
   width: 100%;
   height: 100%;
 }
-/* `theme(--breakpoint-lg)` and not a literal: this must flip at exactly the
-   width the `lg:` classes do, and reading Tailwind's own value means there is
-   one number to change, not two that can drift apart. */
-@media (orientation: portrait) and (width < theme(--breakpoint-lg)) {
+/* Below `lg:`, as redefined at the top of this file (1024px, or 1040px on a
+   touch screen): this must flip at exactly the width the `lg:` classes do. */
+@media (orientation: portrait) and (width < 64rem), (orientation: portrait) and (width < 65rem) and (pointer: coarse) {
   /* Scoped to the rotated case on purpose. `container-type: size` also turns on
      size containment, which makes the pane contribute nothing to intrinsic
      sizing: on a short desktop window the flex algorithm would then hand the
@@ -290,8 +309,10 @@ body {
    popover are two or three lines and a button, and blowing them up to fill a
    phone is all empty space. The popover has a second reason: it opens on top of
    the full-screen report dialog, and full bleed would read as that dialog being
-   replaced rather than something opening over it. */
-@media (width < theme(--breakpoint-lg)) {
+   replaced rather than something opening over it.
+
+   Below `lg:`, as redefined at the top of this file. */
+@media (width < 64rem), (width < 65rem) and (pointer: coarse) {
   /* The inset clears the home indicator: index.html asks for viewport-fit=cover,
      so a full-bleed panel would otherwise run under it with its last row out of
      reach. Taking it on the overlay rather than the panel leaves each panel's

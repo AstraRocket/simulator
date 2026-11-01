@@ -4,6 +4,7 @@ import { useWorkspaceStore, selectDesignName, selectShownSim } from '../../state
 import { confirm } from '../../state/confirmStore';
 import { useSettings } from '../../state/SettingsProvider';
 import { StabilityBadge } from './StabilityBadge';
+import { RocketOverview } from './RocketOverview';
 import { DesignWarnings } from './DesignWarnings';
 import { LoadedBanner } from './LoadedBanner';
 import { CenterToolbar } from './CenterToolbar';
@@ -22,7 +23,7 @@ import { useAutoRunOutdated } from './useAutoRunOutdated';
  * the sized canvas box (with the 2D roll slider + Side/Aft/Reset presets), and the
  * stability readout. Reads the workspace store directly.
  *
- * On a phone this one pane backs two tabs, Rocket (banner + stats) and Sketch
+ * On a phone this one pane backs two tabs, Rocket (banner, overview + stats) and Sketch
  * (the drawing), because a phone has no room for both at once. At lg+ the tabs
  * are gone and everything shows together.
  */
@@ -146,6 +147,11 @@ export function CenterView() {
         } ${maxed ? 'lg:hidden' : ''}`}
       >
         <DesignWarnings />
+        {/* A phone's Rocket tab opens on the rocket, not on the numbers: the
+            drawing and the header's summary, which the phone has no room for,
+            ahead of the stats grid. At lg+ the drawing is right above and the
+            summary is in the header. */}
+        {!desktop && info && <RocketOverview info={info} />}
         <StabilityBadge
           info={info}
           recoveryWeight={recoveryWeight}

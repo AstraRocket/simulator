@@ -726,7 +726,8 @@
     "run": "Uruchom",
     "runTitle": "Uruchom „{{name}}”",
     "stop": "Zatrzymaj",
-    "openResults": "Otwórz ten lot w Wynikach"
+    "openResults": "Otwórz ten lot w Wynikach",
+    "openSketch": "Otwórz szkic"
   },
   "stability": {
     "onPad": "Stabilność (na wyrzutni)",

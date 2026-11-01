@@ -119,7 +119,9 @@ test('turns the Aero charts with the sketch, and leaves the flight views upright
   // too and each chart gets the screen's long edge instead of its short one.
   await page.getByRole('button', { name: 'Aero', exact: true }).click();
   await expect(page.locator('.sketch-rotate')).toHaveCount(1);
-  const chart = await box(page.locator('main svg').first());
+  // Inside the turned stage: the Rocket tab's preview is an svg in main too,
+  // hidden behind this tab, and it is there before the sweep has drawn.
+  const chart = await box(page.locator('.sketch-rotate svg').first());
   note('aero chart', `${Math.round(chart.width)}x${Math.round(chart.height)}`);
   expect(chart.height).toBeGreaterThan(chart.width); // on screen: stood on end
 });

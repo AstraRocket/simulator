@@ -7,7 +7,8 @@ import { capabilityAllowed, type Capability, type DeviceClass } from './capabili
  * Two questions: is the window wide enough for the desktop layout, and is the
  * device a desktop computer.
  *
- * - **Width**: the `lg:` breakpoint (1024 px), where the phone layout ends.
+ * - **Width**: the `lg:` breakpoint (1024 px, 1040 on a touch screen), where
+ *   the phone layout ends.
  * - **Device, where the browser says**: Chromium (Chrome, Edge, Samsung
  *   Internet) answers the `formFactors` User-Agent Client Hint with the device's
  *   own form factors ("Desktop", "Mobile", "Tablet", ...). A device that lists
@@ -79,8 +80,12 @@ export function subscribeFormFactors(onChange: () => void): () => void {
 /** The cached `formFactors` answer, as the snapshot `subscribeFormFactors` pairs with. */
 export const formFactorsSnapshot = (): readonly string[] | null => formFactors;
 
-/** The `lg:` breakpoint, where the phone layout ends. Keep in step with Tailwind's default. */
-export const DESKTOP_QUERY = '(min-width: 1024px)';
+/**
+ * The `lg:` breakpoint, where the phone layout ends: 1024px, or 1040px on a
+ * touch screen, so a 13" iPad in portrait (1032) stays on the phone layout.
+ * Keep in step with the `lg` variant at the top of index.css.
+ */
+export const DESKTOP_QUERY = '(min-width: 1040px), (min-width: 1024px) and (not (pointer: coarse))';
 
 /** iOS or iPadOS. iPadOS 13+ reports as a Mac, hence the touch check. */
 export function isApplePhoneOrTablet(): boolean {

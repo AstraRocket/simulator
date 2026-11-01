@@ -724,7 +724,8 @@
     "run": "Starten",
     "runTitle": "\"{{name}}\" starten",
     "stop": "Stoppen",
-    "openResults": "Deze vlucht openen in Resultaten"
+    "openResults": "Deze vlucht openen in Resultaten",
+    "openSketch": "Schets openen"
   },
   "stability": {
     "onPad": "Stabiliteit (op het platform)",
