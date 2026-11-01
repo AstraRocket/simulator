@@ -11,10 +11,12 @@ import { httpsFetch, USER_AGENT, MAX_RESPONSE_BYTES } from '../../scripts/lib/th
 const URL_OK = 'https://www.thrustcurve.org/api/v1/search.json';
 
 type Reply = { status?: number; headers?: Record<string, string>; chunks?: (string | Buffer)[] };
+type RequestOptions = { method: string; headers: Record<string, string>; agent: boolean };
+type FakeResponse = EventEmitter & { statusCode: number; headers: Record<string, string> };
 
 function fakeRequest(reply: Reply = {}) {
-  const calls: { target: URL; options: any; body: unknown }[] = [];
-  const request = vi.fn((target: URL, options: any, onResponse: (res: any) => void) => {
+  const calls: { target: URL; options: RequestOptions; body: unknown }[] = [];
+  const request = vi.fn((target: URL, options: RequestOptions, onResponse: (res: FakeResponse) => void) => {
     const req = Object.assign(new EventEmitter(), {
       destroy: vi.fn(),
       end: (body: unknown) => {
