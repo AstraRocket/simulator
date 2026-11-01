@@ -42,6 +42,12 @@ export function HeaderSummary() {
   return <FittedSummary key={pref} info={info} pref={pref} />;
 }
 
+/** A computed CSS length in px, or 0 when it is not a finite number (`auto`, empty). */
+const cssPx = (v: string): number => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 /**
  * The strip in the room the header has left, which is no fixed width: it is
  * whatever the tabs, the save status and the tool buttons leave over, in this
@@ -70,7 +76,7 @@ function FittedSummary({ info, pref }: { info: StaticInfo; pref: HeaderSummaryPr
     if (!wrap || !strip) return;
     // The strip's own margins are part of the room it needs.
     const style = getComputedStyle(strip);
-    const needs = strip.offsetWidth + (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0);
+    const needs = strip.offsetWidth + cssPx(style.marginLeft) + cssPx(style.marginRight);
     if (needs > wrap.clientWidth) setLevel((l) => Math.min(l + 1, 2));
   };
   useLayoutEffect(fit, [level, pass]);
