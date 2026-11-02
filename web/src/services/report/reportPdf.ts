@@ -11,6 +11,7 @@ import { createPdfPage, heading, type PdfPage, type T } from './pdfPage';
 import { loadReportFonts, registerReportFonts, type ReportFontFiles } from './reportFonts';
 import { writeDesignSection } from './designSection';
 import { writeMotorsSection } from './motorsSection';
+import { writeChargesSection } from './chargesSection';
 import { writePartsSection } from './partsSection';
 import { writeTemplatesSection } from './templatesSection';
 import { markingGuides } from './markingGuide';
@@ -93,6 +94,9 @@ function writeReport(page: PdfPage, model: ReportModel, tree: RocketTree, t: T, 
 
   // --- Motors ---
   if (opts.includeMotors && model.configs.some((c) => c.motors.length)) writeMotorsSection(page, model);
+
+  // --- Recovery charges and bays: only for a design that keeps some ---
+  if (model.charges?.length || model.bays?.length) writeChargesSection(page, model.charges ?? [], model.bays);
 
   // --- Parts detail (per selected stage) ---
   const partsStages = model.partsByStage.filter((_, i) => opts.stages[i]?.parts);

@@ -1,12 +1,11 @@
 import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
-import { blackPowderMass, DEFAULT_BAY_PRESSURE_PA, pinShearPressure } from '../../services/flight/ejectionCharge';
+import { blackPowderMass, DEFAULT_BAY_PRESSURE_PA } from '../../services/flight/ejectionCharge';
 import { QNum } from '../sim/LaunchPanel';
 import { CardGroup } from '../common/CardGroup';
 import { NumberRow } from '../common/NumberRow';
-import { useScopedUnit } from '../common/UnitChip';
+import { EjectionFigures } from './EjectionFigures';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
 /**
@@ -37,17 +36,8 @@ export function EjectionTool() {
   const [pressurePa, setPressurePa] = useRemembered(remembered, 'pressurePa', DEFAULT_BAY_PRESSURE_PA);
   const [pinCount, setPinCount] = useRemembered(remembered, 'pinCount', null);
   const [pinForceN, setPinForceN] = useRemembered(remembered, 'pinForceN', null);
-  const massUnit = useScopedUnit(unitScope('ejection', 'charge'), 'mass');
-  const pinMassUnit = useScopedUnit(unitScope('ejection', 'pinCharge'), 'mass');
-  const pressureUnit = useScopedUnit(unitScope('ejection', 'pinPressure'), 'pressure');
-
-  const charge =
-    pressurePa != null && boreM != null && lengthM != null ? blackPowderMass(pressurePa, boreM, lengthM) : null;
-  const pinPressure =
-    pinCount != null && pinForceN != null && boreM != null ? pinShearPressure(pinCount, pinForceN, boreM) : null;
-  const pinCharge =
-    pinPressure != null && lengthM != null && boreM != null ? blackPowderMass(pinPressure, boreM, lengthM) : null;
-  const short = pinPressure != null && pressurePa != null && pressurePa < pinPressure;
+  const ready =
+    pressurePa != null && boreM != null && lengthM != null && blackPowderMass(pressurePa, boreM, lengthM) != null;
 
   return (
     <ToolLayout>
@@ -121,33 +111,14 @@ export function EjectionTool() {
         </CardGroup>
       </ToolForm>
       <ToolResultCard label={t('ejectionTool.result')}>
-        {charge != null ? (
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-xs text-ink-muted">{t('ejectionTool.charge')}</span>
-              <span className="text-sm font-semibold tabular-nums text-ink">
-                {massUnit.fmt(charge, 2)} {massUnit.chip(t('ejectionTool.charge'))}
-              </span>
-            </div>
-            {pinPressure != null && pinCharge != null && (
-              <>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-xs text-ink-muted">{t('ejectionTool.pinPressure')}</span>
-                  <span className="text-sm tabular-nums text-ink">
-                    {pressureUnit.fmt(pinPressure, 1)} {pressureUnit.chip(t('ejectionTool.pinPressure'))}
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-xs text-ink-muted">{t('ejectionTool.pinCharge')}</span>
-                  <span className="text-sm tabular-nums text-ink">
-                    {pinMassUnit.fmt(pinCharge, 2)} {pinMassUnit.chip(t('ejectionTool.pinCharge'))}
-                  </span>
-                </div>
-                {short && <p className="text-xs text-warn-400">{t('ejectionTool.short')}</p>}
-              </>
-            )}
-            <p className="text-[10px] text-ink-faint">{t('ejectionTool.estimate')}</p>
-          </div>
+        {ready ? (
+          <EjectionFigures
+            boreM={boreM}
+            lengthM={lengthM}
+            pressurePa={pressurePa}
+            pinCount={pinCount}
+            pinForceN={pinForceN}
+          />
         ) : (
           <p className="text-xs text-ink-muted">{t('ejectionTool.empty')}</p>
         )}

@@ -86,6 +86,36 @@ describe('a stage chooses single or dual deployment', () => {
   });
 });
 
+describe('a dual-deployment stage picks its main', () => {
+  beforeEach(() => seed([chute('main', 'Main chute'), chute('drg', 'Drogue chute'), chute('nose', 'Nose streamer')]));
+  const mainPicker = () => screen.getByLabelText('Main device') as HTMLSelectElement;
+
+  it('says every device is a main under single deployment, and is disabled', () => {
+    renderWithProviders(<StageRecovery node={stage()} />);
+    expect(mainPicker().disabled).toBe(true);
+    expect(mainPicker().selectedOptions[0]!.text).toBe('Every device');
+  });
+
+  it('offers every device but the drogue, starting on the first of them', () => {
+    renderWithProviders(<StageRecovery node={stage()} />);
+    fireEvent.click(radio('Dual deployment'));
+    fireEvent.change(screen.getByLabelText('Drogue device'), { target: { value: 'drg' } });
+    expect(mainPicker().disabled).toBe(false);
+    expect([...mainPicker().options].map((o) => o.text)).toEqual(['Main chute', 'Nose streamer']);
+    expect(mainPicker().value).toBe('main');
+  });
+
+  it('keeps the device picked', () => {
+    renderWithProviders(<StageRecovery node={stage()} />);
+    fireEvent.click(radio('Dual deployment'));
+    fireEvent.change(screen.getByLabelText('Drogue device'), { target: { value: 'drg' } });
+    fireEvent.change(mainPicker(), { target: { value: 'nose' } });
+    expect(mainPicker().value).toBe('nose');
+    const picked = recoveryDevices(useWorkspaceStore.getState().tree, 'st').filter((d) => d['mainDevice'] === true);
+    expect(picked.map((d) => d.id)).toEqual(['nose']);
+  });
+});
+
 describe('a stage with nothing to deploy', () => {
   beforeEach(() => seed([]));
 

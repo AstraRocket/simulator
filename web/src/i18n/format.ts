@@ -141,6 +141,19 @@ export function partLabel(
 }
 
 /**
+ * `text` with its stage in front, since two stages can each have a "Body tube"
+ * bay. `stageName` is '' for an unnamed stage, labeled by its type, and
+ * undefined for a part outside any stage, which gets `text` alone.
+ */
+export function stagePrefixed(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  stageName: string | undefined,
+  text: string,
+): string {
+  return stageName === undefined ? text : `${partLabel(t, { name: stageName, type: 'stage' })} · ${text}`;
+}
+
+/**
  * An instant on the launch site's clock, with the zone named so it cannot be
  * read as the viewer's. `year: false` drops the year; `timeOnly` gives just the
  * hour and minute (a table of hours on one known day). A zone the browser does

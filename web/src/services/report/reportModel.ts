@@ -1,3 +1,5 @@
+import { chargeRows, type ChargeRow } from '../flight/recoveryCharges';
+import { designBays, type DesignBay } from '../flight/recoveryBays';
 import type { ComponentNode, OpenRocketDesign, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { useWorkspaceStore, selectConfig, selectOutdated, configOf } from '../../state/store';
 import { buildConfiguredRocket, buildKey } from '../design/buildRocket';
@@ -136,6 +138,10 @@ export interface ReportModel {
   configs: MotorConfig[];
   partsByStage: { stage: string; rows: PartRow[] }[];
   finSetsByStage: { stage: string; sets: FinSetPosition[] }[];
+  /** The ejection charges the design carries, drogue then main (`chargeRows`); none when it saves none. */
+  charges?: ChargeRow[];
+  /** Each recovery bay with a record: its settings and ground test log (`designBays`). */
+  bays?: DesignBay[];
 }
 
 /**
@@ -409,6 +415,8 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
     configs,
     partsByStage,
     finSetsByStage,
+    charges: chargeRows(tree),
+    bays: designBays(tree).filter((b) => b.record.tests.length || Object.keys(b.record).length > 1),
   };
 }
 

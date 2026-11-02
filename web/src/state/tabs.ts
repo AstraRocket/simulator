@@ -25,7 +25,7 @@ export type DesignPane = 'stats' | 'sketch';
  * recovery devices open and when each booster lets go, and those are different
  * tables over the same rows.
  */
-export type ConfigsTab = 'motors' | 'recovery' | 'separation';
+export type ConfigsTab = 'motors' | 'recovery' | 'separation' | 'bays';
 
 /** The Tools tab's calculators, in tab order. */
 export const TOOLS = ['landing', 'chute', 'flutter', 'ejection'] as const;

@@ -40,6 +40,7 @@ ARCAS
 arcgis
 arcgisonline
 astrarocket
+astrarocketbays
 astrarocketjs
 astrarrocketjs
 atmo

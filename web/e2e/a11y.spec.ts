@@ -728,6 +728,16 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  FinFlutterReadout: [
+    {
+      name: 'Fin flutter',
+      open: async (page) => {
+        await selectPart(page, 'Trapezoidal fin set');
+        await page.getByRole('button', { name: 'Fin flutter…' }).click();
+        await dialogOpen(page, 'Fin flutter');
+      },
+    },
+  ],
   // Under `2xl`, a laptop's width, the part editor is a dialog over the drawing.
   ComponentDialog: [
     {
@@ -1040,6 +1050,20 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
         const more = dialog.getByRole('button', { name: /^More filters/ });
         await more.click();
         await expect(more).toHaveAttribute('aria-expanded', 'true');
+      },
+    },
+  ],
+  RecoveryBaysPane: [
+    {
+      name: 'Popup / stage bays folded',
+      open: async (page) => {
+        await openTab(page, 'Configurations');
+        await page
+          .getByRole('navigation', { name: 'Flight configurations' })
+          .getByRole('button', { name: CONFIGS.bays, exact: true })
+          .click();
+        // The stage heading is the fold; it names the stage, not the action.
+        await toggle(page.locator('h3 > button[aria-expanded]').first());
       },
     },
   ],

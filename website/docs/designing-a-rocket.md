@@ -42,6 +42,8 @@ A stage's editor has a **Recovery deployment type**: **Single deployment** or **
 
 It is not only a label. The simulation judges a deployment differently depending on it, and warns on the main coming out too fast or too slow, and on a drogue too slow at apogee to inflate, against the thresholds in **[Settings ▸ Simulation ▸ Safety warnings](./settings.md#safety-warnings)**. With **Single deployment** the whole stage is judged against the one threshold instead.
 
+With **Dual deployment**, the **Main device** picks which of the stage's other parachutes and streamers is the main. It starts on the first one that is not the drogue. It decides which bay carries the main charges on [Configurations ▸ Bays](./flight-configurations.md#bays): only the drogue and the main get a bay, so a further device in the stage, such as a nose cone streamer, has no charges of its own. The simulation does not use it; the flight is the same whichever device is picked. Desktop OpenRocket has no such setting, so the `.ork` keeps it in an element of the app's own, which desktop reads past. With **Single deployment** the picker reads **Every device**: each device in the stage is a main.
+
 ### What goes inside a mass component
 
 A mass component is not only a lump of ballast: it can hold inner structure of its own, so an altimeter bay or a payload sled can be modeled as the sled plus the rings, bulkheads, hardware and recovery gear nested inside it. Add parts to it the same way as to a body tube.
@@ -122,6 +124,19 @@ A trapezoidal or elliptical fin set has a **Convert to freeform** button, which 
 
 The outline drives the simulation, not just the drawing: mass, CG and the aerodynamics all follow it, and [scaling the whole rocket](#scaling-the-whole-rocket) moves the points with everything else. It round-trips through `.ork` and RockSim files.
 
+## Fin flutter {#fin-flutter}
+
+A trapezoidal, elliptical or freeform fin set has a **Fin flutter…** button. It opens the [Fin flutter tool's](./tools.md#fin-flutter) estimate for this fin set, with the fin, the launch site and the flight taken from the design and its active simulation.
+
+- **The fin.** The root chord, height and thickness are the fin set's own. An elliptical or freeform fin is estimated as the trapezoid with the same root chord, height and area, and the dialog gives that trapezoid's tip chord.
+- **The fin stock.** A design's material has a density and nothing else, so the stiffness comes from its name: **Fiberglass**, **Plywood (birch)**, **Balsa**, **PLA - 100% infill**, **PETG - 100% infill** and **Aluminum** fill in a typical shear modulus. Any other material leaves it for you to type, or to pick the closest stock. Your choice is kept for each fin set until the page is reloaded; it is not saved in the `.ork`, which has no place for it.
+- **The flight.** The flutter speed at the pad is shown at once. Once the active simulation has run, and the run is up to date, the dialog reads the margin at every point of the flight and reports the closest one: the time, airspeed and altitude, and the fins' flutter speed there. It is not always the top speed: the air thins on the way up, which raises the flutter speed, so a slower point lower down can be closer.
+- **The air.** Each point is read in the air the simulation flew through: the pressure and speed of sound the engine recorded there, whether the run used the standard atmosphere, the site's own temperature and pressure, or a forecast. The speed is the airspeed, from the recorded Mach number, so a headwind counts against the fins. Before there is a run, the speed at the pad uses the standard atmosphere at the site's elevation.
+
+The margin is graded as in the tool: below 1 the flight is past the flutter speed, below 1.25 it is too close to call, and from 1.25 it is clear. A booster's fins are read against the stack's flight, which they fly until separation.
+
+**In the flight warnings.** A fin set under 1.25 is also listed at the top of the flight's warnings on the Results tab, and counted in the ⚠ beside its row in the simulations table: past the flutter speed as a serious warning, too close as a note. It uses the same fin stock as the dialog, so a fin set whose material has no typical value is not checked until you choose a stock or type a shear modulus for it.
+
 ## Staging (multi-stage rockets)
 
 A rocket can have more than one stage. **＋ Stage** (in the row above the component list) appends a **booster** below the current bottom stage; its parts (body, fins, motor mount, recovery) are built and edited exactly like the sustainer's. Select a **stage** node to set how it leaves the stack:
@@ -190,6 +205,28 @@ Each diameter has a **Use** button that sets it on the canopy, as one undo step.
 **Before you run a simulation these are estimates**, and the dialog says so. The mass, the rate and the air density are all worked out by the app from the design, not by the flight engine. Once a simulation has actually deployed this canopy, the mass and the descent rate are replaced by what the engine recorded, read from the flight itself, and the dialog says that instead. On a staged design it also names the stage the figures came from, which the estimate cannot do: a booster separates and comes down on its own, so the estimate covers the whole stack rather than either stage.
 
 The two suggested **diameters** stay estimates whatever happens, and are marked as such. A simulation cannot tell you what size a canopy should be.
+
+### Sizing an ejection charge {#sizing-an-ejection-charge}
+
+Ejection charges are sized on [Configurations ▸ Bays](./flight-configurations.md#bays), one card per bay, filled in from the design. The [Ejection charge tool](./tools.md#ejection-charge) does the same sum for a bay you type in by hand.
+
+- **The bay** is the nearest body tube above the parachute or streamer in the component tree. The device can sit in the tube directly, or in an inner tube inside it, as many designs keep it so it can be moved about; either way the bay is the body tube around it. Its **inside diameter** is the tube's bore. Its **length** is the free stretch the device sits in: from the nearest part that closes the tube ahead of the device to the nearest one behind it. Bulkheads, centering rings, engine blocks, couplers, a motor mount's inner tube, and the shoulder of a nose cone or transition reaching into the tube all close it, wherever they sit inside the tube. An inner tube the device is kept in does not. If nothing closes it, the whole tube is used and the card says so; that overstates the charge, so add the bulkheads to the design or set the length on the card. The bay's own figures can be changed there without changing the design.
+- **The target pressure** starts at 15 psi, as in the tool.
+- **The shear pins** come from the design. With nothing said, the bay is assumed to carry **3 × #2-56 nylon pins**. To say otherwise, add a **mass object** anywhere inside the tube and name it for its pins. The name is read loosely: a count and a thread size anywhere in it, such as `3x 2-56`, `shear pins 4-40 x4` or `2 pins #6-32`. The typical strengths are 35 lbf for #2-56, 60 lbf for #4-40 and 90 lbf for #6-32; a measured one replaces it with `@` and a unit, such as `3x 2-56 @40lbf` or `@150N`. `friction fit` or a count of 0 means no pins. The mass object weighs what you give it, so it is the pins' real weight in the design too, and its name round-trips through the `.ork`.
+
+The card says in words where the pins came from: assumed, from the mass object's name, or set on the bay.
+
+The charge is sized for the pressure above the outside air, which does not depend on how thin that air is: a vented bay starts at the outside pressure, so the powder adds the same pressure on top of it at any altitude. What altitude does change is how well black powder burns. In thin, cold air, roughly above 20,000 to 25,000 ft, it burns poorly, and no pressure figure accounts for that.
+
+#### Saving the charges in the design {#saving-charges}
+
+Each bay card keeps the charges its role carries in the design: the **drogue** charges for the bay its stage's drogue sits in, the **main** charges otherwise. Each role has a **Primary charge** and a **Backup charge**.
+
+- **Use the suggestion** fills both: the powder for the target pressure, or for the pressure that shears the pins if that is more, rounded up to a tenth of a gram, and 1.5 times that for the backup.
+- The charges are written as **mass objects** in the bay's tube, of the **deployment charge** type, named **Main charge** and **Main backup charge** (or **Drogue charge** and **Drogue backup charge**), with the powder's mass. Changed again, the same objects are changed in place, wherever in the tube they sit; clearing a box removes that charge. Each change is one undo step.
+- Because they are mass objects, the powder's weight counts in the design, they show in desktop OpenRocket as deployment charges, and they round-trip through the `.ork`. A mass object you add yourself counts too, anywhere inside the tube: any mass object named with "charge" and "main" or "drogue" (and "backup" for the backup), or any deployment charge mass object named "main" or "drogue".
+
+The saved charges appear on the **Results** tab, in a **Recovery charges** card under the flight events, and in the [design report](./files-and-exports.md#rocket-design-report-pdf--csv): a **Recovery charges** table in the PDF and **Recovery charges** rows in the design CSV, with the bay each one goes in.
 
 ## Materials
 

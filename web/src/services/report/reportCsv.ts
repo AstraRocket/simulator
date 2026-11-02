@@ -9,6 +9,8 @@ import { csvField } from '../exports/csvCell';
 import { CSV_MIME } from '../exports/csvExport';
 import i18n from '../../i18n';
 import { partLabel } from '../../i18n/format';
+import { chargeName } from '../flight/recoveryCharges';
+import { effectiveBay } from '../flight/recoveryBays';
 
 /**
  * Design-info CSV export: the same Scope / Field / Value / Unit layout
@@ -124,6 +126,53 @@ export function buildDesignCsv(model: ReportModel, units: UnitSelection): string
       push(st.stage, `${label}Nose to top of fin root`, fig('length', units.length, s.topX), units.length);
       push(st.stage, `${label}Nose to bottom of fin root`, fig('length', units.length, s.bottomX), units.length);
     }
+  }
+
+  // The charges the design saves, under the names it saves them by. A charge
+  // with no backup (or no primary) is a blank Value, not a missing row, so a
+  // sheet reading by field finds every row in every file. A role flown from
+  // more than one bay names the bay in each field, or two rows would share it:
+  // its stage and its tube.
+  const charges = model.charges ?? [];
+  const where = (stageName: string | undefined, tube: string) =>
+    stageName === undefined ? tube : `${partLabel(i18n.t, { name: stageName, type: 'stage' })}: ${tube}`;
+  for (const r of charges) {
+    const shared = charges.filter((x) => x.role === r.role).length > 1;
+    const field = (name: string) => (shared ? `${name} (${where(r.stageName, r.tubeName || r.tubeId)})` : name);
+    for (const backup of [false, true]) {
+      const kg = backup ? r.backupKg : r.primaryKg;
+      push(
+        'Recovery charges',
+        field(chargeName(r.role, backup)),
+        kg == null ? '' : fig('mass', units.mass, kg),
+        units.mass,
+      );
+    }
+    push('Recovery charges', field(`${chargeName(r.role, false)} bay`), where(r.stageName, r.tubeName), '');
+  }
+
+  // Each bay that keeps a record: its settings, then its ground tests, oldest
+  // first, numbered. The result is the log's own word for it, an identifier
+  // like the field names, not the UI's translation.
+  for (const bay of model.bays ?? []) {
+    const scope = where(bay.stageName, `${bay.role === 'main' ? 'Main' : 'Drogue'} bay`);
+    const s = effectiveBay(bay);
+    push(scope, 'Tube', bay.tubeName, '');
+    push(scope, 'Bore', fig('length', units.length, s.boreM), units.length);
+    push(scope, 'Length', fig('length', units.length, s.lengthM), units.length);
+    push(scope, 'Target pressure', fig('pressure', units.pressure, s.pressurePa), units.pressure);
+    push(scope, 'Shear pins', String(s.pins.count), '');
+    if (s.pins.count > 0) push(scope, 'Shear pin strength', fig('force', units.force, s.pins.forceN), units.force);
+    const tests = [...bay.record.tests].sort((a, b) => a.date.localeCompare(b.date));
+    tests.forEach((x, i) => {
+      const n = `Test ${i + 1}`;
+      push(scope, `${n} date`, x.date, '');
+      push(scope, `${n} charge`, fig('mass', units.mass, x.chargeKg), units.mass);
+      push(scope, `${n} shear pins`, String(x.pins?.count ?? 0), '');
+      push(scope, `${n} result`, x.result, '');
+      push(scope, `${n} notes`, x.notes, '');
+      if (x.id === bay.record.flownTestId) push(scope, `${n} flown`, 'yes', '');
+    });
   }
 
   return lines.join('\r\n') + '\r\n';

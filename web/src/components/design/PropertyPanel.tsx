@@ -22,6 +22,7 @@ import { LazyBoundary, lazyNamed } from '../common/ErrorBoundary';
 import { AppearanceSection } from './AppearanceSection';
 import { FreeformFinEditor } from './FreeformFinEditor';
 import { RecoverySizingReadout } from './RecoverySizingReadout';
+import { FinFlutterReadout } from './FinFlutterReadout';
 import { ConfigOverrideNote } from './ConfigOverrideNote';
 import { useUnits } from '../../prefs/useUnits';
 import { num } from '../../tree/nodeProps';
@@ -174,14 +175,14 @@ export function PropertyPanel({
           is, and that one says how it is drawn. */}
       <PropSection title={t('prop.part')}>
         <label className="flex items-center justify-between gap-3">
-          <span className="text-xs text-ink-muted">{t('prop.name')}</span>
+          <span className="shrink-0 text-xs text-ink-muted">{t('prop.name')}</span>
           <input
             type="text"
             value={typeof node.name === 'string' ? node.name : ''}
             placeholder={label}
             onChange={(e) => onChange({ name: e.target.value })}
             onBlur={onCommit}
-            className="w-40 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+            className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
           />
         </label>
 
@@ -195,9 +196,9 @@ export function PropertyPanel({
         */}
         {catalogPart && (
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-ink-muted">{t('prop.catalogPart')}</span>
+            <span className="shrink-0 text-xs text-ink-muted">{t('prop.catalogPart')}</span>
             <span
-              className="w-40 truncate text-right text-sm text-ink"
+              className="min-w-0 flex-1 truncate text-right text-sm text-ink"
               title={[catalogPart.manufacturer, catalogPart.partNo].filter(Boolean).join(' ')}
             >
               {catalogPart.partNo}
@@ -338,6 +339,12 @@ export function PropertyPanel({
               point list. */}
           <FreeformFinActions node={node} />
         </div>
+      )}
+
+      {/* Fin flutter: the Tools estimate, for this fin set against the active
+          simulation's last run. Planar fins only; a tube fin has no planform. */}
+      {(node.type === 'trapezoidfinset' || node.type === 'ellipticalfinset' || node.type === 'freeformfinset') && (
+        <FinFlutterReadout node={node} />
       )}
 
       {isRecoveryDevice(node.type) && (

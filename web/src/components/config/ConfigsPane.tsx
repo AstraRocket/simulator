@@ -11,6 +11,7 @@ import { unitScope } from '../../prefs/units';
 import { ToolBtn } from '../common/ToolBtn';
 import type { ConfigsTab } from '../../state/tabs';
 import { ToggleButton } from '../common/ToggleButton';
+import { RecoveryBaysPane } from './RecoveryBaysPane';
 
 /**
  * The Configurations tab: a toolbar, a sub-tab per part of a configuration, the
@@ -35,14 +36,19 @@ export function ConfigsPane() {
   const deleteConfig = useWorkspaceStore((s) => s.deleteConfig);
 
   const columns = useMemo(() => {
-    if (sub === 'motors') return motorColumns(tree, t);
+    if (sub === 'motors' || sub === 'bays') return motorColumns(tree, t);
     if (sub === 'recovery') {
       return recoveryColumns(tree, t, (device) => u.at(unitScope('prop', device.type, 'deployAltitude'), 'distance'));
     }
     return separationColumns(tree, t, (stage) => u.at(unitScope('prop', stage.type, 'separationAltitude'), 'distance'));
   }, [sub, tree, t, u]);
 
-  const hint = { motors: 'configs.hint', recovery: 'configs.recoveryHint', separation: 'configs.separationHint' }[sub];
+  const hint = {
+    motors: 'configs.hint',
+    recovery: 'configs.recoveryHint',
+    separation: 'configs.separationHint',
+    bays: 'configs.hint',
+  }[sub];
 
   // How many simulations fly each configuration. Counted once for the whole
   // table rather than per row, and it is also what decides whether deleting one
@@ -62,19 +68,26 @@ export function ConfigsPane() {
     }
   };
 
+  const bays = sub === 'bays';
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-line/10 p-3">
-        <ToolBtn onClick={addConfig}>{t('configs.new')}</ToolBtn>
-        <ToolBtn onClick={() => copyConfig(selected.id)}>{t('configs.copy')}</ToolBtn>
-        <ToolBtn
-          onClick={() => void onDelete()}
-          disabled={configs.length <= 1}
-          title={configs.length <= 1 ? t('configs.deleteLast') : t('configs.delete')}
-          danger
-        >
-          {t('configs.delete')}
-        </ToolBtn>
+        {/* The configuration buttons are about the table, which Bays does not show. */}
+        {!bays && (
+          <>
+            <ToolBtn onClick={addConfig}>{t('configs.new')}</ToolBtn>
+            <ToolBtn onClick={() => copyConfig(selected.id)}>{t('configs.copy')}</ToolBtn>
+            <ToolBtn
+              onClick={() => void onDelete()}
+              disabled={configs.length <= 1}
+              title={configs.length <= 1 ? t('configs.deleteLast') : t('configs.delete')}
+              danger
+            >
+              {t('configs.delete')}
+            </ToolBtn>
+          </>
+        )}
         <nav aria-label={t('configs.title')} className="ml-auto flex items-center gap-1">
           <SubTab current={sub} value="motors" onClick={setSub}>
             {t('configs.motors')}
@@ -85,27 +98,36 @@ export function ConfigsPane() {
           <SubTab current={sub} value="separation" onClick={setSub}>
             {t('configs.separation')}
           </SubTab>
+          <SubTab current={sub} value="bays" onClick={setSub}>
+            {t('configs.bays')}
+          </SubTab>
         </nav>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <p className="px-3 py-2 text-[11px] leading-snug text-ink-faint">{t(hint)}</p>
-        <ConfigsTable
-          configs={configs}
-          tree={tree}
-          columns={columns}
-          selectedId={selected.id}
-          flights={flights}
-          onSelect={onSelect}
-        />
-        {/* Below lg there is no right column, so the editor goes here - which is
+      {bays ? (
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          <RecoveryBaysPane />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <p className="px-3 py-2 text-[11px] leading-snug text-ink-faint">{t(hint)}</p>
+          <ConfigsTable
+            configs={configs}
+            tree={tree}
+            columns={columns}
+            selectedId={selected.id}
+            flights={flights}
+            onSelect={onSelect}
+          />
+          {/* Below lg there is no right column, so the editor goes here - which is
             the only way a phone can change a motor at all. */}
-        {!desktop && (
-          <div className="border-t border-line/10">
-            <ConfigEditor />
-          </div>
-        )}
-      </div>
+          {!desktop && (
+            <div className="border-t border-line/10">
+              <ConfigEditor />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

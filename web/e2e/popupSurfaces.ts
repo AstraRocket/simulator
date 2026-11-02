@@ -25,6 +25,8 @@ export const POPUP_SURFACES = {
   LoadedBanner: 1,
   // The motor filters' performance bounds (More filters).
   MotorFilterBar: 1,
+  // A stage's fold over its bays in Configurations, Bays.
+  RecoveryBaysPane: 1,
   // The flight picker in the results heading.
   ResultPicker: 1,
   // The safety card's fold.

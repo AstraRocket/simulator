@@ -16,6 +16,7 @@ export const DIALOG_SURFACES = {
   ExamplesDialog: 1,
   // The report, and its print settings over it.
   ExportDialog: 2,
+  FinFlutterReadout: 1,
   FlightCsvDialog: 1,
   FlightPathExport: 1,
   HelpDialog: 1,

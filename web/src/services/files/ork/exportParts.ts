@@ -9,6 +9,7 @@ import { KERNEL_MATERIALS } from '../../../tree/kernelDefaults';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import type { OrkWriter } from './exportWriter';
 import { passthroughOf } from './passthrough';
+import { baysXml, mainDeviceXml } from './orkBays';
 import { parseHexColor, rgbChannels } from '../../design/colorHex';
 import { INSIDE_COLOR_TYPES, readAppearance, type PartAppearance } from '../../design/appearance';
 import { designSeparation } from '../../flight/flightConfigs';
@@ -166,6 +167,12 @@ export function header(w: OrkWriter, depth: number, node: ComponentNode, fallbac
   appearanceXml(w, depth, node);
   colorXml(w, depth, node);
   overrides(w, depth, node);
+  // A tube's recovery bay records, inside the tube so they move with it (orkBays.ts).
+  const bays = baysXml(node);
+  if (bays) w.emit(depth, bays);
+  // A dual-deployment stage's picked main, inside the device (orkBays.ts).
+  const main = mainDeviceXml(node);
+  if (main) w.emit(depth, main);
   // Whatever the file carried that this app has no model for, back where it was
   // (services/files/ork/passthrough.ts). Last in the header so it cannot come between
   // two elements the desktop's own reader expects in order.

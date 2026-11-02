@@ -38,6 +38,10 @@ export const KNOWN_COMPONENT_TAGS: ReadonlySet<string> = new Set([
   'linestyle',
   'preset',
   'color',
+  // This app's own: a tube's recovery bay records, and a stage's picked main
+  // device (orkBays.ts).
+  'astrarocketbays',
+  'astrarocketmain',
   'appearance',
   'insideappearance',
   'finish',

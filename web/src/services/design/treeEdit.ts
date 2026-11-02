@@ -1110,10 +1110,49 @@ export function setStageDrogue(tree: RocketTree, stageId: string, deviceId: stri
   for (const [id, on] of wanted) {
     const node = findNode(next, id);
     if (!node) continue;
-    if ((node['drogue'] === true) === on) continue;
+    // Single deployment has no main to pick, and the drogue cannot be the main
+    // too, so either clears that device's main pick.
+    const dropMain = node[MAIN_DEVICE_KEY] === true && (deviceId === null || on);
+    if ((node['drogue'] === true) === on && !dropMain) continue;
     // `undefined` rather than `false`, so a single-deployment stage writes no
     // `<isdrogue>` at all, which is what the desktop's saver omits.
-    next = updateNode(next, id, { drogue: on ? true : undefined });
+    next = updateNode(next, id, {
+      drogue: on ? true : undefined,
+      ...(dropMain ? { [MAIN_DEVICE_KEY]: undefined } : {}),
+    });
+  }
+  return next;
+}
+
+/**
+ * The device key that picks a dual-deployment stage's main. OpenRocket has
+ * only the drogue flag, so this is the app's own: the `.ork` carries it in an
+ * element of its own (`orkBays`), and it flies nothing (`flightKey`).
+ */
+export const MAIN_DEVICE_KEY = 'mainDevice';
+
+/**
+ * A dual-deployment stage's main: the device picked as it, else the first
+ * that is not the drogue. Undefined for a single-deployment stage (no drogue),
+ * where every device is a main.
+ */
+export function stageMain(devices: readonly ComponentNode[]): ComponentNode | undefined {
+  if (!devices.some((d) => d['drogue'] === true)) return undefined;
+  const others = devices.filter((d) => d['drogue'] !== true);
+  return others.find((d) => d[MAIN_DEVICE_KEY] === true) ?? others[0];
+}
+
+/**
+ * Pick the main of a dual-deployment stage, clearing the pick on every other
+ * device in it, as {@link setStageDrogue} does for the drogue. The drogue
+ * cannot be picked. Returns the same tree when nothing changes.
+ */
+export function setStageMain(tree: RocketTree, stageId: string, deviceId: string): RocketTree {
+  let next = tree;
+  for (const d of recoveryDevices(tree, stageId)) {
+    const on = d.id === deviceId && d['drogue'] !== true;
+    if ((d[MAIN_DEVICE_KEY] === true) === on) continue;
+    next = updateNode(next, d.id as string, { [MAIN_DEVICE_KEY]: on ? true : undefined });
   }
   return next;
 }

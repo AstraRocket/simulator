@@ -13,6 +13,7 @@ import { FlightEventsTable } from '../sim/FlightEventsTable';
 import { SimSummary } from '../sim/SimSummary';
 import { useIsDesktop } from '../common/useMediaQuery';
 import { FlightWarnings } from '../sim/FlightWarnings';
+import { RecoveryChargesCard } from '../sim/RecoveryChargesCard';
 import { useResultFlight } from './useResultFlight';
 import { useRecoveryMass } from './useRecoveryMass';
 import { useMaximizeCenter } from './useMaximizeCenter';
@@ -99,6 +100,7 @@ export function CenterView() {
           {!desktop && <FlightWarnings sim={result} />}
           <SimSummary sim={result} />
           <FlightEventsTable sim={result} simName={simName} designName={designName} />
+          {!desktop && <RecoveryChargesCard />}
         </div>
       )}
       {/* Everything from here to the stats strip is the drawing half: the view
