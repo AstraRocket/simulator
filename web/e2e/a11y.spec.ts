@@ -1053,6 +1053,20 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
+  RecoveryBaysPane: [
+    {
+      name: 'Popup / stage bays folded',
+      open: async (page) => {
+        await openTab(page, 'Configurations');
+        await page
+          .getByRole('navigation', { name: 'Flight configurations' })
+          .getByRole('button', { name: CONFIGS.bays, exact: true })
+          .click();
+        // The stage heading is the fold; it names the stage, not the action.
+        await toggle(page.locator('h3 > button[aria-expanded]').first());
+      },
+    },
+  ],
   ResultPicker: [
     {
       name: 'Popup / flight picker',
