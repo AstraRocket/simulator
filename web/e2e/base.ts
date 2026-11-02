@@ -203,15 +203,20 @@ export async function runFlight(page: Page): Promise<void> {
  * Load the app, trying again when the connection is refused. With eight
  * workers the local preview server can refuse one connection and serve the
  * next; a server that has stopped refuses every try, and the last error is
- * thrown.
+ * thrown. Chromium reports a refusal as ERR_CONNECTION_REFUSED, or as the
+ * navigation being "interrupted by another navigation" when its error page, or
+ * its own retry of the same URL, lands first; all of them count. Nothing in the
+ * app navigates during a cold load, so an interruption here is the server.
  */
+const REFUSED = /ERR_CONNECTION_REFUSED|is interrupted by another navigation/;
+
 async function openApp(page: Page, tries = 3): Promise<void> {
   for (let i = 1; ; i++) {
     try {
       await page.goto('/');
       return;
     } catch (e) {
-      if (i >= tries || !String(e).includes('ERR_CONNECTION_REFUSED')) throw e;
+      if (i >= tries || !REFUSED.test(String(e))) throw e;
     }
   }
 }
