@@ -157,6 +157,8 @@ Plus a few options:
 - **Update simulation data**: re-runs the simulation first so the flight numbers are current (it doesn't change your on-screen view).
 - **Show by stage**: group the summary and parts by stage.
 
+A design that saves [recovery charges](./designing-a-rocket.md#saving-charges) gets a **Recovery charges** table in the PDF, after the motors: the drogue then the main, each with the bay it goes in and its primary and backup powder. The design CSV carries the same as **Recovery charges** rows. A design with none saved has neither.
+
 Then choose an output:
 
 - **Save as PDF**: a real PDF file (vector text, tables and 1:1 templates; the schematic is drawn to scale).

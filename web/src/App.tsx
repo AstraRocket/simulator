@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties, type ReactNode, type RefObject } 
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectDesignName, selectShownSim } from './state/store';
 import { useWorkspaceEffects } from './state/useWorkspaceEffects';
+import { useBayBackup } from './state/useBayBackup';
 import { AppHeader } from './components/layout/AppHeader';
 import { CenterView } from './components/canvas/CenterView';
 import { TreePanel } from './components/design/TreePanel';
@@ -14,6 +15,7 @@ import { SimEditor } from './components/sim/SimEditor';
 import { FlightEventsTable } from './components/sim/FlightEventsTable';
 import { SimSummary } from './components/sim/SimSummary';
 import { FlightWarnings } from './components/sim/FlightWarnings';
+import { RecoveryChargesCard } from './components/sim/RecoveryChargesCard';
 import { TabBar } from './components/layout/TabBar';
 import { ToolsPane } from './components/tools/ToolsPane';
 import { SimpleRocketTool } from './components/tools/SimpleRocketTool';
@@ -39,8 +41,11 @@ import { Banner } from './components/common/Banner';
 
 export default function App() {
   useWorkspaceEffects();
+  useBayBackup();
   const { t } = useTranslation();
   const tab = useWorkspaceStore((s) => s.tab);
+  // The Bays sub-tab is about the design, not a configuration: no editor column.
+  const configsTab = useWorkspaceStore((s) => s.configsTab);
   const err = useWorkspaceStore((s) => s.err);
   const buildErr = useWorkspaceStore((s) => s.buildErr);
   const storageWarning = useWorkspaceStore((s) => s.storageWarning);
@@ -226,7 +231,7 @@ export default function App() {
         {/* right: the selected configuration's motors (Configurations tab;
             desktop only). On a phone it is inline under the table instead, so a
             phone can still change a motor. */}
-        {desktop && tab === 'configs' && (
+        {desktop && tab === 'configs' && configsTab !== 'bays' && (
           <RightColumn split={side} style={sideStyle}>
             <ConfigEditor />
           </RightColumn>
@@ -278,6 +283,7 @@ export default function App() {
                 flight and the timeline is how it got there. The column
                 scrolls, which is what a table of a dozen-odd rows needs. */}
             <FlightEventsTable sim={result} simName={shownSimName} designName={designName} />
+            {desktop && <RecoveryChargesCard />}
           </div>
         </section>
         {/* Tools: work that stands apart from the open design, such as the

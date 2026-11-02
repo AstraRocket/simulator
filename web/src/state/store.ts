@@ -21,6 +21,7 @@ import {
   addStage,
   moveNode,
   setStageDrogue,
+  setStageMain,
   syncDerived,
 } from '../services/design/treeEdit';
 import { canRemove, duplicateNode, pasteNode } from '../services/design/clipboard';
@@ -424,6 +425,8 @@ export interface WorkspaceState extends ViewSlice, FileSlice {
    *  drogue, or `null` for single deployment. One undo step, because it clears
    *  the rest of the stage in the same breath. */
   setStageDrogue: (stageId: string, deviceId: string | null) => void;
+  /** Pick a dual-deployment stage's main device (`setStageMain`). */
+  setStageMain: (stageId: string, deviceId: string) => void;
   removeSelected: () => void;
   /** Put the selected part on the clipboard. */
   copySelected: () => void;
@@ -1244,6 +1247,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
       // A whole undo step rather than an in-flight edit: this is a discrete
       // choice that can touch several devices at once, not a slider drag. The
       // flag changes warnings only, so the reconcile commitTree runs is a no-op.
+      commitTree(next);
+    },
+    setStageMain: (stageId, deviceId) => {
+      const { tree } = get();
+      const next = setStageMain(tree, stageId, deviceId);
+      if (next === tree) return;
+      // One undo step, as the drogue is. The pick flies nothing.
       commitTree(next);
     },
     removeSelected: () => {

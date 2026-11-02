@@ -398,3 +398,126 @@ describe('report lengths', () => {
     expect(qv(page('mm'), 'length', 0.02479)).toBe('24.8');
   });
 });
+
+describe('the design CSV recovery charges', () => {
+  it('writes each role primary, backup and bay, with a missing backup as a blank value', () => {
+    const csv = buildDesignCsv(
+      {
+        ...model,
+        charges: [
+          { role: 'drogue', tubeId: 'lower', tubeName: 'Lower', primaryKg: 0.0008, backupKg: null },
+          { role: 'main', tubeId: 'upper', tubeName: 'Upper', primaryKg: 0.0012, backupKg: 0.0018 },
+        ],
+      },
+      METRIC_UNITS,
+    );
+    const rows = csv.split('\r\n').filter((l) => l.startsWith('Recovery charges'));
+    expect(rows).toEqual([
+      'Recovery charges,Drogue charge,0.8,g',
+      'Recovery charges,Drogue backup charge,,g',
+      'Recovery charges,Drogue charge bay,Lower,',
+      'Recovery charges,Main charge,1.2,g',
+      'Recovery charges,Main backup charge,1.8,g',
+      'Recovery charges,Main charge bay,Upper,',
+    ]);
+  });
+
+  it('names the tube in each field when a role flies from two bays', () => {
+    const csv = buildDesignCsv(
+      {
+        ...model,
+        charges: [
+          { role: 'main', tubeId: 'a', tubeName: 'Upper', primaryKg: 0.004, backupKg: 0.0045 },
+          { role: 'main', tubeId: 'b', tubeName: 'Main', primaryKg: 0.005, backupKg: 0.0055 },
+        ],
+      },
+      METRIC_UNITS,
+    );
+    const rows = csv.split('\r\n').filter((l) => l.startsWith('Recovery charges'));
+    expect(rows).toEqual([
+      'Recovery charges,Main charge (Upper),4,g',
+      'Recovery charges,Main backup charge (Upper),4.5,g',
+      'Recovery charges,Main charge bay (Upper),Upper,',
+      'Recovery charges,Main charge (Main),5,g',
+      'Recovery charges,Main backup charge (Main),5.5,g',
+      'Recovery charges,Main charge bay (Main),Main,',
+    ]);
+  });
+
+  it('names the stage as well when the bays are in different stages', () => {
+    const csv = buildDesignCsv(
+      {
+        ...model,
+        charges: [
+          {
+            role: 'main',
+            tubeId: 'a',
+            tubeName: 'Body tube',
+            stageName: 'Sustainer',
+            primaryKg: 0.004,
+            backupKg: null,
+          },
+          { role: 'main', tubeId: 'b', tubeName: 'Body tube', stageName: 'Booster', primaryKg: 0.005, backupKg: null },
+        ],
+      },
+      METRIC_UNITS,
+    );
+    const rows = csv.split('\r\n').filter((l) => l.startsWith('Recovery charges,Main charge ('));
+    expect(rows).toEqual([
+      'Recovery charges,Main charge (Sustainer: Body tube),4,g',
+      'Recovery charges,Main charge (Booster: Body tube),5,g',
+    ]);
+  });
+
+  it('writes none for a design that saves none', () => {
+    expect(buildDesignCsv(model, METRIC_UNITS)).not.toContain('Recovery charges');
+  });
+});
+
+describe('the design CSV recovery bays', () => {
+  it("writes each bay's settings and its ground tests, oldest first", () => {
+    const bay = {
+      tubeId: 'lower',
+      tubeName: 'Lower',
+      role: 'drogue',
+      devices: ['Drogue'],
+      drawn: {
+        tubeId: 'lower',
+        tubeName: 'Lower',
+        boreM: 0.078,
+        lengthM: 0.3,
+        wholeTube: false,
+        pins: { count: 3, size: '2-56', forceN: 155.69, from: null },
+      },
+      record: {
+        flownTestId: 't2',
+        tests: [
+          { id: 't2', date: '2026-10-30', chargeKg: 0.0012, pins: null, result: 'clean', notes: 'Good' },
+          { id: 't1', date: '2026-10-29', chargeKg: 0.001, pins: null, result: 'none', notes: '' },
+        ],
+      },
+    } as never;
+    const rows = buildDesignCsv({ ...model, bays: [bay] }, METRIC_UNITS)
+      .split('\r\n')
+      .filter((l) => l.startsWith('Drogue bay'));
+    expect(rows).toEqual([
+      'Drogue bay,Tube,Lower,',
+      'Drogue bay,Bore,7.8,cm',
+      'Drogue bay,Length,30,cm',
+      'Drogue bay,Target pressure,1034.21,hPa',
+      'Drogue bay,Shear pins,3,',
+      'Drogue bay,Shear pin strength,155.69,N',
+      'Drogue bay,Test 1 date,2026-10-29,',
+      'Drogue bay,Test 1 charge,1,g',
+      'Drogue bay,Test 1 shear pins,0,',
+      'Drogue bay,Test 1 result,none,',
+      'Drogue bay,Test 1 notes,,',
+      'Drogue bay,Test 2 date,2026-10-30,',
+      'Drogue bay,Test 2 charge,1.2,g',
+      'Drogue bay,Test 2 shear pins,0,',
+      'Drogue bay,Test 2 result,clean,',
+      'Drogue bay,Test 2 notes,Good,',
+      'Drogue bay,Test 2 flown,yes,',
+    ]);
+  });
+});

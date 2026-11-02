@@ -10,6 +10,8 @@ import { configLabel, type FlightConfig } from '../../services/flight/flightConf
 import { configOf } from '../../state/store';
 import { launcherKind } from '../../services/design/launcher';
 import { useLauncherT } from '../common/useLauncher';
+import { useFlutterFindings } from './useFlutterFindings';
+import { flutterWarningText } from './FlutterWarningRows';
 
 /** Dot color per status. Paired with a text label in the cell, never color alone. */
 const TONE: Record<SimStatus, string> = {
@@ -25,6 +27,50 @@ const TONE: Record<SimStatus, string> = {
   // Figures from a file, not flown here: present, but not this app's run.
   fromFile: 'bg-ink-soft',
 };
+
+/**
+ * A row's warning count, the kernel's and the app's flutter findings together,
+ * when it has any.
+ *
+ * A button, so keyboard and touch users can reach the warnings too: it opens
+ * the Results tab that lists them, and a screen reader hears them from the
+ * description.
+ */
+function WarningsButton({
+  sim,
+  t,
+  onOpen,
+}: {
+  sim: Simulation;
+  t: ReturnType<typeof useLauncherT>;
+  onOpen: () => void;
+}) {
+  const u = useUnits();
+  const flutter = useFlutterFindings(sim);
+  const lines = [
+    ...flutter.map((f) => flutterWarningText(f, t)),
+    ...(sim.result?.warnings ?? []).map((w) => warningText(w.message, t, (q, si) => u.fmtSym(q, si))),
+  ];
+  if (!lines.length) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation(); // the row click only selects; this navigates
+        onOpen();
+      }}
+      title={lines.join('\n')}
+      aria-label={t('sim.warnings', { count: lines.length })}
+      aria-describedby={`sim-warnings-${sim.id}`}
+      className="shrink-0 rounded text-[11px] text-warn-400 focus:outline-none focus:ring-1 focus:ring-accent-500"
+    >
+      <span aria-hidden>&#9888; {lines.length}</span>
+      <span id={`sim-warnings-${sim.id}`} className="sr-only">
+        {lines.join('\n')}
+      </span>
+    </button>
+  );
+}
 
 /**
  * The simulations table: one row per flight setup over the shared design, with
@@ -176,29 +222,7 @@ export function SimulationsTable({
                   {/* A run can be current and have flagged something, which the
                       status dot on its own cannot say. The detail is on the
                       Results tab; this is the pointer to it. */}
-                  {!!s.result?.warnings?.length && (
-                    // A button, so keyboard and touch users can reach the
-                    // warnings too: it opens the Results tab that lists them,
-                    // and a screen reader hears them from the description.
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation(); // the row click only selects; this navigates
-                        onOpenResults(s.id);
-                      }}
-                      title={s.result.warnings
-                        .map((w) => warningText(w.message, t, (q, si) => u.fmtSym(q, si)))
-                        .join('\n')}
-                      aria-label={t('sim.warnings', { count: s.result.warnings.length })}
-                      aria-describedby={`sim-warnings-${s.id}`}
-                      className="shrink-0 rounded text-[11px] text-warn-400 focus:outline-none focus:ring-1 focus:ring-accent-500"
-                    >
-                      <span aria-hidden>&#9888; {s.result.warnings.length}</span>
-                      <span id={`sim-warnings-${s.id}`} className="sr-only">
-                        {s.result.warnings.map((w) => warningText(w.message, t, (q, si) => u.fmtSym(q, si))).join('\n')}
-                      </span>
-                    </button>
-                  )}
+                  <WarningsButton sim={s} t={t} onOpen={() => onOpenResults(s.id)} />
                 </span>
               </Td>
               <Td>

@@ -728,6 +728,16 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  FinFlutterReadout: [
+    {
+      name: 'Fin flutter',
+      open: async (page) => {
+        await selectPart(page, 'Trapezoidal fin set');
+        await page.getByRole('button', { name: 'Fin flutter…' }).click();
+        await dialogOpen(page, 'Fin flutter');
+      },
+    },
+  ],
   // Under `2xl`, a laptop's width, the part editor is a dialog over the drawing.
   ComponentDialog: [
     {

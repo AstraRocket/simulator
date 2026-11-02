@@ -1,27 +1,19 @@
 import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
-import { fmtNum } from '../../i18n/format';
-import {
-  FIN_MATERIALS,
-  flutterSpeed,
-  flutterVerdict,
-  FLUTTER_MARGIN,
-  type FinMaterialKey,
-  type FlutterVerdict,
-} from '../../services/flight/finFlutter';
+import { flutterSpeed, flutterVerdict } from '../../services/flight/finFlutter';
 import { QNum } from '../sim/LaunchPanel';
 import { CardGroup } from '../common/CardGroup';
-import { FieldLabel } from '../common/FieldMark';
-import { useScopedUnit } from '../common/UnitChip';
 import { SiteElevationField } from './SiteFields';
+import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from './FlutterFields';
+import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
 /**
  * Fin flutter with no design: a trapezoidal fin, its material and the fastest
  * point of the flight give the speed the fin flutters at there, and how far
- * the flight stays under it.
+ * the flight stays under it. A fin set in a design has the same estimate in
+ * its editor, flown against its simulation (`FinFlutterReadout`).
  */
 
 interface Remembered {
@@ -29,7 +21,7 @@ interface Remembered {
   tipM: number | null;
   spanM: number | null;
   thicknessM: number | null;
-  material: FinMaterialKey | 'custom';
+  material: FinStock;
   shearPa: number | null;
   speedMs: number | null;
   altitudeM: number | null;
@@ -42,14 +34,6 @@ export function forgetFlutterTool(): void {
   remembered.forget();
 }
 
-const VERDICT_TONE: Record<FlutterVerdict, string> = {
-  over: 'text-danger-400',
-  marginal: 'text-warn-400',
-  ok: 'text-ok-400',
-};
-
-const modulusOf = (key: FinMaterialKey) => FIN_MATERIALS.find((m) => m.key === key)!.shearModulusPa;
-
 export function FlutterTool() {
   const { t } = useTranslation();
   const u = useUnits();
@@ -58,11 +42,10 @@ export function FlutterTool() {
   const [spanM, setSpanM] = useRemembered(remembered, 'spanM', null);
   const [thicknessM, setThicknessM] = useRemembered(remembered, 'thicknessM', null);
   const [material, setMaterial] = useRemembered<Remembered, 'material'>(remembered, 'material', 'g10');
-  const [shearPa, setShearPa] = useRemembered(remembered, 'shearPa', modulusOf('g10'));
+  const [shearPa, setShearPa] = useRemembered(remembered, 'shearPa', stockModulus('g10'));
   const [speedMs, setSpeedMs] = useRemembered(remembered, 'speedMs', null);
   const [altitudeM, setAltitudeM] = useRemembered(remembered, 'altitudeM', null);
   const [siteM, setSiteM] = useRemembered(remembered, 'siteM', 0);
-  const speedUnit = useScopedUnit(unitScope('flutter', 'speed'), 'velocity');
 
   const flutter =
     rootM != null && spanM != null && thicknessM != null && shearPa != null
@@ -73,12 +56,6 @@ export function FlutterTool() {
         )
       : null;
   const ratio = flutter && speedMs != null && speedMs > 0 ? flutter.speedMs / speedMs : null;
-  const verdict = ratio != null ? flutterVerdict(ratio) : null;
-
-  const pickMaterial = (key: FinMaterialKey | 'custom') => {
-    setMaterial(key);
-    if (key !== 'custom') setShearPa(modulusOf(key));
-  };
 
   return (
     <ToolLayout>
@@ -139,36 +116,12 @@ export function FlutterTool() {
           />
         </CardGroup>
         <CardGroup title={t('flutterTool.material')}>
-          <label className="flex items-center justify-between gap-3">
-            <FieldLabel text={t('flutterTool.materialKind')} />
-            <select
-              value={material}
-              onChange={(e) => pickMaterial(e.target.value as FinMaterialKey | 'custom')}
-              className="w-40 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-            >
-              {FIN_MATERIALS.map((m) => (
-                <option key={m.key} value={m.key}>
-                  {t(`flutterTool.material_${m.key}`)}
-                </option>
-              ))}
-              <option value="custom">{t('flutterTool.material_custom')}</option>
-            </select>
-          </label>
-          <QNum
-            label={t('flutterTool.shear')}
-            hint={t('flutterTool.shearHint')}
-            field="flutterShear"
-            kind="pressure"
-            u={u}
-            stepSi={1e7}
-            minSi={1e6}
-            maxSi={1e12}
-            required
-            missing={shearPa == null}
-            value={shearPa}
-            onChange={(v) => {
-              setShearPa(v);
-              setMaterial('custom');
+          <FinStockFields
+            stock={material}
+            shearPa={shearPa}
+            onChange={(stock, pa) => {
+              setMaterial(stock);
+              setShearPa(pa);
             }}
           />
         </CardGroup>
@@ -206,26 +159,8 @@ export function FlutterTool() {
       <ToolResultCard label={t('flutterTool.result')}>
         {flutter ? (
           <div className="space-y-2">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-xs text-ink-muted">{t('flutterTool.flutterSpeed')}</span>
-              <span className="text-sm tabular-nums text-ink">
-                {speedUnit.fmt(flutter.speedMs, 0)} {speedUnit.chip(t('flutterTool.flutterSpeed'))}{' '}
-                <span className="text-ink-faint">{t('flutterTool.mach', { mach: fmtNum(flutter.mach, 2) })}</span>
-              </span>
-            </div>
-            {ratio != null && verdict != null && (
-              <>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-xs text-ink-muted">{t('flutterTool.margin')}</span>
-                  <span className={`text-sm font-semibold tabular-nums ${VERDICT_TONE[verdict]}`}>
-                    {t('flutterTool.ratio', { ratio: fmtNum(ratio, 2) })}
-                  </span>
-                </div>
-                <p className={`text-xs ${VERDICT_TONE[verdict]}`}>
-                  {t(`flutterTool.verdict_${verdict}`, { margin: fmtNum(FLUTTER_MARGIN, 2) })}
-                </p>
-              </>
-            )}
+            <FlutterSpeedRow label={t('flutterTool.flutterSpeed')} speedMs={flutter.speedMs} mach={flutter.mach} />
+            {ratio != null && <FlutterMarginRows ratio={ratio} verdict={flutterVerdict(ratio)} />}
             <p className="text-[10px] text-ink-faint">{t('flutterTool.estimate')}</p>
           </div>
         ) : (

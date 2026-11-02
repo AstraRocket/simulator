@@ -5,6 +5,7 @@ import { COMPONENT_DEFAULTS } from '../../design/componentDefaults';
 import { clampCount, finiteNum } from './numbers';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_COUNT } from './importLimits';
 import { EXTRA_KEY, readPassthrough } from './passthrough';
+import { BAYS_KEY, MAIN_DEVICE_KEY, readBays, readMainDevice } from './orkBays';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
@@ -508,6 +509,11 @@ export function readCommon(el: Element, node: ComponentNode, withPosition: boole
   // carrying only unknown elements still carries them.
   const extra = readPassthrough(el);
   if (extra) node[EXTRA_KEY] = extra;
+  // A tube's recovery bay records, which this app writes inside the tube (orkBays.ts).
+  const bays = readBays(el);
+  if (bays) node[BAYS_KEY] = bays;
+  // A dual-deployment stage's picked main, which this app writes inside the device.
+  if (readMainDevice(el)) node[MAIN_DEVICE_KEY] = true;
   const nm = text(el, ':scope > name');
   if (nm) node.name = nm;
   // The desktop's Comment tab. Carried through so a builder's notes survive a

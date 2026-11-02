@@ -4,6 +4,9 @@ import type { FlightResult } from '../../engine/api';
 import { warningText, warningHelp } from '../../services/app/warningText';
 import { WARNING_ROW, WARNING_TONE } from './warningTone';
 import { CardGroup } from '../common/CardGroup';
+import { useWorkspaceStore, selectShownSim } from '../../state/store';
+import { useFlutterFindings } from './useFlutterFindings';
+import { FlutterWarningRows } from './FlutterWarningRows';
 
 /**
  * What the kernel flagged about this flight: a recovery device out too fast, a
@@ -11,16 +14,23 @@ import { CardGroup } from '../common/CardGroup';
  *
  * This is the other half of the deployment-speed threshold settings: without
  * it a user would never see what those thresholds produce.
+ *
+ * Fin flutter, which the kernel does not check, is the app's own and leads the
+ * list (`useFlutterFindings`). It is read for the simulation the Results tab
+ * shows, which is the one `sim` came from.
  */
 export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
   const t = useLauncherT();
   const u = useUnits();
   const warnings = sim?.warnings ?? [];
-  if (!sim || !warnings.length) return null;
+  const shown = useWorkspaceStore(selectShownSim);
+  const flutter = useFlutterFindings(shown.result === sim ? shown : null);
+  if (!sim || !(warnings.length + flutter.length)) return null;
 
   return (
-    <CardGroup title={t('sim.warnings', { count: warnings.length })}>
+    <CardGroup title={t('sim.warnings', { count: warnings.length + flutter.length })}>
       <ul className="space-y-1.5">
+        <FlutterWarningRows findings={flutter} />
         {warnings.map((w, i) => {
           // What it means, not just what tripped. A deployment-speed warning
           // that does not say what a fast deployment does to the airframe is a

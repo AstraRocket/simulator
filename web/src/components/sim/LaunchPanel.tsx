@@ -71,6 +71,7 @@ export function QNum({
   mixed,
   required,
   missing,
+  commitOnBlur,
   onChange,
 }: {
   label: string;
@@ -90,6 +91,8 @@ export function QNum({
   minSi?: number;
   /** Upper bound in SI, converted like `minSi` so it holds in any unit. */
   maxSi?: number;
+  /** Change once, on blur, rather than per keystroke: for a field each change of which is an undo step. */
+  commitOnBlur?: boolean;
 } & NumberRowMarks) {
   const c = LAUNCH_SI[kind];
   const scope = unitScope('launch', field);
@@ -110,6 +113,7 @@ export function QNum({
       mixed={mixed}
       required={required}
       missing={missing}
+      commitOnBlur={commitOnBlur}
       value={value === null ? null : fu.toUi(c.toSi(value))}
       // Two legs: the box's unit to SI, then SI to what the field is stored
       // in (degrees, Celsius, hPa). `onSi` checks both, so neither an entry

@@ -637,6 +637,9 @@ describe('no module grows its own fin sampler', () => {
     'services/files/rasaero/surface.ts',
     'services/files/rasaero/sustainer.ts',
     'services/design/componentActions.ts',
+    // Reads the outline for the fin's area, which sets the flutter estimate's
+    // equivalent tip chord.
+    'services/flight/finFlutter.ts',
   ];
 
   it('reads the source tree, not itself', () => {

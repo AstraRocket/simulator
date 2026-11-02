@@ -1,6 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { reid } from './componentActions';
-import { canHost, findNode, findParent, isRecoveryDevice, syncDerived } from './treeEdit';
+import { canHost, findNode, findParent, isRecoveryDevice, MAIN_DEVICE_KEY, syncDerived } from './treeEdit';
 import { stageNodes, lineageOf, walkNodes } from '../../tree/treeWalk';
 
 /**
@@ -59,8 +59,8 @@ export interface PastedCopy {
 
 /**
  * Put a fresh-id copy of `clip` at `place`. A stage holds at most one drogue
- * (see `setStageDrogue`), so a copy that would make a second one lands as a
- * plain recovery device.
+ * (see `setStageDrogue`) and one picked main (`setStageMain`), so a copy that
+ * would make a second of either lands as a plain recovery device.
  */
 function insertCopy(tree: RocketTree, clip: ComponentNode, place: PastePlace): PastedCopy {
   const origins = new Map<string, string>();
@@ -72,9 +72,11 @@ function insertCopy(tree: RocketTree, clip: ComponentNode, place: PastePlace): P
   const stage = stageOf(next, id);
   if (stage?.children) {
     const copied = new Set([...walkNodes([copy])]);
-    const drogues = [...walkNodes(stage.children)].filter((n) => isRecoveryDevice(n.type) && n['drogue'] === true);
-    if (drogues.some((n) => !copied.has(n)))
-      for (const n of drogues) if (copied.has(n)) delete (n as Record<string, unknown>)['drogue'];
+    for (const key of ['drogue', MAIN_DEVICE_KEY]) {
+      const flagged = [...walkNodes(stage.children)].filter((n) => isRecoveryDevice(n.type) && n[key] === true);
+      if (flagged.some((n) => !copied.has(n)))
+        for (const n of flagged) if (copied.has(n)) delete (n as Record<string, unknown>)[key];
+    }
   }
   return { tree: syncDerived(next), id, origins };
 }

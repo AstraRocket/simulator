@@ -22,6 +22,7 @@ import { LazyBoundary, lazyNamed } from '../common/ErrorBoundary';
 import { AppearanceSection } from './AppearanceSection';
 import { FreeformFinEditor } from './FreeformFinEditor';
 import { RecoverySizingReadout } from './RecoverySizingReadout';
+import { FinFlutterReadout } from './FinFlutterReadout';
 import { ConfigOverrideNote } from './ConfigOverrideNote';
 import { useUnits } from '../../prefs/useUnits';
 import { num } from '../../tree/nodeProps';
@@ -338,6 +339,12 @@ export function PropertyPanel({
               point list. */}
           <FreeformFinActions node={node} />
         </div>
+      )}
+
+      {/* Fin flutter: the Tools estimate, for this fin set against the active
+          simulation's last run. Planar fins only; a tube fin has no planform. */}
+      {(node.type === 'trapezoidfinset' || node.type === 'ellipticalfinset' || node.type === 'freeformfinset') && (
+        <FinFlutterReadout node={node} />
       )}
 
       {isRecoveryDevice(node.type) && (

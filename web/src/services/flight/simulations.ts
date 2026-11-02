@@ -12,8 +12,9 @@ import { LAUNCH_SI } from '../../prefs/launchUnits';
 import { stableJson } from '../app/stableJson';
 import { DEFAULT_HEADING_DEG, surfaceWind } from './windLevels';
 import { walkNodes } from '../../tree/treeWalk';
-import { isRecoveryDevice } from '../design/treeEdit';
+import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
+import { BAYS_KEY } from './recoveryBays';
 
 /**
  * The maximum angle step the kernel flies, in radians: 1 to 20 degrees, the
@@ -146,7 +147,12 @@ export function effectivePrefs(globals: SimPrefs, own: Partial<SimPrefs> | undef
   return { ...globals, ...own };
 }
 
-const PART_NAME = new Set(['name']);
+/**
+ * Node keys that fly nothing: a part's label, a bay's pins, charges and ground
+ * tests (`recoveryBays`), and which device is a stage's main (the kernel knows
+ * only the drogue).
+ */
+const NOT_FLOWN = new Set(['name', BAYS_KEY, MAIN_DEVICE_KEY]);
 /** One key per tree object. A design edit replaces the tree, so every row of every render until then is a cache hit. */
 const treeKeys = new WeakMap<RocketTree, string>();
 
@@ -156,7 +162,9 @@ const treeKeys = new WeakMap<RocketTree, string>();
  * Deliberately narrower than the tree object: the root carries `name`,
  * `designer`, `comment`, `revision` and `designType`, which are round-tripped to
  * the `.ork` and touch no physics, and every node carries a `name` that is a
- * label. So typing a designer name or renaming a part leaves results current.
+ * label. So typing a designer name or renaming a part leaves results current,
+ * and so does logging a ground test on a bay: its record (`recoveryBays`) flies
+ * nothing, and the charges it saves reach the flight as mass objects, which do.
  * Recovery devices are the exception: a run names the device each deployment
  * came from, and the Recovery readout falls back to that name for a result
  * stored before deployments carried the device's id, so a renamed device ages
@@ -173,7 +181,7 @@ export function flightKey(tree: RocketTree): string {
     const deviceNames = [...walkNodes(tree.components)].filter((n) => isRecoveryDevice(n.type)).map((n) => n.name);
     // Linked dimensions as the kernel builds them: a stored rail button or ring
     // the load path settles flies the same before and after, so it keys the same.
-    key = stableJson([settleLinkedDimensions(tree).components, deviceNames], PART_NAME);
+    key = stableJson([settleLinkedDimensions(tree).components, deviceNames], NOT_FLOWN);
     treeKeys.set(tree, key);
   }
   return key;

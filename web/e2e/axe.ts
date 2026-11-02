@@ -39,7 +39,12 @@ export const VIEW: Record<ViewMode, string> = {
 };
 export const TWO_D: Record<TwoDView, string> = { side: 'Side', aft: 'Aft' };
 export const AERO_PANE: Record<AeroPane, string> = { charts: 'Charts', components: 'Per component' };
-export const CONFIGS: Record<ConfigsTab, string> = { motors: 'Motors', recovery: 'Recovery', separation: 'Staging' };
+export const CONFIGS: Record<ConfigsTab, string> = {
+  motors: 'Motors',
+  recovery: 'Recovery',
+  separation: 'Staging',
+  bays: 'Bays',
+};
 export const TOOL: Record<Tool, string> = {
   landing: 'Landing estimator',
   chute: 'Parachute sizing',

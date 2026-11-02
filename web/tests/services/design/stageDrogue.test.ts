@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
-import { recoveryDevices, setStageDrogue } from '../../../src/services/design/treeEdit';
+import {
+  MAIN_DEVICE_KEY,
+  recoveryDevices,
+  setStageDrogue,
+  setStageMain,
+  stageMain,
+} from '../../../src/services/design/treeEdit';
 
 /**
  * Dual deployment as a property of the stage.
@@ -123,5 +129,50 @@ describe('choosing the drogue', () => {
     const t = setStageDrogue(setStageDrogue(rocket(), 'sustainer', 'main'), 'sustainer', 'boosterChute');
     expect(drogues(t, 'sustainer')).toEqual([]);
     expect(drogues(t, 'booster')).toEqual([]);
+  });
+});
+
+/** The sustainer with a third chute beside the two, for a main pick to matter. */
+const three = (): RocketTree => {
+  const t = rocket();
+  find(t, 'tube').children!.push(chute('spare'));
+  return t;
+};
+
+const mainOf = (tree: RocketTree) => stageMain(recoveryDevices(tree, 'sustainer'))?.id;
+
+describe('choosing the main', () => {
+  it('is no device for single deployment, where every device is a main', () => {
+    expect(mainOf(three())).toBeUndefined();
+  });
+
+  it('is the first device that is not the drogue, until one is picked', () => {
+    expect(mainOf(setStageDrogue(three(), 'sustainer', 'main'))).toBe('drogue');
+    const picked = setStageMain(setStageDrogue(three(), 'sustainer', 'main'), 'sustainer', 'spare');
+    expect(mainOf(picked)).toBe('spare');
+  });
+
+  it('never leaves two picked in one stage, and cannot pick the drogue', () => {
+    const dual = setStageDrogue(three(), 'sustainer', 'main');
+    const moved = setStageMain(setStageMain(dual, 'sustainer', 'spare'), 'sustainer', 'drogue');
+    expect(
+      recoveryDevices(moved, 'sustainer')
+        .filter((d) => d[MAIN_DEVICE_KEY] === true)
+        .map((d) => d.id),
+    ).toEqual(['drogue']);
+    expect(setStageMain(dual, 'sustainer', 'main')).toBe(dual);
+  });
+
+  it('returns the same tree when nothing changes', () => {
+    const picked = setStageMain(setStageDrogue(three(), 'sustainer', 'main'), 'sustainer', 'spare');
+    expect(setStageMain(picked, 'sustainer', 'spare')).toBe(picked);
+  });
+
+  it('is cleared by single deployment, and when the main is made the drogue', () => {
+    const picked = setStageMain(setStageDrogue(three(), 'sustainer', 'main'), 'sustainer', 'spare');
+    expect(find(setStageDrogue(picked, 'sustainer', null), 'spare')[MAIN_DEVICE_KEY]).toBeUndefined();
+    const swapped = setStageDrogue(picked, 'sustainer', 'spare');
+    expect(find(swapped, 'spare')[MAIN_DEVICE_KEY]).toBeUndefined();
+    expect(mainOf(swapped)).toBe('main');
   });
 });
