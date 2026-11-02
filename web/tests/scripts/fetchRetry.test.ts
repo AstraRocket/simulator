@@ -39,6 +39,16 @@ describe('fetchRetry', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('sends through fetchImpl instead of the global fetch when given one', async () => {
+    const globalFetch = vi.fn();
+    vi.stubGlobal('fetch', globalFetch);
+    const fetchImpl = vi.fn().mockResolvedValueOnce(reply(503)).mockResolvedValueOnce(reply(200));
+    const res = await fetchRetry('https://example.test/search.json', {}, { ...opts, fetchImpl });
+    expect(res.status).toBe(200);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(globalFetch).not.toHaveBeenCalled();
+  });
+
   it('gives up after the last delay and returns the failing answer', async () => {
     const fetchMock = vi.fn().mockResolvedValue(reply(503));
     vi.stubGlobal('fetch', fetchMock);

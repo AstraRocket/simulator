@@ -5543,6 +5543,12 @@ ioca_FlightConditions_setYawRate = ($this, $yawRate) => {
 ioca_FlightConditions_getPitchCenter = $this => {
     return $this.$pitchCenter;
 },
+ioca_FlightConditions_setPitchCenter = ($this, $pitchCenter) => {
+    if ($this.$pitchCenter.$equals($pitchCenter))
+        return;
+    $this.$pitchCenter = $pitchCenter;
+    $this.$fireChangeEvent();
+},
 ioca_FlightConditions_getAtmosphericConditions = $this => {
     return $this.$atmosphericConditions;
 },
@@ -5716,14 +5722,14 @@ iocu_MathUtil_pow2 = $x => {
 iocu_MathUtil_pow3 = $x => {
     iocu_MathUtil_$callClinit();
     return $x * $x * $x;
-},
-iocu_MathUtil_pow4 = $x => {
+};
+let iocu_MathUtil_pow4 = $x => {
     let var$2;
     iocu_MathUtil_$callClinit();
     var$2 = $x * $x;
     return var$2 * var$2;
-};
-let iocu_MathUtil_clamp = ($x, $min, $max) => {
+},
+iocu_MathUtil_clamp = ($x, $min, $max) => {
     iocu_MathUtil_$callClinit();
     if ($x < $min)
         return $min;
@@ -6577,6 +6583,7 @@ iocs_AbstractRKSimulationStepper_calculateForces = ($this, $status, $store) => {
     if ($store.$forces !== null)
         return;
     $this.$calculateFlightConditions($status, $store);
+    $store.$flightConditions.$setPitchCenter($store.$rocketMass.$getCM());
     $warnings = !$status.$recordWarnings() ? null : iocl_WarningSet__init_();
     var$4 = ($status.$getSimulationConditions()).$getAerodynamicCalculator();
     $store.$forces = var$4.$getAerodynamicForces($status.$getConfiguration(), $store.$flightConditions, $warnings);
@@ -36864,15 +36871,22 @@ function ioca_BarrowmanStabilityCalculator() {
     let a = this; jl_Object.call(a);
     a.$ignoreWarningSet = null;
     a.$calcMap = null;
+    a.$cacheModID = null;
     a.$cacheDiameter = 0.0;
     a.$cacheLength = 0.0;
+    a.$cacheForeX = 0.0;
+    a.$cacheAftX = 0.0;
 }
 let ioca_BarrowmanStabilityCalculator__init_ = $this => {
     jl_Object__init_($this);
     $this.$ignoreWarningSet = iocl_WarningSet__init_();
     $this.$calcMap = null;
+    iocu_ModID_$callClinit();
+    $this.$cacheModID = iocu_ModID_INVALID;
     $this.$cacheDiameter = (-1.0);
     $this.$cacheLength = (-1.0);
+    $this.$cacheForeX = 0.0;
+    $this.$cacheAftX = 0.0;
 },
 ioca_BarrowmanStabilityCalculator__init_0 = () => {
     let var_0 = new ioca_BarrowmanStabilityCalculator();
@@ -36917,17 +36931,25 @@ ioca_BarrowmanStabilityCalculator_getForceAnalysis = ($this, $configuration, $co
     return ioca_StabilityForceBreakdown__init_0($eachMap, $assemblyMap);
 },
 ioca_BarrowmanStabilityCalculator_calculateDampingMoments = ($this, $configuration, $conditions, $total) => {
-    let $mul, $pitchRate, $yawRate, $velocity, var$8, $pitchDampingMomentMagnitude, $yawDampingMomentMagnitude;
+    let $sinTheta, $cosTheta, $pitchRate, $yawRate, $lateralRate, $velocity, $cgx, $mul, $cgMoment, $dampingMomentMagnitude;
     ioca_BarrowmanStabilityCalculator_ensureCalcMap($this, $configuration);
-    $mul = ioca_BarrowmanStabilityCalculator_getDampingMultiplier($this, $configuration, $conditions, ($conditions.$getPitchCenter()).$getX());
-    $pitchRate = $conditions.$getPitchRate();
-    $yawRate = $conditions.$getYawRate();
+    $sinTheta = jl_Math_sin($conditions.$getTheta());
+    $cosTheta = jl_Math_cos($conditions.$getTheta());
+    $pitchRate = $cosTheta * $conditions.$getPitchRate() - $sinTheta * $conditions.$getYawRate();
+    $yawRate =  -($cosTheta * $conditions.$getYawRate() + $sinTheta * $conditions.$getPitchRate());
+    $lateralRate = iocu_MathUtil_hypot($pitchRate, $yawRate);
     $velocity = $conditions.$getVelocity();
-    var$8 = $mul * 3.0;
-    $pitchDampingMomentMagnitude = iocu_MathUtil_min(var$8 * iocu_MathUtil_pow2($pitchRate / $velocity), $total.$getCm());
-    $yawDampingMomentMagnitude = iocu_MathUtil_min(var$8 * iocu_MathUtil_pow2($yawRate / $velocity), $total.$getCyaw());
-    $total.$setPitchDampingMoment(iocu_MathUtil_sign($pitchRate) * $pitchDampingMomentMagnitude);
-    $total.$setYawDampingMoment(iocu_MathUtil_sign($yawRate) * $yawDampingMomentMagnitude);
+    if (!($lateralRate < 1.0E-8) && !($velocity < 1.0E-8)) {
+        $cgx = ($conditions.$getPitchCenter()).$getX();
+        $mul = ioca_BarrowmanStabilityCalculator_getDampingMultiplier($this, $configuration, $conditions, $cgx);
+        $cgMoment = jl_Math_abs($total.$getCm() - $total.$getCN() * $cgx / $conditions.$getRefLength());
+        $dampingMomentMagnitude = iocu_MathUtil_min($mul * iocu_MathUtil_pow2($lateralRate / $velocity), $cgMoment);
+        $total.$setPitchDampingMoment($dampingMomentMagnitude * $pitchRate / $lateralRate);
+        $total.$setYawDampingMoment($dampingMomentMagnitude * $yawRate / $lateralRate);
+        return;
+    }
+    $total.$setPitchDampingMoment(0.0);
+    $total.$setYawDampingMoment(0.0);
 },
 ioca_BarrowmanStabilityCalculator_checkGeometry = ($this, $configuration, $component, $actualWarnings) => {
     let $queue, $scout, var$6, $firstChild, $comp, var$9, $sym, var$11, var$12, $symXfore, $prevXfore, $symXaft, $prevXaft, $prevCompParent, $compParent, $prevCompPos, $nextComp, $scout_0, $firstCompXfore, var$23, $lastCompXaft, $sustainer, $hasRecoveryDevice;
@@ -37049,8 +37071,8 @@ ioca_BarrowmanStabilityCalculator_checkGeometry = ($this, $configuration, $compo
 },
 ioca_BarrowmanStabilityCalculator_voidAerodynamicCache = $this => {
     $this.$calcMap = null;
-    $this.$cacheDiameter = (-1.0);
-    $this.$cacheLength = (-1.0);
+    iocu_ModID_$callClinit();
+    $this.$cacheModID = iocu_ModID_INVALID;
 },
 ioca_BarrowmanStabilityCalculator_calculateComponentNonAxialForces = ($this, $conditions, $comp, $calcObj, $contextList, $warnings) => {
     let $componentForces, var$7, $context, $instanceForces, $cpInst, $cpAbs, var$12, $cNInst;
@@ -37130,11 +37152,13 @@ ioca_BarrowmanStabilityCalculator_addDirectChildStagesToQueue = ($this, $configu
     }
 },
 ioca_BarrowmanStabilityCalculator_getDampingMultiplier = ($this, $configuration, $conditions, $cgx) => {
-    let $area, var$5, $c, $s, $mul, var$9, var$10, $f, var$12, var$13, var$14;
-    if ($this.$cacheDiameter < 0.0) {
+    let $area, var$5, $c, $s, $x, $mul, var$10, $f, var$12, var$13, var$14;
+    if ($this.$cacheModID !== $configuration.$getModID()) {
         $area = 0.0;
         $this.$cacheLength = 0.0;
         $this.$cacheDiameter = 0.0;
+        $this.$cacheForeX = 1.7976931348623157E308;
+        $this.$cacheAftX = (-1.7976931348623157E308);
         var$5 = ($configuration.$getActiveComponents()).$iterator();
         while (var$5.$hasNext()) {
             $c = var$5.$next();
@@ -37142,29 +37166,37 @@ ioca_BarrowmanStabilityCalculator_getDampingMultiplier = ($this, $configuration,
                 $s = $c;
                 $area = $area + $s.$getComponentPlanformArea();
                 $this.$cacheLength = $this.$cacheLength + $s.$getLength();
+                iocu_Coordinate_$callClinit();
+                $x = ($s.$toAbsolute(iocu_Coordinate_NUL)).data[0].$getX();
+                $this.$cacheForeX = jl_Math_min($this.$cacheForeX, $x);
+                $this.$cacheAftX = jl_Math_max($this.$cacheAftX, $x + $s.$getLength());
             }
         }
         if ($this.$cacheLength > 0.0)
             $this.$cacheDiameter = $area / $this.$cacheLength;
+        $this.$cacheModID = $configuration.$getModID();
     }
-    $mul = 0.275 * $this.$cacheDiameter / ($conditions.$getRefArea() * $conditions.$getRefLength());
-    var$9 = $mul * (iocu_MathUtil_pow4($cgx) + iocu_MathUtil_pow4($this.$cacheLength - $cgx));
-    var$10 = ($configuration.$getActiveComponents()).$iterator();
-    while (var$10.$hasNext()) {
-        $c = var$10.$next();
+    $mul = 0.0;
+    if ($this.$cacheLength > 0.0) {
+        var$10 = 0.275 * $this.$cacheDiameter / ($conditions.$getRefArea() * $conditions.$getRefLength());
+        $mul = var$10 * (iocu_MathUtil_pow4($cgx - $this.$cacheForeX) + iocu_MathUtil_pow4($this.$cacheAftX - $cgx));
+    }
+    var$5 = ($configuration.$getActiveComponents()).$iterator();
+    while (var$5.$hasNext()) {
+        $c = var$5.$next();
         if ($c instanceof iocr_FinSet) {
             $f = $c;
-            var$12 = 0.6 * jl_Math_min0($f.$getFinCount(), 4) * $f.$getPlanformArea();
-            var$5 = new iocu_Coordinate;
+            var$10 = 0.6 * jl_Math_min0($f.$getFinCount(), 4) * $f.$getPlanformArea();
+            var$12 = new iocu_Coordinate;
             var$13 = $this.$calcMap;
-            iocu_Coordinate__init_5(var$5, (var$13.$get($f)).$getMidchordPos());
-            var$5 = ($f.$toAbsolute(var$5)).data[0];
-            var$14 = var$5.$getX() - $cgx;
-            var$14 = var$12 * iocu_MathUtil_pow3(jl_Math_abs(var$14));
-            var$9 = var$9 + var$14 / ($conditions.$getRefArea() * $conditions.$getRefLength());
+            iocu_Coordinate__init_5(var$12, (var$13.$get($f)).$getMidchordPos());
+            var$12 = ($f.$toAbsolute(var$12)).data[0];
+            var$14 = var$12.$getX() - $cgx;
+            var$14 = var$10 * iocu_MathUtil_pow3(jl_Math_abs(var$14));
+            $mul = $mul + var$14 / ($conditions.$getRefArea() * $conditions.$getRefLength());
         }
     }
-    return var$9;
+    return $mul;
 },
 ioca_BarrowmanStabilityCalculator_ensureCalcMap = ($this, $configuration) => {
     if ($this.$calcMap === null)
@@ -63038,8 +63070,8 @@ iocu_Monitorable, 0, jl_Object, [], 1537, 0, 0, 0,
 ioca_FlightConditions, "FlightConditions", 35, jl_Object, [jl_Cloneable, iocu_ChangeSource, iocu_Monitorable], 1, [0,0,0], () => ioca_FlightConditions_$callClinit(), ["$_init_3", $rt_wrapFunction1(ioca_FlightConditions__init_0), "$setRefLength", $rt_wrapFunction1(ioca_FlightConditions_setRefLength), "$getRefLength", $rt_wrapFunction0(ioca_FlightConditions_getRefLength), "$getRefArea", $rt_wrapFunction0(ioca_FlightConditions_getRefArea), "$setThrustingNozzleExitAreas0", $rt_wrapFunction1(ioca_FlightConditions_setThrustingNozzleExitAreas),
 "$getThrustingNozzleExitArea0", $rt_wrapFunction1(ioca_FlightConditions_getThrustingNozzleExitArea0), "$getThrustingNozzleExitArea", $rt_wrapFunction0(ioca_FlightConditions_getThrustingNozzleExitArea), "$setAOA", $rt_wrapFunction1(ioca_FlightConditions_setAOA), "$setAOA0", $rt_wrapFunction2(ioca_FlightConditions_setAOA0), "$getAOA", $rt_wrapFunction0(ioca_FlightConditions_getAOA), "$getSinAOA", $rt_wrapFunction0(ioca_FlightConditions_getSinAOA), "$getSincAOA", $rt_wrapFunction0(ioca_FlightConditions_getSincAOA),
 "$setTheta", $rt_wrapFunction1(ioca_FlightConditions_setTheta), "$getTheta", $rt_wrapFunction0(ioca_FlightConditions_getTheta), "$setMach", $rt_wrapFunction1(ioca_FlightConditions_setMach), "$getMach", $rt_wrapFunction0(ioca_FlightConditions_getMach), "$getVelocity", $rt_wrapFunction0(ioca_FlightConditions_getVelocity), "$setVelocity", $rt_wrapFunction1(ioca_FlightConditions_setVelocity), "$getBeta", $rt_wrapFunction0(ioca_FlightConditions_getBeta), "$getRollRate", $rt_wrapFunction0(ioca_FlightConditions_getRollRate),
-"$setRollRate", $rt_wrapFunction1(ioca_FlightConditions_setRollRate), "$getPitchRate", $rt_wrapFunction0(ioca_FlightConditions_getPitchRate), "$setPitchRate", $rt_wrapFunction1(ioca_FlightConditions_setPitchRate), "$getYawRate", $rt_wrapFunction0(ioca_FlightConditions_getYawRate), "$setYawRate", $rt_wrapFunction1(ioca_FlightConditions_setYawRate), "$getPitchCenter", $rt_wrapFunction0(ioca_FlightConditions_getPitchCenter), "$getAtmosphericConditions", $rt_wrapFunction0(ioca_FlightConditions_getAtmosphericConditions),
-"$setAtmosphericConditions", $rt_wrapFunction1(ioca_FlightConditions_setAtmosphericConditions), "$toString", $rt_wrapFunction0(ioca_FlightConditions_toString), "$clone7", $rt_wrapFunction0(ioca_FlightConditions_clone), "$equals", $rt_wrapFunction1(ioca_FlightConditions_equals), "$hashCode", $rt_wrapFunction0(ioca_FlightConditions_hashCode), "$fireChangeEvent", $rt_wrapFunction0(ioca_FlightConditions_fireChangeEvent)],
+"$setRollRate", $rt_wrapFunction1(ioca_FlightConditions_setRollRate), "$getPitchRate", $rt_wrapFunction0(ioca_FlightConditions_getPitchRate), "$setPitchRate", $rt_wrapFunction1(ioca_FlightConditions_setPitchRate), "$getYawRate", $rt_wrapFunction0(ioca_FlightConditions_getYawRate), "$setYawRate", $rt_wrapFunction1(ioca_FlightConditions_setYawRate), "$getPitchCenter", $rt_wrapFunction0(ioca_FlightConditions_getPitchCenter), "$setPitchCenter", $rt_wrapFunction1(ioca_FlightConditions_setPitchCenter), "$getAtmosphericConditions",
+$rt_wrapFunction0(ioca_FlightConditions_getAtmosphericConditions), "$setAtmosphericConditions", $rt_wrapFunction1(ioca_FlightConditions_setAtmosphericConditions), "$toString", $rt_wrapFunction0(ioca_FlightConditions_toString), "$clone7", $rt_wrapFunction0(ioca_FlightConditions_clone), "$equals", $rt_wrapFunction1(ioca_FlightConditions_equals), "$hashCode", $rt_wrapFunction0(ioca_FlightConditions_hashCode), "$fireChangeEvent", $rt_wrapFunction0(ioca_FlightConditions_fireChangeEvent)],
 ju_Map, 0, jl_Object, [], 1537, 0, 0, ["$getOrDefault", $rt_wrapFunction2(ju_Map_getOrDefault), "$computeIfAbsent", $rt_wrapFunction2(ju_Map_computeIfAbsent), "$merge", $rt_wrapFunction3(ju_Map_merge)],
 ju_SequencedMap, 0, jl_Object, [ju_Map], 1537, 0, 0, ["$getOrDefault", $rt_wrapFunction2(ju_Map_getOrDefault), "$computeIfAbsent", $rt_wrapFunction2(ju_Map_computeIfAbsent), "$merge", $rt_wrapFunction3(ju_Map_merge)],
 iocu_MathUtil, "MathUtil", 45, jl_Object, [], 1, [0,0,0], () => iocu_MathUtil_$callClinit(), 0,
