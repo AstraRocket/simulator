@@ -154,7 +154,7 @@ function isaExact(h: number): { t: number; p: number } {
  * kernel's ExtendedISAModel reads it: exact values every 500 m of geometric
  * altitude, linear in between, and sea level at or below 0.
  */
-function isaAt(h: number): { t: number; p: number } {
+export function isaAt(h: number): { t: number; p: number } {
   if (!(h > 0)) return isaExact(0);
   const i = Math.floor(h / ISA_TABLE_STEP);
   const f = (h - i * ISA_TABLE_STEP) / ISA_TABLE_STEP;

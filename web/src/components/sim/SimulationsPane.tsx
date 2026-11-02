@@ -133,7 +133,12 @@ export function SimulationsPane() {
         {!desktop && <RunButton className="w-full" />}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-2">
+      {/* `relative` makes this scroller the containing block of the rows'
+          `sr-only` warning text. Without it that absolute text is placed
+          against the page, and a row with warnings below the fold makes the
+          document taller than the window, so a wheel at the table's end
+          scrolls the whole app. */}
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-2">
         <SimulationsTable
           sims={sims}
           activeId={activeId}

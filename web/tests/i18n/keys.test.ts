@@ -11,6 +11,7 @@ import { THEME_PREFS } from '../../src/services/app/theme';
 import { HEADER_SUMMARY_PREFS, STATS_LAYOUTS } from '../../src/services/storage/settings';
 import { DESIGN_VIEWS, RESULT_VIEWS, TOOLS } from '../../src/state/tabs';
 import { SIMPLE_FIN_SHAPES } from '../../src/services/flight/simpleRocket';
+import { FIN_MATERIALS } from '../../src/services/flight/finFlutter';
 import { EXPORT_FORMATS } from '../../src/services/exports/flightPathExport';
 import { EXPORT_PRESETS } from '../../src/services/exports/pathExportPresets';
 import { PROPOSAL_GROUPS } from '../../src/services/weather/weatherProposal';
@@ -233,6 +234,8 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
   },
   { prefix: 'landing.recovery_', values: ['single', 'dual'] }, // LandingEstimator's radios
   { prefix: 'tools.tool_', values: TOOLS }, // ToolsPane's tab per tool
+  { prefix: 'flutterTool.material_', values: FIN_MATERIALS.map((m) => m.key) }, // FlutterTool's fin stock menu
+  { prefix: 'flutterTool.verdict_', values: ['over', 'marginal', 'ok'] }, // FlutterTool, over FlutterVerdict
   { prefix: 'simpleTool.finShape_', values: SIMPLE_FIN_SHAPES }, // SimpleRocketTool's fin shape menu
   { prefix: 'positionFrom.', values: ['top', 'middle', 'bottom', 'absolute'] }, // PlacementSection
   { prefix: 'units.q.', values: QUANTITIES }, // SettingsDialog, UnitChip

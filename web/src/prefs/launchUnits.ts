@@ -58,6 +58,10 @@ export const LAUNCH_SI = {
   },
   /** Constant gravity: already m/s^2. */
   accel: identity('acceleration'),
+  /** Bay pressures and shear moduli (Tools): already pascals. */
+  pressure: identity('pressure'),
+  /** Shear pin strengths (Tools): already newtons. */
+  force: identity('force'),
 } satisfies Record<string, LaunchUnitBridge>;
 
 export type LaunchUnitKind = keyof typeof LAUNCH_SI;
