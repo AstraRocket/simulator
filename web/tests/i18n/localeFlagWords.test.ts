@@ -26,8 +26,9 @@ import i18n, { LANGUAGES } from '../../src/i18n';
 
 /** Words on the list that are native to a given language, not British leaks. */
 const NATIVE: Record<string, readonly string[]> = {
-  // All eleven are ordinary French.
+  // All twelve are ordinary French.
   fr: [
+    'aluminium',
     'analyse',
     'catalogue',
     'catalogues',
@@ -42,10 +43,12 @@ const NATIVE: Record<string, readonly string[]> = {
   ],
   // `calibre` is the Spanish word for caliber.
   es: ['calibre'],
-  // `Analyse` is a German noun.
-  de: ['analyse'],
-  // ...and a Dutch one.
-  nl: ['analyse'],
+  // `Analyse` is a German noun, and `Aluminium` the German metal.
+  de: ['aluminium', 'analyse'],
+  // ...and both Dutch ones.
+  nl: ['aluminium', 'analyse'],
+  // `Aluminium` is the Polish metal.
+  pl: ['aluminium'],
 };
 
 /** Every registered locale and the bundle the app serves for it. */

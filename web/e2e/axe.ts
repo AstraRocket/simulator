@@ -43,6 +43,8 @@ export const CONFIGS: Record<ConfigsTab, string> = { motors: 'Motors', recovery:
 export const TOOL: Record<Tool, string> = {
   landing: 'Landing estimator',
   chute: 'Parachute sizing',
+  flutter: 'Fin flutter',
+  ejection: 'Ejection charge',
 };
 
 /** Press a toggle button by its exact name and wait for it to report pressed. */
