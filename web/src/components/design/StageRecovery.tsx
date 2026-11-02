@@ -54,14 +54,14 @@ export function StageRecovery({ node }: { node: ComponentNode }) {
         isDisabled={(r) => r === 'dual' && !hasDevices}
       />
       {hasDevices ? (
-        <label className="flex items-center justify-between gap-3 pl-6">
-          <span className="text-xs text-ink-muted">{t('prop.drogueDevice')}</span>
+        <label className="flex items-center justify-between gap-3">
+          <span className="shrink-0 text-xs text-ink-muted">{t('prop.drogueDevice')}</span>
           <select
             value={picked}
             disabled={!dual}
             aria-label={t('prop.drogueDevice')}
             onChange={(e) => setDrogue(stageId, e.target.value)}
-            className={`w-32 rounded-md px-2 py-1 text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${
+            className={`min-w-0 flex-1 rounded-md px-2 py-1 text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${
               dual ? 'bg-raised text-ink-strong' : 'bg-raised/50 text-ink-faint'
             }`}
           >
@@ -73,7 +73,7 @@ export function StageRecovery({ node }: { node: ComponentNode }) {
           </select>
         </label>
       ) : (
-        <p className="pl-6 text-xs text-ink-faint">{t('prop.noDevices')}</p>
+        <p className="text-xs text-ink-faint">{t('prop.noDevices')}</p>
       )}
     </PropSection>
   );

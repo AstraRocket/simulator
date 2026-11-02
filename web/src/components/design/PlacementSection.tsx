@@ -51,11 +51,11 @@ export function PlacementSection({ node, onChange, onCommit }: NodeEditProps) {
   return (
     <PropSection title={t('prop.placement')}>
       <label className="flex items-center justify-between gap-3">
-        <span className="text-xs text-ink-muted">{t('prop.positionFrom')}</span>
+        <span className="shrink-0 text-xs text-ink-muted">{t('prop.positionFrom')}</span>
         <select
           value={pos.method}
           onChange={(e) => changeMethod(e.target.value as ComponentPosition['method'])}
-          className="w-32 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+          className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
         >
           {(['top', 'middle', 'bottom', 'absolute'] as const).map((m) => (
             <option key={m} value={m}>

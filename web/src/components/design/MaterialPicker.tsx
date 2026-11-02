@@ -338,7 +338,7 @@ export function MaterialPicker({
             <select
               value={group}
               onChange={(e) => setGroup(e.target.value)}
-              className="w-40 rounded bg-surface px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10"
+              className="min-w-0 flex-1 rounded bg-surface px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10"
             >
               {groupsOf(mats).map((g) => (
                 <option key={g} value={g}>

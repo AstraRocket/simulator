@@ -32,7 +32,7 @@ export function LineStyleRow({
         value={value ?? ''}
         disabled={disabled}
         onChange={(e) => onCommit(readLineStyle(e.target.value))}
-        className="h-7 w-36 rounded-md bg-raised px-2 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 disabled:bg-raised/50 disabled:text-ink-muted"
+        className="h-7 min-w-0 flex-1 rounded-md bg-raised px-2 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 disabled:bg-raised/50 disabled:text-ink-muted"
       >
         <option value="">{t('prop.lineStyleDefault')}</option>
         {LINE_STYLES.map((s) => (

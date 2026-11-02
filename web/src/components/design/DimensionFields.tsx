@@ -377,14 +377,14 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
       const cur = String(fieldValue(node, f));
       return (
         <label className="flex items-center justify-between gap-3">
-          <span className="text-xs text-ink-muted">{label}</span>
+          <span className="shrink-0 text-xs text-ink-muted">{label}</span>
           <select
             value={cur}
             // A new tab reference keeps the tab where it is, as the kernel's
             // FinSet.setTabOffsetMethod does, and a new shape takes its own
             // parameter and clip, as Transition.setShapeType does.
             onChange={(e) => commitChange(selectPatch(node, f.key, e.target.value))}
-            className="w-32 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+            className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
           >
             {fieldOptions(node, f, stageBelow).map((o) => (
               <option key={o} value={o}>
