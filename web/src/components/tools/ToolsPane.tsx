@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useTabs } from '../common/useTabs';
 import { LandingEstimator } from './LandingEstimator';
 import { ParachuteTool } from './ParachuteTool';
+import { FlutterTool } from './FlutterTool';
+import { EjectionTool } from './EjectionTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 
 /** The open tool, kept for the page's life like each tool's own inputs. */
@@ -48,6 +50,8 @@ export function ToolsPane() {
       <div {...tabs.panel} className="min-h-0 flex-1 overflow-auto p-3">
         {tool === 'landing' && <LandingEstimator />}
         {tool === 'chute' && <ParachuteTool />}
+        {tool === 'flutter' && <FlutterTool />}
+        {tool === 'ejection' && <EjectionTool />}
       </div>
     </div>
   );
