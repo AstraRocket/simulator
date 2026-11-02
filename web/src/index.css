@@ -243,6 +243,16 @@ body {
   margin: 0;
   overscroll-behavior: none;
 }
+/* The app shell is exactly the viewport and every pane scrolls itself, so the
+   document never has anything to scroll. An absolutely positioned element with
+   no positioned ancestor (an `sr-only` label deep in a scrolled list) is placed
+   against the page and can still make it taller than the window; this keeps a
+   wheel that reaches a pane's end from carrying on into the page and shifting
+   the whole app up. */
+html,
+body {
+  overflow: hidden;
+}
 
 /* The page behind the app (overscroll, gaps between panes) in a light theme's
    canvas. Outranks index.html's boot style, which paints dark before any CSS. */
