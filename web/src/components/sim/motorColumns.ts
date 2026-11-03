@@ -59,8 +59,11 @@ export const COLUMNS: Col[] = [
     label: 'colMotor',
     align: 'left',
     always: true,
-    cell: (m) => m.designation,
-    sortVal: (m) => m.designation,
+    // The full designation, propellant letter and all (`H128W`), as the picker
+    // lists it: the common name alone cannot tell AeroTech's H128W from an H128 in
+    // another propellant.
+    cell: (m) => motorName(m),
+    sortVal: (m) => motorName(m),
   },
   { id: 'manufacturer', label: 'colMfr', align: 'left', cell: (m) => m.manufacturer, sortVal: (m) => m.manufacturer },
   { id: 'class', label: 'colClass', align: 'center', cell: (m) => m.class, sortVal: (m) => m.class },
@@ -130,11 +133,20 @@ export const COLUMNS: Col[] = [
     sortVal: (m) => m.type ?? '',
   },
   {
+    // The common name (`H128`), the one OpenRocket and a .ork match motors on.
+    // Kept under its old id so a saved column choice still finds it.
     id: 'code',
     label: 'colCode',
     align: 'left',
-    cell: (m) => motorName(m),
-    sortVal: (m) => motorName(m),
+    cell: (m) => m.designation,
+    sortVal: (m) => m.designation,
+  },
+  {
+    id: 'propellant',
+    label: 'colPropellant',
+    align: 'left',
+    cell: (m) => m.propInfo ?? NO_VALUE,
+    sortVal: (m) => m.propInfo ?? '',
   },
   { id: 'isp', label: 'colIsp', align: 'right', cell: (m) => fmtCell(ispOf(m), 0), sortVal: (m) => ispOf(m) },
   {

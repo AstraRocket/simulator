@@ -64,6 +64,44 @@ const filter = (over: Partial<MotorFilter> = {}): MotorFilter => ({
   ...over,
 });
 
+describe('filterMotors, by sparks and by full name', () => {
+  const aero: CatalogMotor[] = [
+    {
+      designation: 'H128',
+      code: 'H128W',
+      manufacturer: 'AeroTech',
+      class: 'H',
+      diameter: 29,
+      impulse: 220,
+      burn: 1.8,
+      mass: 200,
+    },
+    {
+      designation: 'H125',
+      code: 'H125SM',
+      manufacturer: 'AeroTech',
+      class: 'H',
+      diameter: 29,
+      impulse: 200,
+      burn: 1.6,
+      mass: 200,
+      sparky: true,
+    },
+  ];
+  const names = (over: Partial<MotorFilter>) => filterMotors(aero, filter(over)).map((m) => m.designation);
+
+  it('finds a motor by its full designation, propellant letter and all', () => {
+    expect(names({ text: 'h128w' })).toEqual(['H128']);
+    expect(names({ text: 'SM' })).toEqual(['H125']);
+  });
+
+  it('keeps only sparky motors, none of them, or all', () => {
+    expect(names({ sparky: 'only' })).toEqual(['H125']);
+    expect(names({ sparky: 'none' })).toEqual(['H128']);
+    expect(names({ sparky: 'any' })).toEqual(['H128', 'H125']);
+  });
+});
+
 describe('filterMotors', () => {
   it('returns everything with no active facets', () => {
     expect(filterMotors(catalog, filter())).toHaveLength(4);

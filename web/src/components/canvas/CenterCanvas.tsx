@@ -14,6 +14,7 @@ import { AeroAnalysis } from './AeroAnalysis';
 import { LazyBoundary, lazyNamed } from '../common/ErrorBoundary';
 import { useExportData } from './useExportData';
 import { useViewPrefs } from './useViewPrefs';
+import { useBurnExhausts } from './useBurnExhausts';
 import { degToRad, radToDeg } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
 import { useSettings } from '../../state/SettingsProvider';
@@ -69,6 +70,7 @@ export function CenterCanvas({
   const setErr = useWorkspaceStore((s) => s.setErr);
   const config = useWorkspaceStore(selectConfig);
   const motors = useMemo(() => selectMotorDims(design, config), [design, config]);
+  const exhausts = useBurnExhausts(design, config, view === 'path');
   const exportData = useExportData(motors);
   const { showMarkers, showInfoCard, rulers } = useViewPrefs();
   const loading = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('view.loading3d')}</div>;
@@ -160,6 +162,7 @@ export function CenterCanvas({
                   result={pathResult}
                   tree={design}
                   motors={motors}
+                  exhausts={exhausts}
                   latitudeDeg={flight?.launch.latitudeDeg}
                   longitudeDeg={flight?.launch.longitudeDeg}
                 />

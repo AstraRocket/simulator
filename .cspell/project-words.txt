@@ -335,6 +335,7 @@ Menlo
 mesher
 meshers
 metalness
+metalstorm
 Metas
 Meteo
 Metrum
@@ -498,6 +499,7 @@ singlewedge
 sinphi
 sinθ
 sinφ
+skidmark
 SKYR
 SKYRIPPER
 smoot
@@ -544,6 +546,7 @@ Toggleable
 transcendentals
 trapezoidfinset
 tras
+tribrid
 tris
 trkpt
 trkseg

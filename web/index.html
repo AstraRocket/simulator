@@ -74,8 +74,9 @@
         color: #475569;
       }
       #boot .rk {
-        font-size: 52px;
-        line-height: 1;
+        display: block;
+        width: 160px;
+        height: 160px;
         animation: boot-float 2.4s ease-in-out infinite;
       }
       #boot .wm {
@@ -153,7 +154,7 @@
   <body>
     <div id="root">
       <div id="boot">
-        <div class="rk">🚀</div>
+        <img class="rk" src="%BASE_URL%favicon.svg" width="160" height="160" alt="" aria-hidden="true" />
         <div class="wm">AstraRocket</div>
         <div class="sp"></div>
         <div class="bar indeterminate"><i></i></div>

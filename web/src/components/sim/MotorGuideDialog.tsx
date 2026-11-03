@@ -12,6 +12,7 @@ import {
   OopFilter,
   PerfFilters,
   PluggedFilter,
+  SparkyFilter,
   useMotorFilter,
 } from './MotorFilterBar';
 import { MotorSearch } from './MotorPanelParts';
@@ -190,6 +191,7 @@ function GuideBody({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {f.mount && <FitsMount mount={f.mount} fits={f.fits} onChange={f.setFits} />}
           <PluggedFilter plugged={f.plugged} onChange={f.setPlugged} />
+          <SparkyFilter value={f.sparky} onChange={f.setSparky} />
           <OopFilter on={f.hideOop} onChange={f.setHideOop} />
         </div>
         <PerfFilters perf={f.perf} onChange={f.setPerf} onClear={f.clearPerf} fields={f.perfFields} />

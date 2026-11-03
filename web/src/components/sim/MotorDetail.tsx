@@ -27,6 +27,8 @@ import { CATALOG_TO_SI } from '../../services/motors/catalogUnits';
 import { usePersistedState } from '../common/usePersistedState';
 import { Check } from '../common/Check';
 import { MotorHeading, NoCurveNote } from './MotorPanelParts';
+import { ExhaustPreview } from './ExhaustPreview';
+import { exhaustFor, exhaustIdFor } from '../../services/motors/exhaust';
 
 /** Desktop's threshold for "Hide very similar thrust curves" (MOTOR_SIMILARITY_THRESHOLD). */
 const SIMILAR = 0.95;
@@ -173,6 +175,13 @@ export function MotorDetail({
         <SpecItem label={t('motorDlg.propType')} value={motor.propInfo ?? NO_VALUE} />
         <SpecItem label={t('motorDlg.sparky')} value={t(motor.sparky ? 'motorDlg.yes' : 'motorDlg.no')} />
       </dl>
+      {/* What the 3D flight path draws for this motor's exhaust. */}
+      <div className="mt-2 flex items-center gap-2">
+        <ExhaustPreview look={exhaustFor(motor)} className="h-9 w-36 shrink-0" />
+        <p className="text-[11px] leading-snug text-ink-muted">
+          {t('exhaust.inFlight', { look: t(`exhaust.look_${exhaustIdFor(motor)}`) })}
+        </p>
+      </div>
       <p className="mt-2 text-[11px] leading-snug text-ink-faint">{t('motorDlg.calcNote')}</p>
     </div>
   );

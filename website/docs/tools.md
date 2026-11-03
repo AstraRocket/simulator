@@ -2,7 +2,7 @@
 title: "Tools"
 sidebar_position: 12.5
 ---
-The **Tools** tab holds quick answers that need no design: where a rocket lands, what size parachute it needs, how fast its fins can fly, and how much black powder its ejection charge needs. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
+The **Tools** tab holds quick answers that need no design: where a rocket lands, what size parachute it needs, how fast its fins can fly, how much black powder its ejection charge needs, and how each propellant looks in the 3D flight path. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
 
 Every tool here is an estimate, and says so. A rocket designed here gets better answers from its own simulation.
 
@@ -84,3 +84,18 @@ The black powder that pressurizes a recovery bay enough to separate it.
 The result gives the **black powder** for the target pressure. With pins, it also gives the **pressure to shear the pins** (their total strength spread over the bore) and the powder that reaches it, and warns when the target pressure is below that, since the bay would not separate.
 
 The charge is the ideal gas law for FFFFg powder's combustion gas, which works out close to the familiar rule of 0.006 × D² × L grams at 15 psi, with D and L in inches. It does not count heat lost to the airframe, gas escaping past the coupler, powder that burns late, or the volume the recovery gear takes up. **Ground test every charge before it flies**, and add whatever margin the test shows you need.
+
+## Exhaust looks {#exhaust-looks}
+
+How the [3D flight path](./features.md) draws each motor's flame and smoke, one tile per look: an animated preview, what the look stands for, and every propellant in the motor catalog that takes it. The look is picked from the propellant's name as the catalog gives it:
+
+- **Dark smoke**: Blackjack, Black Max, Dark Matter, Smoky Sam and their kin.
+- **White smoke**: White Lightning and the other white propellants.
+- **Blue flame**, **Red flame** and **Green flame**: Blue Thunder, Redline, Mojave Green and the other blues, reds and greens.
+- **Fast and clean**: Warp 9, Vmax, Imax and other fast propellants.
+- **Sparky**: metal-salt propellants such as Skidmark and Metalstorm, which throw sparks.
+- **Black powder**: black powder motors, with a thick trail and a few sparks.
+- **Hybrid**: a pale flame and almost no smoke.
+- **Classic composite**: the orange flame for every other propellant, and for a motor whose propellant the catalog does not name.
+
+A motor the catalog calls sparky adds sparks to whatever look it takes. Each motor's detail in the motor picker shows the same preview and names its look. It is a look, not a measurement: real exhaust varies with the motor, the weather and the light.

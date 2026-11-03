@@ -13,6 +13,8 @@ import { DESIGN_VIEWS, RESULT_VIEWS, TOOLS } from '../../src/state/tabs';
 import { SIMPLE_FIN_SHAPES } from '../../src/services/flight/simpleRocket';
 import { FIN_MATERIALS } from '../../src/services/flight/finFlutter';
 import { TEST_RESULTS } from '../../src/services/flight/recoveryBays';
+import { EXHAUST_IDS } from '../../src/services/motors/exhaust';
+import { SPARKY_CHOICES } from '../../src/services/motors/motorDb';
 import { EXPORT_FORMATS } from '../../src/services/exports/flightPathExport';
 import { EXPORT_PRESETS } from '../../src/services/exports/pathExportPresets';
 import { PROPOSAL_GROUPS } from '../../src/services/weather/weatherProposal';
@@ -241,10 +243,13 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
   { prefix: 'ejectionBay.saved_', values: ['main', 'drogue'] }, // RecoveryBaysPane, over ChargeRole
   { prefix: 'charges.role_', values: ['main', 'drogue'] }, // RecoveryChargesCard and the report, over ChargeRole
   { prefix: 'bays.result_', values: TEST_RESULTS }, // RecoveryBaysPane's test log and the report
+  { prefix: 'exhaust.look_', values: EXHAUST_IDS }, // ExhaustTool's tiles and MotorDetail's exhaust line
+  { prefix: 'exhaust.about_', values: EXHAUST_IDS }, // ExhaustTool's tiles
   { prefix: 'simpleTool.finShape_', values: SIMPLE_FIN_SHAPES }, // SimpleRocketTool's fin shape menu
   { prefix: 'positionFrom.', values: ['top', 'middle', 'bottom', 'absolute'] }, // PlacementSection
   { prefix: 'units.q.', values: QUANTITIES }, // SettingsDialog, UnitChip
   { prefix: 'dash.', values: COLUMNS.map((c) => c.label) }, // motor dashboard columns
+  { prefix: 'motorDlg.sparky_', values: SPARKY_CHOICES }, // SparkyFilter's choices
   // t(`prop.${f.label}`) and `prop.${f.auto.tip}` - DimensionFields; the split
   // buttons - ComponentActions; t(`prop.${r.field}`) - repairValues, for density
   {

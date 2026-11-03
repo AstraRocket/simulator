@@ -25,9 +25,10 @@ Two toolbar buttons control what's overlaid on the **2D** and **3D** views:
 
 ## 3D model
 
-An interactive 3D model of the rocket: orbit to inspect the geometry from any angle.
+An interactive 3D model of the rocket: orbit to inspect the geometry from any angle. Drag to turn it, scroll to zoom, and Shift-drag or Ctrl-drag (two fingers on a touch screen) to pan.
 
-- **⟲ Reset** re-fits the current view.
+- **Right-drag** swings the light around the model, as in desktop OpenRocket: across moves it left and right as you see it, up and down raises and lowers it. The lighting turns with your view, so whichever side faces you is lit the same way as you orbit. While you drag, a small ball in the bottom right corner is lit the same way, its bright side pointing at the light; a light from behind the rocket leaves it dark with a lit rim. Lighting from low and to the side shows the joints and the fin edges; lighting along a glossy part shows its shine.
+- **⟲ Reset** re-fits the current view and puts the light back.
 - **Side** and **Aft** move the camera to the side profile or behind the rocket, where clusters and the fin count show as they sit.
 - **Cutaway** opens the airframe along the centerline to show the internal parts.
 - **Figure** and **Finished** are two of desktop OpenRocket's 3D view types. **Figure**, the one the view opens on, draws each part in its figure color with the airframe see-through, so the parts inside show. **Finished** draws each part in its [3D appearance](./designing-a-rocket.md#appearance), solid unless you lowered its opacity. The 3D flight path always shows the finished rocket.

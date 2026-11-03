@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   buildFlightScene,
+  burnAt,
+  delayWindows,
+  smokePuffs,
   indexForProgress,
   modelPoseAt,
   newModelPose,
@@ -369,5 +372,89 @@ describe('boost windows', () => {
     expect(chan(s.colors[3]!)).toBe(GREEN); // coast between the stages
     expect(chan(s.colors[5]!)).toBe(RED); // sustainer burn
     expect(chan(s.colors[8]!)).toBe(GREEN); // coast to apogee
+  });
+});
+
+describe('the smoke trail', () => {
+  const pts = [0, 1, 2, 3, 4, 5].map((y) => new THREE.Vector3(0, y, 0));
+  const scene = {
+    scenePts: pts,
+    times: [0, 1, 2, 3, 4, 5],
+    boostWindows: [
+      [0, 2],
+      [3, 4],
+    ] as [number, number][],
+  };
+
+  it('says which burn a time is in', () => {
+    expect([0, 1.5, 2, 3.5, 4.5].map((t) => burnAt(t, scene.boostWindows))).toEqual([0, 0, -1, 1, -1]);
+  });
+
+  it('leaves a puff per burning sample, by its burn, behind the model and never under the ground', () => {
+    const puffs = smokePuffs(scene, 100, 0.5);
+    expect(puffs.map((p) => [p.time, p.burn, p.pos.y])).toEqual([
+      [0, 0, 0],
+      [1, 0, 0.5],
+      [3, 1, 2.5],
+    ]);
+  });
+
+  it('thins a long burn to the most it draws', () => {
+    const time = Array.from({ length: 1000 }, (_, i) => i / 100);
+    const long = {
+      scenePts: time.map((t) => new THREE.Vector3(0, t, 0)),
+      times: time,
+      boostWindows: [[0, 10]] as [number, number][],
+    };
+    const puffs = smokePuffs(long, 50);
+    expect(puffs).toHaveLength(50);
+    expect(puffs[49]!.time).toBeGreaterThan(9.5);
+  });
+});
+
+describe('the smoke trail off the pad', () => {
+  it('leaves out puffs closer than the gap, so a slow start does not stack them', () => {
+    // Ten samples in the first tenth of a meter, then a climb.
+    const ys = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 1, 2, 3];
+    const scene = {
+      scenePts: ys.map((y) => new THREE.Vector3(0, y, 0)),
+      times: ys.map((_, i) => i * 0.01),
+      boostWindows: [[0, 1]] as [number, number][],
+    };
+    expect(smokePuffs(scene, 100, 0, 0.5).map((p) => p.pos.y)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("the delay grain's smoke", () => {
+  it('runs from each burnout to the ejection charge after it, and not for a plugged burn', () => {
+    const burns: [number, number][] = [
+      [0, 1],
+      [3, 4],
+    ];
+    // The booster's charge fires at burnout to light the sustainer; the
+    // sustainer's delay runs to its charge at 9 s.
+    const events = [
+      { type: 'EJECTION_CHARGE', time: 1 },
+      { type: 'EJECTION_CHARGE', time: 9 },
+    ];
+    expect(delayWindows(events, burns)).toEqual([[4, 9]]);
+    expect(delayWindows([], burns)).toEqual([]);
+  });
+
+  it('leaves delay puffs, by the burn before them, between burnout and the charge', () => {
+    const ys = [0, 1, 2, 3, 4, 5, 6];
+    const scene = {
+      scenePts: ys.map((y) => new THREE.Vector3(0, y, 0)),
+      times: ys,
+      boostWindows: [[0, 2]] as [number, number][],
+      delayWindows: [[2, 5]] as [number, number][],
+    };
+    expect(smokePuffs(scene, 100).map((p) => [p.time, p.burn, p.delay])).toEqual([
+      [0, 0, false],
+      [1, 0, false],
+      [2, 0, true],
+      [3, 0, true],
+      [4, 0, true],
+    ]);
   });
 });

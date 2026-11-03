@@ -28,7 +28,7 @@ export type DesignPane = 'stats' | 'sketch';
 export type ConfigsTab = 'motors' | 'recovery' | 'separation' | 'bays';
 
 /** The Tools tab's calculators, in tab order. */
-export const TOOLS = ['landing', 'chute', 'flutter', 'ejection'] as const;
+export const TOOLS = ['landing', 'chute', 'flutter', 'ejection', 'exhaust'] as const;
 export type Tool = (typeof TOOLS)[number];
 
 /** The Aero view's two panes: the charts, and the per-component tables. */

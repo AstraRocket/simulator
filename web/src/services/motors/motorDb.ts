@@ -314,12 +314,16 @@ export async function deleteCustomMotor(id: string): Promise<CatalogMotor[]> {
   return loadCatalog();
 }
 
+/** The sparky filter's choices: every motor, only sparky ones, or none. */
+export const SPARKY_CHOICES = ['any', 'only', 'none'] as const;
+export type SparkyChoice = (typeof SPARKY_CHOICES)[number];
+
 export interface MotorFilter {
   /** Impulse class letters; empty = all. */
   classes: Set<string>;
   /** Manufacturer names; empty = all. */
   manufacturers: Set<string>;
-  /** Free-text match against designation. */
+  /** Free-text match against the common name or the full designation (`H128` or `H128W`). */
   text: string;
   /** Diameter range (mm), inclusive. Undefined ends = open. Defaults fit the mount. */
   minDiameter?: number;
@@ -345,6 +349,12 @@ export interface MotorFilter {
    * offersPlugged), so this finds the ones built without an ejection charge.
    */
   plugged?: boolean;
+  /**
+   * Sparky motors only, or none of them. Sparky propellants throw burning
+   * metal, which many fields ban in a dry season, so leaving them out is the
+   * more common ask.
+   */
+  sparky?: SparkyChoice;
   /** Leave out motors no longer in regular production (desktop's "hide unavailable"). */
   hideOop?: boolean;
   /** Leave out these motors, by `keyOf`: the ones already used in the mount. */
@@ -363,9 +373,12 @@ export function filterMotors(catalog: CatalogMotor[], filter: MotorFilter): Cata
     if (filter.perf && !passesPerf(m, filter.perf, filter.perfFields)) return false;
     if (filter.fit && !motorFitsMount(m, filter.fit)) return false;
     if (filter.plugged && !offersPlugged(m)) return false;
+    if (filter.sparky === 'only' && !m.sparky) return false;
+    if (filter.sparky === 'none' && m.sparky) return false;
     if (filter.hideOop && m.oop) return false;
     if (filter.hide && filter.hide.has(keyOf(m))) return false;
-    if (text && !m.designation.toLowerCase().includes(text)) return false;
+    if (text && !m.designation.toLowerCase().includes(text) && !(m.code ?? '').toLowerCase().includes(text))
+      return false;
     return true;
   });
 }
