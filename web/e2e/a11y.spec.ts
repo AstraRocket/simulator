@@ -23,6 +23,7 @@ const SETTINGS: Record<SettingsTab, string> = {
   sketch: 'Sketch',
   sim: 'Simulation',
   launch: 'Launch',
+  flyer: 'Flyer',
 };
 const LIBRARY: Record<LibraryTab, string> = { mine: 'My rockets', examples: 'Examples' };
 

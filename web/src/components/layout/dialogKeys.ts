@@ -25,7 +25,8 @@ export type HeaderDialog =
   | 'saveAs';
 
 /** The Settings dialog's tabs. */
-export type SettingsTab = 'general' | 'units' | 'colors' | 'materials' | 'playback' | 'sketch' | 'sim' | 'launch';
+export type SettingsTab =
+  'general' | 'units' | 'colors' | 'materials' | 'playback' | 'sketch' | 'sim' | 'launch' | 'flyer';
 
 /** The design library's tabs. */
 export const LIBRARY_TABS = ['mine', 'examples'] as const;

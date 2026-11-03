@@ -196,6 +196,12 @@ Also on the **Simulation** tab. Everything above decides when a flight *warns*. 
 - **Save design info (statistics) in the file**: writes the design's derived figures (mass, CG, CP, stability) into a saved `.ork`, as desktop OpenRocket can. Off by default.
 - **Ask where to save each file**: opens the browser's own save dialog for every export, so you choose the name and the folder. On by default, and shown only in browsers that have that dialog (Chrome and Edge). Off, or in Firefox and Safari, files go straight to your downloads folder.
 
+## Flyer {#flyer}
+
+Who flies, for the [flight card](./views-and-analysis.md#flight-card): your **Name**, and each organization you fly under with your **Member number** and the **Highest certification** you hold there (None, or Level 1 to 3). **+ Add membership** adds one; pick **NAR**, **Tripoli** or **CAR** (Canada), or **Other** and type its name, for UKRA or a club of your own. ✕ removes one.
+
+The card prints all of it, and warns when a flight needs a higher certification than the highest one saved here. It is kept in this browser only, like every other setting, and goes with a [backup](./faq.md).
+
 ## Reset
 
 Two buttons sit at the bottom of the dialog: **Reset ‹tab›** puts back just the tab you are on (so **Reset Units** touches units and nothing else), and **Reset all** returns every setting on every tab to its default. Reset all asks first, since it cannot be undone. **Reset Launch** and **Reset Materials** also ask first, because those tabs hold what you entered.

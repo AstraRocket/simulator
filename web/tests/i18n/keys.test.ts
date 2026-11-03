@@ -250,6 +250,7 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
   { prefix: 'units.q.', values: QUANTITIES }, // SettingsDialog, UnitChip
   { prefix: 'dash.', values: COLUMNS.map((c) => c.label) }, // motor dashboard columns
   { prefix: 'motorDlg.sparky_', values: SPARKY_CHOICES }, // SparkyFilter's choices
+  { prefix: 'launchDocs.cert_', values: ['0', '1', '2', '3'] }, // the flight card's certification line, over CertLevel
   // t(`prop.${f.label}`) and `prop.${f.auto.tip}` - DimensionFields; the split
   // buttons - ComponentActions; t(`prop.${r.field}`) - repairValues, for density
   {
