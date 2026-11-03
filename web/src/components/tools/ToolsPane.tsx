@@ -48,7 +48,14 @@ export function ToolsPane() {
           </button>
         ))}
       </div>
-      <div {...tabs.panel} className="min-h-0 flex-1 overflow-auto p-3">
+      <div
+        {...tabs.panel}
+        // The exhaust gallery has no field to focus, so a keyboard could not
+        // reach its panel to scroll it; the tabs pattern gives such a panel a
+        // tab stop of its own. Every other tool starts with a field.
+        tabIndex={tool === 'exhaust' ? 0 : undefined}
+        className="min-h-0 flex-1 overflow-auto p-3"
+      >
         {tool === 'landing' && <LandingEstimator />}
         {tool === 'chute' && <ParachuteTool />}
         {tool === 'flutter' && <FlutterTool />}
