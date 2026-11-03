@@ -18,6 +18,7 @@ import {
   SketchTab,
   UnitsTab,
 } from './SettingsTabs';
+import { FlyerTab } from './FlyerTab';
 
 const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'general', label: 'settings.tabGeneral' },
@@ -28,6 +29,7 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'sketch', label: 'settings.tabSketch' },
   { key: 'sim', label: 'settings.tabSim' },
   { key: 'launch', label: 'settings.tabLaunch' },
+  { key: 'flyer', label: 'settings.tabFlyer' },
 ];
 
 /** Each tab's body, by key. */
@@ -40,10 +42,12 @@ const TAB_BODY: Record<SettingsTab, ReactNode> = {
   sketch: <SketchTab />,
   sim: <SimTab />,
   launch: <LaunchTab />,
+  flyer: <FlyerTab />,
 };
 
 /** Settings panel, one tab per entry in the list above (general, units,
- *  colors, materials, playback, sketch, simulation and launch defaults).
+ *  colors, materials, playback, sketch, simulation, launch defaults and the
+ *  flyer).
  *  Persisted via the SettingsProvider.
  *  Mounted only while open (`{open && <SettingsDialog />}`). */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
@@ -69,8 +73,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const resetSection = async () => {
     // The tabs that hold what the user entered rather than a preference picked
     // from a list: the home launch site, and the material chosen for each part
-    // type. Neither has an undo, so a stray click is asked about first.
-    if (tab === 'launch' || tab === 'materials') {
+    // type, and the flyer's memberships. None has an undo, so a stray click is
+    // asked about first.
+    if (tab === 'launch' || tab === 'materials' || tab === 'flyer') {
       const ok = await confirm({
         message: t('settings.resetTabConfirm', { name: tabName }),
         confirmLabel: t('settings.resetTab', { name: tabName }),
@@ -99,6 +104,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     else if (tab === 'playback') update({ playbackSpeed: DEFAULT_SETTINGS.playbackSpeed });
     else if (tab === 'sketch') update({ showMarkers: DEFAULT_SETTINGS.showMarkers, rulers: DEFAULT_SETTINGS.rulers });
     else if (tab === 'sim') update({ simulation: DEFAULT_SETTINGS.simulation });
+    else if (tab === 'flyer') update({ flyer: DEFAULT_SETTINGS.flyer });
     else update({ launchDefaults: DEFAULT_SETTINGS.launchDefaults });
   };
 

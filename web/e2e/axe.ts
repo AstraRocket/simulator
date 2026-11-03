@@ -36,6 +36,7 @@ export const VIEW: Record<ViewMode, string> = {
   path: '3D path',
   ground: 'Ground track',
   environment: 'Environment',
+  card: 'Flight card',
 };
 export const TWO_D: Record<TwoDView, string> = { side: 'Side', aft: 'Aft' };
 export const AERO_PANE: Record<AeroPane, string> = { charts: 'Charts', components: 'Per component' };

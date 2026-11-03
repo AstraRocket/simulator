@@ -254,6 +254,37 @@ body {
   overflow: hidden;
 }
 
+/* The flight card (components/sim/FlightCard): while its view is open, printing
+   prints the copy of the card mounted at the top of the document and nothing
+   else, black on white whatever the theme, and lets it run onto a second sheet. */
+.flight-card-print {
+  display: none;
+}
+@media print {
+  html.print-flight-card,
+  html.print-flight-card body {
+    overflow: visible !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+  html.print-flight-card body > :not(.flight-card-print) {
+    display: none !important;
+  }
+  html.print-flight-card .flight-card-print {
+    display: block;
+    padding: 0;
+  }
+  .flight-card-print * {
+    color: #000 !important;
+    border-color: #888 !important;
+    background: transparent !important;
+  }
+  .flight-card-print section,
+  .flight-card-print tr {
+    break-inside: avoid;
+  }
+}
+
 /* The page behind the app (overscroll, gaps between panes) in a light theme's
    canvas. Outranks index.html's boot style, which paints dark before any CSS. */
 :root[data-theme='light'],

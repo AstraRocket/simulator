@@ -1,3 +1,4 @@
+import { DEFAULT_FLYER, flyerFrom, type Flyer } from './flyer';
 import { nsKey } from './storageKeys';
 import type { PartKey } from '../design/partColors';
 import { readFigureStyles, type FigureStyles } from '../design/figureStyle';
@@ -342,6 +343,8 @@ export interface Settings {
   flightCsv: CsvFormat;
   /** Whether the user has dismissed the pre-1.0 "work in progress" notice. */
   wipAcknowledged: boolean;
+  /** Who flies: the name and memberships the flight card prints (Settings ▸ Flyer). */
+  flyer: Flyer;
 }
 
 /** Persistent output options for the PDF report (the "Settings" sub-dialog). */
@@ -552,6 +555,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // Everything else the run records is one tick away in the dialog.
   flightCsv: defaultCsvFormat(),
   wipAcknowledged: false,
+  flyer: DEFAULT_FLYER,
 };
 
 const KEY = nsKey('settings:v1');
@@ -892,6 +896,7 @@ export function settingsFrom(value: unknown): Settings {
       return c;
     })(),
     wipAcknowledged: typeof s.wipAcknowledged === 'boolean' ? s.wipAcknowledged : DEFAULT_SETTINGS.wipAcknowledged,
+    flyer: flyerFrom(s.flyer),
   };
 }
 

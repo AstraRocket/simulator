@@ -31,6 +31,7 @@ altitudemslm
 altituderef
 altitudereference
 Altus
+AMRS
 angleoffset
 angus
 aopalliance
@@ -557,6 +558,7 @@ tubefins
 tubefinset
 turb
 txw
+UKRA
 unawaited
 unbuildable
 unbuilt

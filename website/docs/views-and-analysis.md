@@ -156,6 +156,20 @@ An hour whose wind or launch angle is over the safety limit is not flown, the sa
 
 Without a forecast, the section says how to get one. For a rocket not designed here, the [landing estimator](./tools.md#landing-estimator) on the Tools tab gives an estimate from typed descent rates.
 
+## Flight card (after a simulation) {#flight-card}
+
+A card for the range table, filled in from the flight being shown and the configuration it flies:
+
+- **Flyer**: your name and each membership, with its number and the highest certification you hold there, from [Settings ▸ Flyer](./settings.md#flyer). Whatever is not saved there is a line to write on, and so are the **Date**, and at the bottom the **Pad** and the **RSO**.
+- **Rocket**: length, diameter, liftoff mass, CG, CP and stability, and the **certification needed**. That comes from the total impulse of every motor on the pad, as NAR and Tripoli both rate a cluster or a staged rocket: none up to G, Level 1 for H and I, Level 2 for J to L, Level 3 above. When the highest certification saved under Settings ▸ Flyer is below it, the card says so.
+- **Motors**: each with its stage, mount, full name, count, class and delay, or **Plugged**.
+- **Predicted flight**: apogee, time to apogee, top speed and Mach, the speed off the rail with the rail's length and angle, the wind, the best delay, and the deployment and landing speeds.
+- **Recovery**: each device, its role, and when it opens on this flight, the configuration's own setting where it has one; then the saved [recovery charges](./designing-a-rocket.md#saving-charges).
+
+The mass, CG and stability are the live build's, which weighs the configuration being edited. A simulation flying another one leaves them out and says so; make it the active simulation to fill them in.
+
+**Print**, or Ctrl+P while the card is open, prints the card alone, black on white, onto as many sheets as it needs. It ends with the same **Before you fly** notes as the Results tab: what to check on the rocket you built, what the model never had, your safety code, and who is responsible.
+
 ## Reading the Information strip {#reading-the-stats-strip}
 
 The **Information** strip under the drawing summarizes the current design as a grid of tiles (collapse it with the chevron on its header):

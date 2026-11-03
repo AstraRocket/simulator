@@ -8,6 +8,7 @@ import { AftView } from './AftView';
 import { FlightChart } from './FlightChart';
 import { GroundTrack } from './GroundTrack';
 import { EnvironmentView } from './EnvironmentView';
+import { FlightCard } from '../sim/FlightCard';
 import { FlightPathExport } from './FlightPathExport';
 import { InfoOverlay } from './InfoOverlay';
 import { AeroAnalysis } from './AeroAnalysis';
@@ -197,6 +198,8 @@ export function CenterCanvas({
         </div>
       ) : view === 'environment' ? (
         <div className="h-full">{flight ? <EnvironmentView flight={flight} /> : prompt}</div>
+      ) : view === 'card' ? (
+        <div className="h-full">{flight ? <FlightCard flight={flight} /> : prompt}</div>
       ) : (
         <div className="h-full p-2">{info ? <AeroAnalysis /> : prompt}</div>
       )}
