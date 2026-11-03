@@ -5,6 +5,7 @@ import { LandingEstimator } from './LandingEstimator';
 import { ParachuteTool } from './ParachuteTool';
 import { FlutterTool } from './FlutterTool';
 import { EjectionTool } from './EjectionTool';
+import { ExhaustTool } from './ExhaustTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 
 /** The open tool, kept for the page's life like each tool's own inputs. */
@@ -52,6 +53,7 @@ export function ToolsPane() {
         {tool === 'chute' && <ParachuteTool />}
         {tool === 'flutter' && <FlutterTool />}
         {tool === 'ejection' && <EjectionTool />}
+        {tool === 'exhaust' && <ExhaustTool />}
       </div>
     </div>
   );

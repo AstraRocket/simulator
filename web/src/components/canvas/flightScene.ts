@@ -50,8 +50,97 @@ export function boostWindows(events: readonly { type: string; time: number }[]):
 }
 
 /** Whether `t` falls inside any burn window. */
-export const isBoosting = (t: number, windows: readonly [number, number][]): boolean =>
+const isBoosting = (t: number, windows: readonly [number, number][]): boolean =>
   windows.some(([a, b]) => t >= a && t < b);
+
+/** Which burn window `t` falls inside, or -1 between burns. */
+export const burnAt = (t: number, windows: readonly [number, number][]): number =>
+  windows.findIndex(([a, b]) => t >= a && t < b);
+
+/**
+ * The delay grains' burns as [start, end] times: from each burnout to the
+ * ejection charge that follows it, before the next burn lights. A motor
+ * flown plugged fires no charge, so it has no delay window; nor does a
+ * booster whose charge fires at burnout to light the stage above.
+ */
+export function delayWindows(
+  events: readonly { type: string; time: number }[],
+  burns: readonly [number, number][],
+): [number, number][] {
+  const charges = events.filter((e) => e.type === 'EJECTION_CHARGE').map((e) => e.time);
+  const out: [number, number][] = [];
+  burns.forEach(([, end], i) => {
+    const nextBurn = burns[i + 1]?.[0] ?? Infinity;
+    const charge = charges.filter((t) => t > end && t <= nextBurn).sort((a, b) => a - b)[0];
+    if (charge != null) out.push([end, charge]);
+  });
+  return out;
+}
+
+/**
+ * One puff of a smoke trail: where on the arc it was left, when, by which
+ * burn, and whether by its delay grain rather than the motor's propellant.
+ */
+export interface SmokePuff {
+  pos: THREE.Vector3;
+  time: number;
+  burn: number;
+  delay: boolean;
+}
+
+/**
+ * The smoke trail's puffs: one per sample inside a burn window or a delay
+ * window (the delay grain's thin tracking smoke, left by the burn before it),
+ * thinned evenly
+ * to at most `max` so a long burn at a fine time step costs no more to draw
+ * than a short one. Where each lies and when it was left is all a frame needs;
+ * how far it has spread and faded by then follows from its age.
+ *
+ * Each is set `tail` scene units back along the path from the sample, so it
+ * leaves the nozzle rather than the middle of the model the sample places.
+ *
+ * A puff closer than `gap` scene units to the last one is left out: off the
+ * pad the rocket has barely moved between samples, and puffs left by time
+ * alone pile up there into one bright ball.
+ */
+export function smokePuffs(
+  scene: Pick<FlightScene, 'scenePts' | 'times' | 'boostWindows'> & Partial<Pick<FlightScene, 'delayWindows'>>,
+  max: number,
+  tail = 0,
+  gap = 0,
+): SmokePuff[] {
+  const { scenePts, times, boostWindows: burns, delayWindows: delays = [] } = scene;
+  /** The burn a sample's smoke belongs to, and whether it is the delay grain's. */
+  const smokeAt = (t: number): { burn: number; delay: boolean } | null => {
+    const burn = burnAt(t, burns);
+    if (burn >= 0) return { burn, delay: false };
+    const d = delays.findIndex(([a, b]) => t >= a && t < b);
+    if (d < 0) return null;
+    // The burn whose burnout opened this delay window.
+    const opened = burns.findIndex(([, end]) => end === delays[d]![0]);
+    return { burn: Math.max(0, opened), delay: true };
+  };
+  const inBurn: number[] = [];
+  for (let i = 0; i < times.length; i++) if (smokeAt(times[i]!)) inBurn.push(i);
+  const step = Math.max(1, inBurn.length / max);
+  const out: SmokePuff[] = [];
+  const dir = new THREE.Vector3();
+  for (let k = 0; k < inBurn.length && out.length < max; k += step) {
+    const i = inBurn[Math.floor(k)]!;
+    const prev = scenePts[Math.max(0, i - 1)]!;
+    const next = scenePts[Math.min(scenePts.length - 1, i + 1)]!;
+    dir.subVectors(next, prev);
+    // On the pad the path has no direction yet; the rocket stands straight up.
+    if (dir.lengthSq() < 1e-12) dir.set(0, 1, 0);
+    const pos = scenePts[i]!.clone().addScaledVector(dir.normalize(), -tail);
+    // Near the pad the model is lifted to stand on the ground, and so is its nozzle.
+    pos.y = Math.max(pos.y, 0);
+    const last = out[out.length - 1];
+    if (last && last.pos.distanceTo(pos) < gap) continue;
+    out.push({ pos, time: times[i]!, ...smokeAt(times[i]!)! });
+  }
+  return out;
+}
 
 /** Boost / coast / descent arc colors, from Settings. */
 export type PhaseColors = { boost: string; coast: string; descent: string };
@@ -70,6 +159,8 @@ export interface FlightScene {
    * outside every window, so the boost color and the flame follow each burn.
    */
   boostWindows: [number, number][];
+  /** The delay grains' burns, each from a burnout to its ejection charge (`delayWindows`). */
+  delayWindows: [number, number][];
   times: number[];
   alts: number[];
   vels: number[];
@@ -169,6 +260,7 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
     apogeeIdx: ai,
     deployT: dpT,
     boostWindows: burns,
+    delayWindows: delayWindows(result.events, burns),
     times: rows.map((r) => r.t),
     alts: rows.map((r) => r.a),
     vels: rows.map((r) => r.v),

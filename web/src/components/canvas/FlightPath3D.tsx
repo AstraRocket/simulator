@@ -6,6 +6,7 @@ import { OrbitControls, Line, Html } from '@react-three/drei';
 import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import type { Piece } from './rocketPieces';
 import { LookMaterial, surfacesOf } from './LookMaterial';
+import { RoomReflections } from './RoomReflections';
 import { usePieces } from './usePieces';
 import { mergePalette } from '../../services/design/partColors';
 import { useSettings } from '../../state/SettingsProvider';
@@ -14,13 +15,16 @@ import { useUnits } from '../../prefs/useUnits';
 import { EVENT_LABEL } from '../../services/flight/simReport';
 import {
   buildFlightScene,
+  burnAt,
   findRecovery,
   indexForProgress,
-  isBoosting,
   modelPoseAt,
   newModelPose,
+  smokePuffs,
   type FlightScene,
+  type SmokePuff,
 } from './flightScene';
+import { DEFAULT_EXHAUST, DELAY_SMOKE, type Exhaust } from '../../services/motors/exhaust';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { FlightGroundMap } from './FlightGroundMap';
 import { TILE_SOURCES, type TileSourceId } from '../../services/map/slippyMap';
@@ -38,7 +42,8 @@ import { smallButton } from '../common/smallButton';
  * 3D flight path. Draws the real trajectory (Px/Py drift × altitude) as a
  * phase-colored arc over a ground plane, with the actual design model flying
  * along it (buildPieces): sitting on the pad at launch, nose-along-velocity
- * during boost/coast (with a layered motor flame), then hanging under its
+ * during boost/coast (with a motor flame and smoke trail in the look of each
+ * burn's propellant), then hanging under its
  * actual recovery device (parachute sized to its real diameter, or a streamer,
  * or nothing) on descent. Event callouts, a live HUD, and play · scrub · speed
  * transport.
@@ -56,6 +61,8 @@ const MODEL_LEN = 1.6; // scene units the rocket model is scaled to; kept small 
 const PLAY_SECONDS = 8; // wall-clock length of a full 1× playback (time-based, so boost isn't slow)
 /** How often the frame loop hands React a progress sample for the HUD/slider. */
 const HUD_INTERVAL_MS = 100;
+/** The most smoke puffs a trail draws, however long and finely sampled the burns. */
+const MAX_PUFFS = 700;
 
 /**
  * How far past the flight's own reach the ground map extends.
@@ -72,12 +79,18 @@ export function FlightPath3D({
   result,
   tree,
   motors,
+  exhausts,
   latitudeDeg,
   longitudeDeg,
 }: {
   result: FlightResult;
   tree: RocketTree;
   motors?: MotorDims;
+  /**
+   * Each burn's exhaust, in the order the burns happen (`burnExhausts`). A
+   * burn past the end of the list takes the last; none at all, the default.
+   */
+  exhausts?: readonly Exhaust[];
   /** The site this flight was flown from; null only if it was never filled in. */
   latitudeDeg?: number | null;
   longitudeDeg?: number | null;
@@ -107,7 +120,7 @@ export function FlightPath3D({
   const ground = useGroundLayer(site !== null);
   // Scene objects the frame loop mutates directly.
   const modelRef = useRef<THREE.Group>(null);
-  const flameRef = useRef<THREE.Group>(null);
+  const flameRefs = useRef<(THREE.Group | null)[]>([]);
   const recoveryRef = useRef<THREE.Group>(null);
   const trailRef = useRef<ComponentRef<typeof Line>>(null);
   // Stable, so React attaches it once rather than re-running it (and hiding
@@ -122,6 +135,12 @@ export function FlightPath3D({
   const recovery = useMemo(() => findRecovery(tree, palette), [tree, palette]);
 
   const scene = useMemo(() => buildFlightScene(result, phase), [result, phase]);
+  const looks = useMemo(() => (exhausts?.length ? exhausts : [DEFAULT_EXHAUST]), [exhausts]);
+  // A fresh puff is a little wider than the rocket. From the nozzle (the model
+  // is centered on its point of the path), and at least half a puff apart, so
+  // the slow first moments off the pad do not stack into one bright ball.
+  const puffStart = Math.max(Math.max(maxR, 0.005) * modelScale * 3, 0.08);
+  const puffs = useMemo(() => smokePuffs(scene, MAX_PUFFS, MODEL_LEN / 2, puffStart / 2), [scene, puffStart]);
   const { colors, scenePts, apogeeIdx, times, alts, vels, callouts } = scene;
   const n = scenePts.length;
 
@@ -223,7 +242,11 @@ export function FlightPath3D({
 
   return (
     <div className="relative h-full overflow-hidden rounded-xl bg-canvas ring-1 ring-line/10">
-      <Canvas camera={{ position: [34, 22, 34], fov: 42 }} gl={{ preserveDrawingBuffer: true }}>
+      {/* Neutral tone mapping, as the 3D model: ACES turns a lit saturated blue purple. */}
+      <Canvas
+        camera={{ position: [34, 22, 34], fov: 42 }}
+        gl={{ preserveDrawingBuffer: true, toneMapping: THREE.NeutralToneMapping }}
+      >
         <hemisphereLight args={[sceneInk['scene-sky'], sceneInk['scene-ground'], 1.5]} />
         <directionalLight position={[14, 26, 16]} intensity={1.7} />
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -252,9 +275,11 @@ export function FlightPath3D({
             with visible=false is never drawn, whatever the loop later sets on
             the object. */}
         <Line ref={attachTrail} points={scenePts} vertexColors={colors} lineWidth={3} />
-        <Marker pos={scenePts[0]!} color={sceneInk['scene-marker']} />
+        {/* The pad and the landing lie on the ground as rings, so neither is a
+            ball half sunk into it beside the rocket; apogee, in the air, is a ball. */}
+        <GroundRing pos={scenePts[0]!} color={sceneInk['scene-marker']} />
         {idx >= apogeeIdx && <Marker pos={scenePts[apogeeIdx]!} color={phase.coast} />}
-        {idx >= n - 1 && <Marker pos={scenePts[n - 1]!} color={phase.descent} />}
+        {idx >= n - 1 && <GroundRing pos={scenePts[n - 1]!} color={phase.descent} />}
 
         {shownCallouts.map((c) => (
           // Keyed by identity, not array index: the filtered list grows as the
@@ -279,14 +304,19 @@ export function FlightPath3D({
           </Html>
         ))}
 
-        <FlyingModel
-          groupRef={modelRef}
-          flameRef={flameRef}
-          pieces={pieces}
-          totalLen={totalLen}
-          maxR={maxR}
-          modelScale={modelScale}
-        />
+        <Smoke scene={scene} puffs={puffs} looks={looks} progressRef={progressRef} start={puffStart} />
+        {/* The same finish as the design view's model, reflections and all. */}
+        <RoomReflections>
+          <FlyingModel
+            groupRef={modelRef}
+            flameRefs={flameRefs}
+            looks={looks}
+            pieces={pieces}
+            totalLen={totalLen}
+            maxR={maxR}
+            modelScale={modelScale}
+          />
+        </RoomReflections>
 
         {/* The recovery device hangs from the nose; the loop places this group
             there and shows it once the flight is descending. */}
@@ -315,7 +345,8 @@ export function FlightPath3D({
           loop={loop}
           progressRef={progressRef}
           modelRef={modelRef}
-          flameRef={flameRef}
+          flameRefs={flameRefs}
+          lookCount={looks.length}
           recoveryRef={recoveryRef}
           trailRef={trailRef}
           follow={follow}
@@ -454,7 +485,8 @@ function Playback({
   loop,
   progressRef,
   modelRef,
-  flameRef,
+  flameRefs,
+  lookCount,
   recoveryRef,
   trailRef,
   follow,
@@ -470,7 +502,8 @@ function Playback({
   loop: boolean;
   progressRef: RefObject<number>;
   modelRef: RefObject<THREE.Group | null>;
-  flameRef: RefObject<THREE.Group | null>;
+  flameRefs: RefObject<(THREE.Group | null)[]>;
+  lookCount: number;
   recoveryRef: RefObject<THREE.Group | null>;
   trailRef: RefObject<ComponentRef<typeof Line> | null>;
   follow: boolean;
@@ -514,7 +547,14 @@ function Playback({
       model.position.copy(pose.position);
       model.quaternion.copy(pose.quaternion);
     }
-    if (flameRef.current) flameRef.current.visible = isBoosting(nowT, burns);
+    // The flame of the burn under way, if one is: one flame per look, lit in turn.
+    // Not on the pad: the first burn opens at t = 0, which is also the rocket
+    // sitting there before launch.
+    const burn = p > 0 ? burnAt(nowT, burns) : -1;
+    const lit = burn < 0 ? -1 : Math.min(burn, lookCount - 1);
+    flameRefs.current.forEach((g, i) => {
+      if (g) g.visible = i === lit;
+    });
     const rec = recoveryRef.current;
     if (rec) {
       rec.visible = descending;
@@ -573,19 +613,21 @@ function Playback({
 /**
  * The actual design model, flying along the path. Memoized: its parent
  * re-renders on every HUD tick, and this is the one subtree with a mesh per
- * piece. The frame loop moves it through `groupRef` and lights the flame
- * through `flameRef`.
+ * piece. The frame loop moves it through `groupRef` and lights the flame of
+ * the burn under way through `flameRefs`, one per look.
  */
 const FlyingModel = memo(function FlyingModel({
   groupRef,
-  flameRef,
+  flameRefs,
+  looks,
   pieces,
   totalLen,
   maxR,
   modelScale,
 }: {
   groupRef: RefObject<THREE.Group | null>;
-  flameRef: RefObject<THREE.Group | null>;
+  flameRefs: RefObject<(THREE.Group | null)[]>;
+  looks: readonly Exhaust[];
   pieces: Piece[];
   totalLen: number;
   maxR: number;
@@ -609,28 +651,38 @@ const FlyingModel = memo(function FlyingModel({
             ))}
           </mesh>
         ))}
-        <group ref={flameRef} visible={false}>
-          <Flame len={totalLen} r={maxR} />
-        </group>
+        {looks.map((look, i) => (
+          <group
+            key={i}
+            ref={(g) => {
+              flameRefs.current[i] = g;
+            }}
+            visible={false}
+          >
+            <Flame len={totalLen} r={maxR} look={look} />
+          </group>
+        ))}
       </group>
     </group>
   );
 });
 
 /** Rocket-blast flame: the cone's POINT sits at the nozzle and it flares wide below,
- *  hottest (white) at the tip, orange out at the flared base. Vertex-colored along the
- *  local +X (trailing) axis so its orientation is fixed by construction. */
-function Flame({ len, r }: { len: number; r: number }) {
+ *  hottest at the tip, the look's edge color out at the flared base. Vertex-colored
+ *  along the local +X (trailing) axis so its orientation is fixed by construction.
+ *  A sparky look throws sparks out behind it. */
+function Flame({ len, r, look }: { len: number; r: number; look: Exhaust }) {
   const ref = useRef<THREE.Mesh>(null);
+  const [c0, c1, c2] = look.flame;
   const geo = useMemo(() => {
     const H = r * 5.5;
     const g = new THREE.ConeGeometry(r * 0.95, H, 24, 1, true); // open cone, apex +Y, base −Y
     g.rotateZ(Math.PI / 2); // apex → −X, base → +X
     g.translate(H / 2, 0, 0); // apex (point) at origin/nozzle, base (wide) at +X (trailing)
     const pos = g.attributes.position!;
-    const hot = new THREE.Color('#fff4cf'),
-      mid = new THREE.Color('#ffb020'),
-      edge = new THREE.Color('#ff4d10');
+    const hot = new THREE.Color(c0),
+      mid = new THREE.Color(c1),
+      edge = new THREE.Color(c2);
     const col: number[] = [];
     for (let i = 0; i < pos.count; i++) {
       const u = THREE.MathUtils.clamp(pos.getX(i) / H, 0, 1); // 0 at nozzle-point → 1 at flared base
@@ -639,7 +691,7 @@ function Flame({ len, r }: { len: number; r: number }) {
     }
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     return g;
-  }, [r]);
+  }, [r, c0, c1, c2]);
   useEffect(() => () => geo.dispose(), [geo]);
   useFrame(({ clock }) => {
     if (ref.current)
@@ -650,18 +702,209 @@ function Flame({ len, r }: { len: number; r: number }) {
       );
   });
   return (
-    <mesh ref={ref} geometry={geo} position={[len, 0, 0]}>
-      <meshBasicMaterial
-        vertexColors
-        transparent
-        opacity={0.9}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group position={[len, 0, 0]}>
+      <mesh ref={ref} geometry={geo}>
+        <meshBasicMaterial
+          vertexColors
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {look.sparks && <Sparks r={r} color={c0} />}
+    </group>
   );
 }
+
+const SPARKS = 180;
+/** What a spark cools to as it flies out: a dull orange ember. */
+const EMBER = new THREE.Color('#ff7a1a');
+
+/**
+ * A shower of sparks behind the nozzle, in the flame's local frame (+X
+ * trailing): a long, wide spray, each spark leaving white-hot in the flame's
+ * own color and cooling to an orange ember that fades out. Each runs its own
+ * lap from the nozzle out at its own speed, and the laps are staggered so the
+ * shower is steady; a spark keeps its own line lap after lap. Additive, so a
+ * cooled spark dimmed toward black simply fades.
+ */
+function Sparks({ r, color }: { r: number; color: string }) {
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: SPARKS }, (_, i) => {
+        const a = (i * 2.399963) % (Math.PI * 2);
+        const k = ((i * 0.618034) % 1) * 0.85 + 0.15;
+        // Some sparks fly far and fast, most stay closer in.
+        const far = 0.45 + ((i * 0.7548777) % 1) * 0.55;
+        return { phase: (i * 0.137) % 1, dy: Math.cos(a) * k, dz: Math.sin(a) * k, rate: 1.1 + ((i * 0.37) % 1), far };
+      }),
+    [],
+  );
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SPARKS * 3), 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(SPARKS * 3), 3));
+    return g;
+  }, []);
+  useEffect(() => () => geo.dispose(), [geo]);
+  const hot = useMemo(() => new THREE.Color(color), [color]);
+  const c = useMemo(() => new THREE.Color(), []);
+  // Through the ref, as Flame scales its mesh: the frame loop writes the
+  // object three.js draws, not a value React handed it.
+  const ref = useRef<THREE.Points>(null);
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const { attributes } = ref.current.geometry;
+    const pos = attributes.position as THREE.BufferAttribute;
+    const col = attributes.color as THREE.BufferAttribute;
+    const reach = r * 26;
+    seeds.forEach((s, i) => {
+      const u = (clock.elapsedTime * s.rate + s.phase) % 1;
+      // Out fast, then slowing as it spreads, like a spark shed into the air.
+      const out = 1 - (1 - u) * (1 - u);
+      const spread = r * (0.5 + out * 7 * s.far);
+      pos.setXYZ(i, out * reach * s.far, s.dy * spread, s.dz * spread);
+      c.copy(hot)
+        .lerp(EMBER, Math.min(1, u * 1.6))
+        .multiplyScalar((1 - u) * (1 - u));
+      col.setXYZ(i, c.r, c.g, c.b);
+    });
+    pos.needsUpdate = true;
+    col.needsUpdate = true;
+  });
+  return (
+    <points ref={ref} geometry={geo}>
+      <pointsMaterial
+        vertexColors
+        size={0.09}
+        sizeAttenuation
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+const SMOKE_VERTEX = `
+attribute float aSize;
+attribute float aAlpha;
+attribute vec3 aColor;
+uniform float uScale;
+varying float vAlpha;
+varying vec3 vColor;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = aSize * uScale / -mv.z;
+  vAlpha = aAlpha;
+  vColor = aColor;
+}`;
+const SMOKE_FRAGMENT = `
+varying float vAlpha;
+varying vec3 vColor;
+void main() {
+  float d = length(gl_PointCoord - 0.5) * 2.0;
+  if (d > 1.0) discard;
+  gl_FragColor = vec4(vColor, vAlpha * (1.0 - d * d));
+  #include <colorspace_fragment>
+}`;
+
+/**
+ * The smoke trail the burns leave: a soft puff wherever the rocket was while
+ * a motor burned, each growing, rising and thinning with its age, in its
+ * burn's look, then the delay grain's thinner, paler trail up to the ejection
+ * charge (`DELAY_SMOKE`). Stateless per frame: a puff's size and opacity follow from how
+ * long ago it was left, so scrubbing back puts the trail back exactly.
+ *
+ * The fade runs on a fraction of the flight's own length rather than real
+ * seconds, so a five-second hop and a two-minute flight both show their trail
+ * while it matters to the picture.
+ */
+/** A puff's smoke: its burn's look, or the delay grain's trail. */
+const smokeOf = (p: SmokePuff, looks: readonly Exhaust[]) =>
+  p.delay ? DELAY_SMOKE : looks[Math.min(p.burn, looks.length - 1)]!;
+
+const Smoke = memo(function Smoke({
+  scene,
+  puffs,
+  looks,
+  progressRef,
+  start,
+}: {
+  scene: FlightScene;
+  puffs: readonly SmokePuff[];
+  looks: readonly Exhaust[];
+  progressRef: RefObject<number>;
+  /** A fresh puff's size in scene units; an old one grows to a few times that. */
+  start: number;
+}) {
+  const n = puffs.length;
+  const { geo, material } = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const color = new Float32Array(n * 3);
+    puffs.forEach((p, i) => {
+      const c = new THREE.Color(smokeOf(p, looks).smokeColor);
+      color.set([c.r, c.g, c.b], i * 3);
+    });
+    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute('aColor', new THREE.Float32BufferAttribute(color, 3));
+    g.setAttribute('aSize', new THREE.Float32BufferAttribute(new Float32Array(n), 1));
+    g.setAttribute('aAlpha', new THREE.Float32BufferAttribute(new Float32Array(n), 1));
+    const m = new THREE.ShaderMaterial({
+      vertexShader: SMOKE_VERTEX,
+      fragmentShader: SMOKE_FRAGMENT,
+      uniforms: { uScale: { value: 1 } },
+      transparent: true,
+      depthWrite: false,
+    });
+    return { geo: g, material: m };
+  }, [puffs, looks, n]);
+  useEffect(
+    () => () => {
+      geo.dispose();
+      material.dispose();
+    },
+    [geo, material],
+  );
+
+  const life = Math.max(3, (scene.times[scene.times.length - 1] ?? 0) * 0.35);
+  const ref = useRef<THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>>(null);
+  useFrame(({ camera, size, viewport }) => {
+    const points = ref.current;
+    if (!points) return;
+    const { times } = scene;
+    const nowT = times[indexForProgress(times, progressRef.current)] ?? 0;
+    const { attributes } = points.geometry;
+    const pos = attributes.position as THREE.BufferAttribute;
+    const sz = attributes.aSize as THREE.BufferAttribute;
+    const al = attributes.aAlpha as THREE.BufferAttribute;
+    for (let i = 0; i < puffs.length; i++) {
+      const p = puffs[i]!;
+      const age = nowT - p.time;
+      // Not yet left, or left this instant: a puff from t = 0 would otherwise
+      // hang round the rocket's base while it still sits on the pad.
+      if (age <= 0) {
+        al.setX(i, 0);
+        continue;
+      }
+      const u = age / life;
+      pos.setXYZ(i, p.pos.x, p.pos.y + u * 1.2, p.pos.z);
+      // A delay grain's trail is a thin thread beside the motor's plume.
+      sz.setX(i, start * (p.delay ? 0.45 : 1) * (1 + 3 * Math.sqrt(u)));
+      al.setX(i, smokeOf(p, looks).smoke * Math.exp(-3 * u));
+    }
+    pos.needsUpdate = true;
+    sz.needsUpdate = true;
+    al.needsUpdate = true;
+    // World size to pixels at unit depth, for the shader's attenuation.
+    points.material.uniforms.uScale!.value = (size.height * viewport.dpr * camera.projectionMatrix.elements[5]) / 2;
+  });
+  if (!n) return null;
+  return <points ref={ref} geometry={geo} material={material} frustumCulled={false} />;
+});
 
 /** Canopy (hemisphere) + shroud lines, sized to the real chute diameter.
  *  Local origin = the attachment point (the nose); the canopy sits `drop` above. */
@@ -715,6 +958,21 @@ function Streamer({ length, width, color }: { length: number; width: number; col
         <meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={0.8} metalness={0} />
       </mesh>
     </group>
+  );
+}
+
+/**
+ * A place on the ground, the pad or the landing: a flat ring lying on it,
+ * wide enough to circle the rocket standing there. Just above the ground and
+ * the map, so neither hides it; drawn from both sides, so it shows from below
+ * the horizon too.
+ */
+function GroundRing({ pos, color }: { pos: THREE.Vector3; color: string }) {
+  return (
+    <mesh position={[pos.x, 0.03, pos.z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[0.32, 0.42, 48]} />
+      <meshBasicMaterial color={color} transparent opacity={0.85} side={THREE.DoubleSide} depthWrite={false} />
+    </mesh>
   );
 }
 

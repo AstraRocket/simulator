@@ -26,6 +26,8 @@ import { errorText } from '../../i18n/keyedError';
 import { ToolDivider, ViewBtn } from './ViewBtn';
 import { Segmented } from '../common/Segmented';
 import { SvgExportButton } from './SvgExportButton';
+import { RoomReflections } from './RoomReflections';
+import { keyLight, LightBall, MovableKeyLight, ViewLight } from './MovableKeyLight';
 
 /** The camera presets, in the 2D view's order. */
 const CAMERA_VIEWS = ['side', 'aft'] as const;
@@ -150,7 +152,12 @@ export function Rocket3D({
     setPreset(which);
     moveCam(which === 'side' ? sidePos : aftPos);
   };
-  const resetView = () => moveCam(preset === 'side' ? sidePos : aftPos);
+  // Where the key light shines from; a right-drag swings it (MovableKeyLight).
+  const [lamp] = useState(keyLight);
+  const resetView = () => {
+    lamp.reset();
+    moveCam(preset === 'side' ? sidePos : aftPos);
+  };
 
   // The camera presets go where the 2D view has its own, left in the header
   // row; the rest goes in the row's middle, as the 2D view's tools do. The
@@ -240,26 +247,32 @@ export function Rocket3D({
         // localClippingEnabled is what lets a material carry its own clipping
         // plane (the cutaway); without it three.js honors only the renderer's
         // global planes and the toggle does nothing.
-        gl={{ preserveDrawingBuffer: true, localClippingEnabled: true }}
+        // Neutral rather than r3f's default ACES: ACES pushes a bright,
+        // saturated paint off its hue (a lit blue tube turns purple), and a
+        // part should read as the color it was given.
+        gl={{ preserveDrawingBuffer: true, localClippingEnabled: true, toneMapping: THREE.NeutralToneMapping }}
         onCreated={(state) => {
           r3f.current = { gl: state.gl, scene: state.scene, camera: state.camera, setFrameloop: state.setFrameloop };
         }}
       >
         {/* Soft studio setup: warm-neutral key, cool fill, low rim; subtle,
-            no shadows or environment maps. */}
+            no shadows. The parts also reflect a studio room (RoomReflections),
+            each as much as its shine says. */}
         <ambientLight intensity={0.55} />
-        <directionalLight position={[1.5, 2.5, 2]} intensity={0.95} color={scene['scene-light-key']} />
-        <directionalLight position={[-2, 0.5, -1]} intensity={0.45} color={scene['scene-light-fill']} />
-        <directionalLight position={[-0.5, -1.5, -2.5]} intensity={0.35} />
+        <MovableKeyLight light={lamp} intensity={0.95} color={scene['scene-light-key']} />
+        <ViewLight from={[-2, 0.5, -1]} intensity={0.45} color={scene['scene-light-fill']} />
+        <ViewLight from={[-0.5, -1.5, -2.5]} intensity={0.35} />
         <Bounds fit clip observe margin={1.1}>
           <group>
-            <RocketModel
-              pieces={pieces}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              clip={cutaway ? clipPlane : null}
-              mode={mode}
-            />
+            <RoomReflections>
+              <RocketModel
+                pieces={pieces}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                clip={cutaway ? clipPlane : null}
+                mode={mode}
+              />
+            </RoomReflections>
             {/* CG/CP sit on the rocket axis (inside the shell), so they must
               render on TOP (depthTest off, high renderOrder) to be visible,
               exactly like the 2D markers. `transparent` puts them in the
@@ -292,10 +305,15 @@ export function Rocket3D({
           target={[center, 0, 0]}
           enableDamping
           dampingFactor={0.1}
+          // The right button moves the light (MovableKeyLight), as on desktop;
+          // Shift- or Ctrl-drag still pans, and so do two fingers.
+          mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY }}
           minDistance={camDist * 0.12}
           maxDistance={camDist * 5}
         />
       </Canvas>
+      {/* Where the light is, while it is dragged: over the canvas, bottom right. */}
+      <LightBall light={lamp} className="absolute bottom-7 right-2" />
       <p style={{ fontSize: 11, color: token('ink-muted'), margin: '4px 0 0', textAlign: 'center' }}>
         {t('view.dragHint')}
         {showMarkers && (

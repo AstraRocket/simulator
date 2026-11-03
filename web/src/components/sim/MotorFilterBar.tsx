@@ -2,7 +2,14 @@ import { useMemo, useState } from 'react';
 import { loadHideOop, saveHideOop } from './motorPrefs';
 import { useTranslation } from 'react-i18next';
 import { withUnit } from '../../i18n/format';
-import { filterMotors, allClasses, allManufacturers, type CatalogMotor } from '../../services/motors/motorDb';
+import {
+  filterMotors,
+  allClasses,
+  allManufacturers,
+  SPARKY_CHOICES,
+  type CatalogMotor,
+  type SparkyChoice,
+} from '../../services/motors/motorDb';
 import { STD_DIAMS, MAX_IDX, fitIdx, type MountFit } from '../../services/motors/motorPicker';
 import { useUnits } from '../../prefs/useUnits';
 import { RangeSlider } from './RangeSlider';
@@ -75,6 +82,7 @@ export function useMotorFilter(
   const [imp, setImp] = useState<ImpulseRange>([null, null]);
   const [perf, setPerfAll] = useState<PerfRanges>({});
   const [plugged, setPlugged] = useState(false);
+  const [sparky, setSparky] = useState<SparkyChoice>('any');
   const mount = init.mount ?? null;
   const perfFields = init.perfFields ?? PERF_FIELDS;
   /** The slider stop the mount can take, and the ceiling the box pulls down to. */
@@ -152,6 +160,7 @@ export function useMotorFilter(
         perfFields,
         fit,
         plugged,
+        sparky,
         hideOop,
         hide: hideUsed ? used : undefined,
       }),
@@ -168,6 +177,7 @@ export function useMotorFilter(
       perfFields,
       fit,
       plugged,
+      sparky,
       hideOop,
       hideUsed,
       used,
@@ -191,6 +201,8 @@ export function useMotorFilter(
     clearPerf: () => setPerfAll({}),
     plugged,
     setPlugged,
+    sparky,
+    setSparky,
     hideOop,
     setHideOop,
     hideUsed,
@@ -480,6 +492,31 @@ export function PluggedFilter({ plugged, onChange }: { plugged: boolean; onChang
   const { t } = useTranslation();
   return (
     <FilterCheck label={t('motorDlg.plugged')} hint={t('motorDlg.pluggedHint')} on={plugged} onChange={onChange} />
+  );
+}
+
+/**
+ * Sparky motors only, none of them, or every motor. A choice of three rather
+ * than a box, because leaving sparky motors out (a field's fire rules) is asked
+ * as often as finding them.
+ */
+export function SparkyFilter({ value, onChange }: { value: SparkyChoice; onChange: (v: SparkyChoice) => void }) {
+  const { t } = useTranslation();
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-ink-soft" title={t('motorDlg.sparkyFilterHint')}>
+      {t('motorDlg.sparkyFilter')}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as SparkyChoice)}
+        className="rounded-md bg-raised px-1.5 py-0.5 text-xs text-ink ring-1 ring-line/10"
+      >
+        {SPARKY_CHOICES.map((c) => (
+          <option key={c} value={c}>
+            {t(`motorDlg.sparky_${c}`)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

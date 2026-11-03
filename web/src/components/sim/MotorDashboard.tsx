@@ -12,6 +12,7 @@ import {
   PerfFilters,
   ManufacturerMenu,
   PluggedFilter,
+  SparkyFilter,
   OopFilter,
   useMotorFilter,
 } from './MotorFilterBar';
@@ -72,6 +73,8 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
     clearPerf,
     plugged,
     setPlugged,
+    sparky,
+    setSparky,
     classes,
     manufacturers,
     matches: filtered,
@@ -159,6 +162,7 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
                 letters. */}
             <ImpulseRange imp={imp} onChange={setImp} />
             <PluggedFilter plugged={plugged} onChange={setPlugged} />
+            <SparkyFilter value={sparky} onChange={setSparky} />
             <OopFilter on={hideOop} onChange={setHideOop} />
           </div>
           <div className="px-3 pb-2">

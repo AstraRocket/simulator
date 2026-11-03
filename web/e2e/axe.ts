@@ -50,6 +50,7 @@ export const TOOL: Record<Tool, string> = {
   chute: 'Parachute sizing',
   flutter: 'Fin flutter',
   ejection: 'Ejection charge',
+  exhaust: 'Exhaust looks',
 };
 
 /** Press a toggle button by its exact name and wait for it to report pressed. */

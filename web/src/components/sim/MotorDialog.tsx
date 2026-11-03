@@ -26,6 +26,7 @@ import {
   PerfFilters,
   ManufacturerMenu,
   PluggedFilter,
+  SparkyFilter,
   OopFilter,
   UsedFilter,
   useMotorFilter,
@@ -184,6 +185,8 @@ export function MotorDialog({
     clearPerf,
     plugged,
     setPlugged,
+    sparky,
+    setSparky,
     fits,
     setFits,
     mount: fitMount,
@@ -356,6 +359,7 @@ export function MotorDialog({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {fitMount && <FitsMount mount={fitMount} fits={fits} onChange={setFits} />}
               <PluggedFilter plugged={plugged} onChange={setPlugged} />
+              <SparkyFilter value={sparky} onChange={setSparky} />
               <OopFilter on={hideOop} onChange={setHideOop} />
               {usedKeys.size > 0 && <UsedFilter on={hideUsed} onChange={setHideUsed} />}
             </div>

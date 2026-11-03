@@ -72,6 +72,7 @@ describe('color tokens', () => {
       'components/report/ExportDialog.tsx': "the print template fill's default, a user-chosen color",
       'components/canvas/FlightPath3D.tsx': "the motor flame and the parachute's lines: the rocket's own colors",
       'components/canvas/RocketModel.tsx': 'black emission, which is no glow at all',
+      'services/motors/exhaust.ts': "each propellant's flame and smoke: the motor's own colors",
       'components/canvas/sceneColors.ts': 'what a scene token reads as where no stylesheet is loaded',
       'components/canvas/aeroTables.ts': 'text on a cell whose shade is computed from its value',
       'services/app/helpSearch.ts': 'a search highlight inside the docs frame, which has its own stylesheet',
