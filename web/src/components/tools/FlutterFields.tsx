@@ -4,7 +4,7 @@ import { unitScope } from '../../prefs/units';
 import { fmtNum } from '../../i18n/format';
 import { FIN_MATERIALS, FLUTTER_MARGIN, type FlutterVerdict } from '../../services/flight/finFlutter';
 import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { FieldLabel } from '../common/FieldMark';
 import { useScopedUnit } from '../common/UnitChip';
 

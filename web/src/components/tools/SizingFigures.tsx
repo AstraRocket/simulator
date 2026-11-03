@@ -4,7 +4,7 @@ import { fmtNum, fmtUpTo, withUnit } from '../../i18n/format';
 import { useScopedUnit } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import {
   canopyDiameter,
   canopyRoundUp,

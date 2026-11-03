@@ -4,7 +4,7 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { useSettings } from '../../state/SettingsProvider';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { SiteElevationField, SiteTemperatureField } from './SiteFields';
 import { CardGroup } from '../common/CardGroup';
 import { NO_VALUE } from '../../i18n/noValue';

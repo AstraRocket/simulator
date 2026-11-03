@@ -247,7 +247,10 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
       <Blanks labels={[t('launchDocs.pad'), t('launchDocs.rso')]} />
       {/* The Results tab's "Before you fly", word for word, less its lead line,
           which says these figures are not a flight card. */}
-      <section aria-label={t('sim.safetyTitle')} className="border-t border-line/15 pt-2 text-xs leading-snug text-ink-soft">
+      <section
+        aria-label={t('sim.safetyTitle')}
+        className="border-t border-line/15 pt-2 text-xs leading-snug text-ink-soft"
+      >
         <h3 className="mb-1 font-semibold uppercase tracking-wide text-ink">
           <span aria-hidden>⚠ </span>
           {t('sim.safetyTitle')}

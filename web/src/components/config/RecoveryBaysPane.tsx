@@ -24,7 +24,7 @@ import {
   type PinSource,
   type TestResult,
 } from '../../services/flight/recoveryBays';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { NumberRow } from '../common/NumberRow';
 import { FieldLabel } from '../common/FieldMark';
 import { CardGroup } from '../common/CardGroup';

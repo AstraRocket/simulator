@@ -2,7 +2,7 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { blackPowderMass, DEFAULT_BAY_PRESSURE_PA } from '../../services/flight/ejectionCharge';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { CardGroup } from '../common/CardGroup';
 import { NumberRow } from '../common/NumberRow';
 import { EjectionFigures } from './EjectionFigures';

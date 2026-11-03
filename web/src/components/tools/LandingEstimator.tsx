@@ -7,7 +7,7 @@ import { todayYmd } from '../../services/weather/openMeteo';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { runLandingEstimate, type LandingRun } from '../../services/landing/landingEstimate';
 import type { DescentPlan } from '../../services/landing/descentDrift';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { LandingMap } from '../common/map/LandingMap';
 import { SiteFields, type ToolSite } from './SiteFields';
 import { WhenFields } from '../sim/WhenFields';

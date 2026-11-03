@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { parseEntry } from '../../prefs/entryValue';
 import { trimFloatNoise } from '../../services/app/numbers';
 
@@ -131,16 +131,19 @@ export function NumberInput({
     onCommit?.();
   };
   const input = useRef<HTMLInputElement>(null);
+  // An Effect Event, so the unmount cleanup below calls it without listing
+  // `report` (a new function every render) as a dependency of the mount effect.
+  const flushOnUnmount = useEffectEvent((el: HTMLInputElement) => {
+    report(el, latest.current);
+    latest.current.onCommit?.();
+  });
   useEffect(() => {
     // Taken now: React has detached the ref by the time the cleanup runs.
     const el = input.current;
     return () => {
       if (!el || !(edited.current || sawBadInput.current)) return;
-      report(el, latest.current);
-      latest.current.onCommit?.();
+      flushOnUnmount(el);
     };
-    // `report` reads only refs and its arguments.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <input

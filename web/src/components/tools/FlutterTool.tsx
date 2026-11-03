@@ -2,7 +2,7 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { flutterSpeed, flutterVerdict } from '../../services/flight/finFlutter';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { CardGroup } from '../common/CardGroup';
 import { SiteElevationField } from './SiteFields';
 import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from './FlutterFields';

@@ -129,6 +129,24 @@ export default tseslint.config(
         'error',
         { controlComponents: ['NumberInput', 'NumberWithUnit'], depth: 3 },
       ],
+      // The rest stay on, and a site that breaks one disables it in place,
+      // with its reason after `--`. These are the cases that do, worded the
+      // same at every site so a search finds the set:
+      //
+      // - Roving tabindex (menus, the component tree): the ARIA menu and tree
+      //   patterns move focus to the items, so the container is no tab stop.
+      // - A focusable crosshair or map (charts, site map): arrow keys drive it,
+      //   and no widget role fits, so it is a named group with a tab stop.
+      // - The pane splitter: ARIA 1.2 makes a focusable separator a widget
+      //   (the window splitter pattern); the rule treats every one as static.
+      // - A dialog panel's click: it only stops a backdrop click, whose
+      //   keyboard twin is Escape in the focus trap.
+      // - Link text from `<Trans>`: filled from the translation at run time.
+      // - A scrolling pane with little to focus: it needs its own tab stop so
+      //   the keyboard can scroll it.
+      // - Enter caught on a form wrapper as it bubbles up from the fields.
+      //
+      // A new disable that fits none of these deserves a second look first.
     },
   },
   {

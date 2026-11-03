@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import {
   TILE_SIZE,
@@ -160,6 +160,13 @@ export function FlightGroundMap({
     texes: {},
   });
 
+  // The tile callbacks are reports, not inputs. As Effect Events they always
+  // call the parent's latest callback without being dependencies of the load
+  // effect, so an unmemoized callback from the parent does not re-fetch every
+  // tile on every HUD tick.
+  const reportTileLoad = useEffectEvent(() => onTileLoad?.());
+  const reportTileError = useEffectEvent(() => onTileError?.());
+
   useEffect(() => {
     const loader = new THREE.TextureLoader();
     // Without this the canvas is tainted and the image export stops working.
@@ -182,7 +189,7 @@ export function FlightGroundMap({
           tex.generateMipmaps = false;
           tex.minFilter = THREE.LinearFilter;
           mine.push(tex);
-          onTileLoad?.();
+          reportTileLoad();
           setLoaded((prev) => ({
             of: layer,
             texes: prev.of === layer ? { ...prev.texes, [ref.key]: tex } : { [ref.key]: tex },
@@ -192,7 +199,7 @@ export function FlightGroundMap({
         () => {
           // The view decides whether this is a hole in the coverage or no
           // network, so it can stop claiming a layer it does not have.
-          if (live) onTileError?.();
+          if (live) reportTileError();
         },
       );
     }
@@ -201,10 +208,6 @@ export function FlightGroundMap({
       live = false;
       for (const tex of mine) tex.dispose();
     };
-    // The tile callbacks are left out on purpose: they are reports, not inputs, and
-    // an unmemoized callback from the parent would re-fetch every tile on every
-    // HUD tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layer]);
 
   return (

@@ -7,7 +7,7 @@ import { LocationPicker } from '../sim/LocationPicker';
 import { loadSettings } from '../../services/storage/settings';
 import { defaultToolSite } from './remembered';
 import { SiteMapDialog } from '../sim/SiteMapDialog';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { LatLonRows } from '../sim/LatLonRows';
 import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { smallButton } from '../common/smallButton';

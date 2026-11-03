@@ -2,7 +2,7 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { siteAirDensity } from '../../services/flight/recoverySizing';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { SizingFigures } from './SizingFigures';
 import { CardGroup } from '../common/CardGroup';
 import { SiteElevationField, SiteTemperatureField } from './SiteFields';
