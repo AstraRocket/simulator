@@ -4,11 +4,6 @@ import { fireEvent, screen } from '@testing-library/react';
 import { SettingsDialog } from '../../../src/components/layout/SettingsDialog';
 import { readSettings, renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * A color in Settings is written when the picker closes, not on every drag tick:
- * each tick would write the whole settings object to storage, dozens of writes
- * per gesture.
- */
 describe('Settings colors', () => {
   beforeEach(() => localStorage.clear());
 

@@ -12,16 +12,6 @@ import {
   type RocketTree,
 } from '../../src/engine/openRocketEngine';
 
-/**
- * The typed facade over the TeaVM kernel (WASM or JS).
- *
- * This is the one boundary where JS numbers become physics inputs, so a dropped
- * `?? default` in an options block would change every simulation. These tests
- * stub the engine so they assert what the facade hands the kernel, not what the
- * kernel computes.
- */
-
-/** Records every call so a test can inspect the JSON the facade built. */
 function stub() {
   const calls: Record<string, unknown[][]> = {};
   const rec =
@@ -69,9 +59,6 @@ const design = () => OpenRocketDesign.buildTree({ components: [] } as unknown as
 
 describe('assertFiniteCurve: the motor curve', () => {
   it('names the motor when a sample is non-finite', () => {
-    // TeaVM reports this as an opaque "number NaN cannot be converted to a
-    // BigInt" from deep inside the compiled Java. The point of the guard is a
-    // message that says which motor.
     for (const bad of [{ masses: [0.024, NaN, 0.012] }, { thrusts: [0, NaN, 0] }, { times: [0, NaN, 2] }]) {
       expect(() => design().setMotorById('mount', motor(bad))).toThrow(/C6/);
     }
@@ -83,9 +70,6 @@ describe('assertFiniteCurve: the motor curve', () => {
 });
 
 describe('assertFiniteCurve: the scalars', () => {
-  // These cross into the kernel too. thrustcurve.ts computes
-  // `length: motor.length / 1000` and `cgX: … ?? motor.length / 2000`, so a
-  // catalog row missing `length` makes both NaN.
   it.each([
     ['diameter', 'errors.motorCurve.whatDiameter'],
     ['length', 'errors.motorCurve.whatLength'],
@@ -113,8 +97,7 @@ describe('assertFiniteCurve: the scalars', () => {
 
 describe('toKernelDelay', () => {
   it('maps the stored plugged sentinel to the kernel Infinity', () => {
-    // Infinity cannot survive JSON (localStorage and the motor cache turn it to
-    // null), so the app stores a finite sentinel and maps it back only here.
+    // Infinity does not survive JSON, so the app stores a finite sentinel.
     design().setMotorById('mount', motor({ ejectionDelay: PLUGGED_DELAY }));
     const args = s.calls.setMotorById![0]!;
     expect(args[args.length - 1]).toBe(Infinity);
@@ -142,7 +125,7 @@ describe('aeroSweep options', () => {
   });
 
   it('passes a zero through instead of substituting the default', () => {
-    // `??`, not `||`: a caller asking for machMin 0 means 0.
+    // `??`, not `||`.
     design().aeroSweep({ machMin: 0, aoaDeg: 0, machMax: 1 });
     const sent = JSON.parse(s.calls.getAeroSweep![0]![1] as string);
     expect(sent.machMin).toBe(0);
@@ -162,10 +145,6 @@ describe('error envelopes', () => {
   });
 
   it('throws rather than handing back an error object shaped like a mass list', () => {
-    // Cast straight to `ComponentMass[]`, a failure would come back as
-    // `{error: "..."}` claiming to be an array, and blow up later in whichever
-    // caller first called `.map` on it, with the kernel's message already
-    // discarded.
     __setEngineForTests({
       ...s.api,
       getComponentMasses: () => JSON.stringify({ error: 'no configuration selected' }),
@@ -206,13 +185,11 @@ describe('assertFiniteCurve: the curve is read in lockstep', () => {
 describe('a design does not outlive the engine that built it', () => {
   it('refuses every accessor by name once the engine has been reset', async () => {
     const d = design();
-    expect(() => d.staticInfo()).not.toThrow(); // fine while its generation stands
+    expect(() => d.staticInfo()).not.toThrow();
 
     const { resetEngine, StaleDesignError } = await import('../../src/engine/openRocketEngine');
     resetEngine();
 
-    // Typed and named, before the call crosses into TeaVM: the kernel would
-    // also reject it, but only as an opaque message from inside the bundle.
     expect(() => d.staticInfo()).toThrow(StaleDesignError);
     expect(() => d.componentMasses()).toThrow(/reset/i);
     expect(() => d.aeroSweep()).toThrow(/reset/i);
@@ -227,7 +204,7 @@ describe('a design does not outlive the engine that built it', () => {
 
   it('treats swapping the engine as a reset, since the handles mean nothing to it', () => {
     const d = design();
-    __setEngineForTests({ ...s.api }); // a different engine object
+    __setEngineForTests({ ...s.api });
     expect(() => d.staticInfo()).toThrow(/reset/i);
   });
 });
@@ -244,12 +221,10 @@ describe('simulate() sanitizes the named series at the boundary', () => {
       });
     __setEngineForTests({ ...s.api, simulateJson } as never);
     const r = OpenRocketDesign.buildTree({ components: [] } as unknown as RocketTree).simulate();
-    // Numbers, so no consumer typed against number[] can throw on them, and
-    // `Number.isFinite` (which the chart and the 3D scene apply) filters them.
+    // NaN, not null, so number[] consumers stay safe and `Number.isFinite` filters it.
     expect(r.series.altitude).toEqual([0, NaN, 5]);
     expect(r.series.stability).toEqual([NaN, 1.2, 1.3]);
     expect(r.series.time).toEqual([0, 1, 2]);
-    // The symbol-keyed extras keep their declared (number | null)[].
     expect(r.series['Pl']).toEqual([null, 2]);
     expect(r.branches![0]!.series.velocity).toEqual([NaN]);
   });
@@ -275,12 +250,11 @@ describe('backendPref', () => {
     expect(backendPref()).toBe('auto');
     store.set(ENGINE_PREF_KEY, 'js');
     expect(backendPref()).toBe('js');
-    // Built from the app's one storage prefix, not spelled out.
     expect(ENGINE_PREF_KEY).toBe(nsKey('engine'));
     expect(ENGINE_PREF_KEY.startsWith(`${STORAGE_PREFIX}:`)).toBe(true);
     vi.stubGlobal('location', { search: '?engine=wasm' });
     expect(backendPref()).toBe('wasm');
     vi.stubGlobal('location', { search: '?engine=bogus' });
-    expect(backendPref()).toBe('js'); // unknown query value: fall through to storage
+    expect(backendPref()).toBe('js');
   });
 });

@@ -2,17 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { axialFrameOf, rebasePosition, rebaseTabOffset } from '../../src/tree/axialRebase';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 
-/**
- * A new position reference keeps the part where it is, as the kernel's
- * `RocketComponent.setAxialMethod` and `FinSet.setTabOffsetMethod` do.
- */
+// Mirrors `RocketComponent.setAxialMethod` and `FinSet.setTabOffsetMethod`.
 describe('rebasePosition', () => {
   const tube = { start: 0.1, length: 0.3 };
 
   it('moves a ring at top 20 mm to the matching bottom offset', () => {
     const p = rebasePosition({ method: 'top', offset: 0.02 }, 'bottom', 0.01, tube);
     expect(p.method).toBe('bottom');
-    // Leading edge 20 mm down a 300 mm tube, 10 mm long: 270 mm short of the end.
     expect(p.offset).toBeCloseTo(-0.27, 12);
   });
 
@@ -21,7 +17,6 @@ describe('rebasePosition', () => {
     let p = rebasePosition(start, 'middle', 0.02, tube);
     expect(p.offset).toBeCloseTo(0.05 + (0.02 - 0.3) / 2, 12);
     p = rebasePosition(p, 'absolute', 0.02, tube);
-    // Rocket frame: the tube's own start plus the leading edge.
     expect(p.offset).toBeCloseTo(0.15, 12);
     p = rebasePosition(p, 'bottom', 0.02, tube);
     p = rebasePosition(p, 'top', 0.02, tube);
@@ -39,7 +34,6 @@ describe('rebaseTabOffset', () => {
     ({ id: 'f', type: 'trapezoidfinset', rootChord: 0.06, tabLength: 0.02, ...extra }) as unknown as ComponentNode;
 
   it('reads an unset method as the middle, the kernel default', () => {
-    // Centered 20 mm tab on a 60 mm root: its front edge is 20 mm from the root's front.
     const top = rebaseTabOffset(fin({ tabOffset: 0 }), 'top');
     expect(top.tabOffsetMethod).toBe('top');
     expect(top.tabOffset as number).toBeCloseTo(0.02, 12);
@@ -54,8 +48,7 @@ describe('rebaseTabOffset', () => {
   });
 
   it('reads and writes an after or absolute tab as AxialMethod does', () => {
-    // AFTER: getAsPosition = outerLength + offset, getAsOffset = position - outerLength.
-    // ABSOLUTE: both are the identity. outerLength is the 60 mm root.
+    // AFTER: getAsPosition = outerLength + offset; ABSOLUTE: identity.
     const fromAfter = rebaseTabOffset(fin({ tabOffsetMethod: 'after', tabOffset: 0.01 }), 'top');
     expect(fromAfter.tabOffset as number).toBeCloseTo(0.06 + 0.01, 12);
     const toAfter = rebaseTabOffset(fin({ tabOffsetMethod: 'top', tabOffset: 0.07 }), 'after');

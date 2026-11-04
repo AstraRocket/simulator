@@ -4,7 +4,6 @@ import { screen } from '@testing-library/react';
 import { SizingFigures } from '../../../src/components/tools/SizingFigures';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/** Each unit chip in the card names the figure it belongs to, so no two read the same. */
 describe('SizingFigures unit chips', () => {
   it('gives every chip a distinct name', () => {
     renderWithProviders(<SizingFigures massKg={1} cd={0.8} rho={1.225} diameterM={0.6} />);
@@ -17,7 +16,6 @@ describe('SizingFigures unit chips', () => {
   });
 });
 
-/** The rate reads green inside the main or drogue band and amber anywhere else. */
 describe('SizingFigures rate tone', () => {
   const FT_S = 0.3048;
   const toneAt = (rateFtS: number) => {

@@ -10,12 +10,6 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 import { flownMotor } from '../../../scripts/lib/digestRank.mjs';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
-
-/**
- * The digest sync ranks desktop's entries against what the app flies, so its
- * figures for a row have to be the kernel's for the curve the picker seats:
- * the row's first curve, finalized as the app finalizes it.
- */
 const CATALOG = JSON.parse(
   readFileSync(join(__dirname, '../../../public/data/motors.generated.json'), 'utf8'),
 ) as CatalogMotor[];

@@ -4,22 +4,11 @@ import type { Cdx1Writer } from './units';
 import { bodyTubeRadius, num, numOpt, str } from '../../../tree/nodeProps';
 import { partLength } from '../../../tree/position';
 import { nodeShape, outerProfile, profileEnds } from '../../../tree/shapeProfile';
-import { finPlanformPoints } from '../../../tree/finPlanform';
+import { finPlanformArea, finPlanformPoints } from '../../../tree/finPlanform';
 import { isPlanarFinSet } from '../../../tree/tubefins';
 import { walkNodes } from '../../../tree/treeWalk';
 
-/**
- * Surface and airfoil mapping: our finish ids and airfoil-section ids to the
- * strings RASAero's global <Surface> and per-fin <AirfoilSection> accept.
- */
-
-/**
- * Our airfoilSection ids → RASAero's supersonic airfoil strings.
- *
- * Both tables here are Maps, not plain objects: the id and the finish are
- * free text a file carried, and `constructor` on a plain object would resolve
- * to an Object.prototype member and write a function's source into the file.
- */
+// Maps, not plain objects: free-text keys like `constructor` would hit Object.prototype.
 export const SECTION_TO_AIRFOIL: ReadonlyMap<string, string> = new Map(
   Object.entries({
     doublewedge: 'Double Wedge',
@@ -31,15 +20,7 @@ export const SECTION_TO_AIRFOIL: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-/**
- * Our finish ids (the .ork spelling: ExternalComponent.Finish lowercased) to
- * RASAero's global surface strings, transcribed from the desktop's
- * RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SURFACE, in ExternalComponent
- * .Finish order. `polished` shares Polished and `rough` Cast Iron, the nearest
- * RASAero roughnesses, as desktop maps them. A finish with no row (text a file
- * carried) takes {@link RASAERO_SURFACE_DEFAULT} with a warning, as the
- * table's `else` branch does.
- */
+// Must stay in ExternalComponent.Finish order: designSurface's tie-break depends on it.
 const FINISH_TO_SURFACE: ReadonlyMap<string, string> = new Map(
   Object.entries({
     rough: 'Cast Iron (Very Rough)',
@@ -55,26 +36,17 @@ const FINISH_TO_SURFACE: ReadonlyMap<string, string> = new Map(
 );
 export const RASAERO_SURFACE_DEFAULT = 'Smooth (Zero Roughness)';
 
-/** The warning the desktop raises when a finish has no RASAero row. */
 export const RASAERO_SURFACE_WARNING: Keyed = { key: 'errors.exportRasaeroSurface' };
 
-/** The RASAero surface for a finish id, with the desktop's warning when it has no row. */
 export function rasaeroSurface(finish: string): { surface: string; warning?: Keyed } {
   const surface = FINISH_TO_SURFACE.get(finish);
   if (surface) return { surface };
   return { surface: RASAERO_SURFACE_DEFAULT, warning: RASAERO_SURFACE_WARNING };
 }
 
-/** Profile samples per nose cone or transition for its wetted area. */
 const WET_AREA_STEPS = 128;
 
-/**
- * The outside area (m^2) a part puts in the air, as desktop weighs finishes:
- * a nose cone, tube or transition's lateral surface
- * (`SymmetricComponent.getComponentWetArea`), and both faces of every fin of
- * a planar fin set (`2 * getPlanformArea() * getFinCount()`). Null for any
- * other part.
- */
+/** m^2, as `SymmetricComponent.getComponentWetArea` and fins' `2 * getPlanformArea() * getFinCount()`. */
 function wetArea(node: ComponentNode): number | null {
   if (node.type === 'bodytube') return 2 * Math.PI * bodyTubeRadius(node) * partLength(node);
   if (node.type === 'nosecone' || node.type === 'transition') {
@@ -99,26 +71,12 @@ function wetArea(node: ComponentNode): number | null {
     return area;
   }
   if (isPlanarFinSet(node.type)) {
-    const pts = finPlanformPoints(node) ?? [];
-    let twice = 0;
-    for (let i = 0; i < pts.length; i++) {
-      const [x0, y0] = pts[i]!;
-      const [x1, y1] = pts[(i + 1) % pts.length]!;
-      twice += x0 * y1 - x1 * y0;
-    }
-    return Math.abs(twice) * num(node, 'finCount', 3);
+    return 2 * finPlanformArea(finPlanformPoints(node) ?? []) * num(node, 'finCount', 3);
   }
   return null;
 }
 
-/**
- * Global surface: RASAero has one finish for the whole rocket, so the finish
- * of most of its wetted area, as desktop's RocketDesignDTO.getPredominantFinish
- * picks it, with a warning when the parts carry several. A tie goes to the
- * finish first in ExternalComponent.Finish order, as desktop's EnumMap has
- * it. A part with no finish key has the kernel's default, NORMAL. A rocket
- * with no outside surface keeps RASAero's default, as desktop leaves it.
- */
+/** As RocketDesignDTO.getPredominantFinish; ties go to the first in Finish order, as desktop's EnumMap iterates. */
 export function designSurface(w: Cdx1Writer, stagesIn: ComponentNode[]): string {
   const areas = new Map<string, number>();
   for (const n of walkNodes(stagesIn)) {

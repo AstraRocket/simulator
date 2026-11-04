@@ -4,11 +4,6 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { partLabel } from '../../../src/i18n/format';
 import i18n from '../../../src/i18n';
 
-/**
- * The side view's hover tag and `<title>` name a part as every view does
- * (`partLabel`): a cleared Name field writes `name: ''`, and a blank or
- * whitespace name falls back to the translated type rather than an empty tag.
- */
 describe('the side view names a part', () => {
   const extentName = (name: string | undefined) => {
     const tube = { type: 'bodytube', id: 'b', length: 0.3, outerRadius: 0.025, name } as unknown as ComponentNode;

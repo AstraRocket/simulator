@@ -9,11 +9,7 @@ import { DesignPropertiesDialog } from './DesignPropertiesDialog';
 import { ExamplesDialog } from './ExamplesDialog';
 import { AboutDialog } from './AboutDialog';
 import { UpdateCheckDialog } from './UpdateCheckDialog';
-// Lazily loaded: it is the only eager holder of `services/report/reportModel`,
-// which `saveOrk` (fileSlice) already imports dynamically to keep the report model
-// out of the main bundle. One static import from a dialog this host mounts
-// eagerly pins the module and everything under it, and the build says so
-// (INEFFECTIVE_DYNAMIC_IMPORT). Nothing needs the report until it is opened.
+// Lazy: a static import would pin reportModel into the main bundle (INEFFECTIVE_DYNAMIC_IMPORT).
 const ExportDialog = lazyNamed(() => import('../report/ExportDialog'), 'ExportDialog');
 import { PrintExportDialog } from '../report/PrintExportDialog';
 import { HelpDialog } from './HelpDialog';
@@ -26,18 +22,6 @@ import { MyMaterialsDialog } from '../design/MyMaterialsDialog';
 import { BackupDialog } from './BackupDialog';
 import { useHelpStore } from '../../state/helpStore';
 import type { HeaderDialog } from './dialogKeys';
-
-/**
- * The header's dialog host: the open flag of every dialog the bar and its
- * menu can raise, and the block that mounts each one only while it is open.
- * `useHeaderDialogs()` returns the opener plus the element to render.
- *
- * Help is the one exception to the flag list. It is raised from all over the
- * app (the Safety card in the results panel, and anything else that wants to
- * open help on its own topic), so which page it is showing lives in
- * {@link useHelpStore} instead, and it is mounted here only because the header
- * is where the app-wide dialogs already are.
- */
 
 type OpenFlags = Record<HeaderDialog, boolean>;
 
@@ -66,23 +50,18 @@ export function useHeaderDialogs() {
   return { open, dialogs: <HeaderDialogs flags={flags} onClose={close} /> };
 }
 
-/* Mounted only while open: a closed dialog must run no effects
-   (MotorDashboard would fetch the motor catalog) and keep no state. */
+// Mounted only while open: a closed dialog must run no effects and keep no state.
 function HeaderDialogs({ flags, onClose }: { flags: OpenFlags; onClose: (id: HeaderDialog) => void }) {
   const { t } = useTranslation();
   const helpPage = useHelpStore((s) => s.page);
   const closeHelp = useHelpStore((s) => s.closeHelp);
   const saveDesignAs = useWorkspaceStore((s) => s.saveDesignAs);
   const designs = useWorkspaceStore((s) => s.designs);
-  // Save As offers the name every export carries: the rocket's own, else the
-  // imported file's, else the default.
   const designName = useWorkspaceStore(selectDesignName);
 
   return (
     <>
       {flags.motors && <MotorDashboard onClose={() => onClose('motors')} />}
-      {/* No fallback rather than an empty modal frame: a dialog that arrives a
-          beat late reads better than one that flashes a shell first. */}
       {flags.report && (
         <LazyBoundary fallback={null}>
           <ExportDialog onClose={() => onClose('report')} />
@@ -91,10 +70,7 @@ function HeaderDialogs({ flags, onClose }: { flags: OpenFlags; onClose: (id: Hea
       {flags.about && <AboutDialog onClose={() => onClose('about')} />}
       {flags.updates && <UpdateCheckDialog onClose={() => onClose('updates')} />}
       {flags.privacy && <PrivacyDialog onClose={() => onClose('privacy')} />}
-      {/* '' is the docs index, so the null check is not a truthiness check.
-          Keyed on the page so that opening Help again on a different topic
-          starts it over rather than leaving the previous page's back stack
-          behind it. */}
+      {/* '' is the docs index, so not a truthiness check. */}
       {helpPage !== null && <HelpDialog key={helpPage} page={helpPage} onClose={closeHelp} />}
       {flags.settings && <SettingsDialog onClose={() => onClose('settings')} />}
       {flags.library && <DesignLibraryDialog onClose={() => onClose('library')} />}

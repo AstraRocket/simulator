@@ -6,27 +6,6 @@ import { uuid } from '../../app/uuid';
 import type { OrkTreeExportInput } from '../orkTypes';
 import type { OrkWriteConfig, OrkWriter } from './exportWriter';
 
-/**
- * Flight configurations on the way out: which configurations a save writes
- * (and which is the default), the rocket-level <motorconfiguration> table, and
- * the per-mount <motormount> block that lists each configuration's motor and
- * ignition settings.
- */
-
-/**
- * The configurations to write, and which of them is the file's default.
- *
- * What the app holds, written as it stands: a design has flight configurations
- * (services/flight/flightConfigs.ts), and each one carries its own motors. A design
- * with none at all (a `.rkt` on its way out, or a rocket with no mounts) gets
- * one unnamed configuration minted here, because every `<motormount>` block
- * keys its motors by a `configid` and the file has to declare one for them.
- *
- * A configuration that overrides no deployment writes `null`, which the device
- * writers read as "recovers the way the design says" - the bare tags each device
- * already carries. One that overrides something writes its own block, whether or
- * not it is the default.
- */
 export function resolveWriteConfigs(input: Pick<OrkTreeExportInput, 'configs' | 'activeConfigId'>): {
   writeConfigs: OrkWriteConfig[];
   defaultId: string;
@@ -48,14 +27,11 @@ export function resolveWriteConfigs(input: Pick<OrkTreeExportInput, 'configs' | 
   return { writeConfigs, defaultId };
 }
 
-/** The rocket-level <motorconfiguration> declarations, one per write config. */
 export function motorConfigurationsXml(w: OrkWriter, depth: number, stageIds: (string | undefined)[]): void {
   for (const c of w.writeConfigs) {
     w.emit(depth, `<motorconfiguration configid="${escapeXml(c.id)}"${c.id === w.defaultId ? ' default="true"' : ''}>`);
     if (c.name !== null) w.emit(depth + 1, `<name>${escapeXml(c.name)}</name>`);
-    // One flag per stage, in the kernel's own numbering (see treeEdit.findStages,
-    // which is the walk this list comes from). A grounded stage says so here;
-    // that is the whole of what stage activeness is in the file.
+    // Kernel stage numbering (treeEdit.findStages).
     stageIds.forEach((id, i) => {
       const active = !(id && c.grounded.includes(id));
       w.emit(depth + 1, `<stage number="${i}" active="${active}"/>`);
@@ -64,19 +40,16 @@ export function motorConfigurationsXml(w: OrkWriter, depth: number, stageIds: (s
   }
 }
 
-/** The write-configs that hold a motor for this mount, in write order. */
 export function mountConfigs(w: OrkWriter, nodeId: string | undefined): OrkWriteConfig[] {
   return nodeId ? w.writeConfigs.filter((c) => c.motors[nodeId]) : [];
 }
 
-// Configs may all be empty here: a mount with no motor loaded still writes
-// <motormount> so the mount flag survives the round trip (desktop same).
+// A mount with no motor still writes <motormount> so the flag round-trips (as desktop does).
 export function motorMountXml(w: OrkWriter, depth: number, mount: ComponentNode): void {
   const { emit } = w;
   const nodeId = mount.id;
   const withMotor = mountConfigs(w, nodeId);
-  // Bare: the mount's own ignition, as RocketComponentSaver writes
-  // `getDefaultMotorConfig()`. Each configuration's motor writes its own below.
+  // The mount's own ignition, as RocketComponentSaver writes `getDefaultMotorConfig()`.
   const bare = mountIgnition(mount);
   emit(depth, '<motormount>');
   emit(depth + 1, `<ignitionevent>${escapeXml(bare.ignitionEvent ?? 'automatic')}</ignitionevent>`);
@@ -85,21 +58,14 @@ export function motorMountXml(w: OrkWriter, depth: number, mount: ComponentNode)
   for (const c of withMotor) {
     const m = c.motors[nodeId!]!;
     emit(depth + 1, `<motor configid="${escapeXml(c.id)}">`);
-    // No <type>. MotorHandler filters the database by it, so a reload or
-    // hybrid motor written as 'single' is found under no type at all; left out,
-    // the type is null and filters nothing, as desktop leaves it for a motor
-    // whose type it does not know.
-    // None when the motor names no maker: desktop's findMotors filters on a
-    // maker only when the file gives one, and a made-up one matches nothing.
+    // No <type>: MotorHandler filters by it, and a wrong one finds nothing.
+    // No <manufacturer> when unknown: findMotors filters on it, and a made-up one matches nothing.
     if (m.manufacturer) emit(depth + 2, `<manufacturer>${escapeXml(m.manufacturer)}</manufacturer>`);
-    // Between manufacturer and designation, where the desktop writes it. Which
-    // of its database entries this motor is: without it a name shared by
-    // several resolves to whichever comes first, with a warning saying so.
+    // Without the digest a shared designation resolves to the first database match.
     if (m.digest) emit(depth + 2, `<digest>${escapeXml(m.digest)}</digest>`);
     emit(depth + 2, `<designation>${escapeXml(m.designation)}</designation>`);
     emit(depth + 2, `<diameter>${m.diameter}</diameter>`);
     emit(depth + 2, `<length>${m.length}</length>`);
-    // Plugged (no ejection charge) → the desktop's literal "none".
     emit(depth + 2, `<delay>${m.delay >= PLUGGED_DELAY ? 'none' : m.delay}</delay>`);
     emit(depth + 1, '</motor>');
   }

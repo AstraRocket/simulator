@@ -6,17 +6,6 @@ import { loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * `canHost` is what the Add menu offers and where a paste may land, so it has to
- * be the kernel's `isCompatible`, pair for pair. A looser rule offers a part the
- * kernel refuses to build ("not currently compatible"); a tighter one refuses
- * what desktop writes. Every pair is built through the real engine and the
- * answer compared, rather than trusting a table that says it mirrors the Java.
- *
- * `fairing` is left out: it has no default node to build from, and the bridge
- * builds it as a mass component, whose row this already checks.
- */
-
 const TYPES: ComponentType[] = [
   'nosecone',
   'bodytube',
@@ -43,12 +32,10 @@ const TYPES: ComponentType[] = [
 const node = (type: ComponentType, id: string, children: ComponentNode[] = []): ComponentNode =>
   ({ ...defaultNode(type), id, children }) as ComponentNode;
 
-/** A design with `child` directly inside a `parent`, the parent placed where it may sit. */
 function design(parent: ComponentType | 'stage', child: ComponentType): unknown {
   const kid = node(child, 'kid');
   if (parent === 'stage') return { components: [node('stage' as ComponentType, 'st', [kid])] };
   const host = node(parent, 'host', [kid]);
-  // Axial parts sit in the stage; everything else inside a body tube.
   const inStage = parent === 'nosecone' || parent === 'bodytube' || parent === 'transition';
   const chain = inStage ? [host] : [node('bodytube', 'tube', [host])];
   return { components: [node('stage' as ComponentType, 'st', chain)] };
@@ -65,8 +52,6 @@ describe('canHost', () => {
         try {
           engine.buildRocket(JSON.stringify(design(parent, child)));
         } catch (e) {
-          // Only the compatibility refusal counts; anything else is a build
-          // problem with a default part, not an answer to this question.
           if (/not currently compatible/.test(String(e))) kernel = false;
         }
         if (kernel !== canHost(parent, child)) wrong.push(`${child} in ${parent}: kernel ${kernel}`);

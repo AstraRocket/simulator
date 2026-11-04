@@ -5,14 +5,8 @@ import i18n, { LANGUAGES, localeBackend } from '../../src/i18n';
 import en from '../../src/i18n/locales/en.json';
 import de from '../../src/i18n/locales/de.json';
 
-/**
- * Only English ships in the app's own chunk; every other locale is fetched when
- * it is the language in use. The test setup registers every bundle up front
- * (tests/testing/allLocales.ts), so these read the module's imports and its
- * backend rather than the shared instance's store.
- */
+// Test setup registers every bundle up front, so these read the module's imports, not the store.
 describe('locale loading', () => {
-  // A static import puts the bundle in the app's chunk, and the worker's.
   it('imports only English statically', () => {
     const source = readFileSync(new URL('../../src/i18n/index.ts', import.meta.url), 'utf8');
     const statics = [...source.matchAll(/^import\s[^;]*?from\s+'(\.\/locales\/[^']+)'/gm)].map((m) => m[1]);

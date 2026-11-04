@@ -16,17 +16,6 @@ import { kernelGeometry, loadEngine, walkTree } from '../../testing/kernelGeomet
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The panel's bounds on a rail button's and a centering ring's linked
- * dimensions, against the kernel that flies them.
- *
- * Each case types a value into one field the way the panel does (clamped by
- * that field's declared bounds), builds the resulting part in the kernel, and
- * reads it back: every linked dimension has to come back as the panel holds it.
- * Without the bounds, or with the bridge setting the heights in an order that
- * clamps against the constructor's, the kernel flies a different part.
- */
-
 /* eslint-disable @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped */
 let engine: any;
 beforeAll(async () => {
@@ -39,7 +28,6 @@ const field = (type: string, key: string) => {
   return f;
 };
 
-/** Type `v` into the field the way the panel stores it. */
 const typeInto = (node: ComponentNode, key: string, v: number): ComponentNode => ({
   ...node,
   [key]: clampToBounds(node, field(node.type, key).bounds, v),
@@ -75,7 +63,6 @@ const button = (o: object): ComponentNode =>
     ...o,
   }) as unknown as ComponentNode;
 
-/** The button's linked dimensions as the panel holds them, and as the kernel flies them. */
 const held = (node: ComponentNode) => ({
   outerDiameter: node['outerDiameter'],
   innerDiameter: node['innerDiameter'],
@@ -108,9 +95,7 @@ describe('rail button bounds against the kernel', () => {
   });
 
   it.each([
-    // Both under the constructor's 2 mm base and flange.
     ['a height under the constructor base and flange', { height: 0.003, baseHeight: 0, flangeHeight: 0 }],
-    // A base past the constructor's height minus its flange.
     ['a base past the constructor room for it', { height: 0.01, baseHeight: 0.009, flangeHeight: 0.0005 }],
   ])('builds heights that agree exactly: %s', (_name, o) => {
     const node = button(o);
@@ -184,10 +169,7 @@ ${inner}
   };
 
   it('loads a rail button through the setters, in the order the desktop runs them', () => {
-    // Height under the constructor's base and flange, a bore wider than the
-    // button and a base taller than the height: desktop raises the height to
-    // 4 mm, cuts the bore to the outside and the base to the room the flange
-    // leaves.
+    // Desktop raises the height to 4 mm, cuts the bore to the outside and the base to the room the flange leaves.
     const node = imported(
       `<railbutton><name>RB</name><outerdiameter>0.008</outerdiameter><innerdiameter>0.012</innerdiameter>
 <height>0.003</height><baseheight>0.005</baseheight><flangeheight>0.001</flangeheight></railbutton>`,
@@ -201,7 +183,6 @@ ${inner}
       flangeHeight: 0.001,
     });
     expect(want).toMatchObject({ innerDiameter: 0.008, height: 0.004, baseHeight: 0.002, flangeHeight: 0.001 });
-    // A value equal to the kernel default is left off the node and flies as that default.
     const dims = Object.fromEntries(
       (['outerDiameter', 'innerDiameter', 'height', 'baseHeight', 'flangeHeight'] as const).map((k) => [
         k,
@@ -215,9 +196,7 @@ ${inner}
   });
 
   it('keeps an automatic ring outer radius at the bore when the inner radius is past it, as the kernel flies it', () => {
-    // The bridge sets the radii before the part has a parent, then turns the
-    // outer radius back to automatic: the outer follows the 29 mm bore and the
-    // inner keeps the 40 mm the file states.
+    // The bridge sets radii before parenting, then re-autos the outer: it follows the bore, the inner keeps 40 mm.
     const tree = syncAutoRadii(
       importOrk(
         ork(

@@ -7,26 +7,9 @@ import { findCatalogMotor, type CatalogMotor } from '../../../src/services/motor
 import { __setEngineForTests, OpenRocketDesign } from '../../../src/engine/openRocketEngine';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/**
- * Every bundled example, flown through the real kernel.
- *
- * These files are not ours: they come from OpenRocket via
- * `scripts/sync-examples.mjs`, which also strips each one's stored flight data
- * (96% of the bytes). Two things can go wrong silently: the strip can damage a
- * design, and an upstream bump can bring in an example using something the
- * importer does not handle.
- *
- * So the whole set is imported and built here, and the motors are resolved
- * against the committed catalog: an example that imports but cannot fly looks
- * complete and is not.
- *
- * The real engine makes this one of the slower files in the suite (~2 s for all
- * sixteen).
- */
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-// vitest runs with `web/` as its root, so the repo paths hang off cwd;
-// `import.meta.url` is not a file: URL under the jsdom environment.
+// `import.meta.url` is not a file: URL under jsdom, so paths hang off cwd (`web/`).
 const PUBLIC = resolve(process.cwd(), 'public');
 const EXAMPLES = join(PUBLIC, 'examples');
 
@@ -43,7 +26,7 @@ const index: { source: { repo: string; ref: string }; examples: Entry[] } = JSON
 );
 const catalog: CatalogMotor[] = JSON.parse(readFileSync(join(PUBLIC, 'data/motors.generated.json'), 'utf8'));
 
-/** The file's bytes as a fresh ArrayBuffer (not a view into node's pooled Buffer). */
+// A fresh ArrayBuffer, not a view into node's pooled Buffer.
 function read(file: string): ArrayBuffer {
   const b = readFileSync(join(EXAMPLES, file));
   return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
@@ -55,8 +38,6 @@ beforeAll(async () => {
 
 describe('the bundled examples index', () => {
   it('is pinned to the same upstream the engine was extracted from', () => {
-    // An example from a different commit could demonstrate something this
-    // kernel does not have. extract/UPSTREAM is the one source of that ref.
     const upstream = readFileSync(resolve(process.cwd(), '../engine-java/extract/UPSTREAM'), 'utf8');
     expect(index.source.ref).toBe(upstream.match(/^ref\s*=\s*(\S+)/m)?.[1]);
   });
@@ -74,10 +55,6 @@ describe('the bundled examples index', () => {
   });
 
   it('keeps the whole set small enough to precache', () => {
-    // These are precached (vite.config.ts globPatterns includes `ork`), so the
-    // set's size is paid by every install. It is ~340 kB stripped; this is the
-    // tripwire for an upstream bump that quietly brings back the flight data or
-    // adds a photo-heavy design.
     const total = index.examples.reduce((n, e) => n + e.bytes, 0);
     expect(total).toBeLessThan(1_500_000);
   });
@@ -87,7 +64,6 @@ describe.each(index.examples.map((e) => [e.name, e] as const))('example: %s', (_
   it('imports, builds and has a flyable motor', () => {
     const res = importOrk(read(e.file));
 
-    // Nothing in the file was beyond the importer.
     expect([...(res.ignored ?? [])]).toEqual([]);
     expect(res.tree.components.length).toBeGreaterThan(0);
 
@@ -102,8 +78,6 @@ describe.each(index.examples.map((e) => [e.name, e] as const))('example: %s', (_
       expect(v, key).toBeGreaterThan(0);
     }
 
-    // An example whose motor is not in the catalog imports fine and then
-    // refuses to run, which is the worst of both: it looks complete and is not.
     const motors = Object.values(res.motors ?? {});
     expect(motors.length, 'no motor in the file').toBeGreaterThan(0);
     for (const m of motors) {

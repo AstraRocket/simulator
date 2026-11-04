@@ -1,23 +1,5 @@
 #!/usr/bin/env node
-/**
- * Runs the end-to-end suite one section at a time (SECTIONS in
- * lib/e2eSectionList.mjs), reports each section as it finishes, and ends with the
- * whole run in one table and every failure listed. After the Playwright
- * sections come the STEPS, the offline and update checks, which make their own
- * builds; each reports the same way.
- *
- *   npm run e2e:sections                        every section and step
- *   npm run e2e:sections -- --skip a11y         all but the axe scans
- *   npm run e2e:sections -- --skip update       all but the update flow check
- *   npm run e2e:sections -- --only aero,motors  just those
- *   npm run e2e:sections -- --list              the sections and their specs
- *
- * Anything after a bare `--` goes to Playwright (`-- --workers 8`).
- *
- * The app is built once and served once for every section (E2E_SERVED tells
- * playwright.config.ts not to start its own), at below-normal priority, which
- * the build, the server, Playwright and its browsers all inherit.
- */
+// Usage: npm run e2e:sections [-- --skip a11y | --only aero,motors | --list] [-- <playwright args>]
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -28,10 +10,9 @@ import { SECTIONS, STEPS } from './lib/e2eSectionList.mjs';
 const PORT = 5180;
 const URL = `http://localhost:${PORT}`;
 const require = createRequire(import.meta.url);
-// Run by this same node, with no shell: Windows refuses to spawn npx.cmd
-// without one, and a shell joins arguments unquoted.
+// No shell: it joins arguments unquoted, and Windows will not spawn npx.cmd without one.
 const playwright = require.resolve('@playwright/test/cli');
-// Its bin is not in the package's exports, so it is found beside package.json.
+// The bin is not in the package's exports.
 const vite = join(dirname(require.resolve('vite/package.json')), 'bin/vite.js');
 
 const args = process.argv.slice(2);
@@ -116,7 +97,6 @@ const fmtTime = (ms) => {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 };
 
-/** Every test in a Playwright JSON report, with its spec's place. */
 function testsOf(report) {
   const out = [];
   const walk = (suite) => {
@@ -155,7 +135,7 @@ for (const name of chosen) {
   try {
     tests = testsOf(JSON.parse(readFileSync(json, 'utf8')));
   } catch {
-    // No report: Playwright stopped before it wrote one. Counted as a failure below.
+    // No report; counted as a failure below.
   }
   const count = (status) => tests.filter((t) => t.status === status).length;
   const r = {

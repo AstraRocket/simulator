@@ -1,16 +1,6 @@
 import { test, expect, ready, type Page } from './base';
 
-/**
- * Undo and redo while the component editor is a dialog.
- *
- * Below `2xl` the editor opens over the drawing, and it is where every part
- * edit happens at that width, so Ctrl+Z and Ctrl+Y have to work with it open,
- * as they do with the editor in the right-hand column.
- *
- * The edits are made with a select and a checkbox, and the shortcut is pressed
- * with a button focused: a text box has an undo of its own, which would revert
- * the box whether or not the design's undo ran.
- */
+// Not a text box: its own undo would revert it whether or not the design's undo ran.
 
 const editor = (page: Page) => page.getByRole('dialog', { name: 'Edit component' });
 
@@ -23,7 +13,6 @@ test('Ctrl+Z and Ctrl+Y undo and redo part edits with the editor dialog open', a
   const shape = editor(page).getByRole('combobox', { name: /^Shape/ });
   const filled = editor(page).getByRole('checkbox', { name: 'Filled' });
   const close = editor(page).getByRole('button', { name: 'Close' });
-  // The default rocket's nose cone.
   const shapeBefore = 'ogive';
   const shapeAfter = 'conical';
   await expect(shape).toHaveValue(shapeBefore);

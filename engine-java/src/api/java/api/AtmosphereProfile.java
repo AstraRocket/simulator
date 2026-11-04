@@ -5,39 +5,6 @@ import info.openrocket.core.models.atmosphere.AtmosphericModel;
 import info.openrocket.core.models.atmosphere.ExtendedISAModel;
 import info.openrocket.core.util.ModID;
 
-/**
- * A measured or forecast atmosphere: temperature, pressure and humidity at a
- * set of altitudes, in place of the standard atmosphere above the launch site.
- *
- * <h2>Why it is here and not in the kernel</h2>
- *
- * Upstream's only atmosphere is {@code ExtendedISAModel}: the site's own
- * temperature, pressure and humidity, then the standard lapse rate above it.
- * Upstream has no model that takes temperature aloft from a forecast or a
- * sounding. {@code AtmosphericModel} is a one-method interface the simulation
- * reads through {@code SimulationConditions}, so this class plugs in from the
- * bridge with no patched kernel file. When upstream
- * ships its own model, this class goes and the bridge builds that one instead.
- *
- * <h2>Between levels</h2>
- *
- * Temperature and humidity are linear in altitude. Pressure is linear in its
- * logarithm, which is exact for an isothermal layer and within a few pascals of
- * the barometric formula across the layers a forecast reports, and it passes
- * through every stated pressure exactly, which the barometric formula from one
- * level does not reach at the next.
- *
- * <h2>Outside the levels</h2>
- *
- * Below the lowest level and above the highest, the profile follows the
- * standard atmosphere's shape from the end level: the standard temperature
- * change and the standard pressure ratio, applied to that level's values. The
- * profile is continuous at both ends, and a flight past the top of a forecast
- * (30 hPa is about 24 km) keeps a physical atmosphere instead of a frozen one.
- * Humidity holds at the end level's value.
- *
- * Altitudes are meters above sea level, as the simulation asks for them.
- */
 final class AtmosphereProfile implements AtmosphericModel {
 
     private static final ExtendedISAModel STANDARD = new ExtendedISAModel();
@@ -47,12 +14,7 @@ final class AtmosphereProfile implements AtmosphericModel {
     private final double[] logPressure;
     private final double[] humidity;
 
-    /**
-     * @param altitude    meters above sea level, strictly increasing
-     * @param temperature kelvin, positive
-     * @param pressure    pascals, positive and falling with altitude
-     * @param humidity    relative humidity as a fraction, 0 to 1
-     */
+    // Meters above sea level, kelvin, pascals, humidity as a 0..1 fraction.
     AtmosphereProfile(double[] altitude, double[] temperature, double[] pressure, double[] humidity) {
         int n = altitude.length;
         if (n == 0) {
@@ -122,7 +84,6 @@ final class AtmosphereProfile implements AtmosphericModel {
         return a + (b - a) * f;
     }
 
-    /** Immutable once built, so its state never changes. */
     @Override
     public ModID getModID() {
         return ModID.ZERO;

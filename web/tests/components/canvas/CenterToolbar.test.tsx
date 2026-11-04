@@ -21,12 +21,6 @@ const renderToolbar = () =>
     />,
   );
 
-/**
- * The Results heading says when the flight it shows is being flown again, so
- * the numbers on screen are known to be about to change, or when it failed.
- * While it runs or waits, that chip stands in for Outdated, which is true but
- * no longer the thing to act on.
- */
 describe('CenterToolbar run state', () => {
   const setRun = (run: SimRun | undefined) => {
     const id = st().sims[0]!.id;
@@ -56,9 +50,6 @@ describe('CenterToolbar run state', () => {
     expect(screen.queryByText('Outdated')).toBeNull();
   });
 
-  // The simulations table's own words (`simStatusLabel`): a batch of twelve
-  // queues at once and starts a few at a time, and "Running" on a flight that
-  // has not started reads as stuck.
   it('shows Queued while the shown flight waits its turn in a batch', () => {
     setRun({ phase: 'queued' });
     renderToolbar();
@@ -73,19 +64,13 @@ describe('CenterToolbar run state', () => {
   });
 });
 
-/**
- * The Outdated chip sits beside the heading, so it describes the flight the
- * heading names: the picked row when the picker is on one, not the active row.
- */
 describe('CenterToolbar Outdated chip', () => {
-  /** Two rows flown, the active one first, with the picker on the second. */
   const setRows = (activeFresh: boolean, shownFresh: boolean) => {
     st().resetWorkspace();
     st().addSim();
     const [a, b] = st().sims.map((x) => ({ ...x, result: {} as never }));
     const keyed = (sim: NonNullable<typeof a>, fresh: boolean) => ({
       ...sim,
-      // No key reads as outdated against any design.
       resultKey: fresh ? resultKey(st().tree, configOf(st().configs, sim), sim, st().simPrefs) : undefined,
     });
     useWorkspaceStore.setState({
@@ -111,10 +96,6 @@ describe('CenterToolbar Outdated chip', () => {
   });
 });
 
-/**
- * The toolbar's glyph and letter buttons are named for a screen reader, and a
- * toggle keeps one name while aria-pressed carries its state.
- */
 describe('CenterToolbar button names', () => {
   beforeEach(() => useWorkspaceStore.setState({ tab: 'design', view: '2d' }));
 

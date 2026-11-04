@@ -1,38 +1,5 @@
-// Open the files the app saves in a real OpenRocket and require every part to
-// come back holding what the app's kernel flies.
-//
-//   npm run check:fields -- <samples dir>
-//   npm run check:fields -- --jar <OpenRocket.jar> <samples dir>
-//
-// The samples come from tests/services/files/orkDesktopSamples.test.ts with
-// ORK_SAMPLES_DIR set: each `.ork` and `.rkt` there has a `<file>.kernel.json`
-// beside it, listing every part as the app's kernel built it, and each `.ork`
-// a `<file>.app.json`, listing its flight configurations and simulations as the
-// app wrote them. Under `source/` are the bundled examples as they ship, beside
-// the same two files for what the app made of them on import. This opens each
-// file in the pinned desktop release, reads every part back through the same
-// getters (engine-java/src/api/java/api/ComponentFields.java, compiled against
-// that release), and compares the two part by part in tree order, depth
-// included. The getters cover the panel's fields plus what a file also
-// carries: overrides, materials, the finish and a fin's planform area. Then it
-// compares each configuration's motors, recovery, staging and grounded stages,
-// and each simulation's launch conditions, with what desktop read.
-//
-// `check:ork` asks whether desktop accepts a file. This asks whether desktop
-// reads the same rocket from it: a writer that emits a default the kernel does
-// not fly, drops a field, or writes a stale automatic value fails here and
-// nowhere else.
-//
-// A RockSim file restates some values (angles in degrees, a pod by its distance
-// from the axis, a fin tab from the root's front, a packed part by either end);
-// those are compared in the form desktop reads them. KNOWN lists the rest of the
-// accepted differences, each with what 24.12 or RockSim cannot carry, or what a
-// bundled example names as it ships, and each matches only the difference it
-// names. The list is checked both ways: a new difference fails, and so does an
-// entry that no longer occurs.
-//
-// `npm run audit` runs it after the `desktop` step. Needs a JDK and the pinned
-// OpenRocket release, as `check:ork` does.
+// Usage: npm run check:fields -- [--jar <OpenRocket.jar>] <samples dir>
+// KNOWN is checked both ways: a new difference fails, and so does an entry that no longer occurs.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -46,16 +13,8 @@ const SOURCES = [
   resolve(HERE, '../../engine-java/src/api/java/api/ComponentFields.java'),
 ];
 
-/**
- * Accepted differences. `rule` is `format:type.key`, with `*` for any type, or
- * `ork:config.<what>` and `ork:sim.<key>` for a configuration or a simulation.
- * `files`, when given, names the only files it applies to (a bundled example
- * as it ships is `source/<file>`). `when` gets the app's value, desktop's, and
- * both parts' fields (a configuration's motor: the app's motor), and says
- * whether this difference is the one the entry names; one that is not fails.
- */
+// `when(app, desktop, appFields, desktopFields)` must confirm this is the difference the entry names.
 const KNOWN = [
-  // What RockSim cannot carry, or desktop's RockSim reader does not read.
   {
     rule: 'rkt:*.instanceCount',
     why: "RockSim has no repeat count (desktop's own export drops it too), so the writer names the part in its skipped list",
@@ -153,7 +112,6 @@ const KNOWN = [
     why: 'a freeform outline on a tapered parent: FreeformFinSet.setPoints snaps the outline desktop reads from the point list to the root it computes, which moves the area by under 2 %',
     when: (a, d) => Math.abs(a - d) < 0.02 * Math.max(a, d),
   },
-  // What RockSim carries as a number only, or not at all.
   {
     rule: 'rkt:*.outerRadiusAuto',
     why: 'RockSim carries the diameter, not the automatic setting; desktop reads a fixed one',
@@ -211,7 +169,6 @@ const KNOWN = [
     why: 'StreamerHandler reads no packed size; desktop keeps its default',
     when: (a, d) => d === 0.0125,
   },
-  // What desktop's RockSim import does not create.
   {
     rule: 'ork:config',
     files: ['source/rocksim.rkt'],
@@ -222,7 +179,6 @@ const KNOWN = [
     files: ['source/rocksim.rkt'],
     why: "desktop's RockSim import creates no simulation; the app adds its default one",
   },
-  // What 24.12 cannot carry in a .ork.
   {
     rule: 'ork:shockcord.materialName',
     why: "a RockSim cord's line has no name (MassObjectHandler), and desktop refuses a .ork material without one, so the writer names it custom",
@@ -233,20 +189,16 @@ const KNOWN = [
     why: '24.12 looks motors up in its own database only and does not read the curve the app embeds under thrustcurves/ (upstream OpenRocket does)',
     when: (a, d, am) => am.embedded === true && d === null,
   },
-  // The bundled examples as they ship, written by an OpenRocket 26 build.
   {
     rule: 'ork:config.motor.digest',
     files: ['source/pods-powered-with-recovery-deployment.ork', 'source/two-stage-high-power-rocket.ork'],
     why: "the source file names motors by the OpenRocket 26 database's digests, which 24.12 does not hold, so it takes its own curve by name",
   },
-  // The same examples saved again: the app keeps the curve each source file
-  // carries and names it by that curve's digest, which 24.12 does not hold.
   {
     rule: 'ork:config.motor.digest',
     files: ['pods-powered-with-recovery-deployment.ork', 'two-stage-high-power-rocket.ork'],
     why: "the file carries the source file's OpenRocket 26 curve under its own digest, which 24.12 does not hold, so it takes its own curve by name",
   },
-  // What desktop's RockSim reader works out for itself.
   {
     rule: 'rkt:nosecone.shoulderThickness',
     why: 'NoseConeHandler takes the wall, or the shoulder radius when solid',
@@ -284,7 +236,7 @@ const KNOWN = [
   },
 ];
 
-/** Relative tolerance, by format: a `.rkt` carries millimeters and grams to a few places. */
+// Relative: a `.rkt` carries millimeters and grams to a few places.
 const TOLERANCE = { ork: 1e-6, rkt: 1e-3 };
 
 const dir = process.argv.slice(2).find((a, i, all) => !a.startsWith('--') && !all[i - 1]?.startsWith('--'));
@@ -292,7 +244,6 @@ if (!dir || !existsSync(dir)) {
   console.error('usage: npm run check:fields -- <samples dir>');
   process.exit(2);
 }
-// The saved files, and under `source/` the bundled examples as they ship.
 const samplesIn = (d) =>
   existsSync(d)
     ? readdirSync(d)
@@ -331,19 +282,13 @@ function same(key, a, b, tol) {
   return norm(a) === norm(b);
 }
 
-/** A desktop class for an app node type: the type is the class name lowercased, a stage aside. */
 const sameKind = (type, cls) => (type === 'stage' ? cls === 'AxialStage' : cls.toLowerCase() === type);
 
-/** Not compared: the position is compared as `positionX`, the station, however a file states it. */
 const SKIP = new Set(['positionMethod', 'positionOffset']);
 
-/**
- * RockSim restates these; the restated form is compared instead (a pod's
- * `instanceRadius`, a tab's `tabOffsetFromFront`).
- */
 const RKT_RESTATED = new Set(['radiusOffset', 'radiusMethod', 'tabOffset', 'tabOffsetMethod']);
 
-/** RockSim angles are written in degrees by design; desktop reads the number as radians. */
+// RockSim angles are written in degrees; desktop reads the number as radians.
 const asReadRadians = (a) => (a * 180) / Math.PI;
 const RKT_ANGLE_SETTERS = {
   // LaunchLug.setAngleOffset clamps; the others reduce to (-pi, pi].
@@ -353,7 +298,6 @@ const RKT_ANGLE_SETTERS = {
   radialDirection: (a) => asReadRadians(a),
 };
 
-/** Placement the writer gives each copy of a split cluster or set; the rest of a copy is compared. */
 const COPY_PLACEMENT = new Set([
   'radialPosition',
   'radialDirection',
@@ -367,7 +311,6 @@ const COPY_PLACEMENT = new Set([
   'angleOffset',
 ]);
 
-/** A flipped nose cone's keys on the transition the RockSim writer makes of it, base forward. */
 const FLIPPED_NOSE_AS_TRANSITION = {
   aftRadius: 'foreRadius',
   shoulderLength: 'foreShoulderLength',
@@ -377,7 +320,6 @@ const FLIPPED_NOSE_AS_TRANSITION = {
   flipped: null,
 };
 
-/** Fields the kernel reads only in some states of a part (as fieldReadback.kernel.test.ts). */
 const hasTab = (f) => f.tabHeight > 0 && f.tabLength > 0;
 const READ_ONLY_WHEN = {
   tabLength: hasTab,
@@ -392,14 +334,7 @@ const READ_ONLY_WHEN = {
   overrideCD: (f) => f.cdOverridden === true,
 };
 
-/**
- * The parts a RockSim file holds for the app's tree. rktExport writes each
- * cluster tube and each pod or booster set member as a part of its own, as
- * desktop's own RockSim export does, writes a flipped nose cone as a transition,
- * puts a tube coupler's parts beside it in its parent, as desktop's
- * TubeCouplerDTO does, and leaves out rail buttons, which RockSim has no
- * element for.
- */
+// Mirrors rktExport; keep the two in step.
 function asRockSim(parts) {
   const out = [];
   for (let i = 0; i < parts.length;) {
@@ -431,29 +366,17 @@ function asRockSim(parts) {
   return out;
 }
 
-/** Whether a RockSim restatement accounts for the difference. */
 function rktRestatement(key, k, d) {
   const a = k.fields[key];
   const b = d.fields[key];
   if (key in RKT_ANGLE_SETTERS) return angleGap(RKT_ANGLE_SETTERS[key](a, k.type), b) <= 1e-6;
-  // A packed recovery part is placed by whichever end RockSim states, and desktop
-  // sizes the pack itself, so the stated end is the one that has to agree.
+  // Desktop sizes the pack itself, so only the end RockSim states has to agree.
   if (key === 'positionX' && (k.type === 'parachute' || k.type === 'streamer')) {
     return Math.abs(a + k.fields.length - (b + d.fields.length)) <= 1e-6;
   }
   return false;
 }
 
-/**
- * Configurations and simulations: what the app wrote (`<file>.app.json`, from
- * tests/services/files/orkDesktopSamples.test.ts) against what desktop read
- * (`OrkFields`). Per configuration, by id: the motor in each mount (designation,
- * digest, ejection delay, ignition), each recovery device's deployment, each
- * lower stage's or booster's separation, and which stages fly. Per simulation,
- * in file order: its name, its configuration and every condition 24.12 keeps.
- * A key the app leaves out is not compared. A difference is reported under the
- * rule `ork:config.<what>` or `ork:sim.<key>`, with the KNOWN list the parts use.
- */
 function compareFlights(name, app, read) {
   const miss = (rule, text, a, d, af) =>
     misses.push({ rule: `ork:${rule}`, file: name, app: a, desktop: d, appFields: af, text: `${name} ${text}` });
@@ -485,8 +408,7 @@ function compareFlights(name, app, read) {
         );
         continue;
       }
-      // The app names a motor by its common name (F67), desktop's designation
-      // is the full code (F67W): either is the same motor.
+      // The app's common name (F67) and desktop's full code (F67W) are the same motor.
       if (!same('', m.designation, d.commonName, 0)) {
         differ('config.motor.designation', `${ac.id} part #${m.part}`, m.designation, d.designation);
       }
@@ -539,7 +461,6 @@ function compareFlights(name, app, read) {
   });
 }
 
-/** Launch conditions that are angles, compared modulo a turn like the part angles. */
 const ANGLE_CONDITIONS = new Set(['launchRodDirection', 'windDirection']);
 
 const misses = [];
@@ -553,9 +474,6 @@ for (const file of files) {
     compareFlights(name, JSON.parse(readFileSync(`${file}.app.json`, 'utf8')), read);
   }
   const loaded = read.parts;
-  // Parts are matched by their place in the tree, so once desktop has built a
-  // different tree there is nothing to compare them with: report the structure
-  // and stop.
   const apart = kernel.findIndex(
     (k, i) => !loaded[i] || !sameKind(k.type, loaded[i].class) || k.depth !== loaded[i].depth,
   );

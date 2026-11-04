@@ -13,13 +13,6 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * The fin marking guide, the design CSV and the .ork designinfo give each fin
- * set's root span from the nose. Cant turns a fin about its root's midpoint and
- * leaves the root's station where it was, so a canted set has to report the
- * span the same set reports uncanted, which is the kernel's own figure.
- */
-
 const design = (cantRad: number, rootChord: number): RocketTree =>
   ({
     name: 'Canted',
@@ -54,7 +47,6 @@ const design = (cantRad: number, rootChord: number): RocketTree =>
     ],
   }) as RocketTree;
 
-/** The fin set's span as the report reads it, with the kernel locating it. */
 function span(tree: RocketTree): { topX: number; bottomX: number } {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));

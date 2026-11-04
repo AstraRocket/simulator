@@ -4,17 +4,6 @@ import { descentMass } from '../../services/flight/recoverySizing';
 import { sustainerDescentMass } from '../../services/flight/recoveryFlown';
 import { motorSpecs } from '../../services/flight/flightConfigs';
 
-/**
- * What the recovery system brings down, and whether that is an estimate.
- *
- * Estimated from the design it is loaded mass less the propellant that burns
- * off, which is arithmetic of ours and says so on the tile. Once a run has
- * deployed a device the kernel's own mass under the sustainer's first chute
- * replaces it, and the tile drops the estimate marker.
- *
- * Undefined with no motor loaded - nothing to subtract - so the tile shows a
- * "needs a motor" hint rather than a wrong number.
- */
 export function useRecoveryMass() {
   const tree = useWorkspaceStore((s) => s.tree);
   const info = useWorkspaceStore((s) => s.info);

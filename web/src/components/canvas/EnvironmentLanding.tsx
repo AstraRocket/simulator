@@ -31,13 +31,6 @@ import { StatusLine } from '../common/StatusLine';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
 
-/**
- * Where the flight came down, and, when its conditions came from a forecast,
- * where it would have come down an hour or two either side: the same design
- * flown by the engine under each of those hours' forecast. The spread is what
- * moving the launch inside the window would do to the walk.
- */
-
 type Run =
   | { kind: 'idle' }
   | { kind: 'running'; done: number; total: number }
@@ -50,22 +43,18 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
   const { t } = useTranslation();
   const online = useOnline();
   const u = useUnits();
-  // The Downrange tile's unit scope, as Ground Track reads this same landing.
   const dist = u.at(unitScope('sim', 'downrange'), 'distance');
   const simPrefs = useWorkspaceStore((s) => s.simPrefs);
   const tree = useWorkspaceStore((s) => s.tree);
   const configs = useWorkspaceStore((s) => s.configs);
   const dryMass = useWorkspaceStore((s) => s.info?.massEmpty);
   const sim = useWorkspaceStore((s) => s.sims.find((x) => x.id === flight.id));
-  // The hours are flown with the design and the row's conditions as they are
-  // now. Against an outdated result that is a different rocket or site than
-  // the landing beside it, so the action waits for a fresh run.
+  // The hours fly the current design, so an outdated result waits for a re-run.
   const outdated = useWorkspaceStore((s) => {
     const row = s.sims.find((x) => x.id === flight.id);
     return row ? selectOutdated(s, row) : false;
   });
-  // Each state remembers the result it was for: a different flight, or a
-  // re-run, is a different question, and its answer reads as not asked yet.
+  // Tied to the result it was for: another flight or a re-run reads as idle.
   const [held, setHeld] = useState<{ for: unknown; run: Run }>({ for: null, run: { kind: 'idle' } });
   const run: Run = held.for === flight.result ? held.run : { kind: 'idle' };
   const setRun = (r: Run, forResult: unknown = flight.result) => setHeld({ for: forResult, run: r });
@@ -81,10 +70,7 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
 
   const fmtM = (m: number) => fmtGroundDistance(dist, m);
   const bearing = (p: GroundPoint) => fmtDegrees(u, bearingFromPad(p));
-  // The kernel's own landing coordinate when the result carries it. A result
-  // without one (stored before the series were recorded) shows no value: a
-  // coordinate projected here would read as the kernel's and agree with
-  // neither the kernel nor the export.
+  // The kernel's own coordinate only: a locally projected one would disagree with the kernel and the export.
   const where = (series: FlightSeries | undefined) => {
     const ll = landingLatLon(series);
     return ll ? formatCoord(ll.lat, ll.lon, 5) : NO_VALUE;
@@ -104,8 +90,6 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
           powerClass: configPowerClass(tree, config, dryMass),
           launch: sim.launch,
           source,
-          // What a run reads, the length unit included, and what `outdated`
-          // above compares the result against.
           prefs: effectivePrefs(simPrefs, sim.prefs),
           apiKey: readWeatherKey(),
           onProgress: (done, total) => {
@@ -120,8 +104,6 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
       setRun(
         {
           kind: 'error',
-          // Its own fallback: this run flies the simulations too, and any
-          // failure that is not the weather is one of those.
           message: weatherErrorText(err, t, 'env.landing.failed'),
         },
         forResult,
@@ -195,19 +177,15 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
                 <tbody className="tabular-nums text-ink-strong">
                   {run.hours.map((h) => {
                     const p = h.landings[0];
-                    // An hour outside the safety codes is not flown; the row says which code.
                     const refused = refusalKeys(h).map((k) => t(k));
                     return (
                       <tr key={h.offset} className={h.offset === 0 ? 'text-accent-300' : ''}>
                         <td>
                           {hourLabel(h.validMs)}
-                          {/* The flown hour is marked in words as well as in color. */}
                           {h.offset === 0 && <span className="ml-1 text-ink-muted">{t('env.landing.flownHour')}</span>}
                         </td>
                         {refused.length ? (
-                          // One line per code broken: each reason is a whole
-                          // phrase of its own, so no locale's list separator
-                          // is spliced between them.
+                          // One line per reason, so no locale's list separator is spliced in.
                           <td colSpan={2} className="text-ink-muted">
                             {refused.map((r) => (
                               <span key={r} className="block">

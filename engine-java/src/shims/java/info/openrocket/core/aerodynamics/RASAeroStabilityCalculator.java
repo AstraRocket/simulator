@@ -6,21 +6,8 @@ import info.openrocket.core.aerodynamics.barrowman.SymmetricComponentCalc;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 
 /**
- * RASAero opt-in supersonic-aerodynamics stability strategy (original work of the
- * mmrocket-sim project; see engine-java/ATTRIBUTION.md). This is the pluggable
- * {@link StabilityCalculator} that carries the opt-in aero extensions on top of the
- * stock extended-Barrowman stability calculator:
- *
- * <ul>
- *   <li>{@code supersonicAero}: corrected supersonic fin normal force, exact
- *       NACA-1307 body-fin interference, and Mach-dependent nose CN&alpha; growth; and</li>
- *   <li>{@code rogersKbf}: Rogers Modified Barrowman body-fin carryover.</li>
- * </ul>
- *
- * The physics lives in the per-component calc classes ({@link FinSetCalc},
- * {@link SymmetricComponentCalc}); this class only binds the opt-in flags onto them
- * when the calc map is built. With both flags off it is bit-identical to
- * {@link BarrowmanStabilityCalculator}.
+ * Original work of the mmrocket-sim project; see engine-java/ATTRIBUTION.md.
+ * With both flags off it must stay bit-identical to {@link BarrowmanStabilityCalculator}.
  */
 public class RASAeroStabilityCalculator extends BarrowmanStabilityCalculator {
 

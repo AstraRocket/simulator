@@ -1,21 +1,11 @@
-// What changed between two motor catalogs: the one the data branch holds and
-// the one a sync just built.
-//
-// The sync's publish step only knows whether the file changed. This says which
-// motors: added, removed, and changed with the fields that moved. Motors are
-// matched on their row key (lib/motorRowKey.mjs), which assertSane holds unique
-// in every catalog sync-motors writes.
-
 import { motorRowKey } from './motorRowKey.mjs';
 
-/** Fields whose values are arrays or objects: reported as changed, not printed. */
 const BULKY = {
   curves: 'thrust curves',
   cg: 'CG table',
   digests: 'OpenRocket digests',
 };
 
-/** Fields in the order a person reads a motor; anything else follows, sorted. */
 const ORDER = [
   'class',
   'impulse',
@@ -36,17 +26,12 @@ const ORDER = [
   'digests',
 ];
 
-/**
- * Flags motorRow writes only when true (`oop`, `sparky`, `noCurve`), so a
- * missing one means false: a motor going out of production is `oop no → yes`,
- * not `oop none → yes`.
- */
+/** motorRow writes these only when true, so missing means false. */
 const FLAGS = new Set(['oop', 'sparky', 'noCurve']);
 const value = (m, k) => (FLAGS.has(k) ? (m[k] ?? false) : m[k]);
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-/** `Estes C6 (18 mm)`: the name a person looks a motor up by. */
 function motorLabel(m) {
   return `${m.manufacturer} ${m.designation} (${m.diameter} mm${m.code ? `, ${m.code}` : ''})`;
 }
@@ -78,10 +63,8 @@ export function diffMotors(before, after) {
   return { added, removed, changed };
 }
 
-/** True when the two catalogs hold the same motors with the same values. */
 export const isEmptyDiff = (d) => !d.added.length && !d.removed.length && !d.changed.length;
 
-/** `3 added, 1 removed, 7 changed`, or `no change`. */
 export function motorDiffHeadline(d) {
   if (isEmptyDiff(d)) return 'no change';
   return `${d.added.length} added, ${d.removed.length} removed, ${d.changed.length} changed`;
@@ -94,7 +77,6 @@ const show = (v) => {
   return String(v);
 };
 
-/** One changed field, readable: `impulse 9.8 → 10.1`, `thrust curves 1 → 2`. */
 export function describeField({ field, before, after }) {
   const bulky = BULKY[field];
   if (!bulky) return `${field} ${show(before)} → ${show(after)}`;
@@ -107,11 +89,7 @@ export function describeField({ field, before, after }) {
 
 const cell = (s) => s.replaceAll('|', '\\|');
 
-/**
- * The job summary section: a headline, then each list in a collapsed block.
- * Each list stops at `limit` rows, since a pinned OpenRocket bump can change
- * every motor's digests and a job summary is capped at 1 MiB.
- */
+/** GitHub step summaries cap at 1 MiB, so lists stop at `limit` rows. */
 export function motorDiffMarkdown(d, { limit = 200 } = {}) {
   const lines = [`### Motors: ${motorDiffHeadline(d)}`, ''];
   if (isEmptyDiff(d)) return lines.join('\n');

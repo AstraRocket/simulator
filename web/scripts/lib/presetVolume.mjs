@@ -1,35 +1,11 @@
-// The volume a catalog part has when the app builds it, measured in the app's
-// own engine.
-//
-// A part whose catalog row states a mass is given the density that spreads that
-// mass over its volume, so it weighs what the catalog says. Which volume matters:
-// the desktop computes it for the OpenRocket build that loads the database, and
-// builds disagree. The engine here is newer than the 24.12 release, and since
-// then `Transition.loadFromPreset` gives a preset's shoulders the part's wall
-// (upstream's loader, not 24.12's), so the same nose cone has more volume. A
-// density taken from 24.12 and flown here can weigh several times what the
-// catalog states.
-// Measured in the engine the app flies, the part weighs its stated mass.
-//
-// The node built here has to be the node the app flies once a pick is applied
-// (`catalogPatch` in src/services/design/treeEdit.ts, through `updateNode`). It
-// cannot import that TypeScript, so it repeats the geometry the patch states;
-// `catalogPatch.kernel.test.ts` picks every massed row onto a part through
-// `updateNode` and requires the kernel mass to equal the stated one, which fails
-// if the two drift apart.
+// Must match `catalogPatch` in src/services/design/treeEdit.ts.
 // A URL rather than a path: a Windows drive letter is not an import scheme.
 const ENGINE = new URL('../../src/engine/vendor/openrocket-engine.mjs', import.meta.url).href;
 
-/** `SymmetricComponent.DEFAULT_THICKNESS`: a new part's wall (m). */
+/** `SymmetricComponent.DEFAULT_THICKNESS` (m). */
 const DEFAULT_WALL = 0.002;
 
-/**
- * A shoulder as `Transition.loadFromPreset` applies it: its radius held to the
- * end radius `end` it plugs (24.12's shoulder radius setters clamp it to that
- * end), solid when filled, else the stated wall, and never capped (the 24.12
- * shoulder length setter leaves the cap alone, and `ComponentPresetFactory`
- * measures a new part, which has none).
- */
+/** As `Transition.loadFromPreset` applies it: radius clamped to `end`, solid when filled, never capped. */
 function shoulder(prefix, diameter, length, end, row) {
   if (diameter == null) return {};
   const key = (k) => (prefix ? `${prefix}${k}` : k.charAt(0).toLowerCase() + k.slice(1));
@@ -43,7 +19,7 @@ function shoulder(prefix, diameter, length, end, row) {
   };
 }
 
-/** The part's node at density 1, so the mass the engine reports is its volume. */
+/** Density 1, so the reported mass is the volume. */
 function partNode(row) {
   const unit = { id: 'probe', density: 1, materialName: 'unit' };
   const tubeWall = (r) =>
@@ -90,8 +66,7 @@ function partNode(row) {
       };
     case 'bulkhead':
       return { ...unit, type: 'bulkhead', outerRadius: row.outerDiameter / 2, length: row.length };
-    // The button's own volume, with no mass override: `makeRailButton` divides
-    // the stated mass by `RailButton.getComponentVolume`.
+    // No mass override: `makeRailButton` divides by `RailButton.getComponentVolume`.
     case 'railbutton':
       return {
         ...unit,
@@ -108,7 +83,6 @@ function partNode(row) {
   }
 }
 
-/** A design holding the part where it can sit: airframe parts in the stage, the rest inside a tube. */
 function design(probe) {
   const tube = (children = []) => ({
     type: 'bodytube',
@@ -133,10 +107,7 @@ function design(probe) {
   return { components: [{ type: 'stage', id: 'st', children: chain }] };
 }
 
-/**
- * A function from a catalog row to its volume (m³) as the engine builds it, or
- * null for a part it does not size this way.
- */
+/** Row to volume (m³). */
 export async function presetVolumes() {
   globalThis.$rt_putStdoutCustom ??= () => {};
   globalThis.$rt_putStderrCustom ??= () => {};

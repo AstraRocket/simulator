@@ -9,8 +9,6 @@ import { token } from '../common/colorTokens';
 
 type Pt = [number, number];
 
-// Fallback outline (a small swept trapezoid) when a node somehow has < 3 points,
-// so the editor always has something to draw; the first edit materializes it.
 const FALLBACK: Pt[] = [
   [0, 0],
   [0.02, 0.05],
@@ -18,13 +16,7 @@ const FALLBACK: Pt[] = [
   [0.06, 0],
 ];
 
-/**
- * Graphical editor for a freeform fin's outline. Points are [x, y] in meters:
- * x runs along the body (root direction), y is height above the body surface;
- * the outline is closed with the root along y = 0. Drag the amber vertices to
- * reshape, tap a blue edge-midpoint to insert a vertex, select one to delete it
- * or type exact coordinates. Emits the full point list on every change.
- */
+// Points are [x, y] in meters: x along the body, y above its surface; the root closes along y = 0.
 export function FreeformFinEditor({
   points,
   onChange,
@@ -56,7 +48,6 @@ export function FreeformFinEditor({
   const sx = (x: number) => PAD + (x - xMin) * scale;
   const sy = (y: number) => H - PAD - y * scale;
 
-  // Pointer (screen) → viewBox coords, robust to CSS scaling.
   const toVB = (e: React.PointerEvent): DOMPoint | null => {
     const ctm = svgRef.current?.getScreenCTM();
     if (!ctm) return null;
@@ -64,15 +55,9 @@ export function FreeformFinEditor({
   };
 
   const last = pts.length - 1;
-  // The first point is the root leading edge and the last the root trailing
-  // edge, the two ends of the root on the body. FreeformFinSet keeps the first
-  // at the origin (setPoints translates the outline there) and snaps the last
-  // onto the body (clampLastPoint), and removePoint refuses either one.
+  // FreeformFinSet.setPoints pins the first, clampLastPoint snaps the last, removePoint refuses both.
   const fixedEnd = (i: number) => i === 0 || i === last;
-  // The fin stays above the body (y >= 0), and the root trailing edge stays on
-  // it at or aft of the origin. An interior point may sit forward of the origin:
-  // FreeformFinSet.setPoint does not bound x, and a swept-forward leading edge
-  // needs it.
+  // Interior x is unbounded, as in FreeformFinSet.setPoint, for swept-forward leading edges.
   const setPoint = (i: number, x: number, y: number) => {
     if (i === 0) return;
     onChange(
@@ -92,25 +77,18 @@ export function FreeformFinEditor({
     setSel(i);
     svgRef.current?.setPointerCapture?.(e.pointerId);
   };
-  // Also the pointercancel / lostpointercapture end: a touch drag that the
-  // browser takes over for scrolling, or a pen lifted out of range, never sends
-  // pointerup; without this the vertex would stay "held" and the next move
-  // anywhere on the outline would drag it, with the undo entry left open.
-  // PaneSplitter ends its drag the same way.
+  // Also on pointercancel and lostpointercapture: a scroll takeover or pen out of range sends no pointerup.
   const endDrag = (e: React.PointerEvent) => {
-    if (dragging.current != null) onCommit?.(); // a drag is one undo entry, closed on release
+    if (dragging.current != null) onCommit?.();
     dragging.current = null;
     try {
       svgRef.current?.releasePointerCapture?.(e.pointerId);
     } catch {
-      /* the pointer is already gone (touch lifted); nothing to release */
+      /* the pointer is already gone */
     }
   };
 
-  // The closing edge (last point back to the first) is the root on the body,
-  // not part of the outline: FreeformFinSet.addPoint refuses an index past the
-  // root trailing edge, and a point there would become the new trailing edge
-  // at half the root's length.
+  // No insert on the closing root edge: FreeformFinSet.addPoint refuses an index past the trailing edge.
   const insertAfter = (i: number) => {
     if (i >= last) return;
     const a = pts[i]!,
@@ -126,18 +104,7 @@ export function FreeformFinEditor({
     onCommit?.();
   };
 
-  /**
-   * Keyboard editing.
-   *
-   * The X/Y inputs below render only once `sel` is set, so vertices and edge
-   * midpoints need a role, a tabIndex and a key handler for a keyboard or
-   * screen-reader user to select a vertex at all.
-   *
-   * Arrows nudge by one step (Shift for ten), Enter/Space on a midpoint inserts,
-   * Delete removes. One undo entry per key, closed immediately: a nudge is a
-   * discrete edit, unlike a drag.
-   */
-  const NUDGE = 0.001; // 1 mm in stored meters
+  const NUDGE = 0.001; // 1 mm, in stored meters
   const onVertexKey = (i: number) => (e: React.KeyboardEvent) => {
     const p = pts[i]!;
     const step = e.shiftKey ? NUDGE * 10 : NUDGE;
@@ -190,7 +157,6 @@ export function FreeformFinEditor({
         onPointerCancel={endDrag}
         onLostPointerCapture={endDrag}
       >
-        {/* body surface (root line) */}
         <line x1={PAD / 2} y1={sy(0)} x2={W - PAD / 2} y2={sy(0)} className="stroke-line/15" strokeDasharray="4 3" />
         <polygon
           points={poly}
@@ -199,8 +165,6 @@ export function FreeformFinEditor({
           stroke={token('warn-400')}
           strokeWidth="1.5"
         />
-        {/* edge midpoints: click to insert a vertex. None on the closing root
-            edge, where the kernel takes no point (see insertAfter). */}
         {pts.slice(0, last).map((p, i) => {
           const b = pts[i + 1]!;
           return (
@@ -226,8 +190,6 @@ export function FreeformFinEditor({
             />
           );
         })}
-        {/* vertices: drag to move. The root leading edge is the outline's
-            origin and is drawn as a fixed marker, not a control. */}
         {pts.map((p, i) =>
           i === 0 ? (
             <circle
@@ -265,10 +227,7 @@ export function FreeformFinEditor({
           <span className="text-ink-faint">{t('freeform.point', { n: sel! + 1 })}</span>
           <label className="flex items-center gap-1">
             {t('freeform.x')}
-            {/* NumberInput, not a raw <input> with `parseFloat(...) || 0`:
-                select-all and type a replacement and the field is briefly
-                empty, which would parse to 0 and snap the vertex to the origin
-                as a real tree edit. A leading `-` would do the same. */}
+            {/* A raw `parseFloat(...) || 0` snaps the vertex to the origin while the box holds only `-`. */}
             <NumberInput
               value={ptX.toUi(selPt[0])}
               onChange={onSi(ptX, (si) => si !== null && setPoint(sel!, si, selPt[1]))}

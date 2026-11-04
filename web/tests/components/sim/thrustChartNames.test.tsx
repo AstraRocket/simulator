@@ -23,7 +23,6 @@ const motor = (designation: string): CatalogMotor =>
     curves: [{ samples }],
   }) as unknown as CatalogMotor;
 
-/** Every thrust chart is a named graphic, not a bare drawing a screen reader skips past unnamed. */
 describe('thrust charts', () => {
   it('names the detail chart with its figures', () => {
     renderWithProviders(<ThrustChart samples={samples} avg={6} burn={1.6} />);

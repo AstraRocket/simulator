@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useUpdateStore } from '../../src/state/updateStore';
 
-/** The manual check's answers: up to date, a version waiting, or no answer at all. */
 describe('useUpdateStore.checkNow', () => {
   beforeEach(() => useUpdateStore.setState({ checker: null, result: 'idle' }));
 

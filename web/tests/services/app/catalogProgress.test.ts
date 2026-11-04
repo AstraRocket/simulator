@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-// Progress needs a response with a real ReadableStream body; the stub in
-// remoteData.test.ts deliberately has none (it exercises the res.json() path).
-
 type Chunk = string;
 
-/** A Response-alike whose body streams `chunks`, with an optional declared length. */
 function streamingResponse(chunks: Chunk[], declareLength = true) {
   const enc = new TextEncoder();
   const parts = chunks.map((c) => enc.encode(c));
@@ -57,7 +53,6 @@ describe('catalog download progress', () => {
     expect(seen[0]!.loaded).toBe(0);
     expect(seen[seen.length - 1]!.loaded).toBe(payload.length);
     expect(seen.every((p) => p.total === payload.length)).toBe(true);
-    // Monotonic: a bar that goes backwards is worse than no bar.
     expect(seen.map((p) => p.loaded)).toEqual([...seen.map((p) => p.loaded)].sort((a, b) => a - b));
   });
 
@@ -76,7 +71,6 @@ describe('catalog download progress', () => {
     subscribeCatalogProgress('components', (p) => seen.push(p.total));
     await fetchCatalog('components');
 
-    // The UI uses this to choose an indeterminate bar over a wrong percentage.
     expect(seen.every((t) => t === null)).toBe(true);
   });
 
@@ -92,8 +86,6 @@ describe('catalog download progress', () => {
     const { fetchCatalog, subscribeCatalogProgress } = await load();
 
     await fetchCatalog('motors');
-    // The dashboard and the picker both wait on one memoized download; whichever
-    // mounts second must still see a figure rather than a blank bar.
     const late: number[] = [];
     subscribeCatalogProgress('motors', (p) => late.push(p.loaded));
     expect(late).toEqual([payload.length]);

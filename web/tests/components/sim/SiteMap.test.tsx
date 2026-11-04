@@ -4,21 +4,10 @@ import { fireEvent, screen } from '@testing-library/react';
 import { SiteMap } from '../../../src/components/sim/SiteMap';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 
-/**
- * The map, without a network.
- *
- * jsdom never fetches an `<img>`, so nothing here depends on a tile server
- * being reachable: what is checked is the URLs the component asks for, where
- * it puts the pin, and what a pointer does. The projection itself is covered
- * in `services/map/slippyMap.test.ts` against hand-computed figures.
- *
- * There is no ResizeObserver in jsdom either, which the component handles by
- * keeping its 320x256 default, so the center of the box is (160, 128) below.
- */
+// jsdom has no ResizeObserver, so the box keeps its 320x256 default with center (160, 128).
 
 const HOME = { latitudeDeg: 39.05, longitudeDeg: -104.8 };
 
-/** `alt=""` makes the tiles presentational, so query them by tag. */
 const tiles = () => Array.from(document.querySelectorAll('img')).map((el) => el.getAttribute('src') ?? '');
 
 describe('SiteMap', () => {
@@ -26,7 +15,6 @@ describe('SiteMap', () => {
     renderWithProviders(<SiteMap {...HOME} />);
     const sources = tiles();
     expect(sources.length).toBeGreaterThan(0);
-    // Esri World Imagery, in its z/y/x order. Zoom 15 is SITE_ZOOM.
     expect(sources.every((s) => s.includes('World_Imagery/MapServer/tile/15/'))).toBe(true);
   });
 
@@ -36,27 +24,18 @@ describe('SiteMap', () => {
     const sources = tiles();
     expect(sources.length).toBeGreaterThan(0);
     expect(sources.every((s) => s.includes('World_Street_Map/MapServer/tile/15/'))).toBe(true);
-    // Never OpenStreetMap's own volunteer servers: see the note in slippyMap.ts.
     expect(sources.some((s) => s.includes('openstreetmap.org'))).toBe(false);
 
-    // The chosen layer is remembered at module scope, so a second map opened
-    // in the same session keeps it. Put it back, or every test after this one
-    // would be running against the street layer by accident.
+    // The layer choice is module-scoped; restore it for later tests.
     fireEvent.click(screen.getByRole('button', { name: 'Satellite' }));
     expect(tiles().every((s) => s.includes('World_Imagery'))).toBe(true);
   });
 
   it('reads the coordinate back with hemispheres rather than signs', () => {
-    // The whole point of the map is catching a dropped minus sign, so the
-    // readout beside it must not be another place one can hide.
     renderWithProviders(<SiteMap {...HOME} />);
     expect(screen.getByText('39.0500° N, 104.8000° W')).toBeTruthy();
   });
 
-  /**
-   * On a touch screen the page must not take the drag: without `touch-action:
-   * none` a one-finger drag scrolls the page and the browser cancels the pointer.
-   */
   it('keeps touch drags for itself', () => {
     renderWithProviders(<SiteMap {...HOME} onPick={vi.fn()} />);
     expect(screen.getByRole('group', { name: /Launch site map/ }).className).toContain('touch-none');
@@ -71,7 +50,6 @@ describe('SiteMap', () => {
     fireEvent.pointerUp(map, { pointerId: 2, clientX: 200, clientY: 128 });
     fireEvent.pointerUp(map, { pointerId: 1, clientX: 160, clientY: 128 });
     expect(onPick).not.toHaveBeenCalled();
-    // And the next lone tap still picks.
     fireEvent.pointerDown(map, { pointerId: 3, clientX: 160, clientY: 128 });
     fireEvent.pointerUp(map, { pointerId: 3, clientX: 160, clientY: 128 });
     expect(onPick).toHaveBeenCalledWith(39.05, -104.8);
@@ -87,8 +65,6 @@ describe('SiteMap', () => {
     renderWithProviders(<SiteMap {...HOME} onPick={onPick} />);
     const map = screen.getByRole('group', { name: /Launch site map/ });
 
-    // The center of the box is the center of the view, so a click there is the
-    // coordinate the map is already showing, to four places.
     fireEvent.pointerDown(map, { pointerId: 1, clientX: 160, clientY: 128 });
     fireEvent.pointerUp(map, { pointerId: 1, clientX: 160, clientY: 128 });
     expect(onPick).toHaveBeenCalledWith(39.05, -104.8);
@@ -102,8 +78,6 @@ describe('SiteMap', () => {
     fireEvent.pointerUp(map, { pointerId: 1, clientX: 100, clientY: 60 });
 
     const [lat, lon] = onPick.mock.calls[0]!;
-    // Up is north, left is west. Getting either axis backwards yields a map
-    // that looks fine and puts the location somewhere else entirely.
     expect(lat).toBeGreaterThan(HOME.latitudeDeg);
     expect(lon).toBeLessThan(HOME.longitudeDeg);
   });
@@ -116,18 +90,11 @@ describe('SiteMap', () => {
     fireEvent.pointerDown(map, { pointerId: 1, clientX: 160, clientY: 128 });
     fireEvent.pointerMove(map, { pointerId: 1, clientX: 210, clientY: 128 });
     fireEvent.pointerUp(map, { pointerId: 1, clientX: 210, clientY: 128 });
-    // A drag that ended over a different place must not move the location there.
     expect(onPick).not.toHaveBeenCalled();
-    // The location has not moved either, so the readout still says where it is.
     expect(screen.getByText('39.0500° N, 104.8000° W')).toBeTruthy();
   });
 
   it('does not move the location when a control inside the map is clicked', () => {
-    // The controls are children of the box the pointer handlers are on, so
-    // their events bubble there. Read as a click on the ground, switching to
-    // the street layer would relocate the launch site to the top-left corner of
-    // the map, where the layer buttons sit, with nothing to say the coordinates
-    // had changed.
     const onPick = vi.fn();
     renderWithProviders(<SiteMap {...HOME} onPick={onPick} />);
     for (const name of ['Street', 'Satellite', 'Zoom in', 'Zoom out']) {
@@ -153,7 +120,6 @@ describe('SiteMap', () => {
       renderWithProviders(<SiteMap {...HOME} onPick={onPick} />);
       fireEvent.keyDown(map(), { key: 'Enter' });
       expect(onPick).toHaveBeenLastCalledWith(39.05, -104.8);
-      // East and north of where it started.
       fireEvent.keyDown(map(), { key: 'ArrowRight' });
       fireEvent.keyDown(map(), { key: 'ArrowUp' });
       fireEvent.keyDown(map(), { key: ' ' });
@@ -188,7 +154,6 @@ describe('SiteMap', () => {
 
   it('omits the click-to-move hint when it is only showing', () => {
     renderWithProviders(<SiteMap {...HOME} />);
-    // The instruction line belongs to the control, not the read-only map.
     expect(screen.queryByText(/Click the map/i)).toBeNull();
   });
 
@@ -197,7 +162,6 @@ describe('SiteMap', () => {
     const imgs = Array.from(document.querySelectorAll('img'));
     expect(imgs.length).toBeGreaterThanOrEqual(3);
 
-    // One failure is a hole in the coverage; a screenful is no network.
     fireEvent.error(imgs[0]!);
     expect(document.querySelectorAll('img').length).toBeGreaterThan(0);
     fireEvent.error(imgs[1]!);
@@ -205,14 +169,10 @@ describe('SiteMap', () => {
 
     expect(document.querySelectorAll('img')).toHaveLength(0);
     expect(screen.getByText(/No imagery offline/i)).toBeTruthy();
-    // The coordinate is still readable, which is what the grid is there for.
     expect(screen.getByText('39.0500° N, 104.8000° W')).toBeTruthy();
   });
 
   it('keeps drawing once a tile has loaded, however many others fail', () => {
-    // Zoomed in past a provider's coverage, individual tiles 404 forever. A
-    // map that swapped itself for the offline grid on those would be telling
-    // the user they are offline while showing them a working map.
     renderWithProviders(<SiteMap {...HOME} />);
     const imgs = Array.from(document.querySelectorAll('img'));
     fireEvent.load(imgs[0]!);
@@ -222,11 +182,6 @@ describe('SiteMap', () => {
   });
 });
 
-/**
- * The scale is a length readout like every other on the panel, so it follows the
- * distance preference. A large value promotes to the next unit up ("1.2 km"
- * beats "1234 m"): m to km, ft to mi.
- */
 describe('SiteMap scale', () => {
   const scale = () => screen.getByText(/^[\d.,]+ (m|km|ft|mi)$/).textContent;
 
@@ -244,10 +199,7 @@ describe('SiteMap scale', () => {
   });
 });
 
-/**
- * Wheel zoom must stop the page behind the map from scrolling. React's `onWheel`
- * is passive at the root, so only a native non-passive listener can prevent it.
- */
+// React's `onWheel` is passive at the root, so only a native listener can stop page scroll.
 it('cancels the wheel so the form under the map does not scroll', () => {
   renderWithProviders(<SiteMap {...HOME} />);
   const map = screen.getByRole('group', { name: /Launch site map/ });

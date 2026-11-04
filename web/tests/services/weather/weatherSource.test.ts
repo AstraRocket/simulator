@@ -55,7 +55,6 @@ describe('sourceStatus', () => {
   it('sees an edit to any field the forecast filled, and only those', () => {
     expect(sourceStatus(launch(source(), { pressureHPa: 851 }), NOW)!.edited).toBe(true);
     expect(sourceStatus(launch(source(), { windLevels: [] }), NOW)!.edited).toBe(true);
-    // Humidity was not applied, so changing it is not an edit of the forecast.
     expect(sourceStatus(launch(source(), { relativeHumidity: 0.9 }), NOW)!.edited).toBe(false);
   });
   it('counts the site altitude only when the terrain elevation was applied', () => {

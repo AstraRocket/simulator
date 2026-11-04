@@ -16,26 +16,6 @@ import { SizingFigures } from '../tools/SizingFigures';
 import { commitWith, type NodeEditProps } from './DimensionFields';
 import { smallButton } from '../common/smallButton';
 
-/**
- * Descent-sizing help for a selected parachute, opened from its editor as a
- * dialog, with a button per suggested diameter that sets it on the canopy.
- *
- * An estimate, and it says so. The mass is the loaded mass less the propellant
- * that burns off, the rate comes from the descent equation at a launch-site air
- * density of our own, and the two diameters are that equation solved backwards.
- * None of it is the kernel's, which is why it can be shown before the design has
- * ever flown and why it must not be mistaken for a result.
- *
- * Once a run has flown this device the mass and the rate are replaced by what the
- * kernel recorded (`recoveryFlown`), and the block says which it is showing. The
- * two diameters stay an estimate throughout: "what size should I use" is a
- * question about a design, and no flight can answer it.
- *
- * The suggestion is worth more against the measured mass than against ours, so
- * when a run is available every line is computed from that one.
- *
- * Reads the workspace store directly so PropertyPanel needn't thread it through.
- */
 export function RecoverySizingReadout({ node, onChange, onCommit }: NodeEditProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -68,31 +48,19 @@ function SizingBody({ node, onUse }: { node: ComponentNode; onUse: (diameterM: n
   const tree = useWorkspaceStore((s) => s.tree);
   const config = useWorkspaceStore(selectConfig);
   const launch = useWorkspaceStore((s) => selectActive(s).launch);
-  // An outdated run describes a design or settings that have since moved, so its
-  // figures are not this device's any more; the estimate is the honest fallback.
   const result = useWorkspaceStore((s) => (selectOutdated(s) ? null : selectActive(s).result));
 
-  // The stored Cd is the one the kernel flies, Auto or not: a parachute's
-  // `getComponentCD` returns its stored `cd` (Parachute.java), so `cdAuto` on
-  // this part changes nothing, and the kernel's default for a chute with no
-  // `cd` is the same 0.8 (RecoverySizingReadout.kernel.test pins both).
-  //
-  // `num(..., 0.8)`, not `num(...) || 0.8`: the `||` fallback would also replace
-  // a stored `cd: 0`, whose infinite descent rate `descentRate` renders as a
-  // dash.
+  // The kernel flies the stored Cd even on Auto (Parachute.getComponentCD), default 0.8.
+  // Not `|| 0.8`, which would replace a stored 0.
   const cd = num(node, 'cd', 0.8);
   const diameter = num(node, 'diameter');
 
-  // The device as the run's deployment events know it: by its node id, and by
-  // the name the kernel flies it under for a result that carries no ids. For an
-  // unnamed device that name is the kernel's default, which every other unnamed
-  // device of its type shares.
+  // By name only for results without ids: an unnamed device shares the kernel default name.
   const device = useMemo(() => {
     const name = kernelComponentName(node);
     return { id: node.id, name, nameShared: sharedDeviceNames(tree.components).has(name) };
   }, [node, tree]);
   const sizing = useMemo(() => {
-    // What the run recorded for this device, if it flew one.
     const flown = deviceDescent(result, device);
     const mass = flown?.mass ?? descentMass(info?.mass, motorSpecs(tree, config));
     if (mass == null) return null;
@@ -108,10 +76,7 @@ function SizingBody({ node, onUse }: { node: ComponentNode; onUse: (diameterM: n
   return (
     <div className="mt-3 space-y-3">
       <p className="text-xs text-ink-muted">
-        {/* Three keys, not one with a conditional clause: i18next cannot
-            omit a fragment, and gluing the branch name on here would not
-            translate. The branch is named only when the flight had more than
-            one, since otherwise there is nothing to distinguish. */}
+        {/* Three keys: i18next cannot omit a fragment, and gluing would not translate. */}
         {t(
           sizing.measured ? (sizing.branch ? 'recovery.forMassRunBranch' : 'recovery.forMassRun') : 'recovery.forMass',
           { mass: `${massUnit.fmtSym(sizing.mass)}`, branch: sizing.branch },
@@ -129,12 +94,7 @@ function SizingBody({ node, onUse }: { node: ComponentNode; onUse: (diameterM: n
   );
 }
 
-/**
- * The branch a device deployed on, as every other view names a stage. A stage
- * whose name was cleared flies under the kernel's default, a bundle key the
- * TeaVM kernel cannot look up, so it reads "Stage n" by its place in the flight
- * instead. Empty for a single-branch flight, which has nothing to tell apart.
- */
+// A cleared stage name flies under the kernel default, a bundle key TeaVM cannot look up.
 function branchName(
   t: (key: string, opts?: Record<string, unknown>) => string,
   run: FlightResult,

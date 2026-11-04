@@ -13,14 +13,7 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A part whose material shares a name with a list entry but not its density
- * shows the density it flies with.
- *
- * The file below is a desktop user's own "Balsa" at 200 kg/m³; the list's Balsa
- * is another density. The figure the picker has to show is the one the kernel
- * holds for the part after the build.
- */
+// The file's "Balsa" is 200 kg/m³, unlike the list's Balsa.
 
 const XML = `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents><stage><name>S</name><subcomponents>
 <bodytube><name>B</name><length>0.3</length><radius>0.012</radius><thickness>0.001</thickness>
@@ -35,7 +28,6 @@ const ork = (xml: string): ArrayBuffer => {
 const flatten = (nodes: ComponentNode[]): ComponentNode[] =>
   nodes.flatMap((n) => [n, ...flatten((n.children ?? []) as ComponentNode[])]);
 
-/** The material select, not the density unit chip beside it. */
 const materialSelect = () =>
   screen
     .getAllByRole('combobox')
@@ -59,12 +51,10 @@ describe('a material named like a list entry at another density', () => {
     );
     const select = materialSelect();
     await waitFor(() => expect(select.options.length).toBeGreaterThan(3));
-    // The list does hold a Balsa, at a density the kernel does not fly.
     const listed = [...select.querySelectorAll('optgroup:not([label="From this part"]) option')].find((o) =>
       o.textContent?.startsWith('Balsa ·'),
     );
     expect(listed).toBeTruthy();
-    // Shown in g/cm³, the default density unit.
     const shown = (o: Element) => Number(/· ([\d.]+) g\/cm³/.exec(o.textContent ?? '')?.[1]);
     expect(shown(listed!)).not.toBeCloseTo(fields.density / 1000, 6);
     expect(select.value).toBe('Balsa');

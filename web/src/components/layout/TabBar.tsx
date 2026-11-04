@@ -4,25 +4,7 @@ import { useWorkspaceStore } from '../../state/store';
 import { useShowResultsTab } from './useShowResultsTab';
 import { taskTabs } from './tabTable';
 
-/**
- * Mobile bottom tab bar (hidden at lg+, where {@link WorkbenchTabs} sits in the
- * header instead).
- *
- * One more button than there are tabs: the Design tab has two halves a phone
- * can't show at once, so Rocket and Sketch both open it and pick the half
- * (`designPane`). At lg+ that split disappears and Design is one button showing
- * both.
- *
- * The labels are shorter here than in the header strip, because five or six of
- * them share the width of a phone: `tabs.configsShort` names the tab that the
- * desktop calls Configurations.
- *
- * It is the last flex child of a fixed-height column whose main area is
- * `overflow-hidden`, so it stays put while a pane scrolls behind it. The
- * bottom padding is the home-indicator inset: `index.html` asks for
- * `viewport-fit=cover`, which lets the page run under that bar, and without it
- * the tab labels sit beneath it on an iPhone.
- */
+/** The bottom padding is the home-indicator inset, needed because `index.html` sets `viewport-fit=cover`. */
 export function TabBar() {
   const { t } = useTranslation();
   const tab = useWorkspaceStore((s) => s.tab);
@@ -68,15 +50,11 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      // Which tab you are on is announced (`aria-current`) and drawn with a bar
-      // and a heavier label, not shown by color alone, which a screen reader
-      // cannot announce and a low-vision user cannot rely on.
       aria-current={active ? 'page' : undefined}
       className={`flex flex-1 flex-col items-center gap-0.5 border-t-2 py-3 text-xs ${
         active ? 'border-accent-400 font-semibold text-accent-400' : 'border-transparent text-ink-muted'
       }`}
     >
-      {/* Decorative: the label names the tab. */}
       <span className="text-lg" aria-hidden="true">
         {icon}
       </span>

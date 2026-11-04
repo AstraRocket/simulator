@@ -5,24 +5,11 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { resetHelpIndex } from '../../../src/services/app/helpSearch';
 import { HelpDialog } from '../../../src/components/layout/HelpDialog';
 
-// The search cases parse several served pages in jsdom: a quarter to half a
-// second each alone, ten times that on a loaded CI runner.
+// Parsing served pages in jsdom is slow, about ten times slower on a loaded CI runner.
 vi.setConfig({ testTimeout: 60_000 });
-
-/**
- * Searching the guide from inside the app.
- *
- * The frame itself cannot load here (jsdom fetches nothing a page links to), and that is
- * the point of testing this at the component level: the rail, the search box and
- * the results are all drawn by the app from the served html, so everything a
- * reader does to find a topic works without a rendered page. Highlighting inside
- * the frame is the one part that needs one, and it is covered against a real
- * document in helpSearch.test.ts.
- */
 
 const appBase = import.meta.env.BASE_URL.replace(/\/*$/, '/');
 
-/** The sidebar Docusaurus builds into every page, which is the rail's source. */
 const SIDEBAR = `
 <nav aria-label="Docs sidebar" class="menu">
   <ul class="theme-doc-sidebar-menu menu__list">
@@ -56,7 +43,6 @@ const PAGES: Record<string, string> = {
   ),
 };
 
-/** Serve the built docs, the way the precache does on a deployed build. */
 function serveDocs() {
   const fetchMock = vi.fn((url: string) =>
     Promise.resolve({ ok: url in PAGES, text: () => Promise.resolve(PAGES[url] ?? '') }),
@@ -70,11 +56,7 @@ afterEach(() => {
   resetHelpIndex();
 });
 
-/**
- * jsdom has no matchMedia, and the dialog asks whether it is wide enough to keep
- * the contents rail beside the page. `true` is the desktop answer, where the
- * rail (and so the search box) is open to begin with.
- */
+/** jsdom has no matchMedia. Wide keeps the rail, and so the search box, open. */
 function stubWide(): void {
   window.matchMedia = ((query: string) => ({
     matches: true,
@@ -88,7 +70,6 @@ function stubWide(): void {
   })) as unknown as typeof window.matchMedia;
 }
 
-/** Render Help on a page and wait for the contents rail to arrive. */
 async function openHelp(page = '') {
   stubWide();
   serveDocs();
@@ -104,8 +85,6 @@ describe('HelpDialog search', () => {
     await openHelp();
     type('launch rod');
 
-    // The section heading leads the row, because a result is a place in the
-    // guide and the section is the part of it being looked for.
     const hit = await screen.findByRole('button', { name: /At the pad/ });
     expect(hit.textContent).toContain('Safety');
     expect(hit.textContent).toContain('Keep the launch rod clear');
@@ -116,8 +95,6 @@ describe('HelpDialog search', () => {
     type('launch rod');
     fireEvent.click(await screen.findByRole('button', { name: /At the pad/ }));
 
-    // The heading is read off the page that loaded, so it is proof the dialog
-    // moved rather than merely listing somewhere else.
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Safety' })).toBeTruthy());
   });
 
@@ -139,8 +116,6 @@ describe('HelpDialog search', () => {
   it('leaves the page list alone for a single letter', async () => {
     await openHelp();
     type('r');
-    // One letter matches most of a guide, and building the index to prove it
-    // costs a fetch per page.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Overview' })).toBeTruthy());
   });
 
@@ -166,8 +141,6 @@ describe('HelpDialog search', () => {
     fireEvent.keyDown(searchBox(), { key: 'Escape' });
 
     expect((searchBox() as HTMLInputElement).value).toBe('');
-    // The reason you are in a search box is that you have not found the thing
-    // yet, so shutting the guide is the wrong answer.
     expect(onClose).not.toHaveBeenCalled();
   });
 

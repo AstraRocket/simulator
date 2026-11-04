@@ -11,11 +11,6 @@ import { renderWithProviders, seedSettings } from '../../testing/renderWithProvi
 import type { FlightSeries } from '../../../src/engine/openRocketEngine';
 import { NO_VALUE } from '../../../src/i18n/noValue';
 
-/**
- * What the flight chart's readouts say: the header and the live region agree,
- * a stage reports a value only inside its own flight, the zoom buttons say when
- * they can do nothing, and Escape is spent only when it dropped a crosshair.
- */
 afterEach(() => localStorage.clear());
 
 const flight = {
@@ -43,8 +38,7 @@ describe('the live region', () => {
     renderWithProviders(<FlightChart flight={flight} />);
     fireEvent.keyDown(screen.getByRole('group', { name: /Flight charts/ }), { key: 'End' });
     const text = screen.getByRole('status').textContent ?? '';
-    // The panel spans about 110 m/s, so its header carries no decimals; the
-    // value under the crosshair (-5) must not pick up two of its own.
+    // The crosshair value takes the header's decimals (none at a 110 m/s span), not its own.
     expect(text).toMatch(/Velocity \S*5 m\/s/);
     expect(text).not.toContain('5.00');
   });
@@ -69,7 +63,6 @@ describe('the live region past the primary stage’s data', () => {
 });
 
 describe('a stage reports only inside its own flight', () => {
-  // The primary stage lands at t = 2 while the other flies on to t = 4.
   const branches = [
     branch('sustainer', { time: [0, 1, 2], altitude: [0, 10, 5], velocity: [0, 8, 4] }),
     branch('booster', { time: [0, 1, 2, 3, 4], altitude: [0, 4, 6, 3, 0], velocity: [0, 2, 1, 0, 0] }),
@@ -90,7 +83,6 @@ describe('a stage reports only inside its own flight', () => {
 
   it('the panel header shows no value past the primary stage’s landing', () => {
     const head = panel(3).querySelector('.text-ink-strong')!.textContent ?? '';
-    // Neither the peak (10) nor the clamped landing value (5).
     expect(head).toBe(NO_VALUE);
     expect(screen.queryByText('peak')).toBeNull();
   });
@@ -113,7 +105,6 @@ describe('a stage reports only inside its own flight', () => {
         onToggleExpand={() => {}}
       />,
     );
-    // Only the booster is still flying at t = 3.
     expect(container.querySelectorAll('circle')).toHaveLength(1);
   });
 
@@ -136,8 +127,6 @@ describe('a stage reports only inside its own flight', () => {
     expect(screen.getByText('peak')).toBeTruthy();
   });
 
-  // The screen reader's summary of the panel takes the largest magnitude, so
-  // the header has to as well, or the two name different top speeds.
   it('the velocity-altitude header names a descent faster than the climb', () => {
     const descending = [branch('only', { time: [0, 1, 2, 3], altitude: [0, 10, 8, 2], velocity: [0, 5, -3, -12] })];
     const { container } = renderWithProviders(
@@ -155,8 +144,6 @@ describe('a stage reports only inside its own flight', () => {
     expect(head).toMatch(/12/);
   });
 
-  // One rule with the time panels: the peak spans every shown stage, so a
-  // booster faster than the sustainer is the one named.
   it('the velocity-altitude header names the fastest stage, not only the primary', () => {
     const faster = [
       branch('sustainer', { time: [0, 1, 2], altitude: [0, 10, 5], velocity: [0, 8, 4] }),
@@ -178,7 +165,6 @@ describe('a stage reports only inside its own flight', () => {
 
   it('the velocity-altitude header shows no value past the primary stage’s landing', () => {
     const head = xyPanel(3).querySelector('.text-ink-strong')!.textContent ?? '';
-    // Not the primary stage's top speed (8).
     expect(head).toBe(NO_VALUE);
     expect(screen.queryByText('peak')).toBeNull();
   });
@@ -234,10 +220,6 @@ describe('Escape on the aero crosshair', () => {
   });
 });
 
-/**
- * The chart keeps at least one stage on, so the last chip on cannot do what it
- * looks like it does. It says so instead of taking the press in silence.
- */
 describe('the stage chips', () => {
   const series = { time: [0, 1, 2], altitude: [0, 10, 0], velocity: [0, 5, 0], acceleration: [9, 0, -9] };
   const twoStage = {
@@ -265,7 +247,6 @@ describe('the stage chips', () => {
     expect(last.getAttribute('aria-disabled')).toBe('true');
     expect(last.getAttribute('title')).toBe('At least one stage stays on the chart.');
 
-    // Still shown after a press, and free again once another stage is back.
     fireEvent.click(last);
     expect(chip('Sustainer').getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(chip('Booster'));
@@ -274,9 +255,6 @@ describe('the stage chips', () => {
 });
 
 describe('the aero window', () => {
-  // A booster's charge lands in the sustainer's branch at booster burnout, so
-  // with no deployment recorded forward flight runs on to apogee, as the
-  // Max q·α tile measures it.
   const charged = {
     id: 'sim-3',
     name: 'Simulation 3',
@@ -300,7 +278,6 @@ describe('the aero window', () => {
     const group = screen.getByRole('group', { name: /Flight charts/ });
     fireEvent.keyDown(group, { key: 'End' });
     for (let i = 0; i < 4; i++) fireEvent.keyDown(group, { key: 'ArrowLeft', shiftKey: true });
-    // The crosshair sits at 2.4 s: past the charge, before apogee.
     const text = screen.getByRole('status').textContent ?? '';
     expect(text).toMatch(/2\.40/);
     expect(text).toMatch(/Stability/);
@@ -322,7 +299,6 @@ describe('adding a panel for another recorded series', () => {
     fireEvent.change(picker, { target: { value: 'Cd' } });
     const chip = screen.getByRole('button', { name: 'Drag coefficient (CD)' });
     expect(chip.getAttribute('aria-pressed')).toBe('true');
-    // Offered once: an open panel leaves the picker.
     expect(screen.queryByRole('option', { name: 'Drag coefficient (CD)' })).toBeNull();
 
     fireEvent.click(chip);
@@ -345,14 +321,11 @@ describe('plotting one series against another', () => {
 
     const chip = screen.getByRole('button', { name: 'Acceleration vs Altitude' });
     expect(screen.queryByRole('button', { name: 'Add chart' })).toBeNull();
-    // The chip and the new panel's title.
     expect(screen.getAllByText('Acceleration vs Altitude').length).toBeGreaterThanOrEqual(2);
     fireEvent.click(chip);
     expect(screen.queryByRole('button', { name: 'Acceleration vs Altitude' })).toBeNull();
   });
 
-  // North against east only reads as a track over the ground if a meter is the
-  // same length on both axes.
   it('draws two distances to one scale', () => {
     const north = { key: 'Py', label: 'flightVar.Py', unit: '', digits: 0, quantity: 'distance' as const, level: true };
     const east = { key: 'Px', label: 'flightVar.Px', unit: '', digits: 0, quantity: 'distance' as const, level: true };
@@ -376,7 +349,6 @@ describe('plotting one series against another', () => {
       .map((p) => p.split(',').map(Number));
     const [x0, y0] = pts[0]!;
     const [x1, y1] = pts[pts.length - 1]!;
-    // 200 m east and 20 m north: ten times as far across as up.
     expect(Math.abs(x1! - x0!) / Math.abs(y1! - y0!)).toBeCloseTo(10, 1);
   });
 
@@ -395,7 +367,6 @@ describe('plotting one series against another', () => {
         onToggleExpand={() => {}}
       />,
     );
-    // The peak reads 2.2, not the 9 a tumbling rocket records after apogee.
     expect(container.querySelector('.text-ink-strong')!.textContent).toMatch(/^2\.2/);
   });
 });

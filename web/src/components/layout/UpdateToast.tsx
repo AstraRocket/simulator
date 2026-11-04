@@ -14,63 +14,14 @@ import { useUpdateStore } from '../../state/updateStore';
 import { waitingIsNewer } from '../../services/app/swBuild';
 import { Banner } from '../common/Banner';
 
-/**
- * "A new version is available, reload?" for the service worker.
- *
- * The SW is registered with `registerType: 'prompt'` precisely so a deploy cannot
- * reload the page under someone mid-design. Applying the update calls
- * skipWaiting and reloads, so it has to be the user's choice.
- *
- * It also has to ask, which takes two things:
- *
- *   - Checking. Without `onRegisteredSW` the browser looks for a new worker
- *     only on a navigation, so a tab left open across a deploy (the normal way
- *     this app is used) never finds out. It polls (see UPDATE_POLL_MS), and
- *     again whenever the tab is brought back to the front or the network
- *     returns, both rate-limited.
- *   - Coming back. `setNeedRefresh(false)` would hide the offer for the rest of
- *     the session, so "Later" snoozes instead, and the prompt comes back.
- *
- * Deliberately not a modal. A modal on a deploy would interrupt an edit in
- * progress, which is the exact thing `registerType: 'prompt'` exists to prevent.
- * It is a banner across the top instead, under the header with the app's other
- * banners: hard to miss, and it still lets you finish the sentence you were
- * typing. A card in a bottom corner is easy to take for part of the page.
- *
- * And it finishes the job whether or not it is answered. Under `prompt` the new
- * worker activates only when the page posts SKIP_WAITING, and `clientsClaim` is
- * off, so one that is never asked waits for the life of the tab - which is the
- * whole of it if the prompt was dismissed, if a second tab is holding the old
- * worker alive, or if the running build is old enough to have no prompt at all.
- * A tab left hidden long enough therefore takes the update up unasked; see
- * `readyToApplyHidden`.
- *
- * And it takes up only a newer build. The browser reports any differing sw.js
- * as waiting, older included, and the CDN can serve the previous one for a
- * while after a deploy; applying that reloads into the old build, which then
- * finds the new one, and the page cycles. Every path that offers or applies a
- * worker first asks it for its build id (services/app/swBuild.ts).
- */
+// The browser checks for a new worker only on navigation, so this polls.
+// Only a newer build is offered: the browser reports any differing sw.js as waiting (swBuild.ts).
 export function UpdateToast() {
   const lastCheck = useRef<number | null>(null);
   const [snoozed, setSnoozed] = useState<number | null>(null);
 
-  // The registration arrives from a library callback, so it is held in state to
-  // hand it to an effect, which is what gets a cleanup. Wiring the timer and
-  // the listeners inside the callback would leak both: it has no unmount hook,
-  // and under StrictMode the whole thing runs twice in development.
   const [swReg, setSwReg] = useState<ServiceWorkerRegistration | null>(null);
 
-  /*
-   * A waiting worker that is a newer build, remembered independently of
-   * whether the prompt is still showing. Set only once the worker has said
-   * which build it is, so an older one never shows the prompt.
-   *
-   * Dismissing the toast hides the offer; it does not make the new build go
-   * away, and `setNeedRefresh(false)` is the app forgetting the one fact it
-   * needs to finish the job. The worker is still sitting there waiting to be
-   * asked, and with `clientsClaim` off it will wait for the life of the tab.
-   */
   const [waiting, setWaiting] = useState(false);
 
   const {
@@ -81,49 +32,30 @@ export function UpdateToast() {
       lastCheck.current = Date.now(); // registering just did one
       setSwReg(registration ?? null);
     },
-    // The worker telling us one is waiting, which is the fact the dismissal
-    // below must not erase. Taken from the registration's own callback rather
-    // than derived from `needRefresh`, so nothing here has to set state from a
-    // render or an effect to remember it. Kept only if it is a newer build; a
-    // stale copy of the previous one (see swBuild.ts) clears it.
     onNeedRefresh() {
       void navigator.serviceWorker
         .getRegistration()
         .then(waitingIsNewer)
         .then(setWaiting, () => setWaiting(false));
     },
-    // The library reloads only on a controller change, and only when a worker
-    // already controlled the page at load. Routed through `reloadOnce` so the
-    // reload `apply` arranges below and this one never both run.
+    // Through `reloadOnce` so this and the reload `apply` arranges never both run.
     onNeedReload: reloadOnce,
   });
 
-  /*
-   * Take the waiting worker up, then land on it.
-   *
-   * `updateServiceWorker(true)` posts SKIP_WAITING, and the library reloads
-   * when the new worker takes control. A tab opened on its first visit has no
-   * controller (`clientsClaim` is off), so the new worker activates without
-   * ever taking control of it and nothing reloads. Waiting for the worker to
-   * reach `activated` covers that tab, and a worker already gone from
-   * `waiting` (another tab took it up) needs only a reload.
-   */
+  // The library reloads only on a controller change, which a first-visit tab
+  // (`clientsClaim` off) never sees, so also wait for `activated`.
   const apply = useCallback(async () => {
     const next = swReg?.waiting;
     if (swReg && !next) {
       reloadOnce();
       return;
     }
-    // Asked again here, not only when the prompt appeared: a stale copy of the
-    // previous build can take the waiting slot in between.
+    // Asked again: a stale copy can take the waiting slot after the prompt.
     if (next && !(await waitingIsNewer(swReg))) {
       setWaiting(false);
       return;
     }
     next?.addEventListener('statechange', () => next.state === 'activated' && reloadOnce());
-    // The button says "Reloading" from the click on, so a reload must follow: a
-    // worker that never reaches `activated` would otherwise leave it saying so
-    // forever.
     if (swReg) setTimeout(reloadOnce, APPLY_FALLBACK_MS);
     void updateServiceWorker(true);
   }, [swReg, updateServiceWorker]);
@@ -134,8 +66,6 @@ export function UpdateToast() {
       const now = Date.now();
       if (!dueForCheck(lastCheck.current, now)) return;
       lastCheck.current = now;
-      // A failed check is not worth reporting: the app works offline by design,
-      // and "could not reach the server" is not news at a launch site.
       void swReg.update().catch(() => {});
     };
     const onVisible = () => document.visibilityState === 'visible' && check();
@@ -149,13 +79,6 @@ export function UpdateToast() {
     };
   }, [swReg]);
 
-  /*
-   * The menu's "Check for updates": the same update() the timer calls,
-   * but waited on and answered. A worker that starts installing is followed to
-   * the end, so "up to date" is never said over a download still in progress.
-   * One already waiting, behind a dismissed or snoozed banner, brings the banner
-   * back: the person asked.
-   */
   useEffect(() => {
     if (!swReg) return;
     const { setChecker } = useUpdateStore.getState();
@@ -181,21 +104,7 @@ export function UpdateToast() {
     return () => setChecker(null);
   }, [swReg, setNeedRefresh]);
 
-  /*
-   * Apply it while nobody is looking.
-   *
-   * `registerType: 'prompt'` is the right default and stays: a deploy must not
-   * reload the page mid-design. But an offer that is never answered leaves the
-   * tab on the old build for good, and the only way out is the hard reload this
-   * whole mechanism exists to spare people. So once the tab has been hidden
-   * long enough for a reload to cost nothing, it is taken up unasked.
-   *
-   * Whether anything is in progress (`workInProgress`: flights or a sweep in
-   * the air, a dialog waiting on an answer) is read at the moment it fires
-   * rather than subscribed to: flights keep running while the tab is hidden,
-   * and re-running this effect every time one finished would restart the
-   * clock.
-   */
+  // `workInProgress` is read, not subscribed to: re-running this effect would restart the clock.
   useEffect(() => {
     if (!waiting) return;
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -207,8 +116,6 @@ export function UpdateToast() {
       stop();
       if (document.visibilityState !== 'hidden') return;
       const hiddenSince = Date.now();
-      // Polled rather than a single timeout: if a flight is still in the air
-      // when the wait is up, this has to come back to it rather than give up.
       timer = setInterval(() => {
         if (!readyToApplyHidden(true, hiddenSince, workInProgress(), Date.now())) return;
         stop();
@@ -223,8 +130,7 @@ export function UpdateToast() {
     };
   }, [waiting, apply]);
 
-  // Snoozing hides the prompt without throwing away `needRefresh`, so the same
-  // waiting worker is still there to offer when the snooze runs out.
+  // Snoozing keeps `needRefresh`, so the prompt returns when the snooze ends.
   useEffect(() => {
     if (snoozed === null) return;
     const id = setTimeout(() => setSnoozed(null), Math.max(0, snoozed - Date.now()));
@@ -233,18 +139,10 @@ export function UpdateToast() {
 
   const later = useCallback(() => setSnoozed(snoozeUntil(Date.now())), []);
 
-  // No clock read in render: the snooze effect above nulls `snoozed` the
-  // moment it expires, so "not snoozed" is the whole condition. `waiting` is
-  // the newer-build check: the library raises `needRefresh` for any waiting
-  // worker, older included.
+  // `waiting` is the newer-build check: `needRefresh` fires for older workers too.
   const show = needRefresh && waiting && snoozed === null;
 
-  // The live region is always mounted; only its contents come and go.
-  //
-  // A `role="status"` created at the same moment as its text is not announced
-  // by most screen readers: the region has to exist in the DOM before
-  // content is inserted into it. Rendering `null` until there is something
-  // to say would leave the toast announcing nothing.
+  // Always mounted: screen readers skip a live region created with its text.
   return (
     <div role="status" aria-live="polite">
       {show && (
@@ -254,12 +152,10 @@ export function UpdateToast() {
   );
 }
 
-/** How long Reload waits for the new worker before reloading regardless. */
 const APPLY_FALLBACK_MS = 10_000;
 
 let reloading = false;
 
-/** Reload the page, once, however many paths ask for it. */
 function reloadOnce(): void {
   if (reloading) return;
   reloading = true;
@@ -276,19 +172,11 @@ function UpdateToastBody({
   onDismiss: () => void;
 }) {
   const { t } = useTranslation();
-  // Set on the click and never cleared: the page reloads out from under it.
-  // Until then the new worker is activating, which takes a moment, and a
-  // button that looks untouched in that moment reads as one that did nothing.
   const [applying, setApplying] = useState(false);
   return (
-    // The dismiss ✕ goes once Reload is pressed, with Later: there is nothing
-    // left to put off.
     <Banner tone="accent" onDismiss={applying ? undefined : onDismiss} dismissLabel={t('update.dismiss')}>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{t('update.available')}</p>
-        {/* Which build you are on. The waiting worker does not tell us its own
-            version, so this names the one being replaced rather than inventing
-            the one replacing it. */}
         <p className="text-xs text-accent-200">{t('update.running', { version: APP_VERSION })}</p>
       </div>
       <button

@@ -32,50 +32,11 @@ import { kernelGeometry, loadEngine, walkTree, type KernelGeometry } from '../..
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The app's own geometry against the kernel's, over generated designs.
- *
- * The app resolves automatic radii, profiles and bores before a run so the
- * schematic, the report, the printable solids and the cut sheets can draw
- * without the kernel. Each of those numbers is a copy of a Java rule, and a
- * copy tested only against hand-picked cases agrees with whatever its author
- * believed. Here every design is built in the real kernel and each resolved
- * number compared, so a rule that differs from `BodyTube`, `Transition`,
- * `RingComponent` or `MassObject` fails on the first design that reaches it.
- *
- * The designs are generated from a fixed seed so a failure reproduces: the
- * report names the seed and the part. They cover the flags that change a
- * part's geometry (`filled`, `flipped`, `clipped`, a non-default shape
- * parameter and each automatic flag), two stages, parts inside tubes, nose
- * cones and transitions, and fin sets on every body that takes one:
- * trapezoidal, elliptical and freeform on body tubes, freeform on nose cones
- * (flipped or not) and transitions, with tabs offset by each method and some
- * canted. Each fin set's root, outline and tab are compared point by point
- * with the kernel's, and so is the contour they make. Tube fin sets with an
- * explicit count or radius, streamers, shock cords, launch lugs, rail buttons,
- * mass components, shoulders and clustered mounts ride on top
- * ({@link withExtras}), some parts are placed `absolute`
- * ({@link withAbsolutes}), so each part's station from the nose tip is
- * compared as well as its size, and each pod set's or booster's distance from
- * its parent's axis is compared too. Placement keys ride on top of those
- * ({@link withPlacements}): repeated lugs, turned pods, boosters, inner tubes
- * and tube fins, outlines off the origin, tabs placed `absolute` or `after`,
- * and parts with no `position` key, each read back from the kernel's own
- * fields. The shoulders, each fin's span, and the profiles the PDF's side view
- * and templates draw are compared as well.
- */
-
 const DESIGNS = 200;
 const TOL = 1e-9;
-/**
- * A clipped profile's clip point is found by iteration on both sides, so near
- * the small end the two agree to a few hundredths of a millimeter, not to the
- * last bit. The curves themselves are pinned to the Java in
- * shapeProfile.kernel.test.ts; this checks that each part reads the right one.
- */
+// Both sides find a clip point by iteration, so they agree only to hundredths of a millimeter.
 const PROFILE_TOL = 1e-4;
 
-/** Deterministic PRNG (mulberry32), so a failing design can be rebuilt from its seed. */
 function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -98,49 +59,29 @@ function generate(seed: number): RocketTree {
   const id = (type: string) => `${type}${++n}`;
   const radius = () => Math.round(between(0.01, 0.05) * 1e4) / 1e4;
 
-  /**
-   * Variety the airframe stream never draws: shape parameters, unclipped
-   * profiles, every planar fin type with an offset tab or cant, tube fin sets
-   * with an explicit count or radius, streamers and shock cords. Drawn from a
-   * stream of its own, so the airframe of every seed is the same design.
-   */
+  // A separate stream, so each seed's airframe is unchanged.
   const vr = rng(seed + 0x7f4a7c15);
   const vChance = (p: number) => vr() < p;
   const vBetween = (lo: number, hi: number) => lo + vr() * (hi - lo);
   const vPick = <T>(xs: readonly T[]): T => xs[Math.floor(vr() * xs.length)]!;
   const round4 = (v: number) => Math.round(v * 1e4) / 1e4;
-  /**
-   * Overturned fin sets, from a stream of their own so every other draw of
-   * every seed is unchanged.
-   */
   const cr = rng(seed + 0x5bd1e995);
-  /**
-   * A cant angle (rad), mostly one whose root offsets stay on the body: the
-   * kernel bends a canted root down to the surface (`FinSet.getFinCantYOffset`)
-   * and has no answer where half the chord, turned by the cant, reaches past
-   * the radius. Now and then it is one near that limit on either side, up to
-   * the panel's 15 degrees, where the kernel's root points are NaN past it and
-   * the pre-run check has to refuse exactly those fin sets.
-   */
+  // `FinSet.getFinCantYOffset` has no answer where half the chord, turned by the cant, passes the radius.
   const cantFor = (chord: number, minRadius: number): number => {
     const usual = vChance(0.35) ? round4(vBetween(0.01, 0.08)) * (vChance(0.5) ? 1 : -1) : 0;
     const cant = (chord / 2) * Math.sin(Math.abs(usual)) < minRadius * 0.9 ? usual : 0;
     if (cr() >= 0.3) return cant;
-    // Clear of the limit itself, where the root offset is a difference of near
-    // equal squares and rounding alone parts the app from the kernel.
+    // Clear of the limit itself, where rounding alone parts the app from the kernel.
     const factor = cr() < 0.5 ? 0.6 + cr() * 0.25 : 1.15 + cr() * 0.45;
     const sin = (minRadius * factor) / (chord / 2);
     const near = Math.floor(Math.min(sin < 1 ? Math.asin(sin) : MAX_CANT, MAX_CANT) * 1e4) / 1e4;
     return cr() < 0.5 ? near : -near;
   };
-  /** The profile shape keys a user can set: a non-default parameter and the clip flag. */
   const shapeExtras = (node: Record<string, unknown>) => {
     const shape = node['shape'] as string;
     if (shapeUsesParameter(shape) && vChance(0.6)) node['shapeParameter'] = round4(vBetween(0, shapeParamMax(shape)));
-    // Set on shapes that cannot clip too, where the kernel ignores it.
     if (vChance(0.5)) node['clipped'] = vChance(0.5);
   };
-  /** A tab at each offset method, offset within the root chord, or no tab. */
   const tab = (chord: number): Record<string, unknown> => {
     if (vChance(0.15)) return { tabHeight: 0, tabLength: 0 };
     const tabLength = round4(chord * vBetween(0.2, 0.9));
@@ -149,7 +90,6 @@ function generate(seed: number): RocketTree {
     const offset =
       method === 'top' ? vBetween(0, room) : method === 'bottom' ? -vBetween(0, room) : vBetween(-room / 2, room / 2);
     return {
-      // Deeper than any body here half the time, so the kernel's limit decides it.
       tabHeight: vChance(0.5) ? 0.2 : round4(vBetween(0.002, 0.008)),
       tabLength,
       tabOffsetMethod: method,
@@ -157,7 +97,6 @@ function generate(seed: number): RocketTree {
     };
   };
 
-  /** Parts that sit inside an airframe part of outer radius `outer` and length `len`. */
   const internals = (outer: number, len: number, inTube: boolean): ComponentNode[] => {
     const kids: ComponentNode[] = [];
     const at = () => ({ method: 'top', offset: Math.round(between(0, len * 0.8) * 1e4) / 1e4 });
@@ -274,10 +213,6 @@ function generate(seed: number): RocketTree {
     return kids;
   };
 
-  /**
-   * A fin set on a body tube: trapezoidal, elliptical or freeform, with a tab
-   * offset by each method, and canted some of the time.
-   */
   const fins = (len: number, outer: number): ComponentNode[] => {
     if (!chance(0.5)) return [];
     const chord = Math.round(between(0.3, 0.9) * len * 1e4) / 1e4;
@@ -309,7 +244,6 @@ function generate(seed: number): RocketTree {
             [0, 0],
             [round4(chord * vBetween(0.1, 0.4)), round4(vBetween(0.02, 0.05))],
             [round4(chord * vBetween(0.5, 0.9)), round4(vBetween(0.01, 0.04))],
-            // A trailing point off the root, which the kernel moves onto it.
             [chord, vChance(0.4) ? round4(vBetween(0.001, 0.005)) : 0],
           ],
         } as unknown as ComponentNode,
@@ -327,14 +261,7 @@ function generate(seed: number): RocketTree {
     ];
   };
 
-  /**
-   * A freeform fin set, the one fin set a nose cone or transition takes
-   * (`Transition.isCompatible`). Its tab is deeper than any body here, so the
-   * kernel's limit, the parent radius at the tab's two ends, decides its depth.
-   *
-   * Drawn from a stream of its own, so the airframe of every seed is the same
-   * design with or without these fins.
-   */
+  // Freeform is the only fin set a nose cone or transition takes (`Transition.isCompatible`).
   const fr = rng(seed + 0x9e3779b9);
   const fChance = (p: number) => fr() < p;
   const fBetween = (lo: number, hi: number) => lo + fr() * (hi - lo);
@@ -387,9 +314,6 @@ function generate(seed: number): RocketTree {
     };
     wall(node);
     shapeExtras(node);
-    // Nothing goes inside a filled part: it has no bore to size a part from. A
-    // fin set mounts outside, so a filled cone still takes one. A cone's tip has
-    // no radius to bend a canted root onto.
     node['children'] = [...freeformFins(len, 0), ...(!node['filled'] && chance(0.4) ? internals(aft, len, false) : [])];
     return node as unknown as ComponentNode;
   };
@@ -442,21 +366,7 @@ function generate(seed: number): RocketTree {
   return { components: stages } as unknown as RocketTree;
 }
 
-/**
- * The parts the airframe generators leave out, added to a generated design
- * from a stream of their own, so each seed's airframe stays the same design.
- *
- * Each one reaches a number the comparison reads. A launch lug and a rail
- * button read the tube they stand on after every change
- * (`LaunchLug.componentChanged`, `RailButton.componentChanged`), which moves
- * an automatic tube's evaluation order; a mass component with an automatic
- * radius fills the room its parent gives it (`MassObject.getMaxParentRadius`);
- * a clustered mount still bounds the centering ring bore beside it by its own
- * radius (`CenteringRing.getInnerRadius`); and every one of them has a station
- * from the nose tip. A shoulder changes none of the radii or profiles
- * `getComponentGeometry` reports, so it is here to show that it moves none of
- * them: automatic shoulders follow the bore next door (`syncAutoShoulders`).
- */
+// Lugs and rail buttons re-read their tube on every change (`componentChanged`), reordering automatic evaluation.
 function withExtras(tree: RocketTree, seed: number): RocketTree {
   const r = rng(seed + 0x2545f491);
   const chance = (p: number) => r() < p;
@@ -517,7 +427,6 @@ function withExtras(tree: RocketTree, seed: number): RocketTree {
         } as unknown as ComponentNode);
       }
     }
-    // A shoulder plugs into the tube next door: automatic, or a size of its own.
     const shoulder = (prefix: string, autoKey: string) => {
       if (!chance(0.4)) return;
       out[`${prefix}Length`] = round(between(0.01, 0.05));
@@ -536,15 +445,7 @@ function withExtras(tree: RocketTree, seed: number): RocketTree {
   return { ...tree, components: tree.components.map(visit) };
 }
 
-/**
- * Some placed parts re-expressed as `absolute`, from a stream of their own:
- * the same station measured from the nose tip, as the editor's method switch
- * writes it (`rebasePosition`). Every reader has to place them where the
- * kernel does, which measures them from the rocket's origin whatever the
- * parent (`RocketComponent.setAxialOffset`), so a reader that takes the offset
- * from the parent's front puts a ring at the wrong bore, a tab against the
- * wrong radius and the part at the wrong station.
- */
+// The kernel measures `absolute` from the rocket's origin whatever the parent (`RocketComponent.setAxialOffset`).
 function withAbsolutes(tree: RocketTree, seed: number): RocketTree {
   const r = rng(seed + 0x68e31da4);
   const frames = axialFrames(tree);
@@ -561,10 +462,8 @@ function withAbsolutes(tree: RocketTree, seed: number): RocketTree {
   return { ...tree, components: tree.components.map((c) => visit(c, null)) };
 }
 
-/** The parts of an airframe chain, which stand where the chain puts them and carry no `position`. */
 const CHAIN_TYPES: ReadonlySet<string> = new Set(['stage', 'nosecone', 'bodytube', 'transition']);
 
-/** The parts on a body tube whose station no other part's number reads. */
 const UNREAD_STATIONS: ReadonlySet<string> = new Set([
   'launchlug',
   'railbutton',
@@ -580,30 +479,13 @@ const UNREAD_STATIONS: ReadonlySet<string> = new Set([
   'masscomponent',
 ]);
 
-/**
- * Placement and orientation keys the generators above never write, added from
- * a stream of their own, so each seed's airframe stays the same design.
- *
- * A launch lug repeated along its tube, with a spacing of its own or none (the
- * kernel then spaces the copies by its constructor's value), and a rail button
- * with no spacing stated; a pod set or booster turned about its parent's axis;
- * an inner tube moved off the axis, with its cluster turned; a tube fin set
- * turned; a freeform outline drawn away from the origin, which the kernel moves
- * there (`FreeformFinSet.setPoints`); a fin tab placed `absolute` or `after`,
- * at the station its old method put it; and parts on a body tube with no
- * `position` key at all, which the kernel places by its constructor's method.
- * Only parts whose station nothing else reads lose the key: on a body tube the
- * radius is the same at every station, while a centering ring's automatic bore
- * reads the inner tube beside it and an assembly can stand in for the tube it
- * hangs on, so moving either would move a number checked under another rule.
- */
+// Only parts whose station no other rule reads lose the `position` key.
 function withPlacements(tree: RocketTree, seed: number): RocketTree {
   const r = rng(seed + 0x3c6ef372);
   const chance = (p: number) => r() < p;
   const between = (lo: number, hi: number) => lo + r() * (hi - lo);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
   const round = (v: number) => Math.round(v * 1e4) / 1e4;
-  // Past a half turn either way, so a setter that wraps or clamps the angle shows.
   const angle = () => round(between(-2 * Math.PI, 2 * Math.PI));
   const visit = (node: ComponentNode): ComponentNode => {
     const out: Record<string, unknown> = { ...node };
@@ -666,20 +548,7 @@ function withPlacements(tree: RocketTree, seed: number): RocketTree {
 
 const ASSEMBLY_DESIGNS = 200;
 
-/**
- * Airframes with pod sets and side boosters, from a stream of their own so
- * the designs {@link generate} builds stay the same.
- *
- * An automatic tube's neighbor can sit across an assembly: the kernel counts a
- * pod set or booster on the airframe's axis (coaxial, or at zero radius) as in
- * line with it, lets a pod's first part follow the tube it hangs on, and lets
- * a flush pod's last part stand in for that tube; deciding whether a pod is in
- * line reads the tube it stands on. So the assemblies here hang on automatic
- * and fixed tubes, hold automatic tubes, transitions and cones, take every
- * radial method at a gap, at zero and at the parent's surface, sit flush at
- * either end or partway along, come in one to three copies, and hold parts that
- * read a tube during the build or after it (fin sets, couplers, launch lugs).
- */
+// The kernel counts an on-axis assembly as in line, so an automatic tube's neighbor can sit across one.
 function generateAssemblies(seed: number): RocketTree {
   const r = rng(seed + 0x5bd1e995);
   const chance = (p: number) => r() < p;
@@ -694,7 +563,6 @@ function generateAssemblies(seed: number): RocketTree {
 
   const assembly = (depth: number, parentLen: number, parentR: number, parentAuto: boolean): Part => {
     const radiusMethod = pick(['relative', 'relative', 'surface', 'free', 'free', 'coaxial']);
-    // Zero radius on purpose half the time: that is what puts a pod in line.
     const radiusOffset =
       radiusMethod === 'free'
         ? pick([0, 0, 0.04])
@@ -825,31 +693,7 @@ function generateAssemblies(seed: number): RocketTree {
   return { components: stages } as unknown as RocketTree;
 }
 
-/**
- * Hand-built airframes whose automatic tube radii depend on the order the
- * kernel evaluates them in.
- *
- * An automatic body tube remembers the neighbor it last took its radius from
- * (`BodyTube.refComp`), and a neighbor skips a tube that remembers it
- * (`usesPreviousCompAutomatic`, `usesNextCompAutomatic`). A tube evaluated while
- * the rocket is still being built remembers the part ahead of it, because
- * nothing behind it is attached yet; the passes after the build, and the first
- * read, start from that. The generated designs reach these chains only by
- * chance, so each case is listed here: a run of automatic tubes between an
- * automatic end and a fixed one, with and without the parts that evaluate a
- * tube during the build (an automatic coupler, a tabbed fin set) or after it (a
- * fin set, a launch lug), across a stage boundary, behind an automatic
- * transition end, and against a flipped nose cone.
- *
- * The pod chains cover the neighbor search across assemblies
- * (`getPreviousSymmetricComponent`, `getNextSymmetricComponent`): a pod on the
- * airframe's axis is in line with it and one off it is not; a pod's first
- * tube follows the tube it hangs on, or the part ahead of that tube when the
- * pod starts flush with it; a pod flush with either end of its tube stands in
- * for that tube when its own end part is wider; a pod placed against an
- * automatic tube reads that tube on every pass of the active-instance walk;
- * and the walk visits a pod's parts once per copy.
- */
+// A tube remembers its last source (`BodyTube.refComp`), so automatic radii depend on evaluation order.
 const CHAIN_DESIGNS: Record<string, () => RocketTree> = (() => {
   type Part = Record<string, unknown>;
   const stages = (...rows: Part[][]) =>
@@ -934,9 +778,6 @@ const CHAIN_DESIGNS: Record<string, () => RocketTree> = (() => {
     children,
     ...extra,
   });
-  // Off the axis, and FREE, so nothing but the walk evaluates the pod's tubes:
-  // nine passes settle a run of twelve from the back only as far as the third
-  // tube, and three copies give each tube three times as many evaluations.
   const podRun = (instanceCount: number): Part =>
     pod(
       'pod',
@@ -951,11 +792,7 @@ const CHAIN_DESIGNS: Record<string, () => RocketTree> = (() => {
       { instanceCount },
     );
   return {
-    // The bundled dual-parachute-deployment airframe: an automatic nose cone
-    // base, an automatic tube stored at 25 mm, an automatic tube holding an
-    // automatic coupler (which reads it while it is built, before the tubes
-    // behind it are attached), a fixed 28.3 mm tube and an automatic one.
-    // Desktop flies every tube at 28.3 mm.
+    // The bundled dual-parachute-deployment airframe; desktop flies every tube at 28.3 mm.
     'dual-parachute-deployment airframe, an automatic base and a run of automatic tubes': () =>
       stages([
         nose('n', 0.028321, { aftRadiusAuto: true }),
@@ -964,18 +801,13 @@ const CHAIN_DESIGNS: Record<string, () => RocketTree> = (() => {
         tube('t3', 0.028321),
         { ...tube('t4', 0.028321), outerRadiusAuto: true },
       ]),
-    // Eight automatic tubes, each holding an automatic coupler, ahead of a
-    // fixed 23.7 mm tube: each tube remembers the one ahead from the build, and
-    // a front-to-back pass corrects one more of them, counted from the fixed
-    // end. Desktop flies every tube at 23.7 mm.
+    // Each pass corrects one more tube from the fixed end; desktop flies all at 23.7 mm.
     'a run of eight automatic tubes, each with an automatic coupler': () =>
       stages([
         nose('n', 0.02, { aftRadiusAuto: true }),
         ...Array.from({ length: 8 }, (_, i) => auto(`r${i}`, [coupler(`rc${i}`)])),
         tube('end', 0.0237),
       ]),
-    // An automatic nose cone base, two automatic tubes, the second holding an
-    // automatic coupler, then a fixed 23.7 mm tube in the next stage.
     'generated airframe, two automatic tubes between an automatic base and the next stage': () =>
       ({
         components: [
@@ -1278,16 +1110,11 @@ const CHAIN_DESIGNS: Record<string, () => RocketTree> = (() => {
   };
 })();
 
-/**
- * Rules known to disagree with the kernel. Each entry states its reason in
- * words. A rule not listed here fails the test, and so does a listed rule that
- * no longer disagrees: the fix removes its line.
- */
+// A listed rule that agrees also fails.
 const KNOWN: Record<string, string> = {};
 
 type Pt = [number, number];
 
-/** Drop each point that repeats the one before it, and a last point that repeats the first. */
 function dedupe(pts: Pt[]): Pt[] {
   const same = (a: Pt, b: Pt) => Math.abs(a[0] - b[0]) <= 1e-12 && Math.abs(a[1] - b[1]) <= 1e-12;
   const out: Pt[] = [];
@@ -1296,13 +1123,7 @@ function dedupe(pts: Pt[]): Pt[] {
   return out;
 }
 
-/**
- * The cut outline of one fin, assembled from the kernel's own three pieces:
- * the outline (`FinSet.getFinPoints`), then the root along the parent
- * (`getRootPoints`) walked from the trailing edge forward, with the tab
- * (`getTabPoints`) cut in where the root passes it. Root points inside the tab
- * span are left out, as `getTabPointsWithRoot` leaves them out.
- */
+// Root points inside the tab span are dropped, as `getTabPointsWithRoot` does.
 function kernelCutOutline(k: KernelGeometry): Pt[] | null {
   const pts = (xs: [number | null, number | null][] | undefined): Pt[] | null =>
     xs && xs.every(([x, y]) => typeof x === 'number' && typeof y === 'number') ? (xs as Pt[]) : null;
@@ -1326,7 +1147,6 @@ function kernelCutOutline(k: KernelGeometry): Pt[] | null {
   ]);
 }
 
-/** The first point where two outlines part by more than `tol`, or null when they match. */
 function outlineMiss(app: Pt[] | null, kernel: Pt[] | null, tol: number): string | null {
   if (!app || !kernel) return `app ${app ? app.length : 'none'} points, kernel ${kernel ? kernel.length : 'none'}`;
   if (app.length !== kernel.length) return `${app.length} points against ${kernel.length}`;
@@ -1340,24 +1160,21 @@ function outlineMiss(app: Pt[] | null, kernel: Pt[] | null, tol: number): string
   return null;
 }
 
-/** True when the part's profile is clipped, whose clip point both sides find by iteration. */
 const clippedProfile = (node: ComponentNode | null): boolean =>
   !!node &&
   (node.type === 'transition' || node.type === 'nosecone') &&
   node['clipped'] !== false &&
   ['ellipsoid', 'power', 'haack'].includes(String(node['shape']));
 
-/** One disagreement, grouped by the rule that produced it. */
 interface Miss {
   rule: string;
-  /** The design: its seed, or its name in CHAIN_DESIGNS. */
   design: string;
   part: string;
   app: number | string;
   kernel: number | string;
 }
 
-/** The radius the kernel gives an automatic end with nothing to follow (`Transition.DEFAULT_RADIUS`). */
+// `Transition.DEFAULT_RADIUS`: an automatic end with nothing to follow.
 const KERNEL_AUTO_END = 0.025;
 
 const close = (a: number | undefined, b: number | undefined) =>
@@ -1365,26 +1182,14 @@ const close = (a: number | undefined, b: number | undefined) =>
 
 const TAU = 2 * Math.PI;
 
-/**
- * True when two angles (rad) point the same way. A setter can wrap an angle
- * into a half turn either side of zero (`MathUtil.reducePi`), which turns
- * nothing, so the angles are compared a whole turn apart.
- */
+// Compared modulo a whole turn: a setter may wrap the angle (`MathUtil.reducePi`).
 const sameAngle = (a: number | undefined, b: number | undefined): boolean => {
   if (typeof a !== 'number' || typeof b !== 'number') return false;
   const d = (((a - b) % TAU) + TAU) % TAU;
   return Math.min(d, TAU - d) <= TOL;
 };
 
-/**
- * A fin's span as `FinSet.getSpan` gives it: the height a trapezoidal or
- * elliptical fin holds, and for a freeform fin the outline's highest point
- * less the trailing point's depth below the root's front
- * (`FreeformFinSet.getSpan`). The bridge reports the stored outline only
- * through `getFinPoints`, which moves its first and last points onto the root;
- * those are the stored points unless the fin is canted, so a canted freeform
- * fin has no span here.
- */
+// `getFinPoints` moves a canted freeform fin's end points onto the root, so such a fin has no span here.
 function kernelSpan(node: ComponentNode, k: KernelGeometry): number | undefined {
   if (node.type !== 'freeformfinset') {
     const h = k.fields?.['height'];
@@ -1398,11 +1203,6 @@ function kernelSpan(node: ComponentNode, k: KernelGeometry): number | undefined 
   return max - Math.min(pts[pts.length - 1]![1]!, 0);
 }
 
-/**
- * The radii a drawn top edge, `(x, r)` in meters, gives at station `x`: the
- * point drawn there, or the edge between the two points either side of it.
- * Where two parts meet, both ends are drawn at the same station.
- */
 function radiiAt(edge: Pt[], x: number): number[] {
   const out: number[] = [];
   for (let i = 0; i < edge.length; i++) {
@@ -1414,12 +1214,7 @@ function radiiAt(edge: Pt[], x: number): number[] {
   return out;
 }
 
-/**
- * True when the kernel gives this part no usable size: -1 for two automatic
- * ends that follow each other, 0 for an end that follows a flipped nose cone's
- * tip, or 0 for a ring placed where its parent has no bore. The app blocks a
- * run on a zero dimension, so none of these is a design that flies.
- */
+// -1: two automatic ends following each other; 0: after a flipped cone's tip, or a ring with no parent bore.
 function unresolvedIn(node: ComponentNode, k: KernelGeometry): boolean {
   const ends =
     node.type === 'nosecone'
@@ -1436,16 +1231,7 @@ function unresolvedIn(node: ComponentNode, k: KernelGeometry): boolean {
   return ends.some((v) => typeof v === 'number' && v <= 0);
 }
 
-/**
- * Compare one resolved design with the kernel's geometry for it.
- *
- * `stored` is the kernel's geometry for the design as generated, before the app
- * resolved anything: the radii and lengths a user or a file left on the parts,
- * which is what desktop holds. A mass object with an automatic radius keeps the
- * packed volume of its stored radius and length, so its packed length is
- * checked against that build. The resolved tree sends the kernel the volume
- * the app worked out, and the kernel would echo any length back from it.
- */
+// An automatic-radius mass object keeps its packed volume, so its length is checked against `stored` (unresolved).
 function compare(
   design: string,
   tree: RocketTree,
@@ -1453,9 +1239,6 @@ function compare(
   stored?: Map<string, KernelGeometry>,
 ): { misses: Miss[]; unresolved: number; checked: Map<string, number> } {
   const misses: Miss[] = [];
-  // A part whose own radius disagrees, or that the kernel left unresolved:
-  // whatever sits inside it is sized from the wrong number, so it is not
-  // checked again under a second rule.
   const skip = new Set<string>();
   let unresolved = 0;
   const noSize = new Set<string>();
@@ -1470,18 +1253,14 @@ function compare(
     misses.push({ rule, design, part: id, app: a, kernel: kn ?? 'none' });
     return false;
   };
-  // A size the parts inside are measured from: a miss leaves them unchecked.
   const check = (rule: string, app: unknown, k: unknown) => {
     if (!note(rule, app, k)) skip.add(id);
   };
-  // A part with no `position` key, and whatever it holds, is checked under
-  // rules of its own: the kernel places it by its constructor's method.
+  // The kernel places a part with no `position` key by its constructor's method.
   const unplaced = new Set<string>();
-  // The airframe as the PDF's side view draws it: the top edge, in meters.
   const view = rocketSideView(tree).body;
   const edge = view.slice(0, view.length / 2).map(([x, r]): Pt => [x / 1000, r / 1000]);
   const chainIds = new Set(axialChain(tree).map((n) => n.id));
-  /** Planar fin sets compared here, and those the kernel gives NaN root points. */
   const finSets = new Set<string>();
   const overturned = new Set<string>();
   for (const visit of walkTree(tree)) {
@@ -1496,8 +1275,6 @@ function compare(
       if (noSize.has(parentId)) noSize.add(id);
       continue;
     }
-    // A part the kernel gives no usable size is counted and left out, along
-    // with whatever it holds and the pre-run check's verdict on it.
     if (unresolvedIn(node, k)) {
       unresolved += 1;
       noSize.add(id);
@@ -1505,8 +1282,6 @@ function compare(
       continue;
     }
     const auto = (flag: string) => node[flag] === true;
-    // Parts sized from their parent are reported per parent type, because a
-    // tube, a nose cone and a transition each offer their bore differently.
     const keyless = unplaced.has(id) ? ', no position key' : '';
     const inside = `${keyless}${parent ? ` in a ${parent.type}` : ''}`;
     switch (node.type) {
@@ -1518,8 +1293,7 @@ function compare(
           node['aftRadius'],
           base,
         );
-        // A stated shoulder is set unclamped, except on a flipped cone, which
-        // desktop holds to its resolved base (`settleFlippedShoulders`).
+        // Desktop holds a flipped cone's stated shoulder to its resolved base (`settleFlippedShoulders`).
         if (f && Number(node['shoulderLength']) > 0) {
           const turned = node['flipped'] === true ? 'flipped ' : '';
           note(`${turned}nose cone shoulder radius`, node['shoulderRadius'], f['shoulderRadius']);
@@ -1537,9 +1311,6 @@ function compare(
           node['aftRadius'],
           k.aftRadius,
         );
-        // A stated shoulder is set unclamped, so an automatic end has nothing
-        // to hold it to: one wider than the kernel's 25 mm default end is where
-        // a clamped shoulder would show.
         for (const end of ['fore', 'aft'] as const) {
           if (!f || !(Number(node[`${end}ShoulderLength`]) > 0)) continue;
           const wide =
@@ -1581,13 +1352,9 @@ function compare(
         break;
       }
       case 'innertube': {
-        // Each tube where the views draw it (`placementOffsets`, with the radius
-        // the 2D, 3D and aft views pass) against where the kernel flies it.
         const app = placementOffsets(node, innerTubeExtent(node).radius);
         const kernel = k.clusterPoints ?? [];
         note(`innertube cluster tube count${inside}`, app.length, kernel.length);
-        // A cluster turned and moved off the axis is the case the signs and the
-        // rotation order decide, so it is counted under a rule of its own.
         const turnedOff =
           clusterCount(node['cluster'] as string | undefined) > 1 &&
           num(node, 'radialPosition', 0) > 0 &&
@@ -1597,8 +1364,6 @@ function compare(
           check(rule, p.y, kernel[i]?.[0]);
           check(rule, p.z, kernel[i]?.[1]);
         });
-        // The fields those positions come from, as the kernel holds them: its
-        // offset clamped at zero, its angles wrapped.
         if (!f) break;
         note(`innertube radial position${inside}`, num(node, 'radialPosition', 0), f['radialPosition']);
         note(`innertube radial direction${inside}`, num(node, 'radialDirection', 0), f['radialDirection'], sameAngle);
@@ -1609,7 +1374,6 @@ function compare(
       }
       case 'launchlug':
       case 'railbutton': {
-        // The copies every view draws (`lineInstances`) against the ones the kernel flies.
         if (!f) break;
         const copies = lineInstances(node);
         note(`${node.type} copies${inside}`, copies.length, f['instanceCount']);
@@ -1625,7 +1389,6 @@ function compare(
       case 'freeformfinset': {
         const where = parent?.['flipped'] === true ? `${keyless} in a flipped nosecone` : inside;
         check(`fin tab depth limit${where}`, parentRadiusOf(tree, id), k.maxTabHeight);
-        // How far the fin stands off the body: the report's templates and side view read it.
         const mount = finMountOf(tree, id);
         const span = kernelSpan(node, k);
         if (span !== undefined) note(`${node.type} span${where}`, finSpan(node, mount), span);
@@ -1633,11 +1396,7 @@ function compare(
         const tabBy = method === 'absolute' || method === 'after' ? `, offset ${method}` : '';
         const p0 = (node['points'] as Pt[] | undefined)?.[0];
         const moved = p0 && (p0[0] !== 0 || p0[1] !== 0) ? ', outline off the origin' : '';
-        // Each piece the kernel builds a fin from, then the outline the STL, the
-        // DXF and the 1:1 template cut, against the one the kernel flies.
         finSets.add(id);
-        // Canted past its body: the kernel has no root to compare, and the
-        // pre-run check has to refuse it (checked below).
         if ([...(k.finPoints ?? []), ...(k.rootPoints ?? [])].some(([x, y]) => x === null || y === null)) {
           overturned.add(id);
           break;
@@ -1664,13 +1423,10 @@ function compare(
       }
       case 'podset':
       case 'parallelstage': {
-        // Each copy's turn about the parent's axis, which every view places it by.
         if (f) {
           note(`${node.type} copies${inside}`, countOf(node, 'instanceCount', 2), f['instanceCount']);
           note(`${node.type} angle${inside}`, num(node, 'angleOffset', 0), f['angleOffset'], sameAngle);
         }
-        // A pod's distance takes in its widest part, so one the kernel leaves
-        // unresolved gives it no usable answer.
         const held = (node.children ?? []).some((c) => {
           const kc = kernel.get(c.id ?? '');
           return kc !== undefined && unresolvedIn(c, kc);
@@ -1710,13 +1466,8 @@ function compare(
       const s = stored?.get(id);
       if (s) check(`${label} automatic packed length from the stored size${inside}`, node['length'], s.settledLength);
     }
-    // Where the part starts, from the nose tip: what every drawing, export and
-    // report places it by. Lengths alone decide it, so it is checked whatever
-    // the part's size did.
-    // A canted fin set's kernel position is its first fin's root front after
-    // the cant turns the fin about its root's midpoint (`FinSet.getInstanceOffsets`:
-    // a Transformation by length/2, the cant rotation, and back), which puts it
-    // (length / 2)(1 - cos cant) aft of the root's station.
+    // The cant turns a fin about its root midpoint (`FinSet.getInstanceOffsets`),
+    // which puts its kernel position (length / 2)(1 - cos cant) aft.
     const cant = typeof node['cant'] === 'number' ? node['cant'] : 0;
     if (k.positionX !== undefined) {
       const absolute = positionOf(node).method === 'absolute' && node.position !== undefined;
@@ -1728,7 +1479,6 @@ function compare(
       const station = k.positionX - (cant !== 0 ? (axialLength(node) / 2) * (1 - Math.cos(cant)) : 0);
       if (!close(start, station)) misses.push({ rule, design, part: id, app: start ?? NaN, kernel: station });
     }
-    // The profile every drawing, mesh and report reads, station by station.
     if ((node.type === 'nosecone' || node.type === 'transition') && k.profile && !skip.has(id)) {
       const len = k.length;
       const rule = node['flipped'] === true ? 'flipped nose cone profile' : `${node.type} profile`;
@@ -1741,7 +1491,6 @@ function compare(
           break;
         }
       }
-      // The PDF's template of the part, drawn tip first whichever way it flies.
       const ends =
         node.type === 'nosecone'
           ? { fore: 0, aft: num(node, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius) }
@@ -1769,7 +1518,6 @@ function compare(
         }
       }
     }
-    // The airframe's top edge in the PDF's side view, at the kernel's stations.
     if (chainIds.has(id) && k.profile && k.positionX !== undefined && !skip.has(id)) {
       const rule = `side view ${node['flipped'] === true ? 'flipped ' : ''}${node.type} profile`;
       checked.set(rule, (checked.get(rule) ?? 0) + 1);
@@ -1790,10 +1538,7 @@ function compare(
       }
     }
   }
-  // The pre-run check refuses a canted fin set exactly when the kernel gives it
-  // NaN root points. Judged with a motor mount in the design, which moves no
-  // geometry, so the check reaches the fins; behind a zero dimension, which it
-  // reports first, the fin sets it would name next are compared.
+  // The pre-run check refuses exactly the fin sets with NaN root points; a zero dimension is reported first.
   const blocker = designBlocker(withMountForCheck(tree));
   const refused = new Set(
     (blocker?.kind === 'finCant' ? blocker.fins : blocker === null ? [] : overturnedFins(tree)).map((f) => f.id),
@@ -1811,7 +1556,6 @@ function compare(
       });
     }
   }
-  // The kernel built and resolved this design, so the pre-run check must let it fly.
   for (const bad of badDimensions(tree)) {
     if (noSize.has(bad.id ?? '')) continue;
     const node = walkTree(tree).find((w) => w.id === bad.id)?.node;
@@ -1827,20 +1571,10 @@ function compare(
   return { misses, unresolved, checked };
 }
 
-/** The shoulders each part type carries: '' is a nose cone's one, at its base. */
+// '' is a nose cone's shoulder, at its base.
 const SHOULDER_SIDES: Record<string, ('' | 'fore' | 'aft')[]> = { nosecone: [''], transition: ['fore', 'aft'] };
-/** How many shoulders a design grows, so the extra builds stay a small part of the run. */
 const SHOULDERS_PER_DESIGN = 3;
 
-/**
- * Shoulders grown from length 0, the app against the kernel. Each of the
- * design's first shoulder-bearing parts has the shoulder taken off, and is
- * then given a length through `updateNode` (the panel's edit, which seeds the
- * wall, radius and cap from the part the shoulder plugs into) and through the
- * bridge's `setShoulderLength` on the same design built in the kernel
- * (`Transition.setForeShoulderLength`, `setAftShoulderLength`, which find that
- * part with `getPreviousSymmetricComponent` and `getNextSymmetricComponent`).
- */
 function shoulderSeedMisses(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped
   engine: any,
@@ -1875,11 +1609,7 @@ function shoulderSeedMisses(
     engine.reset();
     const h = engine.buildRocket(JSON.stringify(base));
     const kernel = JSON.parse(engine.setShoulderLength(h, id, side, length)) as Record<string, unknown>;
-    // The part the shoulder plugs into offers no radius of its own (an
-    // automatic tube with nothing fixed beyond it): `getFrontAutoRadius` and
-    // `getRearAutoRadius` answer -1, and the kernel seeds that less the wall.
-    // The app seeds the radius the tube resolves to instead, so these are counted
-    // and not compared.
+    // The kernel seeds -1 less the wall here where the app seeds the resolved radius, so these are counted, not compared.
     if (typeof kernel[key('Radius')] === 'number' && (kernel[key('Radius')] as number) < 0) {
       checked.set(
         'shoulder seed from a neighbor with no radius',
@@ -1906,7 +1636,6 @@ function shoulderSeedMisses(
   return { misses, checked };
 }
 
-/** The design with its first body tube a motor mount, so the pre-run check gets past "no mount". */
 function withMountForCheck(tree: RocketTree): RocketTree {
   let done = false;
   const visit = (n: ComponentNode): ComponentNode => {
@@ -1919,7 +1648,6 @@ function withMountForCheck(tree: RocketTree): RocketTree {
   return { ...tree, components: tree.components.map(visit) };
 }
 
-/** One line per rule: how many designs it failed on, and the first example. */
 function report(misses: Miss[], designs: number): string[] {
   const byRule = new Map<string, Miss[]>();
   for (const m of misses) byRule.set(m.rule, [...(byRule.get(m.rule) ?? []), m]);
@@ -1951,10 +1679,6 @@ describe('app geometry matches the kernel', () => {
       misses.push(...grown.misses);
       for (const [rule, count] of grown.checked) checked.set(rule, (checked.get(rule) ?? 0) + count);
     }
-    // The tab limit on a tapered parent is checked on every parent that takes
-    // a fin set, and the added parts and the absolute placements reach the
-    // rules they are there for, so a generator change that stops building them
-    // fails here.
     for (const rule of [
       'fin tab depth limit in a bodytube',
       'fin tab depth limit in a nosecone',
@@ -2035,8 +1759,6 @@ describe('app geometry matches the kernel', () => {
     expect(report(misses, DESIGNS)).toEqual([]);
     const failing = new Set(misses.map((m) => m.rule));
     expect(Object.keys(KNOWN).filter((rule) => !failing.has(rule))).toEqual([]);
-    // Most parts resolve; a generator that produced mostly unresolved pairs
-    // would leave this test checking nothing.
     expect(unresolved).toBeLessThan(DESIGNS);
   });
 
@@ -2093,9 +1815,6 @@ describe('app geometry matches the kernel', () => {
     expect(tubes).toBeGreaterThan(30);
   });
 
-  // The generator puts a flipped nose cone only at the front of the sustainer;
-  // a tail cone sits at the aft end, follows the tube ahead of it, and can
-  // carry a shape parameter, a wall or none, and a freeform fin set.
   it('over flipped nose cones at the aft end of the chain', async () => {
     const engine = await loadEngine();
     const misses: Miss[] = [];
@@ -2163,21 +1882,6 @@ describe('app geometry matches the kernel', () => {
   });
 });
 
-/**
- * A transition end with no radius on record, and no automatic flag: the bridge
- * builds it automatic (`ComponentFactory`, case "transition"). The drawings take
- * such a tree as it is, so the 3D build (`withKernelEnds`) and the 2D schematic
- * (`chainWithKernelEnds` over the flattened chain) must each draw every end at
- * the kernel's radius. The generated designs are reused with every automatic
- * transition end stripped to no key at all, which consumes nothing from the
- * generator's random stream.
- */
-/**
- * A body tube with no `outerRadius` stands its children on the radius the
- * kernel builds it at, through every reader: the station profile a fin tab is
- * cut to (`stationRadius`, read by `finTabAuto`), the fin mount
- * (`bodyRadiusAt`) and the assembly placement (`assemblyParentRadius`).
- */
 describe('a keyless body tube is read at the kernel radius', () => {
   it('in the station profile, the fin mount and the assembly placement', async () => {
     const engine = await loadEngine();
@@ -2199,12 +1903,7 @@ describe('a keyless body tube is read at the kernel radius', () => {
   });
 });
 
-/**
- * A nose cone or body tube with no radius on record is the part the bridge
- * builds (ComponentFactory: base 0.025 m, tube 0.025 m), so what follows it or
- * sits in it is resolved against that: an automatic tube behind a keyless nose
- * cone, and a bulkhead with no radius inside a keyless tube.
- */
+// ComponentFactory builds a keyless nose cone base and tube at 0.025 m.
 describe('keyless nose cones and tubes are read at the kernel radius', () => {
   it('by an automatic tube behind a keyless nose cone', async () => {
     const engine = await loadEngine();
@@ -2252,7 +1951,6 @@ describe('keyless nose cones and tubes are read at the kernel radius', () => {
 describe('keyless transition ends are drawn at the kernel radius', () => {
   const KEYLESS_DESIGNS = 60;
 
-  /** The design with every automatic transition end written as no key at all. */
   const keyless = (tree: RocketTree): { tree: RocketTree; ends: number } => {
     let ends = 0;
     const strip = (n: ComponentNode): ComponentNode => {
@@ -2292,7 +1990,6 @@ describe('keyless transition ends are drawn at the kernel radius', () => {
           const drawn = profileEnds(node);
           for (const end of ['fore', 'aft'] as const) {
             const want = end === 'fore' ? k.foreRadius : k.aftRadius;
-            // -1 is two automatic ends following each other: no answer to draw.
             if (typeof want !== 'number' || want < 0) continue;
             checked += 1;
             if (!close(drawn[end], want)) {
@@ -2307,17 +2004,7 @@ describe('keyless transition ends are drawn at the kernel radius', () => {
   });
 });
 
-/**
- * A catalog parachute that states both packed dimensions, picked into a tube
- * wider than its pack.
- *
- * `Parachute.loadFromPreset` sets the packed length and radius and then turns
- * the radius automatic. The kernel keeps the volume the stated pair packs
- * (`MassObject.setRadius` stores `radius^2 * length`), so once the radius
- * takes the tube's bore the length is `volume / bore^2`, and the chute's mass
- * sits that much further forward. Rocketman PA-04 is 178.6 mm long and 50.8 mm
- * across, and a 98 mm tube gives it a 48 mm packed radius.
- */
+// `Parachute.loadFromPreset` turns the radius automatic and the kernel keeps the packed volume (`MassObject.setRadius`).
 describe('a catalog parachute packed into a wider tube', () => {
   it('keeps the packed volume it was picked with', async () => {
     const engine = await loadEngine();
@@ -2332,7 +2019,6 @@ describe('a catalog parachute packed into a wider tube', () => {
     expect(row?.packedDiameter).toBeGreaterThan(0);
     const base = { ...defaultNode('parachute'), id: 'chute', position: { method: 'top', offset: 0 } } as ComponentNode;
     const chute = { ...base, ...catalogPatch(row!, base) } as ComponentNode;
-    // As desktop holds the part after the pick: the stated pair, radius automatic.
     const picked = {
       name: '',
       components: [
@@ -2346,7 +2032,6 @@ describe('a catalog parachute packed into a wider tube', () => {
       ],
     } as unknown as RocketTree;
     const desktop = kernelGeometry(engine, picked).get('chute')!;
-    // Read once the radius has settled, as desktop's own views settle it.
     const settledCg = (t: RocketTree): number => {
       engine.reset();
       const handle: number = engine.buildRocket(JSON.stringify(t));
@@ -2363,7 +2048,6 @@ describe('a catalog parachute packed into a wider tube', () => {
     expect(app['length']).toBeCloseTo(desktop.settledLength!, 12);
     expect(app['length']).toBeCloseTo(closedForm, 12);
 
-    // What the app sends flies the same length and the same center of mass.
     const tree = syncDerived(picked);
     const flown = kernelGeometry(engine, tree).get('chute')!;
     expect(flown.length).toBeCloseTo(desktop.settledLength!, 12);

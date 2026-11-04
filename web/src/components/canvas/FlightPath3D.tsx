@@ -38,41 +38,12 @@ import { PLAYBACK_SPEEDS, playbackLabel } from '../../services/storage/settings'
 import { ToggleButton } from '../common/ToggleButton';
 import { smallButton } from '../common/smallButton';
 
-/**
- * 3D flight path. Draws the real trajectory (Px/Py drift × altitude) as a
- * phase-colored arc over a ground plane, with the actual design model flying
- * along it (buildPieces): sitting on the pad at launch, nose-along-velocity
- * during boost/coast (with a motor flame and smoke trail in the look of each
- * burn's propellant), then hanging under its
- * actual recovery device (parachute sized to its real diameter, or a streamer,
- * or nothing) on descent. Event callouts, a live HUD, and play · scrub · speed
- * transport.
- *
- * Two clocks. The animation runs inside the canvas (`Playback`, a `useFrame`
- * subscriber) and drives the model, flame, recovery device, trail and follow
- * camera by mutating them from `progressRef`, so a frame costs a binary search
- * and a few vector copies. REACT only hears about it at HUD_INTERVAL_MS: the
- * slider, the readouts, the markers and the callouts re-render from the
- * throttled `progress` state. Calling setState from the frame loop instead
- * would re-render this whole tree (every piece mesh, every callout, the legend
- * callbacks) sixty times a second.
- */
-const MODEL_LEN = 1.6; // scene units the rocket model is scaled to; kept small vs the ~24u arc, the follow-cam makes it readable
-const PLAY_SECONDS = 8; // wall-clock length of a full 1× playback (time-based, so boost isn't slow)
-/** How often the frame loop hands React a progress sample for the HUD/slider. */
+// The frame loop mutates the scene from `progressRef`; React hears only a throttled `progress`.
+const MODEL_LEN = 1.6; // scene units
+const PLAY_SECONDS = 8; // wall-clock length of a full 1x playback
 const HUD_INTERVAL_MS = 100;
-/** The most smoke puffs a trail draws, however long and finely sampled the burns. */
 const MAX_PUFFS = 700;
 
-/**
- * How far past the flight's own reach the ground map extends.
- *
- * A margin rather than the whole ground plane: the plane and its grid are a
- * fixed size however far the rocket went, so covering them can mean fetching
- * imagery for a kilometer of ground either side of a three-hundred-meter
- * flight. Enough that the arc never runs off the edge of the map, and the tile
- * grid's own rounding to whole tiles usually adds most of another one anyway.
- */
 const GROUND_MARGIN = 1.2;
 
 export function FlightPath3D({
@@ -86,12 +57,7 @@ export function FlightPath3D({
   result: FlightResult;
   tree: RocketTree;
   motors?: MotorDims;
-  /**
-   * Each burn's exhaust, in the order the burns happen (`burnExhausts`). A
-   * burn past the end of the list takes the last; none at all, the default.
-   */
   exhausts?: readonly Exhaust[];
-  /** The site this flight was flown from; null only if it was never filled in. */
   latitudeDeg?: number | null;
   longitudeDeg?: number | null;
 }) {
@@ -100,31 +66,22 @@ export function FlightPath3D({
   const u = useUnits();
   const { settings, update } = useSettings();
   const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
-  const phase = settings.phaseColors; // boost/coast/descent colors, from Settings
-  // The HUD/slider copy of playback progress. The frame loop owns the live
-  // value (progressRef) and refreshes this one at HUD_INTERVAL_MS; a scrub
-  // writes both at once.
+  const phase = settings.phaseColors;
+  // The HUD copy; the frame loop owns the live value (progressRef).
   const [progress, setProgress] = useState(0);
-  const [playing, setPlaying] = useState(false); // start on the pad; play → countdown → launch
-  const [speed, setSpeed] = useState(settings.playbackSpeed); // seeded from the Settings default
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(settings.playbackSpeed);
   const [follow, setFollow] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [loop, setLoop] = useState(false);
   const progressRef = useRef(0);
   const site = latitudeDeg != null && longitudeDeg != null ? { lat: latitudeDeg, lon: longitudeDeg } : null;
-  /**
-   * Which imagery lies on the ground, shared with the site map and the ground
-   * track for the session (services/map/tileLayer.ts) so "satellite or street" is
-   * one answer across the app.
-   */
   const ground = useGroundLayer(site !== null);
-  // Scene objects the frame loop mutates directly.
   const modelRef = useRef<THREE.Group>(null);
   const flameRefs = useRef<(THREE.Group | null)[]>([]);
   const recoveryRef = useRef<THREE.Group>(null);
   const trailRef = useRef<ComponentRef<typeof Line>>(null);
-  // Stable, so React attaches it once rather than re-running it (and hiding
-  // the trail again) on every HUD tick. The loop reveals the trail from here.
+  // Stable, or React re-runs it (hiding the trail again) on every HUD tick.
   const attachTrail = useCallback((line: ComponentRef<typeof Line> | null) => {
     trailRef.current = line;
     if (line) line.visible = false;
@@ -136,17 +93,12 @@ export function FlightPath3D({
 
   const scene = useMemo(() => buildFlightScene(result, phase), [result, phase]);
   const looks = useMemo(() => (exhausts?.length ? exhausts : [DEFAULT_EXHAUST]), [exhausts]);
-  // A fresh puff is a little wider than the rocket. From the nozzle (the model
-  // is centered on its point of the path), and at least half a puff apart, so
-  // the slow first moments off the pad do not stack into one bright ball.
   const puffStart = Math.max(Math.max(maxR, 0.005) * modelScale * 3, 0.08);
   const puffs = useMemo(() => smokePuffs(scene, MAX_PUFFS, MODEL_LEN / 2, puffStart / 2), [scene, puffStart]);
   const { colors, scenePts, apogeeIdx, times, alts, vels, callouts } = scene;
   const n = scenePts.length;
 
-  // Camera framing derives from the trajectory's peak. A loop, not
-  // Math.max(...spread), to survive long flights; memoized on the points so it
-  // is not re-walked on every HUD tick.
+  // A loop, not Math.max(...spread), which overflows the stack on long flights.
   const maxY = useMemo(() => {
     let m = 0;
     for (const p of scenePts) if (p.y > m) m = p.y;
@@ -156,16 +108,11 @@ export function FlightPath3D({
   const midY = maxY / 2;
   const followDist = MODEL_LEN * 3.4;
 
-  // The HUD's sample, from the throttled progress copy. Every hook sits above
-  // the empty-state return below so the hook count never changes.
+  // Every hook sits above the empty-state return so the hook count never changes.
   const idx = useMemo(() => indexForProgress(times, progress), [times, progress]);
   const nowT = times[idx] ?? 0;
   const shownCallouts = useMemo(() => callouts.filter((c) => nowT >= c.time), [callouts, nowT]);
 
-  // T-minus countdown before the initial launch: 5→4→3→2→1, then play from
-  // t=0. The launch happens inside the timer callback rather than in a
-  // follow-up effect keyed on `countdown <= 0`, so it is one state commit and
-  // there is no intermediate render showing "0".
   useEffect(() => {
     if (countdown === null) return;
     const id = setTimeout(() => {
@@ -181,13 +128,10 @@ export function FlightPath3D({
     return () => clearTimeout(id);
   }, [countdown]);
 
-  /** Scrub: the live value and the HUD copy move together. */
   const seek = useCallback((v: number) => {
     progressRef.current = v;
     setProgress(v);
   }, []);
-  // Stable callbacks for the frame loop and the legend, so neither re-subscribes
-  // per render.
   const onTick = useCallback((p: number) => setProgress(p), []);
   const onEnd = useCallback(() => setPlaying(false), []);
   const setBoost = useCallback((c: string) => update({ phaseColors: { ...phase, boost: c } }), [update, phase]);
@@ -198,16 +142,15 @@ export function FlightPath3D({
     if (countdown !== null) {
       setCountdown(null);
       return;
-    } // cancel a running countdown
+    }
     if (playing) {
       setPlaying(false);
       return;
     }
-    // The live value, not the throttled copy: the copy can lag by a tick.
+    // The live value: the HUD copy can lag by a tick.
     const p = progressRef.current;
-    if (p <= 0.001 || p >= 0.999)
-      setCountdown(5); // fresh launch (from pad or after landing)
-    else setPlaying(true); // resume from a paused mid-flight
+    if (p <= 0.001 || p >= 0.999) setCountdown(5);
+    else setPlaying(true);
   };
   const handleReset = () => {
     setPlaying(false);
@@ -215,14 +158,6 @@ export function FlightPath3D({
     seek(0);
   };
 
-  /**
-   * How much ground the map has to cover: the furthest the rocket got from the
-   * pad on either horizontal axis, plus a margin.
-   *
-   * Floored at the same {@link MIN_EXTENT_M} the ground track uses, because it
-   * is the same question - a still-air flight lands on the pad, and a map of
-   * ten centimeters of grass is no map at all.
-   */
   const groundRadiusM = useMemo(() => {
     let far = 0;
     for (const p of scenePts) {
@@ -253,8 +188,6 @@ export function FlightPath3D({
           <circleGeometry args={[60, 72]} />
           <meshStandardMaterial color={sceneInk['scene-floor']} roughness={1} metalness={0.05} />
         </mesh>
-        {/* Real ground under a real trajectory. Drawn between the plain ground
-            plane and the grid, so the grid stays readable as the scale it is. */}
         {mapSource && site && (
           <FlightGroundMap
             latitudeDeg={site.lat}
@@ -267,31 +200,19 @@ export function FlightPath3D({
           />
         )}
         <gridHelper args={[120, 60, sceneInk['scene-grid'], sceneInk['scene-grid-minor']]} position={[0, 0.02, 0]} />
-        {/* The whole path is uploaded once; the frame loop reveals it segment by
-            segment through the geometry's instanceCount (a Line2 is instanced,
-            one instance per segment), so no buffer is rebuilt during playback.
-            Hidden on mount through the ref, not a `visible` prop: drei's Line
-            spreads its rest props onto the material as well, and a material
-            with visible=false is never drawn, whatever the loop later sets on
-            the object. */}
+        {/* Hidden through the ref, not `visible`: drei's Line spreads props onto the material, which would never draw. */}
         <Line ref={attachTrail} points={scenePts} vertexColors={colors} lineWidth={3} />
-        {/* The pad and the landing lie on the ground as rings, so neither is a
-            ball half sunk into it beside the rocket; apogee, in the air, is a ball. */}
         <GroundRing pos={scenePts[0]!} color={sceneInk['scene-marker']} />
         {idx >= apogeeIdx && <Marker pos={scenePts[apogeeIdx]!} color={phase.coast} />}
         {idx >= n - 1 && <GroundRing pos={scenePts[n - 1]!} color={phase.descent} />}
 
         {shownCallouts.map((c) => (
-          // Keyed by identity, not array index: the filtered list grows as the
-          // flight plays, and index keys would remount every existing callout
-          // each time a new one appeared.
+          // Keyed by identity: index keys would remount callouts as the list grows.
           <Html
             key={`${c.type}@${c.time}`}
             position={[c.pos.x, c.pos.y, c.pos.z]}
             center
-            // drei's default range starts at 16,777,271, which puts every
-            // callout above every dialog in the app (they sit at z-50 to z-70).
-            // Keep the labels above the canvas and below anything modal.
+            // drei's default range starts at 16,777,271, above every dialog (z-50 to z-70).
             zIndexRange={[10, 0]}
             style={{ pointerEvents: 'none' }}
           >
@@ -305,7 +226,6 @@ export function FlightPath3D({
         ))}
 
         <Smoke scene={scene} puffs={puffs} looks={looks} progressRef={progressRef} start={puffStart} />
-        {/* The same finish as the design view's model, reflections and all. */}
         <RoomReflections>
           <FlyingModel
             groupRef={modelRef}
@@ -318,8 +238,6 @@ export function FlightPath3D({
           />
         </RoomReflections>
 
-        {/* The recovery device hangs from the nose; the loop places this group
-            there and shows it once the flight is descending. */}
         <group ref={recoveryRef} visible={false}>
           {recovery?.kind === 'parachute' && <Parachute radius={chuteR} color={recovery.color} />}
           {recovery?.kind === 'streamer' && (
@@ -368,7 +286,6 @@ export function FlightPath3D({
         <Legend color={phase.coast} label={t('flight.coast')} onChange={setCoast} />
         <Legend color={phase.descent} label={t('flight.descent')} onChange={setDescent} />
       </div>
-      {/* Offered only where there is a coordinate to center the ground on. */}
       {site && (
         <TileLayerButtons
           layers={LAYERS}
@@ -377,7 +294,6 @@ export function FlightPath3D({
           className="absolute left-3 top-16"
         />
       )}
-      {/* A condition of using the tiles at all, so it goes wherever they do. */}
       {mapSource && <MapCredit className="absolute bottom-16 right-3">{TILE_SOURCES[mapSource].attribution}</MapCredit>}
       {ground.source && ground.imagery === 'unavailable' && (
         <MapCredit warn className="absolute bottom-16 right-3">
@@ -425,7 +341,6 @@ export function FlightPath3D({
           step={0.001}
           value={progress}
           aria-label={t('flight.time')}
-          // The slider runs 0 to 1; what it stands for is the flight time.
           aria-valuetext={withFixedUnit(nowT, t('units.second'))}
           onChange={(e) => {
             setPlaying(false);
@@ -467,17 +382,6 @@ export function FlightPath3D({
 
 type OrbitLike = { target: THREE.Vector3; object: THREE.Object3D; update: () => void } | null;
 
-/**
- * The frame loop. Advances `progressRef` while playing (time-based, so a
- * fast boost is not slow), poses the model for that instant, reveals the
- * trail, drives the follow camera, and hands React a throttled progress sample
- * for the HUD. Everything it touches is a ref: a frame never renders React.
- *
- * Follow-cam: when `follow` is on, frames the flying model and tracks it by
- * translating the camera + orbit target by the model's per-frame delta (so the
- * user can still orbit/zoom relative to the rocket). When off, snaps back to a
- * whole-arc overview. Re-frames whenever the mode flips.
- */
 function Playback({
   scene,
   playing,
@@ -528,11 +432,10 @@ function Playback({
     if (playing && n >= 2) {
       p += (dt * speed) / PLAY_SECONDS;
       if (p >= 1) {
-        if (loop)
-          p -= 1; // wrap → keep flying
+        if (loop) p -= 1;
         else {
           p = 1;
-          ended = true; // stop at landing
+          ended = true;
         }
       }
       progressRef.current = p;
@@ -547,9 +450,7 @@ function Playback({
       model.position.copy(pose.position);
       model.quaternion.copy(pose.quaternion);
     }
-    // The flame of the burn under way, if one is: one flame per look, lit in turn.
-    // Not on the pad: the first burn opens at t = 0, which is also the rocket
-    // sitting there before launch.
+    // Not on the pad: the first burn opens at t = 0, which is also pre-launch.
     const burn = p > 0 ? burnAt(nowT, burns) : -1;
     const lit = burn < 0 ? -1 : Math.min(burn, lookCount - 1);
     flameRefs.current.forEach((g, i) => {
@@ -562,13 +463,10 @@ function Playback({
     }
     const trail = trailRef.current;
     if (trail) {
-      // Reveal the path only where the rocket has already flown: `idx`
-      // segments out of the n-1 the geometry holds.
       trail.visible = idx >= 1;
       (trail.geometry as THREE.InstancedBufferGeometry).instanceCount = Math.max(0, Math.min(idx, n - 1));
     }
 
-    // Camera.
     const point = scenePts[idx];
     if (controls && point) {
       if (camMode.current !== follow) {
@@ -594,7 +492,6 @@ function Playback({
       }
     }
 
-    // Throttled HUD sample: on a timer while playing, plus the landing frame.
     if (ended) {
       hud.current = { at: performance.now(), idx };
       onTick(p);
@@ -610,12 +507,7 @@ function Playback({
   return null;
 }
 
-/**
- * The actual design model, flying along the path. Memoized: its parent
- * re-renders on every HUD tick, and this is the one subtree with a mesh per
- * piece. The frame loop moves it through `groupRef` and lights the flame of
- * the burn under way through `flameRefs`, one per look.
- */
+// Memoized: the parent re-renders every HUD tick, and this has a mesh per piece.
 const FlyingModel = memo(function FlyingModel({
   groupRef,
   flameRefs,
@@ -636,7 +528,6 @@ const FlyingModel = memo(function FlyingModel({
   return (
     <group ref={groupRef} scale={modelScale}>
       <group position={[-totalLen / 2, 0, 0]}>
-        {/* The finished rocket, opaque: a flight is watched from outside. */}
         {pieces.map((p) => (
           <mesh key={p.key} geometry={p.geometry} position={p.position ?? [0, 0, 0]} rotation={p.rotation ?? [0, 0, 0]}>
             {surfacesOf(p, 'finished').map(([attach, look]) => (
@@ -667,25 +558,21 @@ const FlyingModel = memo(function FlyingModel({
   );
 });
 
-/** Rocket-blast flame: the cone's POINT sits at the nozzle and it flares wide below,
- *  hottest at the tip, the look's edge color out at the flared base. Vertex-colored
- *  along the local +X (trailing) axis so its orientation is fixed by construction.
- *  A sparky look throws sparks out behind it. */
 function Flame({ len, r, look }: { len: number; r: number; look: Exhaust }) {
   const ref = useRef<THREE.Mesh>(null);
   const [c0, c1, c2] = look.flame;
   const geo = useMemo(() => {
     const H = r * 5.5;
-    const g = new THREE.ConeGeometry(r * 0.95, H, 24, 1, true); // open cone, apex +Y, base −Y
-    g.rotateZ(Math.PI / 2); // apex → −X, base → +X
-    g.translate(H / 2, 0, 0); // apex (point) at origin/nozzle, base (wide) at +X (trailing)
+    const g = new THREE.ConeGeometry(r * 0.95, H, 24, 1, true);
+    g.rotateZ(Math.PI / 2); // apex to -X
+    g.translate(H / 2, 0, 0); // apex at the nozzle, base trailing at +X
     const pos = g.attributes.position!;
     const hot = new THREE.Color(c0),
       mid = new THREE.Color(c1),
       edge = new THREE.Color(c2);
     const col: number[] = [];
     for (let i = 0; i < pos.count; i++) {
-      const u = THREE.MathUtils.clamp(pos.getX(i) / H, 0, 1); // 0 at nozzle-point → 1 at flared base
+      const u = THREE.MathUtils.clamp(pos.getX(i) / H, 0, 1);
       const c = u < 0.5 ? hot.clone().lerp(mid, u / 0.5) : mid.clone().lerp(edge, (u - 0.5) / 0.5);
       col.push(c.r, c.g, c.b);
     }
@@ -719,24 +606,15 @@ function Flame({ len, r, look }: { len: number; r: number; look: Exhaust }) {
 }
 
 const SPARKS = 180;
-/** What a spark cools to as it flies out: a dull orange ember. */
 const EMBER = new THREE.Color('#ff7a1a');
 
-/**
- * A shower of sparks behind the nozzle, in the flame's local frame (+X
- * trailing): a long, wide spray, each spark leaving white-hot in the flame's
- * own color and cooling to an orange ember that fades out. Each runs its own
- * lap from the nozzle out at its own speed, and the laps are staggered so the
- * shower is steady; a spark keeps its own line lap after lap. Additive, so a
- * cooled spark dimmed toward black simply fades.
- */
+// Additive blending, so a spark dimmed toward black simply fades.
 function Sparks({ r, color }: { r: number; color: string }) {
   const seeds = useMemo(
     () =>
       Array.from({ length: SPARKS }, (_, i) => {
         const a = (i * 2.399963) % (Math.PI * 2);
         const k = ((i * 0.618034) % 1) * 0.85 + 0.15;
-        // Some sparks fly far and fast, most stay closer in.
         const far = 0.45 + ((i * 0.7548777) % 1) * 0.55;
         return { phase: (i * 0.137) % 1, dy: Math.cos(a) * k, dz: Math.sin(a) * k, rate: 1.1 + ((i * 0.37) % 1), far };
       }),
@@ -751,8 +629,6 @@ function Sparks({ r, color }: { r: number; color: string }) {
   useEffect(() => () => geo.dispose(), [geo]);
   const hot = useMemo(() => new THREE.Color(color), [color]);
   const c = useMemo(() => new THREE.Color(), []);
-  // Through the ref, as Flame scales its mesh: the frame loop writes the
-  // object three.js draws, not a value React handed it.
   const ref = useRef<THREE.Points>(null);
   useFrame(({ clock }) => {
     if (!ref.current) return;
@@ -762,7 +638,6 @@ function Sparks({ r, color }: { r: number; color: string }) {
     const reach = r * 26;
     seeds.forEach((s, i) => {
       const u = (clock.elapsedTime * s.rate + s.phase) % 1;
-      // Out fast, then slowing as it spreads, like a spark shed into the air.
       const out = 1 - (1 - u) * (1 - u);
       const spread = r * (0.5 + out * 7 * s.far);
       pos.setXYZ(i, out * reach * s.far, s.dy * spread, s.dz * spread);
@@ -812,21 +687,10 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-/**
- * The smoke trail the burns leave: a soft puff wherever the rocket was while
- * a motor burned, each growing, rising and thinning with its age, in its
- * burn's look, then the delay grain's thinner, paler trail up to the ejection
- * charge (`DELAY_SMOKE`). Stateless per frame: a puff's size and opacity follow from how
- * long ago it was left, so scrubbing back puts the trail back exactly.
- *
- * The fade runs on a fraction of the flight's own length rather than real
- * seconds, so a five-second hop and a two-minute flight both show their trail
- * while it matters to the picture.
- */
-/** A puff's smoke: its burn's look, or the delay grain's trail. */
 const smokeOf = (p: SmokePuff, looks: readonly Exhaust[]) =>
   p.delay ? DELAY_SMOKE : looks[Math.min(p.burn, looks.length - 1)]!;
 
+// Stateless per frame, so scrubbing back restores the trail exactly.
 const Smoke = memo(function Smoke({
   scene,
   puffs,
@@ -838,8 +702,7 @@ const Smoke = memo(function Smoke({
   puffs: readonly SmokePuff[];
   looks: readonly Exhaust[];
   progressRef: RefObject<number>;
-  /** A fresh puff's size in scene units; an old one grows to a few times that. */
-  start: number;
+  start: number; // scene units
 }) {
   const n = puffs.length;
   const { geo, material } = useMemo(() => {
@@ -884,15 +747,13 @@ const Smoke = memo(function Smoke({
     for (let i = 0; i < puffs.length; i++) {
       const p = puffs[i]!;
       const age = nowT - p.time;
-      // Not yet left, or left this instant: a puff from t = 0 would otherwise
-      // hang round the rocket's base while it still sits on the pad.
+      // `<= 0`, or a t = 0 puff hangs round the rocket on the pad.
       if (age <= 0) {
         al.setX(i, 0);
         continue;
       }
       const u = age / life;
       pos.setXYZ(i, p.pos.x, p.pos.y + u * 1.2, p.pos.z);
-      // A delay grain's trail is a thin thread beside the motor's plume.
       sz.setX(i, start * (p.delay ? 0.45 : 1) * (1 + 3 * Math.sqrt(u)));
       al.setX(i, smokeOf(p, looks).smoke * Math.exp(-3 * u));
     }
@@ -906,8 +767,7 @@ const Smoke = memo(function Smoke({
   return <points ref={ref} geometry={geo} material={material} frustumCulled={false} />;
 });
 
-/** Canopy (hemisphere) + shroud lines, sized to the real chute diameter.
- *  Local origin = the attachment point (the nose); the canopy sits `drop` above. */
+// Local origin is the nose.
 function Parachute({ radius, color }: { radius: number; color: string }) {
   const drop = radius * 1.4;
   const strings = useMemo(
@@ -934,7 +794,7 @@ function Parachute({ radius, color }: { radius: number; color: string }) {
   );
 }
 
-/** A fluttering ribbon streamer trailing above the rocket (local origin = the nose). */
+// Local origin is the nose.
 function Streamer({ length, width, color }: { length: number; width: number; color: string }) {
   const w = Math.max(0.15, width),
     L = Math.max(1.5, length);
@@ -943,14 +803,12 @@ function Streamer({ length, width, color }: { length: number; width: number; col
     const pos = g.attributes.position!;
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i);
-      pos.setZ(i, Math.sin((y / L) * Math.PI * 4) * w * 0.9); // static flutter
+      pos.setZ(i, Math.sin((y / L) * Math.PI * 4) * w * 0.9);
     }
     g.computeVertexNormals();
     return g;
   }, [w, L]);
-  // R3F does not dispose geometry it did not construct, and this one is passed
-  // in via the `geometry` prop, so without this each unmount and each w/L
-  // change would leak one GPU buffer.
+  // R3F does not dispose geometry passed via the `geometry` prop.
   useEffect(() => () => geo.dispose(), [geo]);
   return (
     <group position={[0, L / 2, 0]}>
@@ -961,12 +819,6 @@ function Streamer({ length, width, color }: { length: number; width: number; col
   );
 }
 
-/**
- * A place on the ground, the pad or the landing: a flat ring lying on it,
- * wide enough to circle the rocket standing there. Just above the ground and
- * the map, so neither hides it; drawn from both sides, so it shows from below
- * the horizon too.
- */
 function GroundRing({ pos, color }: { pos: THREE.Vector3; color: string }) {
   return (
     <mesh position={[pos.x, 0.03, pos.z]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -994,12 +846,7 @@ function Hud({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * Legend row that doubles as the phase-color editor: click the swatch to
- * recolor. `pointer-events-auto` because the legend box is
- * `pointer-events-none` (it sits over the canvas and must not eat orbit drags),
- * and that is inherited: without it the swatch is reachable only by Tab.
- */
+// `pointer-events-auto` overrides the legend box's inherited `pointer-events-none`.
 function Legend({ color, label, onChange }: { color: string; label: string; onChange: (c: string) => void }) {
   return (
     <label className="pointer-events-auto flex cursor-pointer items-center gap-1.5 text-ink-soft" title={label}>

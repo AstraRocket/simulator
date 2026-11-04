@@ -5,7 +5,6 @@ import type { LaunchConditions } from '../../services/design/orkTree';
 import { QNum } from './QNum';
 import type { LaunchSectionProps } from './launchSection';
 
-/** The Earth the flight is computed over: its shape (geodetic model) and its gravity. */
 export function EarthModelSection({ launch, onChange, onCommit, t, u, mixed }: Omit<LaunchSectionProps, 'req'>) {
   return (
     <CardGroup title={t('launch.earthModel')}>
@@ -38,7 +37,6 @@ export function EarthModelSection({ launch, onChange, onCommit, t, u, mixed }: O
           <option value="constant">{t('launch.gravityConstant')}</option>
         </select>
       </label>
-      {/* Only meaningful for the constant model, so only shown for it. */}
       {launch.gravityModel === 'constant' && (
         <QNum
           label={t('launch.gravityValue')}

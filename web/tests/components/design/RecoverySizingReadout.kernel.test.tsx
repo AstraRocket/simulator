@@ -28,17 +28,8 @@ import { fmtNum } from '../../../src/i18n/format';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A chute the user never named still shows what the run measured under it.
- *
- * A part made in the app has no `name`, so the bridge leaves the kernel's own
- * default in place, and that default is what the deployment event carries as
- * its source. The flight here is the kernel's, through the bridge.
- */
-
 const CHUTE = { id: 'chute', type: 'parachute', diameter: 0.4, cd: 0.8 } as unknown as ComponentNode;
 
-/** A single-stage design with one motor mount, carrying `chute` as its recovery device. */
 const treeWith = (chute: ComponentNode): RocketTree =>
   ({
     name: 'R',
@@ -86,7 +77,6 @@ describe('the descent-sizing block on an unnamed chute', () => {
     const result = JSON.parse(
       engine.simulateJson(h, JSON.stringify({ launchRodLength: 1, randomSeed: 7 })),
     ) as FlightResult;
-    // The run deployed the chute, under the kernel's default name.
     const opened = result.events.find((e) => e.type === 'RECOVERY_DEVICE_DEPLOYMENT');
     expect(opened?.source).toBe(kernelComponentName(CHUTE));
 
@@ -108,13 +98,6 @@ describe('the descent-sizing block on an unnamed chute', () => {
     expect(document.body.textContent).toMatch(/Measured in the last run/);
   });
 
-  /**
-   * Two chutes the user never named both fly under the kernel's default name,
-   * so a name cannot tell the main's deployment from the drogue's. The main's
-   * block must show the descent under the main: the kernel's speed at the end of
-   * the main's phase, which is the ground hit, not at the main's opening, which
-   * is where the drogue's phase ends.
-   */
   it('shows the main its own descent when the drogue is unnamed too', async () => {
     const engine = await loadEngine();
     engine.reset();
@@ -124,12 +107,10 @@ describe('the descent-sizing block on an unnamed chute', () => {
       engine.simulateJson(h, JSON.stringify({ launchRodLength: 1, randomSeed: 7 })),
     ) as FlightResult;
     const deployments = result.events.filter((e) => e.type === 'RECOVERY_DEVICE_DEPLOYMENT');
-    // The drogue opens first, at apogee; both under the one default name.
     expect(deployments.map((e) => e.source)).toEqual([kernelComponentName(DROGUE), kernelComponentName(MAIN)]);
     const landed = result.events.find((e) => e.type === 'GROUND_HIT')!.time;
     const mainRate = Math.abs(seriesAt(result.series, 'velocity', landed)!);
     const drogueRate = Math.abs(seriesAt(result.series, 'velocity', deployments[1]!.time)!);
-    // Far enough apart that the one-decimal readout tells them apart.
     expect(Math.abs(mainRate - drogueRate)).toBeGreaterThan(1);
 
     const s = useWorkspaceStore.getState();
@@ -211,16 +192,6 @@ const DUAL_TREE = {
   ],
 } as unknown as RocketTree;
 
-/**
- * The dialog sizes the canopy for the Cd the kernel flies.
- *
- * The dialog reads the node's stored Cd, Auto or not, and that is the kernel's
- * figure for a parachute: `RecoveryDevice.getCD` takes `getComponentCD` on
- * Auto, and `Parachute.getComponentCD` returns the stored `cd`, while a chute
- * with no `cd` flies `Parachute.DEFAULT_CD`. Both are read here from the
- * bridge, not restated, so a kernel that starts to estimate a parachute's Cd
- * fails this test and the dialog then has to read the kernel's figure.
- */
 describe('the descent-sizing dialog on a chute whose Cd is on Auto', () => {
   afterEach(() => __setEngineForTests(null));
 
@@ -257,7 +228,7 @@ describe('the descent-sizing dialog on a chute whose Cd is on Auto', () => {
     const mass = descentMass(0.1, motorSpecs(tree, config))!;
     const rho = airDensity(selectActive(useWorkspaceStore.getState()).launch);
     const diameter = (patches[0] as { diameter: number }).diameter;
-    // Rounded up to a size you can buy, in the default unit: whole centimeters.
+    // Rounded up to whole centimeters, the default unit.
     expect(diameter).toBeCloseTo(canopyRoundUp(canopyDiameter(mass, MAIN_BAND.target, kernelCd, rho), 'cm'), 9);
     expect(document.body.textContent).toContain(`Cd ${fmtNum(kernelCd, 2)}`);
   });

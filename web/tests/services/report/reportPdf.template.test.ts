@@ -3,13 +3,6 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import type { ReportModel } from '../../../src/services/report/reportModel';
 import type { UnitSelection } from '../../../src/prefs/units';
 
-/**
- * The fin template's page-fit check must not take its width and height from
- * `Math.max(...pts.map(...))`. A freeform outline is file-sourced, and
- * spreading a large one into a call overflows the stack with an opaque
- * "Maximum call stack size exceeded".
- */
-
 const saveBlob = vi.fn((_blob: Blob, _name: string) => Promise.resolve());
 vi.mock('../../../src/services/files/saveFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/services/files/saveFile')>()),

@@ -11,13 +11,6 @@ import { CheckMenu } from '../common/CheckMenu';
 import { takesArrowKeys } from '../common/isTextEntry';
 import { ImportedStar } from './ImportedStar';
 
-/**
- * The motor dashboard's grid: the sortable header, one row per motor (check
- * box + the chosen columns), the catalog loading / error row, arrow-key
- * stepping through the rows, and the column chooser that picks what it shows.
- */
-
-/** Column chooser (persisted): a checkbox per hideable column. */
 export function ColumnChooser({ visCols, onToggle }: { visCols: string[]; onToggle: (id: string) => void }) {
   const { t } = useTranslation();
   return (
@@ -49,7 +42,6 @@ export function MotorGrid({
   onRetry,
   active,
 }: {
-  /** The filtered, sorted rows. */
   shown: CatalogMotor[];
   cols: Col[];
   sort: MotorSort | null;
@@ -61,15 +53,7 @@ export function MotorGrid({
   catalogLoading: boolean;
   catalogError: string | null;
   onRetry: () => void;
-  /**
-   * Whether the grid is the surface on screen.
-   *
-   * The arrow-key stepper is a `window` listener, and the dashboard keeps this
-   * grid mounted while a full-width tool is open (it only hides it with a CSS
-   * class). Without this flag, ArrowDown while reading the Compare pane would
-   * step the selection, and `onSelect` would flip the mode back to the detail
-   * rail, closing the comparison.
-   */
+  /** The arrow-key stepper is a `window` listener and the grid stays mounted while hidden. */
   active: boolean;
 }) {
   const { t } = useTranslation();
@@ -93,9 +77,7 @@ export function MotorGrid({
     if (!selected) return;
     const row = bodyRef.current?.querySelector(`[data-key="${CSS.escape(keyOf(selected))}"]`);
     row?.scrollIntoView({ block: 'nearest' });
-    // Focus follows the selection while it is in the grid, so stepping with
-    // the arrow keys is heard as well as seen. Focus elsewhere (the search box,
-    // the detail rail) is left where the user put it.
+    // Focus follows only while in the grid, so screen readers announce the step.
     if (bodyRef.current?.contains(document.activeElement)) {
       row?.querySelector<HTMLElement>('[data-row-handle]')?.focus({ preventScroll: true });
     }
@@ -163,10 +145,6 @@ export function MotorGrid({
                       className={`px-2 py-1.5 ${ALIGN[c.align]} ${c.always ? 'font-medium text-ink-strong' : 'text-ink-soft'}`}
                     >
                       {c.always ? (
-                        // The row's focusable handle. The row itself takes the
-                        // mouse, but a <tr> is no stop for a keyboard or a
-                        // screen reader, and the arrow keys move focus here so
-                        // the newly selected motor is announced.
                         <button
                           type="button"
                           data-row-handle

@@ -8,7 +8,6 @@ import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import { flightDataCsv } from '../../../src/services/exports/csvExport';
 import { METRIC_UNITS } from '../../../src/prefs/units';
 
-/** A result carrying exactly these series keys. */
 const withKeys = (keys: string[]) =>
   ({ series: Object.fromEntries(keys.map((k) => [k, [0, 1]])) }) as unknown as FlightResult;
 
@@ -16,7 +15,6 @@ const strings = (locale: Record<string, unknown>, ns: string) => (locale[ns] ?? 
 
 describe('flightColumns', () => {
   it('lists only what the run recorded', () => {
-    // A column the run did not record would export empty.
     expect(flightColumns(withKeys(['time', 'altitude'])).map((c) => c.key)).toEqual(['time', 'altitude']);
   });
 
@@ -33,25 +31,11 @@ describe('flightColumns', () => {
     expect(flightColumns(r, 1).map((c) => c.key)).toEqual(['time', 'Cd']);
   });
 
-  /**
-   * The horizontal track has to be in the default set: it is the only thing in
-   * the file that answers "where does it land".
-   */
   it('exports the ground track by default', () => {
     for (const k of ['Px', 'Py']) expect(DEFAULT_CSV_COLUMNS).toContain(k);
   });
 
-  /**
-   * Every variable carries a name, in both languages.
-   *
-   * Bare kernel symbols ("Abx", "dΦ", "ha") are unreadable unless you already
-   * know the symbol table. The names are generated from OpenRocket's own
-   * `FlightDataType` and its message bundles, so a variable reads the same here
-   * as it does in the desktop app; this catches a symbol that slipped through
-   * without one.
-   */
   it('names every column it can offer, in English and Spanish', () => {
-    // A result carrying every key the table knows about.
     const all = flightColumns(withKeys(DEFAULT_CSV_COLUMNS.concat(['ha', 'Vz', 'Abx', 'dΦ', 'Cdf', 'ρ', 'Fta'])));
     expect(all.length).toBeGreaterThan(15);
     for (const c of all) {
@@ -71,11 +55,7 @@ describe('flightColumns', () => {
     expect(flightColumns(withKeys(['mass', 'mp'])).map((c) => c.quantity)).toEqual(['mass', 'mass']);
   });
 
-  /**
-   * The kernel records the body rates and the natural frequency in rad/s, and
-   * `r/s` in OpenRocket's unit list is revolutions per second, so the column
-   * takes the roll-rate unit group and is converted with it.
-   */
+  // The kernel records rad/s, while OpenRocket's `r/s` is revolutions per second.
   it('puts the angular rates in the reader roll-rate unit, converted from rad/s', () => {
     const keys = ['dΦ', 'dθ', 'dΨ', 'ωn'];
     expect(flightColumns(withKeys(keys)).map((c) => c.quantity)).toEqual(keys.map(() => 'rollRate'));
@@ -97,20 +77,12 @@ describe('flightColumns', () => {
   });
 
   it('gives every column a unit or an explicit blank, never undefined both ways', () => {
-    // Mach and the coefficients are genuinely unitless; a missing unit and a
-    // missing quantity would render as the string "undefined".
     for (const c of flightColumns(withKeys(['time', 'Cd', 'M', 'Px', 'ρ']))) {
       expect(c.quantity ?? c.unit, `${c.key} has neither`).toBeDefined();
     }
   });
 });
 
-/**
- * Every series the kernel can record has a column with a name and a unit, so
- * none exports as a bare symbol. The symbols are read from `FlightDataType.java`
- * itself; the app's dozen arrive under its own names, and the bridge never
- * sends the computation time.
- */
 describe('flightColumns against FlightDataType', () => {
   const SENT_AS_APP_NAME: Record<string, string> = {
     t: 'time',

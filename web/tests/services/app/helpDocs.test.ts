@@ -2,8 +2,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { helpTarget, helpTargetFromUrl, loadHelpPage, readContents } from '../../../src/services/app/helpDocs';
 
-// jsdom, because the link parser resolves against window.location: an in-frame
-// link is only "still in the docs" relative to the origin the app is served from.
 const appBase = import.meta.env.BASE_URL.replace(/\/*$/, '/');
 const origin = window.location.origin;
 
@@ -13,9 +11,7 @@ afterEach(() => {
 
 describe('helpTarget', () => {
   it('resolves a slug to the precached file, not the directory', () => {
-    // The directory form is the one that does not come back from the precache
-    // (directoryIndex is off in vite.config.ts), so this difference is what
-    // makes Help open with no signal.
+    // The directory form misses the precache (directoryIndex is off in vite.config.ts).
     expect(helpTarget('safety', 'en').fileUrl).toBe(`${appBase}docs/safety/index.html`);
   });
 
@@ -29,8 +25,6 @@ describe('helpTarget', () => {
     const target = helpTarget('designing-a-rocket#fins', 'en');
     expect(target.slug).toBe('designing-a-rocket');
     expect(target.hash).toBe('#fins');
-    // The anchor cannot be part of the file name, but it must survive into what
-    // the frame is pointed at, or opening help on a topic lands at the top.
     expect(target.fileUrl).toBe(`${appBase}docs/designing-a-rocket/index.html`);
     expect(target.src).toBe(`${appBase}docs/designing-a-rocket/index.html#fins`);
   });
@@ -58,27 +52,18 @@ describe('helpTargetFromUrl', () => {
   });
 
   it('strips the locale segment so the dialog can re-add the current one', () => {
-    // The page is the same page in either tree, so a link is reported as a
-    // page and nothing else. The dialog puts it back under the locale matching
-    // the app's UI language, which is how a Spanish reader who follows a link
-    // into the English tree stays in Spanish.
     expect(helpTargetFromUrl(`${origin}${appBase}docs/es/faq/`)).toBe('faq');
     expect(helpTargetFromUrl(`${origin}${appBase}docs/faq/`)).toBe('faq');
-    // The Spanish root is the index page, not a page named "es".
     expect(helpTargetFromUrl(`${origin}${appBase}docs/es/`)).toBe('');
   });
 
   it('reports a link that leaves the docs, so the dialog can open a tab', () => {
-    // GitHub, the OpenRocket manual and the site's own "launch the app" link all
-    // reach this: following them inside the frame would replace the docs with
-    // something else in a box labeled Help.
     expect(helpTargetFromUrl('https://github.com/AstraRocket/simulator')).toBeNull();
     expect(helpTargetFromUrl('https://openrocket.readthedocs.io/')).toBeNull();
   });
 
   it('reports a same-origin link that is not a docs page', () => {
     expect(helpTargetFromUrl(`${origin}${appBase}`)).toBeNull();
-    // A sibling path that merely starts with the same letters is not the docs.
     expect(helpTargetFromUrl(`${origin}${appBase}docs-archive/faq/`)).toBeNull();
   });
 
@@ -89,7 +74,6 @@ describe('helpTargetFromUrl', () => {
 
 describe('loadHelpPage', () => {
   const target = helpTarget('safety', 'en');
-  /** A served page, minimal but with the two markers that matter. */
   const served = (body: string) => `<!doctype html><html><body><div id="__docusaurus">${body}</div></body></html>`;
   const answers = (html: string) =>
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(html) }));
@@ -102,9 +86,7 @@ describe('loadHelpPage', () => {
   });
 
   it('rejects the app shell answering for a missing page', async () => {
-    // This is the dev-build case: web/public/docs is gitignored, and Vite
-    // answers the missing path with the app's index.html and a 200. Without the
-    // marker check the dialog would render the app inside its own Help dialog.
+    // Dev build: web/public/docs is gitignored and Vite answers with index.html and a 200.
     answers('<div id="root"></div>');
     await expect(loadHelpPage(target)).resolves.toBeNull();
   });
@@ -115,8 +97,6 @@ describe('loadHelpPage', () => {
   });
 
   it('rejects a failed fetch rather than throwing', async () => {
-    // Offline with nothing cached throws; the dialog must fall back to offering
-    // the docs site, not blow up over the design being edited.
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     await expect(loadHelpPage(target)).resolves.toBeNull();
   });
@@ -125,23 +105,18 @@ describe('loadHelpPage', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(served('')) });
     vi.stubGlobal('fetch', fetchMock);
     await loadHelpPage(helpTarget('safety#storage', 'en'));
-    // The anchor must not reach the request: it is not part of the cached name.
     expect(fetchMock).toHaveBeenCalledWith(`${appBase}docs/safety/index.html`);
   });
 
   it('resolves sidebar links although a parsed document has no base URL', async () => {
-    // DOMParser gives a document whose `a.href` is empty, so the reader takes
-    // the href attribute instead. Reading `a.href` would leave every rail row
-    // missing.
+    // DOMParser leaves `a.href` empty, so the reader takes the href attribute.
     answers(served(SIDEBAR));
     const page = await loadHelpPage(target);
     expect(page?.contents.pages.filter((p) => p.page !== null)).not.toEqual([]);
   });
 });
 
-// A trimmed copy of what Docusaurus actually builds into every page: the whole
-// sidebar, and the current page's heading list beside it. The class names are
-// the contract, so the fixture keeps them verbatim rather than simplifying.
+// Docusaurus output: the class names are the contract, so keep them verbatim.
 const SIDEBAR = `
 <nav aria-label="Docs sidebar" class="menu">
   <ul class="theme-doc-sidebar-menu menu__list">
@@ -179,16 +154,12 @@ describe('readContents', () => {
     document.body.innerHTML = '';
   });
 
-  /** Render a fixture into the real document, so its links resolve against a
-   *  base the way they do in the frame. */
   const read = (html: string) => {
     document.body.innerHTML = html;
     return readContents(document);
   };
 
   it('reads the whole page list out of one page', () => {
-    // Docusaurus puts the entire sidebar into every page, which is why the rail
-    // needs no generated index and no second source to drift from.
     expect(read(SIDEBAR).pages).toEqual([
       { page: null, label: 'Introduction', level: 1 },
       { page: '', label: 'Overview', level: 2 },
@@ -199,16 +170,11 @@ describe('readContents', () => {
   });
 
   it('makes a category a label, not a page', () => {
-    // A category links to its own first child, so treating it as a page would
-    // list that page twice in a row.
     const [intro] = read(SIDEBAR).pages;
     expect(intro?.page).toBeNull();
   });
 
   it('reads the current page headings, with their nesting', () => {
-    // The article's headings, not the site's table-of-contents widget: that
-    // widget is rendered on window size and is absent at the width the dialog's
-    // frame runs at.
     expect(read(ARTICLE).headings).toEqual([
       { hash: '#the-component-tree', label: 'The component tree', level: 1 },
       { hash: '#dual-deployment', label: 'Dual deployment', level: 2 },
@@ -217,8 +183,6 @@ describe('readContents', () => {
   });
 
   it('reports empty lists for a page with neither', () => {
-    // A page with no h2 has no table of contents at all, and the fallback panel
-    // has no sidebar; neither may throw.
     expect(read('<p>nothing here</p>')).toEqual({ pages: [], headings: [] });
   });
 });

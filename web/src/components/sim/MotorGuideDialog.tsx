@@ -59,19 +59,6 @@ import {
   type GuideSort,
 } from './GuideResults';
 
-/**
- * The motor guide: pick candidate motors with the motor filters, fly each one in
- * a mount of this simulation, and read the flights as one sortable table. The
- * question thrustcurve.org's Motor Guide answers, flown on the design itself.
- *
- * Opened from the Simulations toolbar for the active simulation, because a
- * guide is a question about that row: its launch conditions, its configuration
- * (every other mount stays as it is) and its settings. The flights are
- * throwaway (services/flight/motorGuide); "Use" keeps one as a configuration
- * and a simulation of its own.
- *
- * Mounted only while open, which also defers the catalog download.
- */
 export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: () => void }) {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -80,8 +67,6 @@ export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: (
   const config = sim ? configOf(configs, sim) : null;
 
   const mounts = useMemo(() => findMounts(tree), [tree]);
-  // The mount the run gate judges, which is the one with a motor that flies;
-  // on a single-mount rocket the only one there is.
   const [mountId, setMountId] = useState<string | null>(() => {
     if (!config) return mounts[0]?.id ?? null;
     const live = liveMotors(tree, config);
@@ -102,8 +87,7 @@ export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: (
       {!sim || !mount ? (
         <div className="grid flex-1 place-items-center p-6 text-sm text-ink-faint">{t('guide.noMount')}</div>
       ) : (
-        // Keyed on the mount: its bore is what the fit filter starts from, and a
-        // different mount is a different set of candidates.
+        // Keyed on the mount: its bore seeds the fit filter.
         <GuideBody
           key={mount.id}
           simId={simId}
@@ -176,8 +160,6 @@ function GuideBody({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* On a phone the filters fill the screen on their own, so with a guide
-          up they give it the room; Clear brings them back. */}
       <div className={`space-y-2 border-b border-line/10 p-3 ${shown && !desktop ? 'hidden' : ''}`}>
         <div className="flex flex-wrap items-center gap-2">
           {mountPicker}
@@ -212,13 +194,9 @@ function GuideBody({
               disabled={loading || !!error || flying.length === 0 || tooMany}
               className={`${btn} bg-accent-600 text-on-accent hover:bg-accent-700`}
             >
-              {/* A count on the button only when it is what will fly: "Fly 25
-                  motors" on a disabled button reads as an offer it will not keep. */}
               {tooMany || flying.length === 0 ? t('guide.flyIdle') : t('guide.fly', { count: flying.length })}
             </button>
           )}
-          {/* The bill, and the ceiling, before it is run: each motor is up to
-              two flights, and the filters above are how the list gets short. */}
           {!busy && !loading && (
             <span className="text-xs">
               <span className={tooMany ? 'text-warn-400' : 'text-ink-faint'}>
@@ -255,13 +233,6 @@ function GuideBody({
   );
 }
 
-/**
- * The motors a Fly would fly, before it is pressed: every match with a curve,
- * each with a box to leave it out, and below them the matches with no curve,
- * which are listed so the count beside the button can be checked but cannot be
- * ticked. Without this the guide flies a set the user has only ever seen as a
- * number.
- */
 export function CandidateList({
   candidates,
   noCurve,
@@ -275,7 +246,6 @@ export function CandidateList({
   dropped: ReadonlySet<string>;
   onDropped: (next: ReadonlySet<string>) => void;
   disabled: boolean;
-  /** The line over the list; the simulation guide's own when absent. */
   hint?: string;
 }) {
   const { t } = useTranslation();
@@ -306,8 +276,6 @@ export function CandidateList({
     return (
       <tr
         key={k}
-        // The whole row toggles, so unticking a run of motors is not a hunt for
-        // a box the size of a letter.
         onClick={flyable && !disabled ? () => toggle(m) : undefined}
         className={`border-t border-line/5 ${flyable ? 'cursor-pointer hover:bg-raised/50' : 'text-ink-faint'}`}
       >
@@ -349,8 +317,6 @@ export function CandidateList({
   };
   return (
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-      {/* Buttons as well as the header box: a list of hundreds starts ticked,
-          and the box alone is too small to be found as the way to clear it. */}
       <div className="flex flex-wrap items-center gap-2 py-2">
         <p className="mr-auto text-xs text-ink-faint">{hint ?? t('guide.hint')}</p>
         <button
@@ -427,7 +393,6 @@ const COLS: GuideCol<GuideRow>[] = [
   { id: 'landingVelocity', label: 'sim.landing', quantity: 'velocity', value: (r) => r.landingVelocity },
 ];
 
-/** The status cell's words, in the order the issues are judged. */
 const ISSUE_KEY: Record<GuideIssue, string> = {
   slowExit: 'guide.issue.slowExit',
   railMarginal: 'guide.issue.railMarginal',
@@ -442,7 +407,6 @@ function verdictText(v: GuideVerdict, t: TFunction): string {
   return parts.join(', ');
 }
 
-/** Names and the status run low to high first; figures high to low. */
 const descFirst = (key: string) => key !== 'motor' && key !== 'status';
 
 function GuideTable({
@@ -455,7 +419,6 @@ function GuideTable({
   simId: string;
   guide: NonNullable<ReturnType<typeof selectMotorGuideFor>>;
   stale: boolean;
-  /** One card per motor rather than a table seventeen columns wide (phones). */
   cards: boolean;
   onClose: () => void;
 }) {
@@ -470,8 +433,7 @@ function GuideTable({
   const clearMotorGuide = useWorkspaceStore((s) => s.clearMotorGuide);
   const sharedNames = useMemo(() => sharedDeviceNames(tree.components), [tree]);
 
-  // Judged at render, not when flown, so a changed rail-exit minimum re-reads
-  // every row the way it re-reads the results tiles.
+  // Judged at render, not when flown, so changed thresholds re-read every row.
   const { railExitVelocityMin } = settings.simulation;
   const { deploymentSpeedWarn } = effectivePrefs(settings.simulation, simPrefs);
   const verdicts = useMemo(
@@ -482,7 +444,6 @@ function GuideTable({
     [guide.rows, railExitVelocityMin, deploymentSpeedWarn, sharedNames],
   );
 
-  // Highest apogee first: the column a guide is most often read by.
   const [sort, setSort] = useState<GuideSort>({ key: 'apogee', desc: true });
   const rows = useMemo(() => {
     const val = (r: GuideRow): number | string => {
@@ -512,7 +473,6 @@ function GuideTable({
     return (
       <span
         className={clean ? 'text-ok-400' : 'text-warn-400'}
-        // The warnings themselves, as the warnings card words them.
         title={r.warnings.map((w) => warningText(w.message, lt)).join('\n') || undefined}
       >
         {clean ? t('guide.ok') : verdictText(v, t)}

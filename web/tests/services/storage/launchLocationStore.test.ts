@@ -8,7 +8,6 @@ import type { KeyValueStore } from '../../../src/services/storage/keyValueStore'
 
 class FakeKv implements KeyValueStore {
   map = new Map<string, string>();
-  /** Set to make every write fail, the way a full or blocked store does. */
   refuse = false;
   async get(k: string) {
     return this.map.has(k) ? this.map.get(k)! : null;
@@ -61,8 +60,6 @@ describe('KeyValueLaunchLocationStore', () => {
   });
 
   it('replaces by id, not by name', async () => {
-    // A rename is a save of the same location, and two fields can legitimately share
-    // a name ("Club field") while being different places.
     await store.save(location({ id: 'a', name: 'Old name' }));
     await store.save(location({ id: 'a', name: 'New name' }));
     await store.save(location({ id: 'b', name: 'New name', latitudeDeg: 1 }));
@@ -80,9 +77,6 @@ describe('KeyValueLaunchLocationStore', () => {
   });
 
   it('reports a refused write instead of resolving over it', async () => {
-    // The caller holds the only copy of what the user just typed. Told nothing,
-    // it re-renders a list that does not contain it and there is no error
-    // anywhere.
     kv.refuse = true;
     await expect(store.save(location())).rejects.toThrow(/storage-full/);
   });
@@ -96,15 +90,11 @@ describe('KeyValueLaunchLocationStore', () => {
   });
 
   it('drops entries that are not locations, and keeps the ones that are', async () => {
-    // Hand-edited storage, an older schema, or a half-written blob: one bad
-    // entry must not cost the user every location they saved.
     await kv.set(KEY, JSON.stringify([location({ id: 'good' }), { id: 'bad', name: 'No coordinates' }, null, 7]));
     expect((await store.list()).map((p) => p.id)).toEqual(['good']);
   });
 
   it('refuses coordinates outside the ranges the launch fields enforce', async () => {
-    // A latitude past ±90 reaches the kernel's gravity and Coriolis terms and
-    // the KML origin, which Google Earth rejects outright.
     for (const bad of [
       { latitudeDeg: 91 },
       { latitudeDeg: -91 },
@@ -125,23 +115,16 @@ describe('KeyValueLaunchLocationStore', () => {
 describe('locationFrom', () => {
   it('takes the three site fields and mints an id', () => {
     const p = locationFrom('  Field  ', { latitudeDeg: 12.5, longitudeDeg: -1.25, launchAltitudeM: 300 });
-    expect(p.name).toBe('Field'); // trimmed
+    expect(p.name).toBe('Field');
     expect(p.id).toMatch(/[0-9a-f-]{8,}/);
     expect(p).toMatchObject({ latitudeDeg: 12.5, longitudeDeg: -1.25, launchAltitudeM: 300 });
   });
 
   it('still produces a place from a half-filled site', () => {
-    // The coordinate zeroes are a last resort rather than a default: both are
-    // required launch fields and `LocationPicker` disables its save button while
-    // either is blank, so a location at 0,0 is not reachable from the panel.
     const p = locationFrom('Bare', { latitudeDeg: null, longitudeDeg: null, launchAltitudeM: 300 });
     expect(p).toMatchObject({ latitudeDeg: 0, longitudeDeg: 0, launchAltitudeM: 300 });
   });
 
-  /**
-   * A tool's site leaves a blank elevation to the terrain model. Saved as 0, a
-   * 1,400 m field would later set a simulation's launch altitude to sea level.
-   */
   it('keeps an unknown elevation unknown', async () => {
     const p = locationFrom('Club field', { latitudeDeg: 40, longitudeDeg: -105, launchAltitudeM: null });
     expect(p.launchAltitudeM).toBeNull();

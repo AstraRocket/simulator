@@ -14,16 +14,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A mount's own ignition reaches the motors desktop would give it to, and flies.
- *
- * Desktop copies the mount's ignition (`getDefaultMotorConfig()`) into a motor
- * chosen for an empty slot (`MotorConfigurationPanel.selectMotor`:
- * `new MotorConfiguration(mount, fcid, mount.getMotorConfig(fcid))`). Here every
- * slot already holds a motor, so the expected ignition is the mount's as the
- * kernel holds it after the build (`getComponentFields`), and the flight is
- * compared with one where the kernel was handed that ignition directly.
- */
+// Desktop copies the mount's ignition into a motor chosen for an empty slot (`MotorConfigurationPanel.selectMotor`).
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped */
 let engine: any;
@@ -37,7 +28,6 @@ const s = () => useWorkspaceStore.getState();
 const mountId = () => findMounts(s().tree)[0]!.id as string;
 const motorIn = (configId: string) => s().configs.find((c) => c.id === configId)!.motors[mountId()]!;
 
-/** The mount's own ignition as the kernel holds it. */
 function kernelMountIgnition(): { ignitionEvent: string; ignitionDelay: number } {
   engine.reset();
   const h = engine.buildRocket(JSON.stringify(s().tree));
@@ -62,7 +52,6 @@ describe('mount ignition, through the kernel', () => {
     const { ignitionEvent, ignitionDelay } = kernelMountIgnition();
     const flown = buildConfiguredRocket(s().tree, config).simulate({ launchRodLength: 1, randomSeed: 7 });
 
-    // The same motor, handed the mount's ignition directly.
     const direct = OpenRocketDesign.buildTree(s().tree);
     direct.setMotorById(mountId(), config.motors[mountId()]!.spec);
     direct.setMotorIgnitionById(mountId(), ignitionEvent as 'automatic', ignitionDelay);

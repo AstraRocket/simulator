@@ -3,11 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { httpsFetch, USER_AGENT, MAX_RESPONSE_BYTES } from '../../scripts/lib/thrustcurveHttps.mjs';
 
-/**
- * thrustcurve.org challenges Node's fetch but answers node:https sending only
- * the headers it needs, so the motor sync talks to it through this transport.
- * The socket boundary is injected: nothing here connects.
- */
 const URL_OK = 'https://www.thrustcurve.org/api/v1/search.json';
 
 type Reply = { status?: number; headers?: Record<string, string>; chunks?: (string | Buffer)[] };

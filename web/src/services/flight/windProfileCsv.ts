@@ -1,24 +1,10 @@
 import type { WindLevel } from '../design/orkTree';
 import { norm360 } from './groundTrack';
 
-/**
- * CSV import for a multilevel wind profile, matching OpenRocket's
- * `MultiLevelPinkNoiseWindModel.importLevelsFromCSV` convenience overload:
- * headed columns named `altitude`, `speed`, `direction` and `stddev`, in
- * meters, meters per second and degrees, with the standard deviation optional.
- *
- * Fixed units rather than the user's display units, deliberately and like the
- * desktop: a sounding is a file someone else produced, so the file has to say
- * what it means on its own rather than inherit whatever the app happens to be
- * showing. The dialog states them.
- *
- * Whatever the file's order, the levels come back sorted by altitude. Import
- * replaces the profile (the desktop clears first), so a partial parse must not
- * be applied: every failure here throws rather than returning a short list.
- */
+// Mirrors `MultiLevelPinkNoiseWindModel.importLevelsFromCSV`: fixed units (m, m/s, degrees), not display units.
 
 export class WindProfileCsvError extends Error {
-  /** i18n key under `windProfile.csv`, so the dialog can say which fault it was. */
+  // i18n key under `windProfile.csv`.
   readonly key: string;
   readonly line?: number;
 
@@ -37,18 +23,13 @@ const ALIASES: Record<keyof Omit<WindLevel, 'altitudeM' | 'directionDeg'> | 'alt
   stddev: ['stddev', 'standarddeviation', 'deviation', 'sd', 'sigma', 'stddevms'],
 };
 
-/**
- * Strip one pair of surrounding double quotes (and a doubled inner quote): a
- * spreadsheet quotes any header carrying a comma, space or parenthesis, so
- * `"altitude (m)"` would otherwise arrive with its quotes on and match nothing.
- */
+// Spreadsheets quote headers like `"altitude (m)"`.
 const unquote = (s: string) => {
   const t = s.trim();
   return t.length >= 2 && t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1).replace(/""/g, '"') : t;
 };
 
-// Letters and digits only, so `speed (m/s)` and `wind-speed_m/s` both read as
-// `speedms`; a unit suffix in the header is what a spreadsheet export carries.
+// Letters and digits only, so `speed (m/s)` and `wind-speed_m/s` both read as `speedms`.
 const norm = (h: string) =>
   unquote(h)
     .toLowerCase()
@@ -59,14 +40,8 @@ function columnIndex(headers: string[], key: keyof typeof ALIASES): number {
   return headers.findIndex((h) => names.includes(norm(h)));
 }
 
-/**
- * The levels, plus what the altitude column said it was measured from when
- * the header named it (`altitude AGL`, `altitude MSL`). Still an array, so a
- * caller can iterate it and ignore `reference`.
- */
 export type WindProfileCsvResult = WindLevel[] & { reference?: 'msl' | 'agl' };
 
-/** The reference an altitude header carries, or undefined when it says nothing. */
 function altitudeReference(header: string): 'msl' | 'agl' | undefined {
   const n = norm(header);
   if (n.includes('agl')) return 'agl';
@@ -74,11 +49,7 @@ function altitudeReference(header: string): 'msl' | 'agl' | undefined {
   return undefined;
 }
 
-/**
- * A number cell, read as the desktop's `extractDouble` reads it: as written,
- * else with its last comma taken as the decimal point, so a semicolon-separated
- * European export ("5,5") imports. NaN when neither reading is a number.
- */
+// As the desktop's `extractDouble`: falls back to the last comma as decimal point ("5,5").
 function decimal(text: string): number {
   const v = Number(text);
   if (Number.isFinite(v)) return v;
@@ -86,7 +57,6 @@ function decimal(text: string): number {
   return comma < 0 ? NaN : Number(`${text.slice(0, comma)}.${text.slice(comma + 1)}`);
 }
 
-/** The separator the file uses: whichever of `,` `;` or tab the header has most of. */
 function detectSeparator(headerLine: string): string {
   const counts = [',', ';', '\t'].map((sep) => [sep, headerLine.split(sep).length - 1] as const);
   const best = counts.reduce((a, b) => (b[1] > a[1] ? b : a));
@@ -94,8 +64,7 @@ function detectSeparator(headerLine: string): string {
 }
 
 export function parseWindProfileCsv(text: string): WindProfileCsvResult {
-  // Strip a UTF-8 BOM: a spreadsheet export carries one and it would otherwise
-  // ride on the first header name and stop it matching `altitude`.
+  // A spreadsheet BOM would otherwise stop the first header matching.
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   const headerIdx = lines.findIndex((l) => l.trim() !== '');
   if (headerIdx < 0) throw new WindProfileCsvError('emptyFile');
@@ -110,9 +79,7 @@ export function parseWindProfileCsv(text: string): WindProfileCsvResult {
 
   const need = Math.max(altIdx, speedIdx, dirIdx, sdIdx);
   const levels: WindProfileCsvResult = [];
-  // `altitudeagl` carries a reference, so it is not a plain alias: dropped, the
-  // levels import as MSL, which at a 1500 m site is a different wind. The caller
-  // applies it; a header that says nothing leaves it unset.
+  // Dropping an AGL reference would import the levels as MSL; the caller applies it.
   const reference = altitudeReference(headers[altIdx]!);
   if (reference) levels.reference = reference;
 
@@ -124,29 +91,22 @@ export function parseWindProfileCsv(text: string): WindProfileCsvResult {
 
     const cell = (idx: number): number => {
       const text = unquote(cells[idx]!);
-      // `Number('')` is 0, and 0 passes `Number.isFinite`, so without this a
-      // blank altitude or speed would import as a real 0 reading instead of
-      // failing the row. Blank is only meaningful for `stddev`, handled below.
+      // `Number('')` is 0, so a blank would otherwise import as a real 0.
       if (text === '') throw new WindProfileCsvError('badNumber', i + 1);
       const v = decimal(text);
       if (!Number.isFinite(v)) throw new WindProfileCsvError('badNumber', i + 1);
       return v;
     };
 
-    // Optional in the desktop too: a blank cell is no scatter, not a bad row.
     const sdCell = sdIdx >= 0 ? unquote(cells[sdIdx]!) : '';
-    // A negative speed is a wind from the opposite heading; the desktop import
-    // stores it that way (PinkNoiseWindModel.setAverage), so the table shows
-    // the wind the kernel flies.
+    // A negative speed is a wind from the opposite heading, as PinkNoiseWindModel.setAverage stores it.
     const speed = cell(speedIdx);
     const directionDeg = cell(dirIdx);
     levels.push({
       altitudeM: cell(altIdx),
       speed: Math.abs(speed),
       directionDeg: speed < 0 ? norm360(directionDeg + 180) : directionDeg,
-      // The kernel floors a negative deviation at 0 (`PinkNoiseWindModel.
-      // setStandardDeviation`, `Math.max(standardDeviation, 0)`), so the table
-      // shows the scatter it flies.
+      // As `PinkNoiseWindModel.setStandardDeviation` floors it.
       stddev: sdCell === '' ? 0 : Math.max(cell(sdIdx), 0),
     });
   }

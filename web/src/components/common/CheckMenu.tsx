@@ -7,15 +7,6 @@ export interface CheckMenuItem {
   checked: boolean;
 }
 
-/**
- * A dropdown of checkboxes on a native `<details>`: the summary is the button,
- * and the panel lists one labeled checkbox per item. `children` render above
- * the items, for an action such as "select all".
- *
- * While open, a pointer press outside it closes it, and Escape closes it and
- * returns focus to the summary. Escape is taken in the capture phase and marked
- * handled (`defaultPrevented`), so the dialog the menu sits in stays open.
- */
 export function CheckMenu({
   summary,
   items,
@@ -28,9 +19,7 @@ export function CheckMenu({
   summary: ReactNode;
   items: CheckMenuItem[];
   onToggle: (key: string) => void;
-  /** The panel's Tailwind width class. */
   width: string;
-  /** Which edge the panel hangs from. */
   align?: 'left' | 'right';
   className?: string;
   children?: ReactNode;

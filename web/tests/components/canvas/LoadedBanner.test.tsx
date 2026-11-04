@@ -16,11 +16,6 @@ import type { LoadedOrk } from '../../../src/services/files/loadOrk';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import en from '../../../src/i18n/locales/en.json';
 
-/**
- * The import notes collapse to a count, and collapsed stays collapsed while you
- * work on the design. A new import with notes opens them again: they are news on
- * the import that raised them.
- */
 const loaded = { name: 'Rocket', notes: ['First note.', 'Second note.'] };
 const toggle = () => screen.getByRole('button', { name: /import notes/ });
 
@@ -55,7 +50,6 @@ describe('LoadedBanner import notes', () => {
     const first = renderWithProviders(<LoadedBanner loaded={loaded} onClose={() => {}} />);
     fireEvent.click(toggle());
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    // Leaving the Design tab and coming back mounts the card again.
     first.unmount();
     renderWithProviders(<LoadedBanner loaded={loaded} onClose={() => {}} />);
     expect(toggle().getAttribute('aria-expanded')).toBe('false');
@@ -68,11 +62,6 @@ describe('LoadedBanner import notes', () => {
   });
 });
 
-/**
- * A keyed note is translated when the card renders, in the language showing
- * then, with its data interpolated as is. A note stored as a plain string
- * shows exactly as stored.
- */
 describe('LoadedBanner note text', () => {
   const notes = {
     name: 'Rocket',
@@ -98,11 +87,6 @@ describe('LoadedBanner note text', () => {
   });
 });
 
-/**
- * The design-name button is named by the name it shows, with the action after
- * it: a voice command that says the visible name has to reach it (WCAG 2.5.3),
- * and a screen reader has to hear which design this is.
- */
 describe('LoadedBanner design name', () => {
   it('keeps the visible name in the button name, followed by the action', () => {
     const st = useWorkspaceStore.getState();
@@ -113,7 +97,6 @@ describe('LoadedBanner design name', () => {
     expect(screen.getByRole('button', { name: /Edit rocket configuration/ })).toBe(btn);
   });
 
-  // The same name every filename, report and image header uses for the design.
   it('names an unnamed design as its exports do', () => {
     const st = useWorkspaceStore.getState();
     useWorkspaceStore.setState({ tree: { ...st.tree, name: '   ' } });
@@ -124,11 +107,6 @@ describe('LoadedBanner design name', () => {
   });
 });
 
-/**
- * The card's label names the format the design came from, as the loader
- * sniffed it from the file's bytes (`parseDesignFile`): a RockSim file is not a
- * `.ork`. An import stored before the format was recorded is named without one.
- */
 describe('LoadedBanner format label', () => {
   const rkt = `<?xml version="1.0"?><RockSimDocument><DesignInformation><RocketDesign><Name>R</Name><StageCount>1</StageCount><Stage3Parts><BodyTube><Name>T</Name><Len>100</Len><OD>20</OD><ID>19</ID></BodyTube></Stage3Parts></RocketDesign></DesignInformation></RockSimDocument>`;
 

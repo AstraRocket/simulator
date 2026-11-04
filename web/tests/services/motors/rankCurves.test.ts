@@ -17,16 +17,10 @@ const file = (simfileId: string, source: string, format: string, samples: number
 });
 const ids = (files: File[]) => (rankCurves(files) as File[]).map((f) => f.simfileId);
 
-/** Every order of `files`, as thrustcurve.org's API might return them. */
 function permutations<T>(items: T[]): T[][] {
   if (items.length <= 1) return [items];
   return items.flatMap((x, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((p) => [x, ...p]));
 }
-
-/**
- * The first curve is the default for a flight and sets the motor's loaded mass,
- * so the ranking is the same whatever order the API returns the files in.
- */
 describe('rankCurves', () => {
   it('ranks certified, then RASP, then more samples first', () => {
     expect(

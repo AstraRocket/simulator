@@ -5,35 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Minimal JSON parser - no dependencies, no reflection; runs identically on
- * the JVM and under TeaVM (kept differential-testable). Produces
- * LinkedHashMap / ArrayList / String / Double / Boolean / null.
- * <p>
- * <b>This parser is a trust boundary.</b> Everything it reads originates in the
- * browser, and most of it originates in an {@code .ork} file a stranger can
- * send. It therefore defends itself rather than relying on its callers: the JS
- * side has its own caps, but those only protect the one path that goes through
- * {@code orkImport.ts}, and nothing protects the worker, the tests, or any
- * future direct caller of the facade.
- */
+/** Untrusted input (a stranger's .ork); the JS-side caps protect only the orkImport.ts path. */
 public final class JsonLite {
 
-    /**
-     * Nesting limit. Without one, {@code value()}/{@code object()}/{@code array()}
-     * recurse until the stack dies: measured at ~3500 levels on the JS target
-     * and ~3000 under WASM-GC, and a Web Worker stack is smaller still, so the
-     * simulation worker blows first. A stack overflow is also the one failure
-     * the two targets disagree about - the JS backend turns it into a catchable
-     * RuntimeException, WASM-GC traps straight out of the module - so it must be
-     * prevented rather than caught. Real rocket trees nest a handful deep.
-     */
+    // Stack overflow traps under WASM-GC (uncatchable), so depth must be prevented, not caught.
     public static final int MAX_DEPTH = 64;
 
-    /**
-     * Input limit. The kernel has no business parsing a 100 MB string handed to
-     * it by a file; refusing early is cheaper than an out-of-memory browser tab.
-     */
     public static final int MAX_INPUT_CHARS = 8 * 1024 * 1024;
 
     private final String src;
@@ -98,8 +75,6 @@ public final class JsonLite {
             ws();
             consume(':');
             ws();
-            // A duplicate key is refused: overwriting would let a file carry two
-            // answers for one field and keep the last one silently.
             if (map.containsKey(key)) {
                 throw new IllegalArgumentException("JSON: duplicate key '" + key + "' at " + pos);
             }
@@ -162,14 +137,9 @@ public final class JsonLite {
                     case 'r': sb.append('\r'); break;
                     case 't': sb.append('\t'); break;
                     case 'u':
-                        // hex4 checks each of the four digits itself rather than using
-                        // Integer.parseInt(..., 16), which accepts a sign ("\\u-123")
-                        // and throws StringIndexOutOfBounds on a truncated escape.
+                        // Not Integer.parseInt(..., 16): it accepts a sign ("\\u-123").
                         int cp = hex4();
-                        // A surrogate is only half a character: a high one must be
-                        // followed by a low one, and a low one cannot stand alone.
-                        // A lone one would be re-emitted raw and leave the output
-                        // not well-formed UTF-8 for anything that encoded it.
+                        // A lone surrogate would make the output malformed UTF-8.
                         if (Character.isLowSurrogate((char) cp)) throw err("a high surrogate before \\u" + Integer.toHexString(cp));
                         sb.append((char) cp);
                         if (Character.isHighSurrogate((char) cp)) {
@@ -188,7 +158,6 @@ public final class JsonLite {
         }
     }
 
-    /** Four hex digits at pos, consumed. */
     private int hex4() {
         if (pos + 4 > src.length()) throw err("4 hex digits after \\u");
         int cp = 0;
@@ -208,9 +177,7 @@ public final class JsonLite {
         }
         if (start == pos) throw err("number");
         final String text = src.substring(start, pos);
-        // JSON's own grammar, not Double.parseDouble's: `01`, `+0.3` and `.3` are
-        // numbers to Java and errors to JSON.parse, and a payload the JS side would
-        // reject must not be read here as if it were valid.
+        // JSON's grammar, not Double.parseDouble's: `01`, `+0.3` and `.3` must fail.
         if (!isJsonNumber(text)) {
             throw new IllegalArgumentException("JSON: bad number '" + text + "' at " + start);
         }
@@ -218,21 +185,15 @@ public final class JsonLite {
         try {
             d = Double.parseDouble(text);
         } catch (NumberFormatException e) {
-            // NumberFormatException can carry a null message, which would reach
-            // the UI verbatim as "null" through services/design/buildRocket.ts.
+            // Its message can be null, which would reach the UI as "null".
             throw new IllegalArgumentException("JSON: bad number '" + text + "' at " + start);
         }
-        // An exponent overflow must not pass as Infinity: `"length":1e999` builds a
-        // rocket whose every StaticInfo field then serializes as null, because the
-        // writer sanitizes non-finite values and the JS side only checks for an
-        // `error` key. Refuse it at the door.
         if (Double.isNaN(d) || Double.isInfinite(d)) {
             throw new IllegalArgumentException("JSON: non-finite number '" + text + "' at " + start);
         }
         return Double.valueOf(d);
     }
 
-    /** -?(0|[1-9][0-9]*)(.[0-9]+)?([eE][+-]?[0-9]+)? */
     private static boolean isJsonNumber(String t) {
         int i = 0;
         final int n = t.length();
@@ -290,12 +251,7 @@ public final class JsonLite {
         return new IllegalArgumentException("JSON: expected " + expected + " at " + pos);
     }
 
-    // ---- typed accessors for builder code ----
-
-    // An absent key falls back to the default. A key that is present but of the
-    // wrong type is a caller bug or a bad file and is refused: falling back would
-    // turn `"length":"0.9"` (a quoted number from a lax exporter) into a body tube
-    // of the default 0.3 m and report success.
+    // Refused, not defaulted: `"length":"0.9"` would silently build the default length.
     private static IllegalArgumentException wrongType(String key, Object v, String want) {
         return new IllegalArgumentException(
                 "JSON: key '" + key + "' should be " + want + ", got " + v.getClass().getSimpleName());
@@ -322,12 +278,6 @@ public final class JsonLite {
         return (String) v;
     }
 
-    /**
-     * A list of objects. Absent is empty; present as anything else is refused,
-     * and so is an element that is not an object. Skipping either would drop a
-     * whole subtree: `"children":[1,2,3]` would build a body tube with no fins,
-     * motor mount or recovery, and report a healthy rocket.
-     */
     @SuppressWarnings("unchecked")
     public static List<Map<String, Object>> objList(Map<String, Object> m, String key) {
         Object v = m.get(key);

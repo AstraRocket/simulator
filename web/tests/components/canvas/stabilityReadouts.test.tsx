@@ -8,12 +8,6 @@ import { StabilityOverlay } from '../../../src/components/canvas/SchematicOverla
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { NO_VALUE } from '../../../src/i18n/noValue';
 
-/**
- * A figure the kernel could not compute is shown as missing, never as a
- * verdict or a mark at NaN: the badge does not call the design "Unstable" in
- * red, the info card gives no warning glyph, and the drawing places no CG or CP
- * marker it has no station for.
- */
 afterEach(cleanup);
 
 const info = (over: Partial<StaticInfo> = {}): StaticInfo =>
@@ -72,7 +66,6 @@ describe('an uncomputable CG or CP on the drawing', () => {
   });
 });
 
-/** The collapsed strip's margin carries its band in a glyph and in words, not in color alone. */
 describe('the collapsed stability margin', () => {
   it('shows the band glyph and names the verdict for a screen reader', () => {
     renderWithProviders(
@@ -93,7 +86,6 @@ describe('the collapsed stability margin', () => {
   });
 });
 
-/** Settings ▸ General ▸ Static statistics picks the tiles' layout. */
 describe('the static statistics layout', () => {
   afterEach(() => localStorage.clear());
 

@@ -14,27 +14,10 @@ import { proposalFor } from '../weather/weatherProposal';
 import { descentDrift, type DescentPlan, type DriftResult, type WindLayer } from './descentDrift';
 import { fetchTerrain, groundAt, type TerrainGrid } from './terrain';
 
-/**
- * The Tools tab's landing estimate: one descent under the forecast wind for the
- * chosen hour, and a dispersion zone from the same descent repeated across what
- * is uncertain about it.
- *
- * What the zone varies, all at once (5 x 3 x 3 x 3 = 135 descents):
- *  - the forecast hour, two either side of the chosen one, for the wind
- *    changing over the launch window;
- *  - wind speed, 20 % either way, and direction, 15 degrees either way, for the
- *    forecast's own error;
- *  - the descent rates, 10 % either way, because here they are typed, not
- *    flown.
- * A two-sigma ellipse is fitted to the landings with the drift region's own
- * code (services/flight/driftEllipse).
- */
-
 const SPEED_FACTORS = [0.8, 1, 1.2] as const;
 const DIRECTION_OFFSETS_DEG = [-15, 0, 15] as const;
 const RATE_FACTORS = [0.9, 1, 1.1] as const;
 
-/** The wind profile for the hour starting at `unix`, from one forecast answer, or null. */
 export function windAt(variant: ForecastVariant, unix: number): WindLayer[] | null {
   const sample = sampleAtUnix(variant, unix);
   if (!sample) return null;
@@ -45,16 +28,12 @@ export function windAt(variant: ForecastVariant, unix: number): WindLayer[] | nu
 }
 
 export interface LandingEstimate {
-  /** The descent under the chosen hour's wind, as forecast. */
   nominal: DriftResult;
-  /** Every descent's landing, the nominal one included. */
   samples: GroundPoint[];
   ellipse: DriftEllipse | null;
-  /** The forecast hours that were in the answer and went into the zone. */
   hours: number;
 }
 
-/** The estimate for one answer and hour. Null when the answer has no wind for that hour. */
 export function estimateLanding(q: {
   variant: ForecastVariant;
   validUnix: number;
@@ -85,11 +64,7 @@ export function estimateLanding(q: {
   return { nominal, samples, ellipse: driftEllipse(samples), hours };
 }
 
-/**
- * The terrain around the pad, re-based so its height at the pad is the pad's:
- * the terrain model and a surveyed site altitude disagree by a few meters,
- * and without this a descent could end before reaching the pad's own ground.
- */
+// Re-based to the pad: the terrain model and a surveyed altitude disagree by meters.
 function relativeGround(grid: TerrainGrid, latDeg: number, lonDeg: number, padElevationM: number) {
   const g = groundAt(grid);
   const shift = padElevationM - g(latDeg, lonDeg);
@@ -99,7 +74,7 @@ function relativeGround(grid: TerrainGrid, latDeg: number, lonDeg: number, padEl
 export interface LandingQuery {
   latitudeDeg: number;
   longitudeDeg: number;
-  /** The pad, meters above sea level; null to take the terrain model's height. */
+  // Meters above sea level; null to take the terrain model's height.
   padElevationM: number | null;
   date: string;
   hour: number;
@@ -112,23 +87,13 @@ export interface LandingRun {
   answer: WeatherAnswer;
   estimate: LandingEstimate;
   padElevationM: number;
-  /** The forecast hour the nominal descent used. */
   validUnix: number;
-  /** Whether the ground's shape was used, or flat ground at the pad's height (terrain lookup failed). */
   terrain: boolean;
 }
 
-/** Most the terrain grid reaches from the pad, meters: past this the drift is not a recovery. */
 const MAX_TERRAIN_HALF_WIDTH_M = 30_000;
 
-/**
- * A whole estimate: the pad's height if not given, the forecast, the landings
- * on flat ground to learn how far they reach, the terrain over that reach, and
- * the landings again on it. Throws `WeatherError` from the forecast; a failed
- * terrain lookup falls back to flat ground and says so. A blank pad height whose
- * lookup fails is `noElevation`: sea level would put the descent on the wrong
- * ground and the forecast at the wrong height.
- */
+// Flies on flat ground first to size the terrain fetch, then again on the terrain.
 export async function runLandingEstimate(
   q: LandingQuery,
   o: FetchOpts = {},

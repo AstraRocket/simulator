@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SEA_LEVEL_MARGIN_PA, seaLevelExcessPa } from '../../../src/services/flight/sitePressure';
 
-/** The standard pressure at 1500 m, near enough for these cases. */
 const AT_1500_M = 84_556;
 
 describe('seaLevelExcessPa', () => {

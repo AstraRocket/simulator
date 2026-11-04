@@ -4,15 +4,6 @@ import { FIELDS, type Field } from '../../../src/services/design/componentFields
 import { exportOrk, importOrk } from '../../../src/services/files/orkFile';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * Every field the Design tab shows survives a .ork save and reopen.
- *
- * Driven by FIELDS, not a hand-picked list: a field added to the panel with no
- * reader or writer behind it fails here. Some fields are only written beside a
- * partner (a fin tab needs all of its dimensions, an overhang or a mount's own
- * ignition needs the mount flag), so the partner is set too.
- */
-
 const TOP = new Set(['nosecone', 'transition', 'bodytube']);
 const TAB = { tabLength: 0.02, tabHeight: 0.005, tabOffset: 0.001, tabOffsetMethod: 'top' };
 const PARTNER: Record<string, Record<string, unknown>> = {
@@ -25,17 +16,10 @@ const PARTNER: Record<string, Record<string, unknown>> = {
   tabOffsetMethod: TAB,
   clusterScale: { cluster: '3-ring' },
   clusterRotation: { cluster: '3-ring' },
-  // <shapeclipped> is written only for a shape that can be clipped.
   clipped: { shape: 'ellipsoid' },
 };
 
-/**
- * Probe values for fields the generic ones cannot reach. A rail button's height
- * loads before its base and flange, so the setter clamps it against the
- * constructor's 2 mm each (as the desktop loader does): a height under 4 mm
- * does not survive a reopen on either side. A fin cant reads back clamped to
- * the kernel's 15 degrees (FinSet.MAX_CANT_RADIANS), so its probe stays inside it.
- */
+// Rail button height clamps against 2 mm base and flange defaults; cant clamps to 15 degrees.
 const VALUES: Record<string, unknown[]> = {
   'railbutton.height': [0.0131],
   'trapezoidfinset.cant': [0.21],
@@ -43,10 +27,6 @@ const VALUES: Record<string, unknown[]> = {
   'freeformfinset.cant': [0.23],
 };
 
-/**
- * Probe values by field kind. Numbers are offset by the field's index; a bool
- * or select takes two values, so one stuck at either default still fails.
- */
 const valuesFor = (f: Field, i: number): unknown[] => {
   switch (f.kind) {
     case 'length':
@@ -67,7 +47,6 @@ const valuesFor = (f: Field, i: number): unknown[] => {
     case 'text':
       return ['a comment'];
     default:
-      // bore and derived rows are views onto other keys, checked through those.
       return [];
   }
 };

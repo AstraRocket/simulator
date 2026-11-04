@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { appPresetType, kernelPresetType } from '../../../../src/services/files/ork/presetTypes';
 
-/** The `<preset type>` mapping takes its key from a file. */
 describe('preset type mapping', () => {
   it('maps the kernel enum constants both ways', () => {
     expect(appPresetType('NOSE_CONE')).toBe('nosecone');

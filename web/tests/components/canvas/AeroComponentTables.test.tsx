@@ -48,7 +48,6 @@ describe('StabilityTable', () => {
   });
 
   it("names the CP columns in the reader's language, as the drawings do", async () => {
-    // Russian and Polish have their own letters for the center of pressure.
     for (const lang of ['ru', 'pl']) {
       await i18n.changeLanguage(lang);
       const { unmount } = renderTable();
@@ -62,10 +61,6 @@ describe('StabilityTable', () => {
   });
 });
 
-/**
- * Per-component figures keep their meaning in coarse units: a CP of 0.523 m is
- * not "0.5", and a 47 g part in kilograms is not "0.0".
- */
 describe('StabilityTable precision', () => {
   const precise = {
     ...sweep,
@@ -93,11 +88,7 @@ describe('StabilityTable precision', () => {
   });
 });
 
-/**
- * A part the user never named arrives as the kernel's bundle key and reads as
- * the app's own name for that part type, in the reader's language: the name the
- * tree gives it, not the kernel's English class name.
- */
+// An unnamed part arrives as the kernel's bundle key.
 describe('StabilityTable names', () => {
   it('translates a part the user never named', async () => {
     await i18n.changeLanguage('es');

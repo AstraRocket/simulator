@@ -1,21 +1,9 @@
-/**
- * The capabilities that depend on the kind of device, and where each is
- * available. This is the one place that says what a phone or tablet does not
- * get; `device.ts` reads it (`hasCapability`, `capabilityAllowed`) and the UI
- * asks by name. To restrict a feature, add it here and ask for it where it is
- * offered; do not test the device anywhere else.
- *
- * How a device is classed is in device.ts and docs/DEVELOPER.md ("Detecting a
- * phone or tablet").
- */
+// Gate mobile features here by name; do not test the device anywhere else.
 
-/** A desktop computer, or a phone or tablet (see device.ts). */
 export type DeviceClass = 'desktop' | 'mobile';
 
 export interface CapabilityRule {
-  /** The device classes that offer it. */
   readonly availableOn: readonly DeviceClass[];
-  /** Why, for the next person to read this. */
   readonly why: string;
 }
 
@@ -40,6 +28,5 @@ export const CAPABILITIES = {
 
 export type Capability = keyof typeof CAPABILITIES;
 
-/** Whether a device of this class offers the capability. */
 export const capabilityAllowed = (cap: Capability, device: DeviceClass): boolean =>
   CAPABILITIES[cap].availableOn.includes(device);

@@ -9,11 +9,6 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
 beforeAll(serveData);
 
-/**
- * The property panel's delays carry the reader's own seconds symbol, as the
- * configuration card's override of the same field does ("秒" in Japanese, "с"
- * in Russian), not a fixed "s".
- */
 describe('the seconds symbol in the property panel', () => {
   it('is whatever the locale says, not a fixed letter', () => {
     // A sentinel, so a hard-coded "s" cannot pass.

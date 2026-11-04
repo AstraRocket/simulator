@@ -3,27 +3,10 @@ import { walkNodes } from '../../../tree/treeWalk';
 import { clusterCount } from '../../../tree/cluster';
 import { str } from '../../../tree/nodeProps';
 
-/**
- * Per-stage engine strings: which manufacturers RASAero's own motor database
- * documents, and the 'DESIGNATION  (ABBREV)' string each stage's first mounted
- * motor becomes.
- */
-
-/**
- * Engine-string export gate. RASAero II looks every exported engine name up in
- * its own motor database and throws a NullReferenceException when the name is
- * missing, so we only write manufacturers it documents (unmapped ones are
- * omitted entirely, never guessed).
- */
+/** RASAero II throws a NullReferenceException on an engine name missing from its motor database. */
 export const CDX1_ENGINE_EXPORT = true;
 
-/**
- * Our manufacturer names → RASAero's engine-file abbreviations, after the
- * desktop's RASAeroCommonConstants.OPENROCKET_TO_RASAERO_MANUFACTURER. It is a
- * subset of that table (no NoThrust, EX or Historical rows), and where desktop
- * writes an unmatched maker under its own name, this omits it. Keys are
- * matched normalized: uppercase, periods/commas stripped, whitespace collapsed.
- */
+// Subset of desktop RASAeroCommonConstants.OPENROCKET_TO_RASAERO_MANUFACTURER; unmatched makers are omitted.
 const RASAERO_MFG: Array<[abbrev: string, names: string[]]> = [
   ['AT', ['AEROTECH', 'AT', 'ISP']],
   ['ES', ['ESTES', 'ESTES INDUSTRIES', 'ES', 'E']],
@@ -54,19 +37,13 @@ const RASAERO_MFG: Array<[abbrev: string, names: string[]]> = [
   ['HT', ['HYPERTEK', 'HT']],
   ['AMW', ['AMW', 'ANIMAL MOTOR WORKS', 'ANIMAL', 'AW']],
   ['WCH', ['WEST COAST HYBRIDS', 'WEST COAST HYBRID', 'WEST COAST', 'WCH', 'WCR']],
-  // Not an Animal Motor Works alias in desktop's Manufacturer table, so it
-  // reaches its own branch of the desktop map.
+  // Not an Animal Motor Works alias in desktop's Manufacturer table.
   ['AMW/ProX', ['AMW PROX', 'AMW/PROX']],
 ];
 const RASAERO_MFG_LOOKUP: Record<string, string> = Object.fromEntries(
   RASAERO_MFG.flatMap(([abbrev, names]) => names.map((n) => [n, abbrev])),
 );
 
-/**
- * The RASAero abbreviation for one of our manufacturer strings, or null when
- * RASAero doesn't document the maker. Writing a name RASAero's database lacks
- * causes the NullReferenceException, so unknown means omit, never guess.
- */
 function rasaeroManufacturerAbbrev(mfg: string | undefined): string | null {
   if (!mfg) return null;
   const n = mfg.trim().toUpperCase().replace(/[.,]/g, '').replace(/\s+/g, ' ');
@@ -74,41 +51,23 @@ function rasaeroManufacturerAbbrev(mfg: string | undefined): string | null {
   return RASAERO_MFG_LOOKUP[n] ?? null;
 }
 
-/** The slice of a motor assignment the engine-string writer reads; the .ork
-    export map (OrkExportMotor) satisfies it verbatim, extra fields ignored. */
 export interface Cdx1ExportEngine {
   designation: string;
   manufacturer?: string;
-  /** Ejection-charge delay (s); `PLUGGED_DELAY` or more for a plugged motor. */
+  /** Seconds; `PLUGGED_DELAY` or more for a plugged motor. */
   delay?: number;
-  /** Kernel ignition-event name ('automatic' when absent, as the kernel's default). */
   ignitionEvent?: string;
-  /** Seconds after the ignition event. */
   ignitionDelay?: number;
 }
 
 export interface StageEngineSlot {
-  /** 'DESIGNATION  (ABBREV)', or null: no motor, an undocumented maker, or engine export off. */
   engine: string | null;
-  /** The motor RASAero flies for the stage: its first mount's, or none. */
   motor?: Cdx1ExportEngine;
-  /** That mount. */
   mount?: ComponentNode;
-  /**
-   * Whether the stage carries motors RASAero does not fly: a cluster in that
-   * mount, or a motor in another mount. They count toward the stage's weight
-   * and CG only.
-   */
   extraMotors: boolean;
 }
 
-/**
- * Per-stage engine strings, desktop format 'DESIGNATION  (ABBREV)': two
- * spaces, the exact shape the desktop's RASAero importer reads back. null = no
- * motor on the stage, or a manufacturer RASAero doesn't document (the
- * NullReferenceException risk). The motor and its mount are read either way,
- * for the staging timeline and the nozzle.
- */
+/** The two spaces in 'DESIGNATION  (ABBREV)' are what the desktop's RASAero importer reads back. */
 export function stageEngineSlots(
   stagesIn: ComponentNode[],
   motors: Record<string, Cdx1ExportEngine> | undefined,
@@ -116,8 +75,7 @@ export function stageEngineSlots(
 ): StageEngineSlot[] {
   return stagesIn.map((st): StageEngineSlot => {
     if (!motors) return { engine: null, extraMotors: false };
-    // One engine per stage in RASAero: the first mount wins, as desktop's
-    // SimulationListDTO.findMotorMount takes it.
+    // One engine per stage: the first mount wins, as SimulationListDTO.findMotorMount.
     const mounts = [...walkNodes(st.children ?? [])].filter((n) => n.id && motors[n.id]);
     const mount = mounts[0];
     const found = mount ? motors[mount.id!] : undefined;
@@ -131,7 +89,6 @@ export function stageEngineSlots(
   });
 }
 
-/** The motors a mount holds: its cluster's, one for a tube with none (`MotorMount.getMotorCount`). */
 export function mountMotorCount(mount: ComponentNode): number {
   return clusterCount(str(mount, 'cluster', 'single'));
 }

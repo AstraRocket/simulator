@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-/**
- * store.ts calls `createFileSlice` while it loads. If fileSlice imported store
- * at run time, a module graph that reached fileSlice first would hand store a
- * `createFileSlice` still in its temporal dead zone.
- */
+// store.ts calls `createFileSlice` while loading; a run-time import of store from fileSlice would hit the TDZ.
 describe('fileSlice import order', () => {
   it('loads before the store without a TDZ error', async () => {
     vi.resetModules();

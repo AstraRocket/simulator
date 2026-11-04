@@ -6,16 +6,7 @@ import { kernelGeometry, loadEngine, type KernelGeometry } from '../testing/kern
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A fin set whose stored root chord is negative draws the fin the kernel flies.
- *
- * `TrapezoidFinSet.setLength` floors the chord at zero (TrapezoidFinSet.java:90),
- * and the bridge refuses a negative `rootChord` before any fin set sees one, so
- * the kernel's geometry is read at the floor while the app reads the stored
- * value; a stored workspace or a hand-built tree is where a negative chord comes
- * from. Every drawing and cut reader goes through `finRootPoints`, so how it
- * samples a negative interval decides whether the view draws or throws.
- */
+// `TrapezoidFinSet.setLength` floors the chord at zero (TrapezoidFinSet.java:90).
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped */
 let engine: any;
@@ -48,7 +39,6 @@ const design = (fin: Record<string, unknown>): RocketTree =>
 const finOf = (tree: RocketTree): ComponentNode => tree.components[0]!.children![0]!.children![0]!;
 
 type Pts = [number, number][];
-/** The first way the app's points differ from the kernel's, or null when they agree to 1e-12. */
 const pointsMiss = (app: Pts | null, kernel: KernelGeometry['rootPoints']): string | null => {
   if (!app || !kernel) return `app ${JSON.stringify(app)} vs kernel ${JSON.stringify(kernel)}`;
   if (app.length !== kernel.length) return `${app.length} points, kernel has ${kernel.length}`;

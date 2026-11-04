@@ -7,10 +7,6 @@ import { ExhaustPreview } from '../sim/ExhaustPreview';
 import { CatalogError, CatalogLoading } from '../common/CatalogLoading';
 import { ToolForm } from './ToolLayout';
 
-/**
- * Each catalog propellant name under the look it takes, and how many of them
- * are sparky. Sorted by name, so a propellant is easy to find in its tile.
- */
 function propellantsByLook(catalog: readonly CatalogMotor[]): Map<ExhaustId, { names: string[]; sparky: number }> {
   const out = new Map<ExhaustId, { names: Set<string>; sparky: number }>();
   for (const m of catalog) {
@@ -25,12 +21,6 @@ function propellantsByLook(catalog: readonly CatalogMotor[]): Map<ExhaustId, { n
   );
 }
 
-/**
- * The exhaust looks the 3D flight path draws: one tile per look, its flame
- * and smoke, what it stands for, and every propellant in the motor catalog
- * that takes it. A motor whose propellant the catalog does not name takes the
- * classic look, so it is listed there by count rather than by name.
- */
 export function ExhaustTool() {
   const { t } = useTranslation();
   const { catalog, loading, error, retry } = useCatalog();

@@ -9,12 +9,6 @@ import { useWorkspaceStore } from '../../../src/state/store';
 import { resultKey, type Simulation } from '../../../src/services/flight/simulations';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/**
- * Thrust-to-weight is the motor's average thrust over the weight it lifts, and
- * that weight is its own configuration's: a heavier motor in another
- * configuration is a heavier rocket. The expected masses come from the kernel,
- * each from a build of that configuration alone.
- */
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
 beforeAll(async () => {
@@ -55,7 +49,6 @@ const SUSTAINER = { id: 'sustainer', type: 'stage', name: 'Sustainer', children:
 const BOOSTER = { id: 'booster', type: 'stage', name: 'Booster', children: [tube('boo')] };
 const TWO = { name: 'Two', components: [SUSTAINER, BOOSTER] } as unknown as RocketTree;
 
-/** The C6 curve with three times the propellant and case mass. */
 const HEAVY = { ...C6, designation: 'C6-heavy', masses: C6.masses.map((m) => m * 3) } as MotorSpec;
 
 const massOf = (tree: RocketTree, config: FlightConfig) => buildConfiguredRocket(tree, config).staticInfo().mass;
@@ -98,8 +91,6 @@ describe('thrust-to-weight per configuration', () => {
       expect.closeTo(massOf(SINGLE, light), 9),
       expect.closeTo(massOf(SINGLE, heavy), 9),
     ]);
-    // The heavy configuration was built for its mass, so the live handle is
-    // handed back rebuilt on the flown configuration.
     expect((rebuilt as ReportBuild | null)?.info.mass).toBeCloseTo(massOf(SINGLE, light), 9);
   });
 
@@ -112,10 +103,6 @@ describe('thrust-to-weight per configuration', () => {
     expect(m!.loadedMass).toBe(info.mass);
   });
 
-  /**
-   * A motor lifts the stack from the top through its own stage: the sustainer's
-   * motor does not lift the booster, the booster's motor lifts both.
-   */
   it('weighs an upper-stage motor without the stages below it', () => {
     const cfg = newFlightConfig({ sus: { spec: C6 }, boo: { spec: HEAVY } });
     const rows = configMotors(TWO, cfg, buildConfiguredRocket);

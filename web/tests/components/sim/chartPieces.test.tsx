@@ -73,10 +73,6 @@ describe('seriesColor', () => {
   });
 });
 
-/**
- * `url(#id)` resolves to the first match in the document, so two thrust charts
- * on screen at once must not share a gradient id.
- */
 describe('ThrustChart', () => {
   it('gives each instance its own fill gradient', async () => {
     const { ThrustChart } = await import('../../../src/components/sim/MotorDetail');

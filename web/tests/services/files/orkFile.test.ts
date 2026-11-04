@@ -21,8 +21,6 @@ const spec = {
 
 const motor: OrkExportMotor = { designation: 'C6', manufacturer: 'Estes', diameter: 0.018, length: 0.07, delay: 3 };
 
-/** One unnamed flight configuration seating `motor` in `mountId` - what a
- *  single-mount design exports as. */
 const loaded = (mountId: string, m: OrkExportMotor = motor) => [{ id: 'cfg-1', name: null, motors: { [mountId]: m } }];
 
 const findByType = (tree: RocketTree, type: string): ComponentNode | undefined => {
@@ -53,9 +51,9 @@ describe('exportOrk → importOrk round-trip', () => {
       configs: [{ id: evil, name: null, motors: {} }],
       activeConfigId: evil,
     });
-    expect(out).not.toContain('<injected'); // the raw tag must never form
-    expect(out).toContain('&lt;injected'); // escaped instead
-    expect(importOrk(out)).toBeTruthy(); // still parses as valid XML
+    expect(out).not.toContain('<injected');
+    expect(out).toContain('&lt;injected');
+    expect(importOrk(out)).toBeTruthy();
   });
 
   it('preserves the design name', () => {
@@ -125,7 +123,7 @@ describe('design metadata (Rocket configuration) round-trip', () => {
     expect(xml).toContain('<designer>Ada Lovelace</designer>');
     expect(xml).toContain('<revision>v3: moved the CP forward</revision>');
     expect(xml).toContain('<designtype>upscale_kit</designtype>');
-    expect(xml).toContain('Best F motor.'); // comment body present
+    expect(xml).toContain('Best F motor.');
   });
 
   it('imports the metadata back onto the tree', () => {
@@ -139,9 +137,9 @@ describe('design metadata (Rocket configuration) round-trip', () => {
   it('escapes metadata so a crafted comment cannot inject XML', () => {
     const evil: RocketTree = { ...tree, name: 'X', comment: '</comment><injected/>' };
     const out = exportOrk({ name: 'X', tree: evil, configs: loaded(mountId) });
-    expect(out).not.toContain('<injected/>'); // the raw tag must never form
-    expect(out).toContain('&lt;injected/&gt;'); // escaped instead
-    expect(importOrk(out)).toBeTruthy(); // still valid XML
+    expect(out).not.toContain('<injected/>');
+    expect(out).toContain('&lt;injected/&gt;');
+    expect(importOrk(out)).toBeTruthy();
   });
 
   it('omits absent metadata and defaults design type to original', () => {
@@ -175,7 +173,7 @@ describe('optional <designinfo> block', () => {
     expect(out).toContain('<finset stagenumber="0" stage="Sustainer" name="Trapezoidal fin set">');
     expect(out).toContain('<nosetoroottop unit="m">0.35</nosetoroottop>');
     expect(out).toContain('<nosetorootbottom unit="m">0.4</nosetorootbottom>');
-    expect(importOrk(out)).toBeTruthy(); // still valid XML; the loader ignores it
+    expect(importOrk(out)).toBeTruthy();
   });
 
   it('escapes attributes so crafted stat/finset text cannot inject XML', () => {
@@ -184,14 +182,12 @@ describe('optional <designinfo> block', () => {
       finsets: [],
     };
     const out = exportOrk({ name: 'X', tree, configs: loaded(mountId), designInfo });
-    expect(out).not.toContain('"><evil'); // the raw break-out must never form
-    expect(out).toContain('&quot;&gt;&lt;evil'); // escaped instead
+    expect(out).not.toContain('"><evil');
+    expect(out).toContain('&quot;&gt;&lt;evil');
   });
 });
 
 describe('launch-lug / rail-button radial angle round-trips', () => {
-  // A tree with a lug at 45° and a rail button at 90° around the body. Neither
-  // may be overwritten with 180° on save.
   const tree = {
     components: [
       {
@@ -246,7 +242,6 @@ describe('launch-lug / rail-button radial angle round-trips', () => {
     expect(pod!.angleOffset).toBeCloseTo(Math.PI / 2, 6); // 90° → radians
     expect(findByType({ components: pod!.children ?? [] } as RocketTree, 'bodytube')).toBeDefined();
 
-    // Export → re-import keeps the pod and its placement (round-trip).
     const back = importOrk(exportOrk({ name: 'P', tree: res.tree }));
     const pod2 = findByType(back.tree, 'podset');
     expect(pod2).toBeDefined();
@@ -280,7 +275,6 @@ describe('launch-lug / rail-button radial angle round-trips', () => {
 
   it('preserves the lug and button angle through export → import', () => {
     const out = importOrk(exportOrk({ name: 'Lugs', tree }));
-    // ids are regenerated on import, so match by type.
     const lug = findByType(out.tree, 'launchlug') as { angleOffset?: number } | undefined;
     const btn = findByType(out.tree, 'railbutton') as { angleOffset?: number } | undefined;
     expect(lug?.angleOffset).toBeCloseTo(Math.PI / 4, 6);
@@ -327,8 +321,7 @@ describe('launch-lug / rail-button radial angle round-trips', () => {
   });
 
   it('preserves a split-cluster inner tube radial offset through export → import', () => {
-    // A split cluster is single tubes carrying radialPosition (m) + radialDirection (rad).
-    // A writer that hard-writes 0.0 collapses every tube onto the axis.
+    // radialPosition is in m, radialDirection in rad.
     const clustered = {
       components: [
         {
@@ -368,9 +361,6 @@ describe('launch-lug / rail-button radial angle round-trips', () => {
   });
 
   it('preserves an off-axis mass component radial offset through export → import', () => {
-    // Both radialposition and radialdirection have to be written and read, or an
-    // off-centerline mass (ballast, altimeter) snaps back onto the axis on every
-    // save/load.
     const withMass = {
       components: [
         {
@@ -511,17 +501,11 @@ describe('recovery-device features round-trip', () => {
     expect(s.surfaceDensity).toBeCloseTo(0.021, 6);
   });
 
-  /**
-   * Which device is the drogue is what puts a flight on the kernel's
-   * dual-deployment branch, so losing `<isdrogue>` here would quietly turn a
-   * dual-deployment design back into a single-deployment one on reload.
-   */
   it('preserves which device is the drogue', () => {
     const c = findByType(out.tree, 'parachute') as Record<string, unknown>;
     const s = findByType(out.tree, 'streamer') as Record<string, unknown>;
     expect(c.drogue).toBe(true);
-    // Absent rather than false: the desktop omits the element for a main, and
-    // the importer only sets the key when the file carries it.
+    // Absent rather than false: desktop omits the element for a main.
     expect(s.drogue).toBeUndefined();
   });
 });
@@ -621,9 +605,6 @@ describe('editable component options round-trip', () => {
   });
 
   it('preserves each transition shoulder wall and cap, per side', () => {
-    // The caps travel with the walls: a writer that emits a fixed `false` for
-    // both sides drops a capped shoulder on the way out. The two sides also have
-    // to stay apart, since the fore one here is capped and the aft one is not.
     const tr = findByType(out.tree, 'transition') as Record<string, unknown>;
     expect(tr.foreShoulderThickness).toBeCloseTo(0.0007, 6);
     expect(tr.aftShoulderThickness).toBeCloseTo(0.0009, 6);
@@ -695,20 +676,7 @@ describe('editable component options round-trip', () => {
   });
 });
 
-/**
- * Automatic radii.
- *
- * Inner structure takes its outer radius from whatever it sits in, and a
- * centering ring takes its inner radius from the motor mount through it.
- * OpenRocket writes that as the sentinel `auto` rather than a number, and the
- * kernel recomputes it as the design changes.
- *
- * Both directions matter. Read with the plain number reader, `auto` would fall
- * through to a fallback and the ring would arrive with no radius, which
- * `badDimensions` calls a zero dimension and refuses to fly. Written as `auto`
- * for every ring, a ring sized by hand would come back the width of its body
- * tube.
- */
+// OpenRocket writes a radius that follows its neighbor as the sentinel `auto`.
 describe('automatic ring radii round-trip', () => {
   const ringTree = (radii?: { outerRadius?: number; innerRadius?: number }) =>
     ({
@@ -744,10 +712,6 @@ describe('automatic ring radii round-trip', () => {
   it('reads auto back as automatic, with the size it resolves to', () => {
     const out = importOrk(exportOrk({ name: 'Auto', tree: ringTree() }));
     const ring = findByType(out.tree, 'centeringring') as Record<string, unknown>;
-    // A flag with the resolved number beside it, rather than an absent key.
-    // Spelling automatic as absence leaves the panel showing 0 and the drawing on
-    // a fallback while the kernel uses the real bore. The flag says it follows;
-    // the number is what it currently is.
     expect(ring.outerRadiusAuto).toBe(true);
     expect(ring.innerRadiusAuto).toBe(true);
     expect(ring.outerRadius).toBeCloseTo(0.0125, 6); // the tube's bore
@@ -755,8 +719,6 @@ describe('automatic ring radii round-trip', () => {
   });
 
   it('still writes auto on the way back out, not the number it resolved to', () => {
-    // Otherwise a ring that follows its tube would come back pinned to
-    // whatever that tube happened to be when it was saved.
     const once = importOrk(exportOrk({ name: 'Auto', tree: ringTree() }));
     const twice = exportOrk({ name: 'Auto', tree: once.tree });
     expect(twice).toContain('<outerradius>auto</outerradius>');
@@ -784,11 +746,6 @@ describe('automatic ring radii round-trip', () => {
   });
 });
 
-/**
- * Fields from `DocumentConfig.java` that have to both round-trip in the file and
- * reach the kernel. Doing only one of the two is the state that looks supported
- * and is not.
- */
 describe('DocumentConfig fields round-trip and reach the kernel', () => {
   const tree = {
     name: 'Audit',
@@ -797,9 +754,6 @@ describe('DocumentConfig fields round-trip and reach the kernel', () => {
         type: 'stage',
         id: 's1',
         name: 'S',
-        // A stage can be overridden like any other component, so its block has
-        // to go through the shared header, or the override flies but is dropped
-        // on the way out.
         overrideMass: 0.25,
         overrideSubcomponentsMass: true,
         children: [
@@ -916,19 +870,7 @@ describe('DocumentConfig fields round-trip and reach the kernel', () => {
   });
 });
 
-/**
- * The catalog link.
- *
- * The desktop shows which part a component is at the top of every config
- * dialog, and our picker is the same control, so the link is a fact about the
- * design, and a design that comes back from OpenRocket has to remember every
- * part it was built from.
- *
- * The half that matters is the dropping: a link that outlives the dimensions
- * labels a hand-sized tube with somebody's part number.
- */
 describe('the catalog part a component came from', () => {
-  /** A link as an imported desktop file carries one: with its digest. */
   const withPreset = (extra: Record<string, unknown> = {}) =>
     ({
       name: 'Preset',
@@ -968,9 +910,7 @@ describe('the catalog part a component came from', () => {
   });
 
   it('is written the way the desktop writes it', () => {
-    // The type is the kernel's enum constant, which is what `Type.valueOf`
-    // parses: a file saying `type="bodytube"` names a type it does not have.
-    // The digest and the attribute order are `RocketComponentSaver`'s own.
+    // The type is the enum constant `Type.valueOf` parses, not `bodytube`.
     const xml = exportOrk({ name: 'P', tree: withPreset() });
     expect(xml).toContain(
       '<preset type="BODY_TUBE" manufacturer="Estes" partno="BT-50, 30352" digest="a59dec8e4034a2fee5955dbf4ff07f1c"/>',
@@ -978,9 +918,7 @@ describe('the catalog part a component came from', () => {
   });
 
   it('is not written at all without a digest', () => {
-    // The desktop rejects a preset element with no digest and says so in a
-    // dialog, so a link our own catalog cannot digest stays out of the file
-    // rather than costing every reader a warning about a part that loaded fine.
+    // Desktop rejects a preset element with no digest in a warning dialog.
     const noDigest = withPreset({ digest: undefined });
     expect(exportOrk({ name: 'P', tree: noDigest })).not.toContain('<preset');
   });
@@ -1040,14 +978,7 @@ describe('a forecast atmosphere round-trips', () => {
     expect(got.atmosphereLevels).toHaveLength(2);
   });
 
-  /**
-   * No OpenRocket has a forecast atmosphere. Inside <atmosphere>,
-   * AtmosphereHandler hands an unknown child to AbstractElementHandler, which
-   * warns "Unknown attributes in element 'forecastlevel'"; as a direct child of
-   * <conditions>, SimulationConditionsHandler.closeElement has no case for it and
-   * skips it without a warning (24.12 and upstream alike). `npm run audit` opens
-   * such a file in 24.12.
-   */
+  // Desktop warns on 'forecastlevel' inside <atmosphere>; SimulationConditionsHandler skips it under <conditions>.
   it.each([
     ['a custom site', base],
     ['the standard atmosphere at the site', { ...base, temperatureC: null, pressureHPa: null, relativeHumidity: null }],

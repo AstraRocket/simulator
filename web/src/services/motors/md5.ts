@@ -1,14 +1,6 @@
-/**
- * MD5 (RFC 1321) of a byte array, as lowercase hex.
- *
- * Only for OpenRocket's motor digest, which is an MD5 (`MotorDigest`): the
- * desktop names an embedded thrust curve by it and checks the curve against it
- * on load. Not for anything that needs to be secure.
- */
+/** Only for OpenRocket's `MotorDigest`; not for anything that needs to be secure. */
 export function md5Hex(bytes: Uint8Array): string {
   const n = bytes.length;
-  // Padded to a multiple of 64 bytes: the data, 0x80, zeros, then the bit
-  // length as a 64-bit little-endian integer.
   const padded = new Uint8Array(((n + 8) >> 6) * 64 + 64);
   padded.set(bytes);
   padded[n] = 0x80;

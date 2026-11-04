@@ -9,26 +9,11 @@ beforeAll(async () => {
   __setEngineForTests(await import('../../src/engine/vendor/openrocket-engine.mjs'));
 });
 
-/**
- * Every field the Design tab shows reaches the kernel.
- *
- * Driven by FIELDS: each field is set to two values and the rocket is built
- * twice. If nothing the kernel reports moves (mass, CG, CP, inertia, drag),
- * the bridge most likely never read it, and the field is an inert control.
- *
- * A few fields rightly change nothing in a static build. They are listed in
- * NO_STATIC_EFFECT with the reason, and the list is checked both ways: a new
- * inert field fails, and so does an entry that has started to matter.
- */
-
 const NO_STATIC_EFFECT: Record<string, string> = {
-  // Only matter with a motor loaded or in flight.
   'bodytube.motorMount': 'mount flag; no motor in this build',
   'bodytube.motorOverhang': 'moves the motor; no motor in this build',
   'innertube.motorMount': 'mount flag; no motor in this build',
   'innertube.motorOverhang': 'moves the motor; no motor in this build',
-  // The mount's own ignition (getDefaultMotorConfig): a motor put in the mount
-  // starts from it, and the motor's own ignition is what flies.
   'bodytube.ignitionEvent': "the mount's own ignition; flies nothing",
   'bodytube.ignitionDelay': "the mount's own ignition; flies nothing",
   'innertube.ignitionEvent': "the mount's own ignition; flies nothing",
@@ -45,8 +30,6 @@ const NO_STATIC_EFFECT: Record<string, string> = {
   'parallelstage.separationDelay': 'flight event',
   'parallelstage.separationAltitude': 'flight event',
   'masscomponent.massComponentType': 'a label; desktop uses it only to name and picture the part',
-  // Surface roughness feeds the skin-friction drag of a flight (ExternalComponent.getFinish,
-  // read by the aerodynamic calculator at a Reynolds number), not the static build.
   'nosecone.finish': 'skin friction in flight only',
   'bodytube.finish': 'skin friction in flight only',
   'transition.finish': 'skin friction in flight only',
@@ -56,7 +39,6 @@ const NO_STATIC_EFFECT: Record<string, string> = {
   'tubefinset.finish': 'skin friction in flight only',
   'launchlug.finish': 'skin friction in flight only',
   'railbutton.finish': 'skin friction in flight only',
-  // Turning an axially symmetric arrangement changes no mass, CG or inertia.
   'tubefinset.rotation': 'symmetric fin pattern',
   'innertube.clusterRotation': 'symmetric cluster',
   'innertube.radialDirection': 'roll inertia depends on distance, not direction',
@@ -100,7 +82,6 @@ const BASE: Record<string, Record<string, unknown>> = {
 };
 const POD_KIDS = [{ id: 'pod-tube', type: 'bodytube', length: 0.1, outerRadius: 0.01, thickness: 0.001 }];
 
-/** What a field needs beside it before it can have any effect. */
 const shoulder = (side: string, r: number) => ({
   [`${side}Length`]: 0.02,
   [`${side}Radius`]: r,
@@ -108,7 +89,6 @@ const shoulder = (side: string, r: number) => ({
 });
 const TAB = { tabLength: 0.02, tabHeight: 0.005, tabOffset: 0.001, tabOffsetMethod: 'top' };
 const PARTNER: Record<string, Record<string, unknown>> = {
-  // A shoulder with no wall has nothing to weigh, so its length needs one.
   shoulderLength: shoulder('shoulder', 0.018),
   foreShoulderLength: shoulder('foreShoulder', 0.018),
   aftShoulderLength: shoulder('aftShoulder', 0.013),
@@ -164,7 +144,6 @@ const twoValues = (f: Field): [unknown, unknown] | undefined => {
     case 'select':
       return f.options.length > 1 ? [f.options[0], f.options[f.options.length - 1]] : undefined;
     default:
-      // bore and derived rows are views onto other keys; text has no physics.
       return undefined;
   }
 };

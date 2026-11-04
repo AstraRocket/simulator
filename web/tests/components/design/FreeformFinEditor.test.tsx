@@ -6,14 +6,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 
 type Pt = [number, number];
 
-/**
- * The freeform outline is editable from the keyboard.
- *
- * The X/Y inputs render only once a point is selected, so vertices and edge
- * midpoints need a role, a tabIndex and key handlers of their own. With pointer
- * selection alone (`startDrag`, `insertAfter`), a keyboard or screen-reader user
- * could not select a vertex, and therefore could not edit a freeform fin at all.
- */
 const PTS: Pt[] = [
   [0, 0],
   [0.02, 0.03],
@@ -32,7 +24,6 @@ const vertex = (n: number) => screen.getByLabelText(`Outline point ${n}`);
 describe('keyboard editing', () => {
   it('exposes every movable vertex as a focusable control', () => {
     show();
-    // Point 1 is the root leading edge, fixed at the origin: a marker, not a control.
     expect(screen.queryByLabelText('Outline point 1')).toBeNull();
     for (let i = 2; i <= PTS.length; i++) {
       const v = vertex(i);
@@ -43,7 +34,6 @@ describe('keyboard editing', () => {
 
   it('selects a vertex on focus, which is what reveals the X/Y inputs', () => {
     show();
-    // Without focus selection these would never appear for a keyboard user.
     expect(screen.queryByLabelText('X')).toBeNull();
     fireEvent.focus(vertex(2));
     expect(screen.getByLabelText('X')).toBeTruthy();
@@ -61,8 +51,6 @@ describe('keyboard editing', () => {
     const moved = (onChange.mock.calls[0]![0] as Pt[])[1]!;
     expect(moved[0]).toBeCloseTo(x, 9);
     expect(moved[1]).toBeCloseTo(y, 9);
-    // A nudge is a discrete edit, so it closes its own undo entry, unlike a
-    // drag, which closes one on release.
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
@@ -73,9 +61,7 @@ describe('keyboard editing', () => {
   });
 
   it('keeps the fin above the body, and lets an interior point go forward of the origin', () => {
-    // y >= 0 is the drag path's clamp too. x is not bounded for an interior
-    // point (FreeformFinSet.setPoint takes any x), so a swept-forward leading
-    // edge can be drawn.
+    // x is unbounded for an interior point (FreeformFinSet.setPoint).
     const { onChange } = show([
       [0, 0],
       [0.0005, 0.0005],
@@ -100,7 +86,6 @@ describe('keyboard editing', () => {
   it('deletes the focused vertex, but never below three points', () => {
     const { onChange } = show();
     fireEvent.keyDown(vertex(2), { key: 'Delete' });
-    // Three points is the minimum for an outline, so this one is refused.
     expect(onChange).not.toHaveBeenCalled();
 
     const four: Pt[] = [...PTS, [0.08, 0.01]];
@@ -114,7 +99,6 @@ describe('keyboard editing', () => {
     fireEvent.keyDown(screen.getByLabelText('Insert a point after 1'), { key: 'Enter' });
     const next = onChange.mock.calls[0]![0] as Pt[];
     expect(next).toHaveLength(4);
-    // Midway between points 1 and 2.
     expect(next[1]![0]).toBeCloseTo(0.01, 9);
     expect(next[1]![1]).toBeCloseTo(0.015, 9);
   });
@@ -125,10 +109,6 @@ describe('keyboard editing', () => {
   });
 });
 
-/**
- * The two ends of the root stay on the body, as FreeformFinSet keeps them: the
- * first point at the origin, the last on the body line, and neither removable.
- */
 describe('root end points', () => {
   const FOUR: Pt[] = [
     [0, 0],
@@ -161,11 +141,6 @@ describe('root end points', () => {
     expect((screen.getByRole('button', { name: 'Remove point' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  /**
-   * The closing edge, from the root trailing edge back to the origin, is the
-   * root on the body. FreeformFinSet.addPoint refuses a point there, and one
-   * appended would become the trailing edge at half the root's length.
-   */
   it('offers no insert on the closing root edge', () => {
     show(FOUR);
     expect(screen.getByLabelText('Insert a point after 3')).toBeTruthy();
@@ -179,13 +154,6 @@ describe('root end points', () => {
   });
 });
 
-/**
- * A drag has to end on pointercancel as well as pointerup. A touch drag the
- * browser takes over for scrolling, or a pen lifted out of range, sends
- * pointercancel instead, and without handling it the vertex stays "held": the
- * next move anywhere on the outline drags it and the drag's undo entry is never
- * closed.
- */
 describe('drag cancellation', () => {
   it('ends the drag and closes its undo entry on pointercancel', () => {
     const { onCommit } = show();
@@ -193,16 +161,12 @@ describe('drag cancellation', () => {
     expect(onCommit).not.toHaveBeenCalled();
     fireEvent.pointerCancel(screen.getByRole('group', { name: 'Fin outline' }), { pointerId: 1 });
     expect(onCommit).toHaveBeenCalledTimes(1);
-    // Nothing is held any more: a later release commits nothing further.
     fireEvent.pointerUp(screen.getByRole('group', { name: 'Fin outline' }), { pointerId: 1 });
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 });
 
-/**
- * An SVG shape renders no box-shadow, so a Tailwind ring on a marker shows
- * nothing. Keyboard focus has to be drawn as a stroke.
- */
+// SVG shapes render no box-shadow, so a Tailwind ring shows nothing.
 describe('keyboard focus on the outline markers', () => {
   it('is drawn with a stroke, not a ring', () => {
     show();

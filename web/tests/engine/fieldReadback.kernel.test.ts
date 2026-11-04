@@ -19,47 +19,12 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The panel shows what flies.
- *
- * For every field in the Design tab's field table, the value the panel shows
- * (`fieldValue`, after the app's own automatic rules in `syncDerived`) has to be
- * the value the kernel holds once the rocket is built (`getComponentFields` on
- * the bridge, read back through the part's own getters). That catches every way
- * the two can part:
- *
- * - a key the node leaves out, which the kernel fills from its constructor and
- *   the app from a fallback of its own;
- * - a value the panel lets the node store that a kernel setter clamps;
- * - an automatic rule the app resolves one way and the bridge another,
- *   including a setter applied before the part has a parent.
- *
- * Each part is built in a wide airframe (50 mm radius) so a value that fell back
- * to the kernel's 25 mm automatic radius cannot pass by coincidence. Each type
- * is built from the part the editor creates and from SEEDS, which put the fields
- * that apply only in some states (a tab, a cluster, a shape with a parameter, an
- * altitude event) into them; the test fails if any field is never compared.
- * The overrides and materials, edited beside the table, are read back below.
- * Expected values are the kernel's, never an app constant.
- *
- * KNOWN lists accepted disagreements by `type.key`, each stating in words what
- * the kernel or the panel cannot carry and matching only that disagreement. The
- * list is checked both ways: a new disagreement fails, and so does an entry
- * that has stopped disagreeing.
- */
+// The 50 mm airframe keeps a fallback to the kernel's 25 mm auto radius from passing by coincidence.
 type Miss = { rule: string; label: string; app: unknown; kernel: unknown };
 type Known = { why: string; when: (app: number, kernel: number) => boolean };
 
 const KNOWN: Record<string, Known> = {};
 
-/**
- * Fields the kernel reads only in some states of the part, by the condition. The
- * panel still shows them; outside the condition the kernel keeps whatever it
- * holds and nothing flies it. SEEDS put every one of them into its state. The
- * deploy and separation altitudes, read only by the altitude events, are not
- * here: the panel hides them under any other event (`fieldApplies`), which the
- * altitude seeds in SEEDS then have to bring on screen.
- */
 const hasTab = (n: ComponentNode) => num(n, 'tabHeight') > 0 && num(n, 'tabLength') > 0;
 const READ_ONLY_WHEN: Record<string, (n: ComponentNode) => boolean> = {
   // ComponentFactory.applyFinTabs builds a tab only when both are positive.
@@ -69,7 +34,6 @@ const READ_ONLY_WHEN: Record<string, (n: ComponentNode) => boolean> = {
   tabOffsetMethod: hasTab,
 };
 
-/** States beyond the editor's new part, so that every field applies in at least one. */
 const TAB = { tabLength: 0.02, tabHeight: 0.005, tabOffset: 0, tabOffsetMethod: 'middle' };
 const ALTITUDE_DEPLOY = { deployEvent: 'altitude', deployAltitude: 300 };
 const ALTITUDE_SEPARATION = { separationEvent: 'altitudeascending', separationAltitude: 300 };
@@ -100,7 +64,6 @@ const SEEDS: Record<string, Record<string, Partial<ComponentNode>>> = {
   parallelstage: { 'altitude separation': ALTITUDE_SEPARATION },
 };
 
-/** Kinds that store no node key of their own. */
 const NO_KEY = new Set(['text', 'bore', 'derived']);
 
 const NOSE: ComponentNode = {
@@ -115,7 +78,6 @@ const TUBE: ComponentNode = { type: 'bodytube', id: 'tube', length: 0.4, outerRa
 const TAIL: ComponentNode = { type: 'bodytube', id: 'tail', length: 0.3, outerRadius: 0.04, thickness: 0.002 };
 const POD_TUBE: ComponentNode = { type: 'bodytube', id: 'pod-tube', length: 0.1, outerRadius: 0.01, thickness: 0.001 };
 
-/** The design a part is tested in, with the part under id `p`. */
 function host(part: ComponentNode): RocketTree {
   const p = { ...part, id: 'p' };
   const stage = (id: string, children: ComponentNode[]) => ({ type: 'stage', id, children }) as ComponentNode;
@@ -147,7 +109,6 @@ function find(nodes: readonly ComponentNode[], id: string): ComponentNode | unde
   return undefined;
 }
 
-/** A value the panel can store beyond any ceiling it does not set, by kind. */
 const PAST_OPEN_MAX: Partial<Record<Field['kind'], number>> = {
   angle: 1.5 * Math.PI,
   length: 0.2,
@@ -156,13 +117,7 @@ const PAST_OPEN_MAX: Partial<Record<Field['kind'], number>> = {
   mass: 0.5,
 };
 
-/**
- * How far below the panel's floor the out-of-range probe goes, by kind. Far
- * enough that a kernel setter which keeps the value shows it kept, and that one
- * which clamps shows the clamp. Counts have no probe: the bridge refuses one
- * outside its range by throwing (`ComponentFactory.count`), and a thrown build
- * leaves the engine answering later builds with stale defaults.
- */
+// Counts have no probe: a thrown build leaves later builds answering with stale defaults.
 const BELOW_FLOOR: Partial<Record<Field['kind'], number>> = {
   angle: 0.5,
   length: 0.01,
@@ -171,11 +126,7 @@ const BELOW_FLOOR: Partial<Record<Field['kind'], number>> = {
   mass: 0.1,
 };
 
-/**
- * The keys the bridge refuses below 0 by throwing (`ComponentFactory.NON_NEGATIVE`),
- * read from the Java so the list cannot drift from it. A floor the bridge
- * shares needs no probe, and sending one would throw inside the kernel.
- */
+// `ComponentFactory.NON_NEGATIVE`, read from the Java so it cannot drift.
 const BRIDGE_NON_NEGATIVE: ReadonlySet<string> = (() => {
   const java = readFileSync(join(process.cwd(), '../engine-java/src/api/java/api/ComponentFactory.java'), 'utf8');
   const from = java.indexOf('NON_NEGATIVE = ');
@@ -185,17 +136,6 @@ const BRIDGE_NON_NEGATIVE: ReadonlySet<string> = (() => {
   return new Set(keys);
 })();
 
-/**
- * Fields whose box stops at a bound the kernel's setter does not have, by
- * `type.key`, each with the reason the panel keeps the bound. Most are
- * desktop's own spinner floors (a four-argument `DoubleModel` whose last
- * argument is the minimum, read with javap from the jar class named here), so
- * the floor is the spec's, not a clamp narrower than the kernel's. Any other
- * bound the panel sets has to be one the kernel clamps or the bridge refuses
- * too: a bound the kernel does not share and the spec does not set is a value
- * the part can fly and the panel cannot enter. The list is checked both ways:
- * an entry the kernel has started clamping fails.
- */
 const BOUNDED_PAST_KERNEL: Record<string, string> = {
   'stage.separationDelay': 'SeparationSelectionDialog floors SeparationDelay at 0',
   'stage.separationAltitude': 'SeparationSelectionDialog floors SeparationAltitude at 0',
@@ -203,8 +143,6 @@ const BOUNDED_PAST_KERNEL: Record<string, string> = {
   'parallelstage.separationAltitude': 'SeparationSelectionDialog floors SeparationAltitude at 0',
   'podset.radiusOffset': 'ComponentAssemblyConfig floors RadiusOffset at 0',
   'parallelstage.radiusOffset': 'ComponentAssemblyConfig floors RadiusOffset at 0',
-  // The panel keeps a fin tab within the root it is cut from (`signedWithinLength`);
-  // FinSetConfig leaves TabOffset unbounded and FinSet.setTabOffset stores any offset.
   'trapezoidfinset.tabOffset': 'the panel keeps the tab within the root chord',
   'ellipticalfinset.tabOffset': 'the panel keeps the tab within the root chord',
   'freeformfinset.tabOffset': 'the panel keeps the tab within the root chord',
@@ -213,11 +151,9 @@ const BOUNDED_PAST_KERNEL: Record<string, string> = {
 type Case = {
   label: string;
   node: ComponentNode;
-  /** The one field this case sends below the panel's floor, and the value sent. */
   probe?: { key: string; value: number };
 };
 
-/** A seed as it is, with each key left out in turn, at each end of each range the panel allows, past its floor, and on Auto. */
 function cases(type: string, fields: Field[], seedLabel: string, seed: ComponentNode): Case[] {
   const out: Case[] = [{ label: seedLabel, node: seed }];
   for (const f of fields) {
@@ -229,19 +165,14 @@ function cases(type: string, fields: Field[], seedLabel: string, seed: Component
       out.push({ label: `${seedLabel}, without ${f.key}`, node: without });
     }
     const unflagged: ComponentNode = f.auto ? { ...seed, [f.auto.flag]: false } : seed;
-    // The panel's own limits, the fin tab's live depth included.
     const tabDepth = parentRadiusOf(syncDerived(host(unflagged)), 'p');
     const r = fieldRange(unflagged, f, liveBounds(f, tabDepth));
     const ends = [r.min, r.max ?? PAST_OPEN_MAX[f.kind]].filter((v): v is number => v !== undefined);
-    // A dimension the run refuses at 0 (requiredComponent) never flies at 0.
     const refusedAtZero = (REQUIRED_COMPONENT_FIELDS[type] ?? []).includes(f.key);
     for (const v of ends.filter((e) => !(refusedAtZero && e === 0)))
       out.push({ label: `${seedLabel}, ${f.key} = ${+v.toFixed(6)}`, node: { ...unflagged, [f.key]: v } });
     if (f.auto) out.push({ label: `${seedLabel}, ${f.key} on Auto`, node: { ...seed, [f.auto.flag]: true } });
-    // Past the floor. An angle range closed at both ends over a whole turn has
-    // no outside: every angle has a representative inside it, which is how
-    // desktop's -180..180 spinners and the kernel's reducePi agree. A range
-    // closed at one end only does have an outside, and the probe goes there.
+    // A closed whole-turn angle range has no outside, so it gets no below-floor probe.
     const below = BELOW_FLOOR[f.kind];
     const wholeTurn = f.kind === 'angle' && r.max !== undefined && r.max - (r.min ?? -Infinity) >= 2 * Math.PI - 1e-9;
     if (r.min !== undefined && below !== undefined && !wholeTurn && !BRIDGE_NON_NEGATIVE.has(f.key)) {
@@ -256,7 +187,6 @@ function cases(type: string, fields: Field[], seedLabel: string, seed: Component
   return out;
 }
 
-/** The editor's new part, then each seed laid over it. */
 function seeds(type: string): [string, ComponentNode][] {
   const base = { ...defaultNode(type as ComponentType), id: 'p' };
   return [
@@ -270,11 +200,7 @@ function seeds(type: string): [string, ComponentNode][] {
 
 const norm = (v: unknown): unknown => (typeof v === 'string' ? v.toLowerCase().replace(/_/g, '') : v);
 
-/**
- * The same value. Angles are the same when they differ by whole turns: most
- * kernel angle setters reduce to (-pi, pi] (MathUtil.reducePi), and the panel
- * keeps what was typed. A clamp still shows, since it moves the angle.
- */
+// Angles compare modulo whole turns: kernel setters reducePi, the panel keeps what was typed.
 function agrees(app: unknown, kernel: unknown, angle: boolean): boolean {
   if (typeof app === 'number' && typeof kernel === 'number') {
     const turn = 2 * Math.PI;
@@ -299,9 +225,6 @@ describe('the panel shows what the kernel flies', () => {
           const handle = engine.buildRocket(JSON.stringify(tree));
           const built = JSON.parse(engine.getComponentFields(handle, 'p')) as Record<string, unknown>;
           if (c.probe) {
-            // Below the panel's floor, the kernel has to refuse the part, clamp
-            // the value, or be known to keep it where the panel stops on
-            // purpose. Otherwise the panel stops short of a value the part can fly.
             const f = fields.find((x) => x.key === c.probe!.key)!;
             if (typeof built.error === 'string' || !fieldApplies(app, f)) continue;
             if (READ_ONLY_WHEN[f.key] && !READ_ONLY_WHEN[f.key]!(app)) continue;
@@ -332,8 +255,7 @@ describe('the panel shows what the kernel flies', () => {
               misses.push({ rule: `${type}.${f.key}`, label: c.label, app: shown, kernel: built[f.key] });
             }
           }
-          // Where a part inside the airframe sits. Parts in the stage's own chain
-          // are laid end to end and read no position.
+          // Parts in the stage's own chain are laid end to end and read no position.
           if (!['stage', 'nosecone', 'bodytube', 'transition'].includes(type)) {
             compared.add(`${type}.position`);
             const pos = positionOf(app);
@@ -357,8 +279,6 @@ describe('the panel shows what the kernel flies', () => {
     expect(report, report.join('\n')).toEqual([]);
     expect(Object.keys(KNOWN).filter((rule) => !matched.has(rule))).toEqual([]);
     expect(Object.keys(BOUNDED_PAST_KERNEL).filter((rule) => !boundedPastKernel.has(rule))).toEqual([]);
-    // Every field the panel edits has to be compared in at least one case, or a
-    // field that never reaches the state it applies in passes unseen.
     const never = Object.entries(FIELDS).flatMap(([type, fields]) =>
       fields.filter((f) => !NO_KEY.has(f.kind) && !compared.has(`${type}.${f.key}`)).map((f) => `${type}.${f.key}`),
     );
@@ -366,12 +286,6 @@ describe('the panel shows what the kernel flies', () => {
   });
 });
 
-/**
- * The rows the Design tab edits beside the field table: the overrides
- * (OverridesSection) and the materials (the material pickers). Each is set on
- * the part the editor creates and read back from the kernel, under the key
- * `ComponentFields` reports it by, for every part type the table covers.
- */
 describe('the overrides and materials the panel edits are what the kernel flies', () => {
   const OVERRIDES = {
     overrideMass: 0.123,
@@ -381,7 +295,6 @@ describe('the overrides and materials the panel edits are what the kernel flies'
     overrideSubcomponentsCG: true,
     overrideSubcomponentsCD: true,
   };
-  /** Node key to the kernel's readback key, per material the part carries. */
   const MATERIAL_KEYS: [string, string, string, string][] = [
     // node name, node density, kernel name, kernel density
     ['materialName', 'density', 'materialName', 'density'],
@@ -441,8 +354,7 @@ describe('the overrides and materials the panel edits are what the kernel flies'
       const keys = type === 'shockcord' ? SHOCK_CORD_KEYS : MATERIAL_KEYS;
       const base = { ...defaultNode(type as ComponentType), id: 'p' } as ComponentNode;
       const { built: probe } = await build(base);
-      // Recovery devices carry their canopy or strip as the surface material,
-      // every other part its bulk material under the same kernel key.
+      // Recovery devices report the surface material under `materialName`.
       const recovery = type === 'parachute' || type === 'streamer';
       const carried = keys.filter(
         ([nName, , kName]) =>

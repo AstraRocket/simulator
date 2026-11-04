@@ -1,21 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * A `.ork` names a motor, and the name is all the catalog is searched by.
- *
- * So a file can seat a 54 mm Cesaroni J360 in a 38 mm tube, and the app would
- * fly a rocket on a motor nobody could push into it. The file reader asks the
- * same question the motor browser does (`motorFitsMount`) and says so in a note.
- *
- * It is still seated, because a file is a statement of what somebody built and
- * dropping its motor would be the app overruling it on a tolerance it is
- * guessing at. The note is the point.
- *
- * The engine, the parser and the catalog are mocked: what is under test is the
- * reader's decision, not the kernel.
- */
-
 const design = {
   setMotorById: vi.fn(),
   setMotorIgnitionById: vi.fn(),
@@ -23,12 +8,11 @@ const design = {
 };
 
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: { buildTree: () => design },
   resetEngine: () => {},
 }));
 
-/** A 38 mm mount: a 19.5 mm outer radius with a 0.5 mm wall, 300 mm of it. */
 const tree = {
   name: 'Fits',
   components: [
@@ -82,9 +66,7 @@ vi.mock('../../../src/services/motors/motorSpec', () => ({
   catalogMotorSpec: (...a: unknown[]) => catalogMotorSpec(...a),
 }));
 
-/** What the lookup says about its own confidence, set per test. */
 const doubt: { value: string | undefined } = { value: undefined };
-/** The digest the file names its motor by, set per test. */
 const fileDigest: { value: string | undefined } = { value: undefined };
 const row = { designation: 'J360', manufacturer: 'Cesaroni', diameter: 54, digests: [{ digest: 'cat-j360' }] };
 
@@ -96,7 +78,6 @@ vi.mock('../../../src/services/motors/motorDb', () => ({
 
 const { loadOrk } = await import('../../../src/services/files/loadOrk');
 
-/** A resolved motor of the given size, with a curve so it counts as flyable. */
 const spec = (diameter: number, length: number) => ({
   designation: 'J360',
   manufacturer: 'Cesaroni',
@@ -139,8 +120,6 @@ describe('a motor the file names for a mount it does not go in', () => {
   });
 
   it('judges the length too, against the tube plus its overhang', async () => {
-    // 1 m of motor in 300 mm of tube. Length is the other half of a fit, and
-    // the browser judges both.
     catalogMotorSpec.mockResolvedValue(spec(0.038, 1.0));
     const notes = noteTexts((await loadOrk(new ArrayBuffer(0))).notes).join(' ');
     expect(notes).toMatch(/1000 mm long/);
@@ -148,22 +127,13 @@ describe('a motor the file names for a mount it does not go in', () => {
   });
 
   it('complains once per mount and motor, not once per configuration', async () => {
-    // Three configurations flying the same oversized motor in the same mount is
-    // one thing to go and fix, the way an unresolvable motor already is.
     catalogMotorSpec.mockResolvedValue(spec(0.054, 0.3));
     const loaded = await loadOrk(new ArrayBuffer(0));
     expect(noteTexts(loaded.notes).filter((n) => /does not fit/i.test(n))).toHaveLength(1);
   });
 });
 
-/**
- * A motor the catalog found but the file did not confirm.
- *
- * The lookup will take a name apart, which is a match worth making but not the
- * file speaking, so it is said. Another maker's motor is a different motor:
- * desktop's motor database treats the file's maker as a filter and leaves the
- * mount empty, and so does this, unless the file's digest names that motor.
- */
+// Desktop treats the file's maker as a filter and leaves the mount empty unless the digest matches.
 describe('a motor the file did not confirm', () => {
   beforeEach(() => {
     catalogMotorSpec.mockReset();
@@ -177,7 +147,7 @@ describe('a motor the file did not confirm', () => {
     const loaded = await loadOrk(new ArrayBuffer(0));
     expect(catalogMotorSpec).not.toHaveBeenCalled();
     const seated = loaded.configs[0]!.motors['mount1']!.spec;
-    expect(seated.times).toHaveLength(0); // unresolved: it will not fly a stand-in
+    expect(seated.times).toHaveLength(0);
     const notes = noteTexts(loaded.notes).join(' ');
     expect(notes).toMatch(/filed under Cesaroni/);
     expect(notes).toMatch(/pick a motor for that mount/i);

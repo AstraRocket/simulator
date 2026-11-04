@@ -1,47 +1,13 @@
 @import 'tailwindcss';
 
-/*
- * Where the phone layout ends: 1024px, or 1040px on a touch screen.
- *
- * A 13" iPad Pro is 1032px wide in portrait, which the plain 1024 breakpoint
- * hands the desktop layout: mouse-sized targets and side panels with no room.
- * The extra 16px reach it and nothing a desktop is likely to be.
- *
- * `lg:` is redefined rather than `--breakpoint-lg` moved, so a desktop window
- * still switches at 1024. Tailwind keeps an overridden breakpoint in its place
- * between `md:` and `xl:`. Three more places must say the same thing: the two
- * phone-only `@media` rules further down, which are its inverse, and
- * DESKTOP_QUERY in services/app/device.ts. `max-lg:` is not redefined and still
- * flips at 1024: use those rules, not it.
- */
+/* Must match the phone-only `@media` rules below and DESKTOP_QUERY in services/app/device.ts; `max-lg:` still flips at 1024. */
 @custom-variant lg {
   @media (width >= 65rem), (width >= 64rem) and (not (pointer: coarse)) {
     @slot;
   }
 }
 
-/*
- * The app's colors, by role, in one place. Components use these names
- * (`bg-surface`, `text-ink-muted`, `ring-line/10`, `text-accent-300`), never a
- * Tailwind palette color, so a theme is a second set of values for the
- * `--c-*` properties below rather than an edit to every component.
- *
- *   canvas, surface, raised, elevated, prominent   backgrounds, darkest first
- *   ink-strong, ink, ink-soft, ink-muted, ink-faint, ink-dim
- *                                                  text and marks, brightest first
- *   line      the white every border and ring is drawn in, at an opacity
- *   shade     the black scrims and shadows are drawn in
- *   on-accent text and marks on a colored fill
- *   accent, warn, danger, error, ok
- *             the hue families, each holding only the 50-950 steps a class
- *             or token uses
- *
- * `@theme inline` makes each utility read the `--c-*` property itself, so
- * an opacity modifier (`/10`) and a later theme both work. The values are
- * Tailwind's own palette, except where a step is moved to give text 4.5:1
- * contrast (WCAG AA) on the surfaces it is used on; e2e/a11y.spec.ts checks
- * that with axe in every theme.
- */
+/* Components use these role names, never a Tailwind palette color; e2e/a11y.spec.ts checks 4.5:1 contrast per theme. */
 @theme inline {
   --color-canvas: var(--c-canvas);
   --color-surface: var(--c-surface);
@@ -89,70 +55,64 @@
   --color-ok-500: var(--c-ok-500);
 }
 
-/*
- * A motor designation, where a misread is a different motor: "I200" read as
- * "1200", or an "O" class read as a zero. The system monospace fonts draw I,
- * l and 1 apart, and the slashed zero sets 0 apart from O. Nothing to
- * download, so it works offline and in every locale's fallback.
- */
+/* Motor designations: I, l and 1 must read apart ("I200" is not "1200"). */
 @utility font-data {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SF Mono', Menlo, 'Liberation Mono', monospace;
   font-variant-numeric: slashed-zero tabular-nums;
 }
 
 :root {
-  --c-canvas: oklch(12.9% 0.042 264.695); /* slate-950 */
-  --c-surface: oklch(20.8% 0.042 265.755); /* slate-900 */
-  --c-raised: oklch(27.9% 0.041 260.031); /* slate-800 */
-  --c-elevated: oklch(37.2% 0.044 257.287); /* slate-700 */
-  --c-prominent: oklch(44.6% 0.043 257.281); /* slate-600 */
-  --c-prominent-hover: oklch(55.4% 0.046 257.417); /* slate-500 */
-  --c-ink-strong: oklch(96.8% 0.007 247.896); /* slate-100 */
-  --c-ink: oklch(92.9% 0.013 255.508); /* slate-200 */
-  --c-ink-soft: oklch(86.9% 0.022 252.894); /* slate-300 */
-  --c-ink-muted: oklch(70.4% 0.04 256.788); /* slate-400 */
+  --c-canvas: oklch(12.9% 0.042 264.695);
+  --c-surface: oklch(20.8% 0.042 265.755);
+  --c-raised: oklch(27.9% 0.041 260.031);
+  --c-elevated: oklch(37.2% 0.044 257.287);
+  --c-prominent: oklch(44.6% 0.043 257.281);
+  --c-prominent-hover: oklch(55.4% 0.046 257.417);
+  --c-ink-strong: oklch(96.8% 0.007 247.896);
+  --c-ink: oklch(92.9% 0.013 255.508);
+  --c-ink-soft: oklch(86.9% 0.022 252.894);
+  --c-ink-muted: oklch(70.4% 0.04 256.788);
   --c-ink-faint: oklch(65.4% 0.046 257.417); /* slate-500 lightened to 4.5:1 on raised */
-  --c-ink-dim: oklch(44.6% 0.043 257.281); /* slate-600 */
-  --c-line: #fff; /* white, used with an opacity */
-  --c-shade: #000; /* black, for scrims and shadows */
-  --c-on-accent: #fff; /* white, on colored fills */
-  --c-accent-50: oklch(97.7% 0.013 236.62); /* sky-50 */
-  --c-accent-100: oklch(95.1% 0.026 236.824); /* sky-100 */
-  --c-accent-200: oklch(90.1% 0.058 230.902); /* sky-200 */
-  --c-accent-300: oklch(82.8% 0.111 230.318); /* sky-300 */
-  --c-accent-400: oklch(74.6% 0.16 232.661); /* sky-400 */
-  --c-accent-500: oklch(68.5% 0.169 237.323); /* sky-500 */
+  --c-ink-dim: oklch(44.6% 0.043 257.281);
+  --c-line: #fff; /* used with an opacity */
+  --c-shade: #000;
+  --c-on-accent: #fff;
+  --c-accent-50: oklch(97.7% 0.013 236.62);
+  --c-accent-100: oklch(95.1% 0.026 236.824);
+  --c-accent-200: oklch(90.1% 0.058 230.902);
+  --c-accent-300: oklch(82.8% 0.111 230.318);
+  --c-accent-400: oklch(74.6% 0.16 232.661);
+  --c-accent-500: oklch(68.5% 0.169 237.323);
   --c-accent-600: oklch(55.3% 0.158 241.966); /* sky-600 darkened to 4.5:1 under white text */
-  --c-accent-700: oklch(50% 0.134 242.749); /* sky-700 */
-  --c-accent-900: oklch(39.1% 0.09 240.876); /* sky-900 */
-  --c-accent-950: oklch(29.3% 0.066 243.157); /* sky-950 */
-  --c-warn-100: oklch(96.2% 0.059 95.617); /* amber-100 */
-  --c-warn-200: oklch(92.4% 0.12 95.746); /* amber-200 */
-  --c-warn-300: oklch(87.9% 0.169 91.605); /* amber-300 */
-  --c-warn-400: oklch(82.8% 0.189 84.429); /* amber-400 */
-  --c-warn-500: oklch(76.9% 0.188 70.08); /* amber-500 */
-  --c-warn-950: oklch(27.9% 0.077 45.635); /* amber-950 */
-  --c-danger-200: oklch(88.5% 0.062 18.334); /* red-200 */
-  --c-danger-300: oklch(80.8% 0.114 19.571); /* red-300 */
-  --c-danger-400: oklch(70.4% 0.191 22.216); /* red-400 */
-  --c-danger-500: oklch(63.7% 0.237 25.331); /* red-500 */
-  --c-danger-600: oklch(57.7% 0.245 27.325); /* red-600 */
-  --c-danger-950: oklch(25.8% 0.092 26.042); /* red-950 */
-  --c-error-300: oklch(81% 0.117 11.638); /* rose-300 */
-  --c-error-400: oklch(71.2% 0.194 13.428); /* rose-400 */
-  --c-error-500: oklch(64.5% 0.246 16.439); /* rose-500 */
-  --c-error-600: oklch(58.6% 0.253 17.585); /* rose-600 */
-  --c-ok-300: oklch(84.5% 0.143 164.978); /* emerald-300 */
-  --c-ok-400: oklch(76.5% 0.177 163.223); /* emerald-400 */
-  --c-ok-500: oklch(69.6% 0.17 162.48); /* emerald-500 */
-  /* Colors drawn in code (components/common/colorTokens.token). */
-  --c-series-1: #38bdf8; /* stages and part kinds, by identity: sky */
-  --c-series-2: #fbbf24; /* amber */
-  --c-series-3: #34d399; /* emerald */
-  --c-series-4: #a78bfa; /* violet */
-  --c-series-5: #fb7185; /* rose */
-  --c-series-6: #22d3ee; /* cyan */
-  --c-chart-1: #3987e5; /* the categorical chart slots, in the dataviz skill's validated order: blue, orange, aqua, yellow, magenta, green, violet, red */
+  --c-accent-700: oklch(50% 0.134 242.749);
+  --c-accent-900: oklch(39.1% 0.09 240.876);
+  --c-accent-950: oklch(29.3% 0.066 243.157);
+  --c-warn-100: oklch(96.2% 0.059 95.617);
+  --c-warn-200: oklch(92.4% 0.12 95.746);
+  --c-warn-300: oklch(87.9% 0.169 91.605);
+  --c-warn-400: oklch(82.8% 0.189 84.429);
+  --c-warn-500: oklch(76.9% 0.188 70.08);
+  --c-warn-950: oklch(27.9% 0.077 45.635);
+  --c-danger-200: oklch(88.5% 0.062 18.334);
+  --c-danger-300: oklch(80.8% 0.114 19.571);
+  --c-danger-400: oklch(70.4% 0.191 22.216);
+  --c-danger-500: oklch(63.7% 0.237 25.331);
+  --c-danger-600: oklch(57.7% 0.245 27.325);
+  --c-danger-950: oklch(25.8% 0.092 26.042);
+  --c-error-300: oklch(81% 0.117 11.638);
+  --c-error-400: oklch(71.2% 0.194 13.428);
+  --c-error-500: oklch(64.5% 0.246 16.439);
+  --c-error-600: oklch(58.6% 0.253 17.585);
+  --c-ok-300: oklch(84.5% 0.143 164.978);
+  --c-ok-400: oklch(76.5% 0.177 163.223);
+  --c-ok-500: oklch(69.6% 0.17 162.48);
+  --c-series-1: #38bdf8;
+  --c-series-2: #fbbf24;
+  --c-series-3: #34d399;
+  --c-series-4: #a78bfa;
+  --c-series-5: #fb7185;
+  --c-series-6: #22d3ee;
+  --c-chart-1: #3987e5; /* chart slots, in validated order */
   --c-chart-2: #d95926;
   --c-chart-3: #199e70;
   --c-chart-4: #c98500;
@@ -160,42 +120,41 @@
   --c-chart-6: #008300;
   --c-chart-7: #9085e9;
   --c-chart-8: #e66767;
-  --c-thrust: #f97316; /* a motor thrust curve */
-  --c-thrust-average: #2dd4bf; /* its average-thrust line */
-  --c-thrust-burnout: #eab308; /* its burnout line */
-  --c-thrust-band: #22d3ee; /* the shaded first half second */
-  /* The 3D views, read by components/canvas/sceneColors (hex: three.js parses it). */
-  --c-scene-sky: #cfe8ff; /* the 3D views: sky light */
-  --c-scene-ground: #0b1220; /* ground light */
-  --c-scene-floor: #0b1724; /* the flight view ground plane */
-  --c-scene-grid: #33506a; /* its grid */
+  --c-thrust: #f97316;
+  --c-thrust-average: #2dd4bf;
+  --c-thrust-burnout: #eab308;
+  --c-thrust-band: #22d3ee;
+  /* Scene colors stay hex: three.js parses them. */
+  --c-scene-sky: #cfe8ff;
+  --c-scene-ground: #0b1220;
+  --c-scene-floor: #0b1724;
+  --c-scene-grid: #33506a;
   --c-scene-grid-minor: #18293a;
-  --c-scene-marker: #e2e8f0; /* the pad marker */
-  --c-scene-light-key: #fff7ee; /* the rocket view key light */
-  --c-scene-light-fill: #e8eef8; /* and fill light */
-  --c-scene-callout: #dbe3ea; /* CG callout leader */
-  --c-scene-callout-light: #ffffff; /* the light quarters of a CG/CP marker */
-  --c-scene-selected: #7dd3fc; /* a selected part */
-  --c-scene-selected-glow: #0284c7; /* and its glow */
-  --c-scene-cg: #2b6cff; /* the CG marker */
-  --c-scene-cp: #e34948; /* the CP marker */
-  --c-scene-stable-ok: #4dbd4d; /* stability margin tiers */
+  --c-scene-marker: #e2e8f0;
+  --c-scene-light-key: #fff7ee;
+  --c-scene-light-fill: #e8eef8;
+  --c-scene-callout: #dbe3ea;
+  --c-scene-callout-light: #ffffff;
+  --c-scene-selected: #7dd3fc;
+  --c-scene-selected-glow: #0284c7;
+  --c-scene-cg: #2b6cff;
+  --c-scene-cp: #e34948;
+  --c-scene-stable-ok: #4dbd4d;
   --c-scene-stable-over: #e0a53d;
   --c-scene-stable-under: #f0716f;
-  /* The schematic on screen; its print colors are schematicExport's own. */
-  --c-sch-line: #7a786f; /* the schematic: outlines */
-  --c-sch-part: #b9b7b0; /* parts with no color of their own */
+  --c-sch-line: #7a786f;
+  --c-sch-part: #b9b7b0;
   --c-sch-part-light: #c8c5be;
-  --c-sch-shell: #d5d2cb; /* nose, tubes and transitions with no color */
+  --c-sch-shell: #d5d2cb;
   --c-sch-shell-light: #e7e5e0;
-  --c-sch-ink: #9a978f; /* internal parts with no ink of their own */
-  --c-sch-label: #ffffff; /* labels on a filled shape */
-  --c-sch-motor: #8b5a2b; /* a motor case (aft view) */
+  --c-sch-ink: #9a978f;
+  --c-sch-label: #ffffff;
+  --c-sch-motor: #8b5a2b;
   --c-sch-motor-edge: #6b4520;
-  --c-sch-motor-outline: #e0764a; /* the loaded motor outline (side view) */
-  --c-sch-shoulder: #4f8fa0; /* shoulders */
-  --c-sch-hatch: #66748c; /* section hatching */
-  --c-sch-parachute: #b06a35; /* internal parts, by kind */
+  --c-sch-motor-outline: #e0764a;
+  --c-sch-shoulder: #4f8fa0;
+  --c-sch-hatch: #66748c;
+  --c-sch-parachute: #b06a35;
   --c-sch-streamer: #a08c2e;
   --c-sch-shockcord: #8f7a8d;
   --c-sch-masscomponent: #a85f5c;
@@ -206,17 +165,6 @@
   --c-sch-innertube: #3f8f6f;
 }
 
-/*
- * The app header is one row from 1180 up, in every language, and in English at
- * every desktop width. Below that, in the wordiest languages, it wraps: at 1024
- * the four workbench tabs, the identity block (mark, name, version, pre-release
- * word, engine backend), the save status and the four controls need more width
- * than there is, and wrapping is what a flex row does about that. The identity
- * block is never what gives - it reads the same at every width - and the budget
- * is checked by e2e/workbench-header.spec.ts in a font wider than the local one,
- * because `system-ui` is whatever the OS supplies.
- */
-
 :root {
   color-scheme: dark;
 }
@@ -226,12 +174,7 @@ body,
 #root {
   height: 100%;
 }
-/* A mobile browser reports 100vh as the viewport with its chrome hidden, so a
-   100vh-tall app shell is taller than what you can actually see and the bottom
-   tab bar is pushed off under the URL bar until you scroll the chrome away.
-   `dvh` tracks the visible area as that chrome shows and hides, which keeps the
-   tab bar on screen the whole time. Guarded so a browser without `dvh` keeps
-   the percentage height rather than losing its height entirely. */
+/* Mobile 100vh ignores the browser chrome and hides the tab bar under the URL bar. */
 @supports (height: 100dvh) {
   html,
   body,
@@ -243,20 +186,12 @@ body {
   margin: 0;
   overscroll-behavior: none;
 }
-/* The app shell is exactly the viewport and every pane scrolls itself, so the
-   document never has anything to scroll. An absolutely positioned element with
-   no positioned ancestor (an `sr-only` label deep in a scrolled list) is placed
-   against the page and can still make it taller than the window; this keeps a
-   wheel that reaches a pane's end from carrying on into the page and shifting
-   the whole app up. */
+/* An unanchored absolute element (an `sr-only` label) can make the page taller and let a wheel shift the app. */
 html,
 body {
   overflow: hidden;
 }
 
-/* The flight card (components/sim/FlightCard): while its view is open, printing
-   prints the copy of the card mounted at the top of the document and nothing
-   else, black on white whatever the theme, and lets it run onto a second sheet. */
 .flight-card-print {
   display: none;
 }
@@ -285,8 +220,7 @@ body {
   }
 }
 
-/* The page behind the app (overscroll, gaps between panes) in a light theme's
-   canvas. Outranks index.html's boot style, which paints dark before any CSS. */
+/* Outranks index.html's boot style, which paints dark before any CSS. */
 :root[data-theme='light'],
 :root[data-theme='light'] body,
 :root[data-theme='daylight'],
@@ -294,35 +228,14 @@ body {
   background: var(--c-canvas);
 }
 
-/* The Sketch pane is a landscape workspace: a hobby airframe is 15-25x longer
-   than it is wide, so the canvas it wants is wide and short. A phone held
-   upright is the opposite shape, and fitting that drawing to the width leaves
-   the rocket a dozen pixels tall.
-
-   So on a portrait phone the whole pane is turned a quarter turn: its short
-   dimension laid along the phone's short dimension, its length running down the
-   screen, nose at the top. The toolbar turns with it, which is the point: it
-   stays along the long edge, at the top of the drawing it controls, instead of
-   sitting across the short edge detached from it.
-
-   Nothing inside changes: the pane still measures and lays itself out as the
-   wide workspace it is, rulers, labels and all, and only the presentation is
-   rotated, the way you would turn a sheet of paper.
-
-   The stage is a size container so the rotated child can swap the two axes with
-   `cqh`/`cqw`; `rotate(90deg) translateY(-100%)` about the top-left corner then
-   lands it exactly back inside the stage. */
+/* `rotate(90deg) translateY(-100%)` about the top-left lands the rotated pane back inside the stage. */
 .sketch-rotate {
   width: 100%;
   height: 100%;
 }
-/* Below `lg:`, as redefined at the top of this file (1024px, or 1040px on a
-   touch screen): this must flip at exactly the width the `lg:` classes do. */
+/* Below `lg:` as redefined at the top of this file; must flip at the same width. */
 @media (orientation: portrait) and (width < 64rem), (orientation: portrait) and (width < 65rem) and (pointer: coarse) {
-  /* Scoped to the rotated case on purpose. `container-type: size` also turns on
-     size containment, which makes the pane contribute nothing to intrinsic
-     sizing: on a short desktop window the flex algorithm would then hand the
-     whole height to the stats strip and collapse the drawing to zero. */
+  /* Rotated case only: on a short desktop window size containment would collapse the drawing to zero. */
   .sketch-stage {
     container-type: size;
   }
@@ -334,31 +247,9 @@ body {
   }
 }
 
-/* Dialogs below the desktop breakpoint take the whole screen.
-   A phone has no room for a floating card inset from the edges: the gutter and
-   the rounded corners cost width the content needs, and a panel capped at 85vh
-   leaves a strip of dimmed app top and bottom that looks tappable and is not.
-   Full bleed also lets a long dialog use the whole height instead of scrolling
-   a short window inside a dimmed one.
-
-   One rule rather than a `max-lg:` variant repeated on every panel, which is
-   how they drift apart. These live outside `@layer`, so they win over the
-   Tailwind utilities they override without needing `!important`.
-
-   Dialog carries these classes unless `fullBleed` is false. Short prompts do
-   not: the confirm, the work-in-progress notice, and the report's print-settings
-   popover are two or three lines and a button, and blowing them up to fill a
-   phone is all empty space. The popover has a second reason: it opens on top of
-   the full-screen report dialog, and full bleed would read as that dialog being
-   replaced rather than something opening over it.
-
-   Below `lg:`, as redefined at the top of this file. */
+/* Outside `@layer`, so these beat the Tailwind utilities without `!important`. */
 @media (width < 64rem), (width < 65rem) and (pointer: coarse) {
-  /* The inset clears the home indicator: index.html asks for viewport-fit=cover,
-     so a full-bleed panel would otherwise run under it with its last row out of
-     reach. Taking it on the overlay rather than the panel leaves each panel's
-     own padding alone; overriding padding-bottom here would silently drop the
-     bottom gutter of every `p-6` dialog. */
+  /* On the overlay: padding-bottom on the panel would drop every `p-6` dialog's bottom gutter. */
   .dialog-overlay {
     padding: 0 0 env(safe-area-inset-bottom) 0;
   }
@@ -371,11 +262,6 @@ body {
   }
 }
 
-/* The same full bleed, up to `xl`, for a dialog that asks for it
-   (`fullBleed="xl"`): the motor dashboard, picker and guide are working
-   surfaces whose table or two panes need the whole of a laptop screen, where a
-   centered card leaves a band of dimmed app around them. Below `lg` the rule
-   above already applies; this extends it to the next breakpoint. */
 @media (width < theme(--breakpoint-xl)) {
   .dialog-overlay-xl {
     padding: 0 0 env(safe-area-inset-bottom) 0;
@@ -389,10 +275,7 @@ body {
   }
 }
 
-/* <button> uses the arrow cursor by default; the finger/pointer is a browser
-   default only for links, and Tailwind v4's Preflight doesn't add it. Give every
-   enabled button (and role=button / summary) the pointer; disabled ones keep the
-   `disabled:cursor-not-allowed` utilities already set on them. */
+/* Tailwind v4's Preflight leaves buttons with the arrow cursor. */
 @layer base {
   button:not(:disabled),
   [role='button']:not(:disabled),
@@ -401,17 +284,7 @@ body {
   }
 }
 
-/*
- * The other themes: the same tokens with values for a light surface. The theme
- * is `data-theme` on <html> (services/app/theme.ts), which is also what the 3D
- * scene colors watch. Dark is the base above, so a missing attribute is dark.
- *
- * Light swaps the neutrals end for end and moves each hue ramp's light steps
- * (text and marks) to the matching dark ones. Daylight is light for a screen in
- * sunlight: white surfaces, black text, every hue one step darker again.
- * The schematic's own colors are paint-like grays that read on either surface,
- * so it keeps them; its print colors are separate (schematicExport).
- */
+/* A missing `data-theme` is dark. The schematic's grays read on either surface, so it keeps them. */
 :root[data-theme='light'],
 :root[data-theme='daylight'] {
   color-scheme: light;
@@ -443,9 +316,7 @@ body {
   --c-warn-100: oklch(41.4% 0.112 45.904);
   --c-warn-200: oklch(47.3% 0.137 46.201);
   --c-warn-300: oklch(55.5% 0.163 48.998);
-  /* The 400s carry status text (a stat tile's verdict, a sizing figure) on
-     raised surfaces, where the matching dark step is under 4.5:1, so they take
-     the step below it. */
+  /* The 400s carry status text on raised surfaces, where the matching dark step is under 4.5:1. */
   --c-warn-400: oklch(55.5% 0.163 48.998);
   --c-warn-500: oklch(76.9% 0.188 70.08);
   --c-warn-950: oklch(98.7% 0.022 95.277);
@@ -546,9 +417,7 @@ body {
   --c-ok-500: oklch(69.6% 0.17 162.48);
 }
 
-/* The schematic's names for the same colors. Aliases, so they follow the
-   tokens; the names stay because services/exports/schematicExport maps each
-   one to a print color by name. */
+/* Schematic aliases; schematicExport maps each name to a print color. */
 :root {
   --text-primary: var(--c-ink-strong);
   --text-muted: var(--c-ink-muted);
@@ -563,9 +432,7 @@ body {
 }
 
 .file-btn {
-  /* The canvas header row's height (h-7), shared with ViewBtn and the joined
-     switches there, so a row of mixed controls lines up. An emoji icon would
-     otherwise make its button taller than the rest. */
+  /* Fixed to the header row (h-7): an emoji icon would otherwise make the button taller. */
   box-sizing: border-box;
   height: 28px;
   display: inline-flex;

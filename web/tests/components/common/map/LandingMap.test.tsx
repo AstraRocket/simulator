@@ -5,14 +5,7 @@ import { useUnits } from '../../../../src/prefs/useUnits';
 import { MIN_EXTENT_M } from '../../../../src/services/flight/groundTrack';
 import { renderWithProviders } from '../../../testing/renderWithProviders';
 
-/**
- * The landing plan view frames by the ground track's rule (`trackExtent`), so
- * the two plan views agree on scale: a landing close to the pad sits in a frame
- * of exactly `MIN_EXTENT_M`.
- *
- * jsdom has no ResizeObserver, so the view keeps its 320 px default: half is
- * 160 and the drawing's 18 px pad leaves 142 px for the extent.
- */
+// jsdom has no ResizeObserver: 320 px default, half 160, minus the 18 px pad = 142 px.
 function Harness({ east }: { east: number }) {
   const u = useUnits();
   return (
@@ -28,7 +21,6 @@ function Harness({ east }: { east: number }) {
   );
 }
 
-/** The landing marker's x, from the circles of radius 5 the view draws for it. */
 const landingX = (container: HTMLElement): number => {
   const ring = [...container.querySelectorAll('circle')].find((c) => c.getAttribute('r') === '5');
   return Number(ring?.getAttribute('cx'));

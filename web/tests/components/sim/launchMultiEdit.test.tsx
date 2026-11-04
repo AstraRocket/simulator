@@ -9,7 +9,6 @@ import { launchDiffKeys } from '../../../src/services/flight/simDiff';
 const st = () => useWorkspaceStore.getState();
 const byName = (n: string) => st().sims.find((x) => x.name === n)!;
 
-/** The simulation editor's launch panel: the active row's conditions, edits to every ticked row. */
 function Editor() {
   const launch = useWorkspaceStore((s) => selectActive(s).launch);
   const sims = useWorkspaceStore((s) => s.sims);
@@ -18,13 +17,7 @@ function Editor() {
   return <LaunchPanel launch={launch} onChange={st().patchLaunch} diff={diff} />;
 }
 
-/**
- * An edit of several simulations at once works out a derived value from each
- * row's own conditions. OpenRocket keeps the turbulence intensity when the
- * average moves (PinkNoiseWindModel.setAverage), so each row keeps its own: a
- * 15% wind and a 30% wind stay 15% and 30% at the new speed, rather than both
- * taking the row on screen's deviation.
- */
+// Desktop keeps turbulence intensity when the average moves (PinkNoiseWindModel.setAverage).
 describe('editing the wind of several simulations at once', () => {
   beforeEach(() => {
     st().resetWorkspace();
@@ -50,7 +43,6 @@ describe('editing the wind of several simulations at once', () => {
     fireEvent.focus(speed);
     for (const text of ['2', '20']) fireEvent.change(speed, { target: { value: text } });
     fireEvent.blur(speed);
-    // The box is in the speed unit on screen; the ratio is what is kept.
     const ratio = (n: string) => byName(n).launch.windStdDev! / byName(n).launch.windAverage!;
     expect(byName('A').launch.windAverage).toBe(byName('B').launch.windAverage);
     expect(ratio('A')).toBeCloseTo(0.15, 9);

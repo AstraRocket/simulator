@@ -1,23 +1,11 @@
 import type { LaunchConditions, WeatherSource } from '../design/orkTree';
 import { stableJson } from '../app/stableJson';
 
-/**
- * The record of where a simulation's weather came from, and what can be said
- * about it later: whether its values have been edited, whether the site has
- * moved, and whether a forecast for a time still ahead has gone old.
- */
-
-/**
- * A forecast older than this, for a time still ahead, is called old. The
- * models behind Open-Meteo run every one to six hours, so a few hours is when a
- * fetch is likely to have been superseded.
- */
 export const STALE_AFTER_MS = 3 * 3_600_000;
 
-/** Coordinates within this many degrees are the site the forecast was asked for (requests round to 3 dp). */
+/** Requests round to 3 dp. */
 const SAME_SITE_DEG = 0.0005;
 
-/** Whether a launch at `lat`, `lon` is at the site a forecast was asked for at `siteLat`, `siteLon`. */
 export const sameSite = (
   lat: number | null | undefined,
   lon: number | null | undefined,
@@ -25,7 +13,6 @@ export const sameSite = (
   siteLon: number,
 ) => lat != null && lon != null && Math.abs(lat - siteLat) <= SAME_SITE_DEG && Math.abs(lon - siteLon) <= SAME_SITE_DEG;
 
-/** The fields each applied group writes. The site altitude, when applied, is added by `sourceFields`. */
 const GROUP_FIELDS: Record<WeatherSource['groups'][number], (keyof LaunchConditions)[]> = {
   temperature: ['temperatureC'],
   pressure: ['pressureHPa'],
@@ -34,13 +21,11 @@ const GROUP_FIELDS: Record<WeatherSource['groups'][number], (keyof LaunchConditi
   atmosphere: ['atmosphereLevels'],
 };
 
-/** The launch fields a source speaks for. */
 export function sourceFields(source: WeatherSource): (keyof LaunchConditions)[] {
   const fields = source.groups.flatMap((g) => GROUP_FIELDS[g]);
   return source.elevationApplied ? [...fields, 'launchAltitudeM'] : fields;
 }
 
-/** The stamp Apply writes beside the values it applied. */
 export function sourceFor(q: {
   endpoint: WeatherSource['endpoint'];
   date: string;
@@ -73,11 +58,8 @@ export function sourceFor(q: {
 }
 
 export interface SourceStatus {
-  /** A field the forecast filled has a different value now. */
   edited: boolean;
-  /** The site is not where the forecast was asked for. */
   otherSite: boolean;
-  /** A forecast for a time still ahead, fetched long enough ago to have been superseded. */
   old: boolean;
 }
 
@@ -85,7 +67,6 @@ const same = (a: unknown, b: unknown) => stableJson(a ?? null) === stableJson(b 
 
 export function sourceStatus(launch: LaunchConditions, nowMs: number): SourceStatus | null {
   const s = launch.weatherSource;
-  // Stored state can be anything; a stamp that does not read as one says nothing.
   if (!isWeatherSource(s)) return null;
   const edited =
     s.edited === true ||
@@ -96,11 +77,6 @@ export function sourceStatus(launch: LaunchConditions, nowMs: number): SourceSta
   return { edited, otherSite, old };
 }
 
-/**
- * A source read back from somewhere that does not keep `applied` (a file):
- * whether it was edited is what the file says, and the values in it now are
- * taken as the applied ones, so an edit made after opening is still seen.
- */
 export function restoredSource(source: Omit<WeatherSource, 'applied'>, launch: LaunchConditions): WeatherSource {
   if (source.edited) return source;
   const applied: Partial<LaunchConditions> = {};
@@ -109,7 +85,6 @@ export function restoredSource(source: Omit<WeatherSource, 'applied'>, launch: L
   return { ...source, applied };
 }
 
-/** Is `x` a usable source, from storage or a file? */
 export function isWeatherSource(x: unknown): x is WeatherSource {
   if (!x || typeof x !== 'object') return false;
   const s = x as Record<string, unknown>;

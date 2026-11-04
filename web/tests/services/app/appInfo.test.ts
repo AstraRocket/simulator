@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// jsdom: importing appInfo pulls in the i18next singleton (needs navigator/document).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -10,7 +9,7 @@ describe('isPreRelease', () => {
     expect(isPreRelease('0.0.0')).toBe(true);
     expect(isPreRelease('0.1.0')).toBe(true);
     expect(isPreRelease('0.9.9')).toBe(true);
-    expect(isPreRelease('0.0.0-test')).toBe(true); // pre-release tag
+    expect(isPreRelease('0.0.0-test')).toBe(true);
   });
 
   it('is false once the major version reaches 1 or beyond', () => {
@@ -24,20 +23,6 @@ describe('isPreRelease', () => {
   });
 });
 
-/**
- * The pin the About dialog shows, checked at its source.
- *
- * `UPSTREAM` in appInfo is injected by vite.config.ts from
- * engine-java/extract/UPSTREAM, so there is nothing to test about the value
- * itself here (under Vitest it is the stand-in from vitest.config.ts). What is
- * worth testing is the file: it answers "which OpenRocket is this?" for
- * every reader of the app and the docs, and a bump that moves `ref` while
- * leaving `date` or `describe` behind would ship a wrong answer.
- *
- * `date` against the real commit needs the upstream checkout, so the `date` step
- * of `npm run audit` in engine-java checks it there. These are the parts that can
- * be checked offline.
- */
 describe('engine-java/extract/UPSTREAM', () => {
   const text = readFileSync(resolve(process.cwd(), '../engine-java/extract/UPSTREAM'), 'utf8');
   const field = (key: string) =>
@@ -54,9 +39,6 @@ describe('engine-java/extract/UPSTREAM', () => {
   });
 
   it('dates the pin plausibly', () => {
-    // Not the build date and not a placeholder: an OpenRocket commit that the
-    // engine was extracted from, somewhere between the project's first release
-    // and now.
     const date = new Date(`${field('date')}T00:00:00Z`);
     expect(Number.isNaN(date.getTime())).toBe(false);
     expect(date.getUTCFullYear()).toBeGreaterThanOrEqual(2020);
@@ -64,20 +46,10 @@ describe('engine-java/extract/UPSTREAM', () => {
   });
 
   it('describes the commit it pins', () => {
-    // `git describe` ends in g<short sha>. Tying it to `ref` is what catches
-    // the half-done bump: a new ref under the old description.
     expect(field('describe')).toMatch(new RegExp(`g${field('ref')!.slice(0, 7)}`));
   });
 });
 
-/**
- * What a design is called, in every download, report and header: its own name,
- * else the name of the file it was imported from, else the app's default.
- *
- * The order matters: the imported file's name first would give a renamed rocket
- * its old name, and the default comes from the translated string, not a literal
- * 'My Rocket'.
- */
 describe('designNameOf', () => {
   it('prefers the rocket name, then the imported file, then the default', () => {
     expect(designNameOf({ name: 'Renamed' }, { name: 'imported' })).toBe('Renamed');

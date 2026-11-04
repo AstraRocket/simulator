@@ -16,22 +16,7 @@ import {
 import type { LaunchConditions } from '../../services/design/orkTree';
 import { surfaceWind } from '../../services/flight/windLevels';
 
-/**
- * The controls for a wind sweep: the grid to fly, and what came of the last one.
- *
- * It lives on the ground track rather than in the simulations table because a
- * sweep is not a simulation: it produces no row, no apogee and no flight card,
- * only a region on the one view that can draw it. Asking for it where the
- * answer appears is also what keeps the thirty-two flights it costs legible:
- * the button is next to the picture it changes.
- *
- * The spec is component state, seeded from the flight's own wind. It is not
- * persisted and not undoable: it is a question being asked, not part of the
- * design or of the simulation, and the answer (the sweep) is what the store
- * holds.
- */
-
-/** The arcs offered for the heading fan, degrees. */
+/** Degrees. */
 const SPANS = [360, 180, 90, 45] as const;
 
 const btn =
@@ -51,21 +36,15 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
   const cancelDriftSweep = useWorkspaceStore((s) => s.cancelDriftSweep);
   const clearDriftSweep = useWorkspaceStore((s) => s.clearDriftSweep);
 
-  // Seeded from the flight's own surface wind, so opening the panel proposes a
-  // band around the day that was typed rather than a constant somebody has to
-  // retype every time.
   const [spec, setSpec] = useState<WindSweepSpec>(() => defaultSweepSpec(surfaceWind(launch).speedMs));
   const flights = useMemo(() => sweepFlightCount(spec), [spec]);
 
   const busy = run !== null;
-  // Ages on what a result ages on (`isDriftSweepStale`).
   const stale = useWorkspaceStore((s) => mine !== null && isDriftSweepStale(s, mine));
 
   const patch = (p: Partial<WindSweepSpec>) => setSpec((cur) => ({ ...cur, ...p }));
-  /** Blur or a discrete change: the field stops mid-edit and is pulled into range. */
   const settle = () => setSpec((cur) => normalizeSweepSpec(cur));
 
-  /** The two ends of the speed band: the same field twice, in the user's unit. */
   const speedRow = (key: 'speedMinMs' | 'speedMaxMs', label: string) => (
     <label key={key} className="flex items-center justify-between gap-2 text-[11px]">
       <span className="text-ink-muted">{label}</span>
@@ -76,9 +55,6 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
           onCommit={settle}
           step={wind.step(0.5)}
           min={0}
-          // The safety code's ceiling, so the band cannot be typed past the
-          // wind this app refuses to fly in (`normalizeSweepSpec` enforces the
-          // same bound on whatever gets through).
           max={wind.toUi(MAX_WIND_SPEED_MS)}
           disabled={busy}
           ariaLabel={label}
@@ -89,7 +65,6 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
     </label>
   );
 
-  /** A grid count: a whole number of at least one, up to `max`. */
   const stepsRow = (key: 'speedSteps' | 'headingSteps', label: string, max: number) => (
     <label className="flex items-center justify-between gap-2 text-[11px]">
       <span className="text-ink-muted">{label}</span>
@@ -107,17 +82,9 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
     </label>
   );
 
+  // `min-h-0` + scroll: on a phone the clipping plot box would hide the Run button.
   return (
-    // `min-h-0` + scroll: the panel lives inside the square plot, which on a
-    // phone is barely taller than the panel itself, and the box clips its
-    // overflow; without this the Run button is the part that goes missing.
     <div className="min-h-0 w-60 overflow-y-auto rounded-lg bg-surface/95 p-2.5 text-ink-soft ring-1 ring-line/10">
-      {/* Said here rather than only in the docs: this is the panel somebody is
-          looking at when they decide how big a field they need, and the region
-          it draws has not been checked against a real recovery. The individual
-          flights are the same validated kernel as any other simulation; what is
-          unsettled is the shape drawn round them, the default grid and the
-          two-sigma choice. */}
       <div className="mb-2 flex items-baseline gap-1.5">
         <h3 className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{t('sweep.title')}</h3>
         <span className="rounded bg-warn-400/15 px-1 text-[9px] font-medium uppercase tracking-wide text-warn-300 ring-1 ring-warn-400/30">
@@ -149,9 +116,6 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
         </label>
       </div>
 
-      {/* The bill, before it is run. The default thirty-two flights is a real
-          wait, and the two step fields multiply, which is not obvious from two
-          boxes. */}
       <p className="mt-2 text-[10px] text-ink-faint">{t('sweep.flights', { count: flights })}</p>
 
       <div className="mt-2 flex items-center gap-1.5">
@@ -186,9 +150,6 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
           {t('sweep.landed', { flown: mine.flown, asked: mine.asked })}
         </p>
       )}
-      {/* The design moved after the sweep flew. The region is still the honest
-          answer for the rocket that flew it, so it stays on screen and says so
-          rather than vanishing under the user. */}
       {stale && <p className="mt-1 text-[10px] leading-snug text-warn-400">{t('sweep.stale')}</p>}
     </div>
   );

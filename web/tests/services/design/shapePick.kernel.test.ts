@@ -10,26 +10,11 @@ import { kernelGeometry, loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A new shape brings its own parameter and clip.
- *
- * `Transition.setShapeType` resets the shape parameter to the new shape's
- * default and the clip to whether the shape can clip, and `loadFromPreset`
- * sets both for a catalog part. A part that kept the old shape's values would
- * fly and draw another profile: a power series picked over an ogive (1.0) is a
- * straight cone, and an ellipsoid transition over an unclipped one stays
- * unclipped.
- *
- * The reference is the kernel's own part of the new shape: built with no
- * parameter and no clip on record, the bridge leaves both where
- * `setShapeType` puts them. The app's profile of the edited node, and the
- * kernel's build of it, both have to match that profile at every station.
- */
+// `Transition.setShapeType` resets the shape parameter and clip, and `loadFromPreset` sets both.
 
-/** Where the clip point is found by iteration on both sides, as in geometryParity. */
+// The clip point is found by iteration on both sides.
 const PROFILE_TOL = 1e-4;
 
-/** Parts that each hold a parameter and a clip of a shape other than the one chosen. */
 const PRIORS: { shape: string; shapeParameter: number; clipped: boolean }[] = [
   { shape: 'ogive', shapeParameter: 0.4, clipped: false },
   { shape: 'power', shapeParameter: 0.3, clipped: false },
@@ -46,14 +31,12 @@ const catalog = (
   }
 ).components.filter(isComponentRow) as Component[];
 
-/** One catalog row for each nose cone and transition shape the catalog offers. */
 const rowsByShape = (type: 'nosecone' | 'transition'): Component[] => {
   const seen = new Map<string, Component>();
   for (const p of catalog) if (p.type === type && 'shape' in p && !seen.has(p.shape)) seen.set(p.shape, p);
   return [...seen.values()];
 };
 
-/** The part in a stage, behind a tube for a transition. */
 const design = (part: ComponentNode): RocketTree =>
   ({
     name: '',
@@ -69,7 +52,6 @@ const design = (part: ComponentNode): RocketTree =>
     ],
   }) as unknown as RocketTree;
 
-/** The same part with no shape parameter and no clip on record. */
 const kernelDefaultOf = (node: ComponentNode): ComponentNode => {
   const out = { ...node };
   delete out['shapeParameter'];
@@ -102,7 +84,6 @@ describe('a catalog pick over a part of another shape', () => {
     it(`gives a ${type} the profile of the part's own shape`, async () => {
       const engine = await loadEngine();
       const rows = rowsByShape(type);
-      // Each shape the catalog has, and at least one the stale values change.
       expect(rows.length).toBeGreaterThanOrEqual(3);
       const wrong: string[] = [];
       for (const row of rows)

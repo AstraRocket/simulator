@@ -10,13 +10,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A packed part with a stated radius is drawn at that radius, however close
- * it comes to the tube wall. The kernel flies the stated value unchanged
- * (`MassObject.setRadius` floors it at 0 and applies no other bound), so the
- * expected radius is the node's own, and the kernel's reading of it is
- * asserted first through `getComponentFields`.
- */
+// The kernel flies a stated radius unchanged (`MassObject.setRadius` only floors it at 0).
 
 const S = 1000;
 const CY = 200;

@@ -4,12 +4,7 @@ import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { ConfirmDialog } from '../../../src/components/common/ConfirmDialog';
 import { confirm, useConfirmStore } from '../../../src/state/confirmStore';
 
-/**
- * Stock jsdom reports `offsetParent === null` for every element, so
- * useFocusTrap's visibility filter sees no focusable children at all and the
- * behavior under test here (which button ends up focused) is invisible to the
- * suite. A browser gives every laid-out element an offsetParent.
- */
+// jsdom reports `offsetParent === null`, so useFocusTrap would see no focusable children.
 let offsetParent: PropertyDescriptor | undefined;
 beforeEach(() => {
   offsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
@@ -27,13 +22,6 @@ afterEach(() => {
 });
 
 describe('ConfirmDialog keyboard behavior', () => {
-  /**
-   * Cancel comes first in DOM order, so a focus trap that moves focus to the
-   * first focusable element after React has honored `autoFocus` would leave the
-   * focus ring on Cancel. Combined with a window-level Enter handler that
-   * settles true for every target, a keyboard user would see Cancel focused,
-   * press Enter, and the destructive action would go ahead.
-   */
   it('focus lands on Confirm (the autoFocus target), not on Cancel', async () => {
     render(<ConfirmDialog />);
     let done: Promise<boolean>;
@@ -55,8 +43,6 @@ describe('ConfirmDialog keyboard behavior', () => {
     const cancelBtn = await screen.findByRole('button', { name: 'Keep' });
     act(() => cancelBtn.focus());
     expect(document.activeElement).toBe(cancelBtn);
-    // A window-level Enter listener would have settled true here regardless of
-    // the target; native activation of the focused button is what should run.
     fireEvent.keyDown(window, { key: 'Enter' });
     expect(useConfirmStore.getState().request).not.toBeNull();
     fireEvent.click(cancelBtn);

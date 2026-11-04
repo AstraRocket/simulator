@@ -7,15 +7,7 @@ import { AftView } from '../../../src/components/canvas/AftView';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The aft view turns the rocket by the roll the same way the side view does.
- *
- * Desktop's RocketFigure builds one `Transformation.rotate_x(rotation)` and
- * applies it to the coordinates of both the side and the back view, and both
- * project the rotated y onto the screen's vertical. So a part's height off the
- * axis is cos(angle + roll) in either view: a lug at 90 degrees rolled 90
- * degrees sits below the axis in both.
- */
+// Desktop's RocketFigure applies one `rotate_x(rotation)` to side and back views alike.
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -29,10 +21,9 @@ const lug = { type: 'launchlug', id: 'lug', name: 'Lug', angleOffset: LUG_ANGLE 
 const body = { type: 'bodytube', id: 'body', outerRadius: R, length: 0.3, thickness: 0.001, children: [lug] };
 const tree = { name: 'T', components: [{ type: 'stage', id: 'stage', children: [body] }] } as unknown as RocketTree;
 
-/** Desktop's height off the axis for both views: y after rotate_x(roll). */
 const desktopUp = Math.cos(LUG_ANGLE + ROLL);
 
-/** The aft view's lug center, up positive, after the drawing group's transform. */
+// Up positive, after the drawing group's transform.
 function aftUp(roll: number): number {
   const { container } = renderWithProviders(<AftView tree={tree} roll={roll} />);
   const circle = [...container.querySelectorAll('circle')].find((c) => c.querySelector('title')?.textContent === 'Lug');
@@ -47,7 +38,7 @@ function aftUp(roll: number): number {
   return -yDown / Math.hypot(cx, cy);
 }
 
-/** The side view's lug, up positive, relative to the tube axis. */
+// Up positive, relative to the tube axis.
 function sideUp(roll: number): number {
   const baseY = 200;
   const { shapes } = buildSchematicShapes({
@@ -88,8 +79,7 @@ describe('the aft view rolls the same way as the side view', () => {
     fireEvent.pointerMove(svg, { clientX: 130, pointerId: 1 });
     expect(onRoll).toHaveBeenCalledTimes(1);
     const delta = onRoll.mock.calls[0]![0] as number;
-    // The group turns by rotate(-roll), so a clockwise (positive SVG) turn is a
-    // negative roll delta.
+    // The group turns by rotate(-roll), so clockwise is a negative roll delta.
     expect(delta).toBeLessThan(0);
   });
 });

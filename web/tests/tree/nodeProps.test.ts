@@ -20,7 +20,7 @@ describe('num', () => {
     expect(num(node({ length: NaN }), 'length', 0.05)).toBe(0.05);
     expect(num(node({ length: Infinity }), 'length', 0.05)).toBe(0.05);
     expect(num(node({ length: -Infinity }), 'length', 0.05)).toBe(0.05);
-    expect(num(node({ length: NaN }), 'length')).toBe(0); // default fallback
+    expect(num(node({ length: NaN }), 'length')).toBe(0);
   });
 });
 
@@ -55,15 +55,6 @@ describe('bool', () => {
   });
 });
 
-/**
- * A count has a ceiling, not just a floor.
- *
- * Consumers loop over a count, allocating as they go: a cloned ExtrudeGeometry
- * per fin in the 3D view, an SVG shape per fin in the schematic, a tube per
- * instance in the aft view. Uncapped, typing 100000 into Fin count locks the
- * tab, and a hostile `.ork` can carry the same value. One reader caps every
- * site.
- */
 describe('countOf', () => {
   const n = (v: unknown) => ({ id: 'x', finCount: v }) as never;
 
@@ -82,7 +73,7 @@ describe('countOf', () => {
   it('falls back for a missing or non-finite value, and caps the fallback too', () => {
     expect(countOf({ id: 'x' } as never, 'finCount', 6)).toBe(6);
     expect(countOf(n(NaN), 'finCount', 3)).toBe(3);
-    expect(countOf(n(Infinity), 'finCount', 3)).toBe(3); // non-finite reads as absent
+    expect(countOf(n(Infinity), 'finCount', 3)).toBe(3);
     expect(countOf({ id: 'x' } as never, 'finCount', 1e9)).toBe(MAX_INSTANCE_COUNT);
   });
 });

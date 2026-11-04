@@ -40,23 +40,9 @@ import info.openrocket.core.rocketcomponent.position.AxialMethod;
 import info.openrocket.core.rocketcomponent.position.RadiusMethod;
 import info.openrocket.core.util.Coordinate;
 
-/**
- * Builds the fixture's rocket through upstream's OWN component API.
- *
- * This is deliberately a SECOND, independent reading of the fixture: our
- * {@code api.ComponentFactory} is the first. Two independent readings of one
- * explicit spec is the whole mechanism - if the shipped bridge mis-seats a motor,
- * drops a separation config or applies a dimension to the wrong field, this side
- * will not make the same mistake and the flights will disagree.
- *
- * <b>Strict by construction.</b> Every key is consumed explicitly and anything
- * left over is an error. A reader that silently ignored an unknown key would let
- * a fixture grow a property only ONE side honors, and then report agreement on a
- * comparison that never tested it.
- */
+/** Must stay independent of {@code api.ComponentFactory}; do not share code with it. */
 final class Fixture {
 
-    /** Mount id -> the component, so motors and ignition can be seated by id. */
     private final Map<String, MotorMount> mounts = new HashMap<>();
 
     private Fixture() {
@@ -109,11 +95,9 @@ final class Fixture {
             reject(stageNode, used, "stage");
         }
 
-        // Now that every component has its parent, the deferred positions apply.
         f.applyPositions();
 
-        // The configuration must exist before motors are seated: MotorConfiguration
-        // and the separation/ignition configs are all keyed by this id.
+        // Must exist before motors are seated: their configs are keyed by this id.
         FlightConfigurationId fcid = new FlightConfigurationId();
         rocket.createFlightConfiguration(fcid);
         rocket.setSelectedConfiguration(fcid);
@@ -125,9 +109,7 @@ final class Fixture {
             f.ignition(e.getAsJsonObject(), fcid);
         }
 
-        // Without this the configuration's motor list stays stale and the on-pad
-        // mass is the UNLOADED rocket. The shipped bridge has the same call for
-        // the same reason.
+        // Without this the motor list stays stale and the on-pad mass is the unloaded rocket.
         rocket.getSelectedConfiguration().update();
         rocket.enableEvents();
         return new Built(rocket, fcid);
@@ -156,16 +138,7 @@ final class Fixture {
         stage.getSeparationConfigurations().setDefault(sep);
     }
 
-    /**
-     * Builds one component and attaches it to {@code parent}, then recurses.
-     *
-     * TOP-DOWN, and it has to be: upstream's {@code BodyTube.addChild} calls
-     * {@code getRocket()} when the child is a stage, which throws
-     * "getRocket() called with root component Body Tube" unless that tube is
-     * already connected to the rocket. Building the subtree first and attaching it
-     * afterward works for every other component and fails only on a strap-on
-     * booster, which is a good reason not to rely on it anywhere.
-     */
+    // Top-down: BodyTube.addChild calls getRocket(), which throws until the tube is attached.
     private void component(RocketComponent parent, JsonObject node) {
         Set<String> used = new LinkedHashSet<>(List.of("type"));
         String type = str(node, "type", null);
@@ -176,8 +149,7 @@ final class Fixture {
         switch (type) {
             case "nosecone": {
                 NoseCone n = new NoseCone();
-                // Shape FIRST: upstream's setShapeType resets the shape
-                // parameter, so anything set before it is discarded.
+                // Shape first: setShapeType resets the shape parameter.
                 n.setShapeType(shape(req(node, "shape", used)));
                 n.setLength(reqDbl(node, "length", used));
                 n.setAftRadius(reqDbl(node, "aftRadius", used));
@@ -226,15 +198,8 @@ final class Fixture {
                 break;
             }
             case "parallelstage": {
-                // Strap-on booster. A ParallelStage IS an AxialStage, so it
-                // separates and flies its own branch like a stacked booster does.
                 ParallelStage ps = new ParallelStage();
-                // Placement, position and separation ALL have to wait for the
-                // parent: setRadiusMethod and setAxialMethod read getParent() and
-                // NPE without one, and the attach happens in the caller. Position
-                // is consumed here rather than by the generic deferral below,
-                // because for an assembly it has to land AFTER the radial
-                // placement, in one ordered action.
+                // Deferred: setRadiusMethod/setAxialMethod NPE without a parent.
                 used.add("instanceCount");
                 used.add("radiusMethod");
                 used.add("radiusOffset");
@@ -293,10 +258,7 @@ final class Fixture {
         JsonObject position = node.has("position") ? node.getAsJsonObject("position") : null;
         used.add("position");
         if (position != null && !(c instanceof RingInstanceable)) {
-            // Deferred: upstream's setAxialMethod and setAxialOffset both read
-            // getParent() and NPE on a component that has not been attached yet.
-            // The attach happens in the CALLER, so the position cannot be applied
-            // here however tempting the ordering looks.
+            // Deferred: setAxialMethod/setAxialOffset NPE before attach.
             pending.add(new Pos(c, position));
             reject(position, new LinkedHashSet<>(List.of("method", "offset")), type + ".position");
         }
@@ -304,7 +266,6 @@ final class Fixture {
         reject(node, used, type);
     }
 
-    /** A position that could not be applied until its component had a parent. */
     private static final class Pos {
         final RocketComponent component;
         final JsonObject position;
@@ -317,7 +278,6 @@ final class Fixture {
 
     private final List<Pos> pending = new ArrayList<>();
 
-    /** A ring assembly whose placement could not be applied until it had a parent. */
     private static final class Assembly {
         final RingInstanceable ring;
         final JsonObject node;
@@ -330,21 +290,14 @@ final class Fixture {
 
     private final List<Assembly> pendingAssemblies = new ArrayList<>();
 
-    /**
-     * Applied once the whole tree is attached, so every parent exists.
-     *
-     * Assemblies first, so a strap-on booster is placed before anything inside it
-     * is positioned against it.
-     */
+    // Assemblies first, so a booster is placed before anything is positioned against it.
     private void applyPositions() {
         for (Assembly a : pendingAssemblies) {
             RingInstanceable ring = a.ring;
             JsonObject node = a.node;
             ring.setInstanceCount((int) reqDblLoose(node, "instanceCount"));
             ring.setRadiusMethod(radiusMethod(req(node, "radiusMethod", new LinkedHashSet<>())));
-            // RADIUS OFFSET, not setRadius(method, value): the offset is a gap from
-            // the parent's surface, while setRadius is from the centerline and
-            // double-subtracts the parent radius.
+            // Offset, not setRadius: setRadius double-subtracts the parent radius.
             ring.setRadiusOffset(reqDblLoose(node, "radiusOffset"));
             ring.setAngleOffset(reqDblLoose(node, "angleOffset"));
             ring.setAngleMethod(angleMethod(req(node, "angleMethod", new LinkedHashSet<>())));
@@ -356,8 +309,6 @@ final class Fixture {
                 component.setAxialOffset(dbl(position, "offset", 0));
                 reject(position, new LinkedHashSet<>(List.of("method", "offset")), "parallelstage.position");
             }
-            // It separates, so it carries a separation configuration exactly as a
-            // stacked stage does.
             applySeparation((AxialStage) ring, node, new LinkedHashSet<>());
         }
         pendingAssemblies.clear();
@@ -369,11 +320,6 @@ final class Fixture {
         pending.clear();
     }
 
-    /**
-     * A required double whose key was already marked consumed at build time.
-     * Separate from reqDbl only so the strictness bookkeeping stays honest: the
-     * keys are recorded in the component case, which is where `reject` runs.
-     */
     private static double reqDblLoose(JsonObject o, String key) {
         Double v = dblOrNull(o, key);
         if (v == null) {
@@ -476,9 +422,6 @@ final class Fixture {
         mc.setIgnitionDelay(delay);
     }
 
-    // ---- enum mappings. Unknown names THROW; the shipped bridge falls through to
-    // ---- a default, which is right for a UI and wrong for a reference.
-
     private static Transition.Shape shape(String name) {
         switch (name.toLowerCase()) {
             case "conical": return Transition.Shape.CONICAL;
@@ -522,8 +465,6 @@ final class Fixture {
             case "ejection": return StageSeparationConfiguration.SeparationEvent.EJECTION;
             case "apogee": return StageSeparationConfiguration.SeparationEvent.APOGEE;
             case "upperignition": return StageSeparationConfiguration.SeparationEvent.UPPER_IGNITION;
-            // Upstream splits altitude by direction of travel; there is no bare
-            // ALTITUDE, so a fixture must say which crossing it means.
             case "altitudeascending": return StageSeparationConfiguration.SeparationEvent.ALTITUDE_ASCENDING;
             case "altitudedescending": return StageSeparationConfiguration.SeparationEvent.ALTITUDE_DESCENDING;
             case "never": return StageSeparationConfiguration.SeparationEvent.NEVER;
@@ -541,8 +482,6 @@ final class Fixture {
             default: throw new IllegalArgumentException("unknown ignition event: " + name);
         }
     }
-
-    // ---- json helpers
 
     static JsonObject obj(JsonObject o, String key) {
         if (!o.has(key)) {
@@ -607,9 +546,7 @@ final class Fixture {
         return out;
     }
 
-    /**
-     * Every key must have been consumed. Keys starting with '_' are comments.
-     */
+    /** Keys starting with '_' are comments. */
     private static void reject(JsonObject o, Set<String> used, String where) {
         List<String> extra = new ArrayList<>();
         for (String k : o.keySet()) {

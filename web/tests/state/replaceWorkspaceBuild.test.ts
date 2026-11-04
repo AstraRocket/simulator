@@ -2,24 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useWorkspaceStore } from '../../src/state/store';
 import type { StaticInfo } from '../../src/engine/openRocketEngine';
 
-/**
- * A new design must not show the old design's numbers, even for one frame.
- *
- * `replaceWorkspace` clears `info` and `rocket` with the other transient fields,
- * because they describe the design on its way out. The rebuild effect replaces
- * them only on its next run, so left in place, a new blank design would show the
- * previous design's mass, CG and stability margin for one frame in the stats panel.
- *
- * Cleared to `null`, which is the state the rebuild effect uses for "not built
- * yet" (`applyBuild(null, null)`), so the panel reads as pending.
- */
 const s = () => useWorkspaceStore.getState();
 
-/** A stand-in build: only its identity matters here. */
 const build = (mass: number) => ({
   info: { mass } as unknown as StaticInfo,
-  // The handle type is local to the store (`ReturnType<typeof buildRocketTree>`);
-  // nothing here calls it, only checks whether it is still there.
   rocket: {} as never,
 });
 
@@ -41,13 +27,10 @@ describe('replaceWorkspace clears the live build', () => {
   it('does not leak the old mass into the new design', () => {
     s().applyBuild(build(99).info, build(99).rocket);
     s().resetWorkspace();
-    // The specific reading: not 99, and not a stale object either.
     expect((s().info as { mass?: number } | null)?.mass).toBeUndefined();
   });
 
   it('clears the run state along with the build', () => {
-    // Clearing the build must not cost the rest of the reset: the runs, the
-    // selection and the drift sweep belong to the outgoing design too.
     s().applyBuild(build(1).info, build(1).rocket);
     s().resetWorkspace();
     expect(s().simRuns).toEqual({});

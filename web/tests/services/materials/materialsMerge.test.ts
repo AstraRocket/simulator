@@ -8,20 +8,6 @@ import {
 import type { Material } from '../../../src/services/materials/materialTypes';
 import { serveData } from '../../testing/serveData';
 
-/**
- * How a custom material joins the list.
- *
- * Not `[...custom, ...builtins]` with every custom material filed under a `Custom`
- * group of its own, which has two problems. A custom material named after a built-in
- * appears twice, in two different groups, and which one a design picks up depends on
- * which the lookup finds first. And a material that is a variant of Plywood is
- * listed at the top of the picker rather than beside the plywood, because the group
- * says where it came from instead of what it is.
- *
- * The provenance is carried by the `custom` flag alone - the picker stars it - and
- * the group says what the material is.
- */
-
 const m = (name: string, group: string, density: number, custom = false): Material => ({
   name,
   type: 'bulk',
@@ -45,12 +31,10 @@ describe('mergeCustom', () => {
 
   it('replaces a built-in of the same name, in place, keeping its group', () => {
     const merged = mergeCustom(BUILTINS, [m('Blue tube', DEFAULT_CUSTOM_GROUP, 1250, true)]);
-    // One entry, not two: it is that material at your density.
     expect(merged.filter((x) => x.name === 'Blue tube')).toHaveLength(1);
     const blue = merged.find((x) => x.name === 'Blue tube')!;
     expect(blue.density).toBe(1250);
     expect(blue.custom).toBe(true);
-    // Still in Composites, still where Blue tube was.
     expect(blue.group).toBe('Composites');
     expect(merged.map((x) => x.name)).toEqual(BUILTINS.map((x) => x.name));
   });
@@ -63,16 +47,12 @@ describe('mergeCustom', () => {
   });
 
   it('appends a material whose group the built-ins do not have', () => {
-    // 'Other' is a real upstream group, but only for line materials; a bulk
-    // one lands at the end rather than inventing a slot mid-list.
     const merged = mergeCustom(BUILTINS, [m('Mystery goo', DEFAULT_CUSTOM_GROUP, 900, true)]);
     expect(merged[merged.length - 1]!.name).toBe('Mystery goo');
     expect(merged[merged.length - 1]!.group).toBe(DEFAULT_CUSTOM_GROUP);
   });
 
   it('re-homes a material stored under the Custom group', () => {
-    // A material stored under the `Custom` group must not be stranded in a
-    // group nothing else is in.
     const merged = mergeCustom(BUILTINS, [m('Old one', 'Custom', 800, true)]);
     expect(merged.find((x) => x.name === 'Old one')!.group).toBe(DEFAULT_CUSTOM_GROUP);
     expect(merged.some((x) => x.group === 'Custom')).toBe(false);
@@ -94,12 +74,6 @@ describe('mergeCustom', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 });
-
-/**
- * The add form's group dropdown. It takes the list the picker already has
- * rather than fetching one of its own, so these run it over the real catalog
- * for a type.
- */
 describe('groupsOf', () => {
   beforeAll(serveData);
 
@@ -108,7 +82,6 @@ describe('groupsOf', () => {
     expect(bulk).toContain('Woods');
     expect(bulk).toContain('Adhesives');
     expect(bulk[bulk.length - 1]).toBe(DEFAULT_CUSTOM_GROUP);
-    // Not another type's groups: a bulk material is never Kevlars.
     expect(bulk).not.toContain('Kevlars');
     expect(groupsOf(await builtinsForType('line'))).toContain('Kevlars');
   });
@@ -120,8 +93,6 @@ describe('groupsOf', () => {
   });
 
   it('offers a group the user invented, when one is in the list', () => {
-    // The custom materials are in the list it is given, so a material filed
-    // under a name of the user's own is offered back to them next time.
     const mine: Material = { name: 'My mix', type: 'bulk', density: 1050, group: 'Putties', custom: true };
     expect(groupsOf([mine])).toEqual(['Putties', DEFAULT_CUSTOM_GROUP]);
   });

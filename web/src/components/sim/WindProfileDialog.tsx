@@ -28,29 +28,9 @@ import { DialogButton, DialogActions } from '../common/DialogButton';
 import { smallButton } from '../common/smallButton';
 import { RadioGroup } from '../common/RadioGroup';
 
-/**
- * The altitude-layered wind profile, as OpenRocket's Wind Profile Editor: one
- * row per level carrying altitude, speed, direction, standard deviation and the
- * same deviation read as a turbulence percentage with its descriptive name,
- * plus the MSL/AGL reference the whole profile is measured against.
- *
- * It is a dialog rather than an inline grid in the launch panel because the
- * panel cannot hold the columns, and turbulence belongs in a profile: it is
- * where per-layer gustiness has something to say.
- *
- * Mounted only while open (`{open && <WindProfileDialog />}`), so the error
- * line and the row keys start fresh per opening.
- */
-
 const cell = 'rounded bg-raised px-1 py-1 text-right text-xs tabular-nums text-ink-strong ring-1 ring-line/10';
 const btn = smallButton('row', 'soft');
 
-/**
- * Altitude against wind speed, the way the desktop draws it: altitude up, speed
- * across, one marker per level. The direction vectors are optional because on a
- * profile whose layers back round they carry the information, and on a profile
- * that blows one way throughout they are noise.
- */
 function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Units; showVectors: boolean }) {
   const W = 260;
   const H = 240;
@@ -61,8 +41,7 @@ function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Unit
 
   const speeds = levels.map((l) => u.toUi('windspeed', l.speed));
   const alts = levels.map((l) => u.toUi('distance', l.altitudeM));
-  // A flat profile (one level, or every level alike) has a zero span, which
-  // would put every point on one edge or divide by zero. Pad it to a real range.
+  // Pad a flat profile's zero span, which would divide by zero.
   const sMax = Math.max(...speeds, 0);
   const aMin = Math.min(...alts, 0);
   const aMax = Math.max(...alts, 0);
@@ -78,8 +57,6 @@ function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Unit
     .sort((a, b) => b.y - a.y);
 
   return (
-    // Hidden from assistive tech: it pictures the levels the editable rows
-    // already list, so announcing it would read them twice.
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
       <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="currentColor" className="text-ink-dim" />
       <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="currentColor" className="text-ink-dim" />
@@ -96,8 +73,7 @@ function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Unit
         <g key={i}>
           <circle cx={p.x} cy={p.y} r={3} className="fill-accent-400" />
           {showVectors && (
-            // Screen-space: 0 degrees points up the page, and the arrow shows
-            // the heading the layer's wind is described by.
+            // Screen-space: 0 degrees points up the page.
             <g transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.dir})`}>
               <line x1={0} y1={0} x2={0} y2={-14} stroke="currentColor" strokeWidth={1} className="text-accent-300" />
               <path d="M -2.5 -10 L 0 -15 L 2.5 -10 Z" className="fill-accent-300" />
@@ -129,11 +105,6 @@ export function WindProfileDialog({
   onClose,
 }: {
   launch: LaunchConditions;
-  /**
-   * Launch keys the simulations being edited together disagree on. The
-   * profile is edited as one, so an edit sets every simulation's to it; the
-   * dialog says so when they differ.
-   */
   diff?: ReadonlySet<keyof LaunchConditions>;
   onChange: (patch: LaunchPatch) => void;
   onCommit?: () => void;
@@ -148,52 +119,25 @@ export function WindProfileDialog({
   const csvImport = useLatest();
 
   const levels = launch.windLevels ?? [];
-  // A stable key per row. WindLevel carries no id, and keying on the index
-  // would make deleting row 1 re-label row 2's inputs as row 1 in place: the
-  // field being typed into would suddenly hold the next level's numbers. Rows are
-  // added, removed and replaced only through the handlers below, which keep
-  // this list aligned with `levels`; an outside change (undo, a fresh
-  // profile) shows as a length mismatch and falls back to index keys.
+  // Index keys would shift the typed field after a delete; an outside change (undo)
+  // shows as a length mismatch and falls back to index keys.
   const [rowIds, setRowIds] = useState<number[]>(() => levels.map((_, i) => i));
   const nextId = () => rowIds.reduce((m, id) => Math.max(m, id), -1) + 1;
   const reference = launch.windAltitudeReference ?? 'msl';
-  // The safety codes judge the wind at the pad, so only the ground layer carries
-  // the ceiling. Lowest altitude, not the first row: the list is not sorted. It
-  // is the pad wind when the profile starts at the pad; the run gate reads the
-  // profile at the pad itself (padLevelWind).
+  // Only the lowest layer carries the pad-wind cap; lowest altitude, since the list is not sorted.
   const surfaceLevel = levels.length
     ? levels.reduce((lowIdx, l, i) => (l.altitudeM < levels[lowIdx]!.altitudeM ? i : lowIdx), 0)
     : -1;
-  /** The wind speed cap, which holds on the ground layer only; aloft the turbulence box can set more. */
   const windCap = (i: number) => (i === surfaceLevel ? u.toUi('windspeed', MAX_WIND_SPEED_MS) : undefined);
-  /**
-   * The rows sharing an altitude with an earlier row. The run refuses a
-   * profile like that outright (the bridge says the altitude repeats, before
-   * the kernel's `addWindLevel` would throw), so the editor that let it be
-   * typed is where it has to be said. Flagged rather than prevented: a row
-   * passes through a collision on the way to a legal value - clearing 300 to
-   * type 3000 goes past 0 - and refusing the keystroke would make the column
-   * unusable.
-   */
+  // Flagged, not prevented: typing 3000 over 300 passes through collisions.
   const dupeRows = new Set(duplicateAltitudeRows(levels));
 
   const setLevels = (next: WindLevel[]) => onChange({ windLevels: next.length ? next : undefined });
-  /** Replace the whole profile (import, reset): every row is new. */
   const replaceLevels = (next: WindLevel[]) => {
     const base = nextId();
     setRowIds(next.map((_, i) => base + i));
     setLevels(next);
   };
-  /**
-   * Edit one level, dropping a value that is not a real number.
-   *
-   * The four columns convert through `onSi` (prefs/entryValue), which already
-   * refuses a value that cannot survive the conversion (1e306 ft of altitude
-   * is Infinity meters, which the level, the chart, the .ork and the kernel's
-   * wind model have no answer for). This stays as the net for the values this
-   * function is handed from somewhere other than a box:
-   * `setSpeed` recomputes a level's deviation from its own turbulence ratio.
-   */
   const patchLevel = (i: number, p: Partial<WindLevel>) => {
     if (Object.values(p).some((v) => !Number.isFinite(v))) return;
     setLevels(levels.map((l, j) => (j === i ? { ...l, ...p } : l)));
@@ -208,9 +152,7 @@ export function WindProfileDialog({
     setLevels([
       ...levels,
       {
-        // 300 m above the highest level, not above the last row: the list is not
-        // sorted, so on a profile of 0/600/300 the last row's +300 lands on 600
-        // and collides with an existing level.
+        // Above the highest level, not the last row: the list is not sorted.
         altitudeM: Math.max(0, ...levels.map((l) => l.altitudeM)) + 300,
         speed: last?.speed ?? 0,
         directionDeg: last?.directionDeg ?? DEFAULT_HEADING_DEG,
@@ -219,11 +161,7 @@ export function WindProfileDialog({
     ]);
   };
 
-  // The edited level's speed and deviation as they stood before its speed box
-  // was edited, cleared on blur. The box reports every keystroke, and desktop's
-  // `setAverage` only sees the committed value, so the turbulence is carried
-  // from where the edit started: retuning from the previous keystroke would
-  // pass through the "0" of "0.5" and leave the layer with no turbulence.
+  // Retuning per keystroke would pass through the "0" of "0.5" and zero the turbulence.
   const [speedEditBase, setSpeedEditBase] = useState<{ row: number; speed: number; stddev: number } | null>(null);
   const setSpeed = (i: number, speed: number) => {
     const l = levels[i]!;
@@ -232,16 +170,11 @@ export function WindProfileDialog({
       base = { row: i, speed: l.speed, stddev: l.stddev };
       setSpeedEditBase(base);
     }
-    // As `LevelWindModel.setSpeed` does (it delegates to `setAverage`): the
-    // layer's turbulence stays the fraction it was rather than the m/s it was.
+    // As `LevelWindModel.setSpeed`: turbulence keeps its fraction, not its m/s.
     patchLevel(i, { speed, stddev: retuneStdDev(base.speed, base.stddev, speed) });
   };
 
   const importCsv = async (file: File) => {
-    // Reading the file is a read that resolves after the fact, and
-    // `replaceLevels` writes to whatever simulations are the current edit
-    // targets. Closing this dialog, or picking a second file, must not let the
-    // first read land on them.
     const mine = csvImport.claim();
     try {
       const levels = parseWindProfileCsv(await readFileText(file));
@@ -251,8 +184,6 @@ export function WindProfileDialog({
       onCommit?.();
     } catch (e) {
       if (!mine()) return;
-      // Import replaces the profile, so a bad file must leave it untouched:
-      // parse throws before anything is set rather than half-applying.
       setError(
         e instanceof WindProfileCsvError
           ? t(`windProfile.csv.${e.key}`, { line: e.line })
@@ -267,14 +198,12 @@ export function WindProfileDialog({
       id="windProfile"
       title={t('windProfile.title')}
       onClose={onClose}
-      // Opened from the launch panel, which can itself sit inside the Settings dialog.
+      // The launch panel can itself sit inside the Settings dialog.
       layer="over"
       size="4xl"
       layout="pad"
     >
-      {/* The commit-on-blur sits on a wrapper rather than the panel the shell
-          owns. Blur bubbles (React's onBlur is focusout), so every field inside
-          still commits when it is left. */}
+      {/* React's onBlur is focusout and bubbles, so every field inside commits. */}
       <div
         onBlur={() => {
           setSpeedEditBase(null);
@@ -322,16 +251,10 @@ export function WindProfileDialog({
                       min={0}
                       ariaLabel={t('windProfile.levelField', { field: t('windProfile.altitude'), n: i + 1 })}
                       value={u.toUi('distance', l.altitudeM)}
-                      // No `?? 0`, unlike the direction and deviation columns:
-                      // an altitude is the level's identity to the kernel, not a
-                      // quantity with a harmless zero, so an emptied box writes
-                      // nothing rather than moving the layer down onto the pad.
+                      // No `?? 0`: an emptied box must not move the layer onto the pad.
                       onChange={onSi(u.plain('distance'), (si) => si !== null && patchLevel(i, { altitudeM: si }))}
                       invalid={dupeRows.has(i)}
-                      // `markRing`, not another ring class appended: both are
-                      // the same custom property and Tailwind emits them in its
-                      // own order, so the later one in the string does not
-                      // reliably win. Swapping it is what the field rows do.
+                      // `markRing`: Tailwind's emit order, not string order, decides which ring wins.
                       className={markRing(`${cell} w-20`, dupeRows.has(i))}
                     />
                     <NumberInput
@@ -340,9 +263,7 @@ export function WindProfileDialog({
                       max={windCap(i)}
                       ariaLabel={t('windProfile.levelField', { field: t('launch.speed'), n: i + 1 })}
                       value={u.toUi('windspeed', l.speed)}
-                      // A cleared box writes nothing, as the altitude column:
-                      // the next keystroke sets the speed, and a 0 here would
-                      // read as still air rather than an edit in progress.
+                      // A cleared box writes nothing rather than still air.
                       onChange={onSi(u.plain('windspeed'), (si) => si !== null && setSpeed(i, si))}
                       className={`${cell} w-16`}
                     />
@@ -408,8 +329,7 @@ export function WindProfileDialog({
               <button
                 className={btn}
                 onClick={() => {
-                  // The level a reset leaves: the launch defaults' average wind, as
-                  // the kernel's `resetLevels` seeds from the preferences.
+                  // As the kernel's `resetLevels` seeds from the preferences.
                   replaceLevels([levelFromAverage(settings.launchDefaults)]);
                   setError(null);
                   onCommit?.();

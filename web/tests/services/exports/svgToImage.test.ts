@@ -4,10 +4,7 @@ import { snapshotWithHeader, svgToImage } from '../../../src/services/exports/sc
 import { pixelsToCanvas } from '../../../src/services/exports/offscreenRaster';
 import { KeyedError } from '../../../src/i18n/keyedError';
 
-/**
- * An image that "loads" as soon as its source is set, so the rasterizer's
- * onload runs without a real decoder.
- */
+// jsdom has no image decoder; this fires onload as soon as src is set.
 class LoadingImage {
   naturalWidth = 400;
   naturalHeight = 100;

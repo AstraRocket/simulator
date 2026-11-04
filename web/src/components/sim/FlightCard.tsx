@@ -18,20 +18,9 @@ import { highestLevel, orgLabel, type Flyer } from '../../services/storage/flyer
 
 type T = (key: string, opts?: Record<string, unknown>) => string;
 
-/** The class on `<html>` that makes printing print the card alone (index.css). */
 const PRINTING = 'print-flight-card';
 
-/**
- * The flight card for the range table: the rocket, the certification its
- * motors need, each motor and its delay, the predicted flight, the recovery
- * plan and its charges, and lines to fill in by hand at the field. A view on
- * the Results tab for the flight being shown.
- *
- * Printing prints the card alone, black on white: while the view is open the
- * page carries a class that hides the app from the printer and shows a copy
- * of the card mounted at the top of the document, outside every scrolling
- * pane, so a long card runs onto a second sheet rather than being cut off.
- */
+// Prints a copy portaled outside every scrolling pane, so a long card runs onto a second sheet.
 export function FlightCard({ flight }: { flight: ResultFlight }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -54,8 +43,7 @@ export function FlightCard({ flight }: { flight: ResultFlight }) {
       outdated,
       tree,
       config,
-      // The live build is the configuration being edited; another one's
-      // simulation is not weighed by it, so its mass and CG are left out.
+      // The live build is only valid for its own configuration.
       info: config.id === builtConfigId ? info : null,
       flight: flight.result.summary,
       launch: flight.launch,
@@ -87,7 +75,6 @@ export function FlightCard({ flight }: { flight: ResultFlight }) {
   );
 }
 
-/** When a device opens, in words: its event, with the altitude or delay that goes with it. */
 function deploysText(t: T, u: Units, d: LaunchDevice): string {
   const event = t(`deployEvent.${d.deployEvent}`);
   if (d.deployEvent === 'altitude')
@@ -103,7 +90,6 @@ const bayName = (t: T, c: ChargeRow): string =>
     t('bays.title', { role: t(`charges.role_${c.role}`), tube: c.tubeName || t('ejectionBay.unnamedTube') }),
   );
 
-/** The card itself, drawn the same on screen and on paper. */
 function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T; u: Units }) {
   const { info, flight } = docs;
   const held = highestLevel(flyer);
@@ -245,8 +231,6 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
       )}
 
       <Blanks labels={[t('launchDocs.pad'), t('launchDocs.rso')]} />
-      {/* The Results tab's "Before you fly", word for word, less its lead line,
-          which says these figures are not a flight card. */}
       <section
         aria-label={t('sim.safetyTitle')}
         className="border-t border-line/15 pt-2 text-xs leading-snug text-ink-soft"
@@ -280,7 +264,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** Label and value pairs, two to a row on a wide card. Null rows are left out. */
 function Pairs({ rows }: { rows: ([string, string] | null)[] }) {
   return (
     <dl className="grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
@@ -324,11 +307,6 @@ function Table({ head, rows, right }: { head: string[]; rows: string[][]; right:
   );
 }
 
-/**
- * Who flies, from Settings ▸ Flyer: the name, and each membership with its
- * number and level. Whatever is not saved there is a line to write on, and the
- * date always is. On screen only, a pointer to where it is saved.
- */
 function FlyerBlock({ flyer, t }: { flyer: Flyer; t: T }) {
   const name = flyer.name.trim();
   const blanks = [
@@ -356,7 +334,6 @@ function FlyerBlock({ flyer, t }: { flyer: Flyer; t: T }) {
   );
 }
 
-/** Labels with a line after each, for what is written in by hand at the field. */
 function Blanks({ labels }: { labels: string[] }) {
   return (
     <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">

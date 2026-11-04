@@ -14,15 +14,7 @@ import { FreeformFinActions } from '../../../src/components/design/FreeformFinAc
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import type { CustomPart } from '../../../src/services/parts/presetStore';
 
-/**
- * A failure line in the library and part dialogs is announced.
- *
- * A `role="status"` element created at the same moment as its text is not
- * announced by most screen readers: the region has to be in the DOM before the
- * text is put into it. Each dialog's failure line is its only word on a refused write, so
- * each is checked the same way: before the failure a polite region is mounted
- * with nothing in it, and after the failure that same element holds the text.
- */
+// Screen readers skip a `role="status"` created with its text, so each region mounts empty first.
 
 const parts = vi.hoisted(() => ({
   save: vi.fn<() => Promise<unknown>>(),
@@ -48,14 +40,12 @@ vi.mock('../../../src/services/parts/customParts', async (importOriginal) => {
   };
 });
 
-/** Every polite live region on screen, none of which says `message` yet. */
 function regionsBefore(message: string): HTMLElement[] {
   const regions = screen.queryAllByRole('status');
   for (const r of regions) expect(r.textContent).not.toContain(message);
   return regions;
 }
 
-/** The region that was already mounted and now carries the message, which it announces politely. */
 async function announced(regions: HTMLElement[], message: string): Promise<HTMLElement> {
   const region = await waitFor(() => {
     const hit = regions.find((r) => r.textContent === message);
@@ -66,7 +56,6 @@ async function announced(regions: HTMLElement[], message: string): Promise<HTMLE
   return region;
 }
 
-/** Answers the confirm dialog the delete asks through. */
 async function confirmDelete(): Promise<void> {
   await waitFor(() => expect(useConfirmStore.getState().request).not.toBeNull());
   act(() => useConfirmStore.getState().settle(true));
@@ -79,7 +68,6 @@ afterEach(() => {
 
 describe('the failure line is a live region mounted before the failure', () => {
   it('MasterStatus: the same element is empty, then holds the text', () => {
-    // Plain `render`: the line needs no provider, and `rerender` keeps the tree.
     const { rerender } = render(<MasterStatus err={null} />);
     const region = screen.getByRole('status');
     expect(region.textContent).toBe('');
@@ -104,7 +92,6 @@ describe('the failure line is a live region mounted before the failure', () => {
       <SavedPartEditor part={parts.saved} onDirtyChange={() => {}} onDelete={() => {}} onBack={() => {}} />,
     );
     const before = regionsBefore('Another part has that name');
-    // Save is disabled until something changed.
     fireEvent.change(screen.getByLabelText('Part name'), { target: { value: 'BT-2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect((await announced(before, 'Another part has that name')).textContent).toBe('Another part has that name');
@@ -127,7 +114,6 @@ describe('the failure line is a live region mounted before the failure', () => {
   });
 
   describe('over the served catalogs', () => {
-    // Per test, since the `afterEach` above removes every stubbed global.
     beforeEach(serveData);
 
     it('Custom Materials: a refused delete of a custom material', async () => {

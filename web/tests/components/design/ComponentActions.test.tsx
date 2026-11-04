@@ -6,13 +6,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { useWorkspaceStore } from '../../../src/state/store';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The actions row. What is tested here is the offer (which buttons a part gets,
- * and which are refused with a reason) plus that pressing one reaches the store
- * as a single undoable step. The transforms themselves are covered by
- * services/design/componentActions.test.ts.
- */
-
 const node = (o: Record<string, unknown>): ComponentNode => o as unknown as ComponentNode;
 
 const seed = (part: ComponentNode) =>
@@ -67,8 +60,6 @@ describe('which actions a part is offered', () => {
   });
 
   it('disables Split on a single fin rather than hiding it', () => {
-    // This is exactly when someone goes looking for the button, so it stays on
-    // screen and its tooltip says why.
     const one = fins({ finCount: 1 });
     seed(one);
     renderWithProviders(<ComponentActions node={one} />);
@@ -129,7 +120,6 @@ describe('pressing one', () => {
   it('splits it, numbering the copies after its display name', () => {
     renderWithProviders(<ComponentActions node={fins()} />);
     fireEvent.click(button('Split fins'));
-    // Unnamed, so the copies are numbered off the type's own label.
     expect(kids().map((n) => n.name)).toEqual([
       'Trapezoidal fin set #1',
       'Trapezoidal fin set #2',

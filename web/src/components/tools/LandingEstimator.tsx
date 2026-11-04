@@ -22,21 +22,8 @@ import { RadioGroup } from '../common/RadioGroup';
 import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
 import { ToolLayout, ToolForm } from './ToolLayout';
 
-/**
- * Where a rocket will come down, for a flight that has not been designed here:
- * a site, a date and hour, how high it goes and how fast it falls, and the
- * forecast wind for that hour does the rest (services/landing). An estimate
- * from typed rates, and it says so; a designed rocket's landing comes from the
- * engine, on its Results tab.
- */
-
 type Recovery = 'single' | 'dual';
 
-/**
- * What an estimate was computed from. A result is drawn over the site it was
- * computed for, not whatever the site fields hold now, and it is marked out of
- * date when any of these no longer match the form.
- */
 interface EstimateInputs {
   latitudeDeg: number;
   longitudeDeg: number;
@@ -74,12 +61,11 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** Clears the remembered inputs and result, so each test starts from the defaults. */
 export function forgetLandingEstimator(): void {
   remembered.forget();
 }
 
-/** A duration as m:ss, rounded to the whole second before it is split. */
+/** m:ss, rounded to the whole second before splitting. */
 export function minutesSeconds(s: number): string {
   const total = Math.round(s);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
@@ -94,13 +80,11 @@ export function LandingEstimator() {
   const { site, setSite, date, setDate, hour, setHour } = useForecastFields(remembered, defaults);
   const [apogee, setApogee] = useRemembered(remembered, 'apogee', 300);
   const [recovery, setRecovery] = useRemembered(remembered, 'recovery', 'single');
-  // A single chute and a drogue fall at very different rates, so each keeps
-  // its own value: switching to dual must not hand the drogue a main's 6 m/s.
+  // Separate values so switching to dual does not hand the drogue a main's 6 m/s.
   const [singleRate, setSingleRate] = useRemembered(remembered, 'singleRate', 6);
   const [drogueRate, setDrogueRate] = useRemembered(remembered, 'drogueRate', 25);
   const [mainRate, setMainRate] = useRemembered(remembered, 'mainRate', 6);
   const [mainAgl, setMainAgl] = useRemembered(remembered, 'mainAgl', 150);
-  // A request still out when the tab closed was aborted, so it comes back idle.
   const [state, setState] = useRemembered(remembered, 'state', { kind: 'idle' }, (s): State =>
     s.kind === 'loading' ? { kind: 'idle' } : s,
   );
@@ -119,7 +103,6 @@ export function LandingEstimator() {
         : { apogeeAglM: apogee, firstRateMs: firstRate }
       : null;
   const hasSite = site.latitudeDeg != null && site.longitudeDeg != null;
-  // The form as an estimate request, or null while anything it needs is missing.
   const inputs: EstimateInputs | null =
     site.latitudeDeg != null && site.longitudeDeg != null && plan !== null && /^\d{4}-\d{2}-\d{2}$/.test(date)
       ? {
@@ -141,7 +124,6 @@ export function LandingEstimator() {
       (signal) => runLandingEstimate({ ...asked, today: todayYmd(), apiKey: readWeatherKey() }, { signal }),
       (r) => ({ run: r, inputs: asked }),
     );
-    // On a phone the result is below the form, out of sight of the button.
     if (run) requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest' }));
   };
 

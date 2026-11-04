@@ -3,13 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { importOrk } from '../../../../src/services/files/orkImport';
 import type { ComponentNode, RocketTree } from '../../../../src/engine/openRocketEngine';
 
-/**
- * A configuration's override block names only the fields it changes. The
- * desktop handlers clone the default and apply the block's fields
- * (StageSeparationConfigurationHandler.getConfiguration, and the mount's
- * MotorConfiguration built from the default one), so a field the block leaves
- * out keeps the bare default rather than falling to the kernel's.
- */
+// A field the block omits keeps the bare default (StageSeparationConfigurationHandler.getConfiguration).
 
 const ORK = `<?xml version="1.0"?>
 <openrocket version="1.10">

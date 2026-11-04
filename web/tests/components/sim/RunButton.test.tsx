@@ -12,9 +12,7 @@ const st = () => useWorkspaceStore.getState();
 const byName = (n: string) => st().sims.find((x) => x.name === n)!;
 const button = () => screen.getByRole('button') as HTMLButtonElement;
 
-// Row 0 survives `beforeEach` (it deletes down to one and re-adds), so its
-// launch block has to be reset explicitly or a test that blanks a field leaks
-// into the next one.
+// Row 0 survives `beforeEach`, so its launch block is reset explicitly.
 const LAUNCH = {
   launchRodLengthM: 1,
   launchRodAngleDeg: 0,
@@ -27,14 +25,6 @@ const LAUNCH = {
   pressureHPa: null,
 };
 
-/**
- * What the button promises has to match what the run will do.
- *
- * Every selected row is judged by `services/flight/runnability`, the rule the
- * run loop applies. The label counts the flyable rows, the notice names the ones
- * that will be skipped, and the button goes dead only when no selected row can
- * fly.
- */
 describe('RunButton over a selection', () => {
   beforeEach(() => {
     st().setSimsSelected([]);
@@ -47,8 +37,6 @@ describe('RunButton over a selection', () => {
     st().commitEdit();
 
     useWorkspaceStore.setState({
-      // `info` gates the button independently (the design has to have been
-      // measured); a plausible stub keeps this test about runnability.
       info: { length: 0.3, mass: 0.07 } as never,
       sims: st()
         .sims.map((x) => ({ ...x, launch: { ...LAUNCH } }))
@@ -56,14 +44,12 @@ describe('RunButton over a selection', () => {
           x.name === 'TooWindy' ? { ...x, launch: { ...x.launch, windAverage: MAX_WIND_SPEED_MS + 5 } } : x,
         ),
     });
-    // A curve-less motor is what an unresolved .ork import leaves behind.
     seatMotor('NoMotor', CURVELESS);
   });
 
   it('counts only the rows that will actually fly', () => {
     st().setSimsSelected([byName('Good').id, byName('NoMotor').id, byName('TooWindy').id]);
     renderWithProviders(<RunButton />);
-    // Three ticked, one flyable: the label must not promise three flights.
     expect(button().disabled).toBe(false);
     expect(button().textContent).toMatch(/Run flight simulation/i);
   });
@@ -72,7 +58,6 @@ describe('RunButton over a selection', () => {
     st().setSimsSelected([byName('Good').id, byName('TooWindy').id]);
     renderWithProviders(<RunButton />);
     expect(button().disabled).toBe(false);
-    // Blocking here would refuse a perfectly good flight over an unrelated row.
     expect(screen.getByText(/TooWindy/)).toBeTruthy();
     expect(screen.getByText(/Skipping/i)).toBeTruthy();
   });
@@ -99,8 +84,6 @@ describe('RunButton over a selection', () => {
   });
 
   it('refuses a row with a blank required field, naming the field', () => {
-    // A panel that coerces a cleared box to 0 cannot produce this, and an empty
-    // rod length flies as a zero-length rod.
     useWorkspaceStore.setState({
       sims: st().sims.map((x) => (x.name === 'Good' ? { ...x, launch: { ...x.launch, launchRodLengthM: null } } : x)),
     });

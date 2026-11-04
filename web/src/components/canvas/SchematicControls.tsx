@@ -8,14 +8,7 @@ import { token } from '../common/colorTokens';
 import { SvgExportButton } from './SvgExportButton';
 import { ToolDivider } from './ViewBtn';
 
-/**
- * The TreeSchematic control strip: SVG / image export and the two caliper
- * toggles. Zoom is not here: it sits over the drawing (`ZoomButtons`). The
- * schematic decides where the strip renders (over the drawing or portaled into the pane header) and owns
- * the state the buttons change; this file is the buttons.
- */
-
-/** A caliper's two ends, in model meters. */
+// Model meters.
 type Caliper = { a: number; b: number } | null;
 
 export function SchematicControls({
@@ -32,10 +25,7 @@ export function SchematicControls({
   setCaliperH,
   setCaliperV,
 }: {
-  /** The drawing the export buttons serialize. Read only inside the click
-   *  handlers, never during render. */
   svgRef: RefObject<SVGSVGElement | null>;
-  /** When set, the SVG / image export buttons appear. */
   exportData?: ExportData;
   onError?: (message: string) => void;
   scale: number;
@@ -81,11 +71,6 @@ export function SchematicControls({
           <ToolDivider />
         </>
       )}
-      {/* Named, not just drawn: a bare arrow means nothing until hovered.
-          The word is the start of each one's accessible name, which keeps the
-          whole of the instruction for a screen reader. It shows where the
-          header row has room (ToolDivider in ViewBtn); a tighter row keeps the arrow
-          alone rather than wrapping. */}
       <button
         className="file-btn"
         title={t('schematic.calipersH')}

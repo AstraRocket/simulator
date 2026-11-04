@@ -2,12 +2,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-/**
- * Text that names something on screen uses the name the screen shows, in every
- * locale: a note that explains a menu option by another name, or docs that send
- * the reader to a dialog under a title it does not have, cannot be followed.
- */
-
 const dir = join(__dirname, '../../src/i18n/locales');
 const locales = readdirSync(dir)
   .filter((f) => f.endsWith('.json'))
@@ -43,7 +37,6 @@ describe('the docs name the design report dialog by its title', () => {
   ])('%s', (locale, page) => {
     const title = locales.find((l) => l.file === `${locale}.json`)!.json.export.title as string;
     const doc = readFileSync(page, 'utf8');
-    // The section's first paragraph: the heading is the one titled "(PDF / CSV)" in both.
     const at = doc.search(/^## .*\(PDF \/ CSV\)/m);
     expect(at).toBeGreaterThanOrEqual(0);
     expect(doc.slice(at).split(/\r?\n\r?\n/)[1]).toContain(`**${title}**`);

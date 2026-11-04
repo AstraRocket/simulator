@@ -31,17 +31,10 @@ import fr from '../../src/i18n/locales/fr.json';
 import ja from '../../src/i18n/locales/ja.json';
 import ru from '../../src/i18n/locales/ru.json';
 
-/**
- * Errors a user reads are thrown as keys and translated where they are caught.
- * Each service family below throws for real and is rendered the way a catch
- * site renders it (`errorText(e, i18n.t)`) in a language other than English.
- */
-
 afterEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-/** What the thrown value says, rendered as a catch site renders it. */
 function caught(fn: () => unknown): string {
   try {
     fn();
@@ -104,7 +97,6 @@ describe('errorText', () => {
   });
 });
 
-/** Enough of the kernel facade to build an empty design; a motor never reaches it. */
 const stubEngine = { buildRocket: () => 1, reset: () => undefined } as unknown as Parameters<
   typeof __setEngineForTests
 >[0];

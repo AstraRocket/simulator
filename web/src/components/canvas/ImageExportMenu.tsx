@@ -4,20 +4,10 @@ import { IMAGE_WIDTHS, type ImageFormat } from '../../services/exports/schematic
 import { useMenuPopover } from '../common/useMenuPopover';
 import { token } from '../common/colorTokens';
 
-/** Per-export toggles carried alongside the format/width choice. Nothing here
- *  is persisted: the picker is reopened for every export anyway. */
 export interface ImageExportOptions {
-  /** Reframe the camera so the subject fills the exported frame (3D only). */
   fit: boolean;
 }
 
-/**
- * Format × resolution picker for the 2D/3D image exports. One trigger button,
- * a small popover with a PNG row and a JPG row of width presets. Shared by TreeSchematic (2D
- * rasterize) and Rocket3D (hi-res re-render snapshot) so the two views offer
- * the identical picker. The 3D view additionally opts into the "fit rocket to
- * frame" toggle it needs to spend its megapixels on the rocket.
- */
 export function ImageExportMenu({
   icon,
   label,
@@ -25,20 +15,14 @@ export function ImageExportMenu({
   onPick,
   fitOption,
 }: {
-  /** A decorative glyph before the label, kept out of the accessible name. */
   icon?: string;
   label: string;
   title: string;
   onPick: (format: ImageFormat, widthPx: number, opts: ImageExportOptions) => void;
-  /** Show the "Fit rocket to frame" checkbox. The 2D export has no camera (it
-   *  already draws the whole rocket at identity view), so only the 3D view
-   *  opts in, and its `opts.fit` is forced false everywhere else. */
   fitOption?: boolean;
 }) {
   const { t } = useTranslation();
   const { open, toggle, closeAndRestore, wrapRef, triggerRef, menuRef, onMenuKeyDown } = useMenuPopover();
-  // Default on: an export that spends most of its pixels on background is
-  // rarely what was wanted. Unchecked, the export keeps the on-screen framing.
   const [fit, setFit] = useState(true);
 
   const widthLabel = (w: number) => (w >= 7680 ? '8K' : w >= 3840 ? '4K' : 'HD');
@@ -59,8 +43,7 @@ export function ImageExportMenu({
       </button>
       {open && (
         <div // eslint-disable-line jsx-a11y-x/interactive-supports-focus -- roving tabindex: focus moves to the items, as in the ARIA menu pattern, so the container is not
-          // A `role="menu"` whose children are plain buttons is an invalid
-          // structure: screen readers announce "menu, 0 items".
+          // Children must be menuitems, or screen readers announce "menu, 0 items".
           role="menu"
           ref={menuRef}
           onKeyDown={onMenuKeyDown}
@@ -83,8 +66,6 @@ export function ImageExportMenu({
           }}
         >
           {(['png', 'jpeg'] as ImageFormat[]).map((fmt) => [
-            // The row label is for the eye. Each item names its own format, so
-            // the six read as "PNG HD" and "JPG HD" rather than "HD" twice.
             <span
               key={`${fmt}-label`}
               aria-hidden="true"
@@ -111,8 +92,6 @@ export function ImageExportMenu({
             )),
           ])}
           {fitOption && (
-            // Spans the whole grid under the format rows: it modifies every
-            // button above it, so it reads as a setting, not a fourth width.
             <label
               style={{
                 gridColumn: '1 / -1',

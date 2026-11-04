@@ -18,15 +18,6 @@ import { importNoteText } from '../../../src/services/files/importNote';
 import en from '../../../src/i18n/locales/en.json';
 import fr from '../../../src/i18n/locales/fr.json';
 
-/**
- * Every simulation, with its result summary, through a .ork and back.
- *
- * The file is the desktop's: one <simulation> each, the summary as attributes
- * of <flightdata>, and the status the desktop's loader reads (any summary loads
- * as LOADED unless the status says outdated). `npm run check:ork` opens a file
- * like this in a real OpenRocket; these pin the shape on this side.
- */
-
 const tree = defaultRocketTree();
 const configs = [
   { id: 'cfg-c6', name: 'C6', motors: {} },
@@ -75,7 +66,6 @@ describe('writing every simulation', () => {
     expect(fd.getAttribute('maxaltitude')).toBe('333.5');
     expect(fd.getAttribute('launchrodvelocity')).toBe('18.1');
     expect(fd.hasAttribute('optimumdelay')).toBe(false);
-    // A simulation that never ran carries no summary at all.
     expect(last!.querySelector(':scope > flightdata')).toBeNull();
   });
 
@@ -152,9 +142,7 @@ describe('opening a file with simulations', () => {
     const status = (s: typeof calm) => simStatus(s!, {}, w.tree, isOutdated(s!, w.tree, cfg(s!.configId), prefs));
     expect(calm!.fileSummary?.summary.maxAltitude).toBe(333.5);
     expect(status(calm)).toBe('fromFile');
-    // The file itself said this one was out of date.
     expect(status(windy)).toBe('outdated');
-    // Any edit to what it flies makes the file's figures stale.
     expect(status({ ...calm!, launch: { ...calm!.launch, windAverage: 9 } })).toBe('outdated');
   });
 
@@ -165,12 +153,6 @@ describe('opening a file with simulations', () => {
   });
 });
 
-/**
- * Desktop simulation extensions (air-start, roll control, scripts) cannot run
- * here, but a design opened and saved here must not lose them: the file goes
- * back to desktop with them intact, and the import says they were not run.
- * Read from desktop's own example file.
- */
 describe('desktop simulation extensions', () => {
   const example = readFileSync(resolve(__dirname, '../../../public/examples/simulation-extensions.ork'));
   const res = importOrk(example.buffer.slice(example.byteOffset, example.byteOffset + example.byteLength));
@@ -185,7 +167,7 @@ describe('desktop simulation extensions', () => {
     const note = noteTexts(res.notes).find((n) => /Simulation extensions do not run in this app/.test(n))!;
     expect(note).toContain('Air-start');
     expect(note).not.toMatch(/AirStart|RollControl/);
-    // An id from the file that names an Object.prototype member reads as itself.
+    // An Object.prototype member name as the id reads as itself.
     const odd = importOrk(
       new TextDecoder()
         .decode(Object.values(unzipSync(new Uint8Array(example)))[0])
@@ -202,7 +184,6 @@ describe('desktop simulation extensions', () => {
         /<extension extensionid="[^"]*RollControl">[\s\S]*?<\/extension>/,
         '<extension extensionid="info.openrocket.core.simulation.extension.impl.ScriptingExtension"><entry key="language" type="string">Python</entry></extension>',
       );
-    // Opened in English, read in French: the note follows the language shown.
     const notes = importOrk(xml).notes;
     await i18n.changeLanguage('fr');
     try {
@@ -234,17 +215,10 @@ describe('desktop simulation extensions', () => {
     const at = xml.indexOf(carried[0]!);
     expect(at).toBeGreaterThan(xml.indexOf('</conditions>'));
     expect(at).toBeLessThan(xml.indexOf('<flightdata'));
-    // And they read back the same, so a second round trip keeps them too.
     expect(importOrk(xml).simulations![0]!.xmlExtra).toEqual(carried);
   });
 });
 
-/**
- * The conditions a saved result was flown under. The desktop re-flies a
- * simulation from its `<conditions>`, so a result written up to date has to
- * carry the step, limit and warning thresholds the run used, and a desktop
- * file's own conditions this app does not model have to survive a save.
- */
 describe('simulation options in the conditions', () => {
   const prefs = {
     timeStep: 0.01,
@@ -298,7 +272,6 @@ describe('simulation options in the conditions', () => {
       ],
     });
     expect(cond(xml, 'draglookupcsv')).toBe('drag.csv');
-    // No seed of its own, so the file's stands.
     expect(cond(xml, 'randomseed')).toBe('1234');
     expect(xml.match(/<timestep>/g)).toHaveLength(1);
     expect(xml).not.toMatch(/<\/conditions>\s*<conditions>/);
@@ -352,12 +325,6 @@ describe('simulation options in the conditions', () => {
   });
 });
 
-/**
- * Desktop keeps a time step, a maximum time and the recovery warnings per
- * simulation (`SimulationConditionsHandler` reads them into that simulation's
- * options), so each simulation's own go out in its conditions and come back as
- * its own overrides, where they differ from the app's globals.
- */
 describe("each simulation's own run settings", () => {
   const globals = {
     timeStep: 0.05,

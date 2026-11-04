@@ -10,8 +10,6 @@ const spec = (designation: string, manufacturer?: string): MotorSpec =>
   ({ designation, manufacturer, diameter: 0.024, length: 0.07, ejectionDelay: 5 }) as unknown as MotorSpec;
 const mount = (designation: string, extra?: Partial<MountMotor>, manufacturer?: string): MountMotor =>
   ({ spec: spec(designation, manufacturer), ...extra }) as MountMotor;
-
-// Two mounts: the aft one and a second ('pod') standing in for a cluster/pod.
 const tree = {
   components: [
     node({ type: 'bodytube', id: 'primary', motorMount: true }),
@@ -50,8 +48,8 @@ describe('buildExportMotorMap', () => {
       primary: { designation: 'D12', manufacturer: 'Estes', diameter: 0, length: 0, delay: 5 },
     };
     const m = buildExportMotorMap(tree, newFlightConfig({ primary: mount('D12') }), base);
-    expect(m.primary!.manufacturer).toBe('Estes'); // preserved from import
-    expect(m.primary!.diameter).toBe(0.024); // overwritten with the live value
+    expect(m.primary!.manufacturer).toBe('Estes');
+    expect(m.primary!.diameter).toBe(0.024);
   });
 
   it('leaves out a mount a loaded file left empty, so the desktop is not sent a motor named ""', () => {
@@ -67,10 +65,6 @@ describe('buildExportMotorMap', () => {
 
 describe('the motor manufacturer', () => {
   it('is the seated motor’s own', () => {
-    // The desktop resolves a motor by manufacturer and designation, so a file
-    // that names no manufacturer opens with "No motor with designation 'C6' for
-    // manufacturer 'custom' found" and an empty mount. Every motor the picker
-    // seats carries one (thrustcurve.ts), and the map must keep it.
     const m = buildExportMotorMap(tree, newFlightConfig({ primary: mount('C6', undefined, 'Estes') }));
     expect(m.primary).toMatchObject({ designation: 'C6', manufacturer: 'Estes' });
   });

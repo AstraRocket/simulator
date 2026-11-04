@@ -14,7 +14,6 @@ import {
 const JAVA_ROOT = fileURLToPath(
   new URL('../../../engine-java/src/java/info/openrocket/core/rocketcomponent/', import.meta.url),
 );
-/** Java source with runs of whitespace collapsed, so the guards survive reformatting. */
 const javaSource = (file: string): string => readFileSync(JAVA_ROOT + file, 'utf8').replace(/\s+/g, ' ');
 
 const pod = (children: ComponentNode[], props: Record<string, unknown> = {}): ComponentNode => ({
@@ -28,7 +27,7 @@ describe('assemblyChainLength', () => {
     const p = pod([
       { type: 'nosecone', length: 0.05 },
       { type: 'bodytube', length: 0.1 },
-      { type: 'parachute', length: 0.3 }, // internal, not part of the chain
+      { type: 'parachute', length: 0.3 },
     ]);
     expect(assemblyChainLength(p)).toBeCloseTo(0.15);
   });
@@ -38,9 +37,7 @@ describe('assemblyChainLength', () => {
   });
 
   it('counts a member with no length at the length the bridge builds it with', () => {
-    // ComponentFactory gives a body tube and a nose cone with no length their
-    // constructors' (KERNEL_DEFAULTS); the pod's chain is that long in the
-    // kernel, not zero.
+    // A lengthless member gets its constructor's length (KERNEL_DEFAULTS), not zero.
     const p = pod([{ type: 'nosecone' }, { type: 'bodytube', length: 0.1 }]);
     expect(assemblyChainLength(p)).toBeCloseTo(KERNEL_DEFAULTS.nosecone.length + 0.1, 12);
     expect(assemblyChainLength(pod([{ type: 'bodytube' }]))).toBeCloseTo(KERNEL_DEFAULTS.bodytube.length, 12);
@@ -62,11 +59,7 @@ describe('assemblyBoundingRadius', () => {
   });
 });
 
-/**
- * `resolveAssemblyRadius` against `RadiusMethod.getRadius` and
- * `ComponentAssembly.getBoundingRadius`, transcribed below from the Java rather
- * than summed by hand.
- */
+// The expected values are transcribed from the Java below, not summed by hand.
 describe('resolveAssemblyRadius vs RadiusMethod.java', () => {
   const radiusMethod = javaSource('position/RadiusMethod.java');
   const assembly = javaSource('ComponentAssembly.java');

@@ -10,17 +10,9 @@ import {
   MIN_ROWS,
   // @ts-expect-error - a plain .mjs build script helper, no types
 } from '../../../scripts/lib/digestCoverage.mjs';
-
-/**
- * The floors a parts or motor catalog has to meet before the sync scripts write
- * it or the workflow publishes it. A catalog without digests looks fine in the
- * app and breaks every part and motor link a saved .ork carries into desktop
- * OpenRocket, so it has to fail loudly instead.
- */
 type Row = { type: string; mfr?: string; partNo?: string; desc?: string; digest?: string };
 type Motor = { digests?: unknown[] };
 
-// Each digest names one desktop preset, so every digested row gets its own.
 const parts = (type: string, rows: number, digested: number): Row[] =>
   Array.from({ length: rows }, (_, i) => ({ type, ...(i < digested ? { digest: `${type}-${i}` } : {}) }));
 const motors = (rows: number, digested: number): Motor[] =>
@@ -50,12 +42,6 @@ describe('the digest floors', () => {
   it('do not hold a type with few rows to the per-type floor', () => {
     expect(partProblems([...parts('bodytube', 1000, 1000), ...parts('railbutton', MIN_ROWS - 1, 0)])).toEqual([]);
   });
-
-  // A digest names one desktop preset (ComponentPreset.getDigest, one checksum
-  // over one preset's fields). Two rows under one digest make a saved .ork link
-  // the second row to the first row's preset, and desktop loads that preset's
-  // dimensions over the part. Coverage is full here, so the floors pass; the
-  // shared digest alone has to refuse the catalog.
   it('refuse a digest carried by more than one row, however full the coverage', () => {
     const rows = parts('bodytube', 100, 100);
     const shared: Row = { type: 'bodytube', mfr: 'BMS', partNo: 'T5Plus-34', digest: 'bodytube-7' };
@@ -70,12 +56,6 @@ describe('the digest floors', () => {
     expect(partProblems(parts('bodytube', 100, 95))).toEqual([]);
   });
 });
-
-/**
- * The run-to-run guard. The catalogs follow sources we do not control, so a row
- * that went away upstream takes its digest with it and the run goes on; a row
- * that is still there and lost its digest is a broken run and is refused.
- */
 describe('the digest comparison with the previous catalog', () => {
   const row = (key: string, digested = true) => ({ key, digested });
 
@@ -113,12 +93,6 @@ describe('the digest comparison with the previous catalog', () => {
     expect(text).toContain('- `AT|H128`');
   });
 });
-
-/**
- * Every preset the release holds needs a row: a saved .ork names its part by
- * the preset's digest, and a preset no row carries is a part the app cannot
- * name, however full the per-type floors look.
- */
 describe('presetsWithoutRow', () => {
   const presets = [
     { digest: 'a', label: 'bodytube Estes BT-20 (a)' },
@@ -131,8 +105,6 @@ describe('presetsWithoutRow', () => {
   });
 
   it('names a preset whose twin took the only row', () => {
-    // Two .orc elements that differ only in fields the row reader drops (a
-    // stated mass, an image) collapse into one row and one digest.
     expect(presetsWithoutRow(presets, [{ digest: 'a' }, { digest: 'c' }, {}])).toEqual(['bodytube Estes BT-20 (b)']);
   });
 });

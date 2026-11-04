@@ -13,30 +13,12 @@ import {
   zeroTwoPi,
 } from '../../../src/services/report/markingGuide';
 
-/**
- * The fin marking guide's numbers, which nothing else in the app can check.
- *
- * `FinMarkingGuide.java` is in OpenRocket's `swing` module, and the extraction
- * under `engine-java/src/java` is sparse to `core/src/main/java`, so unlike
- * the fin planform, there is no committed Java here for a kernel test to
- * re-derive these from. This file is the substitute: each case states the
- * upstream rule it pins and, where the value is arithmetic rather than a rule,
- * works it out independently of the implementation.
- *
- * It matters because every failure mode here is invisible on paper. A strip cut
- * to the tube's circumference instead of the paper's is 0.6 mm short on any
- * tube and looks perfect; a seam rule that drifts puts a fin line under the
- * tape, where it cannot be marked at all.
- */
-
 const node = (o: object) => o as unknown as ComponentNode;
 const tree = (...components: ComponentNode[]) => ({ name: 'T', components }) as unknown as RocketTree;
 const deg = (d: number) => (d * Math.PI) / 180;
 
 describe('guideCircumferenceMm', () => {
   it('wraps the PAPER, not the tube: one paper thickness further out', () => {
-    // 38 mm radius: the strip has to be 2*pi*0.1 mm longer than the tube itself,
-    // or its ends do not meet once it is wrapped.
     expect(guideCircumferenceMm(0.038)).toBeCloseTo(2 * Math.PI * 38.1, 9);
     expect(guideCircumferenceMm(0.038) - 2 * Math.PI * 38).toBeCloseTo(2 * Math.PI * 0.1, 9);
   });
@@ -56,8 +38,7 @@ describe('zeroTwoPi', () => {
   });
 
   it('folds exactly 2pi to 0, where upstream leaves it at 2pi', () => {
-    // Upstream's `while (v > TWO_PI)` never fires on equality, which would put
-    // a mark at the far end of the strip and open a phantom gap for the seam.
+    // Upstream's `while (v > TWO_PI)` misses equality, opening a phantom seam gap.
     expect(zeroTwoPi(TWO_PI)).toBe(0);
   });
 });
@@ -69,9 +50,6 @@ describe('radialOrigin', () => {
   });
 
   it('splits the widest gap so no mark lands on the seam', () => {
-    // Three fins at 0/120/240 leave three equal gaps; the first one found wins
-    // and the seam sits in its middle. What matters is the mark nearest the
-    // seam: it has to be half a gap away, which is as far as the design allows.
     const marks = [0, deg(120), deg(240)];
     const o = radialOrigin(marks);
     const away = marks.map((a) => {
@@ -82,9 +60,6 @@ describe('radialOrigin', () => {
   });
 
   it('uses the wrap-around gap when the marks are bunched', () => {
-    // Everything between 10 and 40 degrees: the real gap runs 40 -> 370, and a
-    // rule that only looked at sorted neighbors would seam the strip inside the
-    // cluster, on top of a fin.
     const marks = [deg(10), deg(20), deg(40)];
     expect(radialOrigin(marks)).toBeCloseTo(deg(205), 9);
   });
@@ -106,8 +81,6 @@ describe('mountAngles', () => {
   });
 
   it('gives a lug and a rail button one mark, at the angle the .ork writer saves', () => {
-    // The 180-degree fallback is the kernel default that exportWriters.ts and
-    // rocketPieces.ts also use, not a number chosen here.
     expect(mountAngles(node({ type: 'launchlug', id: 'l' }))).toEqual([Math.PI]);
     expect(mountAngles(node({ type: 'railbutton', id: 'r', angleOffset: deg(90) }))).toEqual([deg(90)]);
   });
@@ -119,8 +92,6 @@ describe('cutPoints', () => {
   });
 
   it('cuts a 4 in tube into as few pieces as the page allows', () => {
-    // 308.5 mm of wrap against an A4 portrait strip height: two pieces, not
-    // three, and never a scaled-down one.
     const c = guideCircumferenceMm(0.049);
     const cuts = cutPoints([20, 120, 220], c, 264);
     expect(cuts).toHaveLength(3);
@@ -130,8 +101,6 @@ describe('cutPoints', () => {
   });
 
   it('puts the join in a gap rather than on a mark', () => {
-    // An even split of 300 would cut at 150, which is exactly where a mark is.
-    // The join is tape, so a mark on it cannot be transferred to the tube.
     const marks = [40, 150, 260];
     const cuts = cutPoints(marks, 300, 200);
     expect(cuts).toHaveLength(3);
@@ -140,8 +109,6 @@ describe('cutPoints', () => {
   });
 
   it('never lets a piece outgrow the page to find a gap', () => {
-    // The marks crowd both ends of the wrap; every piece still has to fit in
-    // 160 mm, whichever gap the cut lands in.
     const marks = [5, 10, 15, 20, 290, 295];
     const cuts = cutPoints(marks, 300, 160);
     for (let i = 1; i < cuts.length; i++) expect(cuts[i]! - cuts[i - 1]!).toBeLessThanOrEqual(160);
@@ -193,17 +160,13 @@ describe('markingGuides', () => {
     const { guides } = markingGuides(finned([{ type: 'trapezoidfinset', id: 'f', finCount: 4 }]));
     const g = guides[0]!;
     expect(g.circumferenceMm).toBeCloseTo(guideCircumferenceMm(0.038), 12);
-    // Four fins, a quarter of the wrap apart, wherever the seam ended up.
     const gaps = g.marks.slice(1).map((m, i) => m.posMm - g.marks[i]!.posMm);
     for (const gap of gaps) expect(gap).toBeCloseTo(g.circumferenceMm / 4, 9);
-    // And none of them on the seam itself.
     expect(g.marks[0]!.posMm).toBeGreaterThan(0);
     expect(g.marks[g.marks.length - 1]!.posMm).toBeLessThan(g.circumferenceMm);
   });
 
   it('marks a lug relative to the fins, which is the whole point of the guide', () => {
-    // Fins at 0/120/240 and a lug at 60: the lug must land exactly halfway
-    // between two fin marks on the strip.
     const { guides } = markingGuides(
       finned([
         { type: 'trapezoidfinset', id: 'f', name: 'Fins', finCount: 3 },
@@ -259,17 +222,12 @@ describe('markingGuides', () => {
   });
 
   it('gives a tube with only a lug no guide, and says so', () => {
-    // Upstream's `hasFins`: this is a fin marking guide, and a lone lug line
-    // has no fin to be square to. Upstream then drops the lug silently.
     const { guides, omitted } = markingGuides(finned([{ type: 'launchlug', id: 'l', name: 'Lug' }]));
     expect(guides).toEqual([]);
     expect(omitted).toEqual([{ name: 'Lug', type: 'launchlug', reason: 'noFins' }]);
   });
 
   it('does not wrap a nose cone, and names what it could not mark', () => {
-    // A nose cone's circumference changes along its length, so there is no one
-    // wrap to cut. Upstream attributes such a fin to the previous body tube and
-    // marks it at that tube's circumference, which is a wrong guide, not none.
     const t = tree(
       node({
         type: 'stage',
@@ -332,12 +290,7 @@ describe('markingGuides', () => {
 });
 
 describe('tab slots', () => {
-  /**
-   * The slot is the kernel's tab (`FinSet.getTabFrontEdge()`, which is
-   * `AxialMethod.getAsPosition(tabOffset, tabLength, rootChord)`, to that plus
-   * the tab length), turned around to be measured forward from the root's aft
-   * end. The expected numbers below are that arithmetic done by hand.
-   */
+  // The kernel's tab (`FinSet.getTabFrontEdge()`) measured forward from the root's aft end.
   const slotOf = (fin: object, tubeProps: object = {}) =>
     markingGuides(
       tree(
@@ -359,7 +312,6 @@ describe('tab slots', () => {
   const tab = { tabHeight: 0.01, tabLength: 0.06, thickness: 0.003 };
 
   it('centers a middle tab on the root', () => {
-    // Front edge (0.1 - 0.06) / 2 = 0.02 from the root front: 20 to 80 mm from the aft end.
     const slot = slotOf({ ...tab, tabOffsetMethod: 'middle', tabOffset: 0 })!;
     expect(slot.aftMm).toBeCloseTo(20, 9);
     expect(slot.foreMm).toBeCloseTo(80, 9);
@@ -367,11 +319,9 @@ describe('tab slots', () => {
   });
 
   it('measures a tab placed from the root front or back by its own method', () => {
-    // top, offset 5 mm: front edge 0.005, trailing 0.065, so 35 to 95 mm from the aft end.
     const top = slotOf({ ...tab, tabOffsetMethod: 'top', tabOffset: 0.005 })!;
     expect(top.aftMm).toBeCloseTo(35, 9);
     expect(top.foreMm).toBeCloseTo(95, 9);
-    // bottom, offset -5 mm: front edge -0.005 + (0.1 - 0.06) = 0.035, trailing 0.095: 5 to 65 mm.
     const bottom = slotOf({ ...tab, tabOffsetMethod: 'bottom', tabOffset: -0.005 })!;
     expect(bottom.aftMm).toBeCloseTo(5, 9);
     expect(bottom.foreMm).toBeCloseTo(65, 9);
@@ -422,7 +372,6 @@ describe('tab slots', () => {
 describe('GUIDE_WIDTH_MM', () => {
   it('is upstream 3 inches, and two strips still fit a portrait page', () => {
     expect(GUIDE_WIDTH_MM).toBeCloseTo(76.2, 9);
-    // A4 portrait content width, from layout.pageFrame: 210 - 2*12.
     expect(2 * GUIDE_WIDTH_MM + 10).toBeLessThanOrEqual(186);
   });
 });

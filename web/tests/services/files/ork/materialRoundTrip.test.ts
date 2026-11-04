@@ -7,32 +7,12 @@ import { readData } from '../../../testing/dataDir';
 import type { MaterialRow } from '../../../../src/services/materials/materialTypes';
 import type { ComponentNode, ComponentType, RocketTree } from '../../../../src/engine/openRocketEngine';
 
-// Straight off the shipped catalog rather than through the loader: the point is
-// that a material the app offers reaches the file, so the list has to be the
-// one the app downloads.
 const CATALOG = readData<MaterialRow[]>('materials.generated.json');
 const ADHESIVE_MATERIALS = CATALOG.filter((m) => m.kind === 'adhesive');
 const CORRECTED_MATERIALS = CATALOG.filter((m) => m.kind === 'corrected');
 
-/**
- * A material the app offers has to reach the file.
- *
- * The densities are what the physics runs on, and they ride in the `density`
- * attribute of every `<material>` element. The name is the part that can go
- * missing, and it matters once the app offers materials upstream does not have:
- * an adhesive, or one of the corrected elastic cords. Lose the name and the
- * design still flies correctly, and the next person to open it cannot tell what
- * it was built out of.
- *
- * The invariant: **if `hasMaterial(type)` is true, that type's material name
- * and density survive a `.ork` round trip.**
- * `fairing` is not offered a material (see `hasMaterial` in `treeEdit.ts`): its
- * material does not reach the kernel and the writer has no element for it.
- */
-
 const node = (o: object) => o as unknown as ComponentNode;
 
-/** Every type the editor offers a bulk material for. */
 const BULK_TYPES: ComponentType[] = (
   [
     'nosecone',
@@ -73,9 +53,6 @@ describe('a material the editor offers survives a .ork round trip', () => {
     const part = defaultNode(type) as unknown as Record<string, unknown>;
     part.id = 'probe';
     part.name = 'Probe';
-    // A name the app has and upstream does not, which is the case that matters:
-    // a reader falling back to "whatever material is called that upstream"
-    // would still pass with 'Cardboard'.
     part.materialName = 'Epoxy - RocketPoxy G5000';
     part.density = 1500;
 
@@ -132,8 +109,6 @@ describe('a material the editor offers survives a .ork round trip', () => {
     } as unknown as RocketTree;
 
     const back = findByName(roundTrip(tree), 'Probe') as unknown as Record<string, unknown>;
-    // Both, and not confused with one another: the fin is plywood and the bead
-    // is epoxy, which is the whole reason the fillet carries its own material.
     expect(back['materialName']).toBe('Plywood (birch)');
     expect(back['density']).toBe(630);
     expect(back['filletMaterialName']).toBe('Epoxy - West System 105/205 Fast');
@@ -183,8 +158,6 @@ describe('a material the editor offers survives a .ork round trip', () => {
     ['parachute', { diameter: 0.3, cd: 0.8, lineCount: 6, lineLength: 0.3 }],
     ['shockcord', { cordLength: 3 }],
   ])('%s keeps its line material, including one of ours', (type, extra) => {
-    // A corrected elastic cord: a name upstream does not have, on the component
-    // the correction was worth making for.
     const corrected = CORRECTED_MATERIALS[0]!;
     const tree = {
       name: 'RT',
@@ -222,8 +195,7 @@ describe('a material the editor offers survives a .ork round trip', () => {
   });
 
   it('writes the name into the file, not just into the tree it reads back', () => {
-    // The round trips above would all pass if the exporter and the importer
-    // agreed on a private tag the desktop cannot read. Look at the XML.
+    // Round trips would pass with a private tag desktop cannot read, so check the XML.
     const adhesive = ADHESIVE_MATERIALS[0]!;
     const tree = {
       name: 'RT',
@@ -249,16 +221,11 @@ describe('a material the editor offers survives a .ork round trip', () => {
     } as unknown as RocketTree;
 
     const xml = exportOrk({ name: 'RT', tree });
-    // No group: desktop has no adhesives group, and an unknown one raises
-    // "Illegal material group specified, ignoring." on every open.
+    // No group: desktop has no adhesives group and warns on an unknown one.
     expect(xml).toContain(`<material type="bulk" density="${adhesive.density}">${adhesive.name}</material>`);
   });
 
-  /**
-   * The catalog files paper products under "Paper"; desktop writes and reads
-   * them as `PaperProducts` (`MaterialGroup.getDatabaseString`), and warns on
-   * the other spelling.
-   */
+  // Desktop spells "Paper" as `PaperProducts` (`MaterialGroup.getDatabaseString`).
   it("writes a group in desktop's own words", () => {
     const tree = {
       name: 'RT',

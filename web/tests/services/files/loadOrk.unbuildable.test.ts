@@ -4,20 +4,6 @@ import { buildForImport } from '../../../src/services/files/loadOrk';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 import { noteText } from '../../testing/importNotes';
 
-/**
- * Opening a file is not flying it.
- *
- * The kernel refuses a self-intersecting freeform outline by name rather than
- * rolling it back to its default fin (engine-java/patches/LEDGER.md), which is
- * what the app wants everywhere a number is shown. On import that costs more than
- * it gains: the design that cannot be simulated is exactly the design somebody
- * needs to open in order to fix it, and this app can save such a file - the `.ork`
- * writer takes the tree, not the kernel's opinion of it. So the file opens, the tree
- * arrives as written, and the reason travels with it.
- *
- * Real kernel, so the recovery is tested against what the Java actually throws
- * rather than against a stub's idea of it.
- */
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
 beforeAll(async () => {
@@ -71,13 +57,8 @@ describe('buildForImport', () => {
     const built = buildForImport(t);
     expect(noteText(built.unbuildable!)).toMatch(/Aft fins/);
     expect(noteText(built.unbuildable!)).toMatch(/crosses or touches itself/);
-    // The note has to be usable on its own: the banner is the other place the
-    // same sentence shows up, and a user reading only the import notes should
-    // know the design is open and what is blocked.
     expect(noteText(built.unbuildable!)).toMatch(/open so it can be fixed/);
-    // The handle is a throwaway built from a repaired copy; the tree is not
-    // touched, so the outline the file stated is what the editor draws and what
-    // a re-export writes.
+    // The handle is built from a repaired copy; the tree keeps the file's outline.
     type Node = { type: string; children?: Node[]; points?: number[][] };
     const stage = (t.components as unknown as Node[])[0]!;
     expect(stage.children![1]!.children![0]!.points).toEqual(BOWTIE);

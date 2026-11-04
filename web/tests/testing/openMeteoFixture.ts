@@ -1,22 +1,8 @@
 import { ALOFT_VARS, FORECAST_SKY_VARS, SKY_VARS, SURFACE_VARS, unitFor } from '../../src/services/weather/openMeteo';
 
-/**
- * Open-Meteo answers for tests, in the service's own shape, so no test reaches
- * the network. Every variable is filled from a plausible column: the surface at
- * 12 °C and 850 hPa (a pad near 1500 m), pressure levels at the heights the
- * barometric formula gives them.
- */
-/** An answer in Open-Meteo's shape: `hours` hourly samples from `start`, every variable filled. */
 export function answer(
   elevation: number,
-  {
-    start = 1_760_000_400,
-    hours = 3,
-    archive = false,
-    units = {} as Record<string, string>,
-    /** Include the sky readouts (cloud cover, and visibility from the forecast). */
-    sky = true,
-  } = {},
+  { start = 1_760_000_400, hours = 3, archive = false, units = {} as Record<string, string>, sky = true } = {},
 ) {
   const skyVars = sky ? [...SKY_VARS, ...(archive ? [] : FORECAST_SKY_VARS)] : [];
   const vars = ['time', ...SURFACE_VARS, ...skyVars, ...(archive ? [] : ALOFT_VARS)];
@@ -43,7 +29,6 @@ function valueFor(v: string, i: number, start: number): number {
   const p = /_(\d+)hPa$/.exec(v);
   if (p) {
     const hPa = Number(p[1]);
-    // A standard-ish column: height from the pressure, colder with height.
     const h = 44330 * (1 - (hPa / 1013.25) ** 0.1903);
     if (v.startsWith('geopotential_height_')) return Math.round(h);
     if (v.startsWith('temperature_')) return 15 - 0.0065 * h;

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// The sim normally runs in a Web Worker; stub it so the batch resolves instantly.
 const simulateMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/engine/simClient', async (orig) => ({
   ...(await orig<typeof import('../../src/engine/simClient')>()),
@@ -27,19 +26,10 @@ const PREFS = {
   drogueLowSpeedWarn: 3.048,
 } as SimPrefs;
 
-// The runs fly the globals the store mirrors, so the mirror holds PREFS.
 beforeEach(() => st().setSimPrefs(PREFS));
 
 const RESULT = { summary: { maxAltitude: 100 }, events: [], series: {} } as unknown as FlightResult;
 
-/**
- * One unflyable row must not cost the rest of the batch.
- *
- * The Run button and the run loop both ask `services/flight/runnability`, so they cannot
- * judge it differently. Judged apart - the button on the active simulation's motor,
- * the safety codes against the whole batch - a batch is vetoed over one bad row, or
- * started with an unflyable row the button never mentions.
- */
 describe('a batch with an unflyable row', () => {
   beforeEach(async () => {
     simulateMock.mockReset();
@@ -60,7 +50,6 @@ describe('a batch with an unflyable row', () => {
       ),
       err: null,
     });
-    // A curve-less motor is exactly what an unresolved .ork import leaves behind.
     seatMotor('NoMotor', CURVELESS);
   });
 
@@ -75,8 +64,6 @@ describe('a batch with an unflyable row', () => {
   });
 
   it('reports BOTH skipped rows, naming each', async () => {
-    // A per-skip `set({ err })` leaves only the last message, with no row name on
-    // it.
     await st().runSims(st().sims.map((x) => x.id));
     const err = st().err ?? '';
     expect(err).toContain('NoMotor');
@@ -84,8 +71,6 @@ describe('a batch with an unflyable row', () => {
   });
 
   it('refuses the whole batch when the DESIGN has a value the kernel cannot fly', async () => {
-    // Every row shares the tree, so there is no good row to let through: a fin
-    // set of no fins is one the bridge refuses to build.
     const tree = st().tree;
     const zeroed = structuredClone(tree);
     let fins = 0;

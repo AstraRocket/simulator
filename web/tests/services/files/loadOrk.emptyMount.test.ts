@@ -5,15 +5,6 @@ import { importNoteText } from '../../../src/services/files/importNote';
 import i18n from '../../../src/i18n';
 import es from '../../../src/i18n/locales/es.json';
 
-/**
- * A `.ork` whose mount carries no motor at all (as opposed to one it names
- * but the app cannot produce, covered in loadOrk.test.ts). The policy is the
- * same: the mount is seated with a curve-less placeholder so the run gate
- * blocks with "no motor", and the import notes say which mount to fill.
- * Nothing downstream may treat the missing entry as a hole for `wireLoadedOrk` or
- * `reconcileConfig` to fill with a default C6.
- */
-
 const design = {
   setMotorById: vi.fn(),
   setMotorIgnitionById: vi.fn(),
@@ -21,15 +12,12 @@ const design = {
 };
 
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: { buildTree: () => design },
   resetEngine: () => {},
 }));
 
-// The parser is stubbed, not the file format: these cover what loadOrk does
-// with an import result (resolving motors, seating placeholders), and the two
-// readers behind `parseDesignFile` have tests of their own. The dispatcher is
-// mocked rather than `./orkFile` because loadOrk reads both `.ork` and `.rkt`.
+// Mocks the dispatcher, not `./orkFile`, because loadOrk reads both `.ork` and `.rkt`.
 vi.mock('../../../src/services/files/designFile', () => ({
   parseDesignFile: () => ({
     tree: {
@@ -80,10 +68,7 @@ describe('loadOrk with mounts the file gave no motor', () => {
     expect(design.setMotorById).not.toHaveBeenCalled();
   });
 
-  // A motor chosen for the slot keeps what the placeholder carries, and desktop
-  // gives a motor chosen for an empty slot the mount's own ignition
-  // (MotorConfigurationPanel.selectMotor copies mount.getMotorConfig(fcid), the
-  // default for an empty slot).
+  // Desktop gives a motor chosen for an empty slot the mount's own ignition (MotorConfigurationPanel.selectMotor).
   it("carries each mount's own ignition into its placeholder", async () => {
     const loaded = await loadOrk(new ArrayBuffer(0));
     expect(loaded.configs[0]!.motors['pod']).toMatchObject({ ignitionEvent: 'burnout', ignitionDelay: 1 });
@@ -100,7 +85,6 @@ describe('loadOrk with mounts the file gave no motor', () => {
   });
 
   it('joins the mount names in the language the note is read in', async () => {
-    // Opened in English, read in Spanish.
     const loaded = await loadOrk(new ArrayBuffer(0));
     const note = loaded.notes.find((n) => typeof n === 'object' && n.key === 'importNote.mountsWithoutMotor')!;
     await i18n.changeLanguage('es');

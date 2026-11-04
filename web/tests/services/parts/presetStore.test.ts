@@ -81,7 +81,6 @@ describe('KeyValuePresetStore', () => {
 
   it('drops a malformed row without losing the rest', async () => {
     const kv = new FakeKv();
-    // `node` missing on the first row; the second is well formed.
     await kv.set(KEY, JSON.stringify([{ id: 'a', type: 'bodytube', mfr: 'm', partNo: 'p', desc: '' }, part('good')]));
     const list = await new KeyValuePresetStore(KEY, kv).list();
     expect(list.map((p) => p.partNo)).toEqual(['good']);
@@ -92,8 +91,6 @@ describe('KeyValuePresetStore', () => {
     kv.get = async () => {
       throw new Error('IndexedDB blocked');
     };
-    // The component picker reads this beside the catalog fetch; a store that
-    // throws must not take the whole picker down.
     expect(await new KeyValuePresetStore(KEY, kv).list()).toEqual([]);
   });
 });

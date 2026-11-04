@@ -19,7 +19,6 @@ vi.mock('../../../src/services/motors/motorDb', async (orig) => ({
 
 const { ExhaustTool } = await import('../../../src/components/tools/ExhaustTool');
 
-/** The tile under a look's heading. */
 const tile = (name: string) => screen.getByRole('heading', { name }).closest('li')!;
 
 describe('the exhaust looks tool', () => {

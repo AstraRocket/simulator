@@ -11,10 +11,6 @@ vi.mock('../../../src/services/files/saveFile', async (orig) => {
 import { exportComponent } from '../../../src/services/files/componentExport';
 import i18n from '../../../src/i18n';
 
-/**
- * An unnamed part's file is named the way every view names the part: by its
- * translated type, not by the type token the tree stores.
- */
 describe('exportComponent file name', () => {
   const tree = {
     name: 'Alpha',

@@ -31,25 +31,11 @@ import { NumberInput } from '../common/NumberInput';
 import { ToggleButton } from '../common/ToggleButton';
 import { smallButton } from '../common/smallButton';
 
-/**
- * "Export flight path": the equivalent of OpenRocket's 3D-path export dialog. Renders a
- * button that opens a modal to pick the format (built-in KML / GPX / waypoint
- * CSV, or an imported Mustache template) and the options (which waypoints,
- * flight-path/ground-track lines, path stride, altitude/distance units), then
- * downloads the rendered file. Exports `flight` when given (the flight on
- * screen, which the Results picker can take from a row other than the active
- * one), else the active simulation's result and launch site.
- *
- * User templates are imported `.mustache` files persisted in the template store,
- * the browser equivalent of OpenRocket's desktop `ExportTemplates` folder.
- */
-
 export function FlightPathExport({
   variant = 'chip',
   flight,
 }: {
   variant?: 'chip' | 'overlay';
-  /** The flight to export; absent, the active simulation's. */
   flight?: ResultFlight | null;
 }) {
   const { t } = useTranslation();
@@ -88,11 +74,7 @@ export function FlightPathExport({
   );
 }
 
-/**
- * Exported so the dialog can be rendered on its own: the button that opens it
- * lives only in the 3D path view, which needs WebGL, and headless Chromium
- * crashes rendering that view.
- */
+// Exported to render on its own: its button lives in the WebGL view, which crashes headless Chromium.
 export function ExportDialog({
   onClose,
   meta,
@@ -108,20 +90,11 @@ export function ExportDialog({
   const { opts, patchOpts, change, setUnit } = useExportOptions();
   const units = useUnits();
   const [colorsOpen, setColorsOpen] = useState(false);
-  // Where a stage's track begins only means something once there is more than
-  // one stage, so the control stays out of the way of a single-stage flight.
   const staged = (result.branches?.length ?? 0) > 1;
-  // The stages that will actually get a track, in the order the model numbers
-  // them - so a swatch always lines up with the branch it colors.
+  // In the model's numbering, so a swatch lines up with the branch it colors.
   const branchNames = useMemo(() => exportBranchNames(result, meta, t), [result, meta, t]);
-  // Which preset the controls currently spell out, or none. Derived every
-  // render rather than remembered from the last click: a preset only sets the
-  // controls, so a remembered selection would go on claiming a shape the
-  // dialog had since been adjusted out of.
   const activePreset = useMemo(() => matchingPreset(opts), [opts]);
-  // The `t` the file is written with. Every locale is bundled at startup, so
-  // `getFixedT` resolves without loading anything; falling back to the app's
-  // own `t` is what makes '' mean "follow the app" with no second code path.
+  // Every locale is bundled at startup, so `getFixedT` loads nothing; '' follows the app.
   const exportT: Translate = useMemo(
     () => (opts.language ? (i18n.getFixedT(opts.language) as unknown as Translate) : (t as Translate)),
     [opts.language, i18n, t],
@@ -140,8 +113,6 @@ export function ExportDialog({
     downloadTemplate,
   } = useExportTemplates();
 
-  // The built-in waypoint CSV ignores the path/geometry options; everything else
-  // (KML, GPX, and any user template) may use them.
   const showPath = !(resolved.kind === 'builtin' && resolved.format.id === 'waypoints-csv');
   const noPosition = !hasLaunchPosition(launch);
 
@@ -154,9 +125,6 @@ export function ExportDialog({
 
   const download = () => {
     try {
-      // Building the model is part of the render that can fail (a result with
-      // no usable samples, a waypoint the branch never reached), so it belongs
-      // under the same catch as the template render rather than in front of it.
       const model = buildFlightPathModel(result, launch, meta, opts, exportT, units.sym('angle'));
       let text: string;
       let ext: string;
@@ -179,20 +147,8 @@ export function ExportDialog({
 
   return (
     <>
-      <Dialog
-        id="pathExport"
-        title={t('pathExport.title')}
-        onClose={onClose}
-        size="md"
-        // A form of sections, read top to bottom. A rule under the heading would
-        // be one more line in something that already has plenty.
-        layout="pad"
-        // A column of labeled fields at a readable measure. Widening it would
-        // stretch the rows, not show more of anything.
-        expandable={false}
-      >
+      <Dialog id="pathExport" title={t('pathExport.title')} onClose={onClose} size="md" layout="pad" expandable={false}>
         <div className="space-y-4">
-          {/* Format */}
           <ExportFormatPicker
             selected={selected}
             templates={templates}
@@ -206,23 +162,15 @@ export function ExportDialog({
             onDelete={deleteSelected}
           />
 
-          {/* Presets sit above the three sections because they reach into all
-              three - which waypoints, whether the lines are drawn, and how it is
-              all placed. They only set the controls below, never act behind
-              them, so what the file will contain is always what the dialog
-              shows and any one of them is a starting point you can adjust. */}
           <Section title={t('pathExport.presets')}>
             <div role="group" aria-label={t('pathExport.presets')} className="flex flex-wrap gap-1.5">
               {EXPORT_PRESETS.map((preset) => {
                 const active = activePreset === preset.id;
                 return (
-                  // A toggle, not a plain button: which shape the dialog is in is
-                  // knowable, so it is announced - see `matchingPreset`.
                   <ToggleButton
                     key={preset.id}
                     active={active}
-                    // The set is cloned on the way in, so the module-level one a
-                    // preset carries is never the object the dialog then mutates.
+                    // Cloned, so the dialog never mutates the preset's module-level set.
                     onClick={() => change({ ...preset.options, waypoints: new Set(preset.options.waypoints) })}
                     title={t(`pathExport.preset.${preset.id}Note`)}
                     className="rounded-md px-2 py-1 text-xs font-medium ring-1 ring-line/10"
@@ -235,7 +183,6 @@ export function ExportDialog({
             <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.presetsNote')}</p>
           </Section>
 
-          {/* Waypoints */}
           <Section title={t('pathExport.waypoints')}>
             <div className="grid grid-cols-2 gap-1.5">
               {WAYPOINT_KINDS.map((k) => (
@@ -249,7 +196,6 @@ export function ExportDialog({
             </div>
           </Section>
 
-          {/* Path geometry - irrelevant to the built-in waypoint CSV. */}
           {showPath && (
             <Section title={t('pathExport.path')}>
               <Check
@@ -269,17 +215,10 @@ export function ExportDialog({
                   step={1}
                   value={opts.pathStride}
                   ariaLabel={t('pathExport.stride')}
-                  // Whole samples, at least one. NumberInput refuses a non-finite
-                  // entry, and an emptied box keeps the stride it had.
                   onChange={(v) => v !== null && change({ pathStride: Math.max(1, Math.floor(v)) })}
                   className="w-20 rounded-md bg-raised px-2 py-1 text-right text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
                 />
               </label>
-              {/* Where a stage's track begins, and what color it is drawn in,
-                  both describe the lines this box controls, so they sit with
-                  them rather than under Placement, which is about where the
-                  drawing lands on the map. Which stage a track BEGINS at only
-                  means something once there is more than one. */}
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                 {staged ? (
                   <SelectRow<StageTrackStart>
@@ -297,8 +236,6 @@ export function ExportDialog({
                   type="button"
                   onClick={() => setColorsOpen(true)}
                   title={t('pathExport.stageColorsTitle')}
-                  // text-sm to match the stage-track-start select beside it:
-                  // the two are halves of one row.
                   className="rounded-md bg-raised px-3 py-1.5 text-sm font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
                 >
                   {t('pathExport.stageColors')}
@@ -307,7 +244,6 @@ export function ExportDialog({
             </Section>
           )}
 
-          {/* How the track is placed on the map, and how much of it is drawn. */}
           <Section title={t('pathExport.placement')}>
             <AltitudeRefSelect
               label={t('pathExport.trackAltitude')}
@@ -340,8 +276,6 @@ export function ExportDialog({
             <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.pinsNote')}</p>
           </Section>
 
-          {/* What the file says, rather than where it sits - so it is neither
-              Placement nor Flight path, and no preset touches it. */}
           <Section title={t('pathExport.balloons')}>
             <Check
               checked={opts.includeDescriptions}
@@ -351,7 +285,6 @@ export function ExportDialog({
             <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.descriptionsNote')}</p>
           </Section>
 
-          {/* Units */}
           <Section title={t('pathExport.units')}>
             <UnitRow
               label={t('pathExport.altitude')}
@@ -379,17 +312,13 @@ export function ExportDialog({
             <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.languageNote')}</p>
           </Section>
 
-          {/* Its own group, after Units, because it names the whole document
-              rather than any one aspect of the geometry, so it belongs in
-              neither Placement nor Flight path. */}
           <Section title={t('pathExport.mission')}>
             <input
               type="text"
               value={opts.missionName}
               aria-label={t('pathExport.mission')}
               placeholder={t('pathExport.missionPlaceholder')}
-              // Dialog state only: the mission name is never persisted, and
-              // typing it must not write the settings (see `useExportOptions`).
+              // Never persisted: typing must not write the settings (see `useExportOptions`).
               onChange={(e) => patchOpts({ missionName: e.target.value })}
               className="w-full rounded-md bg-raised px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-dim focus:outline-none focus:ring-accent-500"
             />
@@ -427,9 +356,7 @@ export function ExportDialog({
         </DialogActions>
       </Dialog>
 
-      {/* Outside the Dialog, not inside its panel: it is its own surface on its
-          own layer, and rendered within the panel it would inherit the panel's
-          clipping. */}
+      {/* Outside the Dialog, or it inherits the panel's clipping. */}
       {colorsOpen && (
         <StageColorDialog
           names={branchNames}

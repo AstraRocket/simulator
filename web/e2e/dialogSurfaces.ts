@@ -1,10 +1,3 @@
-/**
- * Every component that renders a dialog shell (`<Dialog>`, `<AlertDialog>` or
- * `<MasterDetailDialog>`),
- * with how many shells it renders. tests/dialogSurfaces.test.ts holds this list
- * to the source, and a11y.spec.ts keys its dialog scans on it, so a dialog the
- * app gains fails a gate until axe scans it.
- */
 export const DIALOG_SURFACES = {
   AboutDialog: 1,
   BackupDialog: 1,
@@ -14,7 +7,6 @@ export const DIALOG_SURFACES = {
   DesignLibraryDialog: 1,
   DesignPropertiesDialog: 1,
   ExamplesDialog: 1,
-  // The report, and its print settings over it.
   ExportDialog: 2,
   FinFlutterReadout: 1,
   FlightCsvDialog: 1,
@@ -35,7 +27,6 @@ export const DIALOG_SURFACES = {
   SavedPartsDialog: 1,
   ScaleDialog: 1,
   SettingsDialog: 1,
-  // The Benchtop tab's motor guide.
   SimpleMotorGuide: 1,
   SiteMapDialog: 1,
   StageColorDialog: 1,

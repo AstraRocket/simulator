@@ -11,17 +11,6 @@ import {
 } from '../../src/engine/openRocketEngine';
 import { KeyedError } from '../../src/i18n/keyedError';
 
-/**
- * The typed error the wrapper raises for kernel calls that cannot return an
- * `{error}` envelope: `buildRocket`, `setMotorById`, `setMotorIgnitionById`,
- * the flag setters and `getWorstThetaDeg` (see engine-java/README.md, "What
- * the void and primitive exports do on failure").
- *
- * Stubbed on purpose. The real-kernel files assert what the Java rejects; this
- * one asserts the shape the wrapper gives a rejection, which does not depend
- * on the physics and must hold for a failure the kernel has never seen.
- */
-
 const stubApi = (over: Record<string, unknown> = {}) => ({
   buildRocket: () => 1,
   reset: () => undefined,
@@ -97,16 +86,12 @@ describe('EngineCallError names the call and keeps the cause', () => {
       expect((caught as Error).message).toMatch(/delayS/);
     }
     expect(reached).toBe(false);
-    // A finite delay still goes through.
     design.setMotorIgnitionById('mount', 'launch', 1.5);
     expect(reached).toBe(true);
   });
 });
 
 describe('a stale handle is reported as StaleDesignError, never re-wrapped', () => {
-  // `callEngine` runs the handle getter inside its try, so the generation
-  // check throws where a kernel failure would. The wrapper must let that
-  // typed error through untouched rather than burying it in an EngineCallError.
   it('for a void export', () => {
     const design = OpenRocketDesign.buildTree(TREE);
     resetEngine();
@@ -130,8 +115,7 @@ describe('a stale handle is reported as StaleDesignError, never re-wrapped', () 
   it('for the ignition setter, ahead of the delay check', () => {
     const design = OpenRocketDesign.buildTree(TREE);
     resetEngine();
-    // Both a stale handle and a bad delay: the delay check runs first (it needs
-    // no handle), so this is the one case where EngineCallError wins.
+    // The delay check needs no handle and runs first, so EngineCallError wins here.
     expect(() => design.setMotorIgnitionById('mount', 'launch', Infinity)).toThrow(EngineCallError);
     expect(() => design.setMotorIgnitionById('mount', 'launch', 0)).toThrow(StaleDesignError);
   });
@@ -228,7 +212,6 @@ describe('the motor curve guard throws keyed errors', () => {
     ejectionDelay: 6,
   };
 
-  /** What `setMotorById` throws for `motor`, or undefined if it seats. */
   const refusal = (motor: MotorSpec): unknown => {
     try {
       OpenRocketDesign.buildTree(TREE).setMotorById('mount', motor);
@@ -256,7 +239,6 @@ describe('the motor curve guard throws keyed errors', () => {
     const k = e as KeyedError;
     expect(k.key).toBe(`errors.motorCurve.${name}`);
     expect(k.values?.motor).toBe('F67');
-    // The English text stays readable for a log.
     expect(k.message).toContain('F67');
   });
 

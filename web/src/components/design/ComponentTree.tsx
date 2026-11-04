@@ -12,8 +12,6 @@ import type { TreeCommands } from './useTreeEdit';
 import { toggled } from '../../services/app/collections';
 import { collectNodes } from '../../tree/treeWalk';
 
-// Parts offered in the "Add part" menu, grouped like OpenRocket's palette.
-// Labels come from the `part.*` / `tree.*` i18n keys at render time.
 const ADD_GROUPS: { group: string; items: ComponentType[] }[] = [
   { group: 'groupBody', items: ['nosecone', 'bodytube', 'transition'] },
   { group: 'groupFins', items: ['trapezoidfinset', 'ellipticalfinset', 'freeformfinset', 'tubefinset'] },
@@ -23,37 +21,12 @@ const ADD_GROUPS: { group: string; items: ComponentType[] }[] = [
   { group: 'groupAssembly', items: ['podset', 'parallelstage'] },
 ];
 
-/**
- * The component tree for the left panel: an OpenRocket-style indented
- * hierarchy of the rocket's parts (stage > components > sub-components). Renders
- * the same `RocketTree` the 2D/3D views draw, so it works for a loaded `.ork`
- * design as well as the built-in editor design. Each row shows a per-type glyph,
- * the part name, a "motor" tag on motor mounts, and a key dimension.
- *
- * Selection is two-way with the 2D schematic: clicking a row selects the part
- * (and the schematic outlines it); selecting in the schematic highlights the
- * row here and scrolls it into view. The header adds parts and stages, opens
- * Scale, and carries Cut, Copy, Paste and Duplicate when `edit` is given.
- *
- * A real `tree` of `treeitem`s, not `role="button"` rows: a button may not contain
- * interactive content, which the expand toggle and the export button are, and it
- * tells a screen reader nothing about depth, folding or which row is selected. The
- * rows are a flat list; `aria-level` carries the depth, as ARIA allows for a
- * flattened tree.
- */
+// `treeitem`s, not `role="button"` rows: a button may not contain the expand toggle or export button.
 
-/**
- * The two tree walks the memos below run, at module scope. The compiler lint
- * reads a recursive arrow inside a useMemo, a closure that calls itself, as a
- * missing dependency; a plain function that takes what it needs has no closure
- * to be wrong about.
- */
-/** Every id-bearing node that has children (the collapsible ones), in tree order. */
+// At module scope: the compiler lint reads a recursive arrow in a useMemo as a missing dependency.
 function collectBranchIds(nodes: ComponentNode[]): string[] {
   return collectNodes(nodes, (n) => (n.children?.length ?? 0) > 0).map((n) => n.id as string);
 }
-/** The visible, selectable rows in the order they are drawn: children of a
- *  collapsed branch are skipped, and nothing is selectable without `onSelect`. */
 function collectVisibleIds(
   nodes: ComponentNode[],
   collapsed: ReadonlySet<string>,
@@ -70,12 +43,9 @@ function collectVisibleIds(
   return out;
 }
 
-/** A tree row's key dimension, in the user's length unit. */
 const len = (u: Units, v: unknown): string | null =>
   typeof v === 'number' && Number.isFinite(v) ? `${u.fmtSym('length', v)}` : null;
 
-// Category colors match the app palette: structure = sky, fins = amber,
-// recovery = emerald, inner structure = slate, attachments/mass = violet.
 const TYPE_COLOR: Record<string, string> = {
   stage: token('ink'),
   nosecone: token('series-1'),
@@ -101,8 +71,6 @@ const TYPE_COLOR: Record<string, string> = {
   parallelstage: token('ink'),
 };
 
-// A distinct glyph per component type, colored by TYPE_COLOR so
-// the tree reads by shape and color at a glance.
 const TYPE_SYMBOL: Record<string, string> = {
   stage: '≡',
   nosecone: '▲',
@@ -165,9 +133,6 @@ function Row({
   node: ComponentNode;
   depth: number;
   selectedId?: string | null;
-  // Roving tabindex: exactly one row carries tabIndex 0 (this id); the rest are
-  // -1 and reached with the arrow keys. Keeps the whole tree to a single tab
-  // stop instead of one per part.
   tabbableId?: string | null;
   onSelect?: (id: string) => void;
   collapsed: ReadonlySet<string>;
@@ -184,8 +149,6 @@ function Row({
   const id = typeof node.id === 'string' ? node.id : undefined;
   const selected = !!id && id === selectedId;
   const hasKids = (node.children?.length ?? 0) > 0;
-  // Only id-bearing nodes can be remembered as collapsed; a childless or id-less
-  // node just shows a spacer so every row's label lines up.
   const isCollapsed = hasKids && !!id && collapsed.has(id);
   const selectable = !!id && !!onSelect;
   const rowRef = useRef<HTMLDivElement>(null);
@@ -209,10 +172,7 @@ function Row({
         onKeyDown={
           selectable
             ? (e) => {
-                // Keyboard selection: the 2D/3D canvases are pointer-only, so
-                // without this a keyboard user could reach no component at all.
-                // Keys on the row's own controls (the export button and its
-                // menu) are theirs: selecting here would cancel their click.
+                // Keys on the row's own controls are theirs.
                 if (e.target !== e.currentTarget) return;
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -224,16 +184,13 @@ function Row({
         className={`flex items-center gap-2 rounded-md py-1 pr-2 ${selectable ? 'cursor-pointer' : ''} ${
           selected ? 'bg-accent-600/25 ring-1 ring-inset ring-accent-500/50' : 'hover:bg-raised'
         }`}
-        // 2px, not 8: at depth 0 that leading gap is pure inset against the
-        // spine, and every level below inherits it. The 16 per level is the
-        // indent that actually says something.
         style={{ paddingLeft: 2 + depth * 16 }}
         title={label}
       >
         {hasKids && id ? (
           <button
             onClick={(e) => {
-              e.stopPropagation(); // toggle the branch without selecting the row
+              e.stopPropagation();
               onToggleCollapse(id);
             }}
             aria-label={isCollapsed ? t('tree.expand') : t('tree.collapse')}
@@ -258,8 +215,6 @@ function Row({
           {det && (
             <span className={`text-[11px] tabular-nums ${selected ? 'text-ink-muted' : 'text-ink-faint'}`}>{det}</span>
           )}
-          {/* Tabbable only on the tree's tab stop row, so the tree stays one
-              stop plus the export button of the row it is on. */}
           <ComponentExportButton node={node} tabIndex={selectable && id === tabbableId ? 0 : -1} />
         </div>
       </div>
@@ -293,55 +248,30 @@ export function ComponentTree({
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   onAdd?: (type: ComponentType) => void;
-  onScale?: () => void; // open the whole-rocket scale dialog
-  onAddStage?: () => void; // append a new (booster) stage at the bottom
-  /**
-   * Cut, Copy, Paste and Duplicate (useTreeEdit): buttons in the header on the
-   * selected part, and their shortcuts on the focused row (`at`).
-   */
+  onScale?: () => void;
+  onAddStage?: () => void;
   edit?: TreeCommands & { at?: (id: string) => TreeCommands };
 }) {
   const { t } = useTranslation();
-  // Ids of collapsed (folded) branches: ephemeral view state per node id.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const toggleCollapse = (id: string) => setCollapsed((prev) => toggled(prev, id));
-  // Every id-bearing node that has children (the collapsible ones), so the
-  // header toggle can fold or unfold the whole tree at once. Memoized: it walks
-  // the whole tree and only changes when the components do, not on every
-  // selection/hover re-render.
   const branchIds = useMemo(() => collectBranchIds(tree.components), [tree.components]);
   const allCollapsed = branchIds.length > 0 && branchIds.every((id) => collapsed.has(id));
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(branchIds));
 
-  // Roving-tabindex arrow navigation. `orderedIds` is the visible, selectable
-  // rows in the order they're drawn (children of a collapsed branch are
-  // skipped). Exactly one of them is tabbable at a time; the arrow keys move
-  // focus between them, so the whole tree is one tab stop, not one per part.
   const listRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const orderedIds = useMemo(
     () => collectVisibleIds(tree.components, collapsed, !!onSelect, []),
     [tree.components, collapsed, onSelect],
   );
-  // The single tabbable row: the last arrow-focused row if still visible, else
-  // the selected row, else the first, so Tab always lands somewhere sensible.
   const tabbableId =
     (activeId && orderedIds.includes(activeId) && activeId) ||
     (selectedId && orderedIds.includes(selectedId) && selectedId) ||
     orderedIds[0] ||
     null;
 
-  /*
-   * Keep keyboard focus in the tree across an edit that rebuilds it.
-   *
-   * Cut removes the focused row, and undo or redo replaces the rows, so focus
-   * falls to the page body and the arrow keys stop working until the user tabs
-   * back in. While the tree holds focus, `ownsFocus` is set; it is cleared when
-   * focus moves deliberately elsewhere (to another element, or a click on
-   * something that takes no focus, which leaves the row still in the page).
-   * After any change to the rows, if focus was lost from the tree, it goes to
-   * the selected row, else the tab stop.
-   */
+  // Cut, undo and redo replace the focused row, dropping focus to the body; the effect restores it.
   const ownsFocus = useRef(false);
   const onTreeFocus = () => {
     ownsFocus.current = true;
@@ -352,18 +282,13 @@ export function ComponentTree({
       if (!listRef.current?.contains(to)) ownsFocus.current = false;
       return;
     }
-    // Nothing took focus. A row still in the page means the user clicked away;
-    // a row the edit removed means focus was lost, which the effect restores.
+    // A row still in the page means the user clicked away; a removed row means focus was lost.
     const from = e.target;
     setTimeout(() => {
       if (from.isConnected) ownsFocus.current = false;
     }, 0);
   };
   const focusTarget = (selectedId && orderedIds.includes(selectedId) && selectedId) || tabbableId;
-  // The selection the effect last saw. Focus follows a change of selection that
-  // happens while a row has focus (undo or redo restoring one), and is left
-  // alone otherwise, so arrowing through the rows or folding a branch keeps it
-  // where the user put it.
   const lastSelected = useRef(selectedId);
   useEffect(() => {
     const selectionMoved = lastSelected.current !== selectedId;
@@ -384,14 +309,9 @@ export function ComponentTree({
   const onTreeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const rowEl = (e.target as HTMLElement).closest<HTMLElement>('[data-tree-row]');
     if (!rowEl || !listRef.current?.contains(rowEl)) return;
-    // Only the row itself navigates: arrows pressed inside a row's export menu
-    // belong to that menu.
+    // Arrows inside a row's export menu belong to that menu.
     if (e.target !== rowEl) return;
-    // Desktop's Edit shortcuts, on the focused row. The arrow keys move focus
-    // without selecting, and desktop's selection follows them, so the command
-    // acts on the row the keys reached, not on an earlier selection. Scoped to
-    // the tree so text fields keep their own copy and paste, and Ctrl+D here
-    // duplicates rather than bookmarking the page.
+    // On the focused row, not the selection. Scoped to the tree so text fields keep copy and paste.
     if (edit && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
       const focusedId = rowEl.getAttribute('data-id');
       const on = (focusedId && edit.at?.(focusedId)) || edit;
@@ -429,14 +349,12 @@ export function ComponentTree({
         move(rows[rows.length - 1]);
         break;
       case 'ArrowRight':
-        // Collapsed branch: expand; otherwise step to the next row.
         if (rid && hasKids && isCollapsed) {
           e.preventDefault();
           toggleCollapse(rid);
         } else move(rows[idx + 1]);
         break;
       case 'ArrowLeft':
-        // Expanded branch: collapse; otherwise step to the previous row.
         if (rid && hasKids && !isCollapsed) {
           e.preventDefault();
           toggleCollapse(rid);
@@ -445,16 +363,10 @@ export function ComponentTree({
     }
   };
 
-  // Fold the whole list away (header stays). Collapsed, the header names the
-  // selected part.
   const [listOpen, setListOpen] = useState(true);
-  // One lookup serves both the collapsed header's name and the Add menu's parent
-  // type.
   const selectedNode = selectedId ? findNode(tree, selectedId) : null;
   const selectedName = selectedNode ? partLabel(t, selectedNode) : null;
 
-  // The Add menu is contextual: it offers only the child types valid for the
-  // selected part (the stage when nothing is selected). A leaf part: no menu.
   const parentType = selectedNode?.type ?? 'stage';
   const parentLabel = typeLabel(parentType, t);
   const allowed = new Set<ComponentType>(allowedChildren(parentType));
@@ -463,19 +375,8 @@ export function ComponentTree({
   );
 
   return (
-    // p-2, not p-3. This card sits inside the pane's own padding, so every
-    // pixel here is the second gutter on the same edge, and the one on the left
-    // pushes the whole tree right, where it comes straight off the part names at
-    // every depth.
     <section className="rounded-xl bg-surface p-2 ring-1 ring-line/10">
-      {/* Everything you do to the design, on one row above the list: add a stage,
-          add a component to the selected part, scale the whole rocket. One row
-          reads as one group and costs no extra height.
-
-          The three plus their gaps come to about 253px, which is what sets
-          TREE_PANE_MIN: below it Scale wraps to a line of its own. They still
-          wrap rather than squeeze, so a narrower panel degrades instead of
-          clipping. */}
+      {/* These three are about 253px wide, which sets TREE_PANE_MIN. */}
       {(onAdd || onAddStage || onScale) && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {onAddStage && (
@@ -525,9 +426,7 @@ export function ComponentTree({
         </div>
       )}
       <div className="mb-2 flex min-w-0 items-center gap-1.5">
-        {/* Fold the whole tree list; the header (and this toggle) stay put.
-            The button sits inside the heading, as in the disclosure pattern: a
-            heading inside a button is flattened into the button's name. */}
+        {/* Button inside the heading: a heading inside a button is flattened. */}
         <h2 className="flex min-w-0">
           <button
             onClick={() => setListOpen((o) => !o)}
@@ -581,8 +480,6 @@ export function ComponentTree({
           </div>
         )}
       </div>
-      {/* The rule is the tree's spine, so it keeps its 1px; there is no inset
-          beside it, so that width goes to the names. */}
       {listOpen && (
         <div // eslint-disable-line jsx-a11y-x/interactive-supports-focus -- roving tabindex: the selected row is the tab stop, as in the ARIA tree pattern, so the container is not
           ref={listRef}

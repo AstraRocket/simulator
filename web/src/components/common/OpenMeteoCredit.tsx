@@ -1,20 +1,12 @@
 import { useTranslation } from 'react-i18next';
 
-/**
- * Open-Meteo's credit and license. CC BY 4.0 asks for the credit wherever the
- * data is shown, so every view that shows a value from it renders this one line,
- * and a change to the license text cannot miss a copy.
- */
+/** CC BY 4.0 requires this credit wherever Open-Meteo data is shown. */
 export function OpenMeteoCredit({ className = 'text-[11px] text-ink-faint' }: { className?: string }) {
   const { t } = useTranslation();
   return <CcByCredit className={className} href="https://open-meteo.com/" label={t('weather.credit')} />;
 }
 
-/**
- * The place search's credit: its places come from GeoNames, under the same
- * CC BY 4.0, by way of Open-Meteo's geocoding. Here beside Open-Meteo's so the
- * license link is still written once.
- */
+/** GeoNames data (via Open-Meteo geocoding) is also CC BY 4.0. */
 export function GeoNamesCredit({ className = 'text-[11px] text-ink-faint' }: { className?: string }) {
   const { t } = useTranslation();
   return <CcByCredit className={className} href="https://www.geonames.org/" label={t('placeSearch.credit')} />;

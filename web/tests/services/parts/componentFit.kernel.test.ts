@@ -18,23 +18,8 @@ const stage = (id: string, children: ComponentNode[]) => ({ id, type: 'stage', c
 const part = (id: string, type: string, extra: Record<string, unknown> = {}, children: ComponentNode[] = []) =>
   ({ id, type, length: 0.1, ...extra, children }) as unknown as ComponentNode;
 
-/**
- * Desktop's "Match fore diameter" and "Match aft diameter", written out from
- * `ComponentPresetChooserDialog.getFilterCheckboxes` and
- * `ComponentPresetRowFilter` in the 24.12 release jar (`javap -c`):
- *
- * - for a symmetric part with a previous symmetric part, and a fore diameter
- *   column (OUTER_DIAMETER or FORE_OUTER_DIAMETER), keep the rows whose fore
- *   column is within `max(0.05 * d, 0.001)` of `d = previous.getAftRadius() * 2`;
- * - for its aft column (OUTER_DIAMETER or AFT_OUTER_DIAMETER), the same against
- *   `next.getForeRadius() * 2`, where a flipped nose cone takes the previous
- *   part instead of the next;
- * - a row is kept strictly inside the band, and both filters apply together.
- *
- * The radii are the kernel's, built through the bridge. The neighbors are the
- * airframe parts on either side in each design's single stack, read in order
- * across the stage boundary.
- */
+// Desktop's "Match fore/aft diameter" (`ComponentPresetRowFilter`, 24.12 jar): within
+// `max(0.05 * d, 0.001)`; a flipped nose cone takes the previous part; across stages.
 const foreColumn = (p: Component): number | null =>
   p.type === 'bodytube' ? p.outerDiameter : p.type === 'transition' ? p.foreOuterDiameter : null;
 const aftColumn = (p: Component): number | null =>
@@ -47,8 +32,6 @@ const within = (d: number, v: number) => Math.abs(d - v) < Math.max(0.05 * d, 0.
 
 const kernelAft = (g: KernelGeometry, type: string) => (type === 'bodytube' ? g.outerRadius! : g.aftRadius!);
 const kernelFore = (g: KernelGeometry, type: string) => (type === 'bodytube' ? g.outerRadius! : g.foreRadius!);
-
-/** Each design and its airframe in order, nose first. */
 const designs: { what: string; tree: RocketTree; stack: string[] }[] = [
   {
     what: 'a two-stage rocket with automatic tubes and a transition',
@@ -127,11 +110,7 @@ describe("the picker's diameter match", () => {
   });
 });
 
-/**
- * The motor mount a centering ring has to go over: the kernel's automatic bore
- * for a ring at the same place, `CenteringRing.getInnerRadius`, the widest inner
- * tube whose span overlaps the ring's.
- */
+// Oracle: `CenteringRing.getInnerRadius`, the widest inner tube overlapping the ring's span.
 describe("the picker's centering ring bore", () => {
   const tree = syncDerived({
     components: [
@@ -173,8 +152,6 @@ describe("the picker's centering ring bore", () => {
     const fit = fitContextFor(tree, id)!;
     if (bore > 0) expect(fit.mountOuter).toBeCloseTo(bore * 2, 12);
     else expect(fit.mountOuter).toBeUndefined();
-    // Every ring offered goes over that mount: no bore smaller than it, past
-    // nominal rounding, and none so wide it centers nothing.
     for (const p of rings) {
       if (!boreClears(p, fit) || p.innerDiameter == null || bore === 0) continue;
       expect(p.innerDiameter, `${p.mfr} ${p.partNo}`).toBeGreaterThanOrEqual(bore * 2 - 0.0005);

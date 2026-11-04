@@ -44,36 +44,20 @@ export default function App() {
   useBayBackup();
   const { t } = useTranslation();
   const tab = useWorkspaceStore((s) => s.tab);
-  // The Bays sub-tab is about the design, not a configuration: no editor column.
   const configsTab = useWorkspaceStore((s) => s.configsTab);
   const err = useWorkspaceStore((s) => s.err);
   const buildErr = useWorkspaceStore((s) => s.buildErr);
   const storageWarning = useWorkspaceStore((s) => s.storageWarning);
-  // The flight the Results tab shows, the one the charts beside these numbers
-  // draw: picked in the Results picker, else the active simulation.
   const result = useWorkspaceStore((s) => selectShownSim(s).result ?? null);
-  // Titles the CSV the events table writes, so a file on disk says which run it
-  // came from rather than only "flight-events.csv".
   const shownSimName = useWorkspaceStore((s) => selectShownSim(s).name);
   const designName = useWorkspaceStore(selectDesignName);
 
-  // The center pane backs both the Design and Results tabs, and stays mounted
-  // across the switch: the 2D/3D canvases are expensive to build, and remounting
-  // one on every tab change would re-run the engine for a design that didn't
-  // change. Same reason the sim pane below is hidden rather than unmounted.
+  // The center pane stays mounted across Design/Results: remounting the canvases would re-run the engine.
   const onCenter = tab === 'design' || tab === 'results';
-  // The sim editor lives in exactly one place, and which place depends on the
-  // breakpoint (see components/common/useMediaQuery). Everything else here is
-  // plain `lg:` classes.
+  // Picked by JS breakpoint, not CSS, so a hidden duplicate editor never sits in the document.
   const desktop = useIsDesktop();
-  // The component editor is the same story two breakpoints up: a third column
-  // on Design needs `2xl`, and under it the editor is a dialog over the drawing
-  // (ComponentDialog) rather than a column beside it.
   const wide = useIsWide();
 
-  // Both side columns are user-sized. The committed widths are settings; the
-  // `drag*` values hold the in-flight one so a drag repaints at pointer speed
-  // without writing localStorage on every move (see PaneSplitter).
   const { settings, update } = useSettings();
   const [dragTree, setDragTree] = useState<number | null>(null);
   const [dragSide, setDragSide] = useState<number | null>(null);
@@ -82,26 +66,11 @@ export default function App() {
   const treeRef = useRef<HTMLElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
 
-  // The four right columns share one width, so the divider is the same control
-  // wherever it appears. The left column only exists on Design, so it only
-  // reserves room there.
-  // `reserve` and the CSS cap are the same rule, said twice: the splitter
-  // enforces it during a drag, and CSS enforces it for a width that was stored
-  // on a wider window than this one. It counts the panes; the dividers
-  // themselves (5px each) come out of the center's share, so on the narrowest
-  // window at the furthest drag the center keeps about 310 rather than exactly
-  // CENTER_PANE_MIN.
+  // The 5px dividers come out of the center's share, so it can end slightly under CENTER_PANE_MIN.
   const sideReserve = (tab === 'design' ? treeW : 0) + CENTER_PANE_MIN;
 
-  // Maximized: the center pane takes the window and both side columns step
-  // aside. Only where the center pane actually is: on Simulations the flag is
-  // ignored, because the toolbar carrying the way back is not on that tab and
-  // the simulation editor would be stranded.
   const maxed = settings.maximizeCenter && onCenter;
   const sideStyle = { width: sideW, maxWidth: `calc(100vw - ${sideReserve}px)` };
-  // What the tree has to leave for the column on its other side. Zero on Design
-  // below `2xl`, where there is no property column to leave room for, and the
-  // tree would otherwise be capped against a pane that is not on screen.
   const propsW = wide ? sideW : 0;
   const side: SideSplit = {
     width: sideW,
@@ -113,27 +82,18 @@ export default function App() {
     },
   };
 
+  // h-full, not h-screen: 100vh would put the mobile tab bar under the browser chrome.
   return (
-    // h-full, not h-screen: the shell follows #root's height, which index.css
-    // pins to the dynamic viewport on mobile. `h-screen` would re-assert 100vh
-    // here and put the tab bar back under the browser chrome.
     <div className="flex h-full flex-col bg-canvas text-ink-strong">
       <AppHeader />
       <UpdateToast />
       <CatalogNotice />
 
-      {/* Two banners, not one. The storage warning outlives the transient error:
-          it says the user's work is not being kept, which stays true until a
-          save succeeds, while `err` is about the last thing they did. */}
       {storageWarning && (
         <Banner tone="warn" role="status">
           {storageWarning}
         </Banner>
       )}
-      {/* The design not building, and the last action failing, are two facts
-          and can both stand; a run refused for the same fault the build reports
-          says it once. `role="alert"`, so a failure is announced and not only
-          painted. */}
       {buildErr && (
         <Banner tone="danger" role="alert">
           {buildErr}
@@ -144,44 +104,18 @@ export default function App() {
           {err}
         </Banner>
       )}
-      {/* Third banner, and the one that outranks both: without the kernel there
-          are no numbers to be wrong about. It renders nothing once the engine is
-          up, which is the ordinary case within a second or two of first paint. */}
       <EngineNotice />
 
-      {/*
-        One row of panes; the tab decides which of them are in it, so each tab
-        gets the column layout it actually wants instead of all three sharing one
-        fixed grid. Design is tree · canvas · properties, Configurations and
-        Simulations are a table with the selected row's editor beside it, Results
-        is charts · summary, and Tools is a single pane.
-
-        On a phone exactly one pane is ever visible (the side columns are
-        desktop-only), so source order is the phone's order and no reordering is
-        needed. Panels read the store, so there is no prop-drilling.
-      */}
+      {/* On a phone one pane is visible, so source order is the phone's order. */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        {/* left: component tree (Design tab; desktop only).
-
-            User-sized, from a 360px default. The column has to fit + Stage, + Add
-            and Scale on the row above the list, and a deep tree wants more width
-            than any one default can be right about, hence the splitter below. */}
         <section
           ref={treeRef}
-          // The width is a preference, so it is an inline style rather than a
-          // class. `maxWidth` is the same cap the splitter applies while
-          // dragging, restated in CSS: a width stored on a wide monitor must not
-          // crush the center pane when the same browser profile opens on a
-          // narrow one.
           style={{ width: treeW, maxWidth: `calc(100vw - ${propsW + CENTER_PANE_MIN}px)` }}
           className={`hidden shrink-0 lg:h-full lg:overflow-y-auto ${tab === 'design' && !maxed ? 'lg:block' : ''}`}
         >
           <TreePanel />
         </section>
-        {/* The divider is also the rule between the two panes, which is why the
-            column above does not carry a border-r: two of them would read as
-            a groove. Design tab only, since that is the only tab this column is
-            on. */}
+        {/* The divider is the rule between the panes, so the column has no border-r. */}
         {tab === 'design' && !maxed && (
           <PaneSplitter
             paneRef={treeRef}
@@ -199,71 +133,41 @@ export default function App() {
           />
         )}
 
-        {/* CENTER: banner + drawing + stability, or the flight charts on Results.
-            On mobile the Design half splits again into the Rocket and Sketch
-            panes (see CenterView). */}
         <section className={`${onCenter ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:h-full lg:overflow-hidden`}>
           <CenterView />
         </section>
 
-        {/* right: the selected part's properties (Design tab; `2xl` and up).
-            It wants `2xl` rather than `lg` because it is the third column on
-            this tab, and at 1024, or at 1440, the tree and a property panel
-            between them leave the drawing a strip. Under that the editor is ComponentDialog, mounted below, and
-            this column is not rendered at all: one editor in the document,
-            never two. */}
         {wide && tab === 'design' && !maxed && (
           <RightColumn split={side} style={sideStyle}>
             <PropertyPane />
           </RightColumn>
         )}
 
-        {/* CONFIGURATIONS: toolbar + the table of flight configurations. Full
-            width for the same reason the simulations table has it: the table is
-            one row per setup and one column per mount, and both grow with the
-            rocket. */}
         <section
           className={`${tab === 'configs' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:h-full lg:overflow-hidden`}
         >
           <ConfigsPane />
         </section>
 
-        {/* right: the selected configuration's motors (Configurations tab;
-            desktop only). On a phone it is inline under the table instead, so a
-            phone can still change a motor. */}
         {desktop && tab === 'configs' && configsTab !== 'bays' && (
           <RightColumn split={side} style={sideStyle}>
             <ConfigEditor />
           </RightColumn>
         )}
 
-        {/* SIMULATIONS: toolbar + the table of runs. Its own tab, so the table
-            gets the full width rather than a side column. */}
         <section
           className={`${tab === 'sim' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:h-full lg:overflow-hidden`}
         >
           <SimulationsPane />
         </section>
 
-        {/* right: the selected simulation's editor (Simulations tab; desktop
-            only). On a phone it is inline under the table instead, so a phone
-            can still edit a simulation's launch conditions and options. */}
         {desktop && tab === 'sim' && (
           <RightColumn split={side} style={sideStyle}>
             <SimEditor />
           </RightColumn>
         )}
 
-        {/* right: the run's numbers, beside the charts they describe (Results
-            tab; desktop only; the phone puts them above the charts instead).
-            Same width as the other right columns, because they share the
-            one setting: right columns of different widths read as an accident.
-            The tiles are a 2-up grid, which is what SIDE_PANE_MIN protects -
-            narrower and "Static margin @ rail exit" wraps onto several lines.
-            `relative`, like every scrolling column here: an `sr-only` label is
-            absolutely positioned, and without a positioned ancestor inside the
-            scroller it lays out against the page at its unscrolled offset,
-            stretching the document past the viewport so the whole app scrolls. */}
+        {/* `relative`: without a positioned ancestor, sr-only labels stretch the document and the app scrolls. */}
         {tab === 'results' && !maxed && <SideSplitter paneRef={summaryRef} {...side} />}
         <section
           ref={summaryRef}
@@ -272,29 +176,14 @@ export default function App() {
           aria-label={t('tabs.results')}
         >
           <div className="space-y-4">
-            {/* Above the numbers: a warning changes how you read them, so it has
-                to be seen first. Once, here or on the phone's copy of this block
-                in CenterView - never both. A hidden duplicate is still in the
-                document, and its text still answers to a search for it. See
-                useMediaQuery. */}
+            {/* Here or in CenterView's phone copy, never both: a hidden duplicate still answers to a search. */}
             {desktop && <FlightWarnings sim={result} />}
             <SimSummary sim={result} />
-            {/* Under the tiles, not above: the tiles are the verdict on the
-                flight and the timeline is how it got there. The column
-                scrolls, which is what a table of a dozen-odd rows needs. */}
             <FlightEventsTable sim={result} simName={shownSimName} designName={designName} />
             {desktop && <RecoveryChargesCard />}
           </div>
         </section>
-        {/* Tools: work that stands apart from the open design, such as the
-            landing estimate for a rocket designed elsewhere. Mounted only while
-            open: hidden, its site fields would be a second Latitude and
-            Longitude in the document. The estimator keeps its own inputs. */}
-        {/* Simple rocket: a rocket flown from a few measurements, before (or
-            instead of) a design. Its own tab rather than one of the Tools, so
-            it can be found by someone who has no design yet. `relative` for its
-            sr-only labels, as on the Results column above: without it they
-            stretch the page and the whole app scrolls past the bottom bar. */}
+        {/* Mounted only while open: hidden, their site fields would be a second Latitude and Longitude. */}
         {tab === 'simple' && (
           <section
             className="relative flex min-h-0 flex-1 flex-col overflow-auto p-3 lg:h-full"
@@ -311,9 +200,6 @@ export default function App() {
       </main>
 
       <TabBar />
-      {/* The component editor, for every width the column above is not on. Only
-          on Design: the selection it edits is that tab's, and the mount is what
-          resets it when you leave. */}
       {!wide && tab === 'design' && <ComponentDialog />}
       <WorkInProgressDialog />
       <ConfirmDialog />
@@ -322,7 +208,6 @@ export default function App() {
   );
 }
 
-/** The shared right-column width and the handlers that resize it. */
 interface SideSplit {
   width: number;
   reserve: number;
@@ -330,18 +215,12 @@ interface SideSplit {
   onCommit: (w: number) => void;
 }
 
-/**
- * A right column that is mounted only on its own tab: the divider on its left
- * edge and the scrolling pane it sizes. Each column holds its own ref, because
- * which one is mounted depends on the tab.
- */
 function RightColumn({ split, style, children }: { split: SideSplit; style: CSSProperties; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   return (
     <>
       <SideSplitter paneRef={ref} {...split} />
-      {/* `relative` keeps absolutely positioned descendants (sr-only labels)
-          inside the scroller; see the Results summary column. */}
+      {/* `relative`: see the Results summary column. */}
       <section ref={ref} style={style} className="relative shrink-0 overflow-y-auto lg:h-full">
         {children}
       </section>
@@ -349,16 +228,7 @@ function RightColumn({ split, style, children }: { split: SideSplit; style: CSSP
   );
 }
 
-/**
- * The divider on the left edge of a right column. The right columns
- * (properties, configuration editor, sim editor, run summary) share one width, so this is the same
- * control wherever it appears; only which pane it measures differs.
- *
- * A component rather than a render helper called with the ref: a function
- * that receives a ref object during render reads as a render-time ref access
- * to the compiler lint, while a ref handed to a component as a prop is the
- * pattern it expects. PaneSplitter only reads it inside its pointer handlers.
- */
+/** A component, not a render helper: the compiler lint flags a ref passed to a function during render. */
 function SideSplitter({
   paneRef,
   width,

@@ -4,10 +4,6 @@ import type { SavedPartEntry } from '../../../src/services/parts/customParts';
 
 const entry = (type: string, partNo: string) => ({ part: { type, partNo }, row: null }) as unknown as SavedPartEntry;
 
-/**
- * The saved-parts library keeps its groups in one order whatever order the
- * parts were saved in, every catalog type included.
- */
 describe('groupSavedParts', () => {
   it('orders every catalog type the same way, whichever was saved first', () => {
     const types = ['railbutton', 'launchlug', 'streamer', 'engineblock', 'transition', 'parachute', 'nosecone'];

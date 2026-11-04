@@ -26,13 +26,11 @@ describe('loadSettings', () => {
   it('deep-merges partial simulation prefs over the defaults', () => {
     localStorage.setItem(KEY, JSON.stringify({ simulation: { timeStep: 0.1 } }));
     const s = loadSettings();
-    expect(s.simulation.timeStep).toBe(0.1); // overridden
-    expect(s.simulation.maxTime).toBe(DEFAULT_SETTINGS.simulation.maxTime); // default kept
+    expect(s.simulation.timeStep).toBe(0.1);
+    expect(s.simulation.maxTime).toBe(DEFAULT_SETTINGS.simulation.maxTime);
     expect(s.simulation.confirmDelete).toBe(DEFAULT_SETTINGS.simulation.confirmDelete);
   });
 
-  // A stored blob never passed through the Settings fields, and a maxTime of a
-  // million is a run nothing can interrupt.
   it('clamps the solver settings into the range the Settings fields accept', () => {
     localStorage.setItem(KEY, JSON.stringify({ simulation: { timeStep: 1e-9, maxTime: 1e6, maxAngleStep: 3 } }));
     const s = loadSettings().simulation;
@@ -41,7 +39,6 @@ describe('loadSettings', () => {
     expect(s.maxAngleStep).toBe(SIM_BOUNDS.maxAngleStep.max);
   });
 
-  // The bridge refuses a stepper it does not know, which would fail every run.
   it('keeps a known stepper and falls back for any other', () => {
     const stepper = (v: unknown) => {
       localStorage.setItem(KEY, JSON.stringify({ simulation: { stepper: v } }));
@@ -53,8 +50,6 @@ describe('loadSettings', () => {
     expect(stepper(6)).toBe('rk4');
   });
 
-  // The bridge reads the seed as a number, so a stored string fails every run
-  // until the seed is retyped.
   it('falls back for a seed or a flag of the wrong type, and keeps a usable one', () => {
     const sim = (simulation: unknown) => {
       localStorage.setItem(KEY, JSON.stringify({ simulation }));
@@ -83,21 +78,15 @@ describe('loadSettings', () => {
   });
 
   it('guards playbackSpeed against the non-numbers that ARE numbers', () => {
-    // A stored NaN is the one that hurts: it types as `number`, so only the
-    // finiteness check catches it, and it makes the playback clock never
-    // advance with no way back but clearing storage. JSON has no NaN literal,
-    // which is why each of these has to be written as something JSON can hold.
     for (const raw of ['{"playbackSpeed":null}', '{"playbackSpeed":0}', '{"playbackSpeed":-2}']) {
       localStorage.setItem(KEY, raw);
       expect(loadSettings().playbackSpeed, raw).toBe(DEFAULT_SETTINGS.playbackSpeed);
     }
     // Infinity stringifies as null, so the largest finite number stands in for it.
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: Number.MAX_VALUE }));
-    expect(loadSettings().playbackSpeed).toBe(4); // the fastest choice, not rejected
+    expect(loadSettings().playbackSpeed).toBe(4);
   });
 
-  // Both speed pickers offer only these, so a stored value outside them would
-  // leave each select showing a speed it is not running at.
   it('snaps playbackSpeed to a speed the pickers offer', () => {
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 1000 }));
     expect(loadSettings().playbackSpeed).toBe(4);
@@ -106,7 +95,7 @@ describe('loadSettings', () => {
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 3 }));
     expect(loadSettings().playbackSpeed).toBe(4); // nearer 4 than 2 as a ratio
     localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 2 }));
-    expect(loadSettings().playbackSpeed).toBe(2); // offered, untouched
+    expect(loadSettings().playbackSpeed).toBe(2);
     for (const v of [0.3, 0.7, 1.2, 9]) {
       localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: v }));
       expect(PLAYBACK_SPEEDS, String(v)).toContain(loadSettings().playbackSpeed);
@@ -114,9 +103,6 @@ describe('loadSettings', () => {
   });
 
   it('drops a partColors value that is not a hex string', () => {
-    // These reach a `style` attribute. Without the filter, a stored object,
-    // array or CSS payload would ride straight through the spread and into the
-    // renderer.
     localStorage.setItem(
       KEY,
       JSON.stringify({
@@ -133,7 +119,7 @@ describe('loadSettings', () => {
     );
     const c = loadSettings().partColors as Record<string, unknown>;
     expect(c.fins).toBe('#123456');
-    expect(c.chutes).toBe('#abc'); // 3-digit hex is legitimate
+    expect(c.chutes).toBe('#abc');
     for (const k of ['nose', 'body', 'tubes', 'rings', 'lugs']) expect(c[k]).toBeUndefined();
   });
 
@@ -152,8 +138,6 @@ describe('loadSettings', () => {
     expect(loadSettings().report.units).toBe('current');
     localStorage.setItem(KEY, JSON.stringify({ report: { units: 'imperial' } }));
     expect(loadSettings().report.units).toBe('imperial');
-    // A hand-edited or future-version value must not reach resolveUnitChoice,
-    // where anything unrecognized would silently mean "current" anyway.
     localStorage.setItem(KEY, JSON.stringify({ report: { units: 'furlongs' } }));
     expect(loadSettings().report.units).toBe('current');
   });
@@ -170,9 +154,6 @@ describe('loadSettings', () => {
     expect(loadSettings().treePaneWidth).toBe(360);
     localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 500 }));
     expect(loadSettings().treePaneWidth).toBe(500);
-    // The value lands in a style attribute, so a hand-edited or corrupted one
-    // must not be able to render a column of 0 or of 90000 pixels: there would
-    // be no way back to the splitter to fix it.
     localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 0 }));
     expect(loadSettings().treePaneWidth).toBe(300);
     localStorage.setItem(KEY, JSON.stringify({ treePaneWidth: 90_000 }));
@@ -204,13 +185,9 @@ describe('loadSettings', () => {
   });
 
   it('defaults the import notes to expanded and round-trips a stored false', () => {
-    // Open by default: a note says what a file could not bring across, which is
-    // worth seeing once before it is folded away for good.
     expect(loadSettings().showImportNotes).toBe(true);
     localStorage.setItem(KEY, JSON.stringify({ showImportNotes: false }));
     expect(loadSettings().showImportNotes).toBe(false);
-    // A non-boolean (hand-edited, or a future version's shape) falls back to the
-    // default rather than reaching the card as a truthy string.
     localStorage.setItem(KEY, JSON.stringify({ showImportNotes: 'no' }));
     expect(loadSettings().showImportNotes).toBe(true);
   });
@@ -223,7 +200,6 @@ describe('loadSettings', () => {
     }
     localStorage.setItem(KEY, JSON.stringify({ theme: 'solarized' }));
     expect(loadSettings().theme).toBe('dark');
-    // The toggle's way back is never daylight itself.
     localStorage.setItem(KEY, JSON.stringify({ themeBeforeDaylight: 'daylight' }));
     expect(loadSettings().themeBeforeDaylight).toBe('dark');
     localStorage.setItem(KEY, JSON.stringify({ themeBeforeDaylight: 'system' }));
@@ -241,11 +217,6 @@ describe('saveSettings', () => {
   });
 });
 
-/**
- * `launchDefaults` reaches simConditions() and then simulate() for every new
- * simulation, so it is checked on load the same way the `simulation` block
- * directly above it is, rather than spread-merged unchecked.
- */
 describe('launchDefaults is validated per field', () => {
   const load = (launchDefaults: unknown) => {
     localStorage.setItem(KEY, JSON.stringify({ launchDefaults }));
@@ -253,8 +224,6 @@ describe('launchDefaults is validated per field', () => {
   };
 
   it('falls back for a required number that is a string, null or NaN', () => {
-    // NaN cannot survive JSON (it writes as null), so null is what a corrupt
-    // blob actually reads back as, plus a string, which a hand-edit gives.
     expect(load({ launchRodLengthM: null }).launchRodLengthM).toBe(DEFAULT_SETTINGS.launchDefaults.launchRodLengthM);
     expect(load({ windAverage: '5' }).windAverage).toBe(DEFAULT_SETTINGS.launchDefaults.windAverage);
     expect(load({ latitudeDeg: {} }).latitudeDeg).toBe(DEFAULT_SETTINGS.launchDefaults.latitudeDeg);
@@ -272,7 +241,7 @@ describe('launchDefaults is validated per field', () => {
   });
 
   it('keeps null temperature and pressure, which MEAN the ISA standard atmosphere', () => {
-    // The one place null is an answer, not a missing value, so it must survive.
+    // Here null is an answer, not a missing value.
     expect(load({ temperatureC: null, pressureHPa: null }).temperatureC).toBeNull();
     expect(load({ temperatureC: null, pressureHPa: null }).pressureHPa).toBeNull();
     expect(load({ temperatureC: 'warm' }).temperatureC).toBe(DEFAULT_SETTINGS.launchDefaults.temperatureC);
@@ -285,8 +254,6 @@ describe('launchDefaults is validated per field', () => {
   });
 
   it('drops a gravity, humidity or wind reference the bridge cannot read', () => {
-    // OpenRocketEngine reads these with JsonLite.dbl and JsonLite.str, which
-    // throw on the wrong type, so one bad stored value would fail every run.
     const bad = load({
       gravityModel: 'lunar',
       constantGravity: 0,
@@ -321,7 +288,6 @@ describe('launchDefaults is validated per field', () => {
       { altitudeM: 500, speed: 6, directionDeg: 120, stddev: 1.2 },
     ];
     expect(load({ keptWindLevels: kept }).keptWindLevels).toEqual(kept);
-    // A repeated altitude is refused by the kernel once the profile flies again.
     expect(load({ keptWindLevels: [...kept, { ...kept[0], speed: 9 }] }).keptWindLevels).toEqual(kept);
     expect(load({ keptWindLevels: 'lots' })).not.toHaveProperty('keptWindLevels');
     expect(load({ keptWindLevels: [] })).not.toHaveProperty('keptWindLevels');
@@ -341,8 +307,6 @@ describe('loadSettings validates what reaches styles, jsPDF and the CSV writer',
     expect(b).not.toBe(DEFAULT_SETTINGS);
   });
 
-  // The KML, 3MF and drawing readers all go through parseHexColor, so a stored
-  // color has to be one it reads: a five- or seven-digit "hex" is not a color.
   it('keeps only colors the color reader can read', () => {
     localStorage.setItem(
       KEY,
@@ -393,7 +357,6 @@ describe('loadSettings validates what reaches styles, jsPDF and the CSV writer',
   it('reads a stored backslash-t separator as the tab character', () => {
     localStorage.setItem(KEY, JSON.stringify({ flightCsv: { separator: '\\t' } }));
     expect(loadSettings().flightCsv.separator).toBe('\t');
-    // Any other separator is kept as written.
     localStorage.setItem(KEY, JSON.stringify({ flightCsv: { separator: ';' } }));
     expect(loadSettings().flightCsv.separator).toBe(';');
   });
@@ -408,12 +371,6 @@ describe('loadSettings validates what reaches styles, jsPDF and the CSV writer',
   });
 });
 
-/**
- * The saved per-part default materials survive a reload for every slot the
- * Settings dialog offers. The key format is defined in materialSlots; a new
- * material type or a key change that loadSettings does not follow would drop
- * the user's saved defaults without a word.
- */
 describe('default materials across a reload', () => {
   it('keeps one for every material slot', () => {
     const stored = Object.fromEntries(

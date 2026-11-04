@@ -8,18 +8,13 @@ import { EjectionTool } from './EjectionTool';
 import { ExhaustTool } from './ExhaustTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 
-/** The open tool, kept for the page's life like each tool's own inputs. */
 let rememberedTool: Tool = 'landing';
 
-/** Back to the first tool, so each test starts from it. */
 export function forgetToolsPane(): void {
   rememberedTool = 'landing';
 }
 
-/**
- * The Tools tab: quick answers that need no design, one tool at a time. Only
- * the open tool is mounted, so no two tools put the same field in the document.
- */
+/** Only the open tool is mounted, so no two tools put the same field in the document. */
 export function ToolsPane() {
   const { t } = useTranslation();
   const [tool, setToolState] = useState<Tool>(rememberedTool);
@@ -50,9 +45,7 @@ export function ToolsPane() {
       </div>
       <div
         {...tabs.panel}
-        // The exhaust gallery has no field to focus, so a keyboard could not
-        // reach its panel to scroll it; the tabs pattern gives such a panel a
-        // tab stop of its own. Every other tool starts with a field.
+        // The exhaust gallery has no focusable field, so its panel needs a tab stop to scroll.
         tabIndex={tool === 'exhaust' ? 0 : undefined}
         className="min-h-0 flex-1 overflow-auto p-3"
       >

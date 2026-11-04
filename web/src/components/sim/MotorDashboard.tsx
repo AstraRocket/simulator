@@ -26,25 +26,8 @@ import { fmtNum } from '../../i18n/format';
 import { toggledEntry } from '../../services/app/collections';
 import { MotorSearch, useCatalogInfo } from './MotorPanelParts';
 
-/**
- * The motor dashboard shell: the dialog frame, the filter row, the checked set
- * and the mode switch between the detail rail, the compare tool and the
- * combine tool. The grid, the two tools and the column/sort state each live
- * in their own module.
- */
-
 type Mode = 'detail' | 'combine' | 'compare';
 
-/**
- * Standalone motor reference: a sortable, column-configurable grid of every
- * bundled motor with a detail pane (thrust curve + specs) and arrow-key
- * stepping, plus two multi-select tools over the checked motors: Combine (sum
- * into one cluster curve) and Compare (overlay their curves + specs). Read-only
- * and offline: it inspects/compares, it doesn't seat a motor (that's the picker).
- *
- * Mounted only while open (`{open && <MotorDashboard />}`), which is what
- * defers the motor catalog download to the first opening.
- */
 export function MotorDashboard({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const catalogMeta = useCatalogInfo();
@@ -84,17 +67,14 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
 
   const { sort, shown, clickHeader } = useMotorSort(filtered);
 
-  // Showing a different motor starts from its best (first) curve. Beside the
-  // selection write rather than in an effect on `selected`, which would render
-  // the new motor with the old curve index once before correcting itself.
+  // Curve index reset here, not in an effect, which would render once with the old curve index.
   const select = (m: CatalogMotor | null) => {
     setSelected(m);
     setCurveIdx(0);
     setMode('detail');
   };
 
-  // Memoized on `checked` because the combine pane memoizes on this array: a
-  // fresh one every render would defeat it.
+  // Stable for the combine pane's memo.
   const checkedMotors = useMemo(() => [...checked.values()], [checked]);
   const effMode: Mode = (mode === 'combine' || mode === 'compare') && checked.size >= 2 ? mode : 'detail';
 
@@ -107,17 +87,10 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
       title={t('dash.title')}
       onClose={onClose}
       size="6xl"
-      // A two-pane browser: the grid and the detail rail scroll separately, flush
-      // to the panel's edges, so the body takes the height and adds no padding
-      // of its own.
       layout="fill"
-      // A definite height rather than the viewport's, so a thousand-row grid
-      // does not make the dialog as tall as the screen on a large monitor.
       height={760}
       actions={
         <>
-          {/* The catalog's size and date, from its manifest. Off on a phone,
-              where the header has room for the title and its buttons only. */}
           {catalogMeta?.count !== undefined && (
             <span className="hidden text-xs text-ink-muted sm:inline">
               {t('catalog.motorsInfo', { count: fmtNum(catalogMeta.count), date: catalogMeta.updated })}
@@ -141,10 +114,7 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        {/* Left: filters + sortable grid. min-w-0 lets this flex child shrink
-              below the table's intrinsic width so the grid scrolls internally
-              instead of pushing the detail pane. Hidden while a full-width tool
-              (compare/combine) is open. */}
+        {/* min-w-0 lets the grid scroll internally instead of pushing the detail pane. */}
         <div
           className={`${effMode === 'detail' ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col md:border-r md:border-line/10`}
         >
@@ -156,10 +126,6 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2">
             <ClassChips classes={classes} cls={cls} onChange={setCls} />
-            {/* Beside the class chips, which answer the coarse version of the
-                same question: a class is a doubling bucket, so H runs from 160
-                to 320 N·s and a threshold out of a design lands between two
-                letters. */}
             <ImpulseRange imp={imp} onChange={setImp} />
             <PluggedFilter plugged={plugged} onChange={setPlugged} />
             <SparkyFilter value={sparky} onChange={setSparky} />
@@ -170,9 +136,7 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
           </div>
 
           <MotorGrid
-            // Hidden by a CSS class above, not unmounted, so the grid has to be
-            // told when it is not the surface on screen: its window-level
-            // arrow-key listener would otherwise still be live.
+            // Hidden, not unmounted: its window arrow-key listener must be told.
             active={effMode === 'detail'}
             shown={shown}
             cols={cols}
@@ -188,7 +152,6 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
           />
         </div>
 
-        {/* Right: detail rail (narrow) or a full-width tool (compare/combine). */}
         <div
           className={`min-h-0 overflow-y-auto ${effMode === 'detail' ? 'w-full md:w-[440px] md:shrink-0' : 'w-full flex-1'}`}
         >
@@ -223,8 +186,6 @@ export function MotorDashboard({ onClose }: { onClose: () => void }) {
           ) : effMode === 'combine' ? (
             <MotorCombinePane motors={checkedMotors} />
           ) : checked.size >= 2 ? (
-            // A multi-selection is active: prompt with what the two tools do,
-            // rather than a single motor's detail.
             <div className="p-6">
               <div className="mx-auto max-w-xs space-y-4 text-center">
                 <div className="text-xs uppercase tracking-wide text-ink-faint">

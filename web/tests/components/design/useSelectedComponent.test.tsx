@@ -8,11 +8,6 @@ vi.mock('../../../src/state/confirmStore', () => ({ confirm: vi.fn(async () => t
 const { useSelectedComponent } = await import('../../../src/components/design/useSelectedComponent');
 const { useWorkspaceStore } = await import('../../../src/state/store');
 
-/**
- * Clearing the only motor mount asks first. The checkbox closes its undo entry
- * as it fires, before the answer comes back, so the confirmed edit has to close
- * its own: left open, the next unrelated edit would merge into the same step.
- */
 describe('clearing the last motor mount', () => {
   it('closes its undo entry once confirmed', async () => {
     const tree = {

@@ -21,17 +21,7 @@ beforeAll(async () => {
   __setEngineForTests(await import('../../../src/engine/vendor/openrocket-engine.mjs'));
 });
 
-/**
- * Which air a file's `<atmosphere>` flies, against the kernel's own.
- *
- * Desktop's AtmosphereHandler.storeSettings flies ISA for every model but
- * `extendedisa` (an unknown or missing one warns and uses ISA), and ISA flies
- * none of the base values. So a file's ISA has to come in with no temperature,
- * pressure or humidity at all: a Settings default filling any one of them
- * would fly the bridge's ExtendedISAModel, sea-level air placed at the site.
- * The expected density is the kernel's ISA at the launch altitude, flown with
- * no atmosphere fields.
- */
+// Desktop's AtmosphereHandler.storeSettings flies ISA for every model but `extendedisa`.
 
 const spec = {
   noseCone: { length: 0.1, aftRadius: 0.013, thickness: 0.001 },
@@ -66,17 +56,14 @@ const fileLaunch: LaunchConditions = {
   pressureHPa: null,
 };
 
-/** Settings defaults with a humidity of their own, as a user who set one has. */
 const defaults: LaunchConditions = { ...fileLaunch, launchAltitudeM: 0, relativeHumidity: 0.5 };
 
-/** The pad's air density the kernel flies under these options. */
 function padDensity(options: SimulationOptions): number {
   const d = OpenRocketDesign.buildTree(tree);
   d.setMotorById(mountId, C6);
   return d.simulate({ launchRodLength: 1, randomSeed: 7, series: 'full', ...options }).series['ρ']![0]!;
 }
 
-/** A desktop-shaped file whose atmosphere element is `atmosphere`, opened over the defaults. */
 function opened(atmosphere: string): CompleteLaunch {
   const xml = exportOrk({ name: 'Air', tree, launch: fileLaunch }).replace('<atmosphere model="isa"/>', atmosphere);
   expect(xml).toContain(atmosphere);

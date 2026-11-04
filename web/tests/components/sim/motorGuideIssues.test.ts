@@ -18,10 +18,6 @@ const row = (p: Partial<GuideRow>): GuideRow =>
 
 const LIMITS = { railExitVelocityMin: 15, deploymentSpeedWarn: 20 };
 
-/**
- * The guide's status column is the app's existing warnings, one line per motor:
- * the same limits the results tiles judge a flight by, and no new ones.
- */
 describe('a guide row verdict', () => {
   it('finds nothing wrong with a clean flight', () => {
     expect(guideVerdict(row({}), LIMITS)).toEqual({ issues: [], warnings: 0 });
@@ -38,7 +34,6 @@ describe('a guide row verdict', () => {
     expect(guideVerdict(row({ railMargin: null }), LIMITS).issues).toEqual([]);
   });
 
-  /** With the kernel's warnings present, the kernel decides, as the Deploy tile does. */
   it('takes the deployment verdict from the kernel warnings', () => {
     const fast = row({
       deployVelocity: 30,

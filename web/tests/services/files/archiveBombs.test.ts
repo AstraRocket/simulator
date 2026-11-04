@@ -1,20 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-/**
- * A `.ork` archive is refused once it inflates past the caps, and the refusal
- * comes while it is inflating, not after.
- *
- * fflate inflates whatever it is handed before it reports any output, so a cap
- * checked on the output alone runs only after the whole member is in memory,
- * and a member's declared size says nothing about what it inflates to. The caps
- * are made small here so the bombs stay small, and every byte fflate's
- * inflaters deliver is counted. A DEFLATE stream expands at most about 1032:1,
- * so a reader that feeds its input in pieces of a kilobyte or so has delivered
- * at most about a megabyte past the cap when it stops; a reader that hands over
- * the whole member delivers all of it.
- */
 const CAP = 1024 * 1024;
-/** What one kilobyte-scale piece of input can add past the cap before the count stops it, with room to spare. */
 const OVERSHOOT = 2 * 1024 * 1024;
 
 const delivered = vi.hoisted(() => ({ bytes: 0 }));
@@ -52,7 +38,6 @@ import { unpackOrk } from '../../../src/services/files/ork/importUnpack';
 
 const zeros = (bytes: number) => new Uint8Array(bytes);
 
-/** The error `unpackOrk` throws for `data`, by its key. */
 function refusal(data: Uint8Array): string | undefined {
   try {
     unpackOrk(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer);
@@ -62,7 +47,6 @@ function refusal(data: Uint8Array): string | undefined {
   return undefined;
 }
 
-/** The zip with every declared uncompressed size, local and central, set to `bytes`. */
 function declaring(zip: Uint8Array, bytes: number): Uint8Array {
   const out = zip.slice();
   const view = new DataView(out.buffer);
@@ -81,7 +65,6 @@ beforeEach(() => {
 describe('.ork archive caps', () => {
   it('stops a gzipped file while it inflates', () => {
     expect(refusal(gzipSync(zeros(16 * CAP)))).toBe('errors.file.archiveTooLarge');
-    // Past the cap, so the count saw the output it stopped on.
     expect(delivered.bytes).toBeGreaterThan(CAP);
     expect(delivered.bytes).toBeLessThanOrEqual(CAP + OVERSHOOT);
   });
@@ -93,15 +76,9 @@ describe('.ork archive caps', () => {
     expect(delivered.bytes).toBeLessThanOrEqual(CAP + OVERSHOOT);
   });
 
-  /**
-   * A stream that takes in input and produces nothing: fflate keeps that input
-   * and copies all of it again on every push, so the cost grows with the square
-   * of its length and no output cap ever fires. A valid stream never holds back
-   * more than a stored block's 64 KiB, so 256 KiB of it is refused.
-   */
   it('refuses a gzip header that never ends', () => {
     const header = new Uint8Array([0x1f, 0x8b, 8, 0x08, 0, 0, 0, 0, 0, 3]); // FNAME set
-    const name = new Uint8Array(256 * 1024).fill(0x61); // and never terminated
+    const name = new Uint8Array(256 * 1024).fill(0x61);
     const file = new Uint8Array(header.length + name.length);
     file.set(header);
     file.set(name, header.length);
@@ -116,7 +93,7 @@ describe('.ork archive caps', () => {
     view.setUint32(0, 0x04034b50, true);
     view.setUint16(4, 20, true);
     view.setUint16(8, 8, true); // deflate
-    view.setUint32(18, data.length, true); // compressed size, the trailing bytes included
+    view.setUint32(18, data.length, true);
     view.setUint32(22, 13, true);
     view.setUint16(26, name.length, true);
     local.set(name, 30);
@@ -126,11 +103,6 @@ describe('.ork archive caps', () => {
     expect(refusal(archive)).toBe('errors.file.archiveCorrupt');
   });
 
-  /**
-   * Each gzip member costs a fresh inflater however little it holds, so a file
-   * of many one-byte members takes minutes while no byte cap comes near.
-   * OpenRocket writes a gzipped `.ork` as one member.
-   */
   it('refuses a gzipped file of many members', () => {
     const member = gzipSync(strToU8('a'));
     const file = new Uint8Array(member.length * 1000);
@@ -155,19 +127,11 @@ describe('.ork archive caps', () => {
   });
 
   it('counts every member toward the total', () => {
-    // Three members under the 1 MiB member cap, together over the 2 MiB total.
-
     const third = Math.floor(0.9 * CAP);
     const many = zipSync({ 'rocket.ork': zeros(third), 'a.rse': zeros(third), 'b.rse': zeros(third) });
     expect(refusal(many)).toBe('errors.file.archiveTooLarge');
   });
 
-  /**
-   * Desktop writes a `.ork` through Java's ZipOutputStream, which states a
-   * deflated member's sizes in a data descriptor after its data (general
-   * purpose flag bit 3), not in the local header the reader starts from.
-   * fflate's streaming Zip writes members the same way.
-   */
   it('opens members whose sizes follow their data, as desktop writes them', () => {
     const xml = '<openrocket><rocket><name>Desktop</name></rocket></openrocket>';
     const parts: Uint8Array[] = [];
@@ -189,14 +153,7 @@ describe('.ork archive caps', () => {
     expect(unpackOrk(bytes.buffer).xml).toBe(xml);
   });
 
-  /**
-   * A data descriptor may leave out its signature (APPNOTE 4.3.9.3).
-   * `ZipInputStream.readEnd` reads a first word that is not the signature as
-   * the CRC, so desktop 24.12 opens such a `.ork`; fflate's streaming reader
-   * loses its place at the member's end, and the archive is read through its
-   * central directory instead.
-   */
-  /** The CRC-32 a zip states for a member's uncompressed bytes. */
+  // A signature-less data descriptor (APPNOTE 4.3.9.3) loses fflate's streaming reader.
   const crc32 = (data: Uint8Array): number => {
     let c = ~0;
     for (const byte of data) {
@@ -274,8 +231,6 @@ describe('.ork archive caps', () => {
   it('holds such an archive to the same caps', () => {
     expect(refusal(unsigned({ 'rocket.ork': zeros(16 * CAP) }))).toBe('errors.file.archiveTooLarge');
     expect(delivered.bytes).toBeLessThanOrEqual(CAP + OVERSHOOT);
-    // Each member under the member cap, so the streaming read loses its place
-    // at the first one's end and the directory read meets the total cap.
     const third = Math.floor(0.9 * CAP);
     expect(refusal(unsigned({ 'rocket.ork': zeros(third), 'a.rse': zeros(third), 'b.rse': zeros(third) }))).toBe(
       'errors.file.archiveTooLarge',

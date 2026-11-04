@@ -21,7 +21,6 @@ const PUEBLO = {
 
 let urls: string[] = [];
 
-/** Open-Meteo, answering geocoding from `places` and elevation with 1512 m. */
 const serve = (places: unknown) =>
   setWeatherTransport(((url: string) => {
     urls.push(url);
@@ -63,7 +62,6 @@ describe('PlaceSearchDialog', () => {
   });
 
   it('writes a blank elevation when the lookup finds none, rather than keeping the old one', async () => {
-    // The elevation service fails, as it does offline: coordinates still parse.
     setWeatherTransport((() => Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch);
     const onPick = vi.fn();
     renderWithProviders(<PlaceSearchDialog onPick={onPick} onClose={() => {}} />);
@@ -88,7 +86,7 @@ describe('PlaceSearchDialog', () => {
   });
 });
 
-/** Pose as offline for one test; jsdom reports online otherwise. */
+// jsdom reports online otherwise.
 const goOffline = () => {
   Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
   return () => Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
@@ -113,7 +111,6 @@ describe('PlaceSearchDialog offline', () => {
 });
 
 describe('PlaceSearchDialog place detail', () => {
-  /** One key, so a language that names the country first can say it that way. */
   it('orders region and country as the language does', async () => {
     const i18n = (await import('../../../src/i18n')).default;
     await i18n.changeLanguage('ja');

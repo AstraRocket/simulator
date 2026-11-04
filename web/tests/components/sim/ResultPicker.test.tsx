@@ -5,7 +5,6 @@ import { ResultPicker } from '../../../src/components/sim/ResultPicker';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import { useWorkspaceStore } from '../../../src/state/store';
 
-/** The flight picker follows the ARIA menu keyboard model its role promises. */
 describe('ResultPicker menu keys', () => {
   it('opens onto the first flight and walks the rest with the arrows', () => {
     const base = useWorkspaceStore.getState().sims[0]!;

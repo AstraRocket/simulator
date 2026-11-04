@@ -36,13 +36,6 @@ import { withKey } from '../../services/app/objectKeys';
 import { useLatestRef } from '../common/useLatestRef';
 import { smallButton } from '../common/smallButton';
 
-/**
- * The Settings dialog's tabs, one component each, so a tab can be rendered and
- * tested on its own. Each reads and writes the settings through the
- * SettingsProvider; the dialog around them owns the tab strip and the reset
- * buttons.
- */
-
 const RULER_SIDES = ['top', 'bottom', 'left', 'right'] as const;
 
 export function GeneralTab() {
@@ -101,9 +94,6 @@ export function GeneralTab() {
         checked={settings.saveDesignInfo}
         onChange={(v) => update({ saveDesignInfo: v })}
       />
-      {/* Only where the browser has a save dialog to offer: a box that
-          changes nothing in Firefox or Safari would be a control that
-          does nothing. */}
       {canAskWhereToSave() && (
         <Check
           label={t('settings.askWhereToSave')}
@@ -123,11 +113,6 @@ export function UnitsTab() {
   return (
     <>
       <p className="text-[11px] leading-snug text-ink-faint">{t('settings.unitsNote')}</p>
-      {/* Whole-system presets first: most people want "imperial" and are
-          done, and only then reach in to change one quantity. A preset
-          is a clean slate, so it also drops every per-field override;
-          otherwise "Imperial defaults" would leave a field a chip had
-          touched still showing its old unit. */}
       <div className="flex gap-2 pb-1">
         <button
           onClick={() => update({ units: METRIC_UNITS, unitOverrides: {} })}
@@ -159,11 +144,6 @@ export function UnitsTab() {
           </select>
         </label>
       ))}
-      {/* A unit set from a chip lives on one field, which makes it easy
-          to forget where it was: a field showing inches while this tab
-          says cm looks like a bug unless you remember changing it. This
-          is the one place that can say how many there are and undo them
-          all, hidden when there are none, so it is never noise. */}
       {overriddenFields > 0 && (
         <button
           onClick={() => update({ unitOverrides: {} })}
@@ -187,9 +167,7 @@ export function ColorsTab() {
     update({ phaseColors: { ...settings.phaseColors, [k]: c } });
   return (
     <>
-      {/* Part colors apply to the 3D model, which a phone reaches
-          through the Sketch tab just as a desktop reaches it through the
-          view switch, so this is not gated on width. */}
+      {/* Not gated on width: a phone reaches the 3D model through the Sketch tab. */}
       <SubHeading first>{t('settings.parts')}</SubHeading>
       {PART_KEYS.map((key) => (
         <ColorRow
@@ -202,8 +180,6 @@ export function ColorsTab() {
           resetTitle={t('settings.resetOneFor', { name: t(`settings.part.${key}`) })}
         />
       ))}
-      {/* The default is a magnitude ramp; OpenRocket's green-to-red is here
-          for anyone who reads that faster from knowing the desktop. */}
       <SubHeading>{t('settings.aeroHeat')}</SubHeading>
       <label className="flex items-center justify-between gap-3 text-sm text-ink-soft">
         {t('settings.aeroHeatLabel')}
@@ -232,11 +208,6 @@ export function ColorsTab() {
   );
 }
 
-/**
- * The figure styles saved with "Save as default style", one row per part type
- * that has one, each editable here and removable. The Appearance section is
- * where a style is saved; this is where it can be seen and taken back.
- */
 function FigureStyles() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
@@ -347,9 +318,7 @@ export function SimTab() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
   const u = useUnits();
-  // Stored in radians like the kernel's field; edited in the user's angle
-  // unit through the same FieldUnit the property panel's angle fields use,
-  // rather than an inline `* 180 / Math.PI`.
+  // Stored in radians, edited in the user's angle unit.
   const angle = u.at(unitScope('settings', 'maxAngleStep'), 'angle');
   const setSim = (patch: Partial<SimulationSettings>) => update({ simulation: { ...settings.simulation, ...patch } });
   return (
@@ -406,9 +375,6 @@ export function SimTab() {
         onChange={(v) => setSim({ randomSeed: seedFromInput(v) })}
       />
       <SubHeading>{t('settings.warnings')}</SubHeading>
-      {/* Settings applies to every design, so its launcher wording names
-          neither guide: no rail or rod variant, unlike the per-design
-          launch panel. */}
       <NumRow
         label={t('settings.railExitMin')}
         hint={t('settings.railExitMinHint')}
@@ -420,13 +386,6 @@ export function SimTab() {
           setSim({ railExitVelocityMin: si ?? DEFAULT_SETTINGS.simulation.railExitVelocityMin }),
         )}
       />
-      {/* The deployment thresholds. Which one a flight uses depends on the
-          stage's recovery layout: no drogue is single-deployment and uses
-          the first alone; a drogue makes it dual-deployment, and the main
-          is then judged against the next two while the drogue is judged
-          against the last. All of them reach the kernel, not just the
-          tiles. The last three apply only to a stage carrying a device
-          marked as a drogue. */}
       {SPEED_WARNINGS.map((w) => (
         <NumRow
           key={w.key}
@@ -439,11 +398,7 @@ export function SimTab() {
           onChange={onSi(u.plain('velocity'), (si) => setSim({ [w.key]: si ?? DEFAULT_SETTINGS.simulation[w.key] }))}
         />
       ))}
-      {/* Everything above this heading decides when a flight warns. What
-          follows changes what the flight does, so it is separated and
-          its hint says which way the number moves. */}
       <SubHeading>{t('settings.simModel')}</SubHeading>
-      {/* Neutral launcher wording, as for the rail exit speed above. */}
       <Check
         label={t('settings.guideAwareRodClearance')}
         hint={t('settings.guideAwareRodClearanceHint')}
@@ -459,19 +414,10 @@ export function LaunchTab() {
   const { settings, update } = useSettings();
   return (
     <>
-      {/* The stock wind differs from desktop's on purpose; said here, where
-          the defaults are set, so the difference is not read as physics. */}
       <p className="text-[11px] leading-snug text-ink-faint">
         {t('settings.launchNote')} {t('settings.launchStillAir')}
       </p>
-      {/* The launch panel's own gap between cards, so the map card below
-          it does not sit closer than they do to each other. */}
       <div className="space-y-4">
-        {/* These are the values a new simulation is seeded from, so a
-            blank one would hand every future simulation a hole. Clearing
-            a required field here keeps what it had rather than storing
-            the blank, which is why no red marker ever shows up in this
-            copy of the panel. */}
         <LaunchDefaults launch={settings.launchDefaults} onSave={(launchDefaults) => update({ launchDefaults })} />
         <CardGroup title={t('map.cardTitle')}>
           <EsriKeyField />
@@ -481,12 +427,6 @@ export function LaunchTab() {
   );
 }
 
-/**
- * The launch defaults, held as a draft while a field is being typed in and
- * written when the panel commits (a field's blur, or at once for a discrete
- * control). A settings write hits storage, and a write per keystroke would also
- * store every intermediate prefix as the default for new simulations.
- */
 function LaunchDefaults({ launch, onSave }: { launch: CompleteLaunch; onSave: (l: CompleteLaunch) => void }) {
   const [draft, setDraft] = useState<CompleteLaunch | null>(null);
   const shown = draft ?? launch;
@@ -510,10 +450,8 @@ function LaunchDefaults({ launch, onSave }: { launch: CompleteLaunch; onSave: (l
       weatherKey
       launch={shown}
       onChange={(patch) => {
-        // From the pending draft, not the rendered one: two patches can land
-        // before the next render.
+        // From the pending draft: two patches can land before the next render.
         const from = pending.current ?? shown;
-        // A required field left blank keeps the value it had.
         const next = withRequiredFrom({ ...from, ...launchPatchFor(patch, from, 'defaults') }, from);
         pending.current = next;
         setDraft(next);
@@ -532,18 +470,11 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * One numeric setting, written on blur. Persisted per keystroke it would write
- * the caller's default mid-edit, since every caller substitutes one for an
- * empty field, so backspacing "0.01" to retype it refills the box under the
- * cursor. A hint says what the number is for: a threshold with no explanation
- * is only usable by someone who already knows what it does.
- */
+/** Written on blur: a per-keystroke write would refill an emptied box with its default. */
 function NumRow(props: Omit<ComponentProps<typeof NumberRow>, 'commitOnBlur' | 'labelClassName'>) {
   return <NumberRow {...props} commitOnBlur labelClassName="text-sm text-ink-soft" />;
 }
 
-/** A subheading inside a settings tab; `first` drops the space above the tab's top one. */
 function SubHeading({ first, children }: { first?: boolean; children: React.ReactNode }) {
   return (
     <div className={`${first ? '' : 'pt-1 '}text-[11px] font-semibold uppercase tracking-wide text-ink-faint`}>

@@ -20,9 +20,9 @@ describe('stabilityState (healthy-band classifier)', () => {
 
   it('classifies under / ok / over with inclusive [1,6] ok band', () => {
     expect(stabilityState(0.99)).toBe('under');
-    expect(stabilityState(1.0)).toBe('ok'); // lower boundary inclusive
+    expect(stabilityState(1.0)).toBe('ok');
     expect(stabilityState(3)).toBe('ok');
-    expect(stabilityState(6.0)).toBe('ok'); // upper boundary inclusive
+    expect(stabilityState(6.0)).toBe('ok');
     expect(stabilityState(6.01)).toBe('over');
   });
 });
@@ -43,16 +43,10 @@ describe('stabilityVerdictKey', () => {
     expect(stabilityVerdictKey(6)).toBe('stability.stable');
     expect(stabilityVerdictKey(0)).toBe('stability.marginal');
     expect(stabilityVerdictKey(-1)).toBe('stability.unstable');
-    // The drawing calls this over-stable; the stats strip must not call it stable.
     expect(stabilityVerdictKey(7)).toBe('schematic.overStable');
   });
 });
 
-/**
- * The on-pad readouts share one band: the stats strip, the info card and the 2D
- * and 3D drawings, so a 7-caliber design is amber over-stable and 0.5 cal is red
- * in every one of them.
- */
 describe('stabilityToneOf', () => {
   it('colors a margin by its band, as every on-pad readout does', () => {
     expect(stabilityToneOf(stabilityState(7)!)).toBe('text-warn-400');
@@ -74,11 +68,9 @@ describe('flight-event tables', () => {
 });
 
 describe('clusterEventLabels', () => {
-  // 1 px per second keeps the math obvious.
   const x = (t: number) => t;
 
   it('keeps the drogue deployment at apogee as its own label (Fireball case)', () => {
-    // Sustainer branch: apogee 13.2, ejection 14.7, drogue 14.7, main 34.2.
     const evts = [
       { time: 13.2, type: 'APOGEE' },
       { time: 14.7, type: 'EJECTION_CHARGE' },
@@ -107,7 +99,6 @@ describe('clusterEventLabels', () => {
   });
 });
 
-/** The rail-exit margin's color and word come from one set of bands. */
 describe('railVerdictKey', () => {
   it('names the band its tone colors', () => {
     const pairs: [number, string, string][] = [

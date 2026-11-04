@@ -2,38 +2,21 @@ import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, 
 import { HOST_INSET, PAD_L, clampWindow, resolveWindow, zoomWindow, type TimeWindow } from './flightChartAxis';
 import { useNativeWheel } from '../common/useNativeWheel';
 
-/**
- * Owns the flight chart's x-axis interaction: the zoom window state, the
- * time-to-pixel maps, the zoom buttons' entry point, the ctrl/pinch-wheel
- * listener (native, non-passive, registered once and reading the latest
- * handler through a ref) and the drag-to-pan pointer handlers. The hover
- * crosshair is not here; FlightChart decides what a pointer does when it is
- * not panning.
- */
 export function useChartZoom(hostRef: RefObject<HTMLDivElement | null>, maxT: number, iw: number) {
-  // Visible time window (null = full flight). The x-axis zooms/pans within it.
   const [zoom, setZoom] = useState<TimeWindow | null>(null);
   const { t0, t1, zoomed } = resolveWindow(zoom, maxT);
-  // Memoized so the per-panel path memo can key on it: a fresh arrow every
-  // render would make that memo useless, and hovering re-renders the chart on
-  // every pointer move.
+  // Stable so the per-panel path memo can key on it; hover re-renders every pointer move.
   const X = useCallback((tt: number) => PAD_L + ((tt - t0) / (t1 - t0)) * iw, [t0, t1, iw]);
   const invX = (px: number) => t0 + ((px - PAD_L) / iw) * (t1 - t0);
-  /** Pointer x relative to the plot's left edge (host inset added back). */
   const localX = (clientX: number) => {
     const host = hostRef.current;
     return host ? clientX - host.getBoundingClientRect().left - HOST_INSET : 0;
   };
 
-  // Zoom by `factor` (<1 = in), keeping `anchorT` under the same screen x.
   const zoomAt = (factor: number, anchorT: number) => setZoom(zoomWindow(t0, t1, factor, anchorT, maxT));
   const reset = () => setZoom(null);
 
-  // Ctrl/pinch-wheel zooms about the cursor (plain wheel still scrolls the
-  // panel list). Native non-passive listener so we can preventDefault. The
-  // listener is attached once and reads the latest handler through a ref.
-  // Closing over the window directly re-attaches on every zoom, pan and resize,
-  // which is a remove/add pair per wheel notch.
+  // Native non-passive listener so ctrl/pinch-wheel can preventDefault.
   useNativeWheel(hostRef, (e) => {
     const el = hostRef.current;
     if (!el || !(e.ctrlKey || e.metaKey)) return;
@@ -42,11 +25,9 @@ export function useChartZoom(hostRef: RefObject<HTMLDivElement | null>, maxT: nu
     zoomAt(e.deltaY > 0 ? 1.2 : 1 / 1.2, invX(px));
   });
 
-  // Pointer: drag pans (only when zoomed in). Each handler reports whether it
-  // took the event, so the caller can hand the rest to the hover crosshair.
   const drag = useRef<{ x: number; t0: number; t1: number } | null>(null);
   const startPan = (e: ReactPointerEvent): boolean => {
-    if (!zoomed) return false; // nothing to pan at full view; keep hover behavior
+    if (!zoomed) return false;
     drag.current = { x: e.clientX, t0, t1 };
     hostRef.current?.setPointerCapture?.(e.pointerId);
     return true;

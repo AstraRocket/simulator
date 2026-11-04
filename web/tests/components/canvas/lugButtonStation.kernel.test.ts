@@ -12,19 +12,8 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A rail button and a launch lug stand where the kernel stands them, in every
- * view. The kernel positions a rail button as a part of no axial length
- * (`RailButton` never sets `RocketComponent.length`) and bounds each instance
- * one radius either side of that station (`RailButton.getInstanceBoundingBox`),
- * so the drawn button is centered on the station. A lug's length is real, so
- * its center is the station plus half the length the kernel holds. Every
- * expected station and length is read from the kernel through the bridge
- * (`getComponentFields`), for each axial method the editor offers. The aft
- * view carries no axial station: the kernel mounts a button or lug on a body
- * tube only (`BodyTube.isCompatible`), whose radius is the same at every
- * station, so there the button is checked against the tube's kernel radius.
- */
+// A rail button has no axial length and is bounded one radius either side of its station
+// (`RailButton.getInstanceBoundingBox`), so it is drawn centered there.
 
 const S = 1000;
 const CY = 200;
@@ -37,7 +26,6 @@ const METHODS: [string, number][] = [
   ['top', 0.1],
   ['bottom', -0.02],
   ['middle', 0.015],
-  // From the nose tip, inside the tube (which runs 0.1 to 0.4).
   ['absolute', 0.25],
 ];
 
@@ -91,7 +79,6 @@ const geo = async (id: string): Promise<KernelGeometry> => {
   return kernel.get(id)!;
 };
 
-/** The part's axial center as the kernel holds it: its front plus half its length. */
 const kernelCenter = async (id: string): Promise<number> => {
   const g = await geo(id);
   const x = g.fields!['positionX'] as number;

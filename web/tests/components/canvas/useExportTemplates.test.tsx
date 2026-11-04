@@ -10,11 +10,6 @@ import {
   type UserTemplate,
 } from '../../../src/services/exports/templateStore';
 
-/**
- * The dialog's opening listing and an import race. An import that lands first
- * selects its template; the opening listing, resolving later without it, must
- * not take it away again.
- */
 const original = getTemplateStore();
 afterEach(() => {
   setTemplateStore(original);
@@ -29,8 +24,6 @@ describe('useExportTemplates', () => {
     const store: TemplateStore = {
       list: () => {
         calls++;
-        // The first call is the opening listing, held until released, and it
-        // answers with the store as it was before the import.
         if (calls === 1) return new Promise((r) => (releaseOpening = r));
         return Promise.resolve([...rows]);
       },
@@ -124,11 +117,6 @@ describe('useExportTemplates', () => {
   });
 });
 
-/**
- * A template store that cannot be read is not an empty one: the dialog says so
- * in its error line, as the saved-part and location lists do, rather than
- * offering the built-in formats as though nobody had imported anything.
- */
 describe('useExportTemplates when storage fails', () => {
   it('reports the failed listing in the error line', async () => {
     setTemplateStore({

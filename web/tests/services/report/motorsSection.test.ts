@@ -6,8 +6,6 @@ import type { ReportOptions } from '../../../src/services/report/options';
 import { createPdfPage, type T } from '../../../src/services/report/pdfPage';
 import { writeMotorsSection } from '../../../src/services/report/motorsSection';
 import { METRIC_UNITS, type UnitSelection } from '../../../src/prefs/units';
-
-/** The motors section's text, drawn into a real jsPDF document. */
 function drawnText(configs: ReportModel['configs'], units: UnitSelection = METRIC_UNITS): string {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const runs: string[] = [];
@@ -62,8 +60,6 @@ describe('the motors section', () => {
     expect(out).not.toContain(en.report.outdatedFlight);
     expect(out).toContain(en.report.altitude);
   });
-
-  // An Estes C6 is 18 x 70 mm, 0.709 x 2.756 in; an AeroTech N2000 is 98 x 1,046 mm.
   it('prints motor sizes whole in millimeters and to the ladder in inches', () => {
     const big = { ...motor, designation: 'N2000W', manufacturer: 'AeroTech', diameter: 0.098, length: 1.046 };
     const mm = drawnText([{ name: 'Big', motors: [motor, big], flight, outdated: false }]);

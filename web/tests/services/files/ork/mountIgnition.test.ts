@@ -3,16 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { exportOrk, importOrk } from '../../../../src/services/files/orkFile';
 import type { ComponentNode, RocketTree } from '../../../../src/engine/openRocketEngine';
 
-/**
- * A mount's own ignition survives a round trip.
- *
- * Desktop keeps it on the mount, apart from any configuration's motor:
- * MotorMountHandler reads the bare `<ignitionevent>`/`<ignitiondelay>` of
- * `<motormount>` into `getDefaultMotorConfig()`, and RocketComponentSaver
- * writes that object back there. A configuration's motor writes its own in an
- * `<ignitionconfiguration>` block. So the bare tags are the mount's, not the
- * default configuration's motor's, and an empty mount still carries them.
- */
+// Bare `<ignitionevent>`/`<ignitiondelay>` are the mount's own (MotorMountHandler), not a motor's.
 
 const ORK = `<?xml version="1.0"?>
 <openrocket version="1.10">
@@ -70,7 +61,6 @@ function walk(nodes: ComponentNode[]): ComponentNode[] {
 }
 const byName = (tree: RocketTree, name: string): ComponentNode => walk(tree.components).find((n) => n.name === name)!;
 
-/** The bare tags and every configuration block of one mount in written XML. */
 function mountXml(xml: string, name: string) {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   const tube = Array.from(doc.querySelectorAll('innertube')).find(
@@ -124,7 +114,6 @@ describe('a mount’s own ignition', () => {
         },
       ],
     });
-    // Not the default configuration's motor's launch + 1 s.
     expect(mountXml(xml, 'Loaded')).toEqual({
       event: 'burnout',
       delay: 2,

@@ -2,19 +2,7 @@ import type { RefObject } from 'react';
 import { zoomStep, type ZoomState } from '../../tree/schematicGeometry';
 import { useNativeWheel } from '../common/useNativeWheel';
 
-/**
- * Wheel-zoom about the pointer for an SVG drawing, shared by TreeSchematic and
- * AftView so the two cannot drift on when the listener re-registers or how the
- * layout is read.
- *
- * A native, non-passive listener: React's onWheel is passive, so the
- * preventDefault that keeps the page from scrolling has to be attached here.
- * Registered once per element (`useNativeWheel`), so a layout change never
- * re-attaches the listener.
- *
- * @param toView maps a wheel event's client point to viewBox coordinates,
- *   given the svg's current bounding rect; null when the view is not zoomable.
- */
+/** Native and non-passive because React's onWheel is passive and cannot preventDefault. */
 export function useWheelZoom(
   ref: RefObject<SVGSVGElement | null>,
   setZoom: (f: (z: ZoomState) => ZoomState) => void,

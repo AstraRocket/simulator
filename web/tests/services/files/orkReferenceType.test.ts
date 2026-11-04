@@ -3,12 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { importOrk } from '../../../src/services/files/orkFile';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * Desktop measures the stability margin in calibers against the reference the
- * design names (`<referencetype>`: nosecone, maximum, custom). The bridge
- * measures against the widest body tube whatever the file says, so a design
- * measured against anything else has to be told its margin can differ.
- */
+// Desktop honors `<referencetype>`; the bridge always uses the widest body tube.
 const ork = (ref: string) =>
   `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="test"><rocket><name>R</name>${ref}<subcomponents>

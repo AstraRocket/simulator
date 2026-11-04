@@ -20,24 +20,10 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A file's free text never indexes a plain object.
- *
- * A finish, a shape, a cross section, a material group and a color name all
- * arrive as text the file chose, and each writer looks its code up by that
- * text. On a plain object `constructor`, `toString`, `hasOwnProperty` and
- * `__proto__` resolve to Object.prototype members: a function where a string
- * was expected throws in `escapeXml`, or is written into the file as its own
- * source. Every lookup is a Map or guarded, and a finish, shape or cross
- * section the kernel has no constant for is dropped on read with a note.
- *
- * The expected finish, shape and cross section are the kernel's own: what
- * `getComponentFields` reports for a part the file gave no value for.
- */
+// On a plain object these names resolve to Object.prototype functions.
 
 const PROTOTYPE_NAMES = ['constructor', 'toString', 'hasOwnProperty', '__proto__'];
 
-/** A design with `name` in every file-keyed slot; '' leaves each slot out. */
 const fixture = (name: string): string => {
   const slot = (xml: string) => (name ? xml : '');
   return (
@@ -68,7 +54,6 @@ const fixture = (name: string): string => {
 const byType = (tree: RocketTree, type: string): ComponentNode =>
   [...walkNodes(tree.components)].find((n) => n.type === type)!;
 
-/** The finish, shape and cross section the kernel holds for the imported design. */
 function kernelEnums(tree: RocketTree): { finish: string; shape: string; crossSection: string } {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));
@@ -82,7 +67,6 @@ function kernelEnums(tree: RocketTree): { finish: string; shape: string; crossSe
   return { finish: String(nose['finish']), shape: String(nose['shape']), crossSection: String(fins['crossSection']) };
 }
 
-/** Text a lookup that reached Object.prototype would leave in a file. */
 const FUNCTION_TEXT = /\[native code\]|function\s*\(|function [A-Za-z]/;
 
 describe('a .ork with Object.prototype names in every file-keyed slot', () => {
@@ -90,7 +74,6 @@ describe('a .ork with Object.prototype names in every file-keyed slot', () => {
     const res = importOrk(fixture(name));
     const nose = byType(res.tree, 'nosecone');
     const fins = byType(res.tree, 'trapezoidfinset');
-    // Dropped on read: the node holds nothing the writers would look up.
     expect(nose['finish']).toBeUndefined();
     expect(nose['shape']).toBe('ogive');
     expect(nose['color']).toBeUndefined();
@@ -105,7 +88,6 @@ describe('a .ork with Object.prototype names in every file-keyed slot', () => {
     expect(notes).toContain(
       `Fins: the file names a fin cross section "${name}" this app does not have, so a square cross section is used.`,
     );
-    // What flies is what a file with none of these flies.
     expect(kernelEnums(res.tree)).toEqual(kernelEnums(importOrk(fixture('')).tree));
   });
 
@@ -113,7 +95,6 @@ describe('a .ork with Object.prototype names in every file-keyed slot', () => {
     const { tree } = importOrk(fixture(name));
     const ork = exportOrk({ name: 'Proto', tree });
     expect(ork).not.toMatch(FUNCTION_TEXT);
-    // No desktop group by that name, so no attribute at all.
     expect(ork).not.toContain(`group="${name}"`);
     expect(ork).toContain('<finish>normal</finish>');
     const { xml: rkt } = exportRkt('Proto', tree);

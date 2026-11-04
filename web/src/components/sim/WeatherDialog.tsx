@@ -29,22 +29,8 @@ import { StatusLine } from '../common/StatusLine';
 import { smallButton } from '../common/smallButton';
 import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
 
-/**
- * Launch conditions from an Open-Meteo forecast for a date and hour at the
- * launch site. Desktop OpenRocket's "Use Current Conditions" is the
- * model: fetch, show every value with its time and source and a checkbox each,
- * and change nothing until Apply.
- *
- * Mounted only while open, so a closed dialog holds no request: unmounting
- * aborts one still running.
- *
- * Apply writes a `weatherSource` beside the values, so the Atmosphere card can
- * say where they came from. Opened from that card's Refresh, the dialog starts
- * from the recorded date, hour and groups and fetches at once; Apply is still
- * the only thing that writes.
- */
+/** Modeled on desktop OpenRocket's "Use Current Conditions": nothing changes until Apply. */
 
-/** The large unit visibility reads in, by the user's distance unit: its own system's. */
 const FAR_UNIT: Record<string, string> = { m: 'km', km: 'km', ft: 'mi', yd: 'mi', mi: 'mi' };
 
 const btn = smallButton('sm', 'soft');
@@ -60,12 +46,10 @@ export function WeatherDialog({
   refresh = false,
 }: {
   launch: LaunchConditions;
-  /** Launch keys the simulations being edited together disagree on (see LaunchPanel). */
   diff?: ReadonlySet<keyof LaunchConditions>;
   onChange: (patch: LaunchPatch) => void;
   onCommit?: () => void;
   onClose: () => void;
-  /** Start from `launch.weatherSource` and fetch on opening. */
   refresh?: boolean;
 }) {
   const { t, i18n } = useTranslation();
@@ -82,15 +66,11 @@ export function WeatherDialog({
 
   const lat = launch.latitudeDeg;
   const lon = launch.longitudeDeg;
-  // A blank elevation is not sea level: the forecast is corrected to the
-  // site's height, so the dialog asks for one rather than assume 0 m.
+  // A blank elevation is not sea level: the forecast is corrected to the site's height.
   const siteM = launch.launchAltitudeM ?? null;
-  // Some of the simulations being edited launch from another site or elevation,
-  // and Apply leaves those as they are.
   const elsewhere = !!(diff?.has('latitudeDeg') || diff?.has('longitudeDeg') || diff?.has('launchAltitudeM'));
   const hasSite = lat != null && lon != null;
 
-  /** `force` asks Open-Meteo even when an answer under 30 minutes old is held. */
   const fetchNow = async (force = false) => {
     if (!hasSite || siteM === null) return;
     await forecast.run(
@@ -111,8 +91,7 @@ export function WeatherDialog({
     );
   };
 
-  // A refresh fetches at once: its date, hour and groups are already chosen.
-  // Once per opening, which the ref holds across a strict-mode double mount.
+  // A refresh fetches at once; the ref keeps it to once across a strict-mode double mount.
   const started = useRef(false);
   useEffect(() => {
     if (!refresh || started.current) return;
@@ -120,7 +99,6 @@ export function WeatherDialog({
     void fetchNow();
   });
 
-  // Held only while the elevation it was fetched for is still set.
   const answer = state.kind === 'ready' && siteM !== null ? state.answer : null;
   const variantIndex = answer && useTerrain && answer.variants.length > 1 ? 1 : 0;
   const variant = answer?.variants[variantIndex];
@@ -154,10 +132,6 @@ export function WeatherDialog({
       elevationApplied,
       applied: patch,
     });
-    // A forecast is for one place and one height: the pressure is corrected to
-    // the site's elevation and the wind levels start above it. A simulation
-    // being edited with this one that launches from another site or elevation
-    // keeps its own conditions (the dialog says so; see `elsewhere`).
     onChange((l) =>
       sameSite(l.latitudeDeg, l.longitudeDeg, lat, lon) && l.launchAltitudeM === siteM
         ? { ...patch, weatherSource }
@@ -173,8 +147,6 @@ export function WeatherDialog({
   const pres = (hPa: number) => `${u.fmtSym('pressure', LAUNCH_SI.hPa.toSi(hPa), 1)}`;
   const wind = (ms: number) => `${u.fmtSym('windspeed', ms, 1)}`;
   const alt = (m: number) => `${u.fmtSym('distance', m, 0)}`;
-  // Visibility runs to tens of kilometers, so it reads in km or miles: the
-  // large unit of whichever system the distance unit belongs to.
   const farSym = FAR_UNIT[u.sym('distance')] ?? 'km';
   const far = (m: number) => withUnit(fmtNum(siToUi('distance', farSym, m), 1), farSym);
 
@@ -238,8 +210,7 @@ export function WeatherDialog({
                 hour={hour}
                 onDate={(d) => {
                   setDate(d);
-                  // A new date is a new request; the old answer covers only its own
-                  // days, and one still loading would land under the new date.
+                  // Cancel, or a request still loading would land under the new date.
                   forecast.cancel();
                   setState({ kind: 'idle' });
                 }}
@@ -270,9 +241,6 @@ export function WeatherDialog({
               {t(answer.endpoint === 'archive' ? 'weather.validArchive' : 'weather.validForecast', { time: validTime })}
             </p>
             {answer.endpoint === 'archive' && <p className="text-xs text-ink-muted">{t('weather.archiveNoAloft')}</p>}
-            {/* When the answer came from, and a way past the reuse window: a
-                reused answer is not a fresh one, and the user may know a newer
-                run is out. */}
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-ink-muted">
                 {t(answer.reused ? 'weather.reused' : 'weather.fetchedAt', {
@@ -302,8 +270,6 @@ export function WeatherDialog({
             <ul className="space-y-1">
               {offered.map((g) => (
                 <li key={g} className="flex items-center justify-between gap-3">
-                  {/* The value sits outside the label, so the checkbox is named
-                      by its group alone and the value is read after it. */}
                   <Check
                     className="text-xs text-ink-soft"
                     checked={ticked.has(g)}

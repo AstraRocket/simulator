@@ -4,16 +4,7 @@ import type { ComponentNode, RocketTree } from '../../../../src/engine/openRocke
 import { exportOrk, importOrk } from '../../../../src/services/files/orkFile';
 import { walkNodes } from '../../../../src/tree/treeWalk';
 
-/**
- * A part's `<material>` attributes survive the round trip.
- *
- * Upstream's `RocketComponentSaver.materialParam` writes every part's bulk
- * material as `density`, then `shearModulus` when the modulus is set or the
- * material is user-defined, then `group`; desktop's `MaterialSetter` reads all
- * three back and looks the material up by them, with no group when the
- * attribute is missing. So the reader keeps the group and the modulus on every
- * part, not only a rail button, and the writer puts them back in that order.
- */
+// Desktop's `MaterialSetter` looks a material up by density, shearModulus and group.
 
 const ork = (material: string): string =>
   `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents><stage><name>S</name><subcomponents>` +
@@ -59,8 +50,7 @@ describe('a body tube material with neither', () => {
     expect(bodyOf(res.tree)['shearModulus']).toBeUndefined();
   });
 
-  // An empty attribute is no modulus (`finiteNum`), not the 0 `Number('')`
-  // makes of it, which the writer would then put back as shearModulus="0".
+  // `Number('')` is 0, which the writer would put back as shearModulus="0".
   it('drops an empty modulus rather than reading it as 0', () => {
     const res = importOrk(ork('<material type="bulk" density="680" shearModulus="">Cardboard</material>'));
     expect(bodyOf(res.tree)['shearModulus']).toBeUndefined();

@@ -5,49 +5,22 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { STORAGE_PREFIX, nsKey } from '../../../src/services/storage/storageKeys';
 
-/**
- * One home for the storage namespace.
- *
- * Every key is built by `nsKey` from `STORAGE_PREFIX`, so no module can spell the
- * prefix differently and split the app across two namespaces.
- *
- * The prefix is also the package name and the product name, so it legitimately
- * appears in `package.json`, the docs, the page title and the manifest. What a file
- * can still get wrong by hand is a key, and a key is the prefix followed by a
- * colon, so that is what this looks for.
- */
-
 const repo = (p: string) => fileURLToPath(new URL(`../../../../${p}`, import.meta.url));
 
-/** What a storage key looks like, and the only form no file but one may spell. */
 const KEY_FORM = `${STORAGE_PREFIX}:`;
 
-/**
- * The only files permitted to spell a key, each for a stated reason.
- *
- * Nothing here is a key in the app. If a key needs adding, it goes through
- * `nsKey`, and this list does not change.
- */
 const ALLOWED = new Set([
-  // Holds the prefix.
   'web/src/services/storage/storageKeys.ts',
-  // Plain .mjs harnesses: no TS loader, so they cannot import the constant. A
-  // mismatch is self-detecting (the app comes up without settings and the check
-  // fails), which is why a literal is tolerable here and nowhere else.
+  // Plain .mjs harnesses cannot import the constant; a mismatch makes their check fail.
   'web/scripts/check-offline-data.mjs',
   'web/scripts/check-offline-help.mjs',
   'web/scripts/check-update-flow.mjs',
-  // Documents that describe the namespace.
   'docs/ARCHITECTURE.md',
 ]);
 
-/** Every text file under the repo, skipping what is generated or vendored. */
 const walk = (dir: string, out: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {
-    // `engine-java` is skipped deliberately: the kernel's patch marker tag is
-    // `PATCH(astrarrocketjs)`, the misspelling, in the patched sources and in
-    // the extraction tooling that greps for it. It is not a storage key, and
-    // renaming it would mean re-blessing every patched file.
+    // `engine-java` holds the deliberately misspelled `PATCH(astrarrocketjs)` marker, not a storage key.
     if (
       [
         'node_modules',
@@ -73,15 +46,11 @@ const walk = (dir: string, out: string[] = []): string[] => {
 describe('the storage namespace has one home', () => {
   it('builds a key from the prefix and a suffix', () => {
     expect(nsKey('designs:index')).toBe(`${STORAGE_PREFIX}:designs:index`);
-    // The caller supplies neither the prefix nor the separator, so two callers
-    // cannot disagree about either.
     expect(nsKey('workspace')).toBe(`${STORAGE_PREFIX}:workspace`);
   });
 
   it('is spelled astrarocket, pinned as a literal', () => {
-    // Pinned as a literal on purpose. This is the one assertion in the file that
-    // does not derive from `STORAGE_PREFIX`, because deriving it would pass for
-    // any spelling at all.
+    // Deriving it from `STORAGE_PREFIX` would pass for any spelling.
     expect(STORAGE_PREFIX).toBe('astrarocket');
   });
 
@@ -96,8 +65,6 @@ describe('the storage namespace has one home', () => {
   });
 
   it('allows no file that does not spell a key', () => {
-    // An entry that matches nothing is an exemption waiting for a file to
-    // misuse it; the list shrinks when the last literal leaves a file.
     const stale = [...ALLOWED].filter((rel) => {
       try {
         return !readFileSync(repo(rel), 'utf8').includes(KEY_FORM);
@@ -109,7 +76,6 @@ describe('the storage namespace has one home', () => {
   });
 
   it('keeps every key on one namespace', () => {
-    // The drift this guards against: one key under a different prefix.
     const prefixes = new Set(
       [nsKey('designs:index'), nsKey('settings:v1'), nsKey('engine')].map((k) => k.split(':')[0]),
     );

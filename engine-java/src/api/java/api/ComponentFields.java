@@ -34,42 +34,19 @@ import info.openrocket.core.rocketcomponent.position.AnglePositionable;
 import info.openrocket.core.rocketcomponent.position.AxialMethod;
 import info.openrocket.core.rocketcomponent.position.RadiusPositionable;
 
-/**
- * What a built component holds, field by field, under the app's node keys.
- *
- * Each value is read back from the kernel object through its own getter after
- * the whole rocket is built, so it is what flies: after the setters' clamps,
- * after the automatic rules have resolved, and with the constructor's value
- * wherever the node left a key out. Lengths are meters, angles radians, masses
- * kilograms, densities in the material's own unit. Enumerations are their
- * upstream names lowercased; a cluster is its file name (`getXMLName`).
- *
- * The app reads the same fields itself to draw, export and save the part, so
- * this is what those readings are tested against
- * (web/tests/engine/fieldReadback.kernel.test.ts). Desktop OpenRocket reads the
- * files the app saves through this same class, compiled against its release
- * (web/scripts/ork-check/OrkFields.java), so the two can be compared key by
- * key. Beyond the panel's fields that adds what a file also carries: overrides,
- * materials, the finish, a fin's planform area, and the same placement stated
- * the way a file format may restate it (a pod's distance from the axis, a fin
- * tab's offset from the root's front). A key a component does not have is left
- * out.
- */
+/** Also compiled against desktop OpenRocket (web/scripts/ork-check/OrkFields.java); keep its API surface upstream-only. */
 public final class ComponentFields {
     private ComponentFields() {}
 
     public static String of(RocketComponent c) {
         Out o = new Out();
-        // A mass object's length follows its radius when the radius is
-        // automatic, and only getRadius() settles the pair.
+        // An automatic radius drives the length, and only getRadius() settles both.
         if (c instanceof MassObject) {
             ((MassObject) c).getRadius();
         }
         o.num("length", c.getLength());
         o.str("positionMethod", c.getAxialMethod().name());
         o.num("positionOffset", c.getAxialOffset());
-        // Where the part's front sits from the rocket's nose, however the
-        // position is stated: a file format can state the same station another way.
         o.num("positionX", c.getAxialOffset(AxialMethod.ABSOLUTE));
         o.bool("massOverridden", c.isMassOverridden());
         o.num("overrideMass", c.getOverrideMass());
@@ -84,8 +61,7 @@ public final class ComponentFields {
         if (c instanceof ExternalComponent) {
             ExternalComponent e = (ExternalComponent) c;
             o.material("", e.getMaterial());
-            // Desktop's RockSim handlers leave the finish unset when the file
-            // carries no FinishCode; reported as such rather than thrown on.
+            // Desktop's RockSim import leaves it null without a FinishCode.
             o.str("finish", e.getFinish() == null ? "unset" : e.getFinish().name());
         } else if (c instanceof StructuralComponent) {
             o.material("", ((StructuralComponent) c).getMaterial());
@@ -267,17 +243,14 @@ public final class ComponentFields {
         return o.done();
     }
 
-    /**
-     * The mount's own ignition (`getDefaultMotorConfig()`), in the app's names:
-     * lowercase with the underscore dropped, as the .ork spells them.
-     */
+    // Underscores dropped, as the .ork spells them.
     private static void defaultIgnition(Out o, MotorMount mount) {
         MotorConfiguration config = mount.getDefaultMotorConfig();
         o.str("ignitionEvent", config.getIgnitionEvent().name().replace("_", ""));
         o.num("ignitionDelay", config.getIgnitionDelay());
     }
 
-    /** A flat JSON object. A later key replaces nothing: each key is written once per class branch. */
+    // The first write of a key wins.
     private static final class Out {
         private final StringBuilder sb = new StringBuilder("{");
         private final java.util.Set<String> seen = new java.util.HashSet<>();
@@ -299,12 +272,11 @@ public final class ComponentFields {
             if (key(k)) sb.append(v);
         }
 
-        /** Enumeration names only: plain ASCII, no escaping needed. */
+        // Enumeration names only: not escaped.
         void str(String k, String v) {
             if (key(k)) sb.append('"').append(v.toLowerCase()).append('"');
         }
 
-        /** Free text as the part carries it (a comment): escaped, case kept. */
         void text(String k, String v) {
             if (!key(k)) return;
             sb.append('"');
@@ -312,7 +284,6 @@ public final class ComponentFields {
             sb.append('"');
         }
 
-        /** JSON string escaping for free text: quotes, backslashes and control characters. */
         private void escape(String v) {
             for (char ch : v.toCharArray()) {
                 if (ch == '"' || ch == '\\') sb.append('\\').append(ch);
@@ -324,7 +295,6 @@ public final class ComponentFields {
             }
         }
 
-        /** A material's name and density, under `<prefix>MaterialName` and `<prefix>Density`. */
         void material(String prefix, Material m) {
             if (m == null) return;
             String name = prefix.isEmpty() ? "materialName" : prefix + "MaterialName";

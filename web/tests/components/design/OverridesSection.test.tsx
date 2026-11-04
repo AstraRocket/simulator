@@ -5,11 +5,6 @@ import { OverridesSection } from '../../../src/components/design/OverridesSectio
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
-/**
- * Select-all and retype empties an override box for a moment. That empty box
- * is not a typed 0: writing one would fly a 0 kg part (or a whole 0 kg stage
- * with "apply to all subcomponents" on) on every keystroke.
- */
 const node = {
   id: 's',
   type: 'stage',
@@ -39,7 +34,6 @@ describe('OverridesSection on a part that only holds parts', () => {
     const { unmount } = renderWithProviders(<OverridesSection node={on} onChange={vi.fn()} />);
     expect(applyAll()).toHaveLength(0);
     unmount();
-    // `node` has all three overrides on and none covering the parts, as an imported .ork can.
     renderWithProviders(<OverridesSection node={node} onChange={vi.fn()} />);
     expect(applyAll()).toHaveLength(3);
   });

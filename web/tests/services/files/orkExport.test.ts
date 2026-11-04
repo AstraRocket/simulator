@@ -7,7 +7,6 @@ import type { LaunchConditions } from '../../../src/services/design/orkTree';
 
 const node = (o: object) => o as unknown as ComponentNode;
 
-/** A fin set positioned in the rocket frame, the way a desktop `.ork` can. */
 const absoluteTree = () =>
   ({
     components: [
@@ -31,12 +30,6 @@ const absoluteTree = () =>
 
 const xmlFor = (tree: RocketTree) => exportOrk({ name: 'Rocket', tree } as never);
 
-/**
- * An imported `absolute` position stays absolute on load: every reader measures
- * it from the nose tip, as the kernel does, and the editor offers the method.
- * What goes back out is what the file said, or the user's edit of it, in the
- * same frame: `.ork` round-trips are meant to be byte-stable.
- */
 describe('exportOrk: imported absolute positions', () => {
   const load = (tree: RocketTree) =>
     wireLoadedOrk(
@@ -67,24 +60,14 @@ describe('exportOrk: imported absolute positions', () => {
   it('writes the CURRENT position once the user has moved the part', () => {
     const tree = load(absoluteTree());
     const fins = tree.components[1]!.children![0]! as ComponentNode;
-    // An edit in the editor rewrites `offset` in the method the part shows.
     fins.position = { ...fins.position!, offset: 0.42 };
 
     const xml = xmlFor(tree);
     expect(xml).toContain('<axialoffset method="absolute">0.42</axialoffset>');
-    // Narrow: the <rocket> element legitimately carries its own
-    // method="absolute" offset, so only the fin set's original must be gone.
     expect(xml).not.toContain('>0.35<');
   });
 });
 
-/**
- * `<isdrogue>` decides which recovery warnings a flight can raise at all: the
- * kernel judges a stage with a drogue against the dual-deployment thresholds and
- * everything else against the single one. Losing the flag on a round trip
- * silently downgrades a dual-deployment design to single deployment, so the
- * element has to survive both ways.
- */
 describe('exportOrk - the drogue flag', () => {
   const chuteTree = (drogue?: boolean) =>
     ({
@@ -102,22 +85,12 @@ describe('exportOrk - the drogue flag', () => {
 
   it('writes the element only for a drogue, as the desktop saver does', () => {
     expect(xmlFor(chuteTree(true))).toContain('<isdrogue>true</isdrogue>');
-    // Not `<isdrogue>false</isdrogue>`: RecoveryDeviceSaver omits it entirely
-    // for a main, and a file that differs from the desktop's is a diff to explain.
+    // RecoveryDeviceSaver omits it entirely for a main.
     expect(xmlFor(chuteTree(false))).not.toContain('isdrogue');
     expect(xmlFor(chuteTree())).not.toContain('isdrogue');
   });
 });
 
-/**
- * A design can be saved mid-edit with a required launch field still blank,
- * even though it cannot be flown. `LaunchConditions` models those holes as
- * `null`, and a hole is written as zero rather than blocking the save, never as
- * the literal string "null" where a number belongs.
- *
- * A "null" would be dropped silently on re-import (numTag -> NaN -> fallback),
- * and desktop OpenRocket 24.12 logs a parse warning on every one.
- */
 describe('exportOrk - a blank launch field', () => {
   const blank = (): LaunchConditions =>
     ({

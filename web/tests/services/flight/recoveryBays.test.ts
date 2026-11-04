@@ -22,7 +22,6 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 
 const at = (offset: number) => ({ method: 'top', offset });
 
-/** An upper tube with the main and a lower one with the drogue. */
 function rocket(): RocketTree {
   return {
     name: 'R',
@@ -77,8 +76,6 @@ describe("a design's recovery bays", () => {
   });
 
   it("gives no bay to a dual-deployment stage's device beyond its drogue and main", () => {
-    // One drogue, so the plan is dual, with a nose cone streamer in the upper tube
-    // too: the picked main gets the bay, and the streamer none of its own.
     const tree = rocket();
     const lower = findNode(tree, 'lower')!;
     lower.children = lower.children!.filter((c) => c.id !== 'streamer');
@@ -98,7 +95,6 @@ describe("a design's recovery bays", () => {
       ['Upper', 'main', ['Nose streamer']],
       ['Lower', 'drogue', ['Drogue']],
     ]);
-    // The pick flies nothing, so no result goes out of date.
     expect(flightKey(picked)).toBe(flightKey(tree));
   });
 
@@ -125,7 +121,6 @@ describe('updating a bay', () => {
     expect(bayRecord(tree, 'lower', 'drogue')).toEqual({ pressurePa: 90000, tests: [test1] });
     tree = updateBay(tree, 'lower', 'drogue', { pressurePa: undefined });
     expect(bayRecord(tree, 'lower', 'drogue')).toEqual({ tests: [test1] });
-    // The other role on the same tube, and the other tube, are untouched.
     expect(findNode(tree, 'upper')![BAYS_KEY]).toBeUndefined();
   });
 
@@ -162,7 +157,6 @@ describe('the records in a .ork', () => {
     const back = importOrk(xml).tree;
     const lower = [...walkNodes(back.components)].find((n) => n.type === 'bodytube' && n.name === 'Lower')!;
     expect(lower[BAYS_KEY]).toEqual({ drogue: { primaryKg: 0.0012, tests: [test1] } });
-    // Read, not carried as an unknown element as well.
     expect(lower['xmlExtra']).toBeUndefined();
   });
 
@@ -193,7 +187,6 @@ describe("the browser's copy", () => {
     const { tree, restored } = restoreBays(rocket(), copy);
     expect(restored).toBe(1);
     expect(bayRecord(tree, 'lower', 'drogue').tests).toEqual([test1]);
-    // A tube that already has records keeps its own.
     const own = updateBay(rocket(), 'lower', 'drogue', { pressurePa: 90000 });
     expect(restoreBays(own, copy).restored).toBe(0);
   });

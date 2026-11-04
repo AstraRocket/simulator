@@ -28,10 +28,6 @@ afterEach(() => {
 const HOST = 'https://cdn.test/gh/owner/repo@data/';
 const MANIFEST = { motors: 'abc123', components: 'def456' };
 
-/**
- * A worker that is active and, when `controlled`, controls the page; a host
- * answering every URL with 200; and the Cache API recording each write.
- */
 function stubWorker(controlled: boolean): { opened: string[]; put: string[]; fetched: string[] } {
   const seen = { opened: [] as string[], put: [] as string[], fetched: [] as string[] };
   Object.defineProperty(navigator, 'serviceWorker', {
@@ -60,12 +56,6 @@ function stubWorker(controlled: boolean): { opened: string[]; put: string[]; fet
   return seen;
 }
 
-/**
- * A data-host build carries no copy of the motors or components, so offline they
- * exist only as the service worker's cached download. Fetched only when a picker
- * opens, an app installed online and first used at a field with no signal would
- * have none.
- */
 describe('warmCatalogs', () => {
   it('downloads both hosted catalogs through their own loaders once the app is idle', async () => {
     vi.stubEnv('VITE_DATA_BASE', 'https://cdn.test/gh/owner/repo@data/');
@@ -81,9 +71,7 @@ describe('warmCatalogs', () => {
     expect(loadComponents).not.toHaveBeenCalled();
   });
 
-  // The worker's rule stores only what a page it controls fetches, and the
-  // first visit is never controlled, so there the app writes the cache itself,
-  // under the keys the rule reads offline.
+  // The first visit is never controlled, so the worker caches nothing; the app writes it.
   it('writes each loaded catalog and the manifest to astra-catalogs on an uncontrolled page', async () => {
     vi.stubEnv('VITE_DATA_BASE', HOST);
     const seen = stubWorker(false);

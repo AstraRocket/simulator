@@ -1,9 +1,5 @@
 import { test, expect, ready } from './base';
 
-/**
- * The header's daylight toggle: one tap into the high-contrast theme and one
- * back, on a phone and on a desktop alike.
- */
 test('the header toggles daylight and back, on a phone and on a desktop', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await ready(page);

@@ -17,7 +17,6 @@ const IN = uiToSi('length', 'in', 1);
 const PSI = uiToSi('pressure', 'psi', 1);
 const G10 = FIN_MATERIALS.find((m) => m.key === 'g10')!.shearModulusPa;
 
-/** A 6 in root, 2 in tip, 4 in high fin of 1/8 in stock. */
 const FIN: FlutterFin = { rootChordM: 6 * IN, tipChordM: 2 * IN, spanM: 4 * IN, thicknessM: 0.125 * IN };
 
 describe('fin flutter speed', () => {
@@ -76,7 +75,6 @@ describe('a design fin set, as the estimate takes it', () => {
 
   it('gives an elliptical fin the tip chord of a trapezoid with its area', () => {
     const got = flutterFin({ ...trapezoid, type: 'ellipticalfinset' } as ComponentNode)!;
-    // pi/4 root span = (root + tip)/2 span, within the outline's sampling.
     expect(got.tipChordM / got.rootChordM).toBeCloseTo(Math.PI / 2 - 1, 2);
   });
 
@@ -101,7 +99,6 @@ describe('fin stock for a design material', () => {
 describe('the worst point of a flight', () => {
   it('can be a slower point lower down, where the air is thicker', () => {
     const flutterAt = (h: number) => flutterSpeed(FIN, G10, h)!.speedMs;
-    // At 3,000 m a speed 5% under the low point's still has the larger margin.
     const series = { time: [0, 1, 2], altitude: [0, 100, 3000], velocity: [0, 150, 157] };
     const got = worstFlutterPoint(FIN, G10, series, 0)!;
     expect(got.time).toBe(1);
@@ -109,8 +106,6 @@ describe('the worst point of a flight', () => {
   });
 
   it("reads the run's recorded air, and the airspeed from its Mach number", () => {
-    // Air thinner than standard at the pad (a hot, high field typed into the
-    // site), and a 10 m/s headwind: 150 m/s over the ground, 160 through the air.
     const p = 85000;
     const a = 350;
     const series = {
@@ -123,7 +118,6 @@ describe('the worst point of a flight', () => {
     };
     const got = worstFlutterPoint(FIN, G10, series, 0)!;
     expect(got.speedMs).toBeCloseTo(160, 9);
-    // The note's speed goes as a / sqrt(P): the standard air at sea level, scaled.
     const sea = flutterSpeed(FIN, G10, 0)!;
     expect(got.flutterMs).toBeCloseTo(sea.mach * a * Math.sqrt(101325 / p), 6);
   });

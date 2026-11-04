@@ -7,16 +7,8 @@ import {
 import { defaultExportOptions, type FlightPathExportOptions } from '../../../src/services/exports/flightPathExport';
 import type { PathExportSettings } from '../../../src/services/storage/settings';
 
-/**
- * The dialog loads and saves its remembered options from one table, so the two
- * directions cannot cover different fields. These cases hold the table to that:
- * every option but the mission name has exactly one row, and every row survives
- * a save, a trip through JSON (the localStorage form) and a load.
- */
-
 const both = { altitude: true, distance: true };
 
-/** A value for every remembered option that differs from `defaultExportOptions('m')`. */
 const CHANGED: Omit<FlightPathExportOptions, 'missionName'> = {
   waypoints: new Set(['apogee', 'landing']),
   includeFlightPath: false,
@@ -60,8 +52,6 @@ describe('path export field table', () => {
   });
 
   it('round-trips every row', () => {
-    // A row added to the table without a changed value fails here, so no field
-    // is remembered without a proof that it comes back.
     expect(Object.keys(CHANGED).sort()).toEqual(PATH_EXPORT_FIELDS.map((f) => f.option).sort());
     const opts: FlightPathExportOptions = { ...defaultExportOptions('m'), ...CHANGED, missionName: 'M1' };
     const back = roundTrip(opts);

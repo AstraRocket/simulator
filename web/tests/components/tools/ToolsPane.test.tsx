@@ -22,7 +22,6 @@ describe('the Tools tab', () => {
     expect(screen.getByRole('heading', { name: 'Landing estimator' })).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Parachute sizing' }));
     expect(screen.getByRole('heading', { name: 'Parachute sizing' })).toBeTruthy();
-    // Only the open tool is in the document.
     expect(screen.queryByRole('heading', { name: 'Landing estimator' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Parachute sizing' }).getAttribute('aria-selected')).toBe('true');
   });
@@ -33,7 +32,6 @@ describe('the Tools tab', () => {
     const result = screen.getByRole('region', { name: 'Parachute sizing result' });
     expect(result.textContent).toMatch(/Main \(/);
     expect(result.textContent).not.toMatch(/This canopy/);
-    // No buttons to apply a size: there is no design here to apply it to.
     expect(screen.queryByRole('button', { name: 'Use the main diameter' })).toBeNull();
     fireEvent.change(screen.getByLabelText('Canopy diameter'), { target: { value: '60' } });
     expect(result.textContent).toMatch(/This canopy/);
@@ -46,8 +44,7 @@ describe('the Tools tab', () => {
     const main = () => within(result).getByText(/^Main \(/).nextElementSibling?.textContent;
     fireEvent.change(screen.getByLabelText('Site elevation'), { target: { value: '2682' } });
     const blank = main();
-    // The standard temperature at 2,682 m is about -2.4 C; typing it keeps the
-    // site's own pressure, so the canopy stays the size the blank field gave.
+    // -2.4 C is standard at 2,682 m, so the canopy size is unchanged.
     fireEvent.change(screen.getByLabelText('Temperature'), { target: { value: '-2.4' } });
     expect(main()).toBe(blank);
   });
@@ -80,7 +77,6 @@ describe('the Tools tab', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Fin flutter' }));
     const result = screen.getByRole('region', { name: 'Fin flutter result' });
     expect(result.textContent).toMatch(/Enter the fin/);
-    // A 15 cm root, 5 cm tip, 10 cm high G10 fin of 1/8 in stock flutters near 231 m/s at sea level.
     fireEvent.change(screen.getByLabelText('Root chord'), { target: { value: '15' } });
     fireEvent.change(screen.getByLabelText('Tip chord'), { target: { value: '5' } });
     fireEvent.change(screen.getByLabelText('Height'), { target: { value: '10' } });
@@ -106,7 +102,7 @@ describe('the Tools tab', () => {
     fireEvent.blur(shear);
     expect(stock.value).toBe('custom');
     fireEvent.change(stock, { target: { value: 'aluminum' } });
-    // 26 GPa in the metric default hPa.
+    // 26 GPa, shown in hPa.
     expect((screen.getByLabelText('Shear modulus') as HTMLInputElement).value).toBe('260000000');
   });
 
@@ -120,11 +116,9 @@ describe('the Tools tab', () => {
     expect(result.textContent).not.toMatch(/Pressure to shear/);
     fireEvent.change(screen.getByLabelText('Pin count'), { target: { value: '3' } });
     const force = screen.getByLabelText('Shear strength per pin');
-    // 300 N over a 10 cm bore is about 382 hPa, under the default 15 psi.
     fireEvent.change(force, { target: { value: '100' } });
     expect(result.textContent).toMatch(/Pressure to shear the pins/);
     expect(result.textContent).not.toMatch(/will not separate/);
-    // 1,500 N is about 1,910 hPa, over it.
     fireEvent.change(force, { target: { value: '500' } });
     expect(result.textContent).toMatch(/will not separate/);
   });

@@ -17,15 +17,6 @@ import { fmtUpTo } from '../../i18n/format';
 import { partName } from './ConfigsTable';
 import { SEPARATION_EVENTS } from '../../services/design/componentFields';
 
-/**
- * Whether one stage flies under this configuration, and when it lets go.
- *
- * The same override shape the recovery section has: empty follows the design,
- * whose value is the placeholder, so the control reads as what the flight will
- * use. Staging is the other half of what a flight configuration decides, and a
- * two-stage rocket flown on a long burn and on a short one usually wants two
- * separation delays, not two designs.
- */
 export function SeparationSection({
   config,
   stage,
@@ -34,9 +25,7 @@ export function SeparationSection({
 }: {
   config: FlightConfig;
   stage: ComponentNode;
-  /** The stage's place in the design, for an unnamed one's label. */
   index: number;
-  /** False for the top stage, which has nothing above it to let go of. */
   separates: boolean;
 }) {
   const { t } = useTranslation();
@@ -47,7 +36,6 @@ export function SeparationSection({
 
   const id = stage.id as string;
   const flies = stageFlies(config, id);
-  // Something has to fly, so the only stage still flying cannot be grounded.
   const onlyFlying = useWorkspaceStore(
     (s) => flies && findStages(s.tree).every((n) => n.id === id || !stageFlies(config, n.id as string)),
   );
@@ -60,9 +48,6 @@ export function SeparationSection({
 
   return (
     <OverrideCard name={name} overridden={!!over}>
-      {/* Whether it flies at all comes first: everything under it describes a
-          stage that is in the flight, and a grounded stage separates from
-          nothing. */}
       <OverrideRow first label={t('configs.flies')}>
         <input
           type="checkbox"
@@ -104,9 +89,6 @@ export function SeparationSection({
             onCommit={onCommit}
           />
 
-          {/* The altitude is read by the two altitude triggers only, so the box is
-              offered under those alone, as the property panel and desktop do; a
-              stored override survives a trip through another event. */}
           {event.startsWith('altitude') && (
             <OverrideAltitude
               name={name}

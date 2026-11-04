@@ -1,36 +1,5 @@
-// Build-time importer for OpenRocket's own example rockets.
-//
-// OpenRocket ships a folder of curated `.ork` files it opens from File → Open
-// Example. They are the best starter designs that exist for this app: real,
-// varied, authored by the people who wrote the physics, and already proven to
-// load: everything one of ours would have to earn. This pulls them from the
-// same upstream commit the engine was extracted from
-// (engine-java/extract/UPSTREAM), so an example can never demonstrate a feature
-// the bundled kernel does not have.
-//
-//   node scripts/sync-examples.mjs [--src <openrocket checkout>] [--ref <sha>]
-//
-// With no --src it reads the pinned repo/ref from UPSTREAM and fetches over
-// HTTPS. --src points at a full OpenRocket checkout instead (the extractor's
-// .openrocket-src is sparse to core/src/main/java, so it does not have these).
-//
-// What it strips. Upstream's files carry the flight data of every simulation
-// that was ever run in them: 90% of the bytes, about 3.1 MB of the 3.4 MB across
-// the set. The importer reads only a simulation's result summary from
-// `<flightdata>`, and an example has no reason to open with results someone else
-// flew, so the whole element is dropped and every example opens with its
-// simulations not yet run. Stripping it takes the set to ~340 kB, which is
-// small enough to sit in the build and be precached, so examples work on a
-// first offline load like everything else. exampleLibrary.test.ts builds
-// every stripped file through the real kernel and checks mass/CG/CP.
-//
-// Why public/examples and not public/data. The motor and component catalogs
-// under public/data are refreshed on a schedule by
-// .github/workflows/sync-catalogs.yml and served from the `data` branch so they
-// can change without an app build. Examples are the opposite: they are pinned
-// to the engine's upstream ref, so they change exactly when the app is rebuilt
-// against a new OpenRocket. Routing them through the data branch would buy
-// nothing and would cost the offline-first guarantee on first use.
+// Pulled from the engine's UPSTREAM commit so an example never needs a feature the bundled kernel lacks.
+// --src must be a full checkout: the extractor's .openrocket-src is sparse to core/src/main/java.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,19 +11,16 @@ const OUT_DIR = fileURLToPath(new URL('../public/examples', import.meta.url));
 const UPSTREAM = fileURLToPath(new URL('../../engine-java/extract/UPSTREAM', import.meta.url));
 const EXAMPLES_PATH = 'core/src/main/resources/datafiles/examples';
 
-/** repo + ref from engine-java/extract/UPSTREAM: the commit the engine is built from. */
 function pinnedUpstream() {
   const text = readFileSync(UPSTREAM, 'utf8');
   const field = (k) => text.match(new RegExp(`^${k}\\s*=\\s*(\\S+)`, 'm'))?.[1];
   const repo = field('repo');
   const ref = arg('ref') ?? field('ref');
   if (!repo || !ref) throw new Error(`Could not read repo/ref from ${UPSTREAM}`);
-  // https://github.com/owner/name.git → owner/name
   const slug = repo.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
   return { slug, ref };
 }
 
-/** Every example as { name, bytes }, from a local checkout or from GitHub. */
 async function fetchExamples() {
   const src = arg('src') ?? process.env.OPENROCKET_SRC;
   if (src) {
@@ -82,7 +48,6 @@ async function fetchExamples() {
   return out;
 }
 
-/** "Pods--airframes and winglets.ork" → "pods-airframes-and-winglets". */
 const slugify = (filename) =>
   filename
     .replace(/\.ork$/i, '')
@@ -90,7 +55,7 @@ const slugify = (filename) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-/** One tag's text out of the rocket element's own header (not a descendant's). */
+/** From the rocket element's own header, not a descendant's. */
 function headerTag(xml, tag) {
   const head = xml.match(/<rocket>[\s\S]*?<subcomponents>/)?.[0] ?? '';
   const raw = head.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1];
@@ -99,17 +64,7 @@ function headerTag(xml, tag) {
   return text || null;
 }
 
-// Descriptions we write ourselves, keyed by slug.
-//
-// Upstream's <comment> is the description everywhere it exists, because it is
-// the author's own words about the design. These fill the gaps:
-//   - three files carry no comment at all;
-//   - the two "simulation extension" examples demonstrate a desktop plugin
-//     (roll control and airstart via OpenRocket's extension API, one of them in
-//     JavaScript). The airframes load and fly here, but the extension does not
-//     run, so upstream's description would promise behavior this app does not
-//     have. They are still worth shipping as designs; they are not worth
-//     shipping under a description that is false.
+// The simulation-extension examples rely on desktop plugins that do not run here, so upstream's text would mislead.
 const DESCRIPTIONS = {
   'a-simple-model-rocket': 'A three-fin, one-motor beginner design. The smallest complete rocket in the set.',
   'parallel-booster-staging': 'Strap-on boosters that separate in flight, built as parallel stages.',
@@ -120,7 +75,6 @@ const DESCRIPTIONS = {
     'The roll-control airframe again, scripted in JavaScript upstream. As above, the script does not run here and it flies as the plain airframe.',
 };
 
-/** Drop every stored simulation result, keeping the design and its decals. */
 function stripFlightData(bytes) {
   const files = unzipSync(bytes);
   const out = {};
@@ -139,14 +93,10 @@ function stripFlightData(bytes) {
 
 const sources = await fetchExamples();
 if (sources.length === 0) {
-  // Same floor as sync-motors / sync-components: never publish an empty set
-  // over a good one just because a path or a listing went wrong.
   console.error('Refusing to write examples: none found upstream.');
   process.exit(1);
 }
 
-// Rewritten from scratch every run, so an example removed upstream is removed
-// here too rather than lingering as a file nothing indexes.
 rmSync(OUT_DIR, { recursive: true, force: true });
 mkdirSync(OUT_DIR, { recursive: true });
 
@@ -160,9 +110,7 @@ for (const { name, bytes } of sources.sort((a, b) => a.name.localeCompare(b.name
   examples.push({
     id,
     file: `${id}.ork`,
-    // The filename, not the design's <name>: upstream's menu labels these by
-    // file, and at least one ("Two stage high power rocket") is called plain
-    // "Rocket" inside.
+    // The filename, as upstream's menu labels them: some designs are named just "Rocket" inside.
     name: name.replace(/\.ork$/i, ''),
     description: DESCRIPTIONS[id] ?? headerTag(xml, 'comment'),
     bytes: zip.length,

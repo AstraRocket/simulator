@@ -16,30 +16,12 @@ import { PlaceSearchDialog } from './PlaceSearchDialog';
 import { StatusLine } from '../common/StatusLine';
 import { smallButton } from '../common/smallButton';
 
-/** The three fields a location sets. */
 type LocationSite = Pick<LaunchConditions, 'latitudeDeg' | 'longitudeDeg' | 'launchAltitudeM'>;
 
-/** The launch defaults from Settings, as a site. */
 const launchDefaultSite = (): LocationSite => {
   return siteOf(loadSettings().launchDefaults);
 };
 
-/**
- * Saved launch locations, at the top of the launch panel's Site group.
- *
- * The three site fields (latitude, longitude, elevation) are properties of the
- * launch field, not of a flight. Without a saved location every new simulation
- * means retyping coordinates from memory, which is how they come out wrong. A
- * location is those three plus a name.
- *
- * It deliberately excludes the rod, the wind and the atmosphere. Those are conditions on
- * the day; a location that restored last month's wind would be worse than one that
- * restored nothing, because it would look authoritative.
- *
- * Selecting a location writes through the panel's own `onChange` / `onCommit`, so
- * applying one is an ordinary edit: undoable, and subject to the same
- * multi-selection rules as typing the numbers by hand.
- */
 export function LocationPicker({
   launch,
   onChange,
@@ -49,7 +31,6 @@ export function LocationPicker({
   launch: LaunchConditions;
   onChange: (patch: Partial<LaunchConditions>) => void;
   onCommit?: () => void;
-  /** The site "Custom location" writes; the launch defaults unless the caller has its own rule. */
   defaultSite?: () => LocationSite;
 }) {
   const { t } = useTranslation();
@@ -58,38 +39,15 @@ export function LocationPicker({
   const [searching, setSearching] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Shared with the manage dialog, and ordered: see `useLocationList` for why a
-  // late-landing first read would otherwise empty this dropdown.
   const { locations: loaded, error: listError, refresh, write } = useLocationList();
   const locations = loaded ?? [];
 
-  // A location with no known elevation leaves the elevation blank: a tool then
-  // takes the terrain model's, and a simulation asks for it before it runs.
-  // Keeping the previous site's elevation would fly the wrong air unannounced.
   const apply = (location: LaunchLocation) => {
     onChange(siteOf(location));
     onCommit?.();
   };
 
-  /**
-   * "Custom location" puts the site back to your launch defaults.
-   *
-   * The select's value is derived from the fields, so the option has to change
-   * them; otherwise React snaps the dropdown straight back to the matching
-   * location and the option reads as broken. Clearing the fields instead would
-   * leave the map with nothing to draw and the Run button refusing, since all
-   * three are required.
-   *
-   * Your defaults are a real place (the Kennedy Space Center as shipped, which
-   * is what `settings.launchDefaults` holds), so the map has somewhere to open
-   * and the fields stay flyable. Read from Settings rather than hardcoded, so
-   * somebody who set their own home field gets that instead of Florida.
-   *
-   * A tool passes its own `defaultSite`, which leaves the elevation to the
-   * terrain model as its other site paths do.
-   *
-   * One undoable edit like any other.
-   */
+  // The select's value derives from the fields, so this must change them or React snaps it back.
   const toDefaultSite = () => {
     onChange(defaultSite());
     onCommit?.();
@@ -97,17 +55,8 @@ export function LocationPicker({
 
   const store = (fn: () => Promise<void>) => write(fn, setErr);
 
-  /**
-   * Which saved location the current fields correspond to, if any.
-   *
-   * Compared on the numbers rather than remembered as a selection: the fields
-   * can be edited directly, imported from a `.ork` or replaced by "use my
-   * location", and a remembered id would keep claiming a location that is not what
-   * is on screen. Matched within 1e-4° (about 11 m) and 0.5 m of elevation, since a
-   * location's stored precision and a typed one need not match bit for bit.
-   */
+  // Matched on the numbers, not a remembered id, since the fields change by other routes.
   const near = (a: number | null | undefined, b: number, eps: number) => a != null && Math.abs(a - b) < eps;
-  // A location with no elevation matches a blank one, and only that.
   const sameAlt = (a: number | null | undefined, b: number | null) => (b === null ? a == null : near(a, b, 0.5));
   const current = locations.find(
     (p) =>
@@ -116,15 +65,9 @@ export function LocationPicker({
       sameAlt(launch.launchAltitudeM, p.launchAltitudeM),
   );
 
-  /** Save the fields on screen under `name`. */
   const saveUnder = async (name: string) => {
-    // Saving under an existing location's name updates it, rather than
-    // leaving two entries a user cannot tell apart in the dropdown. Matched
-    // without case, as the name dialog's duplicate warning is.
     const key = name.trim().toLowerCase();
     const existing = locations.find((p) => p.name.toLowerCase() === key);
-    // A location can be the only record of coordinates somebody measured at a
-    // field, so replacing one other than the location on screen asks first.
     if (
       existing &&
       existing.id !== current?.id &&
@@ -141,15 +84,6 @@ export function LocationPicker({
     });
   };
 
-  /**
-   * A location is a place, so it cannot be captured from a half-filled site.
-   *
-   * `locationFrom` has to produce numbers, and both coordinates are required launch
-   * fields, so saving with one blank would mint a location at 0°,0° (the Gulf
-   * of Guinea), which would then apply itself silently every time it was
-   * picked. Saving is refused instead, and the fields are already marked as the
-   * ones to fill.
-   */
   const savable = launch.latitudeDeg != null && launch.longitudeDeg != null;
 
   return (
@@ -165,9 +99,6 @@ export function LocationPicker({
           }}
           className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1.5 text-xs text-ink ring-1 ring-line/10"
         >
-          {/* Both a state and a choice: it is what the dropdown shows whenever
-              the fields match no saved location, and picking it returns them to
-              your launch defaults. */}
           <option value="">{t('location.custom')}</option>
           {locations.map((p) => (
             <option key={p.id} value={p.id}>
@@ -202,9 +133,7 @@ export function LocationPicker({
           ⚙
         </button>
       </div>
-      {/* Always mounted, empty until there is something to say: a live region
-          created together with its text is not announced by most screen
-          readers. */}
+      {/* Always mounted: a live region created with its text is not announced. */}
       <StatusLine tone="danger" size="fine">
         {err ?? listError}
       </StatusLine>
@@ -224,8 +153,6 @@ export function LocationPicker({
         />
       )}
 
-      {/* Finding a place is another way to fill the same three fields, so it
-          writes them the way picking a saved location does: one undoable edit. */}
       {searching && (
         <PlaceSearchDialog
           onClose={() => setSearching(false)}
@@ -237,10 +164,6 @@ export function LocationPicker({
         />
       )}
 
-      {/* The shared dialog, also reachable from the menu. It owns its own
-          loading, renaming and deleting, so this only has to say when it is
-          open, hand it the fields "Use" writes, and refresh the dropdown once
-          it closes. */}
       {managing && (
         <LocationsDialog
           onApply={apply}

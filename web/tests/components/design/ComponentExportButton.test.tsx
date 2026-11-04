@@ -19,7 +19,6 @@ const setWindow = (desktop: boolean) => {
   })) as unknown as typeof window.matchMedia;
 };
 
-/** The per-part export menu follows the ARIA menu keyboard model its role promises. */
 describe('ComponentExportButton menu keys', () => {
   beforeEach(() => setWindow(true));
 
@@ -34,7 +33,6 @@ describe('ComponentExportButton menu keys', () => {
   });
 });
 
-/** STL, OBJ, 3MF and DXF are for desktop programs; a phone or tablet keeps GLB only. */
 describe('ComponentExportButton formats on a phone', () => {
   it('offers every format of a fin set on a desktop window', () => {
     setWindow(true);

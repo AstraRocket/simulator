@@ -14,11 +14,6 @@ import { smallButton } from '../common/smallButton';
 const FIELD =
   'rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
 
-/**
- * Settings ▸ Flyer: the name and memberships the flight card prints, and the
- * certification it checks each flight against. Kept in this browser only,
- * like every other setting.
- */
 export function FlyerTab() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();

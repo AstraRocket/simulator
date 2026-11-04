@@ -1,17 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fetchJsonStaged, readStreamWithProgress } from '../../../src/services/app/fetchProgress';
 
-/**
- * The size cap on a streamed response.
- *
- * `maxBytes` is checked against bytes actually received, so a host that omits
- * or misstates content-length cannot slip past it. The subtlety the cap exists
- * for is what happens on the way out: abandoning the reader leaves the transfer
- * in flight, which would make the cap bound the buffer we keep rather than the
- * bytes the network moves, while the caller goes on to try its fallback base.
- */
-
-/** A stream of `count` chunks of `size` bytes, recording whether it was canceled. */
 const chunked = (count: number, size: number) => {
   const state = { canceled: 0, pulled: 0 };
   const stream = new ReadableStream<Uint8Array>({
@@ -47,16 +36,12 @@ describe('readStreamWithProgress', () => {
   it('CANCELS the stream when it refuses, rather than abandoning it', async () => {
     const { stream, state } = chunked(1000, 100);
     await expect(readStreamWithProgress(stream, null, () => {}, 250)).rejects.toThrow(/too large/i);
-    // Without the cancel, the transfer stays live and the cap bounds only the
-    // buffer, not the download.
     expect(state.canceled).toBe(1);
-    // And it stopped pulling rather than draining the whole thing.
     expect(state.pulled).toBeLessThan(10);
   });
 
   it('surfaces the size error even when canceling itself fails', async () => {
-    // `cancel` can reject on a stream the network already errored. That must
-    // not replace the reason we are here.
+    // `cancel` can reject on a stream the network already errored.
     const stream = new ReadableStream<Uint8Array>({
       pull(c) {
         c.enqueue(new Uint8Array(100));
@@ -82,11 +67,6 @@ describe('readStreamWithProgress', () => {
   });
 });
 
-/**
- * One staged fetch for the catalog and thrustcurve.org: a reply over the cap is
- * worded by the caller whether the host declared its length or streamed it, so
- * one fault does not read as two different messages.
- */
 describe('fetchJsonStaged', () => {
   const errors = {
     http: (s: number) => new Error(`http ${s}`),

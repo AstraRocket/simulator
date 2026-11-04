@@ -44,13 +44,6 @@ import {
   type SimpleInputs,
 } from '../../services/flight/simpleRocket';
 
-/**
- * The simple rocket: size, mass and a motor, flown straight up in calm air
- * through the real kernel (services/flight/simpleRocket). For a rocket with no
- * design, the question thrustcurve.org's Motor Guide answers, without asking
- * for a drag coefficient nobody has.
- */
-
 interface Remembered {
   diameterM: number | null;
   lengthM: number | null;
@@ -65,7 +58,6 @@ interface Remembered {
   finRootM: number | null;
   finSpanM: number | null;
   chuteOn: boolean;
-  /** Null to size it (`simpleChuteDiameter`). */
   chuteDiameterM: number | null;
   chuteCd: number | null;
   motor: MotorSpec | null;
@@ -74,17 +66,13 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** A secondary button, as the motor card's Change is drawn. */
 const SECONDARY =
   'rounded-lg bg-raised px-3 py-1.5 text-xs font-medium text-ink hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-50';
 
-/** An inline notice, as the Run button words one. */
 const NOTICE = 'rounded-lg px-3 py-1.5 text-xs leading-snug ring-1';
 
-/** One flight and what it was flown from, so an edit after it reads as stale. */
 interface Flown {
   figures: SimpleFigures;
-  /** The motor's nearest offered delay to the ideal one; null when it offers none. */
   nearest: number | null;
   key: string;
 }
@@ -119,8 +107,6 @@ export function SimpleRocketTool() {
 
   const launch = { rodLengthM: rodLengthM ?? 1, launchAltitudeM: siteM ?? 0, temperatureC };
   const lengthUnit = (field: string) => u.at(unitScope('launch', field), 'length');
-  // A blank canopy is sized for the main band with the chosen motor's casing,
-  // rounded up to a size you can buy and shown in the box; the guide flies that one canopy on every motor.
   const chuteSized =
     dryMassKg != null && chuteCd != null
       ? canopyRoundUp(simpleChuteDiameter(dryMassKg, motor, launch, chuteCd), lengthUnit('simpleChuteDiameter').sym)
@@ -148,11 +134,8 @@ export function SimpleRocketTool() {
   const key = simpleKey(inputs, launch, motor);
   const shaped = inputs != null && !problem;
   const ready = shaped && motor != null;
-  // What a blank fin field flies with, shown in the box so it is not a mystery.
   const standIn = diameterM != null ? simpleFins({ diameterM }) : null;
 
-  // While a flight is up the run button is its Cancel, as on the Simulations
-  // page, so a flight that hangs has something to press.
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -240,7 +223,6 @@ export function SimpleRocketTool() {
             u={u}
             stepSi={0.001}
             minSi={0.001}
-            // Clamped to the rocket: a balance point past the tail is a typo.
             maxSi={lengthM ?? 10}
             required
             missing={cgM == null}
@@ -404,9 +386,6 @@ export function SimpleRocketTool() {
           />
         </CardGroup>
       </ToolForm>
-      {/* The actions head the result column, over what they produce, so neither
-          sits below a form that runs off the bottom of the screen. The problem
-          that holds them back is said right beside them. */}
       <div className="h-fit space-y-3">
         {problem && (
           <p role="status" className={`${NOTICE} bg-warn-500/10 text-warn-300 ring-warn-400/30`}>
@@ -516,7 +495,6 @@ export function SimpleRocketTool() {
                   />
                 )}
               </Figures>
-              {/* Absent from a flight with no parachute, and from one flown before the card existed. */}
               {fig.landingVelocity != null && (
                 <Figures title={t('simpleTool.underChute')}>
                   <Figure
@@ -568,8 +546,7 @@ export function SimpleRocketTool() {
           guide={guide}
           onGuide={setGuide}
           onUse={(row) => {
-            // A canopy sized for the card's motor stays the one the guide flew,
-            // rather than resizing for this motor's casing under its figures.
+            // Pin the canopy the guide flew, so it does not resize for this motor's casing.
             if (chuteOn && chuteDiameterM == null && inputs.chute) setChuteDiameterM(inputs.chute.diameterM);
             setMotor(row.spec);
             setFlown({ figures: row.figures, nearest: row.nearest, key: simpleKey(inputs, launch, row.spec) });
@@ -582,7 +559,6 @@ export function SimpleRocketTool() {
   );
 }
 
-/** A titled block of figures, with an optional line on how far to trust them. */
 function Figures({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <div>

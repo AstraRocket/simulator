@@ -13,18 +13,9 @@ import {
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import { loadSettings } from '../../../src/services/storage/settings';
 
-/** What the picker writes for "Custom location": the shipped default is KSC. */
 const DEFAULT_SITE = loadSettings().launchDefaults;
 
-/**
- * The picker, with an in-memory store so nothing touches IndexedDB.
- *
- * Rendered under StrictMode because the store round-trip (`useLocationList`) finishes after an await behind a
- * `useLatest` guard, and the development double-invoke runs the cleanup once and
- * then the effect again. A guard that only ever goes stale in cleanup would stay
- * stale for the component's whole life, and the location list would never
- * appear.
- */
+// StrictMode: its double-invoked cleanup would leave `useLocationList`'s `useLatest` guard stale.
 
 function memoryStore(seed: LaunchLocation[] = []): LaunchLocationStore {
   let items = [...seed];
@@ -47,7 +38,6 @@ const HOME: LaunchLocation = {
   launchAltitudeM: 1830,
 };
 
-/** Only the site fields matter here; the rest is what the panel would pass. */
 const launch = (over: Partial<LaunchConditions> = {}): LaunchConditions =>
   ({
     launchRodLengthM: 1,
@@ -86,21 +76,14 @@ describe('LocationPicker', () => {
     await waitFor(() => screen.getByRole('option', { name: 'Home field' }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'home' } });
 
-    // Exactly the location's three fields: a location is a place, so restoring the rod or
-    // the wind with it would put last month's conditions on today's flight.
     expect(onChange).toHaveBeenCalledWith({
       latitudeDeg: 39.05,
       longitudeDeg: -104.8,
       launchAltitudeM: 1830,
     });
-    // Committed, so applying a location is one undo step rather than none.
     expect(onCommit).toHaveBeenCalled();
   });
 
-  /**
-   * A location saved with no elevation (a tool site left to the terrain model)
-   * applies a blank elevation, not sea level and not the previous site's.
-   */
   it('applies an unknown elevation as blank and recognizes it on screen', async () => {
     setLaunchLocationStore(memoryStore([{ ...HOME, id: 'club', name: 'Club field', launchAltitudeM: null }]));
     const { onChange } = render();
@@ -110,13 +93,7 @@ describe('LocationPicker', () => {
   });
 
   it('returns the site to the launch defaults when Custom location is picked', async () => {
-    // The select's value is derived from the fields, so the option has to change
-    // the fields or it is inert: React would put the matching location straight
-    // back.
-    //
-    // Clearing the fields would leave all three required inputs blank, the map
-    // with nothing to draw and the Run button refusing. The launch defaults are a
-    // real place instead: the Kennedy Space Center as shipped.
+    // The select's value derives from the fields, so the option must change them or React restores the match.
     const { onChange, onCommit } = render({
       launch: launch({ latitudeDeg: 39.05, longitudeDeg: -104.8, launchAltitudeM: 1830 }),
     });
@@ -129,7 +106,6 @@ describe('LocationPicker', () => {
       longitudeDeg: DEFAULT_SITE.longitudeDeg,
       launchAltitudeM: DEFAULT_SITE.launchAltitudeM,
     });
-    // Still flyable: none of the three required site fields is left blank.
     for (const v of Object.values(onChange.mock.calls[0]![0] as Record<string, unknown>)) {
       expect(typeof v).toBe('number');
     }
@@ -137,9 +113,6 @@ describe('LocationPicker', () => {
   });
 
   it('ships the Kennedy Space Center as that default', () => {
-    // Asserted against the numbers, not against `loadSettings()` again: the test
-    // above reads the same source the component does, so on its own it keeps
-    // passing whatever the shipped default becomes.
     expect(DEFAULT_SITE.latitudeDeg).toBeCloseTo(28.61, 6);
     expect(DEFAULT_SITE.longitudeDeg).toBeCloseTo(-80.6, 6);
     expect(DEFAULT_SITE.launchAltitudeM).toBeCloseTo(0, 6);
@@ -149,12 +122,8 @@ describe('LocationPicker', () => {
     render();
     const select = () => screen.getByRole('combobox') as HTMLSelectElement;
     await waitFor(() => screen.getByRole('option', { name: 'Home field' }));
-    // The default launch is Florida, not the saved Colorado field.
     expect(select().value).toBe('');
 
-    // Re-rendered with the location's own coordinates, the select recognizes it,
-    // matched on the numbers, so a location applied, imported from a `.ork` or set
-    // by "use my location" is recognized the same way.
     renderWithProviders(
       <LocationPicker
         launch={launch({ latitudeDeg: 39.05, longitudeDeg: -104.8, launchAltitudeM: 1830 })}
@@ -184,8 +153,6 @@ describe('LocationPicker', () => {
   });
 
   it('updates a location rather than duplicating it when the name is reused', async () => {
-    // Two entries called "Home field" in a dropdown cannot be told apart, so
-    // saving over the name is an update.
     render();
     await waitFor(() => screen.getByRole('option', { name: 'Home field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
@@ -202,8 +169,6 @@ describe('LocationPicker', () => {
   });
 
   it('updates a location when the name is reused in another case', async () => {
-    // The name dialog warns of a duplicate without regard to case, so the save
-    // has to treat it as the same location too.
     render();
     await waitFor(() => screen.getByRole('option', { name: 'Home field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
@@ -220,8 +185,6 @@ describe('LocationPicker', () => {
   });
 
   it('keeps the other location when the user declines to replace it', async () => {
-    // The fields on screen are not Home field's, so saving under its name
-    // would destroy coordinates that may exist nowhere else.
     render();
     await waitFor(() => screen.getByRole('option', { name: 'Home field' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
@@ -237,8 +200,6 @@ describe('LocationPicker', () => {
   });
 
   it('says so when the store refuses the write', async () => {
-    // The user holds the only copy of what they just typed; a clean resolve
-    // over a refused write leaves a list that simply lacks it.
     setLaunchLocationStore({
       list: async () => [],
       save: async () => {
@@ -247,8 +208,7 @@ describe('LocationPicker', () => {
       remove: async () => undefined,
     });
     render();
-    // The live region is there, empty, before the refusal: one created with its
-    // text is not announced by most screen readers.
+    // Most screen readers ignore a live region created with its text.
     const region = screen.getByRole('status');
     expect(region.textContent).toBe('');
     fireEvent.click(screen.getByRole('button', { name: 'Save this location' }));
@@ -264,18 +224,11 @@ describe('LocationPicker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Manage saved locations' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Manage saved locations' });
-    // The row that lets you tell two fields with the same name apart.
     expect(dialog.textContent).toContain('39.0500');
-    // The elevation is formatted in the user's own unit, so it carries a
-    // thousands separator, matched loosely rather than pinned to a locale.
+    // The thousands separator depends on locale.
     expect(dialog.textContent).toMatch(/1[,. ]?830\s*m/);
   });
 
-  /**
-   * "Use" in the manage dialog writes the fields of the picker that opened it.
-   * The picker sits in Settings and in the tools as well as the launch panel,
-   * and from there the active simulation is not what is being edited.
-   */
   it('applies a location from the manage dialog to its own fields, not the active simulation', async () => {
     const { useWorkspaceStore } = await import('../../../src/state/store');
     act(() => {
@@ -309,7 +262,6 @@ describe('LocationPicker', () => {
   });
 });
 
-/** The live store's contents: the picker refreshes from it after every write. */
 async function setPadThenList(): Promise<LaunchLocation[]> {
   const { getLaunchLocationStore } = await import('../../../src/services/storage/launchLocationStore');
   return getLaunchLocationStore().list();

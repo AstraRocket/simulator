@@ -7,7 +7,6 @@ import { AlertDialog } from '../../../src/components/common/AlertDialog';
 import { useMenuPopover } from '../../../src/components/common/useMenuPopover';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 
-/** The maximize state, with an alert that can be raised over it. */
 function Host() {
   const { maxed } = useMaximizeCenter();
   const [asking, setAsking] = useState(true);
@@ -36,7 +35,6 @@ describe('useMaximizeCenter', () => {
   it('leaves Escape to an open alert, then takes the next one', () => {
     renderWithProviders(<Host />);
     fireEvent.keyDown(window, { key: 'Escape' });
-    // The alert closes; the drawing stays maximized.
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByText('maxed')).toBeTruthy();
 

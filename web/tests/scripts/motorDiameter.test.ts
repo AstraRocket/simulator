@@ -7,20 +7,9 @@ import { motorRow, DIAMETER_DECIMALS } from '../../scripts/lib/motorRow.mjs';
 import { digestKey } from '../../scripts/lib/motorDigestKey.mjs';
 import type { CatalogMotor } from '../../src/services/motors/motorDb';
 
-/**
- * A motor's diameter survives the sync to the tenth of a millimeter.
- *
- * Desktop OpenRocket's motor database (`datafiles/thrustcurves/thrustcurves.ser`
- * in OpenRocket-24.12.jar) holds Apogee's 1/4A2, 1/2A2, A2 and B2 at
- * `ThrustCurveMotor.getDiameter()` = 0.0105 m, as scripts/motor-digests/
- * MotorDump.java prints them (its fifth column). thrustcurve.org's search
- * result for them says `diameter: 10.5`. A row rounded to whole millimeters
- * would show 11 mm, fly a 0.011 m motor and save one into the .ork, and the
- * digest step would have to round desktop's side to meet it.
- */
+// Desktop's thrustcurves.ser value (scripts/motor-digests/MotorDump.java, fifth column).
 const DESKTOP_APOGEE_DIAMETER_M = 0.0105;
 
-/** thrustcurve.org's search.json result for Apogee A2, the fields the row reads. */
 const apogeeA2 = {
   motorId: '5f4294d20002310000000123',
   manufacturer: 'Apogee Components',
@@ -72,11 +61,6 @@ describe('the motor digest key', () => {
   });
 });
 
-/**
- * The committed catalog is what the sync wrote: the four Apogee motors at 10.5
- * mm, each with a digest, which the digest step finds only when its key meets
- * desktop's 0.0105 m at the same tenth.
- */
 describe('the committed motor catalog', () => {
   const catalog = JSON.parse(
     readFileSync(fileURLToPath(new URL('../../public/data/motors.generated.json', import.meta.url)), 'utf8'),

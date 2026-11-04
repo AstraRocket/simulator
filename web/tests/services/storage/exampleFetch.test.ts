@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-/**
- * An example fetch that fails rejects with a keyed reason. The reason lands in
- * a translated sentence (`errors.openExample`), so the browser's English or an
- * English sentence of our own would show untranslated in it.
- */
 async function load() {
   vi.resetModules();
   return import('../../../src/services/storage/exampleLibrary');

@@ -13,21 +13,8 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Each fin, lug, rail button and cluster tube where the kernel puts it, in the
- * side, aft and 3D views, inside pods and boosters (nested too) and canted.
- *
- * The kernel places every instance as translate(offset) then
- * `getAxialRotation(angle)` and hands that transform to every child
- * (FlightConfiguration.java:466-485): a pod's or booster's instance angle
- * (`PodSet.getInstanceAngles`, `ParallelStage.getInstanceAngles`) turns
- * everything in it. A fin is turned by its cant about the middle of its root,
- * `rotate_y(cant)` (FinSet.java:1783-1791, Transformation.java:279-287), then by
- * its own instance angle, `rotate_x` (Transformation.java:263-271). That
- * composition is written out below from the Java ({@link place}); every number
- * it is fed (outline points, root chord, radii, counts, angles, cant, cluster
- * places, stations) is read from the kernel through the bridge.
- */
+// Transcribed from FlightConfiguration.java:466-485 and FinSet.java:1783-1791: a fin turns by
+// `rotate_y(cant)` about its root's middle, then `rotate_x`.
 
 const S = 1000;
 const CY = 300;
@@ -35,19 +22,12 @@ const t = ((k: string) => k) as unknown as TFunction;
 
 type P3 = [number, number, number];
 
-/** The kernel's frame turned about the axis, `Transformation.rotate_x`. */
 const rotX = (a: number, [x, y, z]: P3): P3 => [
   x,
   y * Math.cos(a) - z * Math.sin(a),
   y * Math.sin(a) + z * Math.cos(a),
 ];
 
-/**
- * A fin point `(x, y, z)` in its own frame placed in its parent's frame, as
- * `FinSet.getInstanceOffsets` composes it: `localCantRotation`, a translate to
- * the root's middle around `rotate_y(cant)`, applied to the point raised by
- * the body radius, then `rotate_x(angle)`.
- */
 function place(x: number, y: number, z: number, front: number, R: number, chord: number, cant: number, a: number): P3 {
   const c = chord / 2;
   const px = x - c;
@@ -212,7 +192,6 @@ const num = (k: KernelGeometry, key: string): number => {
   return v as number;
 };
 
-/** The parent chain of every node, nearest first. */
 const parents = new Map(walkTree(tree).map((v) => [v.id, v.parent]));
 const ancestors = (id: string): ComponentNode[] => {
   const out: ComponentNode[] = [];
@@ -220,13 +199,7 @@ const ancestors = (id: string): ComponentNode[] => {
   return out;
 };
 
-/**
- * Every frame a part sits in: one per combination of the instances of the pods
- * and boosters above it, as the axis of that frame in the rocket frame
- * (`[y, z]`), its turn about the axis, and the copy suffix the aft view keys
- * its shapes with. Composed outermost first as FlightConfiguration.java:466-485
- * composes it.
- */
+/** Composed outermost first, as FlightConfiguration.java:466-485 does. */
 interface Frame {
   axis: [number, number];
   turn: number;
@@ -256,11 +229,6 @@ async function framesOf(id: string): Promise<Frame[]> {
   return frames;
 }
 
-/**
- * Every fin of a set, each as the kernel's outline points placed in the rocket
- * frame at the face offset `z`, with the fin's index, the frame's copy suffix
- * and the fin's whole turn.
- */
 async function finsOf(id: string, z = 0) {
   const k = await kernelOf();
   const kf = k.get(id)!;
@@ -270,12 +238,8 @@ async function finsOf(id: string, z = 0) {
   const cant = num(kf, 'cant');
   const R = kp.outerRadius!;
   const chord = kf.length;
-  // The fin set is placed `bottom` or `top` on a body tube: its front from the
-  // tube's own front and length, both the kernel's.
   const pos = findNode(id)!.position as { method: string; offset: number } | undefined;
   const front = pos?.method === 'top' ? kp.positionX! + pos.offset : kp.positionX! + kp.length - chord;
-  // The kernel's station of the set is its first fin's turned origin, (0, R, 0)
-  // under the cant: a check that the cant turns about the root's middle.
   expect(kf.positionX!).toBeCloseTo(place(0, 0, 0, front, R, chord, cant, 0)[0], 9);
   const pts = kf.finPoints!.map(([x, y]) => [x!, y!] as const);
   const out: { j: number; copy: string; angle: number; points: P3[] }[] = [];
@@ -322,7 +286,7 @@ describe('the 3D view places every fin as the kernel does', () => {
   });
 });
 
-/** The points of every polygon in an SVG list, in rocket meters (x, y up). */
+/** In rocket meters, y up. */
 const polygons = (nodes: ReactNode[]): [number, number][][] =>
   nodes
     .filter((n): n is ReactElement<{ points: string }> => isValidElement(n) && n.type === 'polygon')
@@ -334,8 +298,6 @@ const polygons = (nodes: ReactNode[]): [number, number][][] =>
     );
 
 describe('the side view projects every fin as the kernel places it', () => {
-  // Rolled, so every fin is drawn, as an outline: the roll turns the whole
-  // rocket about its axis, a rotate_x of its own.
   const ROLL = 0.25;
   const side = () =>
     buildSchematicShapes({
@@ -365,9 +327,8 @@ describe('the side view projects every fin as the kernel places it', () => {
 
 describe('the aft view draws every fin as the kernel places it', () => {
   const scene = () => buildAftScene(tree.components, undefined, t).outer;
-  /** A kernel-frame point in the aft view's frame: turned +π/2, so 0° is up. */
+  // The aft view's frame is turned +π/2, so 0° is up.
   const aft = ([, y, z]: P3): [number, number] => [-z, y];
-  /** An angle difference brought into (-π, π]. */
   const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
   it.each(FIN_SETS)('%s', async (id) => {
@@ -385,7 +346,7 @@ describe('the aft view draws every fin as the kernel places it', () => {
       }
       return;
     }
-    // Canted: the face the cant turns toward the viewer, at +sign(cant)·t/2.
+    // Canted: the face turned toward the viewer, at +sign(cant)·t/2.
     const { out: faces } = await finsOf(id, Math.sign(cant) * (thickness / 2));
     for (const fin of faces) {
       const s = shapes.find((x) => x.key === `${id}:${fin.j}${fin.copy}:0`);
@@ -403,7 +364,6 @@ describe('the aft view draws every fin as the kernel places it', () => {
     const k = await kernelOf();
     const shapes = buildAftScene(tree.components, undefined, t);
     const all = [...shapes.outer, ...shapes.inner];
-    // A lug and a rail button stand at their own angle in the instance's frame.
     for (const id of ['pl', 'br']) {
       const angle = num(k.get(id)!, 'angleOffset');
       for (const f of await framesOf(id)) {

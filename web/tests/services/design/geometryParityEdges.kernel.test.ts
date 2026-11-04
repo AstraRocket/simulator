@@ -14,32 +14,13 @@ import { kernelGeometry, loadEngine, walkTree, type KernelGeometry } from '../..
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The app's fin geometry against the kernel's, at the edges the main
- * generated designs (geometryParity.kernel.test.ts) do not reach.
- *
- * Each design here is built to land on a rule the fin port copies from
- * `FinSet`, `TrapezoidFinSet` and `FreeformFinSet`: a root that runs past the
- * end of a nose cone or transition, or starts ahead of it; a tab past the root
- * or wholly outside the fin; a tab placed by each `AxialMethod`, 'after' and
- * 'absolute' among them; a trapezoid whose tip vanishes or whose sweep is zero
- * or negative; a freeform outline whose first point is off the origin (the
- * kernel moves it there) or whose interior dips inside the body
- * (`clampInteriorPoint` raises it); cant on a nose cone; and fins of every
- * type, canted and tabbed, on tubes and cones inside pod sets. Every fin's
- * root, outline, tab, tab depth limit and cut contour is compared with the
- * kernel's, and each rule has to be reached by enough designs that a
- * generator change cannot quietly stop testing it.
- */
-
 const DESIGNS = 150;
 const TOL = 1e-9;
-/** A clipped profile's clip point is found by iteration on both sides; see geometryParity.kernel.test.ts. */
+// A clipped profile's clip point is found by iteration on both sides.
 const PROFILE_TOL = 1e-4;
 
 type Pt = [number, number];
 
-/** Deterministic PRNG (mulberry32), so a failing design can be rebuilt from its seed. */
 function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -54,15 +35,8 @@ function rng(seed: number): () => number {
 const SHAPES = ['conical', 'ogive', 'ellipsoid', 'power', 'parabolic', 'haack'];
 const TAB_METHODS = ['top', 'middle', 'bottom', 'after', 'absolute'] as const;
 
-/** How a generated tab sits against the root. */
 type TabPlace = 'on the root' | 'past the root' | 'outside the fin';
 
-/**
- * The offset that puts a tab's front edge at `x0` along a root of `chord`,
- * written out from `AxialMethod.getAsPosition(offset, tabLength, chord)`:
- * TOP and ABSOLUTE take the offset as the position, AFTER adds the chord,
- * BOTTOM adds `chord - tabLength` and MIDDLE half of it.
- */
 function tabOffsetFor(method: string, x0: number, tabLength: number, chord: number): number {
   if (method === 'top' || method === 'absolute') return x0;
   if (method === 'after') return x0 - chord;
@@ -79,7 +53,6 @@ function generate(seed: number): RocketTree {
   let n = 0;
   const id = (type: string) => `${type}${++n}`;
 
-  /** A tab by any method, on the root, hanging past it, or wholly ahead of or behind the fin. */
   const tab = (chord: number): Record<string, unknown> => {
     if (chance(0.1)) return { tabHeight: 0, tabLength: 0 };
     const method = pick(TAB_METHODS);
@@ -103,17 +76,12 @@ function generate(seed: number): RocketTree {
     };
   };
 
-  /** A cant angle (rad), small enough that half the chord turned by it stays inside `radius`. */
   const cant = (chord: number, radius: number): number => {
     if (!chance(0.4)) return 0;
     const c = round4(between(0.01, 0.08)) * (chance(0.5) ? 1 : -1);
     return (chord / 2) * Math.sin(Math.abs(c)) < radius * 0.9 ? c : 0;
   };
 
-  /**
-   * Where a fin of `chord` stands on a part of `len`: inside it, running past
-   * its aft end, or starting ahead of its fore end.
-   */
   const place = (len: number, chord: number) =>
     pick([
       { method: 'top', offset: round4(between(0, Math.max(len - chord, 0))) },
@@ -123,11 +91,6 @@ function generate(seed: number): RocketTree {
       { method: 'middle', offset: 0 },
     ]);
 
-  /**
-   * A freeform outline: its first point off the origin some of the time, and
-   * an interior point near the root some of the time, which on a body that
-   * widens aft lies inside it.
-   */
   const freeformPoints = (chord: number): number[][] => {
     const dx = chance(0.4) ? round4(between(-0.02, 0.02)) : 0;
     const dy = chance(0.4) ? round4(between(-0.01, 0.01)) : 0;
@@ -141,7 +104,6 @@ function generate(seed: number): RocketTree {
     return pts.map(([x, y]) => [round4(x! + dx), round4(y! + dy)]);
   };
 
-  /** A fin set of any type, or freeform only (the one type a nose cone or transition takes). */
   const finSet = (len: number, radius: number, freeformOnly: boolean): ComponentNode => {
     const type = freeformOnly ? 'freeformfinset' : pick(['trapezoidfinset', 'ellipticalfinset', 'freeformfinset']);
     const chord = round4(len * between(0.3, 0.9));
@@ -188,7 +150,6 @@ function generate(seed: number): RocketTree {
       flipped: chance(0.35),
       ...wall(),
       ...(chance(0.5) ? { clipped: chance(0.5) } : {}),
-      // A cone's radius grows from its tip, so a canted root is bounded by the aft radius.
       children: chance(0.85) ? [finSet(len, radius, true)] : [],
     } as unknown as ComponentNode;
   };
@@ -246,7 +207,6 @@ function generate(seed: number): RocketTree {
   return { components: [{ type: 'stage', id: id('stage'), children: chain }] } as unknown as RocketTree;
 }
 
-/** Consecutive repeats and a closing point equal to the first removed, as a cut path draws them. */
 function dedupe(pts: Pt[]): Pt[] {
   const same = (a: Pt, b: Pt) => Math.abs(a[0] - b[0]) <= 1e-12 && Math.abs(a[1] - b[1]) <= 1e-12;
   const out: Pt[] = [];
@@ -255,14 +215,7 @@ function dedupe(pts: Pt[]): Pt[] {
   return out;
 }
 
-/**
- * The cut outline of one fin from the kernel's own pieces: the outline
- * (`FinSet.getFinPoints`), then the root (`getRootPoints`) walked from the
- * trailing edge forward, with the tab (`getTabPoints`) cut in where the root
- * passes it and root points inside the tab span left out. A tab wholly ahead
- * of the fin or wholly behind it is left off (`isTabBeyondFin`, and
- * `generateContinuousFinAndTabShape` returns the fin alone).
- */
+// A tab wholly beyond the fin is left off (`isTabBeyondFin`).
 function kernelCutOutline(k: KernelGeometry, chord: number): Pt[] | null {
   const pts = (xs: [number | null, number | null][] | undefined): Pt[] | null =>
     xs && xs.every(([x, y]) => typeof x === 'number' && typeof y === 'number') ? (xs as Pt[]) : null;
@@ -287,10 +240,9 @@ function kernelCutOutline(k: KernelGeometry, chord: number): Pt[] | null {
   ]);
 }
 
-/** A coordinate as the report prints it; the kernel sends NaN as null. */
+// The kernel sends NaN as null.
 const fmt = (v: number | null) => (typeof v === 'number' ? v.toFixed(6) : String(v));
 
-/** The first point where two outlines part by more than `tol`, or null when they match. */
 function outlineMiss(app: Pt[] | null, kernel: Pt[] | null, tol: number): string | null {
   if (!app || !kernel) return `app ${app ? app.length : 'none'} points, kernel ${kernel ? kernel.length : 'none'}`;
   if (app.length !== kernel.length) return `${app.length} points against ${kernel.length}`;
@@ -309,16 +261,11 @@ const clippedProfile = (node: ComponentNode | null): boolean =>
   node['clipped'] !== false &&
   ['ellipsoid', 'power', 'haack'].includes(String(node['shape']));
 
-/** The root chord a fin set's outline closes on, as the kernel reads it (`getLength`). */
 const chordOf = (k: KernelGeometry): number => {
   const pts = (k.finPoints ?? []) as Pt[];
   return pts.length ? pts[pts.length - 1]![0] : 0;
 };
 
-/**
- * The edge cases one fin set exercises, each a suffix of its rule names, read
- * from the node as the app holds it and from the kernel's own pieces.
- */
 function edges(node: ComponentNode, k: KernelGeometry, parentLength: number, front: number): string[] {
   const out: string[] = [];
   const chord = chordOf(k);
@@ -347,12 +294,6 @@ function edges(node: ComponentNode, k: KernelGeometry, parentLength: number, fro
   return out;
 }
 
-/**
- * A tab the kernel cuts deeper than the limit it settles at (`getMaxTabHeight`)
- * would fly a tab the body has no room for; `settleFinTabs` re-clamps each tab
- * once its fin set stands at its station. `KNOWN` holds accepted disagreements,
- * each with its reason.
- */
 const DEEP_TAB = 'tab deeper than the kernel limit it settles at';
 const KNOWN: Record<string, string> = {};
 
@@ -374,7 +315,6 @@ function compare(design: string, tree: RocketTree, kernel: Map<string, KernelGeo
     const k = kernel.get(id);
     const kp = kernel.get(parentIdOf.get(id) ?? '');
     if (!k || !kp) continue;
-    // A parent the kernel gives no radius has no surface to stand a fin on.
     if (!(Math.max(kp.foreRadius ?? 0, kp.aftRadius ?? 0, kp.outerRadius ?? 0) > 0)) continue;
     const grand = parentOf.get(parentIdOf.get(id) ?? '');
     const where =
@@ -385,9 +325,7 @@ function compare(design: string, tree: RocketTree, kernel: Map<string, KernelGeo
       misses.push({ rule: `${node.type} mount${where}`, design, part: id });
       continue;
     }
-    // The kernel has no answer (NaN) where a canted root, turned about its
-    // midpoint, reaches past the body (`FinSet.getFinCantYOffset`): not a fin
-    // that flies, so it is counted and left out.
+    // NaN where a canted root reaches past the body (`FinSet.getFinCantYOffset`).
     const nan = (xs: KernelGeometry['finPoints']) => (xs ?? []).some(([x, y]) => x === null || y === null);
     if (nan(k.rootPoints) || nan(k.finPoints) || nan(k.tabPoints)) {
       noAnswer++;
@@ -395,7 +333,6 @@ function compare(design: string, tree: RocketTree, kernel: Map<string, KernelGeo
     }
     const tol = clippedProfile(parent) ? PROFILE_TOL : TOL;
     const tags = edges(node, k, mount.length, mount.front);
-    // A tab the kernel cuts deeper than its own settled limit: see DEEP_TAB.
     const kTab = k.tabPoints as Pt[] | undefined;
     const overDeep =
       !!kTab &&
@@ -412,8 +349,6 @@ function compare(design: string, tree: RocketTree, kernel: Map<string, KernelGeo
         misses.push({ rule: `${rule}${tags.length ? ` (${tags.join(', ')})` : ''}`, design, part: `${id}, ${miss}` });
     };
     const limit = parentRadiusOf(tree, id);
-    // Only a fin set with a tab has a limit to compare: without one the bridge
-    // leaves the kernel's initial tab in place, which nothing cuts.
     if (k.tabPoints)
       note(
         `${node.type} tab depth limit${where}`,
@@ -436,8 +371,7 @@ function compare(design: string, tree: RocketTree, kernel: Map<string, KernelGeo
       outlineMiss(app ? dedupe(app) : null, kernelCutOutline(k, chordOf(k)), tol),
       true,
     );
-    // `FreeformFinSet.clampInteriorPoint`: an interior point inside the body is
-    // raised to its surface, so the kernel's outline differs from the stated one.
+    // `FreeformFinSet.clampInteriorPoint` raises an interior point to the body surface.
     if (node.type === 'freeformfinset') {
       const stated = node['points'] as number[][];
       const [ox, oy] = stated[0]!;
@@ -480,13 +414,8 @@ describe('app fin geometry matches the kernel at the edges', () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([rule, ms]) => `${rule}: ${ms.length} fins; e.g. ${ms[0]!.design}, ${ms[0]!.part}`);
     expect(report).toEqual([]);
-    // A known disagreement that no design reaches any more is fixed: remove it.
     expect(Object.keys(KNOWN).filter((rule) => !byRule.has(rule))).toEqual([]);
-    // Most canted roots have an answer; a generator that produced mostly
-    // unanswerable ones would leave this test checking nothing.
     expect(noAnswer).toBeLessThan(DESIGNS / 5);
-    // Every edge is reached by enough designs that a generator change cannot
-    // quietly stop testing it.
     for (const rule of [
       'freeformfinset root points on a nosecone, root past the aft end',
       'freeformfinset root points on a flipped nosecone, root past the aft end',

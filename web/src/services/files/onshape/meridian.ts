@@ -4,59 +4,36 @@ import { nodeShape, outerProfile, profileEnds, shouldersOf, type Shoulder } from
 import { partLength } from '../../../tree/position';
 import { kernelDefault } from '../../../tree/kernelDefaults';
 
-/**
- * The meridian sections of a nose cone or transition, in the form the
- * OpenRocket-Onshape feature revolves (`sketchProfile` and `sketchShoulder` in
- * its component_sketches.fs).
- *
- * Every point is `[radius, y]` with the part's aft end at `y = 0` and its fore
- * end at `y = length`, ordered fore to aft. Shoulders are separate polygons the
- * feature revolves and unions on: a fore shoulder spans `y` from `length` to
- * `length + shoulder length`, an aft one from `-shoulder length` to 0.
- *
- * The wall is the one the kernel weighs, not the one it fits rings against.
- * `SymmetricComponent.calculateProperties` cuts each of its `DIVISIONS` slices
- * to a radial depth of `thickness * hyp / l`, the depth that leaves a wall
- * `thickness` thick perpendicular to the slice's own slope, so the part built
- * from these sections has the volume, and with the part's density the mass,
- * that the simulation flies. `Transition.getInnerRadius` (`r - thickness`) is the
- * fit rule and would build a heavier part on any sloped wall.
- */
+// Points are `[radius, y]` with aft at y = 0, ordered fore to aft.
+// Wall is `thickness * hyp / l` per slice (`SymmetricComponent.calculateProperties`), not `r - thickness`.
 
-/** `SymmetricComponent.DIVISIONS`: the slices the kernel integrates a body over. */
+/** `SymmetricComponent.DIVISIONS`. */
 const DIVISIONS = 128;
 
-/** `Transition.MINFEATURE`: the shortest shoulder the kernel gives any volume. */
+/** `Transition.MINFEATURE`. */
 const MIN_FEATURE = 0.001;
 
-/** Radii closer than this are one point. */
 const EPS = 1e-9;
 
 export type Pt = [number, number];
 
 export interface Section {
-  /** Outer surface, fore to aft. */
   profile: Pt[];
-  /** Bore, fore to aft. Two points on the axis when `innerIsAxis`. */
   innerProfile: Pt[];
-  /** The section is solid: its bore is the axis. */
   innerIsAxis: boolean;
 }
 
 export interface SymmetricSections {
   body: Section;
-  /** One polygon per shoulder; null on an end with none. */
   shoulders: { fore: Section | null; aft: Section | null };
 }
 
-/** Append `p` unless it repeats the previous point. */
 function push(points: Pt[], p: Pt): void {
   const last = points[points.length - 1];
   if (last && Math.abs(last[0] - p[0]) < EPS && Math.abs(last[1] - p[1]) < EPS) return;
   points.push(p);
 }
 
-/** The section's bore is the axis everywhere: two axis points, fore and aft. */
 function axisBore(fore: number, aft: number): Pt[] {
   return [
     [0, fore],
@@ -64,7 +41,6 @@ function axisBore(fore: number, aft: number): Pt[] {
   ];
 }
 
-/** The outer radius at each of the kernel's slice boundaries, fore to aft. */
 function stations(node: ComponentNode, length: number): number[] {
   const { fore, aft } = profileEnds(node);
   const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
@@ -80,11 +56,7 @@ function stations(node: ComponentNode, length: number): number[] {
   ).map(([, r]) => r);
 }
 
-/**
- * The bore at each slice boundary. A boundary sits between two slices, each
- * cut to its own depth; the point takes the mean of the two, and an end takes
- * its one slice's.
- */
+/** A boundary takes the mean of its two slices' depths; an end takes its one slice's. */
 function boreRadii(radii: number[], length: number, wall: number): number[] {
   const l = length / DIVISIONS;
   const depth = radii.slice(1).map((r, n) => (wall * Math.hypot(r - radii[n]!, l)) / l);
@@ -96,7 +68,6 @@ function boreRadii(radii: number[], length: number, wall: number): number[] {
   });
 }
 
-/** The body's own section, with no shoulders. */
 function bodySection(node: ComponentNode, length: number, radii: number[]): Section {
   const y = (i: number) => length * (1 - i / DIVISIONS);
   const profile: Pt[] = [];
@@ -110,17 +81,7 @@ function bodySection(node: ComponentNode, length: number, radii: number[]): Sect
   return { profile, innerProfile, innerIsAxis: false };
 }
 
-/**
- * One shoulder's polygon. The outline steps from the shoulder's radius to the
- * body's at the end plane, and the bore from the shoulder's to the body's, so
- * the shoulder's join face is the body's end annulus and the union has a face
- * to merge on. A cap is a disc of the shoulder's own wall at its free end, as
- * the kernel weighs it (`Transition.calculateProperties`).
- *
- * Null when the kernel gives the shoulder no volume: shorter than
- * `MINFEATURE`, no radius, or no wall (`r - thickness` leaves a bore as wide as
- * the shoulder, a ring of nothing).
- */
+/** Outline and bore step to the body's at the end plane so the union has a face to merge on. */
 function shoulderSection(
   s: Shoulder,
   which: 'fore' | 'aft',
@@ -167,7 +128,6 @@ function shoulderSection(
   return { profile, innerProfile, innerIsAxis: innerProfile.every(([r]) => r < EPS) };
 }
 
-/** A nose cone's or transition's body section and its shoulder polygons. */
 export function symmetricSections(node: ComponentNode): SymmetricSections {
   const length = Math.max(partLength(node), 0);
   const radii = stations(node, length);

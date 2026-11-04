@@ -3,11 +3,6 @@ import type { CatalogMotor } from '../../services/motors/motorDb';
 import { COLUMNS } from './motorColumns';
 import { compareSortKeys } from '../../services/app/sortKeys';
 
-/**
- * The motor grid's sort: which column, which direction, the sorted list, and
- * the header click that cycles a column through ascending / descending.
- */
-
 export interface MotorSort {
   id: string;
   dir: 1 | -1;

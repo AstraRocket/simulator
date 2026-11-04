@@ -9,28 +9,19 @@ import { buildAftScene } from '../../../src/components/canvas/AftView';
 import { bodyRadiusAt } from '../../../src/tree/finPlanform';
 import { assemblyParentRadius, resolveAssemblyRadius } from '../../../src/tree/assembly';
 
-/**
- * A part on the outside of a nose cone or transition stands on the body radius
- * at its own station, as the kernel stands it (`FinSet.getFinFront`,
- * `TubeFinSet.getBodyRadius`), and a fin's root runs along the parent's
- * profile (`FinSet.getRootPoints`). Each view is checked against a conical
- * parent, whose radius has a closed form, so no expected value is copied from
- * the code under test.
- */
+// A conical parent has a closed-form radius, so no expected value comes from the code.
 
-/** Scene scale of the 2D schematic here: 1 px per mm, centerline at y = 200. */
+/** 1 px per mm, centerline at y = 200. */
 const S = 1000;
 const CY = 200;
 const t = ((k: string) => k) as unknown as TFunction;
 
 const NOSE = { type: 'nosecone', id: 'nose', shape: 'conical', length: 0.1, aftRadius: 0.025 };
 const TUBE = { type: 'bodytube', id: 'tube', length: 0.2, outerRadius: 0.025 };
-/** A conical boat tail, 25 mm to 15 mm over 60 mm, starting 300 mm aft of the tip. */
 const T_START = 0.3;
 const T_LEN = 0.06;
 const T_FORE = 0.025;
 const T_AFT = 0.015;
-/** The conical transition's radius at `x` from its fore end. */
 const coneR = (x: number) => T_FORE + ((T_AFT - T_FORE) * x) / T_LEN;
 
 const rocket = (transitionChildren: unknown[]): RocketTree =>
@@ -69,7 +60,7 @@ const schematic = (tree: RocketTree) =>
     setHoverId: () => {},
   });
 
-/** A polygon's `points` attribute as meters in the rocket frame (y up from the axis). */
+/** In rocket-frame meters, y up from the axis. */
 const polygonMeters = (nodes: ReactNode[]): [number, number][][] =>
   nodes
     .filter((n): n is ReactElement<{ points: string }> => isValidElement(n) && n.type === 'polygon')
@@ -80,7 +71,6 @@ const polygonMeters = (nodes: ReactNode[]): [number, number][][] =>
       }),
     );
 
-/** The distinct (x, y) vertex positions of a mesh, rounded to a micrometer. */
 const xyVertices = (geo: THREE.BufferGeometry): [number, number][] => {
   const p = geo.getAttribute('position');
   const seen = new Map<string, [number, number]>();
@@ -98,7 +88,6 @@ const boxOf = (geo: THREE.BufferGeometry): THREE.Box3 => {
 };
 
 describe('a freeform fin on a conical transition', () => {
-  // Root 40 mm from 10 mm aft of the transition's fore end, 30 mm tall.
   const FRONT = 0.01;
   const FIN = {
     type: 'freeformfinset',
@@ -114,8 +103,6 @@ describe('a freeform fin on a conical transition', () => {
   };
   const tree = rocket([FIN]);
   const R = coneR(FRONT);
-  // The kernel stands the fin on the radius under its front and moves the
-  // outline's ends onto the root; on a cone the root is one straight segment.
   const expected: [number, number][] = [
     [T_START + FRONT, R],
     [T_START + FRONT + 0.02, R + 0.03],
@@ -153,16 +140,13 @@ describe('a freeform fin on a conical transition', () => {
     expect(fin?.kind).toBe('fin');
     if (fin?.kind !== 'fin') return;
     expect(fin.from).toBeCloseTo(R, 12);
-    // Out to the span the kernel reports, `FreeformFinSet.getSpan`
-    // (FreeformFinSet.java:428-436): the highest point less the trailing
-    // point's depth below the front, which the narrowing cone puts below it.
+    // `FreeformFinSet.getSpan` (FreeformFinSet.java:428-436).
     expect(fin.to).toBeCloseTo(R + 0.03 - Math.min(coneR(FRONT + 0.04) - R, 0), 12);
   });
 });
 
 describe('a fin on a flipped nose cone stands at its base end', () => {
-  // A flipped cone is a tail cone: its base is the fore end, so a fin 10 mm
-  // from the fore end stands on nearly the full radius, not near the tip.
+  // A flipped cone's base is its fore end.
   const FRONT = 0.01;
   const L = 0.12;
   const BASE = 0.025;
@@ -226,8 +210,6 @@ describe('lugs, rail buttons and tube fins on a conical transition', () => {
 
   it('stand on the radius at their own station in the schematic', () => {
     const { extents } = schematic(tree);
-    // The lug and the button stand straight up (angle 0): their box runs from
-    // the surface out by their own size.
     expect(extents.get('lug')!.box.y1).toBeCloseTo(CY - rLug * S, 9);
     expect(extents.get('lug')!.box.y0).toBeCloseTo(CY - (rLug + 2 * LUG.outerRadius) * S, 9);
     expect(extents.get('button')!.box.y1).toBeCloseTo(CY - rButton * S, 9);
@@ -250,7 +232,6 @@ describe('lugs, rail buttons and tube fins on a conical transition', () => {
       return Math.hypot(s.y, s.z);
     };
     expect(dist('lug:0')).toBeCloseTo(rLug + LUG.outerRadius, 12);
-    // A button seen from behind reaches from the surface by its height.
     const button = outer.find((o) => o.key === 'button:0')!;
     expect(button.kind === 'fin' ? [button.from, button.to] : null).toEqual([
       expect.closeTo(rButton, 12),
@@ -261,8 +242,7 @@ describe('lugs, rail buttons and tube fins on a conical transition', () => {
 });
 
 describe('a pod on a nose cone', () => {
-  // The kernel adds a pod parent's radius only for a body tube, so a pod on a
-  // nose cone sits at its offset plus its own radius from the axis.
+  // The kernel adds a pod parent's radius only for a body tube.
   const OFFSET = 0.01;
   const POD_R = 0.008;
   const pod = {
@@ -300,7 +280,6 @@ describe('a pod on a nose cone', () => {
   });
 
   it('rings the axis at that radius in the aft view', () => {
-    // The first pod instance's tube; each instance keys its parts by instance.
     const hull = buildAftScene(tree.components, undefined, t).hulls.find((h) => h.key.startsWith('pod-tube:0'))!;
     expect(Math.hypot(hull.y, hull.z)).toBeCloseTo(center, 12);
   });

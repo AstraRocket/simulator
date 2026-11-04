@@ -2,11 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { activateThrough, stageIdsByTopStage } from '../../../src/services/design/stageStack';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The stack the design report and the RASAero export both weigh: the sustainer
- * through one top-level stage, a parallel booster counted with the stage it is
- * attached to.
- */
 const tree = {
   name: 'R',
   components: [

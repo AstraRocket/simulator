@@ -8,12 +8,6 @@ import { NumberRow } from '../common/NumberRow';
 import { EjectionFigures } from './EjectionFigures';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
-/**
- * Ejection charge sizing with no design: a recovery bay's bore and length and
- * the pressure to reach give the black powder for it, and with shear pins, the
- * pressure that breaks them and the powder that reaches it.
- */
-
 interface Remembered {
   boreM: number | null;
   lengthM: number | null;
@@ -23,7 +17,6 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** Clears the remembered inputs, so each test starts from the defaults. */
 export function forgetEjectionTool(): void {
   remembered.forget();
 }

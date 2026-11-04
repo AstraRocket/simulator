@@ -20,7 +20,6 @@ const LAUNCH: LaunchConditions = {
   pressureHPa: null,
 };
 
-/** Stand-in geolocation that refuses, the way a denied permission does. */
 function refuseGeolocation() {
   const getCurrentPosition = vi.fn((_ok: PositionCallback, err?: PositionErrorCallback) => {
     err?.({ code: 1, message: 'denied' } as GeolocationPositionError);
@@ -33,18 +32,8 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, 'geolocation');
 });
 
-/**
- * The geolocation refusal is announced.
- *
- * A region that does not exist before its content is inserted is not announced
- * by most screen readers, so mounting the live region together with its text
- * (`{locateErr && <p role="status">...}`) would announce nothing. The region
- * has to be there, empty, from the first
- * render, and be the same element once the message lands.
- */
+// Screen readers ignore a live region mounted together with its text.
 describe('the geolocation status region', () => {
-  // The site's region sits under its buttons; the saved-location picker above
-  // them has a status region of its own.
   const geoRegion = () => screen.getByRole('button', { name: 'Show on map' }).nextElementSibling as HTMLElement;
 
   it('is mounted and empty before anything has been said', () => {
@@ -69,12 +58,7 @@ describe('the geolocation status region', () => {
   });
 });
 
-/**
- * A new place takes its own elevation or none, never the last site's: a 1,600 m
- * field picked with the old sea-level elevation would fly sea-level air with no
- * marker. The browser's altitude is above the ellipsoid, not sea level, so a
- * located site's elevation is blank, and the simulation asks for it.
- */
+// The browser's altitude is above the ellipsoid, not sea level, so a located site's is left blank.
 describe('a site found by "Use my location"', () => {
   it('clears the previous elevation', () => {
     const getCurrentPosition = vi.fn((ok: PositionCallback) => {
@@ -88,11 +72,6 @@ describe('a site found by "Use my location"', () => {
   });
 });
 
-/**
- * The browser's permission prompt can sit unanswered for minutes, and `onChange`
- * writes to whatever rows are the current edit targets. Allowing the prompt
- * after the panel is gone must not write a launch site.
- */
 it('drops a location that arrives after the panel was closed', () => {
   let allow!: PositionCallback;
   const getCurrentPosition = vi.fn((ok: PositionCallback) => {
@@ -107,11 +86,7 @@ it('drops a location that arrives after the panel was closed', () => {
   expect(onChange).not.toHaveBeenCalled();
 });
 
-/**
- * Settings opens its own launch panel over the simulation editor's. Radios that
- * share a name are one group to the browser, so an arrow key in one panel's
- * wind model would check the other's and change the flight behind the dialog.
- */
+// Same-named radios in two panels are one group.
 it('gives each panel its own wind model group', () => {
   renderWithProviders(
     <>
@@ -127,11 +102,6 @@ it('gives each panel its own wind model group', () => {
   expect(names.size).toBe(2);
 });
 
-/**
- * Site altitude, pressure and temperature are all bounded, because they go
- * straight to the kernel's atmosphere model. Bounds are given in SI and shown in the
- * field's unit; the app default is metric, so meters and hPa here.
- */
 describe('launch site bounds', () => {
   it('bounds altitude to -500..10000 m', () => {
     renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} />);
@@ -151,9 +121,7 @@ describe('launch site bounds', () => {
     const onChange = vi.fn();
     renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={onChange} />);
     const input = screen.getByLabelText('Temperature') as HTMLInputElement;
-    // The bounds are SI: written as -90 and 70 in a slot that reads kelvin they
-    // would be -363 and -203 degrees C, and every entry above -203 degrees C
-    // would be clamped to it.
+    // Given as -90 and 70 in a kelvin slot, every entry would clamp to -203 degrees C.
     expect(Number(input.min)).toBeCloseTo(-90, 9);
     expect(Number(input.max)).toBeCloseTo(70, 9);
     fireEvent.change(input, { target: { value: '30' } });
@@ -168,10 +136,6 @@ describe('launch site bounds', () => {
   });
 });
 
-/**
- * The launcher angle the codes allow depends on the class of rocket: 30 degrees
- * under the NAR Model Rocket Safety Code, 20 under the high power codes.
- */
 describe('the launcher angle limit', () => {
   const angle = () => screen.getByLabelText('Angle', { exact: true }) as HTMLInputElement;
 
@@ -201,15 +165,7 @@ describe('the launcher angle limit', () => {
     ).toBeTruthy();
   });
 
-  /**
-   * Into the wind, the sign is the meaning: desktop's rod angle runs -60 to 60
-   * and "a negative launch rod angle will launch with the wind"
-   * (messages.properties); the kernel flies the signed angle
-   * (SimulationStatus.java rotates by it, AbstractRKSimulationStepper.java
-   * aims the rod with its sine). An imported -5 flies as -5, so the box has to
-   * hold it rather than snap it to 0 on the first edit. With a fixed heading
-   * the direction field carries the meaning, so the box floors at 0 there.
-   */
+  // Desktop flies a negative into-wind angle signed (SimulationStatus.java, AbstractRKSimulationStepper.java).
   it('accepts a negative angle while launching into the wind, and floors at 0 otherwise', () => {
     const onChange = vi.fn();
     const intoWind = renderWithProviders(
@@ -227,27 +183,17 @@ describe('the launcher angle limit', () => {
   });
 });
 
-/**
- * The two direction fields display 90 when unset, so clearing one must not write
- * 0: that is a real heading (north), and would silently replace the east the
- * blank stood for. Like `longitudeDeg`, an emptied box goes back to unset.
- */
+// Unset displays as 90 (east); 0 is a real heading (north).
 describe('direction fields', () => {
   it('clear to unset rather than to 0', () => {
     const onChange = vi.fn();
     renderWithProviders(<LaunchPanel launch={{ ...LAUNCH, windDirectionDeg: 45 }} onChange={onChange} />);
-    // Rod direction and wind direction share the visible label; wind is last.
     fireEvent.change(screen.getAllByRole('spinbutton', { name: 'Direction' }).at(-1)!, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith({ windDirectionDeg: undefined });
     expect(onChange).not.toHaveBeenCalledWith({ windDirectionDeg: 0 });
   });
 });
 
-/**
- * The speed box reports every keystroke and the deviation follows the speed as a
- * fraction. Typing "0.5" over "5" passes through "0", where a ratio carried from
- * the previous keystroke would become 0 and stay there.
- */
 describe('wind speed edits keep the turbulence', () => {
   function Host({ onLaunch }: { onLaunch: (l: LaunchConditions) => void }) {
     const [launch, setLaunch] = useState<LaunchConditions>({ ...LAUNCH, windAverage: 5, windStdDev: 0.75 });
@@ -346,7 +292,6 @@ describe('the weather source line', () => {
     );
     expect(screen.getByText('Edited since it was applied.')).toBeTruthy();
     expect(screen.getByText('The launch site has moved since it was fetched.')).toBeTruthy();
-    // No Weather dialog here, so no Refresh to offer.
     expect(screen.queryByRole('button', { name: 'Refresh…' })).toBeNull();
   });
 });
@@ -369,7 +314,6 @@ describe('the sea-level pressure check', () => {
     useEngineStore.setState({ phase: 'loading' });
   });
 
-  /** A kernel that answers the standard pressure at 1500 m, and nothing else. */
   const kernelAt1500 = () => {
     __setEngineForTests({ getStandardPressure: () => 84_556 });
     useEngineStore.setState({ phase: 'ready' });
@@ -408,12 +352,7 @@ describe('the site buttons', () => {
   });
 });
 
-/**
- * The desktop's model switch changes only which model flies
- * (SimulationOptions.setWindModelType, SimulationOptions.java:183-188); the
- * multilevel model keeps its levels while Average is selected, so switching
- * back shows the same profile.
- */
+// Desktop's switch changes only which model flies (SimulationOptions.java:183-188).
 describe('switching wind models keeps the profile', () => {
   const profile = [
     { altitudeM: 0, speed: 3, directionDeg: 90, stddev: 0.3 },

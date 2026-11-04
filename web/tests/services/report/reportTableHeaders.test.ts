@@ -13,14 +13,6 @@ import { pageFrame } from '../../../src/services/report/layout';
 import { motorColumns } from '../../../src/services/report/motorsSection';
 import { partColumns } from '../../../src/services/report/partsSection';
 
-/**
- * Every column title of every report table fits its column, measured with the
- * real jsPDF font metrics in the font each line is drawn in (Helvetica, or
- * Noto Sans for Cyrillic). There is no rasterizer here, so the check is the
- * width jsPDF itself gives each drawn header line against the column's inner
- * width (the column less its padding either side).
- */
-
 interface Run {
   text: string;
   x: number;
@@ -29,7 +21,6 @@ interface Run {
   width: number;
 }
 
-/** The runs of the last document drawn; a report that needs a font is drawn twice. */
 let runs: Run[] = [];
 vi.mock('jspdf', async (importOriginal) => {
   const real = await importOriginal<typeof import('jspdf')>();
@@ -114,10 +105,6 @@ const opts: ReportOptions = {
   templateStroke: '#000000',
 };
 
-/**
- * What is wrong with each column's drawn title: missing, not the whole title,
- * or a line wider than the column less its padding. Empty when all fit.
- */
 function headerFaults(cols: Col[], margin: number): string[] {
   const faults: string[] = [];
   let left = margin;
@@ -125,7 +112,6 @@ function headerFaults(cols: Col[], margin: number): string[] {
     const title = c.title.toUpperCase();
     const anchor = c.align === 'right' ? left + c.w - 1 : left + 1;
     const lines = runs.filter((r) => Math.abs(r.x - anchor) < 1e-6 && r.text.trim() && title.includes(r.text));
-    // Every line of the title, in order, and nothing else.
     const distinct = lines.map((r) => r.text).filter((s, i, a) => a.indexOf(s) === i);
     if (distinct.join('').replace(/\s/g, '') !== title.replace(/\s/g, ''))
       faults.push(`${title}: drew ${JSON.stringify(distinct)}`);
@@ -139,7 +125,6 @@ function headerFaults(cols: Col[], margin: number): string[] {
 }
 
 describe('report table headers', () => {
-  // A4 as jsPDF sizes it: 595.28 by 841.89 points.
   const { margin, contentWidth } = pageFrame((595.28 * 25.4) / 72, (841.89 * 25.4) / 72);
 
   for (const [name, locale] of [

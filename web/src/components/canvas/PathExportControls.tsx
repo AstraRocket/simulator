@@ -2,8 +2,6 @@ import { useTranslation } from 'react-i18next';
 import type { AltitudeReference, DistanceUnit } from '../../services/exports/flightPathExport';
 import { CardGroup } from '../common/CardGroup';
 
-/** The flight-path export dialog's form building blocks. */
-
 const UNITS: DistanceUnit[] = ['m', 'ft', 'km', 'mi'];
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -14,7 +12,6 @@ export function Section({ title, children }: { title: string; children: React.Re
   );
 }
 
-/** A labeled dropdown whose options are the values of `T`. */
 export function SelectRow<T extends string>({
   label,
   value,
@@ -25,7 +22,6 @@ export function SelectRow<T extends string>({
   label: string;
   value: T;
   onChange: (v: T) => void;
-  /** The dropdown's Tailwind width class; none sizes it to its options. */
   width?: string;
   children: React.ReactNode;
 }) {
@@ -44,7 +40,6 @@ export function SelectRow<T extends string>({
   );
 }
 
-/** One of the two altitude-reference dropdowns: the track's, and the pins'. */
 export function AltitudeRefSelect({
   label,
   value,

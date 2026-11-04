@@ -13,8 +13,6 @@ import {
 } from '../../../src/services/files/rasaero/surface';
 import type { Keyed } from '../../../src/i18n/keyedError';
 
-// A 1-inch-diameter rocket with clean-inch geometry so the meter→inch (×39.37)
-// conversions land on round numbers the assertions can pin exactly.
 const tree: RocketTree = {
   name: 'Test Bird',
   components: [
@@ -26,17 +24,17 @@ const tree: RocketTree = {
         {
           type: 'bodytube',
           id: 'bt',
-          length: 0.254, // 10 in
-          outerRadius: 0.0127, // 1 in dia
+          length: 0.254,
+          outerRadius: 0.0127,
           children: [
             {
               type: 'trapezoidfinset',
               id: 'fin',
               finCount: 3,
-              rootChord: 0.0508, // 2 in
-              tipChord: 0.0254, // 1 in
-              sweep: 0.0254, // 1 in
-              height: 0.0254, // 1 in span
+              rootChord: 0.0508,
+              tipChord: 0.0254,
+              sweep: 0.0254,
+              height: 0.0254,
               thickness: 0.003,
               position: { method: 'bottom', offset: 0 },
             },
@@ -66,27 +64,23 @@ describe('exportCdx1', () => {
 
   it('writes the nose cone with mapped shape and inch diameter', () => {
     expect(xml).toContain('<Shape>Tangent Ogive</Shape>');
-    // aftRadius 0.0127 m → diameter 0.0254 m → 1 in.
     expect(xml).toMatch(/<NoseCone>[\s\S]*?<Diameter>1<\/Diameter>/);
   });
 
   it('writes the body tube with the launch lug and its fin set', () => {
     expect(xml).toMatch(/<BodyTube>[\s\S]*?<LaunchLugLength>1<\/LaunchLugLength>/);
     expect(xml).toContain('<Count>3</Count>');
-    expect(xml).toContain('<Chord>2</Chord>'); // rootChord 2 in
-    expect(xml).toContain('<Span>1</Span>'); // height 1 in
+    expect(xml).toContain('<Chord>2</Chord>');
+    expect(xml).toContain('<Span>1</Span>');
     expect(xml).toContain('<TipChord>1</TipChord>');
   });
 
   it('fills the mandatory simulation block with loaded weight (lb) and CG (in)', () => {
-    // 0.45359237 kg → 1.000 lb; 0.127 m → 5 in.
     expect(xml).toContain('<SustainerLaunchWt>1</SustainerLaunchWt>');
     expect(xml).toContain('<SustainerCG>5</SustainerCG>');
     expect(xml).toContain('</SimulationList>');
   });
 
-  // An absolute station is from the nose tip: 0.1 of nose plus the 0.254 tube,
-  // less the 0.0508 root, is the same fin set flush with the tube's aft end.
   it('places an absolute fin set by its station from the nose tip', () => {
     const at = (position: object): string => {
       const t = structuredClone(tree);
@@ -113,13 +107,6 @@ describe('exportCdx1', () => {
   });
 });
 
-/**
- * The surface table is the desktop's RASAeroCommonConstants
- * .OPENROCKET_TO_RASAERO_SURFACE, row for row. It does not send `polished` to
- * Sheet Metal or `smooth` to Smooth Paint; POLISHED shares Polished and ROUGH
- * Cast Iron, the nearest RASAero roughnesses. Only text no finish is falls to
- * its default with a warning.
- */
 describe('finish to RASAero surface (desktop table)', () => {
   it.each([
     ['mirror', 'Smooth (Zero Roughness)'],
@@ -165,15 +152,12 @@ describe('finish to RASAero surface (desktop table)', () => {
     expect(exportCdx1({ tree: withFinish('optimum', 'optimum'), name: 'x', warnings })).toContain(
       '<Surface>Sheet Metal</Surface>',
     );
-    // No finish key is the kernel's NORMAL.
     expect(exportCdx1({ tree: withFinish(undefined, undefined), name: 'x', warnings })).toContain(
       '<Surface>Rough Camouflage Paint</Surface>',
     );
     expect(warnings.map((k) => k.key)).not.toContain('errors.exportRasaeroSurfaceMixed');
   });
 
-  // RocketDesignDTO.getPredominantFinish: the finish of most of the wetted
-  // area, not the nose cone's. The 10 in tube outweighs the 4 in nose.
   it('takes the finish of most of the wetted area, with a warning naming it', () => {
     const warnings: Keyed[] = [];
     const xml = exportCdx1({ tree: withFinish('mirror', 'unfinished'), name: 'x', warnings });
@@ -185,9 +169,8 @@ describe('finish to RASAero surface (desktop table)', () => {
   });
 
   it('counts both faces of every fin', () => {
-    // The 1 in tube's 10 in is 31.4 in^2 and the nose some 7 in^2 more. Eight
-    // fins with a 2 in root and a 1 in tip are 1.5 in^2 a face at a 1 in span,
-    // 24 in^2 in all, and 5.9 in^2 a face at a 0.1 m span, 94 in^2.
+    // Body is about 38 in^2. Eight fins, both faces: 24 in^2 at a 1 in span,
+    // 94 in^2 at a 0.1 m span.
     const finned = (height: number) => {
       const t = withFinish('normal', 'normal');
       const fin = { ...tree.components[0]!.children![1]!.children![0]!, finCount: 8, height, finish: 'mirror' };
@@ -207,12 +190,6 @@ describe('finish to RASAero surface (desktop table)', () => {
   });
 });
 
-/**
- * A pod or a strap-on booster is external aerodynamics RASAero's flat part
- * list cannot hold, and a file that quietly omits it describes a different
- * rocket. The editor mounts both on a body tube (`canHost`), so that is where
- * the export has to find them, in the sustainer and in a booster alike.
- */
 describe('assemblies RASAero cannot hold', () => {
   const pod = (type: 'podset' | 'parallelstage') => ({
     type,
@@ -265,15 +242,6 @@ describe('assemblies RASAero cannot hold', () => {
   });
 });
 
-/**
- * A booster is held to the rules of desktop's `BoosterDTO` (core
- * file/rasaero/export/BoosterDTO.java): consecutive body tubes of the first
- * tube's radius are one body (their lengths summed), the first part after them
- * that is not one refuses the export unless it is the last stage's boat tail
- * (error31), a leading transition is a shoulder whose ends meet the part above
- * and the tube behind (error12 to error15), and the body carries a fin set
- * (error16).
- */
 describe('a booster as desktop writes one', () => {
   const finSet = (id: string) => ({ ...tree.components[0]!.children![1]!.children![0]!, id });
   const tube = (id: string, length: number, outerRadius: number, fins = false) => ({
@@ -297,7 +265,6 @@ describe('a booster as desktop writes one', () => {
   const booster = (xml: string) => xml.match(/<Booster>[\s\S]*?<\/Booster>/)![0];
 
   it('joins consecutive tubes of one radius into one body', () => {
-    // 0.1 m + 0.154 m = 0.254 m, 10 in.
     const xml = booster(run([tube('t1', 0.1, 0.0127, true), tube('t2', 0.154, 0.0127)]));
     expect(xml).toContain('<Length>10</Length>');
     expect(xml).toContain('<Diameter>1</Diameter>');
@@ -380,7 +347,6 @@ describe('rail button as RASAero rail guide', () => {
   });
 
   it('writes the outer diameter and total height in inches', () => {
-    // 0.0127 m is 0.5 in; 0.0254 m is 1 in.
     const xml = exportCdx1({ tree: withButton({ outerDiameter: 0.0127, height: 0.0254 }), name: 'x' });
     expect(xml).toContain('<RailGuideDiameter>0.5</RailGuideDiameter>');
     expect(xml).toContain('<RailGuideHeight>1</RailGuideHeight>');
@@ -396,29 +362,18 @@ describe('rail button as RASAero rail guide', () => {
   });
 });
 
-/**
- * A non-finite number never reaches the file as text. A bare
- * `typeof === 'number'` check would let a NaN or Infinity on a node through, and
- * the writer would print "NaN" into the .CDX1. The shared `num` rejects it and
- * falls back, as every other reader does.
- */
 describe('a non-finite dimension', () => {
   it('is never written as NaN or Infinity', () => {
     const bad = structuredClone(tree);
     const body = bad.components[0]!.children![1]!;
     body['length'] = Number.NaN;
     body['outerRadius'] = Number.POSITIVE_INFINITY;
-    // Both fall back to the kernel's 0.025 m, so the tube still meets the nose.
     bad.components[0]!.children![0]!['aftRadius'] = Number.POSITIVE_INFINITY;
     const out = exportCdx1({ tree: bad, name: 'bad', launchMassKg: 0.45, launchCgM: 0.127 });
     expect(out).not.toMatch(/NaN|Infinity/);
   });
 });
 
-/**
- * A trapezoid fin with no sweep key exports the kernel's default sweep
- * (`KERNEL_DEFAULTS.trapezoidfinset.sweep`), which is what the engine flies for that node.
- */
 describe('a trapezoid fin with no sweep key', () => {
   it('writes the kernel default sweep', () => {
     const bare = structuredClone(tree);
@@ -431,14 +386,6 @@ describe('a trapezoid fin with no sweep key', () => {
   });
 });
 
-/**
- * A dimension with no key is the one the kernel flies and every view draws
- * (KERNEL_DEFAULTS), not a figure of the RASAero writer's own.
- */
-/**
- * A freeform outline is read as the kernel normalizes it (first point moved to
- * the origin), so a trapezoid the editor let start off the origin still exports.
- */
 describe('a freeform trapezoid that starts off the origin', () => {
   it('writes the same fin as one at the origin', () => {
     const at = (x0: number, y0: number) => {
@@ -494,8 +441,6 @@ describe('parts with no dimension keys', () => {
   });
 
   it('places the fins against the length the tube is written with', () => {
-    // A fin at the tube's top has its front edge one tube length above the
-    // tube's bottom, which RASAero measures from.
     const topFin = structuredClone(bare);
     topFin.components[0]!.children![1]!.children![0]!.position = { method: 'top', offset: 0 };
     const xml = exportCdx1({ tree: topFin, name: 'bare', launchMassKg: 0.45, launchCgM: 0.127 });
@@ -504,11 +449,6 @@ describe('parts with no dimension keys', () => {
   });
 });
 
-/**
- * The sustainer order rules the desktop's RocketDesignDTO enforces: a nose cone
- * first and nowhere else, never flipped, then a body tube or a closing
- * transition; a single-stage rocket's closing transition is a boat tail.
- */
 describe('sustainer part order', () => {
   const nose = { type: 'nosecone', id: 'nc', name: 'Nose', length: 0.1, aftRadius: 0.0127, shape: 'ogive' };
   const tube = { type: 'bodytube', id: 'bt', name: 'Body', length: 0.254, outerRadius: 0.0127 };
@@ -555,19 +495,13 @@ describe('sustainer part order', () => {
   it("writes a transition's <Diameter> from its aft radius, as desktop's BasePartDTO does", () => {
     const xml = exportCdx1({ tree: one([nose, tube, tail]), name: 'x' });
     const part = /<BoatTail>[\s\S]*?<\/BoatTail>/.exec(xml)![0];
-    // aftRadius 0.009 m: 0.018 m across, 0.708661 in; the fore radius would be 1 in.
+    // 0.018 m across is 0.7087 in; the fore radius would give 1 in.
     expect(part).toContain('<Diameter>0.7087</Diameter>');
     expect(part).toContain('<RearDiameter>0.7087</RearDiameter>');
   });
 });
 
-/**
- * A booster is one RASAero body as long as all its tubes, and its fin Location
- * is measured from that body's bottom. Desktop's `BoosterDTO` adds the length of
- * every tube after the one the fins are on (`finLocationOffset`): fins with a
- * 2 in root flush with the bottom of the first of a 5 in and a 4 in tube sit
- * 2 + 4 = 6 in from the booster's bottom.
- */
+// Fin Location is from the whole booster's bottom (`BoosterDTO.finLocationOffset`): 2 + 4 = 6 in.
 describe('a booster made of two tubes', () => {
   const tube = (id: string, inches: number, children: unknown[] = []) => ({
     type: 'bodytube',
@@ -609,7 +543,6 @@ describe('a booster made of two tubes', () => {
   });
 });
 
-/** The base design with one parachute in the body tube. */
 const withChute = (chute: Record<string, unknown>): RocketTree => ({
   ...tree,
   components: [
@@ -629,12 +562,6 @@ const exported = (t: RocketTree, warnings?: Keyed[]) =>
   );
 const recovery = (doc: Document, tag: string) => doc.querySelector(`Recovery > ${tag}`)?.textContent;
 
-/**
- * RASAero has no ejection charge: desktop's RecoveryDTO writes a chute on it as
- * an apogee chute and warns (RASAeroExport.warning14). A key the part does not
- * carry is the kernel's default: a new parachute deploys on the ejection
- * charge, is 0.3 m across, and flies Parachute.DEFAULT_CD.
- */
 describe('a parachute with no deployment or size of its own', () => {
   it('is written as the apogee device, with a warning naming it', () => {
     const warnings: Keyed[] = [];
@@ -647,7 +574,6 @@ describe('a parachute with no deployment or size of its own', () => {
     expect(warnings).toEqual([{ key: 'errors.exportRasaeroChuteEjection', values: { name: 'Main' } }]);
   });
 
-  // Any other event has no RASAero deployment (RASAeroExport.error21).
   it('is refused on an event RASAero has no deployment for, naming the part and the event', () => {
     expect(() => exported(withChute({ deployEvent: 'never' }))).toThrow(
       expect.objectContaining({
@@ -658,11 +584,6 @@ describe('a parachute with no deployment or size of its own', () => {
   });
 });
 
-/**
- * Desktop's exporter reads every parachute anywhere in a stage
- * (RecoveryDTO.getParachutesFromRocket iterates the stage), and warns about a
- * streamer, which RASAero has no device for.
- */
 describe('which parachutes are recovery', () => {
   const design = (noseKids: object[], tubeKids: object[]): RocketTree => ({
     ...tree,
@@ -705,13 +626,7 @@ describe('which parachutes are recovery', () => {
   });
 });
 
-/**
- * RASAero deploys device 1 at apogee and device 2 when descending through
- * Altitude2, whatever the event types say, so desktop's RecoveryDTO puts the
- * apogee chute in slot 1 and the altitude chute in slot 2 whatever their tree
- * order, each with its own CD, and leaves out a second chute on an event
- * already taken with a warning (RASAeroExport.warning15).
- */
+// RASAero deploys device 1 at apogee and device 2 at Altitude2 whatever the event types say.
 describe('recovery slots', () => {
   const chutes = (...kids: object[]): RocketTree => ({
     ...tree,
@@ -755,12 +670,6 @@ describe('recovery slots', () => {
   });
 });
 
-/**
- * RASAero has one ogive (tangent) and two Haack noses. Desktop
- * (RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SHAPE) takes an ogive only at
- * shape parameter 1 and a Haack only at 0 (Von Karman) or within 1% of 1/3
- * (LV-Haack), and refuses the rest. An absent parameter is the shape's default.
- */
 describe('the nose shape parameter', () => {
   const withNose = (nose: Record<string, unknown>): RocketTree => ({
     ...tree,
@@ -780,7 +689,6 @@ describe('the nose shape parameter', () => {
     [{ shape: 'haack' }, 'Von Karman Ogive'],
     [{ shape: 'haack', shapeParameter: 0 }, 'Von Karman Ogive'],
     [{ shape: 'haack', shapeParameter: 0.333 }, 'LV-Haack'],
-    // The kernel's own LV-Haack.
     [{ shape: 'haack', shapeParameter: 1 / 3 }, 'LV-Haack'],
   ])('writes %o as %s', (nose, expected) => {
     expect(shapeOf(nose)).toBe(expected);
@@ -795,13 +703,6 @@ describe('the nose shape parameter', () => {
   });
 });
 
-/**
- * A RASAero booster has a boat tail only on the last stage: desktop's
- * `BoosterDTO` writes a trailing transition as the boat tail when the stage is
- * the rocket's last child and otherwise raises error31 and error32 ("Boattails
- * can only be added to the last stage"), refusing the export. The same
- * transition on the last stage is the boat tail.
- */
 describe('a trailing narrowing transition on a booster', () => {
   const booster = (id: string, trailing: boolean): unknown => ({
     type: 'stage',
@@ -846,18 +747,12 @@ describe('a trailing narrowing transition on a booster', () => {
     const boosters = xml.match(/<Booster>[\s\S]*?<\/Booster>/g)!;
     expect(boosters).toHaveLength(2);
     expect(boosters[0]).toContain('<BoattailLength>0</BoattailLength>');
-    // 0.03 m is 1.1811 in; 0.008 m aft radius is 0.63 in across.
     expect(boosters[1]).toContain('<BoattailLength>1.1811</BoattailLength>');
     expect(boosters[1]).toContain('<BoattailRearDiameter>0.6299</BoattailRearDiameter>');
   });
 });
 
-/**
- * Desktop's RASAeroCommonConstants.OPENROCKET_TO_RASAERO_MANUFACTURER, after
- * Manufacturer.getManufacturer resolves the name: "Loki" is a Loki Research
- * search name, so it takes the LR branch before the bare "Loki" one, and
- * "AMW ProX" is no Animal Motor Works alias, so it takes its own branch.
- */
+// Manufacturer.getManufacturer resolves "Loki" to Loki Research before the RASAero table.
 describe('engine manufacturer abbreviations (desktop table)', () => {
   const stage = { type: 'stage', id: 's', children: [{ type: 'bodytube', id: 'mmt' }] } as never;
   const engine = (manufacturer: string) =>
@@ -869,8 +764,6 @@ describe('engine manufacturer abbreviations (desktop table)', () => {
     ['AMW ProX', 'AMW/ProX'],
     ['Loki', 'LR'],
     ['Loki Research', 'LR'],
-    // RASAero's abbreviation for West Coast Hybrids, and the names desktop's
-    // Manufacturer table gives it.
     ['West Coast Hybrids', 'WCH'],
     ['WCH', 'WCH'],
     ['West Coast', 'WCH'],
@@ -879,21 +772,13 @@ describe('engine manufacturer abbreviations (desktop table)', () => {
   });
 });
 
-/** RASAero writes and reads a CP element in the rocket design, not a CD one. */
 it('writes the CP element RASAero reads, not CD', () => {
   const xml = exportCdx1({ tree, name: 'x' });
   expect(xml).toContain('<CP>0</CP>');
   expect(xml).not.toContain('<CD>0</CD>');
 });
 
-/**
- * RASAero has one trapezoidal fin set per part. Desktop's FinDTO writes any
- * other planar fin set as the trapezoid with the same root chord, span, area
- * and area centroid, and BodyTubeDTOAdapter keeps the first of several fin
- * sets, each with a warning.
- */
 describe('fin sets RASAero has no form for', () => {
-  // The single stage's cell, so the only warnings are the fins'.
   const cell = { launchMassKg: 0.45, launchCgM: 0.12 };
   const withFins = (...fins: object[]): RocketTree => ({
     ...tree,
@@ -906,8 +791,6 @@ describe('fin sets RASAero has no form for', () => {
   });
   const fin = (xml: string, tag: string) => Number(new RegExp(`<Fin>[\\s\\S]*?<${tag}>([^<]*)</${tag}>`).exec(xml)![1]);
 
-  // Desktop's own case: for an ellipse it is the symmetric trapezoid with a
-  // tip chord of (pi/2 - 1) times the root chord.
   it('writes an elliptical fin set as its equivalent trapezoid, with a warning', () => {
     const warnings: Keyed[] = [];
     const xml = exportCdx1({
@@ -926,8 +809,6 @@ describe('fin sets RASAero has no form for', () => {
   });
 
   it('writes a freeform fin set with the same area and centroid as its outline', () => {
-    // An L: 0.1 m root, 0.05 m span, with the outline stepping down to 0.02 m
-    // halfway back. Its area is 0.05 * 0.05 + 0.05 * 0.02 = 0.0035 m^2.
     const warnings: Keyed[] = [];
     const xml = exportCdx1({
       tree: withFins({
@@ -955,7 +836,6 @@ describe('fin sets RASAero has no form for', () => {
     expect(root).toBeCloseTo(0.1, 4);
     expect(span).toBeCloseTo(0.05, 4);
     expect(((root + tip) / 2) * span).toBeCloseTo(0.0035, 5);
-    // The L's centroid is (0.025 * 0.0025 + 0.075 * 0.001) / 0.0035 from the root's front.
     const centroid = (sweep * (root + 2 * tip) + root * root + root * tip + tip * tip) / (3 * (root + tip));
     expect(centroid).toBeCloseTo((0.025 * 0.0025 + 0.075 * 0.001) / 0.0035, 4);
     expect(warnings).toEqual([{ key: 'errors.exportRasaeroFinShape', values: { name: 'Step' } }]);
@@ -1017,11 +897,6 @@ describe('fin sets RASAero has no form for', () => {
   });
 });
 
-/**
- * RASAero gives every body tube the aft diameter of the part ahead of it once
- * it loads a design, so desktop's BodyTubeDTO refuses a tube of another
- * diameter (RASAeroExport.error15) rather than have RASAero resize it.
- */
 describe('a body tube diameter step', () => {
   const stepped = (noseRadius: number): RocketTree => ({
     ...tree,
@@ -1047,13 +922,7 @@ describe('a body tube diameter step', () => {
   });
 });
 
-/**
- * Desktop's LaunchSiteDTO writes the simulated launch site: RASAero's
- * barometric pressure is the pressure reduced to sea level, 0 for the
- * standard atmosphere, in which case RASAero uses the standard pressure at the
- * site; the temperature is the one the flight starts in; and the wind is the
- * signed headwind component along the rod.
- */
+// LaunchSiteDTO writes 0 pressure for the standard atmosphere and wind as the signed headwind along the rod.
 describe('the launch site', () => {
   const site = (launch: Partial<LaunchConditions>, warnings?: Keyed[]) => {
     const doc = new DOMParser().parseFromString(
@@ -1062,9 +931,6 @@ describe('the launch site', () => {
     );
     return (tag: string) => Number(doc.querySelector(`LaunchSite > ${tag}`)?.textContent);
   };
-  // RASAero II's standard atmosphere, as desktop's
-  // RASAERO_TO_OPENROCKET_LAUNCH_PRESSURE turns its input back into the
-  // site's pressure (Pa).
   const sitePressure = (barometric: number, altitudeFt: number) => {
     const pressureAltitude = altitudeFt + (Math.pow((barometric * 0.49117) / 14.6958, 0.19026) - 1) / -6.87535e-6;
     return 14.6958 * Math.pow(1 - 6.87535e-6 * pressureAltitude, 5.2561) * 6894.757;
@@ -1073,7 +939,6 @@ describe('the launch site', () => {
   it('writes a typed pressure reduced to sea level, which RASAero turns back into it', () => {
     const at = site({ launchAltitudeM: 1000, temperatureC: 26.85, pressureHPa: 880 });
     expect(sitePressure(at('Pressure'), 1000 * 3.28084)).toBeCloseTo(88000, -1);
-    // Reduced to sea level, it is above the site's 25.99 in-Hg.
     expect(at('Pressure')).toBeGreaterThan(880 / 33.8639);
     expect(at('Temperature')).toBeCloseTo(80.33, 1);
   });
@@ -1081,7 +946,6 @@ describe('the launch site', () => {
   it('writes no pressure and the standard temperature at the site for the standard atmosphere', () => {
     const at = site({ launchAltitudeM: 1000, temperatureC: null, pressureHPa: null });
     expect(at('Pressure')).toBe(0);
-    // 288.15 K less 6.5 K a kilometer, in degrees Fahrenheit.
     expect(at('Temperature')).toBeCloseTo((288.15 - 6.5 - 273.15) * 1.8 + 32, 0);
   });
 
@@ -1115,14 +979,7 @@ describe('the launch site', () => {
   });
 });
 
-/**
- * Desktop's SimulationDTO converts the staging events to RASAero's timeline,
- * which runs from each booster's burnout: the booster's separation delay is
- * how long the two stages coast together, and the upper stage's ignition
- * delay how long it then coasts alone. A booster is included only when the
- * configuration flies it and it has a motor, and a stage's other motors are
- * named in a warning, since RASAero flies one motor per stage.
- */
+// RASAero's timeline runs from each booster's burnout (SimulationDTO).
 describe('staging, nozzles and the motors RASAero flies', () => {
   const finSet = { ...tree.components[0]!.children![1]!.children![0]!, id: 'bf' };
   const staged = (
@@ -1166,7 +1023,6 @@ describe('staging, nozzles and the motors RASAero flies', () => {
   };
 
   it("separates on the booster's ejection charge after its motor's delay", () => {
-    // The kernel's default separation: the booster's ejection charge.
     const { cell, warnings } = run(staged({ separationDelay: 0.5 }), {
       sm: motor({ ignitionEvent: 'ejectioncharge', ignitionDelay: 1 }),
       bm: motor({ delay: 4 }),

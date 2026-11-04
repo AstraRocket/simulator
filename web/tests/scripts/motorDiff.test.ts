@@ -2,12 +2,6 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { diffMotors, motorDiffHeadline, motorDiffMarkdown, describeField } from '../../scripts/lib/motorDiff.mjs';
 
-/**
- * The sync workflow's motor report (scripts/diff-motors.mjs). Motors match on
- * the row key, so a motor whose values moved is "changed", not one removed and
- * one added, and two motors that share a designation but not a diameter stay
- * two motors.
- */
 const motor = (over: Record<string, unknown> = {}) => ({
   manufacturer: 'Estes',
   designation: 'C6',

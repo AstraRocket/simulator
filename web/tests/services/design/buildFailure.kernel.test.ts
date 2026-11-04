@@ -14,13 +14,6 @@ beforeAll(async () => {
   __setEngineForTests(await import('../../../src/engine/vendor/openrocket-engine.mjs'));
 });
 
-/**
- * A fin set canted far enough that its root crosses the far side of its body:
- * a 100 mm root at 15 degrees on a 12 mm tube. The kernel computes its root
- * points as NaN (`FinSet.getRootPoints`), and the build fails on the NaN mass
- * that follows, a message that names no part. The Design tab says which fin set
- * it is, in the words the Run button uses.
- */
 const overturned = (): RocketTree =>
   syncDerived({
     name: 'x',

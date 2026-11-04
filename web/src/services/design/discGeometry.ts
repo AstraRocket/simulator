@@ -5,34 +5,13 @@ import { partLength, startFromPosition } from '../../tree/position';
 import { stationRadius } from '../../tree/shapeProfile';
 import { clusterPlacesOf } from '../../tree/cluster';
 import { parentStartOf } from '../../tree/axialRebase';
-// Shared with the .ork reader and writer, so a part that lost a tag is sized the
-// way it was read and saved.
 import { COMPONENT_DEFAULTS } from './componentDefaults';
 
-/**
- * Where a disc / ring / tube part's real dimensions come from: the tree walk
- * that finds the tube enclosing a part, and the radius resolution that turns
- * "a centering ring in this body tube, around that motor mount" into an outer
- * radius, a bore and a length.
- *
- * This lives apart from its consumers because they must agree: the DXF cut
- * sheet (dxfExport), the STL/3MF print solids (componentExport,
- * rocketPrintExport), the 3D view's internals (rocketPieces) and the automatic
- * radius and shoulder resolvers (autoRadius, autoShoulder). Held inside the
- * DXF writer it could only be reused by dragging the whole R12 serializer into
- * the first-paint bundle. No three.js and no writers here, so anyone can import
- * it.
- */
+// No three.js or writers here, so importing it does not pull the DXF serializer into first paint.
 
-/** Used when a ring's outer radius can't be resolved from its parent tube. */
 const FALLBACK_RADIUS = 0.012;
 
-/**
- * Each tube type's own wall when the node states none: the kernel gives an inner
- * tube 0.5 mm, and a coupler and a body tube 2 mm. Read per type, so a part's
- * bore is the same whether it is asked for as the part or as the tube around
- * something else.
- */
+// Per type, so a bore is the same asked as the part or as the tube around something.
 const TUBE_WALL = {
   bodytube: COMPONENT_DEFAULTS.bodytube.thickness,
   innertube: COMPONENT_DEFAULTS.innertube.thickness,
@@ -43,12 +22,10 @@ export interface Tube {
   outerR: number;
   innerR: number;
 }
-/** The bore a tube offers whatever sits inside it, from its own wall. */
+/** A transition gives its wider end. */
 export function tubeRadii(node: ComponentNode): Tube | null {
   const t = node.type;
   if (t === 'bodytube' || t === 'innertube' || t === 'tubecoupler') {
-    // A body tube or inner tube with no radius on record is the one the bridge
-    // builds (KERNEL_DEFAULTS); a coupler has no fixed default to read.
     const built = t === 'tubecoupler' ? NaN : KERNEL_DEFAULTS[t].outerRadius;
     const or = num(node, 'outerRadius', built);
     // A filled body tube is solid: `BodyTube.getInnerRadius` is 0.
@@ -66,7 +43,6 @@ export function tubeRadii(node: ComponentNode): Tube | null {
   return null;
 }
 
-/** Outer radius of a plate part that fills its parent tube's bore. */
 export function plateOuter(node: ComponentNode, enclosing: Tube | null): number {
   const explicit = num(node, 'outerRadius', NaN);
   if (!Number.isNaN(explicit)) return explicit;
@@ -74,7 +50,6 @@ export function plateOuter(node: ComponentNode, enclosing: Tube | null): number 
   return FALLBACK_RADIUS;
 }
 
-/** The motor-mount bore a centering ring centers: an inner tube among siblings. */
 export function mountBore(siblings: ComponentNode[]): number | null {
   const mount = siblings.find((s) => s.type === 'innertube');
   if (!mount) return null;
@@ -82,11 +57,7 @@ export function mountBore(siblings: ComponentNode[]): number | null {
   return Number.isNaN(or) ? null : or;
 }
 
-/**
- * Where a child sits along its parent, from the parent's front, clamped into
- * the parent (m). `parentStart` is the parent's rocket-frame start, which an
- * `absolute` child is measured against.
- */
+/** `parentStart` is the parent's rocket-frame start, which an `absolute` child is measured against. */
 function spanIn(child: ComponentNode, parent: ComponentNode, parentStart: number): [number, number] {
   const len = partLength(parent);
   const [start, end] = rawSpanIn(child, parent, parentStart);
@@ -94,17 +65,12 @@ function spanIn(child: ComponentNode, parent: ComponentNode, parentStart: number
   return [clamp(start), clamp(end)];
 }
 
-/** Where a child sits along its parent, from the parent's front (m), overhang and all. */
+/** Unclamped: overhang included. */
 function rawSpanIn(child: ComponentNode, parent: ComponentNode, parentStart: number): [number, number] {
   const start = startFromPosition(positionOf(child), partLength(child), partLength(parent), parentStart);
   return [start, start + partLength(child)];
 }
 
-/**
- * The bore a part offers at one station along it: `RadialParent.getInnerRadius(x)`.
- * A tube is one bore end to end (none when filled); a nose cone or transition
- * is its profile at that station less its wall.
- */
 function innerRadiusAt(parent: ComponentNode, x: number): number | null {
   if (parent.type === 'nosecone' || parent.type === 'transition') {
     const wall = num(parent, 'thickness', COMPONENT_DEFAULTS[parent.type].thickness);
@@ -113,13 +79,6 @@ function innerRadiusAt(parent: ComponentNode, x: number): number | null {
   return tubeRadii(parent)?.innerR ?? null;
 }
 
-/**
- * The automatic outer radius of a ring, bulkhead, coupler or engine block: the
- * narrower of its parent's bores at the part's fore and aft faces
- * (`RadiusRingComponent.getOuterRadius`, `ThicknessRingComponent.getOuterRadius`).
- * Null when the parent offers no bore. `parentStart` is the parent's
- * rocket-frame start, which an `absolute` part is measured against.
- */
 export function boreAround(child: ComponentNode, parent: ComponentNode, parentStart: number): number | null {
   const [x0, x1] = spanIn(child, parent, parentStart);
   const a = innerRadiusAt(parent, x0);
@@ -127,22 +86,13 @@ export function boreAround(child: ComponentNode, parent: ComponentNode, parentSt
   return a === null || b === null ? null : Math.min(a, b);
 }
 
-/**
- * A centering ring's automatic bore: the widest inner tube beside it whose span
- * overlaps the ring's, 0 when none does, and never wider than the ring
- * (`CenteringRing.getInnerRadius`).
- */
 export function ringBore(ring: ComponentNode, parent: ComponentNode, ringOuter: number, parentStart: number): number {
   let bore = 0;
   for (const tube of tubesThrough(ring, parent, parentStart)) bore = Math.max(bore, num(tube, 'outerRadius', 0));
   return Math.min(bore, ringOuter);
 }
 
-/**
- * The inner tubes beside a ring whose spans overlap the ring's, as placed and
- * not clipped to the parent: a mount that overhangs the tube's aft end still
- * misses a ring placed past its own end.
- */
+// Unclipped spans: an overhanging mount still misses a ring past its own end.
 function tubesThrough(ring: ComponentNode, parent: ComponentNode, parentStart: number): ComponentNode[] {
   const [r0, r1] = rawSpanIn(ring, parent, parentStart);
   return (parent.children ?? []).filter((sib) => {
@@ -152,25 +102,14 @@ function tubesThrough(ring: ComponentNode, parent: ComponentNode, parentStart: n
   });
 }
 
-/** One hole through a disc part: its center in the kernel's y/z frame and its radius (m). */
+/** Kernel y/z frame, meters. */
 export interface Hole {
   y: number;
   z: number;
   r: number;
 }
 
-/**
- * The holes an automatic centering ring is cut with, when one centered bore is
- * not the answer: a hole for every tube of every inner tube whose span overlaps
- * the ring's, at the place the kernel flies it (`clusterPlacesOf`), each as wide
- * as the tube. A cluster mount gets a hole per motor and an offset mount gets
- * its hole off center, as the tubes really pass through the ring.
- *
- * Null when the ring's bore is stated, since a bore you typed is the one
- * centered hole you asked for, and when the holes come to one centered hole,
- * which the plain bore already draws. Touching holes are left touching: that is
- * the ring the tubes need.
- */
+/** Null for a stated bore or a single centered hole, which the plain bore already draws. */
 function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: number): Hole[] | null {
   if (ring.type !== 'centeringring') return null;
   if (ring['innerRadiusAuto'] !== true && typeof ring['innerRadius'] === 'number') return null;
@@ -185,7 +124,6 @@ function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: numb
   return holes.length === 0 || centered ? null : holes;
 }
 
-/** Locate a node plus the enclosing tube + siblings its cut part needs, and the part they sit in. */
 export function nodeContext(
   tree: RocketTree,
   nodeId: string,
@@ -218,7 +156,6 @@ export function nodeContext(
   return found;
 }
 
-/** {@link ringHoles} for a part found by {@link nodeContext}. */
 export function ringHolesIn(
   tree: RocketTree,
   ctx: { node: ComponentNode; parent: ComponentNode | null },
@@ -226,14 +163,7 @@ export function ringHolesIn(
   return ctx.parent ? ringHoles(ctx.node, ctx.parent, parentStartOf(tree, ctx.parent)) : null;
 }
 
-/**
- * Resolved solid dimensions of a disc / ring / tube part (centering ring,
- * bulkhead, coupler, engine block), for its 3D mesh export: the same radius
- * resolution the DXF uses (explicit radii, else the parent tube's bore, else the
- * mount an inner tube provides). Returns null for any other type. `holes` is
- * set when a centering ring's mount is a cluster or off center, and then
- * replaces the centered bore (see {@link ringHoles}).
- */
+/** `holes`, when set, replaces the centered bore. */
 export function resolveDisc(
   tree: RocketTree,
   nodeId: string,
@@ -243,17 +173,6 @@ export function resolveDisc(
   return ctx && dims ? { ...dims, holes: ringHolesIn(tree, ctx) } : null;
 }
 
-/**
- * The same resolution for a caller that already has the context, because it is
- * walking the tree itself: the 2D schematic knows the enclosing tube and the
- * siblings by the time it draws a child, and has no tree to look a node up in.
- *
- * It exists so the sketch can size a coupler the way the cut sheet and the 3D
- * model do. Drawing every internal through `internalExtent` instead caps the
- * radius at 85% of the parent, which a coupler hits every time since it fills the
- * bore by definition, so the same part comes out one size in the sketch and
- * another everywhere else.
- */
 export function discDims(
   node: ComponentNode,
   enclosing: Tube | null,
@@ -274,56 +193,25 @@ export function discDims(
       'thickness',
       node.type === 'engineblock' ? COMPONENT_DEFAULTS.engineblock.thickness : COMPONENT_DEFAULTS.tubecoupler.thickness,
     );
-    // The fallback length comes from the shared table, which holds the kernel's
-    // own default (a tube coupler is 60 mm in ComponentFactory.java), so a
-    // coupler whose `length` key is absent is sketched, cut and printed at the
-    // length it flies.
     const length = num(
       node,
       'length',
       node.type === 'engineblock' ? COMPONENT_DEFAULTS.engineblock.length : COMPONENT_DEFAULTS.tubecoupler.length,
     );
-    // A wall exactly as thick as the radius is a solid part, which a catalog
-    // row with an inner diameter of 0 states (a balsa nose block), and the
-    // kernel flies it as one. A wall thicker than the radius is a units slip in
-    // a hand-edited .ork (thickness 0.02 against radius 0.012), and is refused
-    // here rather than lathed into a plug nobody asked for: `discDims` also
-    // feeds the DXF sheet and the 3D internals, so all three stay out of it.
+    // Wall equal to the radius is a legitimately solid part; a thicker one is refused.
     if (!(wall <= outerR)) return null;
     return { outerR, innerR: outerR - wall, length };
   }
   return null;
 }
 
-/**
- * The bore a part offers at one end: what a shoulder plugging in there has to
- * fit inside.
- *
- * Distinct from {@link tubeRadii}, which answers "what bore does this part
- * offer whatever sits inside it" and takes a transition's wider end, because
- * a ring somewhere along it has to clear the whole thing. A shoulder does not
- * go somewhere along it; it goes in one end, and a transition's two ends are
- * different sizes. Asking the wrong one of those two questions gives a boat
- * tail's fore shoulder the aft radius.
- *
- * Returns null when the part has no bore to offer at that end: a nose cone is
- * closed at the tip, a filled part is solid, and anything that is not airframe
- * has no end to plug. Only a filled body tube has no bore in the kernel too
- * (`BodyTube.getInnerRadius` is 0, as {@link tubeRadii} has it); a filled nose
- * cone's or transition's `Transition.getInnerRadius` still reads its stored
- * wall, so a shoulder plugging one is refused here though the kernel would
- * find a bore.
- */
+// Not `tubeRadii`, which takes a transition's wider end and would misfit a boat tail's fore shoulder.
 export function boreAt(node: ComponentNode, end: 'fore' | 'aft'): number | null {
   const e = endAt(node, end);
   return e && e.outer > 0 && e.wall < e.outer ? e.outer - e.wall : null;
 }
 
-/**
- * A hollow airframe part's outer radius and wall at one end, the two numbers
- * {@link boreAt} takes the bore from. Null where {@link boreAt} has no bore to
- * offer: a filled part, a nose cone's tip, anything that is not airframe.
- */
+/** Null for a filled part, a nose cone's tip, or anything that is not airframe. */
 export function endAt(node: ComponentNode, end: 'fore' | 'aft'): { outer: number; wall: number } | null {
   if (node['filled'] === true) return null;
   const at = (outer: number, dflt: number) => ({ outer, wall: num(node, 'thickness', dflt) });
@@ -336,8 +224,7 @@ export function endAt(node: ComponentNode, end: 'fore' | 'aft'): { outer: number
     case 'transition':
       return at(num(node, end === 'fore' ? 'foreRadius' : 'aftRadius', NaN), COMPONENT_DEFAULTS.transition.thickness);
     case 'nosecone': {
-      // Open at its base, closed at the tip. A flipped cone's base is its fore
-      // end (`NoseCone.getBaseRadius`).
+      // A flipped cone's base is its fore end (`NoseCone.getBaseRadius`).
       const base = node['flipped'] === true ? 'fore' : 'aft';
       return end === base ? at(noseConeAftRadius(node), COMPONENT_DEFAULTS.nosecone.thickness) : null;
     }

@@ -8,14 +8,6 @@ import {
   stageMain,
 } from '../../../src/services/design/treeEdit';
 
-/**
- * Dual deployment as a property of the stage.
- *
- * The flag is stored per device, but the stage owns the plan: single deployment
- * is no drogue, dual is exactly one. The invariant being tested is that a stage
- * can never hold two, which OpenRocket's own UI cannot produce either.
- */
-
 const chute = (id: string, extra: Record<string, unknown> = {}): ComponentNode =>
   ({ id, type: 'parachute', name: id, diameter: 0.4, lineCount: 6, ...extra }) as unknown as ComponentNode;
 
@@ -34,8 +26,6 @@ const rocket = (): RocketTree =>
             length: 0.4,
             outerRadius: 0.026,
             thickness: 0.001,
-            // Nested a level down: the stage owns everything inside it, not
-            // just its immediate children.
             children: [chute('main'), chute('drogue'), { id: 'cord', type: 'shockcord', cordLength: 2 }],
           },
         ],
@@ -75,8 +65,7 @@ describe('the recovery devices a stage offers', () => {
   });
 
   it('is not fooled by a shock cord, which is not a recovery device', () => {
-    // It packs and deploys with the chute but it is a MassObject upstream, and
-    // it cannot be a drogue.
+    // A MassObject upstream, so it cannot be a drogue.
     expect(recoveryDevices(rocket(), 'sustainer').map((d) => d.type)).toEqual(['parachute', 'parachute']);
   });
 
@@ -93,7 +82,6 @@ describe('choosing the drogue', () => {
   });
 
   it('never leaves two in one stage', () => {
-    // Whatever the stage starts as, choosing leaves exactly one.
     const both = setStageDrogue(setStageDrogue(rocket(), 'sustainer', 'drogue'), 'sustainer', 'main');
     expect(drogues(both, 'sustainer')).toEqual(['main']);
   });
@@ -110,8 +98,6 @@ describe('choosing the drogue', () => {
 
   it('leaves the other stages alone', () => {
     const t = setStageDrogue(setStageDrogue(rocket(), 'booster', 'boosterChute'), 'sustainer', 'main');
-    // Each stage has its own plan: a booster with a drogue and a sustainer with
-    // one are two dual-deployment stages, not a conflict.
     expect(drogues(t, 'booster')).toEqual(['boosterChute']);
     expect(drogues(t, 'sustainer')).toEqual(['main']);
   });
@@ -124,15 +110,12 @@ describe('choosing the drogue', () => {
   });
 
   it('is a no-op for a device that is not in that stage', () => {
-    // Naming the booster's chute while configuring the sustainer clears the
-    // sustainer and marks nothing, rather than reaching into the booster.
     const t = setStageDrogue(setStageDrogue(rocket(), 'sustainer', 'main'), 'sustainer', 'boosterChute');
     expect(drogues(t, 'sustainer')).toEqual([]);
     expect(drogues(t, 'booster')).toEqual([]);
   });
 });
 
-/** The sustainer with a third chute beside the two, for a main pick to matter. */
 const three = (): RocketTree => {
   const t = rocket();
   find(t, 'tube').children!.push(chute('spare'));

@@ -7,12 +7,7 @@ import info.openrocket.core.l10n.DebugTranslator;
 import info.openrocket.core.l10n.Translator;
 import info.openrocket.core.preferences.ApplicationPreferences;
 
-/**
- * SHIM replacing OpenRocket's Guice-backed Application service locator.
- * Provides exactly the static surface the carved kernel uses, hand-wired.
- * Identical behavior on JVM and TeaVM (this class compiles into both), so
- * differential tests are unaffected by shim choices.
- */
+/** SHIM replacing OpenRocket's Guice-backed Application service locator. */
 public final class Application {
 
     private static final Translator TRANSLATOR = new DebugTranslator(null);
@@ -39,7 +34,6 @@ public final class Application {
         }
     };
 
-    /** Minimal hand-wired injector: only the bindings the kernel requests. */
     private static final Injector INJECTOR = new Injector() {
         private final RocketDescriptor rocketDescriptor = new ShimRocketDescriptor();
 
@@ -59,20 +53,7 @@ public final class Application {
         return false;
     }
 
-    /**
-     * A bare {@code DebugTranslator}, deliberately different from upstream.
-     * <p>
-     * Upstream wraps the base translator in {@code ClassBasedTranslator} and
-     * {@code ExceptionSuppressingTranslator}, which turn keys into prose. Here
-     * the bracket form is the protocol: every kernel string arrives as
-     * {@code [Warning.RECOVERY_HIGH_SPEED]}, and
-     * {@code web/src/services/app/warningText.ts} parses exactly that, with tests
-     * asserting it. Stable machine keys beat untranslatable English at a
-     * boundary the app has to localize itself.
-     * <p>
-     * Switching to upstream's chain is a one-line change that would silently break
-     * every warning string in the UI, with only the web test to catch it.
-     */
+    /** Deliberately a bare DebugTranslator: web/src/services/app/warningText.ts parses its [Key] form. */
     public static Translator getTranslator() {
         return TRANSLATOR;
     }

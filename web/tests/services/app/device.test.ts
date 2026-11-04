@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-/** jsdom has no matchMedia; answer the width test. */
+// jsdom has no matchMedia.
 const setWidth = (desktop: boolean) => {
   window.matchMedia = ((query: string) => ({
     matches: desktop,
@@ -11,22 +11,18 @@ const setWidth = (desktop: boolean) => {
   })) as unknown as typeof window.matchMedia;
 };
 
-/** jsdom has no maxTouchPoints, so it is defined rather than spied on. */
-const setTouchPoints = (n: number) => Object.defineProperty(navigator, 'maxTouchPoints', { value: n, configurable: true });
+// jsdom has no maxTouchPoints, so it is defined rather than spied on.
+const setTouchPoints = (n: number) =>
+  Object.defineProperty(navigator, 'maxTouchPoints', { value: n, configurable: true });
 
 const setHints = (hints: object | undefined) =>
   Object.defineProperty(navigator, 'userAgentData', { value: hints, configurable: true });
 
-/** A fresh module each time: it caches the browser's `formFactors` answer. */
+// A fresh module each time: it caches the browser's `formFactors` answer.
 const load = () => import('../../../src/services/app/device');
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-/**
- * Chromium's `formFactors` Client Hint answers "phone or tablet" when the
- * browser has it; the user agent answers everywhere else. See
- * docs/DEVELOPER.md, "Detecting a phone or tablet".
- */
 describe('device detection', () => {
   beforeEach(() => {
     vi.resetModules();

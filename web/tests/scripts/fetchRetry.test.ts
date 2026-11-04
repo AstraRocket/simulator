@@ -2,11 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { fetchRetry } from '../../scripts/lib/fetchRetry.mjs';
 
-/**
- * The motor catalog sync calls ThrustCurve.org, which answers 503 during short
- * outages. A transient 429 or 5xx, or a request that never reached the server,
- * is retried; a status asking again cannot change is returned at once.
- */
 const opts = { delays: [1, 2, 3], sleep: async () => {}, log: () => {} };
 const reply = (status: number) => new Response('{}', { status });
 

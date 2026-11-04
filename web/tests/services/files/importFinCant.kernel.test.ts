@@ -19,14 +19,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A file's fin cant comes in as the cant the kernel flies.
- *
- * `FinSet.setCantAngle` clamps to plus or minus 15 degrees, so a file stating
- * more flies the clamp. The panel shows the stored value, so the import has to
- * store the clamp too. The expected cant is the kernel's own, read back from
- * the imported design (`getComponentFields`).
- */
+// `FinSet.setCantAngle` clamps to +/-15 degrees, so the import stores the clamp too.
 
 const spec = {
   noseCone: { length: 0.1, aftRadius: 0.013, thickness: 0.001 },
@@ -35,7 +28,6 @@ const spec = {
   motorMount: { length: 0.07, outerRadius: 0.0092, thickness: 0.0004 },
 } as unknown as RocketSpec;
 
-/** The design with its fin set given a small cant, so both writers state one. */
 function canted(): RocketTree {
   const { tree } = specToTree(spec);
   for (const n of walkNodes(tree.components)) if (n.type === 'trapezoidfinset') n['cant'] = 0.01;
@@ -45,7 +37,7 @@ function canted(): RocketTree {
 const finOf = (tree: RocketTree): ComponentNode =>
   [...walkNodes(tree.components)].find((n) => n.type === 'trapezoidfinset')!;
 
-/** The cant the kernel holds for the imported fin set, radians. */
+/** Radians. */
 function kernelCant(tree: RocketTree): number {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));

@@ -8,9 +8,7 @@ afterEach(() => {
   document.body.style.cursor = '';
 });
 
-/** Exposes the hook's setter, so a test can drive it like a mesh would.
- *  Handed out through a prop callback rather than assigned to a module
- *  variable from inside render (the compiler lint forbids that). */
+// A prop callback: the compiler lint forbids assigning a module variable during render.
 function Mesh({ expose }: { expose: (set: (on: boolean) => void) => void }) {
   expose(useHoverCursor());
   return null;
@@ -30,12 +28,6 @@ describe('useHoverCursor', () => {
     expect(cursor()).toBe('');
   });
 
-  /**
-   * An R3F mesh unmounts without firing a pointer-out, so clearing only on
-   * pointer-out is not enough: switching views, or an edit that rebuilds the
-   * piece list, would leave the whole app showing a hand until the user happened
-   * to hover and leave something else.
-   */
   it('clears the cursor when the canvas unmounts mid-hover', () => {
     const { unmount } = render(<Mesh expose={grab} />);
     set(true);
@@ -45,10 +37,9 @@ describe('useHoverCursor', () => {
   });
 
   it('clears unconditionally on unmount, even a cursor it did not set', () => {
-    document.body.style.cursor = 'wait'; // something else owns it
+    document.body.style.cursor = 'wait';
     const { unmount } = render(<Mesh expose={grab} />);
     unmount();
-    // The canvas only ever clears; it does not restore a cursor it never saw.
     expect(cursor()).toBe('');
   });
 
@@ -56,7 +47,6 @@ describe('useHoverCursor', () => {
     const { rerender } = render(<Mesh expose={grab} />);
     const first = set;
     rerender(<Mesh expose={grab} />);
-    // Stable, so the mesh handlers using it are not re-created every frame.
     expect(set).toBe(first);
   });
 });

@@ -2,66 +2,29 @@ import { CSV_MIME } from '../csvExport';
 import type { FlightPathModel } from './model';
 import { renderUserTemplate } from './userTemplate';
 
-// ---------------------------------------------------------------------------
-// Built-in renderers
-// ---------------------------------------------------------------------------
-//
-// Each built-in format renders through the shared Mustache path using its own
-// template source (EXPORT_FORMATS[].source). There is no hand-written renderer
-// to drift from the template: the file you download and re-import is what
-// produces the built-in output. Templates live next to the format registry.
-
-/** Render the model as KML (Google Earth). */
 export function renderKml(model: FlightPathModel): string {
   return renderUserTemplate(KML_TEMPLATE_SOURCE, 'kml', model);
 }
 
-/** Render the model as a GPX 1.1 track. */
 export function renderGpx(model: FlightPathModel): string {
   return renderUserTemplate(GPX_TEMPLATE_SOURCE, 'gpx', model);
 }
 
-/** Render the model as a waypoint CSV (one row per waypoint). */
 export function renderWaypointCsv(model: FlightPathModel): string {
   return renderUserTemplate(WAYPOINTS_CSV_TEMPLATE_SOURCE, 'csv', model);
 }
 
-// ---------------------------------------------------------------------------
-// Format registry
-// ---------------------------------------------------------------------------
-
 export interface ExportFormat {
   id: 'kml' | 'gpx' | 'waypoints-csv';
-  /** Output file extension without a dot. */
+  /** Without a dot. */
   extension: string;
-  /** MIME type for the download blob. */
   mime: string;
   render: (model: FlightPathModel) => string;
-  /** The Mustache template source, offered for download as a starting point for
-   *  custom templates. The built-in renderer renders this same source through
-   *  {@link renderUserTemplate}. */
   source: string;
-  /** Suggested filename when downloading {@link ExportFormat.source}. */
   templateFilename: string;
 }
 
-// The built-in Mustache templates, mirroring OpenRocket's bundled templates.
-// They are the "download to modify" starting points; the model field names match
-// so an edited copy re-imports and renders through renderUserTemplate.
-//
-// The KML balloons' HTML is written pre-escaped (`&lt;b&gt;`, not `<b>`), and
-// not wrapped in CDATA. `escaperFor('kml')` escapes every value this template
-// substitutes, because they are user-supplied names that would otherwise break
-// the XML, and inside a CDATA block the XML parser does not
-// decode those escapes, so a rocket named `Bill & Ted` would reach the balloon
-// as the literal text `Bill &amp; Ted`. A CDATA block is breakable too: a name
-// containing `]]>` would close it early and produce an invalid document.
-// A balloon is HTML after the XML decode, so a value inside one is escaped
-// twice: `{{#htmlBalloon}}` escapes for HTML and then for XML, and the viewer
-// shows `<img src=x>` in a rocket's name as text rather than running it as
-// markup. The template's own markup is escaped once, so it decodes to the tags
-// it means. The degree sign is a literal UTF-8 character rather than `&deg;`:
-// one layer of entity decoding for the markup, not two.
+// Balloon HTML is pre-escaped, not CDATA: escapes inside CDATA are not decoded and `]]>` would break it.
 const KML_TEMPLATE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 	<Document>
@@ -188,7 +151,6 @@ const GPX_TEMPLATE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
 </gpx>
 `;
 
-// CRLF line endings, matching the app's other CSV exports (Excel-friendly).
 const WAYPOINTS_CSV_TEMPLATE_SOURCE =
   '"altitude({{altitudeUnit}})","latitude","longitude","label","symbol","color","label_color","name"\r\n' +
   '{{#branches}}{{#waypoints}}"{{altitude}}","{{latitudeStr}}","{{longitudeStr}}","{{type}}","pushpin","{{csvPinColor}}","white","{{rocketName}} {{motor}} {{label}} - {{altitude}} {{altitudeUnit}} - {{distance}} {{distanceUnit}} @ {{bearing}} deg"\r\n' +

@@ -5,10 +5,6 @@ import { exportOrk } from '../../../src/services/files/orkExport';
 import { importOrk } from '../../../src/services/files/orkImport';
 import { simpleRocketTree } from '../../../src/services/flight/simpleRocket';
 
-/**
- * A simple rocket saved and opened again is still pinned to the weighed mass
- * and measured CG as a whole: the stage's overrides keep covering its parts.
- */
 describe('a simple rocket through an .ork file', () => {
   it.each([
     ['with a mount tube', 0.018],

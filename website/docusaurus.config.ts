@@ -2,22 +2,14 @@ import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import { readFileSync } from 'node:fs';
 
-// Reads the app version from web/package.json.
 const { version } = JSON.parse(readFileSync(new URL('../web/package.json', import.meta.url), 'utf-8'));
 
-// The footer line, per locale. It is written here and not in
-// i18n/<locale>/docusaurus-theme-classic/footer.json because it carries the
-// version, which a translation file cannot; a `copyright` entry in that file
-// would replace this one and drop the version. Docusaurus loads this config
-// once per locale and names it in DOCUSAURUS_CURRENT_LOCALE. `docusaurus start`
-// with no --locale assigns undefined to it, which Node stores as the string
-// "undefined", and serves the default locale.
+// `docusaurus start` with no --locale sets DOCUSAURUS_CURRENT_LOCALE to the string "undefined".
 const FOOTER: Record<string, string> = {
   en:
     `Documentation for AstraRocket v${version}. ` +
     'AstraRocket runs OpenRocket’s own engine. Not affiliated with the OpenRocket project. ' +
     'See the <a href="https://openrocket.readthedocs.io">OpenRocket documentation</a> for the underlying physics.',
-  // The Spanish line is outside the English spell check.
   // cspell:disable
   es:
     `Documentación de AstraRocket v${version}. ` +
@@ -33,20 +25,6 @@ const footerCopyright = (): string => {
   return line;
 };
 
-// WHICH OpenRocket the engine is, read the same way from the one file that
-// names it: engine-java/extract/UPSTREAM. "The same physics core" is not a
-// checkable claim on its own - a reader comparing their numbers against the
-// desktop app's, or asking whether a feature from some release is in here,
-// needs the commit - so the comparison appendices state it, through
-// <UpstreamPin /> (see src/components/UpstreamPin.tsx), which reads what this
-// puts in customFields.
-//
-// Read at build time, in every locale, rather than written into the Markdown:
-// a version string typed into a page is a copy of a SHA, and a copy of a SHA is
-// the thing that goes stale without anyone noticing. Bumping UPSTREAM moves
-// those pages in both locales and the app's About dialog together.
-//
-// `key = value` lines, below a header in which every line is a `#` comment.
 const pinFile = (path: string) => {
   const fields = new Map(
     readFileSync(new URL(path, import.meta.url), 'utf-8')
@@ -66,20 +44,11 @@ const upstreamField = pinFile('../engine-java/extract/UPSTREAM');
 const upstreamRef = upstreamField('ref');
 const upstream = {
   ref: upstreamRef,
-  // Nine hex - how this repo writes a short OpenRocket SHA everywhere else.
   shortRef: upstreamRef.slice(0, 9),
   date: upstreamField('date'),
   commitUrl: `${upstreamField('repo').replace(/\.git$/, '')}/commit/${upstreamRef}`,
 };
 
-// The docs site. The Pages deploy builds it into web/public/docs before the app
-// build, which copies it into web/dist/docs, so both live on one Pages site:
-//   /simulator/        the app
-//   /simulator/docs/   these docs (…/docs/es/ for Spanish)
-// The app these docs belong to: the docs are built into the app at <app>/docs/,
-// so a deploy's DOCS_BASE_URL names it (the beta site's is /simulator-beta/docs/, see
-// .github/workflows/channel-deploy.yml).
-// A local build has no deploy, and links to the production app.
 const appUrl = process.env.DOCS_BASE_URL
   ? `https://astrarocket.github.io${process.env.DOCS_BASE_URL.replace(/docs\/$/, '')}`
   : 'https://astrarocket.github.io/simulator/';
@@ -90,39 +59,18 @@ const config: Config = {
   favicon: 'img/favicon.svg',
 
   url: 'https://astrarocket.github.io',
-  // Set by the Pages deploy (DOCS_BASE_URL=/simulator/docs/), mirroring how
-  // the app takes PAGES_BASE. Defaults to "/" so `start`, `build` and `serve`
-  // all agree locally.
-  //
-  // NOT derived from NODE_ENV: `docusaurus serve` re-evaluates this config with
-  // NODE_ENV=development, so a dev/prod branch here would serve the built site
-  // at "/" while its HTML still pointed at the subpath, and every link would 404.
+  // Not from NODE_ENV: `docusaurus serve` re-evaluates this config as development.
   baseUrl: process.env.DOCS_BASE_URL || '/',
   organizationName: 'AstraRocket',
   projectName: 'simulator',
 
-  // Read by <UpstreamPin /> and <AppVersion />, which the comparison
-  // appendices render in both locales.
   customFields: { upstream, appVersion: version },
 
-  // Emit /faq/ rather than /faq, so every page is a directory with its own
-  // index.html. That file name is what makes Help work offline: the app's Help
-  // dialog asks for `docs/faq/index.html`, which is exactly the key the service
-  // worker precaches the page under, so a page opens at a launch site with no
-  // signal even if nobody read it first.
-  //
-  // NAVIGATING to /faq/ is a different request and does not hit the precache:
-  // `directoryIndex` is switched off in web/vite.config.ts (left on, it also
-  // answers the app's own root from the precache, so a reload never shows a new
-  // deploy), so Workbox never maps the trailing slash onto index.html. A
-  // runtimeCaching rule there covers that path for pages already visited.
+  // The offline Help dialog requests each page's own index.html.
   trailingSlash: true,
-  // A broken internal link fails the build rather than shipping a dead page
-  // reference. Broken anchors only warn (the Docusaurus default).
   onBrokenLinks: 'throw',
   markdown: { hooks: { onBrokenMarkdownLinks: 'throw' } },
 
-  // Untranslated Spanish pages fall back to English rather than 404ing.
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'es'],
@@ -132,49 +80,16 @@ const config: Config = {
     },
   },
 
-  /**
-   * Offline, self-hosted search for the PUBLISHED site.
-   *
-   * Algolia DocSearch is the usual answer and is out: it is a network service,
-   * and this documentation ships inside an offline-first app. This plugin builds
-   * a lunr index at build time and serves it from our own origin, so the site
-   * searches with no network and nothing leaves the reader's browser.
-   *
-   * It puts its search box in the NAVBAR, which `src/css/custom.css` hides when a
-   * page is embedded in the app's Help dialog (a second set of site navigation
-   * inside the dialog is worse than none). So this serves people reading the site
-   * in a browser; the Help dialog has its own search over the same pages.
-   */
   themes: [
     [
       '@easyops-cn/docusaurus-search-local',
       {
-        // Both locales get their own index: a Spanish reader searching Spanish
-        // pages against an English index finds nothing.
         language: ['en', 'es'],
-        /*
-         * Stamp the index request with a hash of the sources it was built from,
-         * so a deploy cannot serve a new site against a cached old index. The
-         * index keeps its plain name and the hash rides as `?_=<md5>`, which is
-         * what `true` means here; `'filename'` would hash the NAME instead, and
-         * that is deliberately not used: the published site replaces its files,
-         * so a tab still holding the previous build would ask for a name that no
-         * longer exists and its search would 404 rather than answer from the
-         * current index.
-         */
+        // Not 'filename': a tab on the previous build would 404 on a deleted index.
         hashed: true,
-        /*
-         * WHAT THE HASH IS TAKEN OVER, and the only thing `docsDir` is used for
-         * in this plugin. It defaults to `docs`, which is the ENGLISH sources
-         * alone: a Spanish-only change would leave the hash unchanged and a
-         * reader holding a cached Spanish index would keep it. Both locales'
-         * indexes are rebuilt on every deploy, so the hash covers every source
-         * either of them is built from.
-         */
+        // Only the hash input; the default misses Spanish-only changes.
         docsDir: ['docs', 'i18n'],
         indexDocs: true,
-        // No blog, and the docs ARE the site (`routeBasePath: '/'`), so there are
-        // no standalone pages to index either.
         indexBlog: false,
         indexPages: false,
         docsRouteBasePath: '/',
@@ -189,7 +104,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          routeBasePath: '/', // docs ARE the site; no separate landing page
+          routeBasePath: '/',
           editUrl: 'https://github.com/AstraRocket/simulator/tree/master/website/',
         },
         blog: false,

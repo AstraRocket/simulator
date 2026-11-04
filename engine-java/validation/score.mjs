@@ -1,34 +1,11 @@
-/**
- * Validation scoring harness: grades the JS engine against the measured
- * anchor datasets in validation/anchors.json (provenance and tolerances are in
- * its `_readme` and per-series fields).
- *
- * Usage:
- *   node validation/score.mjs               # classic model (flag off) scorecard to stdout
- *   node validation/score.mjs --supersonic  # score with the supersonicAero flag on
- *   node validation/score.mjs --strict      # exit 1 if any gate point fails
- *   node validation/score.mjs --record-expect  # re-record each fixture's _expect.aero (deliberate only)
- *   node validation/score.mjs [--supersonic] --check-floors  # the ratchet audit.mjs runs, from validation/floors.json
- *
- * Requires the engine to be built first (`npm run build` in engine-java).
- *
- * In the classic Extended Barrowman model the kernel freezes body CP at its
- * Mach-1 value, so supersonic CP series are expected to fail there. The
- * floors in validation/floors.json record how many gate points each model
- * passes, so a change can raise them but not lower them.
- */
+// The classic model freezes body CP at Mach 1, so supersonic CP series are expected to fail there.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-// Drive the vendored TeaVM engine directly (no TS wrapper build needed). Install the stdout
-// sinks the kernel reads once at evaluation, then adapt the handful of facade calls score uses.
-// stderr is collected, not discarded: a fixture that drives the kernel into a
-// logged failure path would otherwise be scored as if nothing happened. A clean
-// scoring run writes nothing to stderr at all (measured), so anything there
-// fails the run, with what was logged.
+// The sinks must be installed before import: the kernel reads them once at evaluation.
 let kernelStderr = '';
 globalThis.$rt_putStdoutCustom ??= () => {};
 globalThis.$rt_putStderrCustom = (chunk) => { kernelStderr += chunk; };
@@ -47,10 +24,6 @@ class OrkRocket {
 
 const anchors = JSON.parse(readFileSync(join(here, 'anchors.json'), 'utf8'));
 const strict = process.argv.includes('--strict');
-// A ratchet, so this can gate while the absolute score is still low.
-// --min <n> fails if the gate score drops below a recorded floor; --expect-gates
-// <n> fails if the number of gated points is not exactly n, which is what
-// catches a silently shrunken anchors.json (see the gateTotal check below).
 const numArg = (flag) => {
   const i = process.argv.indexOf(flag);
   if (i < 0) return null;
@@ -62,18 +35,11 @@ const numArg = (flag) => {
   return v;
 };
 const supersonic = process.argv.includes('--supersonic');
-// --check-floors takes the ratchet from validation/floors.json, the one place the
-// floors live, so no script or README keeps a second copy that could disagree.
-// Explicit flags still override.
 const floors = process.argv.includes('--check-floors')
   ? JSON.parse(readFileSync(join(here, 'floors.json'), 'utf8'))
   : null;
 const minPass = numArg('--min') ?? (floors ? floors.min[supersonic ? 'supersonic' : 'classic'] : null);
 const expectGates = numArg('--expect-gates') ?? (floors ? floors.gates : null);
-// The identity of the gated set, not only its size: --expect-gates holds when
-// nine hard points are switched off and nine easy ones switched on, or when a
-// tolerance is widened, and the score rises with the gate green. A sha256 over
-// every gated point's series, Mach, anchor and tolerance pins all of it.
 const gateHashAt = process.argv.indexOf('--expect-gate-hash');
 const expectGateHash = gateHashAt < 0 ? (floors ? floors.gateHash : null) : process.argv[gateHashAt + 1];
 if (expectGateHash != null && !/^[0-9a-f]{64}$/.test(expectGateHash)) {
@@ -82,18 +48,7 @@ if (expectGateHash != null && !/^[0-9a-f]{64}$/.test(expectGateHash)) {
 }
 const recordExpect = process.argv.includes('--record-expect');
 
-/**
- * What a fixture is pinned to beyond its size: drag, CNa and CP at a subsonic
- * and a supersonic Mach, under both models whichever one is being scored.
- *
- * `length` and `refDiameter` are the two figures fin section, fin thickness and
- * finish cannot move, so a fixture could stop modeling its published rocket and
- * still pass them: renaming `crossSection` (drag +97% at Mach 0.5) would score 12
- * more gate points with the gate green. Both models, because `airfoilSection`
- * is read only on the supersonic path. 0.1% is far below any corruption measured (7% and up)
- * and leaves room for no physics change at all: a deliberate one re-records with
- * --record-expect, which says so in the diff.
- */
+// Both models, because `airfoilSection` is read only on the supersonic path.
 const EXPECT_MACHS = [0.5, 2.0];
 const EXPECT_REL_TOL = 1e-3;
 const aeroPin = (tree) => {
@@ -115,7 +70,6 @@ const aeroPin = (tree) => {
 };
 const gatedIds = [];
 
-/** Linear interpolation of series y over grid xs at x (clamped to range). */
 function interp(xs, ys, x) {
   if (x <= xs[0]) return ys[0];
   if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
@@ -141,12 +95,6 @@ for (const [name, spec] of Object.entries(anchors)) {
   const rocket = OrkRocket.buildTree(tree);
   if (supersonic) rocket.setSupersonicAero(true);
   const info = rocket.staticInfo();
-  // The fixture says what it is, and the kernel has to agree before a single
-  // anchor is scored. Without this a corrupt fixture (a nose length of "abc",
-  // null, or 1e999) would build a different rocket through the kernel's defaults
-  // and score it as the published model: indistinguishable from a one-gate
-  // physics regression. 5e-4 m absorbs the 4-decimal rounding of the recorded
-  // values and nothing else.
   const expect = tree._expect;
   if (!expect || !Number.isFinite(expect.length) || !Number.isFinite(expect.refDiameter)) {
     console.error(`score: fixture ${spec.fixture} carries no _expect {length, refDiameter}.`);
@@ -259,11 +207,7 @@ out.push(`Gated set: sha256 ${gateHash}`);
 out.push('');
 console.log(out.join('\n'));
 
-// An empty gate set is a broken harness, not a perfect score. `--strict` alone
-// would pass on it, because `gatePass < gateTotal` is `0 < 0`: a truncated or
-// half-written anchors.json would score `0/0 (NaN%)` and exit 0. This runs
-// unconditionally, not only under --strict, because a scorecard reporting
-// success over nothing is wrong however it was invoked.
+// Unconditional: --strict alone passes an empty set.
 if (gateTotal === 0) {
   console.error('score: NO gated points were scored. anchors.json is empty, truncated, or');
   console.error('score:   has every `gate` flag off. That is a broken harness, not a pass.');
@@ -276,8 +220,6 @@ if (kernelStderr.trim()) {
   kernelStderr.trim().split(/\r?\n/).slice(0, 20).forEach((l) => console.error(`  ${l}`));
   failed = true;
 }
-// Silent shrinkage of the anchor set is the other way this fails open: the
-// denominator just gets smaller and the scorecard reads normally. Pin it.
 if (expectGates != null && gateTotal !== expectGates) {
   console.error(`score: expected ${expectGates} gated point(s), scored ${gateTotal}.`);
   console.error('score:   anchors.json changed shape. If deliberate, update gates in validation/floors.json.');

@@ -1,14 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-
-/**
- * `sync:all` runs each digest step after the step that stages its catalog:
- * sync-motors.mjs and sync-components.mjs write to a staging file, and only the
- * digest step that follows writes the finished catalog to public/data. A digest
- * step run first finds nothing staged and rewrites the old catalog. DEVELOPER.md
- * lists the steps in the order sync:all runs them.
- */
 describe('sync:all order', () => {
   const web = fileURLToPath(new URL('../../..', import.meta.url));
   const pkg = JSON.parse(readFileSync(`${web}package.json`, 'utf8')) as { scripts: Record<string, string> };

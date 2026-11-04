@@ -7,11 +7,6 @@ import { setPresetStore } from '../../../src/services/parts/presetStore';
 import { SavedPartEditor } from '../../../src/components/design/SavedPartEditor';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * A save stores the labels cleaned (trimmed, a blank maker made the default),
- * and the list hands the editor the stored part back. The editor has to read
- * as clean afterward, or the user is told a saved edit is unsaved.
- */
 describe('a saved part after its save', () => {
   it('is not dirty when the store cleaned what was typed', async () => {
     const part = {
@@ -31,7 +26,6 @@ describe('a saved part after its save', () => {
       remove: async () => {},
     });
     const dirty = vi.fn();
-    // The list's part, which it replaces with the stored one on the store's change signal.
     let showStored = () => {};
     function List() {
       const [shown, setShown] = useState(part);

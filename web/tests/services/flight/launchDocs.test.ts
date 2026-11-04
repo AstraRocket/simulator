@@ -5,7 +5,6 @@ import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import { PLUGGED_DELAY } from '../../../src/engine/openRocketEngine';
 import type { FlightSummary, MotorSpec, RocketTree, StaticInfo } from '../../../src/engine/openRocketEngine';
 
-/** A flat 1 s burn of `thrust` N: that many N·s. */
 const motor = (thrust: number, ejectionDelay: number): MotorSpec =>
   ({
     designation: 'H128',

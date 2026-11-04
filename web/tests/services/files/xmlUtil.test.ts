@@ -27,7 +27,6 @@ describe('escapeXml', () => {
 
   it('drops U+FFFE, U+FFFF and lone surrogates, which XML 1.0 also forbids', () => {
     expect(escapeXml('a￾b￿c')).toBe('abc');
-    // A high half with no low half after it, and a low half on its own.
     expect(escapeXml('a\uD83Db')).toBe('ab');
     expect(escapeXml('a\uDE80b')).toBe('ab');
     expect(escapeXml('end\uD83D')).toBe('end');

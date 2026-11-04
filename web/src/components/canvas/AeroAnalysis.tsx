@@ -22,28 +22,6 @@ import type { AeroPane } from '../../state/tabs';
 import { roundTo } from '../../services/app/numbers';
 import { smallButton } from '../common/smallButton';
 
-/**
- * Aerodynamic analysis (RASAero-style "Aero Plots"). Two panes
- * off the static design, no flight needed: it is all one `aeroSweep`.
- *
- * **Charts**: Cd vs Mach (power-off, + power-on when a nozzle exit is set), the
- * drag breakdown into friction/pressure/base, and CP vs Mach (length unit, %
- * of the airframe, or % of the aerodynamic length). A shared hover crosshair
- * and legend readout tie all three to one Mach.
- *
- * **Per component**: that same Mach, tabulated per part (drag, stability
- * contribution (CN-alpha, CP, mass) and roll dynamics), the three tabs of the
- * desktop's Component Analysis dialog.
- *
- * This file is the pane: the header controls, the shared Mach state and the
- * series the charts draw. The sweep itself is `useAeroSweep`, the chart cards
- * are `AeroCharts`, the tables are `AeroComponentTables`, and the number
- * boxes and the Worst button are `AeroInputs`.
- *
- * Colors follow `CATEGORICAL`, the chart palette each of the three themes
- * defines (index.css, read through colorTokens.ts); every chart ≥ 2 series carries a legend (identity
- * is never color-alone).
- */
 const POWER_OFF = CATEGORICAL[0]!;
 const POWER_ON = CATEGORICAL[7]!;
 
@@ -55,52 +33,20 @@ export function AeroAnalysis() {
   const rocket = useWorkspaceStore((s) => s.rocket);
   const designName = useWorkspaceStore(selectDesignName);
   const info = useWorkspaceStore((s) => s.info);
-  // Which motor the power-on curve belongs to.
-  //
-  // Everything else here is geometry -- power-off Cd, the friction/pressure/base
-  // split, CP, CNa, the roll coefficients -- and does not depend on the motor at
-  // all. The one exception is the power-on curve, which the kernel builds from
-  // the stage's nozzle exit diameter applied to the seated motor's config
-  // (OpenRocketEngine.applyMotor). The panel has no motor selector of its own
-  // -- it analyzes whatever the active simulation has loaded, which is our
-  // equivalent of the desktop dialog's motor-configuration dropdown -- so when
-  // that curve is on screen, say whose it is.
   const motorName = useWorkspaceStore((s) => primaryMotor(s.tree, selectConfig(s))?.designation);
-  // M1 by default: most hobby flights never reach Mach 1, and a wider sweep
-  // spends most of the x axis on speeds the rocket will not see, squeezing the
-  // subsonic rise into a sliver.
   const [machMax, setMachMax] = useState(1);
-  // How the CP axis reads: the user's length unit, a percentage of the whole
-  // airframe, or a percentage of the AERODYNAMIC length. The last is the
-  // denominator OpenRocket's own PercentageOfLengthUnit uses
-  // (`getLengthAerodynamic`), so it is the one that matches the desktop; the
-  // middle one answers "where on the rocket in front of me", which is a
-  // different and equally wanted question. Both are offered rather than one
-  // being chosen for the user.
   const [cpModeSel, setCpMode] = useState<CpMode>('len');
   const [hoverM, setHoverM] = useState<number | null>(null);
   const [pane, setPane] = useState<AeroPane>('charts');
-  // The Mach the tables report at. Hovering a chart parks it there too, so
-  // switching to the tables lands on the point you were just looking at rather
-  // than resetting -- the crosshair and the slider drive the same value.
   const [machPick, setMachPick] = useState(0.3);
-  // The flight conditions the whole sweep is flown at. All four default to
-  // zero: no angle of attack, wind from 0°, no roll, sea level.
   const [aoaDeg, setAoaDeg] = useState(0);
   const [thetaDeg, setThetaDeg] = useState(0);
   const [rollRate, setRollRate] = useState(0);
   const [altitudeM, setAltitudeM] = useState(0);
 
-  // Deferred off the render (see useAeroSweep): the previous sweep stays up
-  // while the next one runs, and `pending` says so in the header.
   const { sweep, pending } = useAeroSweep(rocket, { machMax, aoaDeg, thetaDeg, rollRate, altitudeM });
 
-  // The slider sticks at the last hovered Mach once the pointer leaves. The
-  // commit happens in the setter, on the transition to null, not in an effect
-  // watching `hoverM`, which would run after every hover render and need a
-  // ref just to notice the leave. All hover writes go through this
-  // one function, so its ref is the true previous value for the functional
-  // form. `setHoverM` itself is never handed out.
+  // All hover writes go through here, so the ref is the true previous value; never hand out `setHoverM`.
   const lastHover = useRef<number | null>(null);
   const setHover = useCallback((m: number | null | ((prev: number | null) => number | null)) => {
     const next = typeof m === 'function' ? m(lastHover.current) : m;
@@ -109,8 +55,6 @@ export function AeroAnalysis() {
     setHoverM(next);
   }, []);
 
-  // Mass does not vary with Mach, so this is keyed on the rocket alone rather
-  // than recomputed with every sweep.
   const masses = useMemo<ComponentMass[]>(() => {
     if (!rocket) return [];
     try {
@@ -121,22 +65,13 @@ export function AeroAnalysis() {
     }
   }, [rocket]);
 
-  // Memoized so each ChartCard sees the same series identity across hover
-  // renders: the cards memoize their domain and paths on the series, so a fresh
-  // array per render defeats that on every pointer move. `cpSeries` maps the
-  // whole sweep.
   const lengthFactor = u.factor('length');
   const bodyLen = info?.length ?? 0;
-  // The engine's own aerodynamic span, not a length this module derives: it
-  // bounds only the components with an aerodynamic effect, so it is shorter
-  // than `length` on any design with an overhanging rail button or shock cord.
   const aeroLen = info?.lengthAerodynamic ?? 0;
   const cpModes = useMemo(() => cpModesFor(bodyLen, aeroLen), [bodyLen, aeroLen]);
-  // A selection the current design cannot express falls back rather than
-  // sticking: switching to a design with no aerodynamic length must not leave
-  // the axis claiming a percentage it is no longer drawing.
   const cpMode = cpModes.includes(cpModeSel) ? cpModeSel : 'len';
   const cpDiv = cpDivisor(cpMode, bodyLen, aeroLen);
+  // The cards memoize their paths on series identity, which a fresh array would defeat on every pointer move.
   const { cdSeries, breakdown, cpSeries } = useMemo((): {
     cdSeries: Series[];
     breakdown: Series[];
@@ -147,16 +82,11 @@ export function AeroAnalysis() {
     if (sweep.hasNozzle) cd.push({ name: t('aero.powerOn'), color: POWER_ON, values: sweep.powerOn.total });
     return {
       cdSeries: cd,
-      // By type only. The Per component pane tabulates the same figures with the
-      // pressure / base / friction split beside them, which a stack of lines,
-      // one per part, cannot show.
       breakdown: [
         { name: t('aero.friction'), color: CATEGORICAL[0]!, values: sweep.powerOff.friction },
         { name: t('aero.pressure'), color: CATEGORICAL[1]!, values: sweep.powerOff.pressure },
         { name: t('aero.base'), color: CATEGORICAL[2]!, values: sweep.powerOff.base },
       ],
-      // As a percentage CP has no unit; as a position it takes the user's
-      // length unit (a whole series is being scaled).
       cpSeries: [
         {
           name: t('flight.cp'),
@@ -176,14 +106,8 @@ export function AeroAnalysis() {
 
   const machs = sweep.machs;
   const machMin = machs[0] ?? 0.05;
-  // The picked Mach, resolved at read time to the computed sample nearest it.
-  // The tables quote that sample, so the strip header has to as well: the
-  // 0.3 default sits between the 0.29 and 0.31 samples, and a shrunk sweep
-  // (Max Mach 5 back to M1 with the pick at 3.0) leaves the raw pick past
-  // the last sample. Derived rather than corrected in an effect, which costs
-  // a render at the wrong value first.
+  // Snapped at read time: 0.3 falls between samples, and a shrunk sweep can leave the raw pick past the end.
   const pick = machs[nearestSampleIndex(machs, Math.min(machPick, machMax))] ?? machPick;
-  // The crosshair wins while it exists; the slider is the resting value.
   const tableMach = hoverM ?? pick;
   const altField = altitudeField(u.factor('distance'));
   const angle = u.plain('angle');
@@ -194,7 +118,6 @@ export function AeroAnalysis() {
       <div className="flex flex-wrap items-center gap-2 px-3 pb-2 pt-3">
         <h2 className="mr-auto text-xs font-semibold uppercase tracking-wide text-ink-muted">
           {t('aero.title')}
-          {/* The previous sweep stays up while the next one runs; say so. */}
           {pending && <span className="ml-2 normal-case tracking-normal text-ink-faint">{t('aero.computing')}</span>}
         </h2>
         <Segmented
@@ -221,11 +144,8 @@ export function AeroAnalysis() {
           <span aria-hidden>⬇</span> CSV
         </button>
       </div>
-      {/* The conditions the sweep is flown at. Changing one re-runs it, the
-          same way Max Mach does. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 pb-2">
-        {/* State stays in degrees and rad/s, what the sweep takes; the boxes
-            read in the user's angle and roll rate units. */}
+        {/* State stays in degrees and rad/s, what the sweep takes. */}
         <Num
           label={t('aero.aoa')}
           value={angle.toUi(degToRad(aoaDeg))}
@@ -259,8 +179,6 @@ export function AeroAnalysis() {
           step={roll.step(1)}
           unit={roll.sym}
         />
-        {/* Shown in the altitude unit; the sweep takes meters. Up to 30 km,
-            where the standard atmosphere still has air worth sweeping. */}
         <Num
           label={t('aero.altitude')}
           value={altField.toUi(altitudeM)}
@@ -272,19 +190,12 @@ export function AeroAnalysis() {
         />
       </div>
 
-      {/* The Mach both panes report at. Shown on the Charts pane too, so a
-          figure at a given Mach can be reached from the keyboard and not only
-          by hovering; the crosshair drives the same state when a pointer is
-          used. */}
       <div className="flex items-center gap-2 px-3 pb-2">
         <span className="shrink-0 text-[10px] text-ink-faint">{t('aero.atMach', { mach: fmtNum(pick, 2) })}</span>
         <input
           type="range"
           min={machs[0] ?? 0}
           max={machs[machs.length - 1] ?? 1}
-          // Step by the sweep's own sampling, so the slider can only land on a
-          // Mach that was actually computed; otherwise it reads 0.30 while
-          // the tables, which snap to the nearest sample, read 0.29.
           step={(machs[1] ?? 0.05) - (machs[0] ?? 0)}
           value={pick}
           onChange={(e) => setMachPick(parseFloat(e.target.value))}

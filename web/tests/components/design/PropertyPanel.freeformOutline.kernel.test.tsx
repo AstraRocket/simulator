@@ -11,13 +11,7 @@ vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIM
 
 type Pt = [number, number];
 
-/**
- * The freeform editor in the property panel works on the outline the kernel
- * flies. `FreeformFinSet.setPoints` moves the first point to the origin and
- * snaps a coordinate past 2.5 m, so a stored list that does neither is not the
- * fin that flies. The expected outline is the kernel's `getFinPoints`, through
- * the bridge.
- */
+// `FreeformFinSet.setPoints` moves the first point to the origin and snaps past 2.5 m.
 
 const CASES: [string, Pt[]][] = [
   [
@@ -89,14 +83,11 @@ describe('the freeform outline editor', () => {
     const onChange = vi.fn();
     const node = { id: 'f', type: 'freeformfinset', finCount: 3, thickness: 0.003, points } as unknown as ComponentNode;
     renderWithProviders(<PropertyPanel node={node} onChange={onChange} onCommit={() => {}} onRemove={() => {}} />);
-    // One edit on the second vertex; the editor hands back the whole outline it
-    // holds, which is the one it drew.
     fireEvent.keyDown(screen.getByLabelText('Outline point 2'), { key: 'ArrowUp' });
     const edited = (onChange.mock.calls.at(-1)![0] as { points: Pt[] }).points;
     expect(edited).toHaveLength(flown.length);
     edited.forEach(([x, y], i) => {
       expect(x).toBeCloseTo(flown[i]![0], 9);
-      // The nudged vertex moves up; every other one is the kernel's.
       if (i === 1) expect(y).toBeGreaterThan(flown[i]![1]);
       else expect(y).toBeCloseTo(flown[i]![1], 9);
     });

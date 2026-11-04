@@ -12,57 +12,26 @@ import { stepperOf, type SimPrefs } from '../../flight/simulations';
 import { SIM_BOUNDS } from '../../storage/settings';
 import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS, OPTIONAL_FLIGHT_DATA } from './simulationTags';
 
-/** A warning threshold is any positive speed (m/s), as Settings takes one. */
+/** A warning threshold is any positive speed (m/s). */
 const WARN_BOUNDS = { min: Number.MIN_VALUE, max: Number.MAX_VALUE };
 
-/**
- * One <simulation> as a file carries it: its name, the configuration it flies,
- * its launch conditions and, when it was run, the summary of its result.
- */
 export interface OrkSimulation {
   name: string;
-  /** The `configid` it names; matched to a configuration by the caller. */
   configId: string | null;
   launch?: Partial<LaunchConditions>;
-  /** The <flightdata> summary, when the file has one. */
   summary?: FlightSummary;
-  /** The file says the result was out of date when it was saved. */
   outdated: boolean;
-  /**
-   * The run settings a file keeps per simulation (`SimulationConditionsHandler`
-   * reads them into that simulation's options): time step and maximum time,
-   * which desktop 24.12 reads too, and the four recovery warnings, which only
-   * upstream OpenRocket reads. Only what the file states, inside the app's bounds.
-   */
   prefs?: Partial<SimPrefs>;
-  /**
-   * Children this app does not model (desktop extensions and the like), as raw
-   * XML, and the unread children of its `<conditions>`, each wrapped by
-   * `wrapConditionsChild`; see passthrough.ts.
-   */
+  /** `<conditions>` children are wrapped by `wrapConditionsChild`. */
   xmlExtra?: string[];
 }
 
-/**
- * Every simulation in the file, in file order.
- *
- * The desktop writes a <flightdata> summary for every simulation that has a
- * result, as attributes on the element, and loads any file that has one as
- * loaded rather than not simulated, unless its status says outdated
- * (SingleSimulationHandler). The summary alone is what is read here: the
- * per-sample <databranch> data, when the desktop wrote it, is not, because the
- * app re-flies a simulation for its charts.
- */
 export function readSimulations(doc: Document): OrkSimulation[] {
   const els = doc.querySelectorAll('openrocket > simulations > simulation');
-  // Counted before any is read: reading one costs DOM passes, and the count is
-  // what a crafted file inflates.
   if (els.length > MAX_SIMULATIONS) throw new KeyedError('errors.file.tooManySimulations');
   return [...els].map((el, i) => {
     const flight = el.querySelector(':scope > flightdata');
     const launch = readSimulationLaunch(el);
-    // The simulation's own unread children, then the unread children of its
-    // conditions (see `wrapConditionsChild`).
     const condEl = el.querySelector(':scope > conditions');
     const carried = [
       ...(readPassthrough(el, KNOWN_SIMULATION_TAGS) ?? []),
@@ -81,13 +50,11 @@ export function readSimulations(doc: Document): OrkSimulation[] {
   });
 }
 
-/** The range a per-simulation setting is read in; the warning thresholds take any positive speed. */
 const PREF_BOUNDS: Partial<Record<keyof SimPrefs, { min: number; max: number }>> = {
   timeStep: SIM_BOUNDS.timeStep,
   maxTime: SIM_BOUNDS.maxTime,
 };
 
-/** A simulation's own run settings, as `{ prefs }`, or nothing when it states none. */
 function simulationPrefs(condEl: Element | null): { prefs?: Partial<SimPrefs> } {
   if (!condEl) return {};
   const numbers: Partial<Record<keyof SimPrefs, number>> = {};
@@ -97,14 +64,11 @@ function simulationPrefs(condEl: Element | null): { prefs?: Partial<SimPrefs> } 
     if (v !== undefined && v >= min && v <= max) numbers[key] = v;
   }
   const prefs = numbers as Partial<SimPrefs>;
-  // Upstream writes the enum in lower case. A name this kernel does not have is
-  // left out, so the simulation follows the global stepper.
   const stepper = stepperOf(text(condEl, ':scope > simulationsteppermethod')?.trim(), null);
   if (stepper) prefs.stepper = stepper;
   return Object.keys(prefs).length ? { prefs } : {};
 }
 
-/** The <flightdata> attributes as a summary; a figure the file left out reads as missing. */
 function summaryOf(el: Element): FlightSummary {
   const out: Record<string, number | null> = {};
   for (const [key, attr] of FLIGHT_DATA_ATTRS) {

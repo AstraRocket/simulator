@@ -7,12 +7,6 @@ import type { KeyValueStore } from '../../../src/services/storage/keyValueStore'
 import { scaleNode } from '../../../src/tree/scaleRocket';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
-/**
- * Small failure modes that each leave no trace: a refused write that resolves
- * cleanly, a quadratic import that merely feels slow, a scaled node that shares
- * an array with the node it came from.
- */
-
 describe('saveSettings reports a refused write', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -23,10 +17,7 @@ describe('saveSettings reports a refused write', () => {
   });
 
   it('returns false rather than swallowing a quota failure', () => {
-    // A bare `catch {}` would leave the panel showing the new value for the rest
-    // of the session while the next session comes up with the old one.
-    // Spied on `Storage.prototype`, where jsdom defines it: assigning to the
-    // instance does not shadow it.
+    // Spied on `Storage.prototype`: jsdom defines it there, so an instance assignment does not shadow it.
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota', 'QuotaExceededError');
     });
@@ -41,7 +32,6 @@ describe('saveSettings reports a refused write', () => {
 });
 
 describe('a custom-motor import is ONE write', () => {
-  /** Every field `isCustomMotor` requires, so a stored row survives the read back. */
   const motor = (id: string): CustomMotor =>
     ({
       id,
@@ -60,7 +50,6 @@ describe('a custom-motor import is ONE write', () => {
       source: 'eng',
     }) as unknown as CustomMotor;
 
-  /** A key-value store that counts the atomic read-modify-writes it is asked for. */
   const countingKv = () => {
     let value: string | null = null;
     let updates = 0;
@@ -83,18 +72,10 @@ describe('a custom-motor import is ONE write', () => {
   };
 
   it('stores a whole engine range in ONE read-modify-write', async () => {
-    // The quadratic shape to avoid: one `kv.update` per motor, each parsing
-    // and re-serializing the entire stored array. A `.rse` engine database is a
-    // manufacturer's whole range, so that is hundreds of round trips through the
-    // same JSON.
     const { kv, updates } = countingKv();
     const store = new KeyValueMotorStore(kv);
     await store.addCustomMotors([motor('A'), motor('B'), motor('C'), motor('D')]);
     expect(updates()).toBe(1);
-    // Newest first, which is the order repeated single adds give: each one
-    // prepends, so A then B then C then D leaves D at the front. The batch reverses
-    // itself to match, so the order of the list the picker shows does not depend
-    // on how the motors were added.
     expect((await store.listCustomMotors()).map((m) => m.id)).toEqual(['D', 'C', 'B', 'A']);
   });
 
@@ -138,8 +119,6 @@ describe('scaleNode does not alias the node it scaled', () => {
     const kids = [node({ type: 'bodytube', id: 'b', length: 0.3 })];
     const parent = node({ type: 'stage', id: 's', children: kids });
     const scaled = scaleNode(parent, 2);
-    // Not a shared reference, and not a stale copy either: absent, which is what
-    // the function's own doc says ("Children are handled by the caller").
     expect(scaled.children).toBeUndefined();
   });
 
@@ -148,8 +127,8 @@ describe('scaleNode does not alias the node it scaled', () => {
     const fin = node({ type: 'freeformfinset', id: 'f', points: [[0, 0], malformed, [0.05, 0]] });
     const scaled = scaleNode(fin, 2);
     const pts = scaled['points'] as unknown[];
-    expect(pts[1]).toEqual(malformed); // same content: a row we cannot read is left alone
-    expect(pts[1]).not.toBe(malformed); // different array: no shared mutable state
+    expect(pts[1]).toEqual(malformed);
+    expect(pts[1]).not.toBe(malformed);
   });
 
   it('still scales the rows it CAN read', () => {
@@ -169,7 +148,6 @@ describe('scaleNode does not alias the node it scaled', () => {
 });
 
 describe('the traced fin image is bounded', () => {
-  /** A solid dark rectangle `w` x `h`, which traces to a rectangular fin. */
   const block = (w: number, h: number) => ({
     width: w,
     height: h,
@@ -180,18 +158,14 @@ describe('the traced fin image is bounded', () => {
     const { finPointsFromImage } = await import('../../../src/services/design/finImage');
     const pts = finPointsFromImage(block(40, 30));
     expect(pts.length).toBeGreaterThanOrEqual(3);
-    // One pixel is one millimeter: upstream's fixed scale.
     const maxX = Math.max(...pts.map((p) => p[0]));
     expect(maxX).toBeGreaterThan(0.03);
   });
 
   it('traces a photograph-sized image at the SAME size, just coarser', async () => {
-    // The point of scaling the points back by the reduction factor: a bounded
-    // trace must not change the figure the Scale fin step works from.
     const { finPointsFromImage } = await import('../../../src/services/design/finImage');
     const big = finPointsFromImage(block(4000, 300));
     const maxX = Math.max(...big.map((p) => p[0]));
-    // 4000 px is 4 m, within the rounding of an integer reduction factor.
     expect(maxX).toBeGreaterThan(3.5);
     expect(maxX).toBeLessThan(4.1);
   });
@@ -200,22 +174,14 @@ describe('the traced fin image is bounded', () => {
     const { finPointsFromImage } = await import('../../../src/services/design/finImage');
     const started = Date.now();
     finPointsFromImage(block(4000, 3000));
-    // Generous, because this is a timing assertion on shared CI. An unbounded
-    // trace is a triply nested scan over a fourteen-thousand-point perimeter.
     expect(Date.now() - started).toBeLessThan(10_000);
   });
 
   it('still finds a root on a height that is not a multiple of the reduction', async () => {
-    // What a plain stride would get wrong: with a 300-pixel image
-    // reduced by 4, a stride samples rows 0, 4 ... 296, so a fin touching only
-    // rows 297 to 299 reads as not touching the bottom edge: a valid image
-    // refused with the message for an invalid one. The mapping includes both
-    // endpoints, so the reduced bottom row is the source bottom row.
     const { finPointsFromImage } = await import('../../../src/services/design/finImage');
     const w = 4000;
     const h = 4003; // deliberately shares no factor with any stride this will pick
     const data = new Uint8ClampedArray(w * h * 4).fill(255);
-    // Dark only in the bottom three rows, and only across part of the width.
     for (let y = h - 3; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const p = (y * w + x) * 4;
@@ -225,14 +191,10 @@ describe('the traced fin image is bounded', () => {
       }
     }
     expect(() => finPointsFromImage({ width: w, height: h, data })).not.toThrow();
-    // A 16-megapixel image: a second or two alone, ten times that on a loaded CI runner.
   }, 60_000);
 
   it('reads a channel past the end of the array as background, not as fin', async () => {
     const { finPointsFromImage, FinImageError } = await import('../../../src/services/design/finImage');
-    // `data` far too short for the stated size. `?? 0` is pure black, which reads
-    // as fin, so defaulting to it would invent an outline out of bytes that are
-    // not there.
     const truncated = { width: 20, height: 20, data: new Uint8ClampedArray(8).fill(0) };
     expect(() => finPointsFromImage(truncated)).toThrow(FinImageError);
   });

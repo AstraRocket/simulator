@@ -16,20 +16,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A `.rkt` shoulder opens open, as desktop 24.12 reads it.
- *
- * RockSim has no cap flag and neither RockSim handler sets one
- * (`NoseConeHandler`, `TransitionHandler`), and in the 24.12 jar
- * `Transition.setAftShoulderLength` and `setForeShoulderLength` store the
- * length and fire a change event, nothing more (`javap -c` shows no
- * `setAftShoulderCapped` call), so a shoulder desktop reads from a `.rkt` has
- * no cap disc. The upstream kernel's setter would turn the cap on, and
- * `ComponentFactory` sets the cap after the length from the node's key, so the
- * node must carry none and the kernel must report the shoulder open:
- * `getComponentFields` is the check, and `npm run check:fields` compares the
- * same part against desktop.
- */
+// The 24.12 jar's shoulder length setters do not cap; ComponentFactory sets the cap after the length.
 
 const DOC =
   `<RockSimDocument><DesignInformation><RocketDesign><Name>Caps</Name><StageCount>1</StageCount><Stage3Parts>` +

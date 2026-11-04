@@ -19,7 +19,6 @@ describe('totalImpulse', () => {
   });
 
   it('integrates a curve by the trapezoid rule', () => {
-    // triangle peaking at 20 N over 1 s → area 10 Ns
     expect(
       totalImpulse([
         { time: 0, thrust: 0 },
@@ -36,7 +35,7 @@ describe('parseEng', () => {
     expect(m.designation).toBe('TC10');
     expect(m.diameter).toBe(24);
     expect(m.length).toBe(70);
-    expect(m.manufacturer).toBe('Test Mfr'); // multi-word manufacturer joined
+    expect(m.manufacturer).toBe('Test Mfr');
     expect(m.propWeightG).toBeCloseTo(10, 6);
     expect(m.totalWeightG).toBeCloseTo(25, 6);
     expect(m.delayList).toBe('3,5');
@@ -45,9 +44,7 @@ describe('parseEng', () => {
     expect(m.id).toBe('custom:Test Mfr:TC10');
   });
 
-  // Windows Notepad writes a UTF-8 BOM by default. Left on, it hides the
-  // leading `;`, the comment line reads as the header, and the import fails
-  // with a misleading "Malformed .eng header".
+  // Notepad writes a BOM; left on, it hides the leading `;` of the comment line.
   it('parses a file that carries a UTF-8 BOM', () => {
     const m = parseEng('﻿' + ENG)[0]!;
     expect(m.designation).toBe('TC10');
@@ -64,9 +61,6 @@ describe('parseEng', () => {
   });
 
   it('returns every motor in a multi-motor file, each with its own curve', () => {
-    // Upstream's RASPMotorLoader returns one motor per header block. The
-    // second block follows a comment, as desktop's own files separate them,
-    // and the third follows the second's data directly.
     const threeMotors = `; first
 TC10-3 24 70 3-5 0.010 0.025 Test
 0 0
@@ -99,7 +93,6 @@ TE30 29 100 P 0.03 0.07 Test
       { time: 1, thrust: 30 },
       { time: 2, thrust: 0 },
     ]);
-    // Triangles: 20 N * 1 s / 2 = 10 Ns (C), 40 * 1 / 2 = 20 Ns (D), 30 * 2 / 2 = 30 Ns (E).
     expect(ms.map((m) => m.class)).toEqual(['C', 'D', 'E']);
     expect(ms.map((m) => m.diameter)).toEqual([24, 24, 29]);
     expect(ms.map((m) => m.delayList)).toEqual(['3,5', '4,6', 'P']);
@@ -118,9 +111,6 @@ TD20 24 90 4-6 0.02 0.05 Test
   });
 
   it('keeps a plugged "P" delay field, which is a motor with no ejection charge', () => {
-    // The only form that can say plugged, and the one `customToRow` puts in the
-    // row's delay column: dropped, the motor would reach the picker with no
-    // delays at all and `offersPlugged` could not see it.
     const plugged = `TP10 24 70 P 0.010 0.025 Test
 0 0
 0.5 20
@@ -129,11 +119,7 @@ TD20 24 90 4-6 0.02 0.05 Test
   });
 
   it('drops a sentinel delay rather than flying it, or calling it plugged', () => {
-    // RASP's own rule (`RASPMotorLoader`: "Many RASP files have 100 as an only
-    // delay"): 99 and over is thrown away. Kept, it is a charge long after the
-    // rocket is down; called plugged, it offers a no-ejection-charge motor the
-    // file never claimed. RockSim's 1000 does mean plugged, which is why the
-    // two formats do not share a rule.
+    // `RASPMotorLoader` discards 99 and over, unlike RockSim's plugged 1000.
     const sentinel = `TS10 24 70 0-1000 0.010 0.025 Test
 0 0
 0.5 20
@@ -159,9 +145,7 @@ TD20 24 90 4-6 0.02 0.05 Test
   });
 
   it('imports a two-pulse curve whole, coast and all', () => {
-    // Two humps with a zero-thrust coast between them. Nothing about a zero
-    // ends the block, and a blank line inside it is skipped the way upstream
-    // skips it, so the second pulse is not left out of the motor.
+    // Neither a zero nor a blank line ends the block, as upstream.
     const twoPulse = `K1000 54 404 P 0.500 1.000 TwoPulse
 0.0 0
 0.5 1000
@@ -175,10 +159,6 @@ TD20 24 90 4-6 0.02 0.05 Test
   });
 
   it('refuses a malformed data line instead of keeping the curve before it', () => {
-    // Upstream refuses the whole file (`RASPMotorLoader`: "Data should only
-    // have 2 entries"). Stopping there and keeping what came before imports a
-    // fragment of a curve as if it were the motor, which on a two-pulse motor
-    // is the first pulse flown as the whole thing, and says nothing.
     const stray = `K1000 54 404 P 0.500 1.000 TwoPulse
 0.0 0
 0.5 1000
@@ -222,14 +202,6 @@ TD20 24 90 4-6 0.02 0.05 Test
     expect(() => parseEng('C6 18 70 0-3 0.01 0.02 Estes\n0 0')).toThrow(/thrust-curve/i);
   });
 });
-
-/**
- * Header values that are finite but physically impossible.
- *
- * All of these pass `Number.isFinite`, so the parser checks each one. A
- * negative prop mass is the subtle one: `masses = total - prop * (impulse /
- * totalImpulse)` then makes the rocket gain mass as the motor burns.
- */
 describe('a .eng header that is finite but impossible', () => {
   const eng = (prop: string, total = '1.0', dia = '54', len = '400') =>
     `M1500 ${dia} ${len} 0 ${prop} ${total} Maker\n0.05 1500\n1.0 1500\n1.2 0\n`;
@@ -260,7 +232,6 @@ describe('a .eng header that is finite but impossible', () => {
 
 describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () => {
   it('a negative thrust, naming the motor and its line in the file', () => {
-    // Line 6: two comments and a blank line come before the header.
     expect(() => parseEng(ENG.replace('0.5 20', '0.5 -20'))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.engNegativeThrust', values: { motor: 'TC10', line: 6 } }),
     );
@@ -280,8 +251,7 @@ describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () =>
   });
 
   it('a negative time, naming the motor and its line in the file', () => {
-    // Upstream puts a (0, 0) point ahead of a curve that does not start at
-    // zero, and the builder then refuses a time that runs backward.
+    // Upstream prepends (0, 0), so the builder sees time run backward.
     expect(() => parseEng(ENG.replace('\n0 0\n', '\n-0.1 0\n'))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.engNegativeTime', values: { motor: 'TC10', line: 5 } }),
     );
@@ -294,14 +264,11 @@ describe('parseEng designation', () => {
     expect(m.designation).toBe('C6');
     expect(m.id).toBe('custom:Test Mfr:C6');
     expect(parseEng(ENG.replace('TC10 24', 'C6-P 24'))[0]!.designation).toBe('C6');
-    // A dash that is not a delay stays.
     expect(parseEng(ENG.replace('TC10 24', 'G-WIZ 24'))[0]!.designation).toBe('G-WIZ');
   });
 });
 
 describe('the sample ceiling', () => {
-  // The one `.rse` is held to: every sample lands in the stored custom-motor
-  // blob, which is parsed on every picker open and `.ork` save.
   const eng = (n: number) =>
     'X1 24 70 0 0.010 0.025 Test\n' + Array.from({ length: n }, (_, i) => `${i * 0.001} 10`).join('\n') + '\n';
 
@@ -316,8 +283,7 @@ describe('the sample ceiling', () => {
 
 describe('parseEng finalizes the curve before its totals', () => {
   it('adds the opening ramp from t = 0, as RASPMotorLoader does', () => {
-    // Finalized: (0, 0), (1, 36), (1.5, 0). Impulse 0.5*1*36 + 0.5*0.5*36 =
-    // 27 Ns, an E; the raw samples alone give 9 Ns, a C.
+    // Finalized: 27 Ns, an E; the raw samples alone give 9 Ns, a C.
     const m = parseEng('X1 18 70 0 0.010 0.030 T\n1.0 36\n1.5 0\n')[0]!;
     expect(m.samples[0]).toEqual({ time: 0, thrust: 0 });
     expect(totalImpulse(m.samples)).toBeCloseTo(27, 9);

@@ -12,11 +12,6 @@ import { loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A part saved from the editor, read back as a picker row and applied again,
- * against what the kernel builds from the same node.
- */
-
 class MemoryPresetStore implements PresetStore {
   parts: CustomPart[] = [];
   async list() {
@@ -38,8 +33,6 @@ const catalog = (
 ).components.filter(isComponentRow) as Component[];
 
 const AIRFRAME = new Set(['nosecone', 'bodytube', 'transition']);
-
-/** The part, as the editor creates it, where it can sit, synced as the store holds a design. */
 function design(probe: ComponentNode): RocketTree {
   const tube = (children: ComponentNode[] = []) =>
     ({ ...defaultNode('bodytube'), id: 'tube', outerRadius: 0.03, outerRadiusAuto: false, children }) as ComponentNode;
@@ -54,7 +47,6 @@ function design(probe: ComponentNode): RocketTree {
 const probeOf = (type: ComponentType, extra: Partial<ComponentNode> = {}): ComponentNode =>
   ({ ...defaultNode(type), id: 'probe', ...extra }) as ComponentNode;
 
-/** The kernel's fields for the probe part of a design. */
 async function kernelFields(tree: RocketTree): Promise<Record<string, number | boolean | string>> {
   const engine = await loadEngine();
   engine.reset();
@@ -73,7 +65,6 @@ describe('saving a part from the editor', () => {
     expect(customPartToRow(part)?.type).toBe(type);
   });
 
-  /** Rail buttons the editor builds: its default, and every catalog button picked onto one. */
   const buttons = (): [string, ComponentNode][] => [
     ['an editor default', probeOf('railbutton')],
     ...catalog
@@ -99,9 +90,6 @@ describe('saving a part from the editor', () => {
       screwHeight: expect.closeTo(k['screwHeight'] as number, 12) as unknown as number,
     });
   });
-
-  // The kernel reads solidness from the flag (`ComponentFactory` calls
-  // `setFilled`), whatever the wall says.
   it.each([
     ['filled with a thin wall', { filled: true, thickness: 0.001 }],
     ['hollow with a wall as thick as the base', { filled: false, thickness: 0.013 }],
@@ -112,12 +100,6 @@ describe('saving a part from the editor', () => {
     expect((row as { filled: boolean }).filled).toBe((await kernelFields(tree))['filled']);
   });
 });
-
-/**
- * A saved part's node comes back out of the browser's storage, which a design
- * loaded from storage does too; applied, it carries what the load would have
- * repaired, not what was stored.
- */
 describe('applying a saved part', () => {
   const stored = (node: Partial<ComponentNode>): Component => {
     const row = customPartToRow({ id: 'x', type: 'bodytube', mfr: 'm', partNo: 'p', desc: '', node });

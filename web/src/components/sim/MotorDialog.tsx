@@ -46,44 +46,21 @@ import { DialogButton } from '../common/DialogButton';
 import { useLiftoffFields, type LiftoffAt } from './useLiftoffFields';
 import { MotorSearch, useCatalogInfo } from './MotorPanelParts';
 
-/** The delay a motor with no delay data starts at (a common mid-range charge). */
 const DEFAULT_DELAY = 3;
 
-/**
- * The catalog row a seated motor came from, for pre-selecting it.
- *
- * A MotorSpec's `code` is display-only and absent when it adds nothing, so a
- * spec is matched by its designation, which says "AeroTech F67" for both the
- * F67W and the F67C: one common name in one bore. Match on the common name OR
- * the full code (a spec resolved from thrustcurve.org carries the full
- * designation), then narrow same-name pairs
- * by bore and by the curve source the spec was built from. Two motors sharing
- * all of manufacturer, name, bore and curve label remain indistinguishable
- * from the spec alone, and the first catalog match wins.
- */
+/** A designation is shared (F67W, F67C), so same-name matches narrow by bore and curve source. */
 export function findSeated(catalog: CatalogMotor[], cur: MotorSpec): CatalogMotor | undefined {
   const named = catalog.filter(
     (m) => m.manufacturer === cur.manufacturer && (m.designation === cur.designation || m.code === cur.designation),
   );
   if (named.length <= 1) return named[0];
-  // The catalog states a diameter to a tenth of a millimeter (the 10.5 mm
-  // Apogee motors), so the seated motor is matched at the same precision.
+  // The catalog states diameters to 0.1 mm (the 10.5 mm Apogee motors).
   const mm = roundTo(toCatalogMm(cur.diameter), 1);
   const byBore = named.filter((m) => m.diameter === mm);
   const pool = byBore.length ? byBore : named;
   return (cur.curveSrc && pool.find((m) => m.curves?.some((c) => c.src === cur.curveSrc))) || pool[0];
 }
 
-/**
- * Modal motor picker. Filters the catalog by engine code (text), manufacturer(s),
- * impulse class, total impulse, diameter, whether the motor comes plugged, and
- * (by default) whether it fits the mount; imports a custom .eng or .rse;
- * resolves the chosen motor's thrust curve and hands it to `onSelect`.
- *
- * Mounted only while open (`{open && <MotorDialog />}`), so every piece of
- * state here starts fresh per opening and nothing has to be reset on close: the
- * last motor's ejection delay cannot carry into the next opening.
- */
 export function MotorDialog({
   onClose,
   onSelect,
@@ -96,42 +73,22 @@ export function MotorDialog({
   onClose: () => void;
   onSelect: (m: MotorSpec) => void;
   onError: (msg: string | null) => void;
-  /**
-   * The mount being loaded: its bore and the length it has room for, in mm. What
-   * the "fits the mount" filter measures against. Null when the geometry cannot
-   * be read, and the filter is then not offered rather than guessing at it.
-   */
+  /** Bore and room in mm. */
   mount?: MountFit | null;
-  /** The motor already seated on this mount, pre-selected when the dialog opens. */
   current?: MotorSpec | null;
-  /** The motors this mount carries in its other flight configurations. */
   used?: MotorSpec[];
-  /** The configuration and mount being chosen for, which give thrust-to-weight its weight. */
   liftoff?: LiftoffAt | null;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
   const [delay, setDelay] = useState(DEFAULT_DELAY);
-  // The highlighted (but not yet applied) motor. Applying happens via the
-  // Select button, so a click just previews the choice. Identified by keyOf,
-  // so the highlight survives a filter change that reorders the list.
   const [selected, setSelected] = useState<CatalogMotor | null>(null);
-  // Which of the motor's thrust curves to use (some motors have several).
   const [curveIdx, setCurveIdx] = useState(0);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
-  // The pick in flight. catalogMotorSpec can take seconds over the network, and a
-  // result that lands after the user canceled (this dialog is unmounted on
-  // close) must not be applied to the mount.
   const pickWrite = useLatest();
 
-  // When the published catalog last changed, from its manifest; nothing when the
-  // manifest does not say.
   const updated = useCatalogInfo()?.updated;
-  // Opening from a card with a motor already on it pre-selects that motor,
-  // highlighted in the list with its curve and delay restored, so "Change..."
-  // resumes from the current choice instead of a blank detail pane. Done when
-  // the catalog lands: the one moment the list exists and nothing has been
-  // clicked yet, so no later click has to know about it.
+  // Restores the seated motor when the catalog lands, before any click can conflict.
   const { catalog, setCatalog, loading, error, retry } = useCatalog({
     onLoaded: (c) => {
       const m = current && findSeated(c, current);
@@ -152,15 +109,7 @@ export function MotorDialog({
       ),
     [used, catalog],
   );
-  /**
-   * The remembered diameter range is a plain preference, never defaulted from the
-   * mount: a top stop seeded from a 29 mm mount reads as the user's own setting
-   * and then follows them to a 54 mm mount, hiding every motor that mount exists
-   * to fly. Capping by the mount is the fit checkbox's job, which is per-mount,
-   * visible, and can be turned off.
-   */
-  // Thrust-to-weight joins the performance filters when the picker knows the
-  // rocket it is choosing for.
+  // Never defaulted from the mount, or it would follow the user to a larger mount.
   const liftoffFields = useLiftoffFields(liftoff);
   const [filterInit] = useState(() => ({
     mfrs: loadMfrs(),
@@ -199,21 +148,15 @@ export function MotorDialog({
     setHideUsed,
   } = useMotorFilter(catalog, { ...filterInit, perfFields: liftoffFields }, usedKeys);
 
-  // Persist the manufacturer selection and diameter range across sessions.
   useEffect(() => {
     saveMfrs(mfrs);
   }, [mfrs]);
-  // `diaSaved`, not the displayed range: while the fit box is ticked the slider
-  // is showing the mount's ceiling, and saving that would write the mount's
-  // limit into the user's own preference.
+  // `diaSaved`, not the displayed range, which shows the mount's ceiling while fit is ticked.
   useEffect(() => {
     saveDia(diaSaved);
   }, [diaSaved]);
 
-  // Clicking a different motor starts from its own defaults: the best (first)
-  // curve, and a mid value of its own delay charges, or plugged for a
-  // plugged-only motor. In the handler, not an effect keyed on the selection,
-  // so the seeded values above are never stomped and never leak forward.
+  // In the handler, not an effect, so the seeded values above are never stomped.
   const choose = (m: CatalogMotor) => {
     setSelected(m);
     setCurveIdx(0);
@@ -224,14 +167,12 @@ export function MotorDialog({
   };
 
   const pick = async (m: CatalogMotor, curveIndex = 0) => {
-    // A motor with no curve is listed for its specs; there is nothing to seat.
     if (!hasLocalCurve(m)) return;
     const mine = pickWrite.claim();
     setLoadingKey(keyOf(m));
     onError(null);
     try {
       const spec = await catalogMotorSpec(m, delay, curveIndex);
-      // Canceled, or superseded by another pick, while the fetch was out.
       if (!mine()) return;
       onSelect(spec);
       onClose();
@@ -243,27 +184,18 @@ export function MotorDialog({
     }
   };
 
-  /** What the last import did, shown where the motor count is. */
   const [note, setNote] = useState<string | null>(null);
-  // Which catalog write is current. Separate from `pickWrite`: an import and a
-  // motor pick are different attempts and neither should cancel the other.
+  // Separate from `pickWrite`, so an import and a pick do not cancel each other.
   const catalogWrite = useLatest();
 
   const onImport = async (files: File[]) => {
     onError(null);
     setNote(null);
-    // A file read plus an IndexedDB write per motor, and a manufacturer range is
-    // hundreds of them. Guarded the same way `pick` above is: a result landing on
-    // a closed dialog, or behind a second import, is discarded.
     const mine = catalogWrite.claim();
     try {
       const { catalog, imported, failed } = await importCustomMotors(files.map((f) => ({ name: f.name, blob: f })));
       if (!mine()) return;
       setCatalog(catalog);
-      // Reported in the dialog rather than through onError, which is the
-      // simulation panel behind it: a RockSim engine-database file can hold a
-      // manufacturer's whole range, and one motor landing looks exactly like
-      // forty in a list of 800.
       const done = t('motor.importedN', { count: imported });
       setNote(failed.length ? `${done} ${t('motor.importSkipped', { files: fmtList(failed) })}` : done);
     } catch (err) {
@@ -275,8 +207,6 @@ export function MotorDialog({
 
   const onDelete = async (m: CatalogMotor) => {
     if (!m.id) return;
-    // An imported curve has no other copy here, and this button sits beside
-    // the row that selects the motor.
     const ok = await confirm({
       message: t('motor.deleteConfirm', { name: m.designation }),
       confirmLabel: t('common.delete'),
@@ -295,12 +225,7 @@ export function MotorDialog({
     }
   };
 
-  // What the dialog acts on is the highlight the user can see. `selected` is
-  // kept across filter changes so clearing a filter brings the highlight back,
-  // but while the filter hides that row there is no visible highlight, and the
-  // Select button must not apply a motor that is not on screen (the seated C6
-  // while the list shows A8s). Derived, not cleared, so nothing has to be reset
-  // when the filter changes back.
+  // Derived, not cleared: Select must not apply a hidden motor, but the highlight returns with the row.
   const selectedKey = selected ? keyOf(selected) : null;
   const shown = selected && matches.some((m) => keyOf(m) === selectedKey) ? selected : null;
 
@@ -311,15 +236,10 @@ export function MotorDialog({
       title={t('motorDlg.title')}
       onClose={onClose}
       size="6xl"
-      // List beside detail, each scrolling itself and reaching the panel's
-      // edges: the body takes the height and does its own padding.
       layout="fill"
-      // Fixed rather than the viewport's height: the list is the working surface
-      // and it should not become a screen-tall column on a large monitor.
       height={800}
     >
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        {/* Left: filters + list + count */}
         <div
           className={`flex min-h-0 flex-col md:w-[440px] md:shrink-0 md:border-r md:border-line/10 ${shown ? 'hidden md:flex' : 'flex'}`}
         >
@@ -348,14 +268,9 @@ export function MotorDialog({
               <ClassChips classes={classes} cls={cls} onChange={setCls} />
             </div>
 
-            {/* Impulse sits with the class chips it refines and above the
-                diameter, which is a property of the mount rather than of how
-                much motor this is. */}
             <ImpulseRange imp={imp} onChange={setImp} />
             <DiameterRange dia={dia} onChange={setDia} />
             <PerfFilters perf={perf} onChange={setPerf} onClear={clearPerf} fields={perfFields} />
-            {/* The checkboxes share one row: their labels are short, and stacked
-                they would push the list further down a 440px column. */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {fitMount && <FitsMount mount={fitMount} fits={fits} onChange={setFits} />}
               <PluggedFilter plugged={plugged} onChange={setPlugged} />
@@ -423,9 +338,6 @@ export function MotorDialog({
               {matches.length === 0 && (
                 <li className="px-3 py-8 text-center text-sm text-ink-faint">
                   {t('motorDlg.noResults')}
-                  {/* The likeliest reason for an empty list is the fit filter,
-                      which is on by default whenever there is a mount to judge
-                      against. Name it, rather than leaving a blank panel. */}
                   {fits && <div className="mt-1 text-xs text-ink-dim">{t('motorDlg.fitsMountHint')}</div>}
                 </li>
               )}
@@ -439,9 +351,7 @@ export function MotorDialog({
             )}
           </div>
         </div>
-        {/* end left */}
 
-        {/* Right: detail + apply */}
         <div className={`min-h-0 min-w-0 flex-1 flex-col ${shown ? 'flex' : 'hidden md:flex'}`}>
           {shown ? (
             <>
@@ -472,18 +382,14 @@ export function MotorDialog({
           )}
         </div>
       </div>
-      {/* end two-pane */}
     </Dialog>
   );
 }
 
-/** Delay picker for the selected motor: its own charges as quick chips (default
- *  a mid value), an optional Plugged chip, and a manual override. Plugged-only
- *  motors have no ejection charge, so nothing is shown. */
 function DelayControl({ motor, delay, onDelay }: { motor: CatalogMotor; delay: number; onDelay: (d: number) => void }) {
   const { t } = useTranslation();
   const { delays, plugged } = parseDelays(motor.delays);
-  if (plugged && delays.length === 0) return <span />; // plugged-only: already plugged, no choice to make
+  if (plugged && delays.length === 0) return <span />;
   const chip = 'rounded px-1.5 py-0.5 text-xs font-medium';
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-ink-muted">
@@ -493,19 +399,10 @@ function DelayControl({ motor, delay, onDelay }: { motor: CatalogMotor; delay: n
           {d}
         </ToggleButton>
       ))}
-      {/* Any motor can be flown plugged (no ejection charge), not just ones whose
-          spec lists it: useful for staging / alternate recovery triggers. */}
       <ToggleButton active={delay >= PLUGGED_DELAY} onClick={() => onDelay(PLUGGED_DELAY)} className={chip}>
         {t('motor.plugged')}
       </ToggleButton>
-      {/* `NumberInput`, not a raw <input>: a raw input would commit a 0-second
-          charge (one that fires at burnout) the moment the field is cleared to
-          retype. NumberInput's draft buffer makes a blank box mean "no change"
-          until a number is typed.
-
-          Clamped at PLUGGED_DELAY rather than left open: every consumer reads a
-          delay at or above it as plugged (`toKernelDelay`), so a larger typed
-          number is stored as the one plugged value it already means. */}
+      {/* A raw <input> would commit 0 s when cleared; above PLUGGED_DELAY means plugged. */}
       <NumberInput
         min={0}
         max={PLUGGED_DELAY}

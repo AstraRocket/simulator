@@ -7,11 +7,7 @@ import { findMounts } from '../../src/services/design/treeEdit';
 import { newFlightConfig } from '../../src/services/flight/flightConfigs';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 
-/**
- * A copied part takes its per-configuration settings with it, as desktop's
- * copy() carries a part's FlightConfigurableParameterSets: a split cluster or a
- * duplicated mount flies loaded, the way the original did.
- */
+// Desktop's copy() carries a part's FlightConfigurableParameterSets.
 
 const st = () => useWorkspaceStore.getState();
 
@@ -51,7 +47,6 @@ const design = (): RocketTree =>
     ],
   }) as unknown as RocketTree;
 
-/** Every mount id with the motor designation it carries in the active configuration. */
 const loaded = (): Record<string, string | undefined> => {
   const config = st().configs[0]!;
   return Object.fromEntries(

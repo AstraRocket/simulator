@@ -33,7 +33,6 @@ class FakeKv implements KeyValueStore {
   }
 }
 
-/** A store whose reads reject, the way blocked IndexedDB does. */
 class RejectingKv extends FakeKv {
   override async get(): Promise<string | null> {
     throw new Error('IndexedDB blocked');
@@ -100,8 +99,6 @@ describe('JsonListStore', () => {
   });
 
   it('keeps a stored row this build cannot use through an unrelated write', async () => {
-    // A newer build of the app shares the storage and may store a row this one
-    // refuses (a widened field). An add or a delete here must not erase it.
     const kv = new FakeKv();
     const newer = { id: 'z', n: 'wide' };
     kv.map.set(KEY, JSON.stringify([{ id: 'a', n: 1 }, newer]));
@@ -143,7 +140,6 @@ describe('JsonListStore', () => {
     const t = (k: string, v?: Record<string, string | number>) => i18n.t(k, v);
     expect(listWriteErrorText(err, t)).toBe(i18n.t('storage.writeRefused'));
     expect(listWriteErrorText(err, t)).not.toContain('storage-full');
-    // Anything else reads as errorText gives it.
     expect(listWriteErrorText(new KeyedError('storage.full'), t)).toBe(i18n.t('storage.full'));
     expect(listWriteErrorText(new Error('other'), t)).toBe('other');
   });
@@ -154,8 +150,6 @@ describe('JsonListStore', () => {
 });
 
 describe('every list store survives a storage layer that rejects reads', () => {
-  // The dialogs and pickers that list these read them on open; a rejecting
-  // read must cost the user's own entries, not the dialog.
   it.each([
     ['templates', () => new KeyValueTemplateStore('k', new RejectingKv()).list()],
     ['saved parts', () => new KeyValuePresetStore('k', new RejectingKv()).list()],

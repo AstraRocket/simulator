@@ -4,7 +4,6 @@ import { fireEvent, screen } from '@testing-library/react';
 import { WorstButton } from '../../../src/components/canvas/AeroInputs';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/** A press of Worst always has a visible outcome, the failure included. */
 describe('WorstButton', () => {
   afterEach(() => vi.restoreAllMocks());
 

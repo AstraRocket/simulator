@@ -9,13 +9,6 @@ import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from './FlutterFie
 import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
-/**
- * Fin flutter with no design: a trapezoidal fin, its material and the fastest
- * point of the flight give the speed the fin flutters at there, and how far
- * the flight stays under it. A fin set in a design has the same estimate in
- * its editor, flown against its simulation (`FinFlutterReadout`).
- */
-
 interface Remembered {
   rootM: number | null;
   tipM: number | null;
@@ -29,7 +22,6 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** Clears the remembered inputs, so each test starts from the defaults. */
 export function forgetFlutterTool(): void {
   remembered.forget();
 }

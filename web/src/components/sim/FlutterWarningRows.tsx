@@ -3,7 +3,6 @@ import { fmtNum } from '../../i18n/format';
 import { FLUTTER_MARGIN, type FlutterFinding } from '../../services/flight/finFlutter';
 import { WARNING_ROW, WARNING_TONE } from './warningTone';
 
-/** The sentence a flutter finding reads as, for a row or a tooltip. */
 export function flutterWarningText(
   f: FlutterFinding,
   t: (key: string, vars?: Record<string, unknown>) => string,
@@ -16,10 +15,6 @@ export function flutterWarningText(
   });
 }
 
-/**
- * Flutter findings as rows of the flight warnings card, in its palette: past the
- * flutter speed is a HIGH warning and named so in words, too close is a note.
- */
 export function FlutterWarningRows({ findings }: { findings: readonly FlutterFinding[] }) {
   const { t } = useTranslation();
   return findings.map((f) => (

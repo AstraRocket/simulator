@@ -20,41 +20,6 @@ import { selectShownSim, useWorkspaceStore } from '../../state/store';
 import { effectivePrefs, type SimPrefs } from '../../services/flight/simulations';
 import { WEATHERCOCK_LIMIT_DEG, maxWindMs } from '../../services/flight/weathercock';
 
-/**
- * What the numbers below are and are not, as a card of its own above them.
- *
- * It rides with the measurements rather than living in a dialog or a first-run
- * gate, because the moment a reading can mislead somebody is the moment it is
- * being read. It leads them rather than following them: what a number is worth
- * is a thing to know before reading it, and a caution under a grid of tiles is
- * one the eye reaches only after it has already drawn its conclusion. It says
- * three things, in the order they are acted on: verify the model against the
- * rocket on the bench, know what the model never had (the gaps are specific on
- * purpose: "results are approximate" tells nobody which failure to go and think
- * about), and remember who actually calls the flight.
- *
- * Carded and at the same `text-xs` as the tiles, not a footnote: a small line
- * under the grid reads as fine print and gets treated as fine print.
- *
- * The whole card wears the shared warning tone (WARNING_TONE NORMAL, the same
- * amber as a kernel flight warning), plus the ⚠ glyph on its heading, because
- * all of it is a warning: nothing on this card is a result, and the one thing
- * the app can never flag from a results panel is the failure it did not model.
- * The ⚠ carries the meaning for anyone who cannot use the color.
- *
- * The one line that is a bare list of gaps is set bold + italic inside the
- * bullet, the way FlightWarnings pairs a warning's text with its explanation.
- *
- * The link opens the docs' Safety page in the in-app Help dialog rather than a
- * new tab. Somebody reading this card is looking at a flight they are about to
- * fly, quite possibly at the field, and the one thing that must not be required
- * to read the safety page is a network. The dialog serves it from the app's own
- * precache, and carries its own link to the published page for anyone who wants
- * the shareable URL.
- *
- * The link is underlined amber rather than the app's usual sky blue, which
- * clashes with this background.
- */
 const BULLET = 'flex gap-2';
 
 function SafetyCard() {
@@ -62,18 +27,6 @@ function SafetyCard() {
   const openHelp = useHelpStore((s) => s.openHelp);
   const { settings, update } = useSettings();
   const open = settings.showSafetyCard;
-  /**
-   * Folding it away is gated; unfolding it is not.
-   *
-   * The card is the one thing on this pane that is not a result, and the fold
-   * is remembered, so the click that hides it is the last time it gets asked
-   * for on this browser. Asking once, there, is the point: an acknowledgment
-   * is a thing you do deliberately, and a notice that folds silently is a
-   * notice nobody read. Canceling leaves it open.
-   *
-   * There is no matching gate on the way back open, because reading the
-   * warning again needs no permission.
-   */
   const toggle = async () => {
     if (!open) {
       update({ showSafetyCard: true });
@@ -84,17 +37,10 @@ function SafetyCard() {
       message: t('sim.safetyAckBody'),
       confirmLabel: t('sim.safetyAckConfirm'),
     });
-    // Not `danger`: nothing is being destroyed, and the red button is the
-    // app's mark for that. This is an acknowledgment.
     if (ok) update({ showSafetyCard: false });
   };
   return (
     <section aria-label={t('sim.safetyTitle')} className={`rounded-xl p-3 ring-1 ${WARNING_TONE.NORMAL}`}>
-      {/* The heading is the fold control, and it is all that folds away to.
-          The ⚠ and the title stay on screen at every state: what is being
-          hidden is the explanation, not the fact that there is something to
-          read before flying. A control that could remove the last trace of it
-          would be a different feature from this one. */}
       <button
         type="button"
         onClick={() => void toggle()}
@@ -103,8 +49,6 @@ function SafetyCard() {
       >
         <span aria-hidden>⚠</span>
         {t('sim.safetyTitle')}
-        {/* Rotates rather than swapping glyph, so the control does not change
-            width as it turns. */}
         <span aria-hidden className={`ml-auto transition-transform ${open ? 'rotate-90' : ''}`}>
           ›
         </span>
@@ -112,13 +56,7 @@ function SafetyCard() {
       {!open ? null : (
         <>
           <p className="text-xs font-semibold leading-snug">{t('sim.safetyLead')}</p>
-          {/* Hanging bullets: the glyph is its own column so a wrapped line lines up
-          under the text, not under the dot.
-          Spelled out one <li> at a time rather than mapped over a key array:
-          `t(\`sim.${key}\`)` would hide all three from keys.test.ts, whose whole
-          job is to notice a string nothing references any more. The dynamic
-          allowlist there is for sets the kernel or the catalog produces, not for
-          three sentences written by hand. */}
+          {/* Spelled out, not mapped, so keys.test.ts sees each literal key. */}
           <ul className="mt-2 space-y-1.5 text-xs leading-snug">
             <li className={BULLET}>
               <span aria-hidden>·</span>
@@ -126,9 +64,6 @@ function SafetyCard() {
             </li>
             <li className={BULLET}>
               <span aria-hidden>·</span>
-              {/* The gaps get the emphasis of the three: the other two are things
-              you can go and do, and this one is the list of failures no number
-              above will ever mention. */}
               <span className="min-w-0">
                 <span className="font-semibold italic">{t('sim.safetyGaps')}</span>
                 <span className="block italic">{t('sim.safetyGapsDetail')}</span>
@@ -139,13 +74,8 @@ function SafetyCard() {
               <span className="min-w-0">{t('sim.safetyCode')}</span>
             </li>
           </ul>
-          {/* The liability line. Plain-language restatement of the license's
-          no-warranty and no-liability clauses, kept short so it reads as part
-          of the card rather than a wall of legal text; the full version is on
-          the Safety page the link below opens. */}
+          {/* Restates the license's no-warranty and no-liability clauses. */}
           <p className="mt-2 text-[11px] leading-snug">{t('sim.safetyDisclaimer')}</p>
-          {/* nowrap so the arrow cannot be orphaned onto a line of its own. The
-          arrow is decoration, kept out of the button's name. */}
           <button
             onClick={() => openHelp('safety')}
             className="mt-2 inline-block whitespace-nowrap text-xs font-medium underline underline-offset-2 hover:no-underline"
@@ -158,20 +88,9 @@ function SafetyCard() {
   );
 }
 
-/**
- * The summary tiles of the flight the Results picker shows: rod exit, static
- * margin at rail exit, optimum delay, times, apogee, deploy and landing speeds,
- * downrange, and the peaks.
- *
- * Its own component because it is read in two places: the desktop Results
- * tab's right column, and the top of the mobile Results tab, where the numbers
- * belong beside the charts they describe rather than a tab away.
- */
 export function SimSummary({ sim }: { sim: FlightResult | null }) {
   const t = useLauncherT();
   const u = useUnits();
-  // Each result tile owns its unit: reading apogee in feet should not drag
-  // landing speed, downrange and the rest along with it.
   const rodExit = useScopedUnit(unitScope('sim', 'rodExit'), 'velocity');
   const railCpUnit = useScopedUnit(unitScope('sim', 'railCp'), 'length');
   const apogee = useScopedUnit(unitScope('sim', 'apogee'), 'distance');
@@ -184,26 +103,17 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
   const maxRollUnit = useScopedUnit(unitScope('sim', 'maxRoll'), 'rollRate');
   const railNeededUnit = useScopedUnit(unitScope('sim', 'railNeeded'), 'length');
   const maxWindUnit = useScopedUnit(unitScope('sim', 'maxWind'), 'windspeed');
-  // No fixed digits on these tiles: the ladder's precision follows the size of
-  // the number in the reader's unit, and is what the simulations table shows.
   const { settings } = useSettings();
   const { railExitVelocityMin } = settings.simulation;
-  // The deployment threshold is per simulation: the shown flight's own
-  // override over the global, which is what the kernel judged it against.
   const ownPrefs = useWorkspaceStore((st): Partial<SimPrefs> | undefined => {
     const shown = selectShownSim(st);
     return shown.result === sim ? shown.prefs : undefined;
   });
   const { deploymentSpeedWarn } = effectivePrefs(settings.simulation, ownPrefs);
-  // The rod or rail this flight left, to judge the length it needed against.
-  // Only the shown row's own, as `ownPrefs` above: another row's rod says
-  // nothing about this flight.
   const rodLengthM = useWorkspaceStore((st): number | null => {
     const shown = selectShownSim(st);
     return shown.result === sim ? shown.launch.launchRodLengthM : null;
   });
-  // Names more than one recovery device flies under: a warning without node
-  // ids that names one of them cannot be pinned to this branch.
   const tree = useWorkspaceStore((st) => st.tree);
   const sharedNames = useMemo(() => sharedDeviceNames(tree.components), [tree]);
   const s = sim?.summary;
@@ -217,57 +127,31 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
           sharedNames,
         )
       : null;
-  // Safe-if-green thresholds: fast off the rail (global setting), gentle at deploy.
   const goodTone = 'text-ok-400',
     warnTone = 'text-warn-400';
-  // Static margin at the instant the rocket clears the rod/rail: the
-  // flight-relevant figure (real velocity + partly-burned mass), vs. the on-pad
-  // "Stability" tile (Mach 0.3, fully loaded). OpenRocket records the same
-  // series but buries it at the "# Event LAUNCHROD" line of a data export.
+  // At rail exit, unlike the on-pad Stability tile (Mach 0.3, fully loaded).
   const rodTime = sim?.events.find((e) => e.type === 'LAUNCHROD')?.time;
   const railMargin = sim && rodTime != null ? seriesAt(sim.series, 'stability', rodTime) : null;
   const railCp = sim && rodTime != null ? seriesAt(sim.series, 'cpLocation', rodTime) : null;
-  // The engine's thrust-to-weight and angle of attack as it left the launcher.
-  // The angle of attack there is the weathercocking: the angle the relative
-  // wind meets the rocket at, flown with the run's own wind. Null on a result
-  // recorded without the full series.
   const railTwr = sim && rodTime != null ? seriesAt(sim.series, 'Twr', rodTime) : null;
   const railAoa = sim && rodTime != null ? seriesAt(sim.series, 'aoa', rodTime) : null;
-  // Downrange (lateral) landing distance: the last sample where both halves of
-  // the drift are finite, the same point the ground track reports.
   const landing = sim ? landingPoint(sim.series) : null;
   const downrange = landing ? distanceFromPad(landing) : null;
-  // Max-Q: the kernel does not record it, but it records both halves of it, so
-  // it is derived here rather than in the engine. Null on a stored result
-  // recorded with the `summary` series set, which carries neither air density
-  // nor the speed of sound (see services/flight/flightEvents).
+  // The kernel does not record Max-Q, so it is derived here.
   const peakQ = sim ? maxQ(sim.series) : null;
-  // q·α while the rocket still flies forward: up to deployment, else apogee,
-  // the window the chart clips its aero series to. Derived the way Max-Q is.
   const peakQAlpha = sim ? maxQAlpha(sim.series, forwardFlightEnd(sim)) : null;
-  // The kernel's own roll rate series, read for its peak magnitude.
   const peakRoll = sim ? maxRollRate(sim.series) : null;
   if (!s) return null;
   return (
-    // The safety card and the tiles are one block, so the card travels with the
-    // numbers to every place the summary is mounted. The gap is the wrapper's,
-    // matching FlightWarnings' spacing above rather than inheriting whatever
-    // rhythm each parent happens to use.
     <div className="space-y-3">
       <SafetyCard />
-      {/* A grid of cards, not a card of tiles: the same shape the rocket's
-          static-stats strip uses, so a measurement reads the same wherever it
-          is. Two columns, because the column is narrow and three would squeeze
-          "Static margin @ rail exit" onto several lines. */}
       <section aria-label={t('sims.summary')} className="grid grid-cols-2 gap-2">
-        {/* Chronological: liftoff → boost → apogee → recovery → landing, then peaks. */}
         <Stat
           card
           label={t('sim.rodExit')}
           value={rodExit.fmt(s.launchRodVelocity)}
           sub={rodExit.chip(t('sim.rodExit'))}
-          // The threshold is stored in SI, so the comparison stays in SI;
-          // only the number on screen changes unit.
+          // Compared in SI, like the stored threshold.
           tone={s.launchRodVelocity >= railExitVelocityMin ? goodTone : warnTone}
           status={s.launchRodVelocity >= railExitVelocityMin ? undefined : t('limits.belowMin')}
         />
@@ -298,21 +182,18 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
             label={t('sim.exitAoa')}
             value={u.fmt('angle', Math.abs(railAoa))}
             sub={u.sym('angle')}
-            // The usual weathercocking limit, as the max-wind tile beside it uses.
             tone={Math.abs(railAoa) > degToRad(WEATHERCOCK_LIMIT_DEG) ? warnTone : goodTone}
             status={Math.abs(railAoa) > degToRad(WEATHERCOCK_LIMIT_DEG) ? t('limits.aboveMax') : undefined}
           />
         )}
-        {/* The steadiest wind that keeps the angle at rail exit within the usual
-            20° rule: the engine's exit speed times tan 20°. */}
+        {/* Exit speed times tan 20°: the wind that keeps rail-exit AoA within 20°. */}
         <Stat
           card
           label={t('sim.maxWind', { angle: fmtDegrees(u, WEATHERCOCK_LIMIT_DEG) })}
           value={maxWindUnit.fmt(maxWindMs(s.launchRodVelocity))}
           sub={maxWindUnit.chip(t('sim.maxWind', { angle: fmtDegrees(u, WEATHERCOCK_LIMIT_DEG) }))}
         />
-        {/* Absent from a run that did not ask, or recorded before the engine
-            reported it; null when no rod is long enough. */}
+        {/* Undefined when not reported; null when no rod is long enough. */}
         {s.railLengthNeeded !== undefined && (
           <Stat
             card
@@ -395,15 +276,8 @@ export function SimSummary({ sim }: { sim: FlightResult | null }) {
           sub={maxSpeed.chip(t('sim.maxSpeed'))}
         />
         <Stat card label={t('sim.maxMach')} value={fmtNum(s.maxMachNumber, 2)} sub={t('flight.mach')} />
-        {/* The number that decides whether the airframe holds together, which
-            is why it sits with the other peaks rather than only in the events
-            table. Both read the same figure and share the one unit scope, so
-            changing it here changes it there. */}
         {peakQ && <Stat card label={t('sim.maxQ')} value={maxQUnit.fmt(peakQ.q)} sub={maxQUnit.chip(t('sim.maxQ'))} />}
-        {/* The side load on the airframe scales with q·α, so it is the figure a
-            fin or a coupler is judged against. It is shown in the Max q
-            figure's pressure unit times the reader's angle unit, so the two
-            read in the same pressure. */}
+        {/* In Max q's pressure unit times the angle unit, so both read in the same pressure. */}
         {peakQAlpha && (
           <Stat
             card

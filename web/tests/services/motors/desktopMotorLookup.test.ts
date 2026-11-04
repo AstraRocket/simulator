@@ -9,25 +9,8 @@ import { exportOrk, importOrk, type OrkExportMotor } from '../../../src/services
 import { PLUGGED_DELAY, type MotorSpec } from '../../../src/engine/openRocketEngine';
 import { loadOrk } from '../../../src/services/files/loadOrk';
 
-/**
- * Which motor desktop OpenRocket flies for the `<motor>` block a save writes.
- *
- * The lookup below is desktop's own, written out from the Java:
- * MotorHandler.getMotor (core/.../file/openrocket/importt/MotorHandler.java:65)
- * passes the file's type (null when absent), manufacturer (null when absent,
- * :31 and :174), designation and digest, with NaN diameter and length, through
- * the motor finder to ThrustCurveMotorSetDatabase.findMotors
- * (core/.../database/motor/ThrustCurveMotorSetDatabase.java:25-78), which
- * returns the full matches, else the digest matches, else the description
- * matches. A manufacturer filters only when it is non-null (:48), through
- * Manufacturer.matches (core/.../motor/Manufacturer.java:215-219, search string
- * at :262-264). A designation matches when either name contains the other
- * (:50-52).
- *
- * The database is OpenRocket's own: the digests the catalog carries are synced
- * from it, one entry per desktop motor, and a catalog row with none is a motor
- * desktop does not have.
- */
+// MotorHandler.getMotor (MotorHandler.java:65) into ThrustCurveMotorSetDatabase.findMotors
+// (:25-78): full matches, else digest, else description; designations match by containment.
 const CATALOG = JSON.parse(
   readFileSync(resolve(process.cwd(), 'public/data/motors.generated.json'), 'utf8'),
 ) as CatalogMotor[];
@@ -36,9 +19,6 @@ vi.mock('../../../src/services/motors/motorDb', async (original) => ({
   ...(await original<typeof import('../../../src/services/motors/motorDb')>()),
   loadCatalog: vi.fn(async () => CATALOG),
 }));
-
-// Opening a file resolves its motors against the same catalog; the kernel and
-// the curve download are not what is under test, so they are stubbed.
 vi.mock('../../../src/engine/openRocketEngine', async (original) => ({
   ...(await original<typeof import('../../../src/engine/openRocketEngine')>()),
   OpenRocketDesign: {
@@ -93,8 +73,6 @@ function findMotors(digest: string | null, manufacturer: string | null, designat
   }
   return full.length ? full : byDigest.length ? byDigest : byDescription;
 }
-
-/** Desktop's candidates for each `<motor>` block in a saved file, by configid. */
 function desktopReads(xml: string): Record<string, DesktopMotor[]> {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   const out: Record<string, DesktopMotor[]> = {};
@@ -108,7 +86,6 @@ function desktopReads(xml: string): Record<string, DesktopMotor[]> {
 const row = (manufacturer: string, designation: string) =>
   CATALOG.find((m) => m.manufacturer === manufacturer && m.designation === designation)!;
 
-/** A desktop-shaped file with one configuration and one motor block on a body-tube mount. */
 const desktopOrk = (motorBlock: string) => `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="OpenRocket 24.12">
   <rocket>
@@ -181,7 +158,6 @@ describe('a save names the motor the mount holds, not the one the file was opene
   });
 
   it('does not send desktop back to the C6 when the new motor is one its database lacks', async () => {
-    // SCR A8 has no desktop digest, so the catalog gives none to write.
     expect(row('SCR', 'A8').digests ?? []).toEqual([]);
     const found = (await save(spec('SCR', 'A8', 5)))['cfg-1']!;
     expect(found.filter((m) => m.designation !== 'A8')).toEqual([]);
@@ -237,11 +213,8 @@ describe('a motor the file names no manufacturer for', () => {
     expect(desktopReads(xml)['cfg-1']).toEqual(desktopFinds);
   });
 });
-
-/** Each of the tests below walks the whole catalog, a file per row. */
 const WHOLE_CATALOG_MS = 120_000;
 
-/** A motor seated on the body tube of a desktop-shaped file with an empty mount. */
 const blank = importOrk(
   desktopOrk(`                <designation>C6</designation>
                 <diameter>0.018</diameter>
@@ -250,7 +223,6 @@ const blank = importOrk(
 );
 const blankMount = Object.keys(blank.motors)[0]!;
 
-/** What desktop reads, and what the save carried, for `seated` alone in that mount. */
 async function saveSeated(seated: MotorSpec) {
   const config = newFlightConfig({ [blankMount]: { spec: seated } as MountMotor }, null, 'cfg-1');
   const motors = await fillMotorDigests(buildExportMotorMap(blank.tree, config));
@@ -258,7 +230,7 @@ async function saveSeated(seated: MotorSpec) {
   return { motor: motors[blankMount]!, found: desktopReads(xml)['cfg-1']! };
 }
 
-/** A user's own curve under a given maker and name, at a given diameter (m). */
+/** `diameter` in meters. */
 const ownCurve = (manufacturer: string | undefined, designation: string, diameter: number): MotorSpec => ({
   designation,
   ...(manufacturer ? { manufacturer } : {}),
@@ -270,8 +242,6 @@ const ownCurve = (manufacturer: string | undefined, designation: string, diamete
   masses: [0.09, 0.08, 0.05],
   cgX: 0.05,
 });
-
-/** The spec as `catalogMotorSpec` seats a row: its common name, with the code beside it. */
 const picked = (r: CatalogMotor, delay: number): MotorSpec => ({
   designation: r.designation,
   ...(r.code && r.code !== r.designation ? { code: r.code } : {}),
@@ -293,14 +263,11 @@ describe('a motor the catalog cannot name for certain', () => {
     ['a shortened name', 'AeroTech', 'H128W-OLD', 0.029],
     ['no maker, where several makers sell the name', undefined, 'C6', 0.018],
   ])('goes out with its own curve, under no stock motor’s digest: %s', async (_case, maker, name, diameter) => {
-    // The premise: the name alone reaches a stock motor desktop has.
     expect(findMotors(null, null, name).length).toBeGreaterThan(0);
     const { motor, found } = await saveSeated(ownCurve(maker, name, diameter));
     expect(motor.embedded).toBeDefined();
     expect(motor.digest).toBe(motor.embedded!.digest);
     expect(inDatabase(motor.digest)).toBe(false);
-    // Desktop then has no digest match, which is what puts a stock motor
-    // ahead of the curve the file carries.
     expect(found.filter((m) => m.digest === motor.digest)).toEqual([]);
   });
 
@@ -319,9 +286,7 @@ describe('a motor the catalog cannot name for certain', () => {
 });
 
 describe('a motor seated from the catalog', () => {
-  /** The name a row is seated under: its full code, else its common name. */
   const seatedName = (r: CatalogMotor) => (r.code ?? r.designation).toLowerCase();
-  /** Another row of the same maker and diameter answers to that name too. */
   const shared = (r: CatalogMotor) =>
     CATALOG.some(
       (o) =>
@@ -365,7 +330,6 @@ describe('a motor seated from the catalog', () => {
 });
 
 describe('a desktop file saved again while the catalog cannot load', () => {
-  /** Rows desktop writes by a full code the seated spec keeps beside its common name. */
   const coded = CATALOG.filter((r) => r.digests?.length && r.code && r.code !== r.designation);
 
   it(

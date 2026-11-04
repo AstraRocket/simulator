@@ -4,19 +4,8 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A stated shoulder flies as desktop opens it from a `.ork`.
- *
- * Desktop's loader sets a shoulder radius with clamping off (DocumentConfig,
- * "Transition:foreshoulderradius" and "Transition:aftshoulderradius", which a
- * nose cone's shoulder goes through too), so a file opens with the shoulder it
- * states, even past an automatic end that resolves only once its neighbors are
- * attached. A flipped nose cone is the exception: the loader reads
- * `<isflipped>` last, and NoseCone.setFlipped carries the shoulder to the base
- * through the clamping setter, so a flipped cone's shoulder is at most its
- * resolved base. Expected values are those two rules applied to the stated
- * numbers.
- */
+// Desktop's loader sets shoulder radii unclamped (DocumentConfig), except
+// `<isflipped>` is read last and NoseCone.setFlipped clamps to the resolved base.
 type Fields = Record<string, unknown>;
 
 async function build(components: unknown[]): Promise<(id: string) => Fields> {
@@ -79,7 +68,6 @@ describe('stated shoulders', () => {
         shoulderThickness: 0.002,
       },
     ]);
-    // The base follows the 25 mm tube ahead, so the 30 mm shoulder opens at 25.
     expect(read('auto')).toMatchObject({ aftRadius: 0.025, shoulderRadius: 0.025, shoulderThickness: 0.002 });
     const fixed = await build([
       { type: 'nosecone', id: 'n', shape: 'ogive', length: 0.15, aftRadius: 0.03, thickness: 0.002 },
@@ -115,8 +103,7 @@ describe('stated shoulders', () => {
       },
       { type: 'bodytube', id: 'tail', length: 0.2, outerRadius: 0.015, thickness: 0.001 },
     ]);
-    // The aft end settles at 15 mm; the file states a 20 mm shoulder there, and
-    // desktop flies the 20 mm the file states.
+    // The aft end settles at 15 mm, but desktop flies the stated 20 mm shoulder.
     expect(read('tr')).toMatchObject({
       foreRadius: 0.02,
       aftRadius: 0.015,

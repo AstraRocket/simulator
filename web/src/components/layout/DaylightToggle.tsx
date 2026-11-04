@@ -3,11 +3,6 @@ import { toggleDaylight } from '../../services/app/theme';
 import { useSettings } from '../../state/SettingsProvider';
 import { ToggleButton } from '../common/ToggleButton';
 
-/**
- * One tap between the chosen theme and daylight (high contrast), for a screen
- * read in sunlight at the field. Pressed while daylight is in force, whichever
- * way it was chosen (here or in Settings, General, Theme).
- */
 export function DaylightToggle() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();

@@ -5,7 +5,6 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { solidForNode } from '../../../src/services/exports/solidMesh';
 import { solidToObj, solidToStl, solidToGlb } from '../../../src/services/exports/meshExport';
 
-// A single nose cone's watertight solid, in meters: the mesh exporters scale it.
 const nose = solidForNode({
   type: 'nosecone',
   shape: 'ogive',
@@ -23,14 +22,13 @@ describe('component mesh export', () => {
 
   it('OBJ is scaled to millimeters, as the STL is', () => {
     const xs = [...solidToObj(nose).matchAll(/^v (\S+)/gm)].map((m) => Number(m[1]));
-    // A 0.1 m nose lies along the X axis: 100 mm in the file.
     expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(100, 1);
   });
 
   it('STL is a valid binary blob with a matching triangle count', () => {
     const buf = solidToStl(nose);
     const count = new DataView(buf).getUint32(80, true);
-    expect(buf.byteLength).toBe(84 + count * 50); // 84 header + 50 bytes/triangle
+    expect(buf.byteLength).toBe(84 + count * 50);
     expect(count).toBeGreaterThan(20);
   });
 
@@ -61,7 +59,6 @@ describe('component mesh export', () => {
     let holes = 0;
     for (const c of edges.values()) if (c === 1) holes++;
     expect(holes).toBe(0);
-    // A 0.1 m nose lies along the X axis: it must export at ~100 mm, not 0.1.
     expect(maxX - minX).toBeGreaterThan(50);
   });
 
@@ -70,23 +67,15 @@ describe('component mesh export', () => {
     expect(new DataView(buf).getUint32(0, true)).toBe(0x46546c67); // 'glTF'
   });
 
-  /**
-   * glTF's unit is the meter (glTF 2.0, section 3.4), so a 0.1 m nose cone is 0.1
-   * long in the file once its node scale is applied, or it opens 1000 times too
-   * large in Blender, three.js and AR viewers.
-   */
   it('GLB is in meters, as glTF requires', async () => {
     const dv = new DataView(await solidToGlb(nose));
-    // The first chunk after the 12-byte header is the JSON one.
     const length = dv.getUint32(12, true);
     const json = JSON.parse(new TextDecoder().decode(new Uint8Array(dv.buffer, dv.byteOffset + 20, length))) as {
       nodes: { scale?: number[]; matrix?: number[]; mesh?: number; children?: number[] }[];
       meshes: { primitives: { attributes: { POSITION: number } }[] }[];
       accessors: { min: number[]; max: number[] }[];
     };
-    // Every scale on the way down to the mesh, from the root. GLTFExporter writes
-    // a node's transform as `scale` or, when it has more than one part, as a
-    // `matrix`, whose first entry is the x scale here (no rotation).
+    // GLTFExporter writes `scale`, or a `matrix` whose first entry is the x scale.
     let scale = 1;
     let node = json.nodes[0]!;
     for (;;) {

@@ -17,13 +17,8 @@ const openMenu = (canSave: boolean) => {
   return a;
 };
 
-/**
- * The file menu holds only menu items and separators, and a disabled item stays
- * reachable by the arrow keys, so the reason it is disabled can be heard.
- */
 describe('FileMenu structure', () => {
-  // jsdom has no matchMedia; the menu asks it whether the window can build a
-  // design (useCanBuildDesign). Answer "desktop".
+  // jsdom has no matchMedia; useCanBuildDesign asks it. Answer "desktop".
   beforeEach(() => {
     window.matchMedia = ((query: string) => ({
       matches: true,
@@ -59,8 +54,7 @@ describe('FileMenu structure', () => {
   });
 
   it('moves onto a disabled item with the arrow keys', () => {
-    // jsdom lays nothing out, so every element reports no offsetParent, which
-    // the menu reads as hidden.
+    // jsdom reports no offsetParent, which the menu reads as hidden.
     const spy = vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockImplementation(function (this: HTMLElement) {
       return this.parentElement;
     });
@@ -99,11 +93,6 @@ describe('FileMenu structure', () => {
   });
 });
 
-/**
- * RockSim, RASAero II, a slicer and Onshape's import feature run only on a
- * desktop computer, so their exports, and RockSim import, are left off a phone
- * or tablet. The exports a phone can use stay.
- */
 describe('FileMenu exports for desktop programs', () => {
   const setWindow = (desktop: boolean) => {
     window.matchMedia = ((query: string) => ({

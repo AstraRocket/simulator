@@ -54,13 +54,13 @@ This is a mature, heavily gated codebase. Its main debt is file size and how muc
 
 ### Strengths
 
-- About 30% of lines are comments, and they explain *why*: invariants, ordering constraints, history. The `openRocketEngine.ts` header (SI units, which fields are in degrees, why import order matters) and `eslint.config.js` are good examples.
+- Comments explain *why*: invariants, units, ordering constraints, platform quirks and desktop parity. The `openRocketEngine.ts` header (SI units, which fields are in degrees, why import order matters) is a good example.
 - Names are descriptive and consistent (`selectOutdated`, `withKernelEnds`, `reconcileConfigs`).
 - Prettier and jscpd (duplicate detection, threshold 0) are wired into the gates, so style and copy-paste stay under control.
 
 ### Weaknesses
 
-- The comments are sometimes long enough to be hard to read. In places (the eslint config, some catch blocks) the explanation is longer than the code.
+- The comments were sometimes long enough to be hard to read. **Resolved 2026-11-03:** every hand-written source file (web, website and the engine-java bridge, shims and tooling) was trimmed to one-line comments that prevent a bug or a wrong fix: traps, platform quirks, units, desktop parity rules and license and terms-of-use notes. Comment lines went from about 52,000 to 4,850, with a check that nothing but comments changed.
 - Large import blocks and big files make it slow to get your bearings. This ties back to the structure weaknesses.
 
 ## Robustness: A

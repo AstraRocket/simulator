@@ -9,10 +9,6 @@ import { SEPARATION_EVENTS } from '../../../src/services/design/componentFields'
 
 const st = () => useWorkspaceStore.getState();
 
-/**
- * Something has to fly, so the only stage still flying cannot be grounded. Its
- * checkbox says so instead of looking clickable and doing nothing.
- */
 describe('SeparationSection flies checkbox', () => {
   beforeEach(() => {
     st().resetWorkspace();
@@ -43,7 +39,6 @@ describe('SeparationSection flies checkbox', () => {
   });
 });
 
-/** The override offers the property panel's own list of separation events. */
 describe('SeparationSection event override', () => {
   beforeEach(() => {
     st().resetWorkspace();
@@ -60,8 +55,6 @@ describe('SeparationSection event override', () => {
     expect(offered).toEqual([...SEPARATION_EVENTS]);
   });
 
-  // StageSeparationConfiguration reads the altitude for its two altitude events
-  // only; under any other event the box would set a number nothing reads.
   it('offers the altitude under an altitude event alone', () => {
     const stage = findStages(st().tree)[1]!;
     const config = selectConfig(st());

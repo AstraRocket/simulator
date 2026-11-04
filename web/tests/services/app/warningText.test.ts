@@ -10,8 +10,7 @@ import { localeTranslator } from '../../testing/localeTranslator';
 import en from '../../../src/i18n/locales/en.json';
 import es from '../../../src/i18n/locales/es.json';
 
-// Stands in for i18n: knows one key, returns the key itself for anything else
-// (which is what i18next does without a `defaultValue`).
+// Returns the key for unknown keys, as i18next does without a `defaultValue`.
 const t = (key: string) => (key === 'warn.DISCONTINUITY' ? 'Body diameter discontinuity' : key);
 
 describe('warningText', () => {
@@ -28,7 +27,6 @@ describe('warningText', () => {
   });
 
   it('falls back to a readable form of an untranslated key', () => {
-    // A warning nobody has a string for is still a warning the user needs.
     expect(warningText('[Warning.OPEN_AIRFRAME_FORWARD]:  "Body tube"', t)).toBe('Open airframe forward: "Body tube"');
     expect(warningText('[Warning.LargeAOA.str2] (30°)', t)).toBe('Large AOA (30°)');
   });
@@ -38,8 +36,6 @@ describe('warningText', () => {
   });
 
   it('reads a component name that is itself an untranslated key', () => {
-    // A part the user never renamed keeps the kernel's default name, which is a
-    // bundle lookup too, so the sources arrive as "[Parachute.Parachute]".
     expect(warningText('[Warning.DISCONTINUITY] (1 m/s):  "[Parachute.Parachute]"', t)).toBe(
       'Body diameter discontinuity (1 m/s): "Parachute"',
     );
@@ -54,9 +50,6 @@ describe('warningText', () => {
 });
 
 describe('warningHelp', () => {
-  // The longer "why this matters". OpenRocket explains its recovery-speed
-  // warnings; the short text says only what tripped, which is a number you have
-  // to already understand in order to act on.
   const help = (key: string) => (key === 'warnHelp.RECOVERY_HIGH_SPEED' ? 'The shock can zipper the airframe.' : key);
 
   it('finds the explanation for a keyed message', () => {
@@ -73,8 +66,6 @@ describe('warningHelp', () => {
 
 describe('warningKeyOf', () => {
   it('reads the key from the MESSAGE, which is the one vocabulary both paths share', () => {
-    // `EngineWarning.key` is not this string: the bridge rewrites a few typed
-    // warnings to names of its own, and design warnings carry no key field.
     expect(warningKeyOf('[Warning.RECOVERY_MAIN_LOW_SPEED] (2 m/s)')).toBe('RECOVERY_MAIN_LOW_SPEED');
     expect(warningKeyOf('no key here')).toBeNull();
   });
@@ -85,51 +76,33 @@ describe('componentName', () => {
   const inSpanish = localeTranslator(es);
 
   it('names a never-renamed part in the language it is asked for', () => {
-    // The kernel has no resource bundles, so its default name arrives as the
-    // key it would have been looked up under. This app has its own string for
-    // the same part, and the export's language can differ from the app's.
+    // The kernel has no resource bundles, so its default name arrives as the key.
     expect(componentName('[Parachute.Parachute]', inEnglish)).toBe('Parachute');
     expect(componentName('[Parachute.Parachute]', inSpanish)).toBe(es.part.parachute);
     expect(componentName('[BodyTube.BodyTube]', inEnglish)).toBe(en.part.bodytube);
     expect(componentName('[BodyTube.BodyTube]', inSpanish)).toBe(es.part.bodytube);
-    // The two halves of a kernel key do not always agree, which is why the
-    // table is keyed by the whole thing.
     expect(componentName('[EllipticalFinSet.Ellipticalfinset]', inEnglish)).toBe('Elliptical fin set');
   });
 
   it('degrades to the readable half for a key nothing here names', () => {
-    // Kernel classes such as Sleeve and RecoveryDevice have no part of their own
-    // in this app, so the key is humanized rather than shown bracketed.
     expect(componentName('[Sleeve.Sleeve]', inEnglish)).toBe('Sleeve');
     expect(componentName('[RecoveryDevice.RecoveryDevice]', inEnglish)).toBe('Recovery Device');
   });
 
   it('returns a name the user typed unchanged', () => {
-    // Only the bracket form is a key. Rewriting somebody's own name for their
-    // own part would be wrong in any language.
     for (const name of ['Main chute', 'Drogue', '18" nylon', 'Chute [spare]']) {
       expect(componentName(name, inSpanish)).toBe(name);
     }
   });
 
   it('points every kernel name at a string that actually exists', () => {
-    // The table is transcribed from the kernel's `getComponentName()` overrides
-    // by hand, and `part.*` keys are built dynamically elsewhere, so a renamed
-    // key would otherwise go unnoticed and the component would read as a
-    // humanized key.
     const missing = Object.entries(COMPONENT_PART_KEYS).filter(([, key]) => inEnglish(key) === key);
     expect(missing).toEqual([]);
   });
 });
 
-/**
- * The kernel prints a warning's value in its own default units, because TeaVM
- * carries no preferences, so a deployment speed always arrives in m/s and an
- * angle in degrees. Given the reader's formatter, the value is restated in the
- * units they chose.
- */
+// TeaVM carries no preferences, so the kernel always prints m/s and degrees.
 describe('warningText, in the reader units', () => {
-  // Feet per second and radians, so the conversion is visible in the result.
   const format = (q: 'velocity' | 'angle', si: number) =>
     q === 'velocity' ? `${(si / 0.3048).toFixed(1)} ft/s` : `${si.toFixed(3)} rad`;
 

@@ -9,33 +9,20 @@ import { motorName } from '../../services/motors/motorName';
 import { fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 
-/**
- * The parts the design's motor guide and the simple rocket's share: the
- * candidates a Fly would fly, and the flights read back as one sortable table,
- * or one card per motor on a phone.
- */
-
-/** A guide row: one motor and what it did. */
 export interface GuideRowBase {
   key: string;
   motor: CatalogMotor;
 }
 
-/** One table column: a figure off the row, in SI, and the unit it is shown in. */
+/** `value` is in SI. */
 export interface GuideCol<R> {
   id: string;
   label: string;
-  /** Unit group; absent for a figure with one unit, which the label then names. */
   quantity?: Quantity;
   value: (r: R) => number | null;
-  /** Fixed decimals for a unitless figure. */
   digits?: number;
 }
 
-/**
- * The motor's own figures, which both guides open with, as the list before the
- * flight shows them, so how much motor it is sits beside what it did.
- */
 export const motorCols = <R extends GuideRowBase>(): GuideCol<R>[] => [
   { id: 'impulse', label: 'motorDlg.totalImpulse', quantity: 'impulse', value: (r) => r.motor.impulse },
   { id: 'avgThrust', label: 'motorDlg.avgThrust', quantity: 'force', value: (r) => avgThrustOf(r.motor) },
@@ -47,13 +34,12 @@ const cellText = <R,>(c: GuideCol<R>, r: R, u: Units): string => {
   return c.quantity ? u.fmt(c.quantity, v) : fmtNum(v, c.digits ?? 1);
 };
 
-/** The column a guide is sorted by, 'motor' or a column id, and which way. */
 export interface GuideSort {
   key: string;
   desc: boolean;
 }
 
-/** Sorted by `val`; unknown figures sort last whichever way the column runs. */
+/** Unknown figures sort last in either direction. */
 export function sortGuideRows<R>(rows: readonly R[], val: (r: R) => number | string, desc: boolean): R[] {
   return [...rows].sort((a, b) => {
     const x = val(a);
@@ -66,12 +52,7 @@ export function sortGuideRows<R>(rows: readonly R[], val: (r: R) => number | str
   });
 }
 
-/**
- * The filter matches split into the motors a guide can fly (a curve on hand)
- * and the rest, which are listed for their specs alone, with the ones the user
- * left out. Kept as exclusions rather than a ticked set, so a motor a filter
- * change brings in arrives ticked.
- */
+/** Kept as exclusions, so a motor a filter change brings in arrives ticked. */
 export function useGuideCandidates(matches: CatalogMotor[]) {
   const candidates = useMemo(() => matches.filter(hasLocalCurve), [matches]);
   const noCurve = useMemo(() => matches.filter((m) => !hasLocalCurve(m)), [matches]);
@@ -80,7 +61,6 @@ export function useGuideCandidates(matches: CatalogMotor[]) {
   return { candidates, noCurve, dropped, setDropped, flying };
 }
 
-/** A row's "Use": takes the motor and its figures back to whatever asked. */
 export function GuideUseButton({
   name,
   size,
@@ -88,7 +68,6 @@ export function GuideUseButton({
   title,
   onClick,
 }: {
-  /** The motor's name, for the label a screen reader reads. */
   name: string;
   size: string;
   disabled: boolean;
@@ -112,7 +91,6 @@ export function GuideUseButton({
 const toolButton =
   'rounded-lg bg-raised px-3 py-1.5 text-xs font-medium ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40';
 
-/** Over the flights: how many flew, the CSV, Clear, and the stale notice. */
 export function GuideToolbar({
   guide,
   onCsv,
@@ -122,7 +100,6 @@ export function GuideToolbar({
   guide: { rows: readonly unknown[]; asked: number; partial: boolean };
   onCsv: () => void;
   onClear: () => void;
-  /** Shown when the rocket has changed since the guide flew; null when it has not. */
   staleText: string | null;
 }) {
   const { t } = useTranslation();
@@ -139,17 +116,11 @@ export function GuideToolbar({
       <button onClick={onClear} className={`${toolButton} text-ink-soft`}>
         {t('guide.clear')}
       </button>
-      {/* The rows stay on screen and say so, as a stale drift sweep does: they
-          are still the honest answer for the rocket that flew them. */}
       {staleText && <span className="text-warn-400">{staleText}</span>}
     </div>
   );
 }
 
-/**
- * The flights, sorted, as a table on a desktop or one card per motor on a
- * phone, and under them the motors that did not fly and why.
- */
 export function GuideResults<R extends GuideRowBase>({
   rows,
   failed,
@@ -164,22 +135,17 @@ export function GuideResults<R extends GuideRowBase>({
   pick,
   cards,
 }: {
-  /** Already sorted by `sort`. */
   rows: readonly R[];
   failed: readonly { key: string; motor: CatalogMotor; reason: string }[];
   cols: readonly GuideCol<R>[];
   colLabel: (c: GuideCol<R>) => string;
   sort: GuideSort;
   onSort: (next: GuideSort | ((s: GuideSort) => GuideSort)) => void;
-  /** Whether a column first sorts high to low: figures do, names do not. */
   descFirst: (key: string) => boolean;
-  /** The delay each motor flew at, as a column after the motor; absent for none. */
   delay?: (r: R) => { text: string; title?: string };
-  /** Whether the status column sorts too. */
   statusSorts: boolean;
   status: (r: R) => ReactNode;
   pick: (r: R, name: string, size: string) => ReactNode;
-  /** One card per motor rather than a table a dozen and more columns wide (phones). */
   cards: boolean;
 }) {
   const { t } = useTranslation();
@@ -194,10 +160,6 @@ export function GuideResults<R extends GuideRowBase>({
         key={key}
         scope="col"
         aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : 'none'}
-        // Headers wrap, onto two lines at most for these labels: held to one
-        // line, "Thrust/weight at exit" and its neighbors set the column
-        // widths, and fourteen columns then scroll sideways in a dialog that
-        // has room for every figure in them.
         className={`px-1.5 py-1.5 align-bottom font-medium leading-tight ${align === 'left' ? 'text-left' : 'text-right'}`}
       >
         <button
@@ -215,7 +177,6 @@ export function GuideResults<R extends GuideRowBase>({
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
       {cards ? (
         <>
-          {/* No headers to click, so the sort is a pick and a direction. */}
           <div className="flex items-center gap-2 pb-2 text-xs">
             <label className="flex items-center gap-2 text-ink-muted">
               {t('guide.sortBy')}

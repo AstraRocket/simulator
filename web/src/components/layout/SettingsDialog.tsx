@@ -32,7 +32,6 @@ const TABS: { key: SettingsTab; label: string }[] = [
   { key: 'flyer', label: 'settings.tabFlyer' },
 ];
 
-/** Each tab's body, by key. */
 const TAB_BODY: Record<SettingsTab, ReactNode> = {
   general: <GeneralTab />,
   units: <UnitsTab />,
@@ -45,11 +44,6 @@ const TAB_BODY: Record<SettingsTab, ReactNode> = {
   flyer: <FlyerTab />,
 };
 
-/** Settings panel, one tab per entry in the list above (general, units,
- *  colors, materials, playback, sketch, simulation, launch defaults and the
- *  flyer).
- *  Persisted via the SettingsProvider.
- *  Mounted only while open (`{open && <SettingsDialog />}`). */
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const { update, reset } = useSettings();
@@ -59,7 +53,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     tab,
     setTab,
   );
-  // Every tab at once, and no undo: asked first.
   const resetAll = async () => {
     const ok = await confirm({
       message: t('settings.resetAllConfirm'),
@@ -71,10 +64,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
   const tabName = t(TABS.find((x) => x.key === tab)!.label);
   const resetSection = async () => {
-    // The tabs that hold what the user entered rather than a preference picked
-    // from a list: the home launch site, and the material chosen for each part
-    // type, and the flyer's memberships. None has an undo, so a stray click is
-    // asked about first.
     if (tab === 'launch' || tab === 'materials' || tab === 'flyer') {
       const ok = await confirm({
         message: t('settings.resetTabConfirm', { name: tabName }),
@@ -114,14 +103,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       title={t('settings.title')}
       onClose={onClose}
       size="lg"
-      // A fixed height, because eight tabs holding between two rows and thirty
-      // would otherwise resize and re-center the dialog every time you moved
-      // between them.
       height={560}
       toolbar={
-        // Tabs. A real tablist, so which section is open is announced rather
-        // than shown by background color alone. In the toolbar band so it stays
-        // put while a long tab scrolls.
         <div role="tablist" aria-label={t('settings.title')} className="flex flex-wrap gap-1 p-3">
           {TABS.map((tb) => (
             <button

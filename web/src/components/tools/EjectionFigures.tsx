@@ -3,13 +3,6 @@ import { unitScope } from '../../prefs/units';
 import { blackPowderMass, pinShearPressure } from '../../services/flight/ejectionCharge';
 import { useScopedUnit } from '../common/UnitChip';
 
-/**
- * The ejection charge for one bay, as the Ejection charge tool and a recovery
- * device's editor both show it: the black powder for the target pressure, and
- * with shear pins, the pressure that shears them, the powder that reaches it,
- * and a warning when the target is below it. Renders nothing until the bay and
- * the pressure are all given.
- */
 export function EjectionFigures({
   boreM,
   lengthM,

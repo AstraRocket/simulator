@@ -9,15 +9,6 @@ import type { FlightResult } from '../../../src/engine/openRocketEngine';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The deployment-speed verdict reads only the warnings raised for the devices
- * of the branch the tile shows.
- *
- * The kernel's warning list is the whole flight's, and the tile's speed is one
- * branch's. The flight here is the kernel's, through the bridge, with a
- * threshold low enough that its chute warns.
- */
-
 const TREE = {
   name: 'R',
   components: [
@@ -64,31 +55,21 @@ describe('deploymentVerdict', () => {
     ) as FlightResult;
     const speed = result.summary.deploymentVelocity!;
     expect(speed).toBeGreaterThan(0.01);
-    // The kernel warned, naming the chute.
     expect(result.warnings?.some((w) => w.message.includes('"Main"'))).toBe(true);
 
     expect(deployedSources(result.events)).toEqual(['Main']);
     const devices = lastDeployment(result.events);
     expect(deploymentVerdict(speed, result.warnings, 0.01, devices)).toBe('tooFast');
-    // A branch whose own chute is another one: the warning is not its.
     expect(deploymentVerdict(speed, result.warnings, 0.01, [{ name: 'Booster chute' }])).toBeNull();
   });
 
-  /**
-   * Two chutes the user never named fly under the same kernel default name, so
-   * the name in the message cannot say which stage's chute the warning is for.
-   * Only the booster's opens fast here: it deploys at the booster's burnout,
-   * the sustainer's near its apogee.
-   */
   it('keeps a booster chute’s warning off the sustainer when neither chute is named', async () => {
     const result = await flyTwoStage();
     const [sustainer, booster] = result.branches!;
-    // Both chutes fly under the kernel's default name.
     expect(deployedSources(sustainer!.events)).toEqual(['[Parachute.Parachute]']);
     expect(deployedSources(booster!.events)).toEqual(['[Parachute.Parachute]']);
     const sDevices = lastDeployment(sustainer!.events);
     const bDevices = lastDeployment(booster!.events);
-    // The kernel warned once, for the booster's chute.
     const fast = result.warnings!.filter((w) => w.key === 'HighSpeedDeployment');
     expect(fast).toHaveLength(1);
     expect(fast[0]!.message).toContain('"[Parachute.Parachute]"');
@@ -97,11 +78,6 @@ describe('deploymentVerdict', () => {
     expect(deploymentVerdict(0, result.warnings, WARN, sDevices)).toBeNull();
   });
 
-  /**
-   * A result stored before the engine sent node ids has the same warnings with
-   * names only. The two chutes' shared default name could be either stage's, so
-   * the warning marks neither tile.
-   */
   it('takes no verdict from an id-less warning whose name two chutes share', async () => {
     const result = await flyTwoStage();
     const stored = JSON.parse(
@@ -116,16 +92,7 @@ describe('deploymentVerdict', () => {
   });
 });
 
-/**
- * The tile shows the speed of the branch's last deployment (the kernel's
- * deployment velocity), so a device opened earlier on the same branch, and the
- * warning the kernel raised for it, is not what the tile judges.
- */
 describe('the last deployment', () => {
-  /**
-   * One stage, two chutes: "Early" opens on the ejection charge while the
-   * rocket still climbs fast, "Late" at 40 m under it, slowly.
-   */
   const tree = () => {
     const t = JSON.parse(JSON.stringify(TREE)) as typeof TREE;
     const kids = t.components[0]!.children[1]!.children as Record<string, unknown>[];
@@ -160,14 +127,11 @@ describe('the last deployment', () => {
 
   for (const delay of [0.5, 1, 2]) {
     it(`judges the chute that opened last, with the first opened on a ${delay} s delay`, async () => {
-      // A low threshold first, to read both deployment speeds off the kernel.
       const probe = await fly(delay, 0.01);
       const deploys = probe.events.filter((e) => e.type === 'RECOVERY_DEVICE_DEPLOYMENT');
       expect(deploys.map((e) => e.source)).toEqual(['Early', 'Late']);
       const lateSpeed = probe.summary.deploymentVelocity!;
 
-      // Then a threshold over the last deployment's speed: the kernel warns
-      // for "Early" alone.
       const warn = lateSpeed + 1;
       const result = await fly(delay, warn);
       const warned = result.warnings!.filter((w) => w.key === 'HighSpeedDeployment');
@@ -178,7 +142,6 @@ describe('the last deployment', () => {
       const devices = lastDeployment(result.events);
       expect(devices.map((d) => d.id)).toEqual(['late']);
       expect(deploymentVerdict(result.summary.deploymentVelocity!, result.warnings, warn, devices)).toBeNull();
-      // Named only (a result read from a file): the same verdict.
       const named = devices.map((d) => ({ name: d.name }));
       const withoutIds = result.warnings!.map(({ sourceIds: _, ...w }) => w);
       expect(deploymentVerdict(result.summary.deploymentVelocity!, withoutIds, warn, named)).toBeNull();
@@ -204,6 +167,5 @@ describe('the last deployment', () => {
   });
 });
 
-/** The names the kernel's deployment events carry, read straight off the events. */
 const deployedSources = (events: FlightResult['events']) =>
   events.flatMap((e) => (e.type === 'RECOVERY_DEVICE_DEPLOYMENT' ? [e.source] : []));

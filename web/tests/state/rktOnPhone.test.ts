@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '../../src/state/store';
 
 const s = () => useWorkspaceStore.getState();
 
-/** jsdom has no matchMedia; the open path asks it whether this is a desktop window. */
+// jsdom has no matchMedia.
 const setWindow = (desktop: boolean) => {
   window.matchMedia = ((query: string) => ({
     matches: desktop,
@@ -19,11 +19,6 @@ const file = (text: string): File =>
 
 const RKT = '<?xml version="1.0"?><RockSimDocument><FileVersion>4</FileVersion></RockSimDocument>';
 
-/**
- * RockSim import is left off a phone or tablet. The menu hides it, and the
- * `.ork` picker cannot stand in for it: the reader goes by the bytes, so a
- * `.rkt` handed to it is refused before it is read.
- */
 describe('a RockSim file on a phone or tablet', () => {
   const loadOrk = vi.fn();
 

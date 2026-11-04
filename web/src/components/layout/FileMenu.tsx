@@ -6,20 +6,12 @@ import { useOnline } from '../common/useOnline';
 import { useCapability } from '../common/useMediaQuery';
 import { useUpdateStore } from '../../state/updateStore';
 
-/**
- * The header's file menu: the trigger button that owns the open flag and
- * outside-click / Escape closing (`FileMenuButton`), and the dropdown itself
- * with its keyboard roving and inline Import / Export submenus (`FileMenu`).
- */
-
 const item =
   'flex w-full items-center px-3 py-2 text-left text-xs font-medium text-ink hover:bg-elevated aria-disabled:cursor-not-allowed aria-disabled:text-ink-dim aria-disabled:hover:bg-transparent';
-// Indented row style for the Import / Export format entries.
 const subItem =
   'flex w-full items-center py-2 pl-8 pr-3 text-left text-xs font-medium text-ink hover:bg-elevated aria-disabled:cursor-not-allowed aria-disabled:text-ink-dim aria-disabled:hover:bg-transparent';
 const separator = <div role="separator" className="my-1 border-t border-line/10" />;
 
-/** The items the arrow keys reach: the ones laid out, disabled ones included so their reason can be heard. */
 const laidOut = (el: HTMLElement): boolean => el.offsetParent !== null;
 
 export interface FileMenuActions {
@@ -42,21 +34,13 @@ export interface FileMenuActions {
   onBackup: () => void;
   onRestore: () => void;
   onSettings: () => void;
-  /** Open in-app Help at the docs index. */
   onHelp: () => void;
-  /** Open in-app Help on the Safety page. */
   onSafety: () => void;
   onPrivacy: () => void;
-  /** Check for a new version now, and say what came of it. */
   onCheckUpdates: () => void;
   onAbout: () => void;
 }
 
-/**
- * One entry of the file menu. `sub` indents it as an Import / Export format;
- * `expanded` makes it the toggle for such a submenu, with the caret showing
- * whether the formats are revealed.
- */
 function MenuItem({
   sub,
   label,
@@ -67,9 +51,7 @@ function MenuItem({
   children,
 }: {
   sub?: boolean;
-  /** Accessible name, when the visible text is too terse on its own. */
   label?: string;
-  /** Tooltip; for a disabled entry, the reason it is disabled. */
   title?: string;
   expanded?: boolean;
   disabled?: boolean;
@@ -77,9 +59,7 @@ function MenuItem({
   children: ReactNode;
 }) {
   const submenu = expanded !== undefined;
-  // aria-disabled rather than `disabled`: a disabled menu item stays in the
-  // arrow-key order, so the reason it is disabled can be reached and heard,
-  // not only hovered.
+  // aria-disabled, not `disabled`, so the item stays in arrow-key order.
   const reasonId = useId();
   const reason = disabled && title ? title : undefined;
   return (
@@ -95,8 +75,7 @@ function MenuItem({
       aria-describedby={reason ? reasonId : undefined}
       onClick={disabled ? undefined : onClick}
     >
-      {/* Hidden, so it stays out of the item's name; a description may still
-          reference hidden text. */}
+      {/* Hidden keeps it out of the name; a description may still reference hidden text. */}
       {reason && (
         <span id={reasonId} hidden>
           {reason}
@@ -116,26 +95,7 @@ function MenuItem({
   );
 }
 
-/**
- * The header's dropdown menu (WAI-ARIA menu-button pattern): New / Open /
- * Save As / Import / Export / Report / Motors / Launch locations / Custom Parts /
- * My materials / Settings / Help / Safety / Privacy / Check for updates / About.
- *
- * There is no **Save**. Editing autosaves on a 500 ms debounce, with a
- * synchronous journal on unload, so the header reports when the last save landed
- * (SaveStatus) instead, and naming a design is Save As.
- *
- * Mounted only while open (`{menuOpen && <FileMenu />}`), and it owns the two
- * inline "Import" / "Export" submenus: they reveal their format sub-items in
- * place (a flyout would be clipped by the menu's overflow-hidden) and collapse
- * whenever the menu closes, which unmounting does without an effect on
- * `menuOpen`.
- *
- * Every item is `tabIndex={-1}` in the JSX, rather than assigned imperatively
- * whenever a sub-item appears, so the arrow keys drive navigation and Tab leaves
- * the menu. The keyboard model (focus on open, arrows, Home and End, Tab and
- * Escape) is the button's `useMenuPopover`.
- */
+/** Submenus expand inline: a flyout would be clipped by overflow-hidden. */
 function FileMenu({
   canSave,
   onClose,
@@ -144,11 +104,6 @@ function FileMenu({
   actions,
 }: {
   canSave: boolean;
-  /**
-   * Close the menu and put focus back on its button (an item was chosen). The
-   * chosen item unmounts, and a dialog the action opens returns focus to
-   * whatever held it when it opened.
-   */
   onClose: () => void;
   menuRef: RefObject<HTMLDivElement | null>;
   onMenuKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => void;
@@ -157,16 +112,11 @@ function FileMenu({
   const { t } = useTranslation();
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  // Read here rather than threaded in as a prop: it is a fact about the window,
-  // not a decision the header is making.
   const canBuild = useCanBuildDesign();
   const updateChecker = useUpdateStore((s) => s.checker);
   const online = useOnline();
-  // Which of the device-dependent entries this device offers
-  // (services/app/capabilities.ts).
   const can = useCapability();
 
-  /** Close the menu, then run the action. */
   const run = (action: () => void) => () => {
     onClose();
     action();
@@ -198,9 +148,6 @@ function FileMenu({
           {t('file.importRkt')}
         </MenuItem>
       )}
-      {/* Under Import and not beside New, because that is what opening one is:
-          it reads a `.ork` and lands it as its own design, exactly as the entry above
-          does; the file just happens to ship with the app. */}
       {importOpen && (
         <MenuItem sub label={t('file.importExamplesLabel')} onClick={run(actions.onImportExamples)}>
           {t('file.importExamples')}
@@ -211,8 +158,6 @@ function FileMenu({
           {t('file.backup')}
         </MenuItem>
       )}
-      {/* Open even before the engine is ready: a backup needs no design, so
-          only the design formats under it wait for one. */}
       <MenuItem expanded={exportOpen} onClick={() => setExportOpen((o) => !o)}>
         {t('file.export')}
       </MenuItem>
@@ -251,39 +196,15 @@ function FileMenu({
       </MenuItem>
       {separator}
       <MenuItem onClick={run(actions.onMotors)}>{t('dash.menu')}</MenuItem>
-      {/* Beside the motor dashboard, which is the same kind of entry: a place
-          to see and manage a library of your own that is otherwise only
-          reachable from the one panel that happens to use it. */}
       <MenuItem onClick={run(actions.onLaunchLocations)}>{t('location.menu')}</MenuItem>
-      {/* And the third: the component picker only opens when a part of a
-          matching type is selected, so this is the only way to see a saved
-          bulkhead on a design that has no bulkhead in it.
-
-          Gone where the component tree is not (useCanBuildDesign). A saved part is
-          applied through a component, and it is adding the component it belongs
-          on that such a window cannot do; the library would open onto a design
-          it has no way to put anything into. The picker inside the property
-          editor stays, so a part already in the rocket can still be sized from
-          the catalog, and parts are still saved from there. */}
       {canBuild && <MenuItem onClick={run(actions.onSavedParts)}>{t('picker.savedManage')}</MenuItem>}
-      {/* Gone where Custom Parts is, for the same reason: editing a design
-          material changes the parts made of it. */}
       {canBuild && <MenuItem onClick={run(actions.onMyMaterials)}>{t('myMaterials.title')}</MenuItem>}
       {separator}
       <MenuItem onClick={run(actions.onSettings)}>{t('settings.title')}</MenuItem>
-      {/* Buttons, not links: these open the in-app Help dialog over the design
-          you are holding rather than sending you to another tab, which is what
-          makes help readable at a field with no signal. The dialog carries its
-          own "open on the docs site" link for when you want the shareable URL. */}
       <MenuItem onClick={run(actions.onHelp)}>{t('menu.help')}</MenuItem>
-      {/* Its own entry rather than a page buried in Help: what a simulation is
-          worth, and what to check on the real rocket, is the one doc a user
-          should not have to go looking for. */}
       <MenuItem onClick={run(actions.onSafety)}>{t('menu.safety')}</MenuItem>
       {separator}
       <MenuItem onClick={run(actions.onPrivacy)}>{t('about.privacy')}</MenuItem>
-      {/* Disabled where there is nothing to ask: offline, or the development
-          server, which registers no service worker. */}
       <MenuItem
         disabled={!updateChecker || !online}
         title={!updateChecker ? t('update.checkUnavailable') : online ? undefined : t('common.needsConnection')}
@@ -296,7 +217,6 @@ function FileMenu({
   );
 }
 
-/** The menu-button: the trigger plus the menu it opens, closed on outside click. */
 export function FileMenuButton({ canSave, actions }: { canSave: boolean; actions: FileMenuActions }) {
   const { t } = useTranslation();
   const {
@@ -321,8 +241,6 @@ export function FileMenuButton({ canSave, actions }: { canSave: boolean; actions
         title={t('menu.open')}
         className="flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
       >
-        {/* The word goes below 2xl, where the header is tightest; the button is
-            still named 'Menu' there, by its own title attribute. */}
         <span aria-hidden>☰</span> <span className="hidden 2xl:inline">{t('menu.open')}</span>
       </button>
       {menuOpen && (

@@ -9,7 +9,6 @@ import { DEFAULT_HEADING_DEG } from '../../services/flight/windLevels';
 import { QNum } from './QNum';
 import { capFor, type LaunchSectionProps } from './launchSection';
 
-/** The launch rod (or rail, or tower): its length, angle and heading. */
 export function LaunchRodSection({
   launch,
   onChange,
@@ -20,7 +19,6 @@ export function LaunchRodSection({
   req,
   powerClass,
 }: LaunchSectionProps & {
-  /** See `LaunchPanel`'s `powerClass`: sets the angle the codes allow. */
   powerClass: PowerClass | null;
 }) {
   return (
@@ -44,12 +42,8 @@ export function LaunchRodSection({
         kind="deg"
         u={u}
         stepSi={degToRad(1)}
-        // Into the wind, the sign is the meaning: a negative angle launches
-        // with the wind, as on the desktop, whose rod angle runs -60 to 60
-        // and which the kernel flies as given (SimulationStatus rotates by
-        // the signed angle). The safety check judges the magnitude. With a
-        // fixed heading the direction field carries the meaning, so the box
-        // floors at 0.
+        // Into the wind, a negative angle launches with the wind, as desktop's
+        // SimulationStatus rotates by the signed angle; with a fixed heading it floors at 0.
         minSi={launch.launchIntoWind ? -MAX_ROD_ANGLE_RAD[powerClass ?? 'model'] : 0}
         maxSi={MAX_ROD_ANGLE_RAD[powerClass ?? 'model']}
         hint={
@@ -86,9 +80,7 @@ export function LaunchRodSection({
           stepSi={degToRad(5)}
           mixed={mixed('launchRodDirectionDeg')}
           value={launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG}
-          // Cleared means unset: the box shows 90 when unset, so writing 0
-          // for an emptied field would silently turn the default east into
-          // north.
+          // Cleared means unset: writing 0 would turn the default east into north.
           onChange={(v) => onChange({ launchRodDirectionDeg: v ?? undefined })}
         />
       )}

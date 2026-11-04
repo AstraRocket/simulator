@@ -37,7 +37,6 @@ describe('proposalFor', () => {
   it('puts the 10 m wind 10 m above the pad, then the height winds, then the pressure levels above them', () => {
     const levels = proposalFor(hour(), 1500).wind!.levels;
     expect(levels.slice(0, 4).map((l) => l.altitudeM)).toEqual([1510, 1580, 1620, 1680]);
-    // Pressure levels at or below the 180 m wind are left to the height winds.
     expect(levels.slice(4).every((l) => l.altitudeM > 1680)).toBe(true);
     const sorted = [...levels].sort((a, b) => a.altitudeM - b.altitudeM);
     expect(levels).toEqual(sorted);
@@ -61,8 +60,6 @@ describe('proposalFor', () => {
   });
 
   it('leaves out a pressure level at or above the surface pressure, whatever its height', () => {
-    // A sea-level pad given an 850 hPa surface: the 1000 to 850 hPa levels sit
-    // above it by height but below it by pressure.
     const a = proposalFor(hour(0), 0).atmosphere!;
     expect(a.every((l) => l.pressureHPa < 850)).toBe(true);
   });

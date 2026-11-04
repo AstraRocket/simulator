@@ -62,9 +62,7 @@ describe('findParent', () => {
   });
 
   it('returns null for a top-level node and for an id that is not there', () => {
-    // Null is a real answer here (a stage has no parent) as well as the "not
-    // found" result, so both are pinned: a search that conflated them would
-    // report the last-visited node instead.
+    // Null means both "a stage has no parent" and "not found", so both are pinned.
     expect(findParent(makeTree(), 's1')).toBeNull();
     expect(findParent(makeTree(), 'nope')).toBeNull();
   });
@@ -97,7 +95,6 @@ describe('immutable edits', () => {
 describe('mount + type rules', () => {
   it('findMounts returns every motor-mount node in order', () => {
     const t = makeTree();
-    // add a second mount under the body tube
     const two = addChild(t, 'b1', { id: 'm2', type: 'innertube', motorMount: true } as never);
     expect(findMounts(two).map((n) => n.id)).toEqual(['m1', 'm2']);
     expect(findMounts(makeTree()).map((n) => n.id)).toEqual(['m1']);
@@ -112,15 +109,13 @@ describe('mount + type rules', () => {
   it('allowedChildren maps parents, defaults undefined→stage, leaves→[]', () => {
     expect(allowedChildren('stage')).toContain('nosecone');
     expect(allowedChildren(undefined)).toEqual(allowedChildren('stage'));
-    expect(allowedChildren('parachute')).toEqual([]); // leaf, absent from the map
+    expect(allowedChildren('parachute')).toEqual([]);
   });
 
   it('hasCatalog / hasMaterial classify types', () => {
     expect(hasCatalog('nosecone')).toBe(true);
     expect(hasCatalog('trapezoidfinset')).toBe(false);
-    // An inner tube can be picked even though the catalog has no such type:
-    // it reads the body tube rows, which include motor mount tubes. See
-    // componentDb.catalogTypeFor.
+    // The catalog has no inner tube type; it reads the body tube rows (componentDb.catalogTypeFor).
     expect(hasCatalog('innertube')).toBe(true);
     expect(hasMaterial('bodytube')).toBe(true);
     expect(hasMaterial('parachute')).toBe(false);
@@ -149,17 +144,7 @@ describe('catalogPatch', () => {
     });
   });
 
-  /**
-   * Whether a cone is solid is the part's answer, not the last part's.
-   *
-   * The kernel reads it from the `filled` flag (`api/ComponentFactory` calls
-   * `setFilled`), and the catalog publishes it on every nose cone row: most are
-   * filled and some are not, the default PNC-50KA among them. A pick that left
-   * the flag alone would let whatever was there before decide, so a solid cone
-   * followed by a hollow one would fly solid at the hollow one's dimensions:
-   * several times the part's real mass, at the very nose, which moves the CG and
-   * the margin with it.
-   */
+  // The kernel reads solidness from `filled` (`api/ComponentFactory`), not the wall.
   describe('a nose cone picked after another', () => {
     const cone = (filled: boolean) =>
       ({ type: 'nosecone', shape: 'ogive', length: 0.1, outerDiameter: 0.05, filled }) as unknown as Component;
@@ -169,15 +154,11 @@ describe('catalogPatch', () => {
     it('stops being solid when the part it replaces was', () => {
       const patch = catalogPatch(cone(false), solidNode);
       expect(patch).toMatchObject({ filled: false });
-      // And its wall is a wall. The replaced node's 30 mm was the whole radius
-      // of a solid part; carried over it would keep this 25 mm cone solid.
       expect(patch.thickness).toBe(KERNEL_DEFAULTS.nosecone.thickness);
       expect(patch.thickness!).toBeLessThan(0.025);
     });
 
     it('keeps a wall that is already a wall', () => {
-      // 1.3 mm was typed for this airframe; a different hollow cone is no
-      // reason to throw it away, and the row states no wall of its own.
       expect(catalogPatch(cone(false), hollowNode)).toMatchObject({ filled: false });
       expect(catalogPatch(cone(false), hollowNode).thickness).toBeUndefined();
     });
@@ -187,7 +168,6 @@ describe('catalogPatch', () => {
     });
 
     it('still answers with no node to compare against', () => {
-      // The picker always has one, but the function is reachable without.
       expect(catalogPatch(cone(false))).toMatchObject({
         filled: false,
         thickness: KERNEL_DEFAULTS.nosecone.thickness,
@@ -195,7 +175,6 @@ describe('catalogPatch', () => {
     });
 
     it('is still what the kernel reads solidness from', () => {
-      // The one thing holding this to the engine: the flag, not the thickness.
       const factory = readFileSync(
         resolve(process.cwd(), '../engine-java/src/api/java/api/ComponentFactory.java'),
         'utf8',
@@ -214,7 +193,7 @@ describe('catalogPatch', () => {
     } as unknown as Component;
     const wallPatch = catalogPatch(wall) as { outerRadius: number; length: number; thickness: number };
     expect(wallPatch).toMatchObject({ outerRadius: 0.025, length: 0.2 });
-    expect(wallPatch.thickness).toBeCloseTo(0.001, 9); // (OD−ID)/2
+    expect(wallPatch.thickness).toBeCloseTo(0.001, 9);
     const paper = {
       type: 'bodytube',
       outerDiameter: 0.05,
@@ -222,7 +201,7 @@ describe('catalogPatch', () => {
       length: 0.2,
       materialDensity: 800,
     } as unknown as Component;
-    expect((catalogPatch(paper) as { thickness: number }).thickness).toBe(0.0001); // clamped
+    expect((catalogPatch(paper) as { thickness: number }).thickness).toBe(0.0001);
   });
 
   it('defaults parachute Cd to 0.8 when the catalog omits it', () => {
@@ -264,7 +243,6 @@ describe('catalogPatch', () => {
       lineDensity: 0.00066,
       length: 0.058,
       radius: 0.025,
-      // Both packed sizes stated: the radius follows the bore, as on the desktop.
       radiusAuto: true,
       overrideMass: 0.035,
     });
@@ -286,15 +264,11 @@ describe('catalogPatch', () => {
       radius: 0.02,
       radiusAuto: false,
     });
-    // A zero mass is no mass: no override, rather than a weightless canopy.
     expect(patch['overrideMass']).toBeUndefined();
-    // No packed length stated, so the part keeps the one it had.
     expect(patch).not.toHaveProperty('length');
   });
 
   it('applies a saved part without the keys a saved part never keeps', () => {
-    // A stored entry from storage can carry anything; applying its id, type,
-    // name, position or children would duplicate an id or change the part.
     const patch = catalogPatch({
       type: 'bodytube',
       custom: true,
@@ -329,9 +303,9 @@ describe('sibling ordering', () => {
     const t = makeTree();
     const down = moveNode(t, 'n1', 1);
     expect(down.components[0]!.children!.map((c) => c.id)).toEqual(['b1', 'n1']);
-    const edge = moveNode(t, 'n1', -1); // already first → unchanged order
+    const edge = moveNode(t, 'n1', -1);
     expect(edge.components[0]!.children!.map((c) => c.id)).toEqual(['n1', 'b1']);
-    expect(t.components[0]!.children!.map((c) => c.id)).toEqual(['n1', 'b1']); // original intact
+    expect(t.components[0]!.children!.map((c) => c.id)).toEqual(['n1', 'b1']);
   });
 });
 
@@ -355,8 +329,7 @@ describe('recovery-device defaults', () => {
 
   it('streamer defaults use stripLength/stripWidth (not length/width) + automatic Cd + apogee', () => {
     const s = defaultNode('streamer') as Record<string, unknown>;
-    // The editor, engine and .ork all key on stripLength/stripWidth; a default
-    // under length/width would silently drop streamer sizing.
+    // The editor, engine and .ork all key on stripLength/stripWidth, not length/width.
     expect(s.stripLength).toBeGreaterThan(0);
     expect(s.stripWidth).toBeGreaterThan(0);
     expect(s.length).toBeUndefined();
@@ -411,7 +384,7 @@ describe('addStage', () => {
     const { tree, id } = addStage(makeTree());
     const stages = stageNodes(tree);
     expect(stages).toHaveLength(2);
-    expect(stages[1]!.id).toBe(id); // appended last (the bottom booster)
+    expect(stages[1]!.id).toBe(id);
     expect(stages[1]!.name).toBe(defaultStageName(1));
     expect(stages[1]!.name).toBe('Booster 1');
     expect(stages[1]!.children ?? []).toHaveLength(0);
@@ -422,7 +395,7 @@ describe('addStage', () => {
     const once = addStage(t).tree;
     const twice = addStage(once).tree;
     expect(stageNodes(twice).map((s) => s.name)).toEqual([undefined, 'Booster 1', 'Booster 2']);
-    expect(t.components).toHaveLength(1); // immutable: original unchanged
+    expect(t.components).toHaveLength(1);
   });
 });
 
@@ -437,8 +410,6 @@ describe('stage helpers', () => {
 
 describe('addPart enforces allowedChildren', () => {
   it('adds under the nearest ancestor that may host the type when the selection cannot', () => {
-    // A fin set is a leaf; a bulkhead added with it selected belongs in the
-    // fin's body tube, which is where the desktop would put it.
     const { tree, id } = addPart(makeTree(), 'bulkhead', 'f1');
     expect(findNode(tree, 'b1')!.children!.some((c) => c.id === id)).toBe(true);
     expect(findNode(tree, 'f1')!.children ?? []).toHaveLength(0);
@@ -450,8 +421,6 @@ describe('addPart enforces allowedChildren', () => {
   });
 
   it('throws rather than building a tree the kernel would never see from the desktop', () => {
-    // Nothing above a bare stage can host a bulkhead: a caller bug, not a
-    // design to silently produce.
     const bare = { components: [{ id: 's1', type: 'stage', children: [] }] } as unknown as RocketTree;
     expect(() => addPart(bare, 'bulkhead', 's1')).toThrow(/cannot be added/);
     expect(() => addPart(bare, 'bulkhead', null)).toThrow(/cannot be added/);
@@ -462,15 +431,12 @@ describe('updateNode path-copies the spine only', () => {
   it('shares every untouched node with the input and copies the patched path', () => {
     const t = makeTree();
     const next = updateNode(t, 'f1', { rootChord: 0.1 } as never);
-    // Spine: root -> s1 -> b1 -> f1 are new objects...
     expect(next).not.toBe(t);
     expect(findNode(next, 's1')).not.toBe(findNode(t, 's1'));
     expect(findNode(next, 'b1')).not.toBe(findNode(t, 'b1'));
     expect(findNode(next, 'f1')).not.toBe(findNode(t, 'f1'));
-    // ...and everything off it is the same object (no per-keystroke deep clone).
     expect(findNode(next, 'n1')).toBe(findNode(t, 'n1'));
     expect(findNode(next, 'm1')).toBe(findNode(t, 'm1'));
-    // The input is untouched.
     expect((findNode(t, 'f1') as { rootChord?: number }).rootChord).toBeUndefined();
     expect((findNode(next, 'f1') as { rootChord?: number }).rootChord).toBe(0.1);
   });
@@ -479,15 +445,11 @@ describe('updateNode path-copies the spine only', () => {
     const t = makeTree();
     const next = updateNode(t, 'nope', { length: 1 } as never);
     expect(next).not.toBe(t);
-    expect(next.components).toBe(t.components); // nothing to copy
+    expect(next.components).toBe(t.components);
   });
 });
 
-/**
- * A rail button from the catalog, as RailButton.loadFromPreset applies it: the
- * button's geometry, and the button, screw and nut masses together as its mass
- * override. One that states no mass or Cd clears the overrides.
- */
+// RailButton.loadFromPreset: button, screw and nut masses together are the mass override.
 describe('catalogPatch for a rail button', () => {
   const row = {
     type: 'railbutton',
@@ -525,8 +487,7 @@ describe('catalogPatch for a rail button', () => {
   });
 
   it('leaves the overrides alone for a part that states neither', () => {
-    // RailButton.loadFromPreset sets the mass override only when the preset has
-    // a MASS, SCREW_MASS or NUT_MASS, and the drag override only for a CD > 0.
+    // RailButton.loadFromPreset overrides mass only for a MASS, SCREW_MASS or NUT_MASS, and drag only for CD > 0.
     const patch = catalogPatch({ ...row, mass: undefined } as never);
     expect('overrideMass' in patch).toBe(false);
     expect('overrideCD' in patch).toBe(false);
@@ -537,11 +498,7 @@ describe('catalogPatch for a rail button', () => {
   });
 });
 
-/**
- * A centering ring from the catalog, as RadiusRingComponent.loadFromPreset
- * applies it: the inner radius only when the part states one, with the bore no
- * longer automatic either way.
- */
+// RadiusRingComponent.loadFromPreset: inner radius only when stated, bore no longer automatic either way.
 describe('catalogPatch for a centering ring', () => {
   const row = {
     type: 'centeringring',
@@ -568,10 +525,7 @@ describe('catalogPatch for a centering ring', () => {
     expect(patch['innerRadiusAuto']).toBe(false);
   });
 
-  // RadiusRingComponent.loadFromPreset stores a stated bore unchecked, and
-  // getThickness reads a bore past the outer radius as no wall. The patch holds
-  // the bore at the outer radius, the bound the panel puts on a typed bore.
-  // Quest CR2924 states a 28.8 mm bore in a 25.25 mm ring.
+  // RadiusRingComponent.loadFromPreset stores a stated bore unchecked; the patch holds it at the outer radius.
   it('holds a stated bore inside the outer radius', () => {
     const patch = catalogPatch({ ...row, outerDiameter: 0.02525, innerDiameter: 0.0288 } as never);
     expect(patch['outerRadius']).toBe(0.02525 / 2);
@@ -586,9 +540,7 @@ describe('catalogPatch for a centering ring', () => {
 });
 
 describe('a new pod set or parallel stage', () => {
-  // The booster's seed tube is slim on purpose. A new body tube is automatic,
-  // and an automatic tube with no neighbor in its own chain resolves to the
-  // kernel's SymmetricComponent.DEFAULT_RADIUS (25 mm), so the seed has to be fixed.
+  // An automatic tube with no neighbor resolves to SymmetricComponent.DEFAULT_RADIUS (25 mm), so the seed is fixed.
   it('keeps the parallelstage seed tube at 9 mm radius once added', () => {
     const { tree, id } = addPart(makeTree(), 'parallelstage', 'b1');
     const tube = findNode(tree, id)!.children![0]!;
@@ -597,7 +549,6 @@ describe('a new pod set or parallel stage', () => {
     expect(tube['outerRadius']).toBe(0.009);
   });
 
-  // A pod set arrives as PodSet() does: two copies with nothing in them.
   it('adds an empty pod set of two copies', () => {
     const { tree, id } = addPart(makeTree(), 'podset', 'b1');
     const pods = findNode(tree, id)!;
@@ -606,10 +557,7 @@ describe('a new pod set or parallel stage', () => {
   });
 });
 
-/**
- * The catalog link follows the kernel's `clearPreset()` callers: an edit through
- * a setter that calls it drops the `<preset>`, any other edit keeps it.
- */
+// The catalog link follows the kernel's `clearPreset()` callers.
 describe('updateNode and the catalog link', () => {
   const LINK = { type: 'x', manufacturer: 'Estes', partNo: 'P1' };
   const kept = (node: Record<string, unknown>, patch: Record<string, unknown>) => {
@@ -630,8 +578,7 @@ describe('updateNode and the catalog link', () => {
     [{ type: 'parachute', lineCount: 6 }, { lineLength: 0.5 }],
     // Streamer.setStripWidth
     [{ type: 'streamer' }, { stripWidth: 0.06 }],
-    // A shoulder grown from 0 seeds its radius through setForeShoulderRadius
-    // (Transition.java:514-515), which clears the link (:459)
+    // A shoulder grown from 0 seeds its radius via setForeShoulderRadius (Transition.java:514-515, :459)
     [{ type: 'transition' }, { foreShoulderLength: 0.02 }],
     // A shoulder set back to 0 zeroes its radius the same way (Transition.java:502-504)
     [{ type: 'nosecone', shoulderLength: 0.02, shoulderRadius: 0.01 }, { shoulderLength: 0 }],
@@ -653,12 +600,10 @@ describe('updateNode and the catalog link', () => {
     [{ type: 'parachute', lineCount: 0 }, { lineLength: 0.5 }],
     // Transition.setClipped, the shoulder lengths
     [{ type: 'transition' }, { clipped: false }],
-    // A shoulder length that does not cross 0, or grows from 0 onto a radius
-    // already set, leaves the radius alone (Transition.java:514, :524-525)
+    // A shoulder length not crossing 0, or onto a set radius, leaves it alone (Transition.java:514, :524-525)
     [{ type: 'transition', foreShoulderLength: 0.01, foreShoulderRadius: 0.01 }, { foreShoulderLength: 0.02 }],
     [{ type: 'transition', foreShoulderRadius: 0.01 }, { foreShoulderLength: 0.02 }],
-    // A setter given the value it already holds returns before clearPreset():
-    // BodyTube.setOuterRadius, RingComponent.setLength, ExternalComponent.setMaterial
+    // Same value returns before clearPreset(): BodyTube.setOuterRadius, RingComponent.setLength, ExternalComponent.setMaterial
     [{ type: 'bodytube', outerRadius: 0.02 }, { outerRadius: 0.02 }],
     [{ type: 'tubecoupler', length: 0.05 }, { length: 0.05 }],
     [
@@ -693,8 +638,7 @@ describe('updateNode and the catalog link', () => {
     expect(transition).toContain(
       'if (MathUtil.equals(this.foreShoulderRadius, foreShoulderRadius)) return; this.foreShoulderRadius = foreShoulderRadius;',
     );
-    // A flip moves the base through the radius setters, which clear the link
-    // unless the value is unchanged (the 24.12 release's bytecode is the same).
+    // The radius setters clear the link unless the value is unchanged.
     expect(java('NoseCone.java')).toContain(
       'if (flipped) { setForeRadius(getAftRadius()); setForeRadiusAutomatic(isAftRadiusAutomatic(), sanityCheck);',
     );
@@ -703,11 +647,7 @@ describe('updateNode and the catalog link', () => {
     );
   });
 
-  /**
-   * An automatic shoulder takes the bore of the tube it plugs. On the desktop
-   * that diameter is typed into the shoulder, and `setShoulderRadius` clears
-   * the link when the value changes, so turning the flag on is the same edit.
-   */
+  // On desktop the bore is typed into the shoulder, and `setShoulderRadius` clears the link when it changes.
   describe('an automatic shoulder turned on', () => {
     const design = (shoulderRadius: number) =>
       ({
@@ -736,7 +676,6 @@ describe('updateNode and the catalog link', () => {
     it('drops the link when the shoulder moves to the bore', () => {
       const out = updateNode(design(0.01), 'p', { shoulderAuto: true });
       const p = findNode(out, 'p')!;
-      // The bore it follows: the tube's radius less its wall.
       expect(p['shoulderRadius']).toBeCloseTo(0.0125 - 0.0005, 12);
       expect(p['preset']).toBeUndefined();
     });

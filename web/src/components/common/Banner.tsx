@@ -5,12 +5,7 @@ const TONE = {
   neutral: 'border-line/10 bg-surface text-ink-soft',
 } as const;
 
-/**
- * A full-width strip under the header: an update, a catalog change, a storage
- * or build problem, the engine still loading. `role` is the caller's, since a
- * banner that is always mounted holds its live region on a wrapper instead.
- * `onDismiss` adds the closing ✕ at the end of the row.
- */
+/** `role` is the caller's, since an always-mounted banner holds its live region on a wrapper. */
 export function Banner({
   tone,
   role,

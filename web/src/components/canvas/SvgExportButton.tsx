@@ -3,12 +3,6 @@ import { errorText } from '../../i18n/keyedError';
 import { SVG_MIME } from '../../services/exports/schematicExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 
-/**
- * The 2D and 3D views' "⬇ SVG" button: builds the drawing, saves it as
- * `<design>-<view>.svg`, and reports a failure through `onError` rather than
- * letting a click handler throw into nothing. `build` returns null when there
- * is nothing to draw yet (no canvas mounted), which saves nothing.
- */
 export function SvgExportButton({
   title,
   name,

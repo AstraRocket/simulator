@@ -20,10 +20,7 @@ window.matchMedia = ((query: string) => ({
 
 afterEach(() => act(() => st().clearSimPrefs()));
 
-/**
- * The bridge casts the seed with Java's `(int)`, so the field has to hold the
- * seed that will actually fly, not a number the cast will change.
- */
+/** The bridge casts the seed with Java's `(int)`, so the field holds the seed that flies. */
 describe('the random seed', () => {
   it('truncates and saturates the way the bridge does', () => {
     expect(seedFromInput(3.7)).toBe(3);
@@ -78,7 +75,6 @@ describe('the time-step slider', () => {
   });
 });
 
-/** The override field offers the range the kernel flies: 1 to 20 degrees. */
 describe('the max angle step override', () => {
   it('is bounded to the kernel range', () => {
     renderWithProviders(<SimEditor />);
@@ -106,10 +102,6 @@ describe('the max angle step override', () => {
   });
 });
 
-/**
- * Reset and "Save as default" act on every row the editor targets, so what
- * enables them is read from all of those rows, not from the active one alone.
- */
 describe('the option buttons with several rows ticked', () => {
   const tick = (prefsOf: (i: number) => Record<string, number> | undefined) =>
     act(() => {
@@ -148,11 +140,7 @@ describe('the option buttons with several rows ticked', () => {
   });
 });
 
-/**
- * Ticking a second row turns the editor on every ticked simulation. The status
- * that says so has to be on the page, empty, before the tick: a live region
- * created together with its text is not announced.
- */
+/** A live region created together with its text is not announced, so it must exist empty first. */
 describe('the multi-edit status', () => {
   it('is the same live region before and after a second row is ticked', () => {
     const first = selectActive(st()).id;

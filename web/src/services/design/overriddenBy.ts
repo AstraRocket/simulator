@@ -1,7 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { lineageOf } from '../../tree/treeWalk';
 
-/** Which override: the node's value key and the "all subcomponents" flag beside it. */
 export type OverrideKind = 'mass' | 'cg' | 'cd';
 
 const KEYS: Record<OverrideKind, { value: string; sub: string }> = {
@@ -10,18 +9,9 @@ const KEYS: Record<OverrideKind, { value: string; sub: string }> = {
   cd: { value: 'overrideCD', sub: 'overrideSubcomponentsCD' },
 };
 
-/**
- * The ancestor whose override of `kind` also covers this part, or null.
- *
- * The kernel's `getMassOverriddenBy` (and its CG and CD twins): an ancestor
- * that overrides the value and applies it to all its subcomponents decides it
- * for everything inside it, and the outermost such ancestor wins, since its
- * value replaces the whole subtree's, inner overrides included. Desktop names
- * that ancestor on the part's override tab and locks the part's own override.
- */
+/** Kernel `getMassOverriddenBy`: the outermost overriding ancestor wins. */
 export function overriddenBy(tree: RocketTree, id: string, kind: OverrideKind): ComponentNode | null {
   const { value, sub } = KEYS[kind];
-  // The outermost such ancestor: the one whose override covers the rest.
   const overriding = lineageOf(tree.components, id)
     .slice(1)
     .filter((p) => typeof p[value] === 'number' && p[sub] === true);

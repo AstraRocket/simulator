@@ -3,21 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * A `.ork` brings the thrust curve of every motor it uses, so the file opens on an
- * install that does not have them. Discarded with the rest of the archive, a design
- * built on anything outside our catalog opens with an empty mount and a blocked
- * run, with the answer sitting unread in the file.
- *
- * Two paths have to use it, neither ending at the unresolved placeholder: the
- * catalog not knowing the designation at all, and the catalog knowing it but the
- * curve download failing.
- *
- * The engine, the parser, the catalog and the spec builder are mocked: what is
- * under test is the wiring decision, not the kernel or the `.rse` reader.
- *
- * jsdom, because the `.rse` reader parses XML.
- */
+// jsdom, because the `.rse` reader parses XML.
 
 const design = {
   setMotorById: vi.fn(),
@@ -26,12 +12,11 @@ const design = {
 };
 
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: { buildTree: () => design },
   resetEngine: () => {},
 }));
 
-/** The design names `J350-6`; the embedded curve is for the motor `J350`. */
 const RSE = `<engine-database><engine-list>
  <engine code="J350" mfg="AeroTech" Type="single-use" dia="38." len="326."
          initWt="878." propWt="496." Itot="712.9" avgThrust="350." peakThrust="480."
@@ -50,8 +35,7 @@ const embedded = { value: [RSE] as string[] | undefined };
 vi.mock('../../../src/services/files/designFile', () => ({
   parseDesignFile: () => ({
     tree: { name: 'Big', components: [] },
-    // A delay on the designation, as a `.ork` writes it: the mount chooses the
-    // delay, so the embedded curve is named without one.
+    // A `.ork` designation carries the delay; the embedded curve is named without it.
     motors: { mount1: { designation: 'J350-6', manufacturer: 'AeroTech', delay: 6, diameter: 0.038, length: 0.326 } },
     notes: [],
     ignored: [],
@@ -76,10 +60,7 @@ vi.mock('../../../src/services/motors/motorDb', () => ({
 
 const { loadOrk } = await import('../../../src/services/files/loadOrk');
 
-// A full curve, because the seating step only hands the kernel a motor it can
-// accept: a curve-less spec is what an unresolved motor looks like, and seating
-// one throws "Too short thrust-curve" (motorCurve.hasUsableCurve). The dimensions
-// are checked with it, as the kernel reads them too.
+// A full curve: seating a curve-less spec throws "Too short thrust-curve".
 const SPEC = {
   designation: 'J350',
   diameter: 0.038,
@@ -106,12 +87,9 @@ describe('a motor the catalog does not have', () => {
   });
 
   it('matches the curve by designation WITHOUT the delay', async () => {
-    // The file says `J350-6`, the curve says `J350`, so the delay has to be
-    // stripped: matched verbatim the two never meet.
     await loadOrk(new ArrayBuffer(0));
     const motor = customMotorToSpec.mock.calls[0]![0] as { designation: string };
     expect(motor.designation).toContain('J350');
-    // The mount's delay is still what gets applied to the spec.
     expect(customMotorToSpec.mock.calls[0]![1]).toBe(6);
   });
 
@@ -124,8 +102,6 @@ describe('a motor the catalog does not have', () => {
     embedded.value = undefined;
     const res = await loadOrk(new ArrayBuffer(0));
     expect(customMotorToSpec).not.toHaveBeenCalled();
-    // The unresolved placeholder, as with no embedded curve support at all: the
-    // run gate blocks rather than a C6 flying under an L-motor design.
     expect(res.configs[0]!.motors['mount1']!.spec.thrusts).toEqual([]);
     expect(noteTexts(res.notes).join('\n')).toMatch(/pick a motor for that mount/i);
   });

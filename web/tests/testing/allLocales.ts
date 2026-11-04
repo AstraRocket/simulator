@@ -1,11 +1,6 @@
 import i18n from '../../src/i18n';
 
-/**
- * Every locale registered before a test runs. The app fetches a non-English
- * bundle when it is chosen, so `changeLanguage` settles a tick later; the tests
- * switch language and read the next render straight away, which needs the
- * bundle already in place.
- */
+// The app fetches non-English bundles on demand, so `changeLanguage` settles a tick late.
 const bundles = import.meta.glob<{ default: Record<string, unknown> }>('../../src/i18n/locales/*.json', {
   eager: true,
 });

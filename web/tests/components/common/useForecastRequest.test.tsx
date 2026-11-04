@@ -5,7 +5,6 @@ import { useForecastRequest, type ForecastState } from '../../../src/components/
 
 type Answer = { speedMs: number };
 
-/** The request the forecast tools share: one at a time, nothing written from a replaced one. */
 describe('useForecastRequest', () => {
   it('writes loading, then the ready answer, and resolves it', async () => {
     const { result } = renderHook(() => useForecastRequest());

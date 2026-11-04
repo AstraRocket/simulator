@@ -6,12 +6,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { useWorkspaceStore } from '../../../src/state/store';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The editor belongs to one part. An await still running in it (a custom
- * material being saved, say) applies its result through the selection, so if
- * the same editor stayed mounted when another part of the same kind was
- * selected, the result would land on that part instead.
- */
 describe('the property editor and the selection', () => {
   const tree = {
     name: 'Two tubes',

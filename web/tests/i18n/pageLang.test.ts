@@ -2,7 +2,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import i18n from '../../src/i18n';
 
-/** A screen reader picks its voice from the page's `lang`, so it follows the UI. */
 describe('the page language', () => {
   afterAll(async () => {
     await i18n.changeLanguage('en');

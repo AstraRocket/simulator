@@ -14,10 +14,6 @@ import { QNum } from './QNum';
 import { capFor, type LaunchSectionProps } from './launchSection';
 import type { LaunchConditions } from '../../services/design/orkTree';
 
-/**
- * The base atmosphere at the site: temperature, pressure and humidity, a
- * forecast profile when one was fetched, and the Weather dialog that fetches it.
- */
 export function AtmosphereSection({
   launch,
   onChange,
@@ -29,21 +25,13 @@ export function AtmosphereSection({
   weather,
   weatherKey,
 }: LaunchSectionProps & {
-  /** Passed through to the Weather dialog; see `LaunchPanel`. */
   diff?: ReadonlySet<keyof LaunchConditions>;
-  /** Offer the Weather dialog; see `LaunchPanel`. */
   weather: boolean;
-  /** Offer the Open-Meteo API key; see `LaunchPanel`. */
   weatherKey: boolean;
 }) {
   const [weatherOpen, setWeatherOpen] = useState(false);
-  // Opened from the source line's Refresh rather than the Get weather button.
   const [weatherRefresh, setWeatherRefresh] = useState(false);
   const atmosphereLevels = launch.atmosphereLevels ?? [];
-  // A typed pressure well above the standard pressure at the site's elevation
-  // is probably a sea-level figure (see services/flight/sitePressure). The
-  // standard pressure is the kernel's, so nothing here re-derives the
-  // atmosphere; until the engine is up there is simply no check.
   const engineReady = useEngineReady();
   const pressureExcess = useMemo(() => {
     if (!engineReady || launch.pressureHPa == null || launch.launchAltitudeM == null) return null;
@@ -79,9 +67,7 @@ export function AtmosphereSection({
         label={t('launch.temperature')}
         field="temperature"
         kind="degC"
-        // -90 to 70 degrees C, below and above any recorded air temperature.
-        // In kelvin, because a QNum bound is SI: written as -90 and 70 they
-        // would cap every entry at 70 K, about -203 degrees C.
+        // QNum bounds are SI (kelvin): raw -90 and 70 would cap entries at 70 K.
         minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
         maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
         u={u}
@@ -97,9 +83,7 @@ export function AtmosphereSection({
         kind="hPa"
         u={u}
         stepSi={100}
-        // Stored in hPa; bounds are SI (Pa), as for every QNum. 300 hPa is
-        // below the pressure at the top of Everest, 1100 hPa is past any
-        // recorded surface high.
+        // Stored in hPa; bounds are SI (Pa).
         minSi={30_000}
         maxSi={110_000}
         placeholder={t('launch.isa')}
@@ -115,10 +99,7 @@ export function AtmosphereSection({
         value={launch.pressureHPa}
         onChange={(v) => onChange({ pressureHPa: v })}
       />
-      {/* Stored as the kernel's 0..1 fraction, typed as the percent everyone
-          reads off a forecast. Blank is ISA, like the two fields above, and
-          humidity alone is enough to leave standard: the bridge only keeps
-          ISA when all three are absent. */}
+      {/* Stored as a 0..1 fraction, typed as a percent. */}
       <NumberRow
         label={t('launch.humidity')}
         unit="%"
@@ -130,9 +111,6 @@ export function AtmosphereSection({
         value={launch.relativeHumidity == null ? null : Math.round(launch.relativeHumidity * 100)}
         onChange={(v) => onChange({ relativeHumidity: v == null ? null : v / 100 })}
       />
-      {/* A forecast atmosphere replaces the standard one above the site. It
-          is shown and can be removed here, where the standard atmosphere's
-          own fields are, so nothing flies that the panel does not show. */}
       {atmosphereLevels.length > 0 && (
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs text-ink-muted">

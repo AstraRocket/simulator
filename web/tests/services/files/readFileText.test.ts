@@ -4,7 +4,6 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { MAX_IMPORT_FILE_BYTES, decodeFileText, readFileText } from '../../../src/services/files/decodeText';
 
-/** UTF-16LE with its byte order mark, as Windows tools write it. */
 const utf16le = (s: string): Blob => {
   const bytes = new Uint8Array(2 + s.length * 2);
   bytes[0] = 0xff;
@@ -32,7 +31,6 @@ describe('readFileText', () => {
   });
 
   describe('a declared encoding', () => {
-    /** The text as single bytes: each char code is one byte, as Latin-1 writes it. */
     const latin1 = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 
     it('reads an ISO-8859-1 file by its declaration, as an XML parser does', () => {
@@ -51,7 +49,6 @@ describe('readFileText', () => {
       expect(decodeFileText(latin1('G80 29 124 4-7-10 0.0625 0.123 Lóki\n'))).toBe(
         'G80 29 124 4-7-10 0.0625 0.123 Lóki\n',
       );
-      // The same name in UTF-8 is not read the other way.
       expect(decodeFileText(new TextEncoder().encode('Lóki'))).toBe('Lóki');
     });
 

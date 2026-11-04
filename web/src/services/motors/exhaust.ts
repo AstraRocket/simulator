@@ -3,22 +3,14 @@ import { collectNodes, stageNodes } from '../../tree/treeWalk';
 import type { FlightConfig } from '../flight/flightConfigs';
 import type { CatalogMotor } from './motorDb';
 
-/**
- * How a motor's exhaust looks in the 3D flight: the flame's three colors from
- * the nozzle out, how thick a smoke trail it leaves, the smoke's color, and
- * whether it throws sparks. A look, not a measurement: it is picked from the
- * propellant's name so a Blackjack flight reads as one at a glance.
- */
 export interface Exhaust {
-  /** Flame colors: at the nozzle, the middle, the flared edge. */
+  /** At the nozzle, the middle, the flared edge. */
   flame: readonly [string, string, string];
-  /** Smoke opacity at the nozzle, 0 (none) to 1. */
   smoke: number;
   smokeColor: string;
   sparks: boolean;
 }
 
-/** The looks, by name: `classic` is the default, the rest are matched from the propellant. */
 export const EXHAUST_IDS = [
   'classic',
   'powder',
@@ -33,14 +25,8 @@ export const EXHAUST_IDS = [
 ] as const;
 export type ExhaustId = (typeof EXHAUST_IDS)[number];
 
-/**
- * The delay grain's smoke between burnout and the ejection charge: a thin,
- * pale tracking trail, much the same whatever the propellant was, since the
- * delay grain is its own slow-burning composition.
- */
 export const DELAY_SMOKE: Pick<Exhaust, 'smoke' | 'smokeColor'> = { smoke: 0.35, smokeColor: '#cfcdc6' };
 
-/** The flame the scene drew before propellants had a look: an orange composite. */
 export const DEFAULT_EXHAUST: Exhaust = {
   flame: ['#fff4cf', '#ffb020', '#ff4d10'],
   smoke: 0.45,
@@ -48,11 +34,7 @@ export const DEFAULT_EXHAUST: Exhaust = {
   sparks: false,
 };
 
-/**
- * The looks, matched in order against the propellant's name, lowercased: the
- * first whose words appear wins, so "White Lightning/Warp 9" reads as White
- * Lightning and "Super White Lightning" is not taken for a "Super" fast one.
- */
+// Order matters: first match wins, so "White Lightning/Warp 9" reads as White Lightning.
 const LOOKS: readonly { id: ExhaustId; words: readonly string[]; look: Exhaust }[] = [
   {
     id: 'powder',
@@ -90,13 +72,11 @@ const LOOKS: readonly { id: ExhaustId; words: readonly string[]; look: Exhaust }
     words: ['green'],
     look: { flame: ['#f4fff0', '#8cff5a', '#2fbf2a'], smoke: 0.45, smokeColor: '#d8e0d4', sparks: false },
   },
-  // Fast, hot, clean composites.
   {
     id: 'fast',
     words: ['warp', 'vmax', 'imax', 'fast', 'super thunder', 'propellant x', 'rapid'],
     look: { flame: ['#ffffff', '#fff6d0', '#ffd070'], smoke: 0.2, smokeColor: '#e8e8e4', sparks: false },
   },
-  // Hybrids burn a plastic grain in nitrous: a pale flame and next to no smoke.
   {
     id: 'hybrid',
     words: ['nitrous', 'hybrid', 'tribrid'],
@@ -104,7 +84,6 @@ const LOOKS: readonly { id: ExhaustId; words: readonly string[]; look: Exhaust }
   },
 ];
 
-/** Every look, the default first, in the order the gallery shows them. */
 export const EXHAUST_LOOKS: readonly { id: ExhaustId; look: Exhaust }[] = [
   { id: 'classic', look: DEFAULT_EXHAUST },
   ...LOOKS.map(({ id, look }) => ({ id, look })),
@@ -112,10 +91,6 @@ export const EXHAUST_LOOKS: readonly { id: ExhaustId; look: Exhaust }[] = [
 
 type MotorLook = Pick<CatalogMotor, 'propInfo' | 'sparky' | 'type'>;
 
-/**
- * Which look a catalog motor takes: by its propellant's name, else hybrid for a
- * hybrid, else the default.
- */
 export function exhaustIdFor(motor: MotorLook | undefined): ExhaustId {
   if (!motor) return 'classic';
   const name = (motor.propInfo ?? '').toLowerCase();
@@ -123,21 +98,13 @@ export function exhaustIdFor(motor: MotorLook | undefined): ExhaustId {
   return hit?.id ?? (motor.type === 'hybrid' ? 'hybrid' : 'classic');
 }
 
-/** The look for a catalog motor (`exhaustIdFor`). The catalog's `sparky` flag adds sparks to any look. */
 export function exhaustFor(motor: MotorLook | undefined): Exhaust {
   const id = exhaustIdFor(motor);
   const look = EXHAUST_LOOKS.find((l) => l.id === id)!.look;
   return motor?.sparky && !look.sparks ? { ...look, sparks: true } : look;
 }
 
-/**
- * One look per burn, in the order the burns happen: the bottom stage lights
- * first, so the stages are read bottom up, each by the first of its motors the
- * catalog knows. A stage with nothing seated has no burn and no look.
- *
- * `find` is how a seated motor is looked up in the catalog (`findSeated`),
- * passed in so this stays free of the dialog that owns it.
- */
+/** In burn order, bottom stage first. */
 export function burnExhausts(
   tree: RocketTree,
   config: FlightConfig,

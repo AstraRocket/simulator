@@ -3,12 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * A component tag the reader cannot import is named once in the banner, not
- * once by the reader and again by the loader. The real readers run here; only
- * the kernel and the motor catalog are stubbed.
- */
-
 const design = {
   setMotorById: vi.fn(),
   setMotorIgnitionById: vi.fn(),
@@ -16,7 +10,7 @@ const design = {
 };
 
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: { buildTree: () => design },
   resetEngine: () => {},
 }));

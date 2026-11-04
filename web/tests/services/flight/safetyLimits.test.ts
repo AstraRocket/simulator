@@ -29,14 +29,10 @@ describe('launchLimitViolations', () => {
           { ...base, launchRodAngleDeg: MAX_ROD_ANGLE_DEG[cls], windAverage: MAX_WIND_SPEED_MS },
           cls,
         ),
-      ).toEqual([]); // the limit itself is allowed
+      ).toEqual([]);
     }
   });
 
-  /**
-   * The NAR Model Rocket Safety Code allows a launcher within 30 degrees of
-   * vertical; the NAR and Tripoli high power codes within 20.
-   */
   it('allows a model rocket 25 degrees and refuses a high power rocket', () => {
     expect(MAX_ROD_ANGLE_DEG).toEqual({ model: 30, highPower: 20 });
     expect(launchLimitViolations({ ...base, launchRodAngleDeg: 25 }, 'model')).toEqual([]);
@@ -52,24 +48,16 @@ describe('launchLimitViolations', () => {
       limit: MAX_ROD_ANGLE_RAD.model,
       powerClass: 'model',
     });
-    // Tilting the other way is the same deviation from vertical.
     expect(launchLimitViolations({ ...base, launchRodAngleDeg: -31 }, 'model')[0]).toMatchObject({ field: 'rodAngle' });
   });
 
   it('flags wind past the cap, and reports it in SI', () => {
-    // A violation carries SI, so `limitText` can put it in whatever unit the
-    // reader has selected. The codes' own 20 mph lives in MAX_WIND_SPEED_MS.
     const v = launchLimitViolations({ ...base, windAverage: 20 }, 'model')[0]!;
     expect(v.field).toBe('windSpeed');
     expect(v.value).toBe(20);
     expect(v.limit).toBe(MAX_WIND_SPEED_MS);
   });
 
-  /**
-   * The codes are a go/no-go call made from what you can measure at the pad.
-   * Nobody is metering the wind at 500 m, so a fast layer aloft is not a reason
-   * to refuse a flight. Only the ground layer is judged.
-   */
   it('judges the wind at the pad, not the wind aloft', () => {
     const aloft = {
       ...base,
@@ -92,7 +80,6 @@ describe('launchLimitViolations', () => {
   });
 
   it('finds the ground layer by altitude, not by position', () => {
-    // The list is not kept sorted, so the first row is not necessarily the pad.
     const unsorted = {
       ...base,
       windLevels: [
@@ -104,8 +91,6 @@ describe('launchLimitViolations', () => {
   });
 
   it('leaves gusts alone', () => {
-    // The codes speak about wind speed; a mean inside the limit with gusts above
-    // it is a judgment call this is not equipped to make.
     expect(launchLimitViolations({ ...base, windStdDev: 50 }, 'model')).toEqual([]);
   });
 });
@@ -115,8 +100,6 @@ describe('limitText', () => {
   const metric = unitSymbols(METRIC_UNITS, {});
 
   it('states the rule in the reader units, symbol included', () => {
-    // In metric units the angle stays in degrees and the wind arrives as m/s
-    // rather than the codes' own mph.
     expect(
       limitText(
         {
@@ -142,16 +125,12 @@ describe('limitText', () => {
   });
 
   it('gives both numbers one precision, so the cap does not read as approximate', () => {
-    // 20 mph is 8.9408 m/s; shown beside an 11.2 the sentence would otherwise
-    // carry two decimal counts for two figures of the same kind.
+    // 20 mph is 8.9408 m/s.
     expect(
       limitText({ field: 'windSpeed', value: 11.2, limit: MAX_WIND_SPEED_MS, powerClass: 'model' }, t, metric),
     ).toBe('limits.wind {"value":"11.2 m/s","limit":"8.9 m/s"}');
   });
 
-  // The launch panel quotes the cap under the box in the box's own unit, so the
-  // Run notice for the same cap has to use it too, or one screen states one
-  // limit twice in two units.
   it('quotes the cap in the unit the field was set to', () => {
     const fieldMph = unitSymbols(METRIC_UNITS, { 'launch.speed': 'mph' });
     expect(
@@ -161,7 +140,6 @@ describe('limitText', () => {
 });
 
 describe('the wind judged at the pad', () => {
-  // A profile listed top-down (a CSV, a .ork) has the wind aloft first.
   const topDown = [
     { altitudeM: 3000, speed: 15, directionDeg: 270, stddev: 0 },
     { altitudeM: 500, speed: 6, directionDeg: 200, stddev: 0 },
@@ -169,7 +147,6 @@ describe('the wind judged at the pad', () => {
   ];
 
   it('reads the lowest altitude, not the first entry', () => {
-    // 15 m/s aloft is over the limit; 2 m/s at the pad is not.
     expect(launchLimitViolations({ ...base, windLevels: topDown }, 'model')).toEqual([]);
   });
 
@@ -194,7 +171,6 @@ describe('the wind judged at the pad', () => {
     const v = launchLimitViolations({ ...base, launchAltitudeM: 1500, windLevels: sounding }, 'model')[0]!;
     expect(v.field).toBe('windSpeed');
     expect(v.value).toBeCloseTo(10, 10);
-    // The same numbers measured from the ground put the pad in the calm.
     expect(
       launchLimitViolations(
         { ...base, launchAltitudeM: 1500, windLevels: sounding, windAltitudeReference: 'agl' },

@@ -18,11 +18,6 @@ const keyed = (n: unknown): KeyedNote => {
   return n as KeyedNote;
 };
 
-/**
- * The launch-limit notes are keyed, like every other import note, and the
- * workspace keeps them that way: a note made with the app in one language
- * renders in whichever language the banner is read in.
- */
 describe('importNotes', () => {
   it("hands back the reader's notes untouched when the launch is within the codes", () => {
     const notes = ['A part was approximated.'];
@@ -57,8 +52,6 @@ describe('importNotes', () => {
     expect(importNotes([], [fly(windy), fly(windy, 'highPower')], null, units)).toHaveLength(1);
   });
 
-  // A file's own simulations each carry their own launch, and the run gate
-  // judges each; the banner has to warn about the same ones on open.
   it('judges every simulation on its own launch, not only the first', () => {
     const windy = { ...within, windAverage: 40 } as LaunchConditions;
     const out = importNotes([], [fly(within), fly(windy)], null, units);

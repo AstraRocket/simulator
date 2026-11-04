@@ -9,15 +9,6 @@ import type { DocumentMaterial } from '../../../src/services/materials/documentM
 import { useWorkspaceStore } from '../../../src/state/store';
 import { serveData } from '../../testing/serveData';
 
-/**
- * The design's own materials in the picker. Desktop's material box
- * (`swing.gui.adaptors.MaterialModel` in 24.12) lists the application database
- * and then `DocumentPreferences.getDatabase(type)`, the document's own; and its
- * "Define custom material" opens `CustomMaterialDialog` with "Add material to
- * application database" unchecked, so a material defined on a part is a
- * document material unless the user ticks it.
- */
-
 let library: Material[] = [];
 
 const setDesignMaterials = (list: DocumentMaterial[] | undefined) =>
@@ -30,7 +21,6 @@ const materialSelect = () =>
     s.querySelector('option[value="__default__"]'),
   ) as HTMLSelectElement;
 
-/** The labels of the "In this design" group, or [] when there is none. */
 const designGroup = () =>
   [...materialSelect().querySelectorAll('optgroup')]
     .filter((g) => g.label === 'In this design')
@@ -62,7 +52,6 @@ describe('the design materials in the list', () => {
     const onChange = vi.fn();
     renderWithProviders(<MaterialPicker onChange={onChange} />);
     await loaded();
-    // Bulk only, by name then density as desktop's database orders them.
     expect(designGroup()).toEqual([
       expect.stringMatching(/^Birch ply · 0\.650 /),
       expect.stringMatching(/^Birch ply · 0\.700 /),
@@ -75,8 +64,6 @@ describe('the design materials in the list', () => {
   });
 
   it('does not repeat a design material the catalog holds at the same density', async () => {
-    // Desktop writes the stock materials a file's parts use into the list
-    // (the bundled examples carry Cardboard at 680 under Custom).
     setDesignMaterials([
       { name: 'Cardboard', type: 'bulk', density: 680, group: 'Custom' },
       { name: 'Cardboard', type: 'bulk', density: 900, group: 'Custom' },
@@ -166,7 +153,6 @@ describe('the design material list in the workspace', () => {
     useWorkspaceStore.getState().addDocumentMaterial(m);
     expect(designMaterials()).toEqual([m]);
     expect(steps()).toBe(before + 1);
-    // Desktop's Database.add keeps one entry per name and density.
     useWorkspaceStore.getState().addDocumentMaterial({ ...m });
     expect(steps()).toBe(before + 1);
     useWorkspaceStore.getState().undo();

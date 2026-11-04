@@ -20,10 +20,6 @@ export interface ToolSite {
   launchAltitudeM: number | null;
 }
 
-/**
- * A site's elevation as every tool takes it: in the launch panel's unit scope
- * (`SITE_ALTITUDE_FIELD`), held to the site limits, in 10 m steps.
- */
 export function SiteElevationField(
   props: Omit<ComponentProps<typeof QNum>, 'label' | 'field' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
 ) {
@@ -43,7 +39,6 @@ export function SiteElevationField(
   );
 }
 
-/** The air temperature at a tool's site, held to the site limits, in 1 degree steps. */
 export function SiteTemperatureField(
   props: Omit<ComponentProps<typeof QNum>, 'label' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
 ) {
@@ -62,10 +57,7 @@ export function SiteTemperatureField(
   );
 }
 
-/**
- * A tool's launch site: a saved location, latitude and longitude, a pick on the
- * map, and with `elevation`, the site's height (blank for the terrain model's).
- */
+/** With `elevation`, a blank height means the terrain model's. */
 export function SiteFields({
   site,
   onChange,
@@ -110,8 +102,6 @@ export function SiteFields({
         <SiteMapDialog
           latitudeDeg={site.latitudeDeg}
           longitudeDeg={site.longitudeDeg}
-          // A point on the map has no elevation of its own, and the old
-          // site's is not this one's: blank, the tool takes the terrain's.
           onPick={(la, lo) => onChange((s) => ({ ...s, latitudeDeg: la, longitudeDeg: lo, launchAltitudeM: null }))}
           onClose={() => setMapOpen(false)}
         />

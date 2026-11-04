@@ -3,11 +3,6 @@ import { selectShownSim } from '../../src/state/store';
 import type { WorkspaceState } from '../../src/state/store';
 import type { Simulation } from '../../src/services/flight/simulations';
 
-/**
- * The simulation the Results tab's tiles, warnings and events read. It has to
- * be the flight the charts draw (`resultFlight`): the one picked in the Results
- * picker while it has a result, else the active one.
- */
 const sim = (id: string, flown: boolean) =>
   ({ id, name: id, ...(flown ? { result: {} } : {}) }) as unknown as Simulation;
 

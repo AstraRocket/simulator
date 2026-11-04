@@ -1,21 +1,8 @@
 #!/usr/bin/env node
-/**
- * Reports which golden values moved against a base branch. It never fails.
- *
- * `npm run parity:golden` re-records every reference value, and parity.mjs says
- * how many moved, but only on the machine that ran it. This lists them by name
- * for review, and appends the list to the job summary when GITHUB_STEP_SUMMARY
- * is set. Only the values are compared, never the header, so a re-record that
- * moved nothing (a new timestamp or platform line) reports nothing.
- *
- *   node test/parity/golden-guard.mjs <base-ref>
- *
- * The base copy is read from `origin/<base-ref>`, so that ref has to be fetched.
- */
+// Reads origin/<base-ref>, so that ref must be fetched.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 
-// Relative to the repository root, which is where both reads below resolve it.
 const GOLDEN = 'engine-java/test/parity/golden.txt';
 
 const [base] = process.argv.slice(2);

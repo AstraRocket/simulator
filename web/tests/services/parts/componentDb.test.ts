@@ -37,8 +37,7 @@ const tube = (over: Record<string, unknown> = {}) => ({
 
 describe('isComponentCatalog (the gate handed to fetchCatalog)', () => {
   it('refuses a host that is up but serving the wrong shape', () => {
-    // Served with HTTP 200 while the data branch rebuilds. Accepting any object
-    // would memoize it, and the picker would throw on every open until reload.
+    // Served with HTTP 200 while the data branch rebuilds.
     expect(isComponentCatalog({ error: 'rebuilding' })).toBe(false);
     expect(isComponentCatalog(null)).toBe(false);
     expect(isComponentCatalog([])).toBe(false);
@@ -185,12 +184,6 @@ describe('isComponentRow refuses sizes and shapes the editor cannot build', () =
     expect(cat.components.filter((r) => !isComponentRow(r))).toEqual([]);
   });
 });
-
-/**
- * A row from the data host is a catalog row, never a saved part. `catalogPatch`
- * applies a `custom` row's `patch` as a whole node, so a published row carrying
- * one could write any key onto the part it is picked for.
- */
 describe("a published row that carries a saved part's fields", () => {
   it('reaches the picker without them', async () => {
     vi.resetModules();
@@ -208,7 +201,6 @@ describe("a published row that carries a saved part's fields", () => {
     expect(row).not.toHaveProperty('custom');
     expect(row).not.toHaveProperty('patch');
     expect(row).not.toHaveProperty('id');
-    // Picked, it is a catalog body tube: its stated sizes, nothing from the patch.
     const patch = catalogPatch(row!);
     expect(patch['outerRadius']).toBe(0.0246 / 2);
     expect(patch).not.toHaveProperty('overrideMass');
@@ -226,13 +218,7 @@ describe("a published row that carries a saved part's fields", () => {
   });
 });
 
-/**
- * The parts desktop's library marks legacy (`ComponentPreset.LEGACY`, from the
- * `<Legacy/>` of the jar's `*-legacy.orc` files), by type: a dump of every
- * preset the 24.12 release jar loads (PresetDump and the full-property dump
- * agree). Desktop's chooser hides these until "Show Legacy Database" is
- * checked, so the catalog has to say which they are.
- */
+// Counts from PresetDump on the 24.12 jar (`ComponentPreset.LEGACY`).
 describe('the legacy parts', () => {
   const LEGACY_BY_TYPE: Record<string, number> = {
     bodytube: 407,
@@ -257,8 +243,6 @@ describe('the legacy parts', () => {
   });
 
   it('tell two parts with one part number apart', () => {
-    // SEMROC BC-08542 is in the database and in semroc-legacy.orc; the release
-    // marks only the second legacy.
     const cat = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/components.generated.json'), 'utf8')) as {
       components: Component[];
     };

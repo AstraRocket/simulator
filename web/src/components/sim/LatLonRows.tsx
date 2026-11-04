@@ -5,21 +5,12 @@ import { latHemisphere, lonHemisphere } from '../../services/map/slippyMap';
 
 type LatLonKey = 'latitudeDeg' | 'longitudeDeg';
 
-/** The markers a row can carry: mixed across a multi-edit, required and missing. */
 interface RowMarks {
   mixed?: boolean;
   required?: boolean;
   missing?: boolean;
 }
 
-/**
- * A launch site's latitude and longitude, bounded to the stored site limits.
- *
- * The unit names the hemisphere the typed sign puts the site in, as you type.
- * A dropped minus sign is the usual way a site lands on the wrong side of the
- * world (105 for the western US is central China), and the box alone does not
- * show it; "° W" against "° E" does.
- */
 export function LatLonRows({
   latitudeDeg,
   longitudeDeg,

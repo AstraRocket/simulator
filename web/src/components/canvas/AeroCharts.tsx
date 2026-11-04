@@ -14,26 +14,17 @@ import { useElementResize } from '../common/useElementResize';
 import { token } from '../common/colorTokens';
 import { crosshairReadout, machSeriesSummary } from './chartSummary';
 
-/**
- * The AeroAnalysis chart cards: one `ChartCard` per curve set (title, legend
- * with the hovered readout, the SVG plot with a keyboard-and-pointer
- * crosshair) and the memoized `ChartBody` that draws the paths. The pane owns
- * the hover state and the series; this file owns how they are drawn.
- */
-
 const PAD_L = 46,
   PAD_R = 14,
   PAD_T = 10,
   PAD_B = 20,
   CHART_H = 168;
 
-/** Chart geometry shared by the memoized body and the hover overlay. */
 interface ChartGeom {
   w: number;
   yMin: number;
   yMax: number;
   X: (m: number) => number;
-  /** `X`'s inverse: the Mach number under a pixel column. */
   invX: (x: number) => number;
   Y: (v: number) => number;
 }
@@ -52,17 +43,7 @@ const chartGeom = (w: number, machMin: number, machMax: number, yMin: number, yM
   };
 };
 
-/**
- * One chart: title row, legend with the hovered readout, the SVG plot with a
- * keyboard-and-pointer crosshair.
- *
- * `hoverM` is state at the pane level (one crosshair drives all three charts),
- * so every pointer move re-renders every card. The expensive part - the
- * y-domain, the stacked bands and every path string - therefore lives in
- * `ChartBody`, a memoized child whose props do not include the hover, and
- * this card recomputes only the legend readout and the crosshair line on a
- * move.
- */
+/** Every pointer move re-renders every card, so the paths live in memoized `ChartBody`, whose props exclude the hover. */
 export function ChartCard({
   title,
   note,
@@ -95,20 +76,9 @@ export function ChartCard({
   const [w, setW] = useState(520);
   useElementResize(hostRef, (r) => setW(Math.max(240, r.width)));
 
-  /**
-   * The Mach the keyboard last moved the crosshair to, for the live region.
-   * Only key steps set it: a pointer move would send a polite announcement per
-   * mouse sample to anyone with a screen reader running.
-   */
+  // Only key steps set it: pointer moves would announce every mouse sample.
   const [keyM, setKeyM] = useState<number | null>(null);
 
-  /**
-   * Arrow-key crosshair over the Mach grid.
-   *
-   * Snaps to computed samples rather than interpolating a free position, which
-   * is the same rule the Mach slider follows - a reading between samples is not
-   * one the sweep produced.
-   */
   const onCrosshairKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!machs.length) return;
     const cur = hoverM ?? machs[0]!;
@@ -119,8 +89,7 @@ export function ChartCard({
     else if (e.key === 'Home') i = 0;
     else if (e.key === 'End') i = machs.length - 1;
     else if (e.key === 'Escape') {
-      // Spent only when there was a crosshair to drop; a second Escape is left
-      // for the window, where it leaves the maximized layout.
+      // A second Escape falls through to the window (leaves maximized layout).
       if (hoverM != null) e.preventDefault();
       setHoverM(null);
       setKeyM(null);
@@ -139,13 +108,8 @@ export function ChartCard({
           series.map((se) => ({ label: se.name, value: lerpAt(machs, se.values, keyM), digits, unit })),
         );
 
-  // The y-domain is the one derived value the overlay needs (to place the
-  // crosshair through the same scale the body drew with), so it is computed
-  // here and handed down; the body memoizes the rest on top of it.
   const { yMin, yMax } = useMemo(() => chartDomain(series, machs, !!stacked), [series, machs, stacked]);
   const geom = useMemo(() => chartGeom(w, machMin, machMax, yMin, yMax), [w, machMin, machMax, yMin, yMax]);
-  // What a screen reader hears for this chart: each curve's peak and the Mach
-  // number it occurs at (see chartSummary).
   const summary = useMemo(
     () => machSeriesSummary(t, title, unit, digits, machs, series),
     [t, title, unit, digits, machs, series],
@@ -181,11 +145,6 @@ export function ChartCard({
           );
         })}
       </div>
-      {/*
-        Keyboard crosshair, so the per-Mach values these curves carry can be
-        read without a pointer. The arrows walk the Mach grid sample by sample
-        (Shift for ten), Home/End go to the ends, Escape drops the crosshair.
-      */}
       <div // eslint-disable-line jsx-a11y-x/no-noninteractive-element-interactions -- a focusable crosshair: the arrows move it, and the group names it without claiming a widget role it does not fit
         ref={hostRef}
         // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- a focusable crosshair: the arrows move it, and the group names it without claiming a widget role it does not fit
@@ -232,12 +191,6 @@ export function ChartCard({
   );
 }
 
-/**
- * The plot itself: gridlines, the stacked bands or the line paths, and the
- * Mach ticks. Memoized on its (stable) inputs so the pane-level hover state
- * never reaches it; the path strings are the cost, and they only change when
- * the sweep, the width or the domain does.
- */
 const ChartBody = memo(function ChartBody({
   geom,
   machs,
@@ -254,9 +207,6 @@ const ChartBody = memo(function ChartBody({
   digits: number;
 }) {
   const { w, yMin, yMax, X, Y } = geom;
-  // Stacked areas: cumulative bottom-to-top, each band drawn as a filled
-  // polygon with a thin surface stroke along its top edge (the dataviz
-  // 2px-gap rule). Lines otherwise.
   const { bands, paths } = useMemo(
     () => ({
       bands: stacked ? stackedBands(series, machs, X, Y) : [],
@@ -264,9 +214,7 @@ const ChartBody = memo(function ChartBody({
     }),
     [series, machs, stacked, X, Y],
   );
-  // A sweep that ends at 1 is ticked in fifths, so its labels need a decimal;
-  // whole Mach numbers do not. With no decimals, 0.2 and 0.4 would both
-  // print as "0".
+  // A sweep to M1 is ticked in fifths, which would all print as "0" with no decimal.
   const machDecimals = machMax <= 1 ? 1 : 0;
   const xTicks = useMemo(() => machTicks(machs[0] ?? 0.05, machMax), [machs, machMax]);
   return (
@@ -307,8 +255,7 @@ const ChartBody = memo(function ChartBody({
           ))}
       {xTicks.map((m, i) => (
         <text key={i} x={X(m)} y={CHART_H - 5} textAnchor="middle" className="fill-ink-faint text-[9px] tabular-nums">
-          {/* A tick reads as itself (to the hundredth): the first is the sweep's
-          first sample, 0.05, which one decimal would round to 0.1 beside 0.2. */}
+          {/* The first tick is 0.05, which one decimal would round to 0.1. */}
           {i === 0 ? `M ${fmtNum(m, tickDigits(m, machDecimals))}` : fmtNum(m, tickDigits(m, machDecimals))}
         </text>
       ))}

@@ -22,19 +22,11 @@ import { useSettings } from '../../state/SettingsProvider';
 import { withFigureDefaults } from '../../services/design/figureStyle';
 import { RULER_H } from '../../tree/schematicGeometry';
 
-// three.js is heavy, so the 3D views are code-split: their chunks load only when
-// the user actually switches to a 3D view, keeping the default (2D) path light.
 const Rocket3D = lazyNamed(() => import('./Rocket3D'), 'Rocket3D');
 const FlightPath3D = lazyNamed(() => import('./FlightPath3D'), 'FlightPath3D');
 
-// The roll slider overlays the far-left strip; reserve a gutter that width so
-// the 2D drawing (and its left ruler) starts clear of it instead of underneath.
 const ROLL_GUTTER = 30;
 
-/**
- * The center pane's sized canvas box: the 2D roll slider, the info card, and
- * whichever of the 2D/3D/flight/path/ground/environment/aero views is open.
- */
 export function CenterCanvas({
   flight,
   pathResult,
@@ -42,15 +34,10 @@ export function CenterCanvas({
   presetSlot,
   flow = false,
 }: {
-  /** The flight the results views draw. */
   flight: ResultFlight | null;
-  /** The flight the 3D path animates. */
   pathResult: FlightResult | null;
-  /** Header slot the 2D schematic's and the 3D model's control buttons portal into. */
   ctrlSlot: HTMLDivElement | null;
-  /** Header slot, left, the 3D model's camera presets portal into. */
   presetSlot: HTMLDivElement | null;
-  /** The flight charts run at full length in a page that scrolls (see FlightChart). */
   flow?: boolean;
 }) {
   const { t } = useTranslation();
@@ -61,9 +48,7 @@ export function CenterCanvas({
   const resetKey = useWorkspaceStore((s) => s.resetKey);
   const design = useWorkspaceStore((s) => s.tree);
   const { settings } = useSettings();
-  // What the views draw: the design with each part type's saved default
-  // figure style filled in where a part has none of its own. The flight path
-  // (below) draws the finished rocket, which a figure style does not reach.
+  // The flight path draws `design`: figure styles do not reach it.
   const tree = useMemo(() => withFigureDefaults(design, settings.figureStyles), [design, settings.figureStyles]);
   const info = useWorkspaceStore((s) => s.info);
   const selectedId = useWorkspaceStore((s) => s.selectedId);
@@ -78,20 +63,8 @@ export function CenterCanvas({
   const prompt = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('sim.prompt')}</div>;
 
   return (
-    // The view flexes to fill the pane; the stats strip below is a pinned
-    // footer, so switching views never resizes the pane and the strip is
-    // always visible without scrolling.
-    //
-    // `pb-2` to match the `pt-2`: without bottom padding a zoomed-in drawing
-    // ends exactly on the pane's bottom edge, and the bottom ruler and the
-    // roll slider's 360° label sit flush against the window.
     <div className="relative min-h-0 w-full flex-1 overflow-hidden px-3 pb-2 pt-2">
-      {/* The roll slider belongs to the 2D view only. */}
       {view === '2d' && <RollSlider />}
-      {/* Quick-glance stats card: sits inside the ruler frame on
-      the 2D view (clear of the top + left rulers when they're on), and in the
-      upper-left corner in 3D, whose controls are all in the header row
-      above. Toggleable via the header Info button. */}
       {(view === '2d' || view === '3d') && showInfoCard && (
         <div
           className="absolute z-20"
@@ -105,7 +78,6 @@ export function CenterCanvas({
         </div>
       )}
       {view === '2d' ? (
-        // Left-padded so the drawing clears the roll slider's gutter.
         <div className="h-full" style={{ paddingLeft: ROLL_GUTTER }}>
           {twoD === 'side' ? (
             <TreeSchematic
@@ -144,11 +116,7 @@ export function CenterCanvas({
           />
         </LazyBoundary>
       ) : view === 'flight' ? (
-        // Keyed on the simulation: a different flight gets a fresh chart
-        // (trace selection and zoom start over), while a re-run of the
-        // same simulation keeps its id and so keeps the view. Resetting
-        // both through effects keyed on the trace list instead blanks the
-        // first frame and leaves a stale zoom on re-run.
+        // Keyed on the simulation, not reset in an effect: effect-based resets blank the first frame.
         <div className="h-full p-2">
           {flight ? <FlightChart key={flight.id} flight={flight} flow={flow} /> : prompt}
         </div>
@@ -157,8 +125,6 @@ export function CenterCanvas({
           {pathResult ? (
             <>
               <LazyBoundary fallback={loading}>
-                {/* The flight the picker shows, as the chart and the
-                      ground track draw it: one flight per view. */}
                 <FlightPath3D
                   result={pathResult}
                   tree={design}
@@ -170,8 +136,6 @@ export function CenterCanvas({
               </LazyBoundary>
               <div className="pointer-events-none absolute inset-x-0 top-5 z-10 flex justify-center">
                 <div className="pointer-events-auto">
-                  {/* The flight on screen, which the picker can take from a
-                      row other than the active one. */}
                   <FlightPathExport variant="overlay" flight={flight} />
                 </div>
               </div>
@@ -183,9 +147,7 @@ export function CenterCanvas({
       ) : view === 'ground' ? (
         <div className="h-full p-2">
           {flight ? (
-            // The coordinates come off the flight's own simulation, not
-            // the active one: the Results picker can be showing a row
-            // other than the one being edited.
+            // The flight's own launch site: the picker may show a row other than the active one.
             <GroundTrack
               flight={flight}
               latitudeDeg={flight.launch.latitudeDeg}
@@ -207,15 +169,14 @@ export function CenterCanvas({
   );
 }
 
-/** The 2D view's vertical roll slider, overlaid on the far-left gutter. */
 function RollSlider() {
   const { t } = useTranslation();
   const roll = useWorkspaceStore((s) => s.roll);
   const onRollValue = useWorkspaceStore((s) => s.setRoll);
   const u = useUnits();
-  // The slider runs in degrees; its labels read in the user's angle unit.
+  // The slider runs in degrees whatever the user's angle unit.
   const deg = Math.round(radToDeg(roll));
-  // Whole degrees, as the slider steps; a radian needs two decimals to move.
+  // A radian needs two decimals to move with a 5° step.
   const digits = u.sym('angle') === '°' ? 0 : 2;
   const shown = u.fmtSym('angle', degToRad(deg), digits);
   return (
@@ -233,13 +194,11 @@ function RollSlider() {
         onChange={(e) => onRollValue(degToRad(parseFloat(e.target.value)))}
         title={t('view.roll', { deg: shown })}
         aria-label={t('view.rollAria')}
-        // The slider steps in degrees; it is heard in the unit it is shown in.
         aria-valuetext={shown}
         className="accent-accent-500"
         style={{ writingMode: 'vertical-lr', width: '100%', flex: '1 1 0%', minHeight: 0 }}
       />
       <span className="pt-1">{u.fmtSym('angle', 2 * Math.PI, digits)}</span>
-      {/* Live roll readout, centered on the slider. */}
       <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded bg-raised/95 px-0.5 py-0.5 text-[9px] text-accent-300 ring-1 ring-line/10">
         {shown}
       </span>

@@ -32,7 +32,6 @@ import { smallButton } from '../common/smallButton';
 import { useScopedUnit } from '../common/UnitChip';
 import { EjectionFigures } from '../tools/EjectionFigures';
 
-/** Where the bay's pins came from, in words. */
 function pinsText(
   pins: ShearPins,
   source: PinSource,
@@ -50,26 +49,12 @@ function pinsText(
   return t('ejectionBay.pinsFrom', { n: pins.count, pin, each: force(pins.forceN), name: pins.from });
 }
 
-/**
- * The Configurations tab's Bays view: every recovery bay in the design, each
- * with its shear pins, target pressure, flight charges and ground test log
- * (`recoveryBays`). The one place a bay is set up and its tests are kept, laid
- * out to be used at the field: a test is logged in a few taps, and the charge
- * that worked becomes the one that flies with one more.
- *
- * Every change is one undo step and is kept on the bay's tube in the design,
- * and in the browser's copy (`useBayBackup`). None of it ages a simulation's
- * result, since none of it flies; the flight charges reach the flight as the
- * mass objects they are mirrored into.
- */
 export function RecoveryBaysPane() {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
   const bays = useMemo(() => designBays(tree), [tree]);
   if (!bays.length) return <p className="p-3 text-xs text-ink-muted">{t('bays.none')}</p>;
-  // The bays sit in a card per stage, the same for one stage or four: a booster
-  // and a sustainer can each have a "Body tube" with a main in it. A stage with
-  // no bay gets no card.
+  // Grouped by stage even for one stage: two stages can each have a "Body tube".
   return (
     <div className="space-y-4 p-3">
       <p className="text-[11px] leading-snug text-ink-faint">{t('bays.hint')}</p>
@@ -82,11 +67,6 @@ export function RecoveryBaysPane() {
   );
 }
 
-/**
- * One stage's bays under a heading that folds them away: a plain heading, not
- * a card around the bay cards, so the cards are not nested two deep. Open to
- * start with, and the fold is this view's alone, not kept in the design.
- */
 function StageBays({ title, bays }: { title: string; bays: DesignBay[] }) {
   const [open, setOpen] = useState(true);
   const id = useId();
@@ -99,7 +79,6 @@ function StageBays({ title, bays }: { title: string; bays: DesignBay[] }) {
           aria-expanded={open}
           className="flex w-full items-center gap-1.5 border-b border-line/10 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted hover:text-ink"
         >
-          {/* Rotates rather than swapping glyph, so the heading does not shift. */}
           <span aria-hidden className={`transition-transform ${open ? 'rotate-90' : ''}`}>
             ›
           </span>
@@ -138,7 +117,7 @@ function BayCard({ bay }: { bay: DesignBay }) {
   const pressureUnit = u.at(unitScope('launch', 'bayPressure'), 'pressure');
   const flownFrom = record.flownTestId ? record.tests.find((x) => x.id === record.flownTestId) : undefined;
 
-  /** The record's pins with one thing changed, starting from the pins in effect. */
+  /** Starts from the pins in effect, not the record's. */
   const setPins = (change: Partial<BayPins>) => {
     const base: BayPins = { count: pins.count, size: pins.size, forceN: pins.forceN };
     update({ pins: { ...base, ...change } });
@@ -303,19 +282,13 @@ function BayCard({ bay }: { bay: DesignBay }) {
   );
 }
 
-/** Today in the reader's time zone, `YYYY-MM-DD`, as a date input takes it. */
+/** Local time, not `toISOString` (UTC). */
 function today(): string {
   const d = new Date();
   const two = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 }
 
-/**
- * A bay's ground tests, newest first, and the form that logs the next one. A
- * test records the pins in at the time, so changing the pins later leaves the
- * log saying what was tested. "Fly this charge" makes a test's charge the
- * flight primary, with the backup at the usual factor over it.
- */
 function TestLog({
   bay,
   suggestion,

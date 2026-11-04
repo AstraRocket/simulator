@@ -5,25 +5,12 @@ import info.openrocket.core.material.MaterialGroup;
 
 import info.openrocket.core.database.Database;
 
-/**
- * SHIM replacing OpenRocket's material database (built in a static initializer
- * that reaches the Guice-backed Application for its translator and the user's
- * materials). Provides findMaterial for the built-in materials the carved
- * kernel references by name. Densities are copied verbatim from
- * upstream database/Databases.java's built-in material list.
- */
+/** SHIM: avoids upstream's Guice-backed static init; densities copied verbatim from upstream Databases.java. */
 public final class Databases {
 
     private Databases() {}
 
-    /**
-     * SHIM: the web engine synthesizes materials on demand (see findMaterial) and
-     * keeps no material database. MaterialGroup.get() calls this only for the rare
-     * legacy "ThreadsLines" .ork backward-compat path, iterating the result to
-     * reclassify a material by name+density; an empty database leaves the material
-     * in its stored group (acceptable for the web engine). Returns an empty,
-     * iterable Database<Material> matching upstream's signature.
-     */
+    /** SHIM: always empty, which leaves legacy "ThreadsLines" materials in their stored group. */
     public static Database<Material> getDatabase(Material.Type type) {
         return new Database<Material>();
     }
@@ -44,7 +31,6 @@ public final class Databases {
     }
 
     private static double densityFor(Material.Type type, String name) {
-        // Values copied from upstream Databases.java built-in materials.
         switch (name) {
             case "Cardboard": return 680;                              // BULK
             case "Delrin": return 1420;                                // BULK

@@ -29,25 +29,9 @@ import { SvgExportButton } from './SvgExportButton';
 import { RoomReflections } from './RoomReflections';
 import { keyLight, LightBall, MovableKeyLight, ViewLight } from './MovableKeyLight';
 
-/** The camera presets, in the 2D view's order. */
 const CAMERA_VIEWS = ['side', 'aft'] as const;
 
-/**
- * 3D rocket view (react-three-fiber). Geometry is generated from the
- * component tree: lathe profiles for nose cones and transitions (kernel-exact
- * shape math), annulus lathes for tubes (wall and bore, solid when filled),
- * extruded shapes for fins placed at their
- * instance angles. The external shell is slightly translucent so motor mounts
- * and loaded motors read inside, and a floating CG/CP callout hangs
- * beside the hull.
- * Rocket axis = +X (nose tip at x=0, aft increasing), matching the engine.
- *
- * This file is the composition: the geometry build (rocketPieces.ts), the
- * export framing (rocketExportCamera.ts), the export handler
- * (useRocketExport.ts), the mesh list (RocketModel.tsx) and the callouts
- * (rocketCallouts.tsx, StabilityCallout.tsx) each live in their own module.
- */
-
+// Rocket axis is +X: nose tip at x=0, aft increasing, as in the engine.
 export function Rocket3D({
   tree,
   info,
@@ -62,21 +46,13 @@ export function Rocket3D({
 }: {
   tree: RocketTree;
   info: StaticInfo | null;
-  /** Draw the CG/CP markers and callout (default true). */
   showMarkers?: boolean;
-  /** Loaded motor cases keyed by mount node id, rendered seated at the
-   *  mount's aft end, showing through the translucent shell. */
   motors?: MotorDims;
-  /** When set, a 📷 image export menu appears. */
   exportData?: ExportData;
-  /** Two-way selection sync with the component tree / 2D schematic. */
   selectedId?: string | null;
   onSelect?: (id: string) => void;
-  /** Reports an image export failure to the caller's note channel. */
   onError?: (message: string) => void;
-  /** Header slot, middle, for the cutaway, the view type and the image export. Inline over the canvas when absent. */
   ctrlSlot?: HTMLElement | null;
-  /** Header slot, left, for the camera presets. Inline over the canvas when absent. */
   presetSlot?: HTMLElement | null;
 }) {
   const { t } = useTranslation();
@@ -86,13 +62,9 @@ export function Rocket3D({
   const { pieces, totalLen, maxR } = usePieces(tree, motors, palette);
   const r3f = useRef<R3fHandles | null>(null);
 
-  // Hi-res snapshot: the same scene rendered offscreen at
-  // the export width, with the on-screen path as the fallback.
   const snapshot = useRocketExport(r3f, pieces, exportData, (e) =>
     onError?.(t('export.imageFailed', { message: errorText(e, t) })),
   );
-  // The vector export: the same framing as the image export's fit, drawn
-  // again as SVG polygons (rocketSvgExport.ts).
   const svgSnapshot = (data: ExportData) => {
     const st = r3f.current;
     if (!st) return null;
@@ -115,27 +87,11 @@ export function Rocket3D({
     [cgTex, cpTex],
   );
 
-  // View presets + recovery: a pan or deep zoom can lose the rocket, and
-  // these jump the camera back to known-good stations.
-  // OrbitControls re-derives its state from the camera, so setting position +
-  // target + update() is the whole move.
   const controls = useRef<import('three-stdlib').OrbitControls | null>(null);
-  // Mirror the 2D toggle: two persistent views (side / aft) with exactly
-  // one always highlighted; Reset is a momentary re-fit of the current view and
-  // is never highlighted. (No third "3/4" preset: 2D has only two views.)
   const [preset, setPreset] = useState<'side' | 'aft'>('side');
-  // Cutaway (section view): remove the near half of the airframe so the mount,
-  // rings, couplers and packed bays inside it are seen directly rather than
-  // through a translucent shell. The plane is fixed at z = 0 with the kept half
-  // behind it, which is the half the side preset looks at; it does not follow
-  // the camera, so orbiting past 180 degrees puts you behind the cut and the
-  // side button brings it back. Per-material (not renderer.clippingPlanes)
-  // because only the airframe is cut, and `localClippingEnabled` on the Canvas
-  // below is what makes per-material planes work at all.
+  // Per-material clipping, not renderer.clippingPlanes, because only the airframe is cut.
   const [cutaway, setCutaway] = useState(false);
-  // Desktop's 3D view types, less the textured Unfinished one: Figure (figure
-  // colors, airframe see-through, the one desktop opens on) and Finished
-  // (each part's appearance).
+  // Desktop opens on Figure.
   const [mode, setMode] = useState<RenderMode>('figure');
   const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, -1), 0), []);
   const sidePos: [number, number, number] = [center, 0, camDist * 1.05];
@@ -152,18 +108,12 @@ export function Rocket3D({
     setPreset(which);
     moveCam(which === 'side' ? sidePos : aftPos);
   };
-  // Where the key light shines from; a right-drag swings it (MovableKeyLight).
   const [lamp] = useState(keyLight);
   const resetView = () => {
     lamp.reset();
     moveCam(preset === 'side' ? sidePos : aftPos);
   };
 
-  // The camera presets go where the 2D view has its own, left in the header
-  // row; the rest goes in the row's middle, as the 2D view's tools do. The
-  // same shapes as 2D's: Reset, then Side | Aft as one joined choice of two,
-  // then a rule before the overlays. Cutaway is an on/off switch, and
-  // Figure | Finished another choice of two.
   const presets = (
     <>
       <ViewBtn onClick={resetView} title={t('view.reset3dTitle')}>
@@ -225,39 +175,22 @@ export function Rocket3D({
           {createPortal(tools, ctrlSlot)}
         </>
       ) : (
-        // Mounted on its own, with no header row to go in: one row over the canvas.
         <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 2, display: 'flex', gap: 6 }}>
           {presets}
           {tools}
         </div>
       )}
       <Canvas
-        // Measure the layout box, not the painted one. On a portrait phone the
-        // Sketch pane is turned a quarter turn, and r3f's default measurement
-        // (getBoundingClientRect) reports a rotated element's axis-aligned
-        // screen box, so a 658x325 host measures as 325x658 and the camera is
-        // framed at aspect 0.49 instead of 2.02, drawing the rocket four times
-        // too big and clipped. offsetWidth/offsetHeight ignore transforms.
+        // A rotated portrait pane swaps getBoundingClientRect's width and height; offsetWidth ignores transforms.
         resize={{ offsetSize: true }}
         style={{ flex: '1 1 0%', minHeight: 0 }}
         camera={{ position: [center, 0, camDist * 1.05], fov: 40 }}
-        // The export's live-canvas fallback reads the drawing buffer after the
-        // frame; without this flag WebGL may have discarded it and drawImage
-        // returns black. The preferred offscreen path does not need it.
-        // localClippingEnabled is what lets a material carry its own clipping
-        // plane (the cutaway); without it three.js honors only the renderer's
-        // global planes and the toggle does nothing.
-        // Neutral rather than r3f's default ACES: ACES pushes a bright,
-        // saturated paint off its hue (a lit blue tube turns purple), and a
-        // part should read as the color it was given.
+        // preserveDrawingBuffer, or the export's live-canvas fallback reads black. ACES turns saturated blue purple.
         gl={{ preserveDrawingBuffer: true, localClippingEnabled: true, toneMapping: THREE.NeutralToneMapping }}
         onCreated={(state) => {
           r3f.current = { gl: state.gl, scene: state.scene, camera: state.camera, setFrameloop: state.setFrameloop };
         }}
       >
-        {/* Soft studio setup: warm-neutral key, cool fill, low rim; subtle,
-            no shadows. The parts also reflect a studio room (RoomReflections),
-            each as much as its shine says. */}
         <ambientLight intensity={0.55} />
         <MovableKeyLight light={lamp} intensity={0.95} color={scene['scene-light-key']} />
         <ViewLight from={[-2, 0.5, -1]} intensity={0.45} color={scene['scene-light-fill']} />
@@ -273,13 +206,7 @@ export function Rocket3D({
                 mode={mode}
               />
             </RoomReflections>
-            {/* CG/CP sit on the rocket axis (inside the shell), so they must
-              render on TOP (depthTest off, high renderOrder) to be visible,
-              exactly like the 2D markers. `transparent` puts them in the
-              transparent queue after the see-through shell, or the shell
-              would wash over them. */}
-            {/* The axis balls are drawn at half of markerRadius (see
-              AxisCallout), since full-size balls overwhelm small rockets. */}
+            {/* CG/CP sit inside the shell: depthTest off, and `transparent` queues them after the see-through shell. */}
             {showMarkers && info && Number.isFinite(info.cg) && (
               <AxisCallout
                 x={info.cg}
@@ -296,23 +223,18 @@ export function Rocket3D({
             )}
           </group>
         </Bounds>
-        {/* Distance limits: an unbounded zoom could bury the
-            camera inside the hull or fling it to where the rocket is a pixel;
-            the view buttons above are the recovery path either way. */}
         <OrbitControls
           makeDefault
           ref={controls}
           target={[center, 0, 0]}
           enableDamping
           dampingFactor={0.1}
-          // The right button moves the light (MovableKeyLight), as on desktop;
-          // Shift- or Ctrl-drag still pans, and so do two fingers.
+          // Right button is left free for MovableKeyLight.
           mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY }}
           minDistance={camDist * 0.12}
           maxDistance={camDist * 5}
         />
       </Canvas>
-      {/* Where the light is, while it is dragged: over the canvas, bottom right. */}
       <LightBall light={lamp} className="absolute bottom-7 right-2" />
       <p style={{ fontSize: 11, color: token('ink-muted'), margin: '4px 0 0', textAlign: 'center' }}>
         {t('view.dragHint')}

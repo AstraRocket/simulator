@@ -16,17 +16,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A deploy or separation event the kernel has no constant for is dropped with
- * a note, and the file opens.
- *
- * The bridge throws on an unknown event name (`ComponentFactory.deployEventOf`,
- * `OpenRocketEngine.separationEventOf`), which would refuse the whole file.
- * Desktop reads the same file with a warning and keeps the default event
- * (`DocumentConfig.findEnum` returns null, the handler keeps its default). The
- * expected event is the kernel's own, read back from the same design with the
- * tag left out, never a constant of the app's.
- */
+// Desktop warns on an unknown event and keeps the default (DocumentConfig.findEnum); the bridge throws.
 
 const ork = (opts: { deploy: string; separation: string; configs?: boolean; blocks?: boolean }): string =>
   `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name>` +
@@ -53,7 +43,6 @@ const ork = (opts: { deploy: string; separation: string; configs?: boolean; bloc
 const partOf = (tree: RocketTree, type: string, name: string): ComponentNode =>
   [...walkNodes(tree.components)].find((n) => n.type === type && n.name === name)!;
 
-/** The event the kernel flies for the part, read back through the bridge. */
 function kernelEvent(tree: RocketTree, id: string, key: 'deployEvent' | 'separationEvent'): string {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));
@@ -62,7 +51,6 @@ function kernelEvent(tree: RocketTree, id: string, key: 'deployEvent' | 'separat
   return String(fields[key]).toLowerCase().replace(/_/g, '');
 }
 
-/** The events the kernel flies for the same design with no event tags at all. */
 function kernelDefaults(): { deploy: string; separation: string } {
   const control = importOrk(ork({ deploy: '', separation: '' })).tree;
   return {
@@ -105,8 +93,6 @@ describe('an event name the kernel does not have', () => {
     const booster = partOf(res.tree, 'stage', 'Booster');
     expect(chute['deployEvent']).toBe('apogee');
     expect(booster['separationEvent']).toBe('burnout');
-    // The override is the design's value with the block's fields over it, and
-    // the block's one field was dropped: the override says what the design says.
     const config = res.configs[0]!;
     expect(config.deployments[chute.id!]?.deployEvent).toBe('apogee');
     expect(config.separations[booster.id!]?.separationEvent).toBe('burnout');

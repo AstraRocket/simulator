@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { clampWindow, minWindow, resolveWindow, zoomWindow } from '../../../src/components/canvas/flightChartAxis';
 
-/**
- * The zoom/pan window math, pure so the clamps can be pinned without a pointer.
- */
-
 describe('clampWindow', () => {
   it('collapses a window that covers the whole flight to null', () => {
     expect(clampWindow(0, 10, 10)).toBeNull();
@@ -29,7 +25,6 @@ describe('clampWindow', () => {
 
 describe('zoomWindow', () => {
   it('keeps the anchor at the same fraction of the window', () => {
-    // Anchor at 25% of [0, 8]; zoom in by half; anchor must still be at 25%.
     const w = zoomWindow(0, 8, 0.5, 2, 10)!;
     expect(w.t1 - w.t0).toBeCloseTo(4, 9);
     expect((2 - w.t0) / (w.t1 - w.t0)).toBeCloseTo(0.25, 9);
@@ -46,7 +41,6 @@ describe('resolveWindow', () => {
   });
 
   it('clamps a stale window to a flight that re-ran shorter', () => {
-    // The window was zoomed on a 30 s run; the re-run lands at 8 s.
     const r = resolveWindow({ t0: 20, t1: 25 }, 8);
     expect(r.t1).toBe(8);
     expect(r.t0).toBeLessThan(r.t1);

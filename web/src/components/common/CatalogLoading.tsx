@@ -3,24 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { type CatalogProgress, progressPercent, subscribeCatalogProgress } from '../../services/app/remoteData';
 import { fmtMb } from '../../i18n/format';
 
-/**
- * Download feedback for the runtime catalogs (see services/app/remoteData.ts).
- *
- * The motor catalog is ~1.4 MB and the component catalog ~1.8 MB, fetched on
- * first use rather than bundled. A bare "Loading…" leaves the user unable to
- * tell a slow link from a stalled one, which is the common case on mobile,
- * where the transfer can legitimately take tens of seconds.
- */
-
-/** Live progress for one catalog, or null before the first byte is reported. */
 export function useCatalogProgress(name: string): CatalogProgress | null {
   const [progress, setProgress] = useState<CatalogProgress | null>(null);
   useEffect(() => subscribeCatalogProgress(name, setProgress), [name]);
   return progress;
 }
 
-/** Phase label plus a bar: determinate when the host declared a length, pulsing
- *  when it did not, so we never show a percentage we cannot stand behind. */
 export function CatalogLoading({ name, label }: { name: string; label: string }) {
   const { t } = useTranslation();
   const progress = useCatalogProgress(name);
@@ -39,14 +27,12 @@ export function CatalogLoading({ name, label }: { name: string; label: string })
         {bytes && <span className="ml-1.5 tabular-nums text-ink-muted">{bytes}</span>}
       </p>
       <div
-        // Capped against the viewport so the wider bar never overflows on a phone.
         className="mx-auto h-2 w-[min(20rem,72vw)] overflow-hidden rounded-full bg-elevated/60"
         role="progressbar"
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
-        // Omitted while indeterminate: assistive tech then announces "busy"
-        // rather than a made-up percentage.
+        // Omitted while indeterminate, so assistive tech announces "busy".
         aria-valuenow={pct ?? undefined}
       >
         <div
@@ -58,13 +44,10 @@ export function CatalogLoading({ name, label }: { name: string; label: string })
   );
 }
 
-/** Failure state: says what failed and offers a retry, instead of an empty list. */
 export function CatalogError({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-3 px-3 py-6 text-center text-base">
-      {/* An alert because it replaces a loading line in a cell that is already on
-          screen: nothing else tells a screen reader the download failed. */}
       <p role="alert" className="text-warn-300">
         {message}
       </p>

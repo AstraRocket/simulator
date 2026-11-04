@@ -5,15 +5,7 @@ import { buildSchematicShapes } from '../../../src/components/canvas/schematicSh
 import { lineInstances, placementOffsets } from '../../../src/tree/placement';
 import { MAX_INSTANCE_COUNT } from '../../../src/tree/nodeProps';
 
-/**
- * The drawings put every copy of a part where the kernel flies it.
- *
- * Along the body, `getInstanceOffsets` (RadiusRingComponent, LaunchLug,
- * RailButton) puts copy i at `i × instanceSeparation` behind the first. Across
- * it, `RingComponent` and `MassObject` put a part at `radialPosition` in its
- * `radialDirection` (y = r cos θ, z = r sin θ), and `InnerTube.getClusterPoints`
- * shifts a cluster by the same.
- */
+// Kernel radial placement: y = r cos θ, z = r sin θ (RingComponent, MassObject).
 const tube = (children: ComponentNode[]): ComponentNode =>
   ({ type: 'bodytube', id: 'b', length: 0.4, outerRadius: 0.03, thickness: 0.001, children }) as ComponentNode;
 const piecesOf = (children: ComponentNode[], id: string) =>
@@ -45,8 +37,6 @@ describe('a part repeated along the body', () => {
     expect(xs[2]! - xs[1]!).toBeCloseTo(0.05, 12);
   });
 
-  // Every view loops on this count, so it takes the same ceiling as every other
-  // instance count, or a hostile file locks the tab.
   it('stops at the instance ceiling', () => {
     expect(lineInstances({ ...rings, instanceCount: 100000 })).toHaveLength(MAX_INSTANCE_COUNT);
   });
@@ -92,11 +82,7 @@ describe('a part placed off the axis', () => {
   });
 });
 
-/**
- * The side view's +y is up, for every part: a lug at angle 0 stands above the
- * body (y = R cos 0), and a part placed at radial direction 0 sits above the
- * axis by the same rule, not mirrored below it.
- */
+// +y is up for every part: angle 0 sits above the axis, not mirrored below it.
 describe('the side view', () => {
   const shapes = (children: ComponentNode[]) =>
     buildSchematicShapes({

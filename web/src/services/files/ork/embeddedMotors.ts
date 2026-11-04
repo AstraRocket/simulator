@@ -3,19 +3,9 @@ import { motorDigest } from '../../motors/motorDigest';
 import { finalizeThrustCurve, sortLists } from '../../motors/curveFinalize';
 import { escapeXml } from '../xmlUtil';
 
-/**
- * A motor's thrust curve as the desktop embeds it in a `.ork`:
- * `thrustcurves/<digest>.rse` in the zip, the same `<digest>` in the motor's
- * XML. On load the desktop prefers its own database entry when the digest
- * matches one, and otherwise reads this file and accepts it only if the curve
- * it parses hashes to the name (`MotorHandler.loadMotorFromZip`). So the digest
- * here is computed from the numbers exactly as written, after the same cleanup
- * the desktop's loader applies before it hashes (`sortLists`, then
- * `finalizeThrustCurve`).
- */
+/** Desktop accepts it only if the parsed curve hashes to the name (`MotorHandler.loadMotorFromZip`). */
 export interface EmbeddedMotorFile {
   digest: string;
-  /** Path inside the `.ork` zip. */
   path: string;
   text: string;
 }
@@ -28,7 +18,6 @@ interface Row {
   cg: number;
 }
 
-/** The digest the desktop computes for these rows once loaded. */
 export function rowsDigest(rows: readonly Row[]): string {
   const times = rows.map((r) => r.t);
   const thrusts = rows.map((r) => r.f);
@@ -45,13 +34,7 @@ const attrOf = (attrs: string, key: string): number | null => {
   return Number.isFinite(v) ? v : null;
 };
 
-/**
- * The digest the desktop computes when it loads this `.rse` text, or null when
- * the file does not state mass and CG on every row. Desktop also hashes other
- * data when `auto-calc-mass` or `auto-calc-cg` is absent or true
- * (`RockSimMotorLoader.getMotor`): the mass from the initial and propellant
- * weights, and no CG. The files this app writes set both to 0.
- */
+/** Null unless every row states mass and CG: desktop hashes other data under auto-calc (`RockSimMotorLoader.getMotor`). */
 export function rseDigest(text: string): string | null {
   const rows: Row[] = [];
   for (const [, attrs] of text.matchAll(/<eng-data\s([^>]*?)\/?>/g)) {
@@ -65,28 +48,13 @@ export function rseDigest(text: string): string | null {
   return rows.length ? rowsDigest(rows) : null;
 }
 
-/**
- * A plain decimal the desktop's `Double.parseDouble` reads back to the same
- * double: JavaScript's shortest round-trip form, which Java parses exactly.
- */
+/** Shortest round-trip form, which Java's `Double.parseDouble` reads back exactly. */
 const num = (v: number) => String(v);
 
-/** The `Type` attribute for each motor type, as `RockSimMotorLoader` reads it. */
 const RSE_TYPES: Record<MotorType, string> = { SU: 'single-use', reload: 'reloadable', hybrid: 'hybrid' };
 
-/**
- * The motor's `Type` attribute, or nothing when the spec has no type. The
- * loader reads an absent attribute as unknown and then takes the type from the
- * manufacturer, so leaving it out keeps that inference, where a stated value
- * would override it.
- */
 const typeAttr = (spec: MotorSpec): string => (spec.type ? ` Type="${RSE_TYPES[spec.type]}"` : '');
 
-/**
- * The `.rse` the desktop would write for this motor (`RockSimMotorWriter`):
- * mass and CG stated on every row, so nothing is recomputed on load. Null for a
- * motor with no curve to carry (an unresolved placeholder).
- */
 export function embeddedMotorFile(spec: MotorSpec): EmbeddedMotorFile | null {
   const n = Math.min(spec.times?.length ?? 0, spec.thrusts?.length ?? 0, spec.masses?.length ?? 0);
   if (n < 2) return null;
@@ -96,8 +64,7 @@ export function embeddedMotorFile(spec: MotorSpec): EmbeddedMotorFile | null {
     m: num(spec.masses[i]! * 1000),
     cg: num(spec.cgX * 1000),
   }));
-  // Hashed from the text, read back the way the loader reads it (grams and
-  // millimeters divided by 1000), so the name is the file's own digest.
+  // Hashed from the text as the loader reads it back (g and mm / 1000).
   const digest = rowsDigest(
     written.map((r) => ({ t: Number(r.t), f: Number(r.f), m: Number(r.m) / 1000, cg: Number(r.cg) / 1000 })),
   );

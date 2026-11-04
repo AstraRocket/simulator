@@ -8,33 +8,18 @@ import { Check } from '../common/Check';
 import { DialogButton } from '../common/DialogButton';
 import { toggled } from '../../services/app/collections';
 
-/**
- * The whole-rocket 3D-print export.
- *
- * A list of what the design can actually print, ticked by default, plus the two
- * choices that change the shape of the output rather than its content: one file
- * of named objects or a zip of one file per part, and whether each part is
- * dropped onto the build plate.
- *
- * Only printable parts are listed: a parachute or a mass component has no solid
- * body, and a tick box for it would do nothing. The per-component ⬇ button
- * leaves them out the same way.
- */
 export function PrintExportDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
   const exportPrint = useWorkspaceStore((s) => s.exportPrint);
 
   const parts = useMemo(() => printableParts(tree), [tree]);
-  // What the list shows, and what the file's object names become for a part
-  // with no name of its own: the same string in both places.
   const label = (p: (typeof parts)[number]) => partLabel(t, p);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [separateFiles, setSeparateFiles] = useState(false);
   const [placeOnPlate, setPlaceOnPlate] = useState(true);
 
-  // Tracked as exclusions, not inclusions: everything is on by default, and a
-  // design edited behind this dialog would otherwise silently drop a new part.
+  // Exclusions, so a part added behind the dialog is included.
   const selected = parts.filter((p) => !excluded.has(p.id));
   const toggle = (id: string) => setExcluded((prev) => toggled(prev, id));
 
@@ -45,9 +30,6 @@ export function PrintExportDialog({ onClose }: { onClose: () => void }) {
       title={t('print.title')}
       onClose={onClose}
       size="lg"
-      // The intro and the options/Save row are pinned, above and below the part
-      // list, which is the only thing here that can grow. Left in the flow, the
-      // Save button would sit below however many parts the design has.
       toolbar={empty ? undefined : <p className="px-4 py-2 text-xs leading-snug text-ink-muted">{t('print.intro')}</p>}
       footer={
         empty ? undefined : (

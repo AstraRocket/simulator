@@ -52,7 +52,6 @@ describe('useMenuPopover', () => {
     window.removeEventListener('keydown', late);
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(screen.getByText('Open'));
-    // A window listener such as the maximized canvas's can tell Escape closed the menu.
     expect(spent).toBe(true);
   });
 
@@ -67,7 +66,6 @@ describe('useMenuPopover', () => {
   });
 });
 
-/** The ARIA menu keyboard model a `role="menu"` promises. */
 describe('useMenuPopover menu keys', () => {
   function KeyMenu({ onHostKey }: { onHostKey?: () => void }) {
     const { open, toggle, wrapRef, triggerRef, menuRef, onMenuKeyDown } = useMenuPopover();

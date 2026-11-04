@@ -3,7 +3,6 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { SCENE_TOKENS, useSceneColors } from '../../../src/components/canvas/sceneColors';
 
-/** The 3D views read their colors from the tokens, and follow a theme change. */
 describe('useSceneColors', () => {
   afterEach(() => {
     document.documentElement.removeAttribute('style');

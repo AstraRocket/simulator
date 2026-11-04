@@ -9,12 +9,6 @@ import { SiteElevationField, SiteTemperatureField } from './SiteFields';
 import { NumberRow } from '../common/NumberRow';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 
-/**
- * Parachute sizing with no design: a descent mass, a canopy's Cd and the site's
- * air give the canopy for the main and drogue bands, or for a rate of your own.
- * The same figures the parachute editor's sizing dialog shows, from typed inputs.
- */
-
 interface Remembered {
   massKg: number | null;
   cd: number | null;
@@ -24,7 +18,6 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** Clears the remembered inputs, so each test starts from the defaults. */
 export function forgetParachuteTool(): void {
   remembered.forget();
 }

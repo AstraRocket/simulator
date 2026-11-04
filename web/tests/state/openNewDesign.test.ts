@@ -10,11 +10,6 @@ import { useWorkspaceStore } from '../../src/state/store';
 import { C6 } from '../../src/engine/api';
 import { simpleConfig, simpleRocketTree, SIMPLE_MOUNT_ID } from '../../src/services/flight/simpleRocket';
 
-/**
- * "Open as a design" on the Tools tab's simple rocket: the rocket replaces the
- * open design as one of its own, with its motor in a configuration and a
- * simulation flying it from the tool's launch.
- */
 describe('opening a simple rocket as a design', () => {
   it('opens the tree with its motor and launch, on the Design tab', async () => {
     useWorkspaceStore.getState().resetWorkspace();

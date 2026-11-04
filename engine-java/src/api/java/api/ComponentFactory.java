@@ -53,58 +53,24 @@ import static api.JsonLite.bool;
 import static api.JsonLite.obj;
 import static api.JsonLite.str;
 
-/**
- * Builds carved RocketComponents from JSON tree nodes. Node shape:
- * { "type": "bodytube", "id": "body", "name": "...", ...typed params...,
- *   "position": {"method": "top|middle|bottom|absolute", "offset": 0.0},
- *   "density": 950, "children": [ ...nodes... ] }
- * All SI, radians. Unknown types throw, and callers surface the message.
- */
+/** All SI, radians. */
 final class ComponentFactory {
 
-    /**
-     * Instance-count ceiling, mirroring {@code web/src/tree/nodeProps.ts}
-     * MAX_INSTANCE_COUNT.
-     * <p>
-     * The boundary owns this rule, not the UI: {@code orkImport.ts} writes the raw
-     * file value into the tree, so a cap in the property panel and the renderers
-     * alone never sees it. Uncapped, {@code PodSet.getInstanceOffsets} allocates an
-     * array per instance on every mass, aero and integration step, so a pod set of
-     * 100000 takes seconds for a single getStaticInfo (which the app calls per
-     * keystroke), and a large enough count exhausts the heap.
-     */
+    // Mirrors web/src/tree/nodeProps.ts MAX_INSTANCE_COUNT; enforced here because orkImport.ts writes raw values.
     static final int MAX_INSTANCE_COUNT = 64;
 
-    /** Fin-count ceiling. {@code FinSet.setFinCount} clamps to 1..8 itself; this
-     *  makes the boundary say so rather than relying on the kernel to absorb a
-     *  nonsense value silently. */
     static final int MAX_FIN_COUNT = 8;
 
-    /** Freeform fin outline ceiling, the browser's own (importLimits.MAX_FIN_POINTS):
-     *  every point is a vertex in every mesh, drawing and kernel pass. */
+    // Matches the browser's importLimits.MAX_FIN_POINTS.
     static final int MAX_FIN_POINTS = 10000;
 
-    /** Shroud-line ceiling. Line mass scales with the count, so an absurd count
-     *  builds a rocket of absurd mass with no warning. */
     static final int MAX_LINE_COUNT = 1024;
 
-    /**
-     * Read a count that reaches an allocation or a per-step loop.
-     * <p>
-     * Not a bare {@code (int) dbl(...)}, which turns NaN into 0 and Infinity into
-     * Integer.MAX_VALUE. Out-of-range is rejected rather than clamped: silently
-     * building a different rocket than the file describes is the failure this
-     * boundary exists to prevent.
-     */
+    // Not a bare (int) dbl(...), which turns NaN into 0 and Infinity into Integer.MAX_VALUE.
     private static int count(Map<String, Object> node, String key, int fallback, int max) {
         return count(node, key, fallback, 1, max);
     }
 
-    /**
-     * {@link #count} with its own floor, for a count where none is a real
-     * answer: a parachute may have no shroud lines ({@code Parachute.setLineCount}
-     * takes 0, and the desktop spinner starts there).
-     */
     private static int count(Map<String, Object> node, String key, int fallback, int min, int max) {
         double v = dbl(node, key, fallback);
         if (Double.isNaN(v) || v != Math.floor(v) || v < min || v > max) {
@@ -114,20 +80,10 @@ final class ComponentFactory {
         return (int) v;
     }
 
-    /**
-     * The largest magnitude any component number may carry, in SI units. No real
-     * part comes near it (a kilometer-long tube, a density forty times
-     * osmium's), and it is far below where the geometry overflows: a
-     * `"length":1e300` nose cone builds and returns every static figure as null
-     * with no error.
-     */
+    // SI. `"length":1e300` would return every static figure as null with no error.
     static final double MAX_MAGNITUDE = 1e6;
 
-    /**
-     * Sizes, densities and masses: never negative. The kernel clamps a negative
-     * one instead of refusing it, so `outerRadius:-1` would build a part with mass
-     * 0.0 and no warning. Positions, angles, sweep, overhang and offsets stay signed.
-     */
+    // The kernel clamps a negative size to 0 silently. Positions, angles, sweep, overhang and offsets stay signed.
     private static final java.util.Set<String> NON_NEGATIVE = new java.util.HashSet<>(java.util.Arrays.asList(
             "length", "thickness", "outerRadius", "innerRadius", "radius", "aftRadius", "foreRadius",
             "height", "rootChord", "tipChord", "diameter", "outerDiameter", "innerDiameter",
@@ -139,10 +95,6 @@ final class ComponentFactory {
             "filletRadius", "finLeRadius", "tabHeight", "tabLength", "flangeHeight", "baseHeight",
             "screwHeight", "instanceSeparation", "deployDelay", "deployAltitude", "cd", "ignitionDelay"));
 
-    /**
-     * A component number: {@link JsonLite#dbl}, refused past {@link #MAX_MAGNITUDE},
-     * and refused below 0 for the keys in {@link #NON_NEGATIVE}.
-     */
     private static double dbl(Map<String, Object> node, String key, double fallback) {
         double v = JsonLite.dbl(node, key, fallback);
         if (Math.abs(v) > MAX_MAGNITUDE) {
@@ -162,9 +114,7 @@ final class ComponentFactory {
         RocketComponent c;
         switch (type) {
             case "nosecone": {
-                // Absent keys build NoseCone() (NoseCone.java:27): length
-                // 6 x DEFAULT_RADIUS, base radius DEFAULT_RADIUS
-                // (SymmetricComponent.java:24, 0.025), wall 0.002 (NoseCone.java:34).
+                // Defaults match NoseCone() (NoseCone.java:27, :34; SymmetricComponent.java:24).
                 NoseCone nose = new NoseCone(
                         shapeOf(str(node, "shape", "ogive")),
                         dbl(node, "length", 0.15),
@@ -175,20 +125,9 @@ final class ComponentFactory {
                     nose.setShapeParameter(shapeParam);
                 }
                 nose.setFilled(bool(node, "filled", false));
-                // A flipped nose cone is how a tail cone is modeled: the same
-                // part turned round, with the profile running the other way.
-                // The desktop writes it as <isflipped>; without it an imported
-                // tail cone flies nose-first. Flipped before the shoulder is set:
-                // setFlipped carries a shoulder to the other end through the
-                // clamping setter, against a base that may not have resolved yet.
+                // Before the shoulder: setFlipped moves a shoulder through the clamping setter.
                 nose.setFlipped(bool(node, "flipped", false));
-                // The shoulder sits at the base, wherever the base is
-                // (NoseCone.setShoulder*). Its radius is set unclamped, as
-                // desktop's .ork loader sets it (DocumentConfig,
-                // "Transition:aftshoulderradius"): a clamp here would read an
-                // automatic base before it has anything to follow. A flipped
-                // cone is the exception desktop makes, and settleFlippedShoulders
-                // applies it once the base has resolved.
+                // Unclamped, as desktop's .ork loader (DocumentConfig "Transition:aftshoulderradius").
                 double shR = dbl(node, "shoulderRadius", Double.NaN);
                 if (!Double.isNaN(shR)) {
                     nose.setShoulderRadius(shR, false);
@@ -197,15 +136,10 @@ final class ComponentFactory {
                 if (!Double.isNaN(shL)) {
                     nose.setShoulderLength(shL);
                 }
-                // Always set, 0 when the node states none, and after the length:
-                // setShoulderLength seeds a shoulder that grows from length 0
-                // with the part's own wall, which the panel and the .ork would
-                // both show as 0.
+                // Always set, after the length: setShoulderLength seeds a new shoulder with the part's wall.
                 nose.setShoulderThickness(dbl(node, "shoulderThickness", 0));
                 nose.setShoulderCapped(bool(node, "shoulderCapped", false));
-                // Automatic base diameter. `aftRadiusAuto` is the base wherever it
-                // sits: the aft end, or the fore end of a flipped nose cone, which
-                // then follows the component ahead of it.
+                // `aftRadiusAuto` means the base, which is the fore end when flipped.
                 if (bool(node, "aftRadiusAuto", false)) {
                     nose.setBaseRadiusAutomatic(true);
                 }
@@ -215,25 +149,17 @@ final class ComponentFactory {
             case "transition": {
                 Transition t = new Transition();
                 t.setShapeType(shapeOf(str(node, "shape", "conical")));
-                // Shape parameter: the same Shape enum as the nose cone
-                // (ogive 0..1 secant fraction, power 0..1 exponent, parabolic
-                // 0..1 segment, haack 0..1/3; conical/ellipsoid ignore it).
                 // Must follow setShapeType, which resets it to the default.
                 double shapeParam = dbl(node, "shapeParameter", Double.NaN);
                 if (!Double.isNaN(shapeParam)) {
                     t.setShapeParameter(shapeParam);
                 }
-                // Clipped vs full profile (ellipsoid/power/haack only, per
-                // Shape.isClippable(); nose cones are never clipped). Absent
-                // keeps the kernel default: setShapeType resets clipped to
-                // isClippable(), i.e. clipped, matching the desktop.
+                // Absent keeps setShapeType's default (clipped where clippable), as desktop.
                 Object clippedRaw = node.get("clipped");
                 if (clippedRaw instanceof Boolean) {
                     t.setClipped((Boolean) clippedRaw);
                 }
-                // Absent, the length is Transition()'s (Transition.java:48):
-                // 3 x DEFAULT_RADIUS. The wall below is DEFAULT_THICKNESS
-                // (SymmetricComponent.java:25).
+                // Defaults match Transition() (Transition.java:48; SymmetricComponent.java:25).
                 t.setLength(dbl(node, "length", 0.075));
                 double fore = dbl(node, "foreRadius", Double.NaN);
                 if (bool(node, "foreRadiusAuto", false) || Double.isNaN(fore)) {
@@ -249,11 +175,7 @@ final class ComponentFactory {
                 }
                 t.setThickness(dbl(node, "thickness", 0.002));
                 t.setFilled(bool(node, "filled", false));
-                // Stated shoulders are set unclamped, as desktop's .ork loader
-                // sets them (DocumentConfig, "Transition:foreshoulderradius"):
-                // an automatic end has nothing to follow until the part and its
-                // neighbors are attached, so a clamp here would cut a shoulder to
-                // SymmetricComponent.DEFAULT_RADIUS.
+                // Unclamped, as desktop's .ork loader: a clamp would cut an automatic end to DEFAULT_RADIUS.
                 double fShR = dbl(node, "foreShoulderRadius", Double.NaN);
                 if (!Double.isNaN(fShR)) {
                     t.setForeShoulderRadius(fShR, false);
@@ -270,45 +192,26 @@ final class ComponentFactory {
                 if (!Double.isNaN(aShL)) {
                     t.setAftShoulderLength(aShL);
                 }
-                // Shoulder wall, per side: the stated wall, 0 when the node states
-                // none. Always set, and after the lengths, which seed a shoulder
-                // that grows from length 0 with the part's own wall
-                // (Transition.setForeShoulderLength); the panel and the .ork would
-                // show 0 while the kernel flew that wall. A capped shoulder is made
-                // out of this wall, so with none the cap below adds nothing either.
+                // Always set, after the lengths: they seed a new shoulder with the part's wall.
                 t.setForeShoulderThickness(dbl(node, "foreShoulderThickness", 0));
                 t.setAftShoulderThickness(dbl(node, "aftShoulderThickness", 0));
-                // Capped shoulder = a closed disc of the part's own material, so
-                // it has mass. A transition has one per side, each with its own
-                // key. `shoulderCapped` (the nose cone's single key) is read as
-                // the aft side's fallback for a node that carries only that key.
+                // The nose cone's single `shoulderCapped` key is the aft fallback.
                 t.setForeShoulderCapped(bool(node, "foreShoulderCapped", false));
                 t.setAftShoulderCapped(bool(node, "aftShoulderCapped", bool(node, "shoulderCapped", false)));
                 c = t;
                 break;
             }
             case "bodytube": {
-                // Absent keys build BodyTube()'s dimensions (BodyTube.java:41):
-                // length 8 x DEFAULT_RADIUS, radius DEFAULT_RADIUS
-                // (SymmetricComponent.java:24), wall DEFAULT_THICKNESS
-                // (SymmetricComponent.java:25).
+                // Defaults match BodyTube() (BodyTube.java:41; SymmetricComponent.java:24-25).
                 BodyTube bodyTube = new BodyTube(
                         dbl(node, "length", 0.2),
                         dbl(node, "outerRadius", 0.025),
                         dbl(node, "thickness", 0.002));
-                // Min-diameter rockets: the body tube itself is the motor mount
-                // (kernel BodyTube implements MotorMount, same as the desktop).
                 bodyTube.setMotorMount(bool(node, "motorMount", false));
-                // Motor overhang (m): protrusion past the mount's aft end,
-                // standard min-diameter practice (~6 mm); shifts the motor mass.
                 bodyTube.setMotorOverhang(dbl(node, "motorOverhang", 0));
                 defaultIgnition(bodyTube, node);
-                // Solid, with no bore: the desktop's Filled checkbox,
-                // `<thickness>filled</thickness>` in the file.
                 bodyTube.setFilled(bool(node, "filled", false));
-                // The desktop's Automatic diameter: the tube takes the radius
-                // of the part next door and follows it. Set after the
-                // constructor, which has already taken an explicit radius.
+                // After the constructor, which would turn the flag off.
                 if (bool(node, "outerRadiusAuto", false)) {
                     bodyTube.setOuterRadiusAutomatic(true);
                 }
@@ -316,8 +219,7 @@ final class ComponentFactory {
                 break;
             }
             case "trapezoidfinset": {
-                // Absent keys build TrapezoidFinSet() (TrapezoidFinSet.java:43):
-                // 3 fins, root 0.05, tip 0.05, sweep 0.025, height 0.03.
+                // Defaults match TrapezoidFinSet() (TrapezoidFinSet.java:43).
                 TrapezoidFinSet fins = new TrapezoidFinSet(
                         count(node, "finCount", 3, MAX_FIN_COUNT),
                         dbl(node, "rootChord", 0.05),
@@ -333,8 +235,7 @@ final class ComponentFactory {
             case "ellipticalfinset": {
                 EllipticalFinSet fins = new EllipticalFinSet();
                 fins.setFinCount(count(node, "finCount", 3, MAX_FIN_COUNT));
-                // Absent keys keep EllipticalFinSet() (EllipticalFinSet.java:30-33):
-                // root 0.05, height 0.05.
+                // Defaults match EllipticalFinSet() (EllipticalFinSet.java:30-33).
                 fins.setLength(dbl(node, "rootChord", 0.05));
                 fins.setHeight(dbl(node, "height", 0.05));
                 fins.setThickness(dbl(node, "thickness", 0.003));
@@ -374,13 +275,7 @@ final class ComponentFactory {
                                 "freeformfinset needs at least 3 points");
                     }
                     fins.setPoints(pts);
-                    // A self-intersecting outline is refused by the kernel, which rolls
-                    // it back to the fin it held before (here the constructor's
-                    // default fin) and says so only to the log, so the build would fly
-                    // a fin the design does not draw. The FreeformFinSet patch records
-                    // the refusal (patches/LEDGER.md) and the build is refused by name.
-                    // This diverges from the desktop, which substitutes silently: a
-                    // design that draws one fin and flies another is the worse answer.
+                    // The kernel silently rolls a self-intersecting outline back to the default fin.
                     if (fins.isOutlineRefused()) {
                         String finName = str(node, "name", "freeform fin set");
                         throw new IllegalArgumentException("Fin set \"" + finName
@@ -399,7 +294,7 @@ final class ComponentFactory {
                 if (!Double.isNaN(or)) {
                     fins.setOuterRadius(or);
                 }
-                // TubeFinSet is not a FinSet, so rotation is applied here directly.
+                // TubeFinSet is not a FinSet, so the common rotation below misses it.
                 double tubeRot = dbl(node, "rotation", 0);
                 if (tubeRot != 0) {
                     fins.setBaseRotation(tubeRot);
@@ -415,11 +310,6 @@ final class ComponentFactory {
                 tube.setMotorMount(bool(node, "motorMount", false));
                 tube.setMotorOverhang(dbl(node, "motorOverhang", 0));
                 defaultIgnition(tube, node);
-                // Cluster: pattern by its .ork XML name ("3-ring", "double"…).
-                // One motor definition serves the whole cluster: the kernel
-                // multiplies thrust by tube count and places mass/inertia at
-                // the cluster geometry points. Rotation is radians (SI/rad
-                // everywhere inside; degrees exist only at UI/.ork edges).
                 String clusterName = str(node, "cluster", null);
                 if (clusterName != null && !clusterName.isEmpty()) {
                     ClusterConfiguration cc = null;
@@ -436,20 +326,14 @@ final class ComponentFactory {
                     tube.setClusterScale(dbl(node, "clusterScale", 1.0));
                     tube.setClusterRotation(dbl(node, "clusterRotation", 0.0));
                 }
-                // Off-axis / split-cluster offset: desktop splits a cluster into
-                // single tubes, each holding its position as radialPosition (m) +
-                // radialDirection (rad). Applies with or without a cluster config
-                // (a split tube's config is "single", so it has no cluster block);
-                // 0/0, the default, leaves the tube on the centerline.
+                // Applies without a cluster too: desktop's split cluster leaves offset single tubes.
                 tube.setRadialPosition(dbl(node, "radialPosition", 0.0));
                 tube.setRadialDirection(dbl(node, "radialDirection", 0.0));
                 c = tube;
                 break;
             }
             case "tubecoupler": {
-                // Absent keys keep TubeCoupler() (TubeCoupler.java:12-14): automatic
-                // radius, wall 0.002, length 0.06. The wall is applied again after
-                // attach (applyWallThickness), where the radius has resolved.
+                // Defaults match TubeCoupler() (TubeCoupler.java:12-14).
                 TubeCoupler tc = new TubeCoupler();
                 tc.setLength(dbl(node, "length", 0.06));
                 double or = dbl(node, "outerRadius", Double.NaN);
@@ -487,9 +371,7 @@ final class ComponentFactory {
                 break;
             }
             case "engineblock": {
-                // Absent keys keep EngineBlock() (EngineBlock.java:15-17): automatic
-                // radius, wall 0.005, length 0.005. The wall is applied again after
-                // attach (applyWallThickness), where the radius has resolved.
+                // Defaults match EngineBlock() (EngineBlock.java:15-17).
                 EngineBlock eb = new EngineBlock();
                 eb.setLength(dbl(node, "length", 0.005));
                 double or = dbl(node, "outerRadius", Double.NaN);
@@ -501,18 +383,12 @@ final class ComponentFactory {
                 break;
             }
             case "launchlug": {
-                // Absent keys keep LaunchLug() (LaunchLug.java:35-37): radius
-                // 0.01 / 2, wall 0.001, length 0.03.
+                // Defaults match LaunchLug() (LaunchLug.java:35-37).
                 LaunchLug lug = new LaunchLug();
                 lug.setLength(dbl(node, "length", 0.03));
                 lug.setOuterRadius(dbl(node, "outerRadius", 0.005));
                 lug.setThickness(dbl(node, "thickness", 0.001));
-                // Angle around the body (rad); absent, the kernel default π
-                // (180°). It shifts lateral balance and the wind response, not drag.
                 lug.setAngleOffset(dbl(node, "angleOffset", Math.PI));
-                // instanceSeparation is set in the repeated-parts block below;
-                // absent, the lug keeps its constructor's spacing (its own 0.03 m
-                // length x 2), which setLength does not change.
                 c = lug;
                 break;
             }
@@ -522,16 +398,8 @@ final class ComponentFactory {
                 if (!Double.isNaN(od)) {
                     rb.setOuterDiameter(od);
                 }
-                // Angle around the body (rad), as for the launch lug; absent,
-                // the kernel default π (180°).
                 rb.setAngleOffset(dbl(node, "angleOffset", Math.PI));
-                // The rest of the button's geometry. Each absent key keeps the
-                // kernel default, so a hand-sized 1010 rail button needs these
-                // for its mass to be right. The setters clamp the total height
-                // against the base and flange and those two against the total,
-                // so the base and flange are cleared before the total is set:
-                // a button whose heights agree then builds exactly as stated,
-                // whatever the constructor's heights were.
+                // The height setters clamp against each other: clear base and flange before the total.
                 double rbH = dbl(node, "height", rb.getTotalHeight());
                 double rbBase = dbl(node, "baseHeight", rb.getBaseHeight());
                 double rbFlange = dbl(node, "flangeHeight", rb.getFlangeHeight());
@@ -553,13 +421,7 @@ final class ComponentFactory {
             }
             case "parachute": {
                 Parachute p = new Parachute();
-                // Packed length (from <packedlength>). Governs where a bottom-/top-
-                // referenced recovery device's mass sits; without it the default
-                // 25 mm misplaces the CG (a shock cord can be tens of mm off).
                 p.setLength(dbl(node, "length", 0.025));
-                // Packed radius (<packedradius>). Absent, the chute keeps the
-                // kernel's default radius, so its mass sits on a radius nobody
-                // chose, which moves the rotational inertia.
                 double pR = dbl(node, "radius", Double.NaN);
                 if (!Double.isNaN(pR)) {
                     p.setRadius(pR);
@@ -581,11 +443,6 @@ final class ComponentFactory {
                     p.setLineMaterial(Material.newMaterial(Material.Type.LINE,
                             str(node, "lineMaterialName", "custom"), chuteLine, true));
                 }
-                // Drogue or main. The kernel's stageHasDrogue check reads isDrogue(),
-                // and without a drogue it takes the single-deployment branch, so the
-                // dual-deployment warnings (main too fast / too slow, drogue too slow,
-                // drogue with no main) depend on this flag. `<isdrogue>` is
-                // OpenRocket's own .ork element for it.
                 p.setDrogue(bool(node, "drogue", false));
                 applyDeployment(p, node);
                 c = p;
@@ -621,9 +478,7 @@ final class ComponentFactory {
                 if (!Double.isNaN(scR)) {
                     sc.setRadius(scR);
                 }
-                // Absent, the cord is ShockCord()'s 0.4 m (ShockCord.java:22), held
-                // as a stated length; the automatic flag below restores the
-                // constructor's automatic sizing.
+                // Default matches ShockCord() (ShockCord.java:22).
                 sc.setCordLength(dbl(node, "cordLength", 0.4));
                 double cordLine = dbl(node, "lineDensity", Double.NaN);
                 if (!Double.isNaN(cordLine)) {
@@ -634,54 +489,29 @@ final class ComponentFactory {
                 break;
             }
             case "masscomponent": {
-                // Absent keys keep MassComponent(): 0 kg (MassComponent.java:17,
-                // the field's initial value), length 0.025 and radius 0.0125
-                // (MassObject.java:38).
+                // Defaults match MassComponent() (MassComponent.java:17; MassObject.java:38).
                 MassComponent m = new MassComponent();
                 m.setComponentMass(dbl(node, "mass", 0));
                 m.setLength(dbl(node, "length", 0.025));
                 m.setRadius(dbl(node, "radius", 0.0125));
-                // What the lump is (altimeter, battery, payload...). It changes
-                // no physics; OpenRocket uses it to name and picture the part,
-                // and without it a round trip renames every altimeter to
-                // "Mass component".
                 m.setMassComponentType(massComponentTypeOf(str(node, "massComponentType", "masscomponent")));
                 c = m;
                 break;
             }
             case "podset": {
-                // Off-axis pod (non-separating). Geometry is applied post-attach
-                // (applyAssembly), because the setters NPE without a parent.
+                // Geometry is applied post-attach (applyAssembly): the setters NPE without a parent.
                 c = new PodSet();
                 break;
             }
             case "parallelstage": {
-                // Strap-on booster: a ParallelStage is an AxialStage, so it
-                // separates and flies its own branch. Config applied post-attach.
                 c = new ParallelStage();
                 break;
             }
-            // App extension of RASAero origin, not an OpenRocket type: a camera
-            // shroud, written to `.ork` as our own <fairing> element (the desktop
-            // warns and skips it). Nothing in the editor can create one (no
-            // defaultNode case, no property panel), so it appears only in a
-            // design loaded from a `.ork` this app wrote.
-            //
-            // Handled here rather than left to the `default:` below, which throws:
-            // a design that round-trips through our own file format has to build.
-            //
-            // Modeled as a MassComponent, so mass, length and CG are right. Its
-            // drag is not modeled: a fairing is an external body with frontal
-            // area and MassComponent contributes none, so a design carrying one
-            // flies slightly further than it should. Closing that means choosing
-            // which OpenRocket primitive supplies the frontal-area drag. Scope:
-            // RASAero. See engine-java/ATTRIBUTION.md.
+            // App-only element (desktop skips it); a MassComponent has no frontal drag. See ATTRIBUTION.md.
             case "fairing": {
                 MassComponent f = new MassComponent();
                 f.setComponentMass(dbl(node, "mass", 0.03));
                 f.setLength(dbl(node, "length", 0.08));
-                // Radius from the shroud's cross-section, so the mass occupies
-                // roughly the right volume rather than a point.
                 double w = dbl(node, "width", 0.025);
                 double hgt = dbl(node, "height", 0.02);
                 f.setRadius(Math.max(w, hgt) / 2);
@@ -692,7 +522,6 @@ final class ComponentFactory {
                 throw new IllegalArgumentException("Unknown component type: '" + type + "'");
         }
 
-        // ---- common parameters ----
         String name = str(node, "name", null);
         if (name != null) {
             c.setName(name);
@@ -711,17 +540,12 @@ final class ComponentFactory {
         if (finish != null && c instanceof ExternalComponent) {
             ((ExternalComponent) c).setFinish(finishOf(finish));
         }
-        // Carried so a desktop readback can compare it; nothing flies it.
         String comment = str(node, "comment", null);
         if (comment != null) {
             c.setComment(comment);
         }
-        // Fin airfoil cross-sections and LE bluntness radius.
-        // Absent keys keep the classic 3-value crossSection behavior.
         if (c instanceof FinSet) {
             FinSet fs = (FinSet) c;
-            // Fin-set rotation about the body axis (radians), for example to
-            // interleave straight fins between tube fins.
             double rot = dbl(node, "rotation", 0);
             if (rot != 0) {
                 fs.setBaseRotation(rot);
@@ -729,9 +553,7 @@ final class ComponentFactory {
             String section = str(node, "airfoilSection", null);
             if (section != null) {
                 String s = section.toLowerCase();
-                // Validate here so a bad name fails the build with a clear
-                // message instead of an UnsupportedOperationException from
-                // FinSetCalc mid-simulation.
+                // Otherwise FinSetCalc throws UnsupportedOperationException mid-simulation.
                 switch (s) {
                     case "hexagonal":
                     case "naca":
@@ -749,34 +571,18 @@ final class ComponentFactory {
             fs.setAirfoilLeDiamond(dbl(node, "airfoilLeDiamond", 0));
             fs.setAirfoilTeDiamond(dbl(node, "airfoilTeDiamond", 0));
             fs.setFinLeRadius(dbl(node, "finLeRadius", 0));
-            // Fin fillets: the glue bead along the root where the fin meets the
-            // body. The kernel computes their volume, mass and CM
-            // (FinSet.calculateFilletVolumeCentroid, and calculateCM adds
-            // filletMass to every fin), but from a radius that starts at 0, so
-            // a fillet is weightless unless its radius is set here.
             double filletRadius = dbl(node, "filletRadius", 0);
             if (filletRadius > 0) {
                 fs.setFilletRadius(filletRadius);
             }
-            // The bead is rarely the fin's own material (epoxy on plywood), so
-            // it carries its own density, and a fin set keeps it at a 0 radius
-            // as desktop does (a fillet turned back on is in that material).
-            // Absent, the kernel keeps its default bulk material, which is
-            // Cardboard at 680 kg/m3 -- the same material and density orkExport
-            // writes for a fillet the file did not name, so the two sides agree
-            // either way.
+            // Kept even at a 0 radius, as desktop does.
             double filletDensity = dbl(node, "filletDensity", Double.NaN);
             if (!Double.isNaN(filletDensity) && filletDensity > 0) {
                 fs.setFilletMaterial(Material.newMaterial(Material.Type.BULK,
                         str(node, "filletMaterialName", "custom"), filletDensity, true));
             }
         }
-        // Repeated parts: N copies of one lug, button or ring, evenly spaced.
-        // OpenRocket's own <instancecount>/<instanceseparation>; without them
-        // three centering rings would weigh as much as one. Assemblies are
-        // handled in applyAssembly, which runs after the parent is attached;
-        // everything else that can be repeated is a LineInstanceable and is
-        // set here.
+        // Assemblies are RingInstanceable and are set post-attach in applyAssembly.
         if (c instanceof LineInstanceable && !(c instanceof RingInstanceable)) {
             LineInstanceable line = (LineInstanceable) c;
             line.setInstanceCount(count(node, "instanceCount", 1, MAX_INSTANCE_COUNT));
@@ -785,12 +591,6 @@ final class ComponentFactory {
                 line.setInstanceSeparation(sep);
             }
         }
-        // Off-centerline placement for internal structure, as desktop's
-        // RingComponent and MassObject setters take it. The inner tube sets
-        // its own above. A mass object (mass component, parachute, streamer,
-        // shock cord) flies the offset: MassObject.getComponentCG puts its
-        // mass there. A ring part's getComponentCG ignores it, so a ring
-        // carries the offset and still flies on the axis, as on the desktop.
         if (c instanceof RingComponent) {
             RingComponent rc = (RingComponent) c;
             rc.setRadialPosition(dbl(node, "radialPosition", 0));
@@ -800,12 +600,7 @@ final class ComponentFactory {
             mo.setRadialPosition(dbl(node, "radialPosition", 0));
             mo.setRadialDirection(dbl(node, "radialDirection", 0));
         }
-        // Automatic diameters on inner structure and tube fins: the flag says
-        // the part follows what it is inside, and the number beside it is what
-        // that currently resolves to. Set after the explicit radii above, which
-        // would otherwise turn the flag off again.
-        // `RingComponent` keeps these protected and each concrete ring
-        // republishes them, so the cast has to be to the leaf type.
+        // After the explicit radii, which turn the flag off. Leaf casts: RingComponent's setters are protected.
         boolean autoOuter = bool(node, "outerRadiusAuto", false);
         if (autoOuter) {
             if (c instanceof CenteringRing) {
@@ -823,10 +618,6 @@ final class ComponentFactory {
         if (c instanceof CenteringRing && bool(node, "innerRadiusAuto", false)) {
             ((CenteringRing) c).setInnerRadiusAutomatic(true);
         }
-        // Values the kernel works out for itself when the design says so: a
-        // recovery device's drag coefficient and shroud-line length, a shock
-        // cord's length, and the packed radius of any mass object. Each is
-        // `auto` in the file and a checkbox on the desktop.
         if (c instanceof MassObject && bool(node, "radiusAuto", false)) {
             ((MassObject) c).setRadiusAutomatic(true);
         }
@@ -841,9 +632,7 @@ final class ComponentFactory {
         }
         applyOverrides(c, node);
         Map<String, Object> position = obj(node, "position");
-        // Off-axis assemblies (PodSet/ParallelStage) have no parent here yet, and
-        // their setAxialMethod NPEs without one, so their position is applied
-        // post-attach in applyAssembly. Every other component positions here.
+        // Assemblies NPE in setAxialMethod without a parent; applyAssembly places them.
         if (position != null && !(c instanceof ComponentAssembly)) {
             c.setAxialMethod(axialMethodOf(str(position, "method", "top")));
             c.setAxialOffset(dbl(position, "offset", 0));
@@ -851,11 +640,6 @@ final class ComponentFactory {
         return c;
     }
 
-    /**
-     * Mass, CG and drag overrides, for a part and for a stage alike; an absent
-     * key means "not overridden". A stage is built by OpenRocketEngine rather
-     * than {@link #create}, so it calls this itself.
-     */
     static void applyOverrides(RocketComponent c, Map<String, Object> node) {
         double overrideMass = dbl(node, "overrideMass", Double.NaN);
         if (!Double.isNaN(overrideMass)) {
@@ -872,9 +656,6 @@ final class ComponentFactory {
             c.setOverrideCD(overrideCD);
             c.setCDOverridden(true);
         }
-        // "Override for all subcomponents" flags (desktop .ork
-        // <overridesubcomponents*>: the override replaces the whole subtree's
-        // computed value, not just this component's).
         if (bool(node, "overrideSubcomponentsMass", false)) {
             c.setSubcomponentsOverriddenMass(true);
         }
@@ -886,12 +667,7 @@ final class ComponentFactory {
         }
     }
 
-    /**
-     * Deployment settings for recovery devices, applied to the default
-     * deployment configuration (inherited by every flight configuration).
-     * Keys: deployEvent (launch|ejection|apogee|altitude|never),
-     * deployAltitude (m AGL, for "altitude"), deployDelay (s).
-     */
+    // deployAltitude is m AGL.
     private static void applyDeployment(RecoveryDevice device, Map<String, Object> node) {
         DeploymentConfiguration config = device.getDeploymentConfigurations().getDefault();
         String event = str(node, "deployEvent", null);
@@ -908,14 +684,7 @@ final class ComponentFactory {
         }
     }
 
-    /**
-     * The mount's own ignition: the desktop Motor tab's "Ignition at", stored on
-     * `getDefaultMotorConfig()` and written bare in `<motormount>`. A motor put in
-     * the mount starts from it, and the app does that copy itself, since
-     * setMotorById builds its MotorConfiguration without the default. So it
-     * changes no flight here. Keys: ignitionEvent
-     * (automatic|launch|ejectioncharge|burnout|never), ignitionDelay (s).
-     */
+    // Changes no flight: setMotorById ignores it, so the app copies it into each motor itself.
     private static void defaultIgnition(MotorMount mount, Map<String, Object> node) {
         MotorConfiguration config = mount.getDefaultMotorConfig();
         String event = str(node, "ignitionEvent", null);
@@ -928,13 +697,7 @@ final class ComponentFactory {
         }
     }
 
-    // The string-to-enum readers below take every name of the upstream enum,
-    // case- and underscore-insensitive (the desktop writes them lowercased with
-    // the underscores dropped, as `lowerstageseparation`), and refuse anything
-    // else. Defaulting an unknown name would silently change the rocket:
-    // `crossSection:"diamond"` would fly square fins, `shape:"bogus"` an ogive
-    // nose (moving CP), `method:"nonsense"` would put the part at the top. An
-    // absent key still takes its default, at the call site.
+    // Desktop writes `lowerstageseparation`.
     private static String enumKey(String name) {
         return name.toLowerCase().replace("_", "");
     }
@@ -958,7 +721,6 @@ final class ComponentFactory {
             case "roughunfinished": return ExternalComponent.Finish.ROUGHUNFINISHED;
             case "unfinished": return ExternalComponent.Finish.UNFINISHED;
             case "normal":
-            // The app's name for NORMAL in some files.
             case "regular": return ExternalComponent.Finish.NORMAL;
             case "smooth": return ExternalComponent.Finish.SMOOTH;
             case "polished": return ExternalComponent.Finish.POLISHED;
@@ -970,23 +732,14 @@ final class ComponentFactory {
         }
     }
 
-    /** Builds and attaches the node's children recursively. */
     static void attachChildren(RocketComponent parent, Map<String, Object> node,
             Map<String, RocketComponent> idIndex, Map<AxialStage, Double> nozzleDia) {
         List<Map<String, Object>> kids = JsonLite.objList(node, "children");
         for (Map<String, Object> kid : kids) {
             RocketComponent child = create(kid);
             parent.addChild(child);
-            // Wall thickness of an automatic-radius part (tube coupler, engine
-            // block, tube fin) clamps against the outer radius, which is only
-            // known post-attach: set in create() it would clamp to zero (zero
-            // mass / zero wall). (Re)apply it here, now that the parent is set.
             applyWallThickness(child, kid);
-            // Assemblies and fin tabs configure after addChild (they read the
-            // parent for reprojection / radius clamping). Guard on
-            // ComponentAssembly, not RingInstanceable: FinSet/SymmetricComponent
-            // also implement RingInstanceable, and applyAssembly would clobber
-            // their instance count with the pod default.
+            // Not RingInstanceable: FinSet and SymmetricComponent are too, and would get the pod count.
             if (child instanceof ComponentAssembly) {
                 applyAssembly(child, kid, nozzleDia);
             }
@@ -1001,12 +754,7 @@ final class ComponentFactory {
         }
     }
 
-    /**
-     * (Re)apply the wall thickness of a part whose {@code setThickness} clamps
-     * against the outer radius. For an automatic-radius part the radius is only
-     * resolved after {@code addChild}, so a thickness applied in {@code create()}
-     * clamps to zero. Idempotent for an explicit-radius part.
-     */
+    // setThickness clamps against an automatic outer radius that resolves only after addChild.
     private static void applyWallThickness(RocketComponent child, Map<String, Object> node) {
         if (child instanceof TubeCoupler) {
             ((TubeCoupler) child).setThickness(dbl(node, "thickness", 0.002));
@@ -1020,12 +768,7 @@ final class ComponentFactory {
         }
     }
 
-    /**
-     * Fin tabs (through-the-wall mounting). Applied after the fin set is
-     * attached: setTabHeight() clamps against the parent body radius, which
-     * is only known post-attach. Keys: tabHeight, tabLength (both > 0 to
-     * enable), tabOffset, tabOffsetMethod (top|middle|bottom).
-     */
+    // Post-attach: setTabHeight() clamps against the parent body radius.
     private static void applyFinTabs(FinSet fins, Map<String, Object> node) {
         double tabHeight = dbl(node, "tabHeight", 0);
         double tabLength = dbl(node, "tabLength", 0);
@@ -1038,15 +781,7 @@ final class ComponentFactory {
         fins.setTabHeight(tabHeight);
     }
 
-    /**
-     * A flipped nose cone's shoulder against its settled base. Desktop's .ork
-     * loader reads `<isflipped>` last, and NoseCone.setFlipped carries the
-     * shoulder to the base through the clamping setter, against a base that
-     * has resolved because desktop attaches a part before reading it; the wall
-     * is carried after the radius, unclamped. So once the rocket is built, a
-     * flipped cone's stated shoulder radius is set again with the clamp on, and
-     * its stated wall after it.
-     */
+    // Desktop parity: its .ork loader reads `<isflipped>` last, after attach.
     static void settleFlippedShoulders(Map<String, Object> node, Map<String, RocketComponent> idIndex) {
         for (Map<String, Object> kid : JsonLite.objList(node, "children")) {
             String id = str(kid, "id", null);
@@ -1061,25 +796,12 @@ final class ComponentFactory {
         }
     }
 
-    /**
-     * Fin tab depths against the settled body radius. setTabHeight() clamps to
-     * the parent radius at the moment it is called, and while the rocket is
-     * being built an automatic tube's radius follows whatever is attached so
-     * far, and a fin set placed by its middle or bottom has not yet been moved to
-     * its station; the clamp is never revisited after either settles. So once
-     * the rocket is built and its parts placed, each tab's requested depth is
-     * applied again, in tree order, and clamps against the radius the design
-     * flies with.
-     */
+    // Reapplied once built: the build clamp used a radius that may not have settled.
     static void settleFinTabs(Map<String, Object> node, Map<String, RocketComponent> idIndex) {
         for (Map<String, Object> kid : JsonLite.objList(node, "children")) {
             String id = str(kid, "id", null);
             RocketComponent c = id == null ? null : idIndex.get(id);
-            // Keyed on the depth asked for: a clamp during the build can have
-            // zeroed a tab that the settled radius has room for. Zeroed first,
-            // unvalidated: FinSet.setTabHeight returns early on a depth equal
-            // to the stored one, so a tab the build let through whole would
-            // otherwise never meet the settled getMaxTabHeight.
+            // Zeroed first: setTabHeight returns early on an unchanged depth.
             if (c instanceof FinSet && dbl(kid, "tabHeight", 0) > 0 && dbl(kid, "tabLength", 0) > 0) {
                 ((FinSet) c).setTabHeight(0, false);
                 ((FinSet) c).setTabHeight(dbl(kid, "tabHeight", 0));
@@ -1088,22 +810,14 @@ final class ComponentFactory {
         }
     }
 
-    /**
-     * PodSet / ParallelStage placement. Must run after parent.addChild(child):
-     * setRadiusMethod/setAxialMethod read getParent() and NPE with no parent.
-     * Radial uses offset/gap semantics (setRadiusMethod + setRadiusOffset), never
-     * setRadius(method,value) (which is radius-from-centerline and double-subtracts
-     * the parent radius). PodSet.setAngleMethod is a no-op (pods are always
-     * RELATIVE), so angleMethod is applied for parallelstage only. The kernel
-     * ignores an AFTER axial method on an off-axis assembly; the app never offers it.
-     */
+    // After addChild: these setters NPE with no parent. Never setRadius(method,value): it double-subtracts the parent radius.
     private static void applyAssembly(RocketComponent child, Map<String, Object> node,
             Map<AxialStage, Double> nozzleDia) {
         RingInstanceable ring = (RingInstanceable) child;
         ring.setInstanceCount(count(node, "instanceCount", 2, MAX_INSTANCE_COUNT));
         ring.setRadiusMethod(radiusMethodOf(str(node, "radiusMethod", "relative")));
-        ring.setRadiusOffset(dbl(node, "radiusOffset", 0)); // gap in meters, stored raw for RELATIVE/FREE
-        ring.setAngleOffset(dbl(node, "angleOffset", 0));    // radians
+        ring.setRadiusOffset(dbl(node, "radiusOffset", 0));
+        ring.setAngleOffset(dbl(node, "angleOffset", 0));
         if (child instanceof ParallelStage) {
             ring.setAngleMethod(angleMethodOf(str(node, "angleMethod", "relative")));
         }
@@ -1113,9 +827,6 @@ final class ComponentFactory {
             child.setAxialOffset(dbl(position, "offset", 0));
         }
         if (child instanceof ParallelStage) {
-            // A ParallelStage separates, so reuse OpenRocketEngine's stage-separation
-            // writer (same package, package-private). Passing nozzleDia so a booster
-            // stage's nozzle exit diameter reaches its motor too.
             OpenRocketEngine.applySeparationConfig((AxialStage) child, node, nozzleDia);
         }
     }
@@ -1141,7 +852,6 @@ final class ComponentFactory {
         }
     }
 
-    /** Also the facade's reader for its own nose-cone builder (OpenRocketEngine). */
     static Transition.Shape shapeOf(String name) {
         switch (enumKey(name)) {
             case "conical": return Transition.Shape.CONICAL;
@@ -1155,7 +865,6 @@ final class ComponentFactory {
         }
     }
 
-    /** OpenRocket's MassComponent.MassComponentType, by the .ork spelling. */
     private static MassComponent.MassComponentType massComponentTypeOf(String name) {
         switch (enumKey(name)) {
             case "masscomponent": return MassComponent.MassComponentType.MASSCOMPONENT;
@@ -1187,8 +896,6 @@ final class ComponentFactory {
             case "middle": return AxialMethod.MIDDLE;
             case "bottom": return AxialMethod.BOTTOM;
             case "absolute": return AxialMethod.ABSOLUTE;
-            // The app resolves `after` to `top` when it loads an .ork, but a tree
-            // that still carries it means OpenRocket's AFTER, not TOP.
             case "after": return AxialMethod.AFTER;
             default:
                 throw new IllegalArgumentException("Unknown position method: '" + name + "' (expected one of top, middle, bottom, absolute, after)");

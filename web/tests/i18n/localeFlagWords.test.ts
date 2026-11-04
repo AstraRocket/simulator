@@ -3,30 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import i18n, { LANGUAGES } from '../../src/i18n';
 
-/**
- * No British spelling in any locale's user-visible text.
- *
- * `cspell.json` holds the forbidden list and the spell gate applies it, but its
- * `files` is an allowlist whose only locale entry is `en.json`. The nine
- * translated files, which are all user-visible UI text, sit outside it, so a
- * British spelling (or an untranslated English leftover carrying one) in them
- * would pass the spell gate.
- *
- * Checked here rather than by widening cspell's `files`, because cspell cannot
- * do it. Spell-checking a translation needs that language's dictionary, and the
- * `cspell` package bundles none of the nine. Pointing it at `es.json` would flag
- * every Spanish word. The forbidden-word half needs no dictionary at all, and
- * it is the half that matters: the list is entirely British forms.
- *
- * The list is read from `cspell.json` rather than copied, so the two cannot
- * drift: add a word there and it is enforced in every locale at once. The
- * locales are read from the app's own registry (`LANGUAGES` in
- * `src/i18n/index.ts`), so a new language is checked the day it is added.
- */
-
-/** Words on the list that are native to a given language, not British leaks. */
 const NATIVE: Record<string, readonly string[]> = {
-  // All thirteen are ordinary French.
   fr: [
     'aluminium',
     'analyse',
@@ -42,17 +19,12 @@ const NATIVE: Record<string, readonly string[]> = {
     'utilise',
     'visualisation',
   ],
-  // `calibre` is the Spanish word for caliber.
   es: ['calibre'],
-  // `Analyse` and `Organisation` are German nouns, and `Aluminium` the German metal.
   de: ['aluminium', 'analyse', 'organisation'],
-  // ...and both Dutch ones.
   nl: ['aluminium', 'analyse'],
-  // `Aluminium` is the Polish metal.
   pl: ['aluminium'],
 };
 
-/** Every registered locale and the bundle the app serves for it. */
 const LOCALES = Object.fromEntries(
   LANGUAGES.map(({ code }) => [code, i18n.getResourceBundle(code, 'translation') as unknown]),
 );
@@ -63,7 +35,6 @@ const flagWords: string[] = (
   }
 ).flagWords;
 
-/** Every string value in the tree, keys excluded: keys are not shown to anyone. */
 const values = (node: unknown, out: string[] = []): string[] => {
   if (typeof node === 'string') out.push(node);
   else if (node && typeof node === 'object') for (const v of Object.values(node)) values(v, out);
@@ -88,8 +59,6 @@ describe('no British spelling reaches a translated string', () => {
       const forbidden = new Set(flagWords.map((w) => w.toLowerCase()));
       const hits = new Set<string>();
       for (const text of values(bundle)) {
-        // Latin runs only: a word boundary is what distinguishes `centre` from
-        // `centred`, and both are on the list in their own right.
         for (const word of text.match(/[A-Za-z]+/g) ?? []) {
           const w = word.toLowerCase();
           if (forbidden.has(w) && !allowed.has(w)) hits.add(w);
@@ -100,8 +69,6 @@ describe('no British spelling reaches a translated string', () => {
   }
 
   it('does not allow a word that is not actually on the list', () => {
-    // Keeps `NATIVE` honest: an entry for a word nobody forbids is dead weight
-    // that reads as a sanctioned exception.
     const forbidden = new Set(flagWords.map((w) => w.toLowerCase()));
     for (const [locale, words] of Object.entries(NATIVE)) {
       for (const w of words) expect(forbidden, `${locale}: ${w}`).toContain(w);

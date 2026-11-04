@@ -5,38 +5,16 @@ import { drawText, ensure, heading, paragraph, sectionBreak, setStyle, writeRule
 import { GUIDE_WIDTH_MM, cutPoints, type GuideSlot, type MarkingGuide, type MarkingGuideSet } from './markingGuide';
 import { radToDeg } from '../../prefs/units';
 
-/**
- * The fin marking guide: one wrap-around strip per body tube, drawn 1:1.
- *
- * This is the only printed aid a tube fin set gets at all (a tube has no
- * planform, so it can never reach the cutting templates), and it is the only
- * thing in the report that says where around the body any of it goes.
- *
- * The arithmetic (which tube, how long the wrap is, where the seam falls, how
- * far along each mark sits) is `markingGuide.ts`. This module only puts it on
- * the page: it decides nothing about the geometry.
- */
-
-/** Space between strips, across and down (mm). */
 const GAP_MM = 10;
-/**
- * The band above each strip: the name line, the piece line when the strip was cut
- * up, and the fore-end arrow on a line of its own, so it cannot run into the
- * piece line.
- */
 const HEADER_MM = 12.5;
-/** Arrow head, 10 pt (`FinMarkingGuide.ARROW_SIZE`). */
 const ARROW_MM = 3.5;
-/** Alignment tick, 8 pt (`drawMarkingGuide`'s `tickLength`). */
 const TICK_MM = 2.8;
 
-/** One printed strip: a whole guide, or one piece of a guide too long for the page. */
 interface Panel {
   guide: MarkingGuide;
-  /** 1-based piece number and the piece count; `parts === 1` is a whole guide. */
+  /** 1-based. */
   part: number;
   parts: number;
-  /** Where this piece starts along the wrap, and how long it is (mm). */
   startMm: number;
   lengthMm: number;
 }
@@ -50,12 +28,6 @@ export function writeMarkingGuideSection(p: PdfPage, set: MarkingGuideSet): void
 
   writeRuler(p);
 
-  // A strip is never scaled, since it has to be the tube's real circumference,
-  // so one too long for the page is cut into pieces that butt together, the
-  // way upstream tiles its rasterized guide across pages. A 4 in
-  // tube wraps 320 mm, which no paper this report offers can hold in one piece,
-  // and that is the size the guide matters most at. `cutPoints` decides where
-  // the joins fall; they are kept off the marks.
   const maxStripMm = p.BOTTOM - p.M - HEADER_MM;
   const panels: Panel[] = [];
   for (const guide of set.guides) {
@@ -75,9 +47,6 @@ export function writeMarkingGuideSection(p: PdfPage, set: MarkingGuideSet): void
     }
   }
 
-  // As many strips across as the page holds (upstream fixes this at two, which
-  // wastes half a landscape page). At least one, so a paper narrower than a
-  // strip still prints something rather than dividing by a negative.
   const cols = Math.max(1, Math.floor((CW + GAP_MM) / (GUIDE_WIDTH_MM + GAP_MM)));
 
   let col = 0;
@@ -89,7 +58,6 @@ export function writeMarkingGuideSection(p: PdfPage, set: MarkingGuideSet): void
       rowH = need;
     } else if (need > rowH) {
       if (p.y + need > p.BOTTOM) {
-        // Taller than the row it would join and past the bottom: start a row.
         p.y += rowH + GAP_MM;
         col = 0;
         ensure(p, need);
@@ -108,13 +76,7 @@ export function writeMarkingGuideSection(p: PdfPage, set: MarkingGuideSet): void
   writeOmitted(p, set);
 }
 
-/**
- * Name the parts no strip could carry, and why. Upstream drops them silently,
- * and a part missing from the guide is a part that does not get glued on.
- *
- * The key per reason is written out rather than built from the reason, so
- * `i18n/keys.test.ts` can still find both by a literal grep of the source.
- */
+// Written out, not built, so i18n/keys.test.ts finds both keys by grep.
 const OMIT_KEY = {
   noWrap: 'report.markingOmitted_noWrap',
   noFins: 'report.markingOmitted_noFins',
@@ -139,7 +101,6 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
   const y = top + HEADER_MM;
   const name = partLabel(t, { name: guide.name, type: 'bodytube' });
 
-  // --- header: what this strip is, and which way is forward ---
   setStyle(p, 'bold').setFontSize(8).setTextColor(20);
   drawText(p, t('report.markingStrip', { name, c: fmtNum(guide.circumferenceMm, 1) }), x, top + 3);
   if (panel.parts > 1) {
@@ -148,18 +109,14 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
   }
   drawForeArrow(p, x, top + HEADER_MM - 2, W, stroke);
 
-  // --- the strip itself ---
   doc.setDrawColor(...stroke).setLineWidth(0.3);
   strokeRect(doc, x, y, W, panel.lengthMm);
-  // Alignment ticks a quarter of the width in from each edge, top and bottom:
-  // they are what you line the two ends up on when the wrap closes.
   const inset = W / 4;
   for (const tx of [x + inset, x + W - inset]) {
     doc.line(tx, y, tx, y + TICK_MM);
     doc.line(tx, y + panel.lengthMm - TICK_MM, tx, y + panel.lengthMm);
   }
 
-  // --- the marks ---
   const end = panel.startMm + panel.lengthMm;
   for (const mark of guide.marks) {
     if (mark.posMm < panel.startMm || mark.posMm >= end) continue;
@@ -169,8 +126,6 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
     if (mark.cant === 0) {
       doc.setDrawColor(...stroke).setLineWidth(0.3);
       arrowLine(doc, x, yc, x + W, yc, 0, stroke);
-      // Above the slot box when there is one, with the slot's ends on the same
-      // line: one label per mark, so a mark beside it has only one to clear.
       const slot = mark.slot;
       const half = slot ? slot.widthMm / 2 : 0;
       const text = slot
@@ -184,22 +139,17 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
       continue;
     }
 
-    // Canted: the root is no longer parallel to the body axis, so the line is
-    // drawn at the cant and pinned at the fin's aft end, the end most likely
-    // to sit at the aft end of the tube, where a line running off the end of
-    // the paper cannot be drawn at all (`paintFinMarkingGuide`).
+    // Canted: pinned at the fin's aft end (desktop paintFinMarkingGuide).
     const half = mark.rootChordMm / 2;
     const yStart = yc - half * Math.sin(mark.cant);
     const yEnd = yStart + W * Math.tan(mark.cant);
 
-    // Aft end: dashed across the full width, drawn before the arrow so the
-    // arrow sits on top of it.
+    // Drawn before the arrow so the arrow sits on top.
     doc.setLineDashPattern([2.5, 2.5], 0);
     doc
       .setDrawColor(200, 200, 200)
       .setLineWidth(0.3)
       .line(x + W, yStart, x, yStart);
-    // Fore end: dashed down the strip, only when the root chord fits the width.
     if (mark.rootChordMm < W) {
       doc.setLineDashPattern([1, 1.5], 0);
       doc
@@ -212,8 +162,6 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
     doc.setDrawColor(...stroke).setLineWidth(0.3);
     arrowLine(doc, x, yStart, x + W, yEnd, mark.cant, stroke);
 
-    // A cross at the fin's center. The cant shifts the center off the left
-    // edge as well as up the strip, so the aft end stays flush with the edge.
     const cx = x + half - half * (1 - Math.cos(mark.cant));
     const cs = 1;
     doc.line(cx - cs, yc - cs, cx + cs, yc + cs);
@@ -228,12 +176,6 @@ function drawPanel(p: PdfPage, panel: Panel, x: number, top: number): void {
   }
 }
 
-/**
- * A fin's tab slot: a box one fin thickness wide, centered on the fin line,
- * from the slot's aft end to its fore end measured from the strip's left edge.
- * A side past the strip's edge is left open, since the slot carries on beyond
- * the paper; the mark's label gives both ends either way.
- */
 function drawSlot(doc: jsPDF, slot: GuideSlot, x: number, yc: number, stroke: [number, number, number]): void {
   const W = GUIDE_WIDTH_MM;
   const x0 = Math.min(W, Math.max(0, slot.aftMm));
@@ -248,13 +190,6 @@ function drawSlot(doc: jsPDF, slot: GuideSlot, x: number, yc: number, stroke: [n
   if (slot.foreMm <= W) doc.line(x + x1, top, x + x1, bottom);
 }
 
-/**
- * The fore-end arrow. Upstream hangs a filled tab off the end of the strip
- * saying the same thing; the tab is only drawn once per guide, which a strip
- * cut into pieces cannot use, and it overhangs the edge the pieces butt
- * together on. The arrow goes in the header band instead, on every piece, so
- * no piece can be taped on backwards.
- */
 function drawForeArrow(p: PdfPage, x: number, y: number, w: number, stroke: [number, number, number]): void {
   const { doc, t } = p;
   const tip = x + w;
@@ -267,7 +202,6 @@ function drawForeArrow(p: PdfPage, x: number, y: number, w: number, stroke: [num
   drawText(p, t('report.markingFore'), tip - 22, y + 1, { align: 'right' });
 }
 
-/** A closed rectangle via `lines`, the primitive the rest of the report draws with. */
 function strokeRect(doc: jsPDF, x: number, y: number, w: number, h: number): void {
   doc.lines(
     [
@@ -283,7 +217,6 @@ function strokeRect(doc: jsPDF, x: number, y: number, w: number, h: number): voi
   );
 }
 
-/** A fin alignment mark: a line with an arrow head at both ends. */
 function arrowLine(
   doc: jsPDF,
   x1: number,
@@ -300,7 +233,6 @@ function arrowLine(
   arrowHead(doc, x2, y2, 1, angle, color);
 }
 
-/** A filled triangle pointing along `angle`, `dir` = +1 right / -1 left. */
 function arrowHead(
   doc: jsPDF,
   tipX: number,
@@ -311,10 +243,6 @@ function arrowHead(
 ): void {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
-  // The two base corners, tip-relative and unrotated (the path itself starts
-  // at the tip), then turned into the line's direction. Upstream's polygon is
-  // the same three points: the tip, and a base one arrow back, half an arrow
-  // to either side.
   const base: [number, number][] = [
     [-dir * ARROW_MM, -ARROW_MM / 2],
     [-dir * ARROW_MM, ARROW_MM / 2],

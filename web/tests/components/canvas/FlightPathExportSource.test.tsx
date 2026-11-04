@@ -14,10 +14,6 @@ vi.mock('../../../src/services/files/saveFile', async (orig) => ({
 
 const { FlightPathExport } = await import('../../../src/components/canvas/FlightPathExport');
 
-/**
- * The export overlaid on the 3D path writes the flight that view shows, which
- * the Results picker can take from a row other than the active one.
- */
 const result = {
   summary: { maxAltitude: 100 },
   series: {
@@ -41,7 +37,6 @@ const shown = {
 beforeEach(() => {
   localStorage.clear();
   saved.names.length = 0;
-  // The active row has no result of its own.
   const st = useWorkspaceStore.getState();
   useWorkspaceStore.setState({ sims: [{ ...st.sims[0]!, name: 'Active row', result: null }] });
 });

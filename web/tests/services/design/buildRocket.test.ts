@@ -8,8 +8,6 @@ import { newFlightConfig } from '../../../src/services/flight/flightConfigs';
 const tree = { components: [] } as unknown as RocketTree;
 const config = newFlightConfig();
 
-// A stub engine handle: staticInfo() returns a fresh object; aeroSweep()'s
-// power-off total drives the cd fill-in (or throws to exercise the fallback).
 const fakeRocket = (opts: {
   info?: Partial<StaticInfo>;
   sweepTotal?: number[];
@@ -29,7 +27,7 @@ describe('computeStaticInfo', () => {
     const res = computeStaticInfo(tree, config, () => rocket);
     expect('error' in res).toBe(false);
     if ('error' in res) return;
-    expect(res.rocket).toBe(rocket); // the live handle the app installs
+    expect(res.rocket).toBe(rocket);
     expect(res.info.cd).toBeCloseTo(0.42, 9);
   });
 
@@ -37,8 +35,8 @@ describe('computeStaticInfo', () => {
     const res = computeStaticInfo(tree, config, () => fakeRocket({ sweepThrows: true }));
     expect('error' in res).toBe(false);
     if ('error' in res) return;
-    expect(res.info.cd).toBeUndefined(); // sweep failure doesn't fail the whole build
-    expect(res.info.mass).toBe(1); // static info still returned
+    expect(res.info.cd).toBeUndefined();
+    expect(res.info.mass).toBe(1);
   });
 
   it('returns an error message when the build throws, instead of throwing', () => {
@@ -55,15 +53,6 @@ describe('computeStaticInfo', () => {
     expect(res).toEqual({ error: { key: 'errors.motorCurve.noMass', values: { motor: 'F67' } } });
   });
 
-  /**
-   * A build failure the design can explain itself.
-   *
-   * A tube fin set with no length divides by its own chord for the aspect ratio
-   * (`TubeFinSetCalc`), and the kernel comes back with "The number NaN cannot be
-   * converted to a BigInt", which names no part. The app already knows which
-   * dimension is zero, and the Run button already says so; the banner should not
-   * be the one place that shows the user a BigInt.
-   */
   it('names the zero dimensions when the build fails on a design that has some', () => {
     const zeroTubeFin = {
       components: [
@@ -92,7 +81,6 @@ describe('computeStaticInfo', () => {
   });
 
   it('says nothing extra when the failure is not about a dimension', () => {
-    // An empty tree has no zero dimensions, so the engine's own message stands.
     const res = computeStaticInfo(tree, config, () => {
       throw new Error('engine not loaded');
     });
@@ -118,8 +106,6 @@ describe('flightKey', () => {
     components: [{ type: 'nosecone', id: 'n1', name: 'Nose cone', length: 0.1 }],
   });
 
-  // The store replaces the tree object for all of these, so a rebuild keyed on
-  // `tree` would throw away every simulation result.
   it('ignores the design metadata that is round-tripped but never flown', () => {
     const base = flightKey(design());
     expect(flightKey({ ...design(), designer: 'Grace' })).toBe(base);
@@ -158,8 +144,7 @@ describe('flightKey', () => {
     added.components.push({ type: 'bodytube', id: 'b1', length: 0.3 });
     expect(flightKey(added)).not.toBe(base);
 
-    // Unknown fields count too: ComponentNode has an open index signature, so
-    // anything we do not recognize is assumed to matter.
+    // ComponentNode has an open index signature, so unknown fields count.
     const odd = design();
     (odd.components[0] as Record<string, unknown>)['someFutureParam'] = 3;
     expect(flightKey(odd)).not.toBe(base);

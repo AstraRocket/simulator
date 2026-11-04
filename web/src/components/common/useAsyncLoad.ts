@@ -5,22 +5,7 @@ import { useLatestRef } from './useLatestRef';
 
 type Landed<T> = { key: string; attempt: number } & ({ ok: true; data: T } | { ok: false; error: unknown });
 
-/**
- * Data loaded asynchronously, with its loading, error and retry state.
- *
- * - A new `key` (or a `retry`) reads as loading until its own load lands; a result
- *   that lands for a key or attempt no longer current is ignored.
- * - A change of `refresh` reloads in the background: what is on screen stays
- *   until the new result replaces it, so a list does not flash back to
- *   "Loading" for a change the user just made.
- * - `onLoaded` fires with each successful result.
- * - `error` is the failure as text, rendered on every call in the language
- *   showing then, so a keyed error follows a language switch.
- *
- * `loading` is derived from what landed rather than set at the top of the
- * effect, which would be a synchronous setState in an effect: a cascading
- * render the compiler lint rejects.
- */
+// `loading` is derived: setting it in the effect is a cascading render the lint rejects.
 export function useAsyncLoad<T>(
   load: () => Promise<T>,
   key: string,
@@ -28,8 +13,7 @@ export function useAsyncLoad<T>(
 ): { data: T | undefined; error: string | null; loading: boolean; retry: () => void } {
   const [attempt, setAttempt] = useState(0);
   const [landed, setLanded] = useState<Landed<T> | null>(null);
-  // The latest callbacks, read when a load lands: callers pass inline closures,
-  // and listing them in the effect's deps would reload on every render.
+  // Callers pass inline closures; as deps they would reload on every render.
   const latest = useLatestRef({ load, onLoaded });
   useEffect(() => {
     let live = true;

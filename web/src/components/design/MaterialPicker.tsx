@@ -31,29 +31,9 @@ import { DialogButton } from '../common/DialogButton';
 import { StatusLine } from '../common/StatusLine';
 import { groupBy } from '../../services/app/collections';
 
-/**
- * What the material is for, which decides whether the adhesives belong in the
- * list. A structural part drops them; a fillet is offered the whole bulk list,
- * as desktop's fin fillet material box is (`FinSetConfig`, a `MaterialModel`
- * over the bulk database). Nothing else is filtered: every other
- * bulk material in the table is something a part can legitimately be made of,
- * and guessing which ones suit which component would block real builds (an
- * aluminum fin, a printed nose cone) to save a little scrolling.
- */
 export type MaterialUse = 'structure' | 'fillet';
 
-/**
- * Assigns a material (name + density) to a component, from the built-in
- * catalog plus the user's custom materials (swappable MaterialStore). `type`
- * picks the catalog (bulk / surface / line); `label` names the row. Emits
- * `onChange(name, density, group)`; density 0 / name undefined means the
- * engine default.
- *
- * The group rides along because the picker is the only place that knows it:
- * the catalog is fetched, so a caller cannot look a name up synchronously in
- * its own handler, and a custom material is not in the catalog at all. The
- * `.ork` writer wants it, to file the material under its own category.
- */
+// Density 0 with name undefined means the engine default. The `.ork` writer needs the group `onChange` carries.
 export function MaterialPicker({
   value,
   density: ownDensity,
@@ -65,100 +45,45 @@ export function MaterialPicker({
   design = true,
 }: {
   value?: string;
-  /**
-   * The density the part carries with `value`, SI. Shown when the list holds
-   * no entry of that name and density: a catalog part brings its maker's
-   * material ("Balsa, bulk, BMS typical") at its own density, which is what the
-   * part is weighed with, and almost none of those names are in the list.
-   */
+  /** SI. */
   density?: number;
   onChange: (name: string | undefined, density: number, group?: string) => void;
   type?: MaterialType;
   label?: string;
   use?: MaterialUse;
-  /**
-   * What the "no material chosen" option is called. It means two different
-   * things depending on where the picker is, so it cannot be one string: on a
-   * part it means the part is weighed with the built-in density, and in
-   * Settings ▸ Materials it means new parts of that type get no material at
-   * all. Defaults to the part wording.
-   */
   unsetLabel?: string;
-  /**
-   * Whether the picker is choosing for a part of the open design. It then
-   * offers the design's own materials (desktop's document materials) and a new
-   * custom material is kept in the design unless the user also adds it to their
-   * custom list. Settings ▸ Materials picks for no design and passes false.
-   */
   design?: boolean;
 }) {
   const { t } = useTranslation();
-  // Empty until the catalog arrives. It is a runtime file (public/data), the
-  // same as the motor and component catalogs, so there is nothing to seed a
-  // first paint with; `useAsyncLoad` below fetches it with the user's custom
-  // materials merged in. The select renders its "no material" option meanwhile,
-  // which is what a part with no material would show anyway.
   const [mats, setMats] = useState<Material[]>([]);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
-  // Which group the new material joins. A `Custom` group of their own puts every
-  // one of them at the top of the list, away from the material it is usually a
-  // variant of.
   const [group, setGroup] = useState(DEFAULT_CUSTOM_GROUP);
-  // In the field's unit; converted to SI on save. null while empty.
+  // In the field's unit, not SI.
   const [dens, setDens] = useState<number | null>(null);
-  // Desktop's "Add material to application database", which starts unchecked
-  // (`MaterialModel` opens `CustomMaterialDialog` with it off): a material
-  // defined on a part belongs to that design unless the user asks for more.
+  // Starts unchecked, as desktop's `MaterialModel` opens `CustomMaterialDialog`.
   const [toLibrary, setToLibrary] = useState(false);
   const rawDocMats = useWorkspaceStore((s) => s.tree.documentMaterials);
   const addDocumentMaterial = useWorkspaceStore((s) => s.addDocumentMaterial);
   const [addErr, setAddErr] = useState<string | null>(null);
-  // Custom Materials, opened from the list. Custom materials are edited and
-  // deleted there, as saved parts are in Custom Parts, so there is one place to
-  // manage them.
   const [managing, setManaging] = useState(false);
-  // An add here and an edit in Custom Materials both change the list, so it is
-  // reloaded on the library's change signal.
   const libraryVersion = useSyncExternalStore(onCustomMaterialsChanged, customMaterialsVersion, customMaterialsVersion);
-  // The add's store round trip finishes after an await, and selecting a
-  // different component unmounts this picker in between (the property panel
-  // is keyed on the part).
   const { observe } = useLatest();
   const u = useUnits();
   const quantity = QUANTITY[type];
-  // One scope per material kind: fabric and cord densities are read in quite
-  // different units from bulk stock, so they must not share a choice.
+  // Per material kind: fabric and cord densities use different units from bulk.
   const scope = unitScope('material', type);
   const fu = u.at(scope, quantity);
-  // No fixed decimal count: one that suits kg/m³ (680) is wrong for g/cm³
-  // (0.68), and the unit can change under this readout at any time.
+  // No fixed decimals: 680 kg/m³ and 0.68 g/cm³ need different counts.
   const density = (si: number) => fu.fmt(si);
 
-  // The catalog is a download, so it can fail: offline, or a data host that is
-  // there but wrong. Say so instead of rendering an empty list, which is
-  // indistinguishable from "this app has no materials".
   const loaded = useAsyncLoad(() => materialsForType(type), type, { onLoaded: setMats, refresh: libraryVersion });
-  // Set when the catalog could not be fetched. Distinct from "no materials":
-  // the list is empty either way, and only one of them is the app's fault.
   const loadErr = loaded.error !== null ? t('material.loadFailed') : null;
 
-  // Resolved against the whole list, never the filtered one: a design can
-  // already name a material this picker would not offer (a `.ork` with an
-  // epoxy body tube), and the row has to keep showing what the part is made of.
-  //
-  // A list entry is the part's material only when the density agrees too, as
-  // desktop's `Material.equals` has it: a file's own "Balsa" at 200 kg/m³ flies
-  // at 200, not at the list's 170. A part that carries no density is matched by
-  // name, since it has nothing else to compare.
+  // The whole list, never the filtered one. Density must agree too, as in desktop's `Material.equals`.
   const current = mats.find(
     (m) => m.name === value && (!(ownDensity && ownDensity > 0) || mathEquals(m.density, ownDensity)),
   );
-  /**
-   * The design's own materials of this type, in desktop's order, less any the
-   * list above already holds at the same density: that entry is the same
-   * material, and two rows for it would only differ in where they sit.
-   */
   const docMats = useMemo(
     () =>
       design
@@ -168,31 +93,15 @@ export function MaterialPicker({
         : [],
     [design, rawDocMats, type, mats],
   );
-  // The part's material when it is one of the design's own, by the same rule
-  // as `current`.
   const docCurrent = current
     ? undefined
     : docMats.find((m) => m.name === value && (!(ownDensity && ownDensity > 0) || mathEquals(m.density, ownDensity)));
-  // A material the part names that neither list holds at the part's
-  // density. It is still the part's material, so it is shown as chosen rather
-  // than as "not specified".
   const own =
     value && !current && !docCurrent
       ? { name: value, density: ownDensity && ownDensity > 0 ? ownDensity : null }
       : null;
 
-  /**
-   * The list is the materials for this use.
-   *
-   * A structural part drops the adhesives: nothing is built out of glue, and
-   * they would add a block of rows under every body tube and centering ring. A
-   * fillet keeps the whole bulk list, adhesives included, since a bead can be
-   * any bulk material desktop offers.
-   *
-   * Whatever the part already uses stays in the list either way. Dropping it
-   * would leave the select showing no option for the value it holds, which
-   * reads as "no material" on a part that has one.
-   */
+  // The current material stays even if filtered, or the select reads as "no material".
   const visible = useMemo(() => {
     if (use === 'fillet') return mats;
     return mats.filter((m) => m.group !== ADHESIVE_GROUP || m.name === current?.name);
@@ -215,14 +124,9 @@ export function MaterialPicker({
 
   const submitCustom = async () => {
     try {
-      // `toSi`, not `fromUi`: the box holds the user's density unit and the
-      // store holds SI, and a bulk density also has a physical ceiling
-      // (prefs/entryValue). A refused entry arrives as NaN, which `addCustom`
-      // already rejects with the message the form shows.
+      // `toSi`, not `fromUi`: it applies the density ceiling. NaN makes `addCustom` reject with a message.
       const si = fu.toSi(dens) ?? NaN;
       if (design && !toLibrary) {
-        // Kept in the design, as desktop keeps a material defined without
-        // "Add material to application database" in the document.
         const m: DocumentMaterial = { name: checkedMaterialName(name, si), type, density: si, group };
         addDocumentMaterial(m);
         onChange(m.name, m.density, m.group);
@@ -277,12 +181,7 @@ export function MaterialPicker({
         className="w-full rounded-lg bg-canvas px-2 py-2 text-sm text-ink-strong ring-1 ring-line/10"
       >
         <option value="__default__">{unsetLabel ?? t('material.defaultOption')}</option>
-        {/* The part's own material, when the list does not hold it at its
-            density: a catalog part's maker's material, a file's own density
-            under a list name, or any material while the list failed to load.
-            It comes first, so its value picks it over a list entry of the same
-            name. Without this the select falls back to "no material", so the
-            row would describe a part that has one as a part that does not. */}
+        {/* First, so its value wins over a list entry of the same name. */}
         {own && (
           <optgroup label={t('material.thisPart')}>
             <option value={own.name}>
@@ -317,8 +216,7 @@ export function MaterialPicker({
       {!shown && !own && !loadErr && (
         <p className="mt-1 text-[11px] leading-snug text-ink-faint">{t('material.defaultHint')}</p>
       )}
-      {/* Always mounted, empty until there is something to say: a live region
-          created together with its text is not announced (see UpdateToast). */}
+      {/* Always mounted: a live region created with its text is not announced. */}
       <StatusLine tone="danger" className="mt-1">
         {loadErr}
       </StatusLine>
@@ -347,9 +245,6 @@ export function MaterialPicker({
               ))}
             </select>
           </label>
-          {/* NumberInput, not a raw <input> + parseFloat: the same draft
-              handling every other numeric field has, and the value arrives
-              as a number in the field's unit. */}
           <NumberInput
             value={dens}
             onChange={setDens}
@@ -367,7 +262,6 @@ export function MaterialPicker({
               className="text-xs text-ink-muted"
             />
           )}
-          {/* Always mounted, as the two lines above the form are. */}
           <StatusLine tone="danger">{addErr}</StatusLine>
           <div className="flex gap-2">
             <DialogButton variant="primary" size="sm" className="flex-1" onClick={submitCustom}>
@@ -391,8 +285,5 @@ export function MaterialPicker({
   );
 }
 
-/**
- * The option value of one of the design's own materials: its index in the
- * picker's list, since its name can also be a list entry's at another density.
- */
+/** Design materials are keyed by index: a name can match a list entry at another density. */
 const DOC_PREFIX = 'doc:';

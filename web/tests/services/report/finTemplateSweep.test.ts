@@ -4,12 +4,6 @@ import type { ReportModel } from '../../../src/services/report/reportModel';
 import type { UnitSelection } from '../../../src/prefs/units';
 import { pageFrame } from '../../../src/services/report/layout';
 
-/**
- * A forward-swept fin (negative sweep) puts its tip ahead of the root's
- * leading edge. Its 1:1 template must still land inside the page, or, when its
- * full width does not fit, print the too-large note instead.
- */
-
 const PW = 210;
 const PH = 297;
 const lines: { deltas: [number, number][]; x: number; y: number }[] = [];
@@ -134,15 +128,12 @@ describe('fin template of a forward-swept fin', () => {
     expect(polys).toHaveLength(1);
     const pts = vertices(polys[0]!);
     const xs = pts.map(([x]) => x);
-    // The tip, 40 mm ahead of the root, sits on the left margin.
     expect(Math.min(...xs)).toBeCloseTo(frame.margin, 6);
     expect(Math.max(...xs)).toBeLessThanOrEqual(PW - frame.margin + 1e-9);
     expect(texts).not.toContain('report.tooLarge');
   });
 
   it('prints the too-large note when the full width does not fit, though the aft end alone would', async () => {
-    // The aft end is 100 mm from the root's leading edge and the tip 120 mm
-    // ahead of it: 220 mm in all, wider than A4 portrait's content.
     await printFin(fin(-0.12, 0.1));
     expect(lines.filter((l) => l.deltas.length >= 3)).toHaveLength(0);
     expect(texts).toContain('report.tooLarge');

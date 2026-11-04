@@ -7,21 +7,6 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { MAX_FIN_POINTS } from '../../../src/services/files/ork/importLimits';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * What a file is allowed to say, as opposed to how big it is allowed to be.
- *
- * `orkImportHostile.test.ts` covers the size axis: the zip-bomb caps, the
- * element count, the nesting depth. This covers the value axis. A bare finite
- * check would let a negative length, radius, thickness, chord, mass or override
- * into the tree, the mesh, the mass integral and the kernel. A negative length
- * is not a small part: it is geometry that inverts, and a negative mass override
- * subtracts from the rocket, moving the CG off the airframe and taking the
- * stability margin with it.
- *
- * The `.rkt` reader floors every dimension (`nonNeg`), and this holds the two
- * formats to the same rule.
- */
-
 const ork = (xml: string): ArrayBuffer => {
   const zipped = zipSync({ 'rocket.ork': strToU8(xml) });
   return zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
@@ -30,7 +15,6 @@ const ork = (xml: string): ArrayBuffer => {
 const wrap = (inner: string, stageExtra = '') =>
   `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name>${stageExtra}<subcomponents><stage><name>S</name><subcomponents>${inner}</subcomponents></stage></subcomponents></rocket></openrocket>`;
 
-/** Every node in the imported tree, depth first. */
 const flatten = (nodes: ComponentNode[]): ComponentNode[] =>
   nodes.flatMap((n) => [n, ...flatten((n.children ?? []) as ComponentNode[])]);
 
@@ -49,8 +33,7 @@ describe('a .ork cannot state a negative dimension', () => {
     );
     expect(n['length']).toBe(0);
     expect(n['thickness']).toBe(0);
-    // The radius goes through `autoRadiusTag`, which already required `> 0`, so
-    // a negative one reads as automatic rather than as a number.
+    // `autoRadiusTag` requires `> 0`, so a negative radius reads as automatic.
     expect(n['outerRadiusAuto']).toBe(true);
   });
 
@@ -66,8 +49,7 @@ describe('a .ork cannot state a negative dimension', () => {
     expect(n['tipChord']).toBe(0);
     expect(n['height']).toBe(0);
     expect(n['thickness']).toBe(0);
-    // Signed on purpose: a negative sweep is a forward-swept fin, a real shape
-    // the desktop draws. Flooring this one would silently straighten it.
+    // A negative sweep is a real forward-swept fin.
     expect(n['sweep']).toBe(-0.02);
   });
 
@@ -114,8 +96,7 @@ describe('a .ork cannot state a negative dimension', () => {
   });
 
   it('keeps a negative Cd override, which RocketComponent.setOverrideCD accepts', () => {
-    // The desktop setter does not clamp and its dialog takes any value: a
-    // negative Cd offsets drag the rest of the design adds.
+    // Desktop does not clamp: a negative Cd offsets drag from the rest of the design.
     const n = nodeOfType(
       '<bodytube><name>B</name><length>0.3</length><radius>0.012</radius><overridecd>-0.25</overridecd></bodytube>',
       'bodytube',
@@ -147,9 +128,6 @@ describe('a .ork cannot state a negative dimension', () => {
   });
 
   it('floors a deploy altitude, the same field the input floors', () => {
-    // The UI control passes `min={alt.toUi(0)}` for this exact reason: a
-    // negative altitude never fires the kernel trigger, so the design flies
-    // ballistic. The file is the other door into the same field.
     const n = nodeOfType(
       '<parachute><name>P</name><diameter>0.3</diameter><deployevent>altitude</deployevent><deployaltitude>-200</deployaltitude></parachute>',
       'parachute',
@@ -169,12 +147,7 @@ describe('a .ork cannot state a negative dimension', () => {
 });
 
 describe('a <stage active="false"/> flag addresses a stage or is dropped', () => {
-  /**
-   * `Number(null)` is 0 and `Number('')` is 0, so a naive read of a flag with no
-   * `number` attribute would name stage 0 (the sustainer) and ground it. A flag
-   * naming a stage the file does not have is dropped rather than guessed at, and
-   * a missing or empty number is no exception.
-   */
+  // `Number(null)` and `Number('')` are 0, so a naive read grounds the sustainer.
   const twoStage = (flag: string) =>
     `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name>` +
     `<motorconfiguration configid="c1" default="true"><stage number="0" active="true"/>${flag}</motorconfiguration>` +
@@ -250,13 +223,6 @@ describe('a .rkt cannot state a negative fin or wall dimension', () => {
 });
 
 describe('a RockSim <Color> is normalized or dropped', () => {
-  /**
-   * The value lands in the node key the schematic hands to SVG `fill` and the 3D
-   * view hands to a three.js material, and the `.ork` reader builds `#rrggbb`
-   * for the same key. The `.ork` writer's `colorXml` matches
-   * `/^#?([0-9a-f]{6})$/i` and silently drops anything else, so a verbatim
-   * RockSim color would be lost when the design is saved as `.ork`.
-   */
   const rkt = (color: string) =>
     `<?xml version="1.0" encoding="UTF-8"?><RockSimDocument><FileVersion>4</FileVersion>
      <DesignInformation><RocketDesign><Name>C</Name><StageCount>1</StageCount><Stage3Parts>
@@ -275,8 +241,6 @@ describe('a RockSim <Color> is normalized or dropped', () => {
   });
 
   it('maps a basic color NAME, which is what RockSim writes', () => {
-    // Both consumers parse CSS names, so a raw name would render and then vanish
-    // on export. Mapped rather than dropped, so the color survives the trip.
     expect(colorOf('Black')).toBe('#000000');
     expect(colorOf('red')).toBe('#ff0000');
   });
@@ -289,11 +253,6 @@ describe('a RockSim <Color> is normalized or dropped', () => {
 });
 
 describe('the freeform point cap bounds what is BUILT, not just what is kept', () => {
-  /**
-   * The cap has to apply while parsing: `raw.split('|')` would materialize every
-   * pair before the first cap test, so a crafted `<PointList>` of a few megabytes
-   * would allocate millions of substrings only to keep the first few hundred.
-   */
   const rktWithPoints = (points: string) =>
     `<?xml version="1.0" encoding="UTF-8"?><RockSimDocument><FileVersion>4</FileVersion>
      <DesignInformation><RocketDesign><Name>C</Name><StageCount>1</StageCount><Stage3Parts>
@@ -335,12 +294,6 @@ describe('the freeform point cap bounds what is BUILT, not just what is kept', (
   });
 });
 
-/**
- * A negative separation altitude reads the way a negative deployment altitude
- * does: floored to 0, in the design and in every configuration's override.
- * Dropping it at the design level would make the stage fall back to 200 m while
- * the configuration recorded 0 m: one file, two answers.
- */
 describe('a .ork cannot state a negative separation altitude', () => {
   it('floors it on the stage the way deployment is floored', () => {
     const xml = `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents>
@@ -353,10 +306,7 @@ describe('a .ork cannot state a negative separation altitude', () => {
   });
 });
 
-/**
- * A `.ork` color reads as the desktop's ORColor.fromXMLAttributes reads it:
- * all three channels present as integers in 0-255, or no color at all.
- */
+// Mirrors desktop ORColor.fromXMLAttributes: three integer channels in 0-255, or no color.
 describe('a .ork color needs every channel', () => {
   const colorOf = (attrs: string): unknown =>
     nodeOfType(

@@ -6,8 +6,6 @@ const branch = (time: number[]) => ({ series: { time } as unknown as FlightSerie
 
 describe('maxFlightTime', () => {
   it('spans every branch, not just the first', () => {
-    // A booster that lands after the sustainer still has to fit on the axis:
-    // its descent runs on the same launch clock.
     expect(maxFlightTime([branch([0, 1, 2]), branch([0, 1, 2, 3, 9.5])], 2)).toBe(9.5);
   });
 
@@ -25,15 +23,9 @@ describe('maxFlightTime', () => {
     expect(maxFlightTime([{ series: {} as FlightSeries }], 4)).toBe(4);
   });
 
-  /**
-   * Spreading every sample into `Math.max(flightTime, ...times)` fails: a long,
-   * fine-timestep, multi-stage flight puts a six-figure argument list into that
-   * call, which throws `RangeError: Maximum call stack size exceeded`. In the
-   * render path that blanks the whole chart panel.
-   */
   it('handles a sample count that would overflow the call-argument stack', () => {
     const many = Array.from({ length: 300_000 }, (_, i) => i * 0.001);
-    expect(() => Math.max(1, ...many)).toThrow(RangeError); // the spread form overflows
+    expect(() => Math.max(1, ...many)).toThrow(RangeError);
     expect(maxFlightTime([branch(many)], 1)).toBeCloseTo(299.999, 6);
   });
 });

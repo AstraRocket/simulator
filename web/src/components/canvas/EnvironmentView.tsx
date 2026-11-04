@@ -21,13 +21,6 @@ import { polylinePath } from '../common/svgPath';
 import { LegendSwatch } from '../sim/chartAxes';
 import { token } from '../common/colorTokens';
 
-/**
- * The air the flight met, as the kernel recorded it: what it was at the pad,
- * and four profiles against altitude. Inputs are on the launch panel; this is
- * what they resolved to, including whatever the run filled in for a blank
- * (the standard atmosphere) and an AGL wind profile turned into real heights.
- */
-
 const QUANTITY: Record<EnvironmentQuantity, Quantity> = {
   windSpeed: 'windspeed',
   windDirection: 'angle',
@@ -43,7 +36,7 @@ const CALM_MS = 0.05;
 const CHARTS: EnvironmentQuantity[] = ['windSpeed', 'windDirection', 'temperature', 'pressure'];
 const PAD: EnvironmentQuantity[] = ['temperature', 'pressure', 'density', 'speedOfSound', 'windSpeed', 'windDirection'];
 
-/** Four significant figures in the field's unit: air density reads 1.225 kg/m³ and 0.001225 g/cm³ alike. */
+/** Significant figures, not decimals: density reads 1.225 kg/m³ and 0.001225 g/cm³ alike. */
 function sig4(fu: FieldUnit, si: number): string {
   const ui = fu.toUi(si);
   if (!Number.isFinite(ui)) return NO_VALUE;
@@ -56,7 +49,6 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
   const { t } = useTranslation();
   const u = useUnits();
   const env = useMemo(() => environmentProfile(flight.result.series), [flight.result.series]);
-  // A run has a date only when its weather came from a forecast for one.
   const source = flight.launch.weatherSource;
   const validAt = source ? fmtSiteTime(source.validAt, source.timezone) : null;
   if (!env) return <p className="p-4 text-sm text-ink-muted">{t('env.noData')}</p>;
@@ -78,7 +70,6 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
       className="h-full space-y-3 overflow-auto p-2"
     >
       <section className="rounded-xl bg-surface p-3 ring-1 ring-line/10">
-        {/* As many columns as fit: one row on a wide screen, wrapped on a phone. */}
         <dl className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-x-4 gap-y-1 text-xs">
           {validAt && <TermRow label={t('env.when')}>{validAt}</TermRow>}
           <TermRow label={t('env.latitude')}>{latText(flight.launch.latitudeDeg)}</TermRow>
@@ -117,28 +108,18 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
   );
 }
 
-/** A latitude or longitude as the launch panel holds it, to the 4 decimals (about 10 m) it is entered to. */
 const latText = (v: number | null) => (v == null ? NO_VALUE : formatLat(v));
 const lonText = (v: number | null) => (v == null ? NO_VALUE : formatLon(v));
 
-/** Radians as compass degrees, 0 to 360. */
 const compass = (rad: number) => norm360(radToDeg(rad));
 
 interface XAxis {
-  /** SI to the coordinate the chart is laid out in. */
   coord: (si: number) => number;
-  /** A coordinate as printed at the axis ends. */
   label: (c: number) => string;
-  /** A fixed range in axis values; otherwise the data's own. */
   range?: [number, number];
-  /** Where a line jumps by more than this, it is not drawn across the gap. */
   wrap?: number;
 }
 
-/**
- * Laid out as a compass, 0 to 360 degrees whatever the unit, so north sits at
- * the same place on every chart; the ends are printed in the reader's angle unit.
- */
 const directionAxis = (fu: FieldUnit): XAxis => ({
   coord: compass,
   label: (c) => fu.fmt(degToRad(c), fu.sym === '°' ? 0 : 2),
@@ -146,10 +127,6 @@ const directionAxis = (fu: FieldUnit): XAxis => ({
   wrap: 180,
 });
 
-/**
- * Laid out in SI: every unit here is a scale or an offset of SI, so the line
- * has the same shape in any of them, and the ends are printed in the user's.
- */
 const unitAxis = (fu: FieldUnit): XAxis => ({ coord: (si) => si, label: (si) => fu.fmt(si, 1) });
 
 const W = 320;
@@ -182,7 +159,6 @@ function ProfileChart({
   const all = [...legs.ascent, ...legs.descent].map((p) => x.coord(p.value));
   let [lo, hi] = x.range ?? [Math.min(...all), Math.max(...all)];
   if (!(hi > lo)) {
-    // A flat line (still air, or a constant) still needs a width to sit in.
     const pad = Math.abs(lo) * 0.05 || 1;
     lo -= pad;
     hi += pad;
@@ -221,9 +197,6 @@ function ProfileChart({
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={label}>
         <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} className="stroke-ink-dim" />
         <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} className="stroke-ink-dim" />
-        {/* Thin and faint, under the ascent: a descent under canopy passes the
-            same heights for a minute or more while the gusts keep changing, so
-            its wind is a dense zigzag that would bury the ascent at full weight. */}
         <path d={path(legs.descent)} fill="none" strokeWidth={0.75} strokeOpacity={0.6} className="stroke-warn-400" />
         <path d={path(legs.ascent)} fill="none" strokeWidth={1.75} className="stroke-accent-400" />
         <text x={PAD_L - 4} y={PAD_T + 8} textAnchor="end" className="fill-ink-muted text-[10px]">

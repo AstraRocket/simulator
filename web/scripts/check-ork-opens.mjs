@@ -1,38 +1,5 @@
-// Open a `.ork` or `.rkt` we wrote in a real OpenRocket, and report what it
-// made of it. The desktop's GeneralRocketLoader reads both formats.
-//
-//   npm run check:ork -- <file.ork|file.rkt> [...]
-//   npm run check:ork -- --jar <OpenRocket.jar> <file.ork|file.rkt>
-//
-// The only check that asks the thing we are trying to satisfy. Our own tests can
-// prove the writer puts a part link or a motor digest into the file; they cannot
-// prove the desktop accepts it. The desktop rejects a `<preset>` with no digest,
-// and resolves a motor with no digest to whichever entry comes first, and both
-// failures are invisible from this side of the boundary: they show up as a
-// warning dialog on somebody's screen.
-//
-// Prints how many components came back, every component carrying a catalog
-// part, every motor that resolved, and the loader's own warnings. Exits non-zero
-// if there are any warnings or no components.
-//
-// Not part of the app build or `npm run verify`, because it needs a JDK and the
-// OpenRocket release jar (`--jar`, or an installed OpenRocket). Run it after
-// changing anything the `.ork` or `.rkt` writer emits. To get the files the app
-// saves, run tests/services/files/orkDesktopSamples.test.ts with ORK_SAMPLES_DIR
-// set:
-//
-//   ORK_SAMPLES_DIR=<dir> npx vitest run tests/services/files/orkDesktopSamples.test.ts
-//   npm run check:ork -- <dir>/*.ork <dir>/*.rkt
-//
-// `npm run audit` (scripts/audit.mjs) does both against the pinned release; CI
-// does not run it.
-//
-// KNOWN lists the loader warnings expected, by file and warning text, each
-// with its reason: what 24.12 cannot carry, a tag the app writes for itself
-// that desktop ignores, or what a bundled example names as it ships (a file
-// under a `source/` directory is named `source/<file>`). Anything else fails,
-// and so does a KNOWN entry that no file it names produced, so a fix has to
-// remove its entry.
+// Usage: npm run check:ork -- [--jar <OpenRocket.jar>] <file.ork|file.rkt> [...]
+// A KNOWN entry that no named file produced also fails, so a fix must remove its entry.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,11 +7,8 @@ import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chooseBuild } from './lib/openrocketJava.mjs';
 
-/** Accepted warnings: the file they come from, the text they contain, and the finding. */
 const KNOWN = [
-  // The bundled example's nose cones carry part digests from the OpenRocket 26
-  // build that wrote it, which the 24.12 release does not have; the app keeps a
-  // loaded part link as it found it, so desktop warns on the source file too.
+  // The app keeps a loaded part link as found, so 26-only digests warn here too.
   {
     file: 'pods-powered-with-recovery-deployment.ork',
     warning: 'found matching Estes PNC-50YR',
@@ -65,7 +29,6 @@ const KNOWN = [
     warning: "Unknown parameter type 'cordlengthauto' for Shock Cord, ignoring.",
     reason: 'the app keeps its automatic cord length in its own tag; desktop flies the number written beside it',
   },
-  // What desktop's RockSim import leaves out of a RockSim file.
   {
     file: 'source/rocksim.rkt',
     warning: 'Parachute spill holes are not supported. Ignoring.',
@@ -86,7 +49,6 @@ const KNOWN = [
     warning: "Unknown parameter type 'linelengthauto' for Parachute, ignoring.",
     reason: 'the app keeps its automatic line length in its own tag; desktop flies the number written beside it',
   },
-  // What 24.12 has no setting for, written the way upstream OpenRocket reads it.
   {
     file: 'conditions.ork',
     warning: "Unknown text in element 'baserelativehumidity', ignoring.",
@@ -99,7 +61,6 @@ const KNOWN = [
     reason:
       '24.12 looks motors up in its own database only; the curve the app embeds under thrustcurves/ is read by upstream OpenRocket',
   },
-  // The bundled examples as they ship, written by an OpenRocket 26 build.
   {
     file: 'source/pods-powered-with-recovery-deployment.ork',
     warning: 'Unsupported document version 1.11',
@@ -138,10 +99,6 @@ const KNOWN = [
     reason:
       "the source file names the motor by the OpenRocket 26 database's digest, which 24.12's curve does not match",
   })),
-  // Saved again, the app keeps the curve the source file carries for these
-  // motors (an OpenRocket 26 curve 24.12's database does not hold) and writes it
-  // under its own digest, so 24.12 reports the same difference it reports on the
-  // source file.
   {
     file: 'pods-powered-with-recovery-deployment.ork',
     warning: "Motor with designation 'A8' for manufacturer 'Estes' has differing thrust curve than the original.",
@@ -195,7 +152,6 @@ try {
 }
 process.stdout.write(out);
 
-/** A file's name for KNOWN: its own name, under `source/` for a bundled example as it ships. */
 const shortName = (path) => (basename(dirname(path)) === 'source' ? `source/${basename(path)}` : basename(path));
 const opened = new Set(files.map((f) => shortName(resolve(f))));
 const seen = new Set();

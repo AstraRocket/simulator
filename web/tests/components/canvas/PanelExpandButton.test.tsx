@@ -4,10 +4,7 @@ import { screen } from '@testing-library/react';
 import { PanelExpandButton } from '../../../src/components/canvas/PanelExpandButton';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * The expand button's name says what a press does, so it carries no
- * aria-pressed: "Show all panels, pressed" would contradict itself.
- */
+// No aria-pressed: "Show all panels, pressed" would contradict itself.
 describe('PanelExpandButton', () => {
   it.each([
     [false, 'Show only this panel'],

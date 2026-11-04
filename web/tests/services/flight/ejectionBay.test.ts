@@ -6,10 +6,6 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 const LBF = uiToSi('force', 'lbf', 1);
 const at = (offset: number) => ({ method: 'top', offset });
 
-/**
- * A 20 cm nose with a 5 cm shoulder over a 60 cm tube (78 mm bore). The chute
- * sits 10 cm down the tube; `inside` adds the tube's other parts.
- */
 function rocket(inside: ComponentNode[] = [], noseShoulder = 0.05): RocketTree {
   return {
     components: [
@@ -33,11 +29,6 @@ function rocket(inside: ComponentNode[] = [], noseShoulder = 0.05): RocketTree {
   } as unknown as RocketTree;
 }
 
-/**
- * {@link rocket} with the chute moved into an inner tube that holds it, 5 cm
- * down the body tube, as a designer does to slide it about; `holderToo` adds
- * parts beside the chute in the holder.
- */
 function held(inside: ComponentNode[] = [], holderToo: ComponentNode[] = []): RocketTree {
   const tree = rocket(inside);
   const tube = (tree.components[0]!.children ?? [])[1]!;
@@ -61,7 +52,6 @@ describe('a recovery device kept in an inner tube', () => {
     const bay = ejectionBay(held([{ id: 'bh', type: 'bulkhead', length: 0.01, position: at(0.3) } as never]), 'chute')!;
     expect(bay.tubeId).toBe('tube');
     expect(bay.boreM).toBeCloseTo(0.078, 12);
-    // The same stretch as with the chute straight in the tube.
     expect(bay.lengthM).toBeCloseTo(0.25, 12);
   });
 

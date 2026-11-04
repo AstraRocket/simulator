@@ -39,32 +39,7 @@ import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, kernelPartMaterial, statedMaterial
 import { stageNodes } from '../../tree/treeWalk';
 import { radToDeg } from '../../prefs/units';
 
-/**
- * The JSON the OpenRocket-Onshape custom feature builds a part studio from
- * (github.com/AstraRocket/openrocket-onshape, payload schema 1.2).
- *
- * That project's own web app reads a `.ork` with a parser and approximations
- * of its own. This writes the same payload from the design and the kernel:
- *
- * - automatic sizes are the ones the design resolves (`syncAutoRadii`,
- *   `resolveDisc`, `tubeFinRadius`), each a port of the kernel rule;
- * - nose cone and transition walls are cut as the kernel weighs them
- *   (onshape/meridian.ts), so the part's volume matches the simulated mass;
- * - each part's mass and a packed device's length are the kernel's
- *   (`componentInfo`), and the center of pressure is the kernel's static one,
- *   not a median over a saved flight.
- *
- * Placement is written so the feature cannot misread it. Its `resolveTransform`
- * stacks the airframe by `after` and lays everything else from its parent's
- * front, so a body chain part is `after` and every other part `top`, at the
- * offset its resolved station gives. A pod set or booster is placed `free`,
- * at the distance from its parent's axis the kernel computes. An inner-tube
- * cluster is written as one tube per motor, as the feature has no notion of a
- * cluster.
- *
- * The camera shroud (`fairing`) has no counterpart in the feature and is left
- * out; the caller is told.
- */
+// The feature's `resolveTransform` stacks `after` parts and lays the rest from the parent's front.
 
 const ONSHAPE_SCHEMA_VERSION = '1.2';
 
@@ -134,19 +109,14 @@ export interface OnshapePayload {
 export interface OnshapeExportInput {
   name: string;
   tree: RocketTree;
-  /** The kernel's figures for each part of `tree`, when it builds. */
   figures?: (id: string) => ComponentInfo | undefined;
-  /** The kernel's static center of pressure, meters from the nose tip. */
+  /** Kernel static CP, meters from the nose tip. */
   cp?: number;
-  /** The selected flight configuration's motors, keyed by mount id. */
   motors?: Record<string, OrkExportMotor>;
-  /** That configuration's id. */
   configId?: string;
-  /** The part colors the design is drawn in. */
   palette?: PartPalette;
 }
 
-/** A part left out of the payload: its own name ('' when it has none) and its type. */
 export interface SkippedPart {
   name: string;
   type: ComponentType;
@@ -154,14 +124,9 @@ export interface SkippedPart {
 
 export interface OnshapeExport {
   payload: OnshapePayload;
-  /** Parts the feature cannot build, left out of the payload. */
   skipped: SkippedPart[];
 }
 
-/**
- * The name a part goes by when it has none of its own: the desktop's, as the
- * `.ork` writer falls back to, since the feature names each body after it.
- */
 const DESKTOP_NAMES: Partial<Record<ComponentType, string>> = {
   nosecone: 'Nose Cone',
   transition: 'Transition',
@@ -185,13 +150,10 @@ const DESKTOP_NAMES: Partial<Record<ComponentType, string>> = {
   parallelstage: 'Booster',
 };
 
-/** Parts the feature has no builder for. */
 const UNSUPPORTED: ReadonlySet<ComponentType> = new Set(['fairing']);
 
-/** Parts the kernel repeats along the body (`LineInstanceable`). */
 const LINE_TYPES: ReadonlySet<string> = new Set(['centeringring', 'bulkhead', 'launchlug', 'railbutton']);
 
-/** Inner parts that carry an off-axis placement (`<radialposition>`). */
 const RADIAL_TYPES: ReadonlySet<string> = new Set([
   'innertube',
   'tubecoupler',
@@ -204,7 +166,6 @@ const RADIAL_TYPES: ReadonlySet<string> = new Set([
   'masscomponent',
 ]);
 
-/** Parts mounted on their parent's outside, measured from its surface. */
 const SURFACE_TYPES: ReadonlySet<string> = new Set([
   'trapezoidfinset',
   'ellipticalfinset',
@@ -229,7 +190,7 @@ const frameOf = (ctx: Ctx, node: ComponentNode): AxialFrame | undefined =>
 const infoOf = (ctx: Ctx, node: ComponentNode): ComponentInfo | undefined =>
   node.id ? ctx.figures?.(node.id) : undefined;
 
-/** A part's 3D appearance as the feature's 0..1 channels: the paint, and its alpha. */
+/** The feature takes 0..1 channels. */
 function colorOf(a: PartAppearance): OnshapeColor | undefined {
   const n = parseHexColor(a.paint);
   if (n === null) return undefined;
@@ -237,7 +198,6 @@ function colorOf(a: PartAppearance): OnshapeColor | undefined {
   return { red: r / 255, green: g / 255, blue: b / 255, alpha: a.alpha / 255 };
 }
 
-/** A fin set's fillet material, by the rule every writer reads; the kernel's bulk material when it states none. */
 function filletMaterialOf(node: ComponentNode): OnshapeMaterial {
   const m = statedMaterial(node, FILLET_MATERIAL_KEYS, true);
   return m
@@ -245,7 +205,6 @@ function filletMaterialOf(node: ComponentNode): OnshapeMaterial {
     : { ...KERNEL_MATERIALS.bulk, type: 'bulk' };
 }
 
-/** The part's material, by the rule every writer reads (`statedMaterial`). */
 function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
   switch (node.type) {
     case 'parachute':
@@ -276,7 +235,6 @@ function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
       name: bulk.name,
       type: 'bulk',
       density: bulk.density,
-      // The `.ork` writer's rule for the modulus: finite and not negative.
       ...(typeof shear === 'number' && Number.isFinite(shear) && shear >= 0 ? { shearModulus: shear } : {}),
       group: bulk.group ?? '',
     };
@@ -284,12 +242,7 @@ function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
   return { ...(kernelPartMaterial(node.type, 'bulk') ?? KERNEL_MATERIALS.bulk), type: 'bulk' };
 }
 
-/**
- * The roll the feature applies, as `angleOffset` under the `relative` method.
- * A tube fin set flies its roll although the kernel files it under `fixed`
- * (`TubeFinSet.getInstanceAngles` starts from `firstFinOffsetRadians`), and the
- * feature drops the angle of a `fixed` part, so it is written `relative`.
- */
+/** Tube fins fly `fixed` (`TubeFinSet.getInstanceAngles`), but the feature drops a `fixed` angle. */
 function rollOf(node: ComponentNode): { angleOffset: number; angleMethod: 'relative' | 'fixed' } {
   if (isFinSet(node.type)) return { angleOffset: num(node, 'rotation', 0), angleMethod: 'relative' };
   if (node.type === 'launchlug' || node.type === 'railbutton') {
@@ -330,10 +283,6 @@ function positionOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Onsha
   };
 }
 
-/**
- * The motor the selected configuration seats in this mount, in the feature's
- * `motorMount` block. A part that is no mount says only that.
- */
 function motorMountOf(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
   const motor = node.id ? ctx.motors[node.id] : undefined;
   if (node['motorMount'] !== true && !motor) return { isMotorMount: false };
@@ -352,7 +301,6 @@ function motorMountOf(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
   };
 }
 
-/** A section's points, copied so the payload shares no arrays with the builder. */
 const pts = (points: Pt[]): Pt[] => points.map(([r, y]) => [r, y]);
 const sectionOut = (s: Section | null) =>
   s && { profile: pts(s.profile), innerProfile: pts(s.innerProfile), innerIsAxis: s.innerIsAxis };
@@ -398,14 +346,12 @@ function finParams(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
   const tabHeight = num(node, 'tabHeight', 0);
   const tabLength = num(node, 'tabLength', 0);
   const common = {
-    // The same for all three planar sets (ComponentFactory's count(node, "finCount", 3)).
     finCount: countOf(node, 'finCount', KERNEL_DEFAULTS.trapezoidfinset.finCount),
     thickness: num(node, 'thickness', FIN_DEFAULTS.thickness),
     crossSection: str(node, 'crossSection', 'square'),
     cantAngle: finCant(node),
     baseRotation: num(node, 'rotation', 0),
-    // The desktop writes a tab only when both its height and length are set,
-    // and the feature draws one only then; a half-set tab is no tab.
+    // A tab exists only when both height and length are set (desktop and feature).
     tab: {
       height: tabHeight > 0 && tabLength > 0 ? tabHeight : 0,
       length: tabHeight > 0 && tabLength > 0 ? tabLength : 0,
@@ -418,7 +364,6 @@ function finParams(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
   };
   const planform = finPlanformPoints(node) ?? [];
   if (node.type === 'freeformfinset') return { ...common, points: pts(planform), length: freeformRootChord(planform) };
-  // The dimensions with the kernel's fallbacks, the ones the planform is drawn from.
   if (node.type === 'ellipticalfinset') {
     return { ...common, rootChord: finRootChord(node), height: finSpan(node), planform: pts(planform) };
   }
@@ -433,7 +378,6 @@ function finParams(ctx: Ctx, node: ComponentNode): Record<string, unknown> {
   };
 }
 
-/** The parent's outer radius under a surface part's front, as it stands on it. */
 function surfaceRadius(ctx: Ctx, node: ComponentNode, parent: ComponentNode): number {
   const own = frameOf(ctx, node);
   const base = frameOf(ctx, parent);
@@ -532,9 +476,7 @@ function paramsOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Record<
         clusterScale: 1,
         clusterRotation: 0,
         isMotorMount: false,
-        // A ring around a cluster or an offset mount: a hole where each tube
-        // passes, placed as the split tubes are. The feature cuts these from a
-        // solid disc; one that predates them reads `innerRadius` as before.
+        // A feature without hole support reads `innerRadius`.
         ...(disc?.holes
           ? {
               holes: disc.holes.map((h) => ({
@@ -550,8 +492,7 @@ function paramsOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Record<
     case 'streamer':
     case 'shockcord':
     case 'masscomponent': {
-      // The kernel settles a packed device's length with its radius
-      // (`MassObject.getRadius`), so its own length is the one to build.
+      // The kernel settles packed length with its radius (`MassObject.getRadius`).
       const defaults = KERNEL_DEFAULTS[node.type];
       const out: Record<string, unknown> = {
         packedLength: info?.length ?? num(node, 'length', defaults.length),
@@ -612,17 +553,9 @@ function componentOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Onsh
   return node.type === 'innertube' ? splitCluster(node, out) : [out];
 }
 
-/** Parts the feature builds as a solid packed cylinder. */
 const PACKED_TYPES = MASS_OBJECT_TYPES as ReadonlySet<string>;
 
-/**
- * The material the feature weighs a packed part by. It reads every material's
- * density as bulk density and builds a recovery device or mass component as a
- * solid cylinder of its packed size, so the device's own surface or line
- * material would weigh a parachute at almost nothing. The density written is
- * the one that makes that cylinder weigh what the kernel flies; the device's
- * real material stays in `params.material`. Absent without the kernel's mass.
- */
+/** The feature reads every density as bulk, so this one makes the packed cylinder weigh the kernel's mass. */
 function packedMaterial(
   node: ComponentNode,
   info: ComponentInfo | undefined,
@@ -636,11 +569,6 @@ function packedMaterial(
   return { name, type: 'bulk', density: info.mass / volume, group: '' };
 }
 
-/**
- * One inner tube per motor of a cluster, each at the place the kernel puts it
- * (`InnerTube.getInstanceOffsets`, mirrored by `clusterPoints`). A single tube
- * passes through.
- */
 function splitCluster(node: ComponentNode, tube: OnshapeComponent): OnshapeComponent[] {
   const cluster = str(node, 'cluster', 'single');
   const outerRadius = tube.params['outerRadius'] as number;
@@ -699,7 +627,6 @@ function stageOf(ctx: Ctx, stage: ComponentNode, i: number): OnshapeComponent {
   };
 }
 
-/** The feature's payload for the design. */
 export function exportOnshape(input: OnshapeExportInput): OnshapeExport {
   const tree = syncAutoRadii(input.tree);
   const ctx: Ctx = {
@@ -733,7 +660,6 @@ export function exportOnshape(input: OnshapeExportInput): OnshapeExport {
   return { payload, skipped: ctx.skipped };
 }
 
-/** Write the payload as a `.json` file the user downloads. */
 export async function downloadOnshapeJson(input: OnshapeExportInput): Promise<OnshapeExport> {
   const result = exportOnshape(input);
   const blob = new Blob([JSON.stringify(result.payload, null, 2)], { type: 'application/json' });

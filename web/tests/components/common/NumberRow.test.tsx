@@ -4,7 +4,6 @@ import { fireEvent, screen } from '@testing-library/react';
 import { NumberRow } from '../../../src/components/common/NumberRow';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/** `commitOnBlur` holds the edit until blur; without it each keystroke reports. */
 describe('NumberRow', () => {
   it('reports each keystroke by default', () => {
     const onChange = vi.fn();

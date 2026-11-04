@@ -12,24 +12,6 @@ import { useSavedParts } from './useSavedParts';
 import { groupSavedParts } from './savedPartGroups';
 import { errorText } from '../../i18n/keyedError';
 
-/**
- * The parts the user saved, all of them, in one place: the list on the left,
- * the selected part's editor on the right.
- *
- * It exists for the reason `LocationsDialog` exists: a library you can only
- * see from the one panel that happens to use it is a library nobody finds.
- * The component picker only opens when a component of a matching type is
- * selected, so without this a saved bulkhead is invisible, and cannot be
- * deleted, on any design that has no bulkhead in it.
- *
- * Master-detail rather than a list of dialogs: editing a library is a thing
- * you do to several parts in a sitting, comparing one against the next, and a
- * modal per part makes each edit a separate errand. Saving leaves the part
- * selected and the list under your cursor.
- *
- * Applying a part is still the picker's job, which knows what the part has to
- * fit. This lists, describes, edits and removes.
- */
 export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -38,19 +20,12 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
     t('picker.savedDiscardConfirm'),
   );
 
-  // Grouped by catalog type in a fixed order (see savedPartGroups).
   const groups = useMemo(() => (entries ? groupSavedParts(entries) : []), [entries]);
 
-  // Resolved from the list rather than held as its own copy, so a save (which
-  // refreshes the list under this pane) leaves the detail showing the stored
-  // part, and a part deleted in another tab clears the selection instead of
-  // editing something that is gone.
+  // Resolved from the list, not copied, so a part deleted in another tab clears the selection.
   const selected = entries?.find((e) => e.part.id === selectedId) ?? null;
 
   const remove = async (e: SavedPartEntry) => {
-    // A saved part can be the only copy of geometry somebody worked out, if
-    // the design it came from has since been deleted. Same reasoning as a
-    // saved launch location.
     const ok = await confirm({
       message: t('picker.deleteSavedConfirm', { name: e.part.partNo }),
       confirmLabel: t('common.delete'),
@@ -62,7 +37,6 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
       await deleteCustomPart(e.part.id);
       settle(null);
     } catch (err2) {
-      // The store's own message: a refused write is not always "storage full".
       setErr(errorText(err2, t));
     }
   };
@@ -77,8 +51,6 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
       loading={entries === null}
     >
       {entries?.length === 0 && listError === null ? (
-        // Reachable from the menu before anything is saved, so it has to say
-        // where saved parts come from rather than show a void.
         <p className="grid flex-1 place-items-center p-6 text-center text-sm leading-snug text-ink-muted">
           {t('picker.savedEmpty')}
         </p>
@@ -109,9 +81,6 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
                                 {e.part.mfr} · {describe(e.row, u, t)}
                               </>
                             ) : (
-                              // Shown rather than hidden: this is the only list
-                              // it can be deleted from, and the picker has
-                              // already dropped it.
                               <span className="text-warn-200">{t('picker.savedBrokenShort')}</span>
                             )}
                           </span>
@@ -132,8 +101,7 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
                   </p>
                 )}
                 <SavedPartEditor
-                  // Keyed on the part, so selecting another one re-seeds every
-                  // field by remounting rather than through an effect.
+                  // Keyed so another selection re-seeds by remounting.
                   key={selected.part.id}
                   part={selected.part}
                   onDirtyChange={onDirtyChange}
@@ -149,13 +117,6 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/**
- * The dimensions that tell two saved parts apart, in the user's own units.
- *
- * Short on purpose: it sits on one truncating line under the name, so it
- * carries what identifies the part (the sizes) and not what the type already
- * says. The unit is named once at the end rather than after every number.
- */
 function describe(row: Component, u: Units, t: (k: string, o?: Record<string, unknown>) => string): string {
   const len = (v: number) => u.fmt('length', v);
   const sym = u.sym('length');
@@ -173,8 +134,6 @@ function describe(row: Component, u: Units, t: (k: string, o?: Record<string, un
     case 'railbutton':
       return `⌀ ${len(row.outerDiameter)}${row.innerDiameter == null ? '' : ` / ${len(row.innerDiameter)}`} · ${len(row.height)} ${sym}`;
     default:
-      // Tube-shaped: the bore is what a coupler or ring is, so it is named
-      // even when the catalog would have left it null.
       return `⌀ ${len(row.outerDiameter)}${
         row.innerDiameter == null ? '' : ` / ${len(row.innerDiameter)}`
       } · ${len(row.length)} ${sym}`;

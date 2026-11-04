@@ -17,17 +17,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A freeform fin set whose outline the file does not give is said so.
- *
- * Desktop warns for each `<point>` it cannot read ("Illegal fin points
- * specification, ignoring.", FinSetPointHandler) and for each RockSim pair
- * that is not two numbers ("Invalid fin point pair.", "Fin point not in
- * numeric format.", rocksim FinSetHandler). With fewer than three usable
- * points the node carries no outline and the kernel flies its default one:
- * the expected outline is the kernel's own, read back for a freeform fin set
- * built with no points at all.
- */
+// Desktop warns on each unreadable point (FinSetPointHandler, rocksim FinSetHandler).
 
 const ork = (finpoints: string): string =>
   `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents><stage><name>S</name><subcomponents>` +
@@ -45,10 +35,8 @@ const rkt = (pointList: string): string =>
 const finOf = (tree: RocketTree): ComponentNode =>
   [...walkNodes(tree.components)].find((n) => n.type === 'freeformfinset')!;
 
-/** The outline the kernel flies for the design's freeform fin set. */
 const kernelOutline = (tree: RocketTree) => kernelGeometry(engine, tree).get(finOf(tree).id!)!.finPoints;
 
-/** Two outlines agree point by point, to floating-point noise. */
 type Outline = readonly (readonly (number | null)[])[] | undefined;
 const expectOutline = (got: Outline, want: Outline) => {
   expect(got).toBeDefined();
@@ -60,7 +48,6 @@ const expectOutline = (got: Outline, want: Outline) => {
   });
 };
 
-/** The kernel's default freeform outline: a fin set built with no points. */
 const defaultOutline = () => {
   const { tree } = importOrk(ork(''));
   delete finOf(tree)['points'];

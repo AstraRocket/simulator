@@ -2,24 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useWorkspaceStore } from '../../src/state/store';
 import { findNode, patchChangesNode } from '../../src/services/design/treeEdit';
 
-/**
- * A patch that says what the node already says must do nothing.
- *
- * `updateNode` always hands back a fresh `components` array (it path-copies the
- * spine as it walks), and `components` is the kernel rebuild dependency, so
- * `patchSelected` returns before calling it on a patch that changes nothing.
- *
- * `NumberInput` fires one patch per keystroke with the already-clamped value, so
- * without the guard typing past a ceiling fires N identical patches: N full kernel
- * builds, and an undo step that changes nothing.
- */
 const s = () => useWorkspaceStore.getState();
 
-/**
- * The tree with the nose cone's catalog link already gone, as it is after the
- * first keystroke of a real edit: the default design's nose carries a
- * `preset`, and changing one of its dimensions drops the link.
- */
 const unlinked = () => {
   const current = findNode(s().tree, 'nose')!.length as number;
   s().setSelectedId('nose');
@@ -53,9 +37,7 @@ describe('patchChangesNode', () => {
   });
 
   it('is false for a repeated value on a catalog part, which keeps its link', () => {
-    // A kernel setter given the value it holds returns before clearPreset()
-    // (Transition.setLength, as every setter in PRESET_SETTERS), so the link
-    // stays and nothing changes. The default nose carries a preset.
+    // A kernel setter given its current value returns before clearPreset() (Transition.setLength).
     const nose = findNode(s().tree, 'nose')!;
     expect(nose['preset']).toBeTruthy();
     expect(patchChangesNode(s().tree, 'nose', { length: nose.length as number })).toBe(false);
@@ -75,9 +57,7 @@ describe('patchSelected does nothing on a no-op', () => {
     const before = unlinked();
     const current = findNode(before, 'nose')!.length as number;
     s().patchSelected({ length: current });
-    // Reference equality, not deep equality: `components` is the dependency the
-    // rebuild effect compares, so a fresh array is a kernel build whatever is in
-    // it.
+    // Reference equality: the rebuild effect compares `components` by identity.
     expect(s().tree).toBe(before);
     expect(s().tree.components).toBe(before.components);
   });
@@ -91,9 +71,6 @@ describe('patchSelected does nothing on a no-op', () => {
   });
 
   it('survives the clamped-keystroke sequence with one step', () => {
-    // What the user does: type past a ceiling. The box clamps and reports the
-    // same value for every further character. The first patch is real; without the
-    // guard every one after it would be a full kernel build for nothing.
     const clamped = 0.42;
     const before = s().tree;
     s().patchSelected({ length: clamped });
@@ -102,7 +79,7 @@ describe('patchSelected does nothing on a no-op', () => {
     s().patchSelected({ length: clamped });
     s().commitEdit();
     expect(afterFirst).not.toBe(before);
-    expect(s().tree).toBe(afterFirst); // the second and third changed nothing
+    expect(s().tree).toBe(afterFirst);
     expect(s().past).toHaveLength(1);
     expect(findNode(s().tree, 'nose')!.length).toBe(clamped);
   });
@@ -118,7 +95,6 @@ describe('patchSelected does nothing on a no-op', () => {
   });
 
   it('still reconciles configurations when the mount flag really changes', () => {
-    // The guard must not swallow the one patch that can alter mount topology.
     s().setSelectedId('body');
     const before = s().tree;
     s().patchSelected({ motorMount: true });

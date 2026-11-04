@@ -4,43 +4,21 @@ import { findStages } from '../../design/treeEdit';
 import { numOpt } from '../../../tree/nodeProps';
 import { STAGE_ELEMENTS } from './schema';
 
-/**
- * The kernel's figures for one RockSim stage, nose down: the dry structure
- * mass of the stage alone (kg), and the dry CG of the stack from the
- * sustainer down to and including it (m from the nose tip). They are what
- * `RockSimSaver.setStageOverrides` computes with `MassCalculator.calculateStructure`
- * and writes as `StageNMass` and `Stage3CG`, `Stage32CG`, `Stage321CG`.
- */
+/** Dry mass of the stage alone (kg); dry CG of the stack from the sustainer through it (m from the nose tip). */
 export interface StageFigures {
   mass: number;
   stackCg: number;
 }
 
-/**
- * Whether any stage RockSim holds overrides its mass or its CG. RockSim's stage
- * overrides are all or nothing, so one is enough to have every stage's figures
- * written, and they come from the kernel.
- */
 export function overridesStages(tree: RocketTree): boolean {
   return asStageNodes(tree)
     .slice(0, STAGE_ELEMENTS.length)
     .some((s) => numOpt(s, 'overrideMass') !== undefined || numOpt(s, 'overrideCGX') !== undefined);
 }
 
-/** What {@link stageStacks} needs of a build. */
 type StageBuild = Pick<OpenRocketDesign, 'setStageActiveById' | 'staticInfo'>;
 
-/**
- * Each stage's figures from a build of `tree`, or undefined when the build
- * does not hold every stage.
- *
- * The build's own stage activeness is borrowed and put back: each stage is
- * weighed on its own and each stack with the stages above it, with every other
- * stage off, as `RockSimSaver` does with a fresh configuration. A top-level
- * stage takes its boosters with it (`FlightConfiguration._setStageActive`
- * activates the sub-stages). `grounded` is what the build grounds, which is
- * restored in the order `buildConfiguredRocket` grounded it.
- */
+/** Borrows the build's stage activeness and restores it, re-grounding `grounded` stages afterward. */
 export function stageStacks(
   build: StageBuild,
   tree: RocketTree,

@@ -1,37 +1,10 @@
 import { bearingFromPad, distanceFromPad, type GroundPoint } from './groundTrack';
 import { degToRad } from '../../prefs/units';
 
-/**
- * The ground a rocket could come down on, from the landings a wind sweep flew.
- *
- * Two shapes, because they answer two different questions and neither is the
- * other:
- *
- * - The hull is the exact swept envelope. The sweep is a grid, so its landings
- *   are not a sample from anything: they are the whole set of answers to the
- *   conditions that were asked about, and the smallest convex region holding
- *   them is a statement with no statistics in it: fly one of these winds and
- *   the rocket lands in here. That is the shape to walk out and look at.
- * - The ellipse is the familiar recovery-ellipse reading: the spread of those
- *   landings as a center, two axes and a bearing. It compresses the picture to
- *   four numbers you can write on a flight card, and it is the shape that
- *   compares across designs, motors and days.
- *
- * The ellipse is not called a confidence region. A confidence region needs a
- * distribution over the conditions, and a grid sweep asserts none: every cell
- * is flown once, whatever its real-world likelihood. What the ellipse describes
- * is the scatter of the landings that were flown, at a stated number of
- * standard deviations. Over a whole-compass sweep it sits inside the ring of
- * landings, which is correct and is why the hull is drawn as well.
- *
- * Everything here is meters east and north of the pad, the same plane
- * `groundTrack.ts` works in.
- */
+// The ellipse is scatter at N sigma, not a confidence region: a grid sweep asserts no distribution.
 
-/** How many standard deviations the drawn ellipse spans. */
 export const DEFAULT_SIGMA = 2;
 
-/** Mean landing point, or null for an empty set. */
 export function centroid(points: readonly GroundPoint[]): GroundPoint | null {
   if (!points.length) return null;
   let east = 0;
@@ -43,26 +16,13 @@ export function centroid(points: readonly GroundPoint[]): GroundPoint | null {
   return { east: east / points.length, north: north / points.length };
 }
 
-/** Cross product of (o→a) and (o→b); positive when o→a→b turns counterclockwise. */
 const cross = (o: GroundPoint, a: GroundPoint, b: GroundPoint): number =>
   (a.east - o.east) * (b.north - o.north) - (a.north - o.north) * (b.east - o.east);
 
-/**
- * The convex hull, counterclockwise, by Andrew's monotone chain.
- *
- * Collinear points are dropped (`<= 0`, not `< 0`), so a sweep of one heading,
- * whose landings lie on a straight line out from the pad, comes back as its
- * two ends rather than as every sample along it. That degenerate hull is a line
- * segment, and the drawing treats it as one rather than as an area.
- *
- * Fewer than three distinct points cannot bound anything, so they are returned
- * as they are.
- */
+// Collinear points are dropped (`<= 0`), so a one-heading sweep returns its two ends as a segment.
 export function convexHull(points: readonly GroundPoint[]): GroundPoint[] {
   const pts = [...points].sort((a, b) => a.east - b.east || a.north - b.north);
-  // Duplicate landings are common: two cells of the grid can land in the same
-  // place to the millimeter when the wind barely moved. They add nothing and
-  // they upset the turn test.
+  // Duplicate landings are common and upset the turn test.
   const uniq = pts.filter((p, i) => i === 0 || p.east !== pts[i - 1]!.east || p.north !== pts[i - 1]!.north);
   if (uniq.length < 3) return uniq;
 
@@ -77,12 +37,10 @@ export function convexHull(points: readonly GroundPoint[]): GroundPoint[] {
   };
 
   const hull = [...half(uniq), ...half([...uniq].reverse())];
-  // Every point collinear: both halves reduce to the two ends, and what comes
-  // back is that segment rather than a zero-area ring of four.
+  // All collinear: return the segment, not a zero-area ring of four.
   return hull.length >= 3 ? hull : uniq.slice(0, 1).concat(uniq.slice(-1));
 }
 
-/** The area a closed polygon encloses, square meters (shoelace, sign dropped). */
 export function polygonArea(points: readonly GroundPoint[]): number {
   if (points.length < 3) return 0;
   let sum = 0;
@@ -94,30 +52,16 @@ export function polygonArea(points: readonly GroundPoint[]): number {
   return Math.abs(sum) / 2;
 }
 
-/** The scatter of a set of landings, as an oriented ellipse. */
 export interface DriftEllipse {
   center: GroundPoint;
-  /** Half the long axis, meters. */
   semiMajorM: number;
-  /** Half the short axis, meters. */
   semiMinorM: number;
-  /** Compass bearing of the long axis, degrees clockwise from north. */
+  /** Long axis, degrees clockwise from north. */
   bearingDeg: number;
-  /** How many standard deviations the axes span. */
   sigma: number;
 }
 
-/**
- * The covariance ellipse of these landings, at `sigma` standard deviations.
- *
- * The sample covariance (divided by n-1, so two landings describe the spread
- * between them rather than half of it) diagonalized by hand: a symmetric 2x2
- * has closed-form eigenvalues and eigenvectors, so no matrix library is needed.
- *
- * Null below two points, because one landing has no spread to describe. A
- * perfectly collinear set gives a zero minor axis, which draws as a line and is
- * a valid result, not a failure.
- */
+// Sample covariance (n-1).
 export function driftEllipse(points: readonly GroundPoint[], sigma = DEFAULT_SIGMA): DriftEllipse | null {
   const center = centroid(points);
   if (!center || points.length < 2) return null;
@@ -138,17 +82,12 @@ export function driftEllipse(points: readonly GroundPoint[], sigma = DEFAULT_SIG
   sen /= n;
 
   const mean = (see + snn) / 2;
-  // The eigenvalue gap. Clamped at zero because a covariance matrix's
-  // discriminant is non-negative in exact arithmetic and can land a hair below
-  // it in floating point, which would make the square root NaN.
+  // Clamped: float error can push the discriminant a hair below zero (NaN sqrt).
   const gap = Math.sqrt(Math.max(0, ((see - snn) / 2) ** 2 + sen * sen));
   const major = Math.max(0, mean + gap);
   const minor = Math.max(0, mean - gap);
 
-  // Eigenvector for the larger eigenvalue. With no covariance the axes are
-  // already the eigenvectors, and which of the two is the long one is decided
-  // by which variance is larger; atan2(0, 0) would otherwise answer 0 and call
-  // a north-south spread an east-west one.
+  // With no covariance the formula would give (0, 0) and call a north-south spread east-west.
   const [ve, vn] = sen !== 0 ? [major - snn, sen] : see >= snn ? [1, 0] : [0, 1];
 
   return {
@@ -160,21 +99,12 @@ export function driftEllipse(points: readonly GroundPoint[], sigma = DEFAULT_SIG
   };
 }
 
-/**
- * The ellipse as a closed polygon, so whoever draws it only has to map points
- * through the same projection the tracks use.
- *
- * An SVG `<ellipse>` with a rotation transform would have to be re-derived
- * against whatever transform the view already applies, and would go wrong
- * whenever the two axes do not share a scale. A polygon cannot.
- */
+// A polygon, not a rotated SVG `<ellipse>`, so it stays right when the view's axes do not share a scale.
 export function ellipsePolygon(e: DriftEllipse, segments = 72): GroundPoint[] {
-  // The major axis as a unit vector in east/north, from its compass bearing.
   const rad = degToRad(e.bearingDeg);
   const me = Math.sin(rad);
   const mn = Math.cos(rad);
-  // The minor axis is the major turned a quarter turn; in east/north that is
-  // (e, n) -> (-n, e).
+  // Minor axis: (e, n) -> (-n, e).
   return Array.from({ length: segments }, (_, i) => {
     const th = (2 * Math.PI * i) / segments;
     const a = e.semiMajorM * Math.cos(th);
@@ -183,25 +113,18 @@ export function ellipsePolygon(e: DriftEllipse, segments = 72): GroundPoint[] {
   });
 }
 
-/** One stage's drift, everything the ground track draws and reads out. */
 export interface DriftRegion {
-  /** Branch index, matching the ground track's own per-stage traces. */
   branch: number;
   samples: GroundPoint[];
   centroid: GroundPoint;
-  /** The swept envelope, counterclockwise. Two points for a collinear sweep. */
+  /** Two points for a collinear sweep. */
   hull: GroundPoint[];
-  /** Null when fewer than two landings were flown. */
   ellipse: DriftEllipse | null;
-  /** The furthest landing from the pad, meters: the walk to plan for. */
   maxRangeM: number;
-  /** The nearest landing, meters. */
   minRangeM: number;
-  /** Ground the envelope covers, square meters. Zero for a collinear sweep. */
   areaM2: number;
 }
 
-/** Everything derivable from one stage's landings, or null if there are none. */
 export function driftRegion(
   branch: number,
   samples: readonly GroundPoint[],
@@ -223,10 +146,6 @@ export function driftRegion(
   };
 }
 
-/**
- * A sweep's landings grouped by stage, one region per stage that landed, in
- * branch order (the order the ground track draws its traces in).
- */
 export function sweepRegions(
   landings: readonly ({ branch: number } & GroundPoint)[],
   sigma = DEFAULT_SIGMA,

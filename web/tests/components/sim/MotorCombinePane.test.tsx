@@ -4,10 +4,6 @@ import { MotorCombinePane } from '../../../src/components/sim/MotorCombinePane';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
-/**
- * Two combine panes in one document each fill from their own gradient: a fixed
- * id would make `url(#id)` resolve to whichever rendered first.
- */
 describe('MotorCombinePane gradient', () => {
   const motor = (designation: string) =>
     ({

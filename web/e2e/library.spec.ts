@@ -6,16 +6,8 @@ const openLibrary = async (page: Page) => {
   await expect(page.getByRole('dialog', { name: 'My Rockets' })).toBeVisible();
 };
 
-/** The page's running count of IndexedDB reads; see the init script below. */
 const idbGets = (page: Page) => page.evaluate(() => (window as unknown as { __idbGets: number }).__idbGets);
 
-/**
- * Wait for the store to go quiet: two consecutive samples of the read counter
- * agree. A settled dialog issues no reads at all, so the first pair of samples
- * satisfies this; a refresh loop issues one per render and the samples never
- * agree, so this times out and says so, rather than a fixed sleep guessing at
- * how long "long enough to notice" is on the machine under CI.
- */
 const idbSettled = async (page: Page) => {
   let prev = await idbGets(page);
   await expect
@@ -31,20 +23,8 @@ const idbSettled = async (page: Page) => {
     .toBe(true);
 };
 
-/**
- * The saved-designs library.
- *
- * The first test here guards against an unbounded render loop: if the
- * open-effect depends on an `onClose` that AppHeader mints inline, and the
- * effect's own `refresh()` writes a fresh `designs` array that AppHeader
- * subscribes to, then every refresh re-renders AppHeader, mints a new
- * `onClose`, and refreshes again, for as long as the dialog stays open.
- */
 test.describe('design library', () => {
-  // Count IndexedDB reads, not DOM mutations: each loop iteration calls
-  // refresh() -> designLibrary.list() -> a store read. A MutationObserver
-  // cannot see the loop at all, because re-rendering identical output mutates
-  // no DOM.
+  // Count IndexedDB reads: re-rendering identical output mutates no DOM, so a MutationObserver cannot see the loop.
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as unknown as { __idbGets: number };
@@ -64,10 +44,6 @@ test.describe('design library', () => {
     await openLibrary(page);
     const panel = page.getByRole('dialog', { name: 'My Rockets' });
 
-    // An open, settled dialog reads nothing further; a refresh loop issues a
-    // read per iteration for as long as the dialog stays open. Sampled after
-    // the open, so the one list read that opening legitimately does is not
-    // counted against it.
     const before = await idbGets(page);
     await idbSettled(page);
     expect((await idbGets(page)) - before).toBeLessThan(10);
@@ -77,7 +53,6 @@ test.describe('design library', () => {
   test('rename dialog stays open, and its backdrop does not close the library', async ({ page }) => {
     await page.goto('/');
 
-    // Give the library something to list: Save As creates a named design.
     await page.getByRole('button', { name: 'Menu' }).click();
     await page.getByRole('menuitem', { name: 'Save As…' }).click();
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Test Rocket');
@@ -86,16 +61,12 @@ test.describe('design library', () => {
     await openLibrary(page);
     await expect(page.getByText('Test Rocket')).toBeVisible();
 
-    // A refresh loop re-running `setRenaming(null)` on every iteration tears this
-    // dialog down a few ms after it opens, so "the store went quiet and the dialog
-    // is still here" is the assertion.
     await page.getByRole('button', { name: 'Rename' }).first().click();
     const rename = page.getByRole('dialog', { name: 'Rename' });
     await expect(rename).toBeVisible();
     await idbSettled(page);
     await expect(rename).toBeVisible();
 
-    // Dismissing the nested dialog must not also dismiss the library behind it.
     await page.mouse.click(5, 5);
     await expect(rename).toBeHidden();
     await expect(page.getByRole('dialog', { name: 'My Rockets' })).toBeVisible();
@@ -112,28 +83,17 @@ test.describe('design library', () => {
     await openLibrary(page);
     await page.getByRole('button', { name: 'Delete' }).first().click();
 
-    // Canceling keeps it: a mistap on a phone must not destroy saved work.
     const ask = page.getByRole('alertdialog');
     await expect(ask.getByText(/Delete "Doomed Rocket"\?/)).toBeVisible();
     await ask.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText('Doomed Rocket')).toBeVisible();
 
-    // Confirming removes it.
     await page.getByRole('button', { name: 'Delete' }).first().click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
     await expect(page.getByText('Doomed Rocket')).toBeHidden();
   });
 });
 
-/**
- * The bundled OpenRocket examples, as the library's second tab.
- *
- * They are the only designs that ship with the app, so the failure this guards
- * is a deployment one: the files live in `public/examples/` and are listed by a
- * generated index, and neither the index nor the fetch is exercised by any
- * unit test. `exampleLibrary.test.ts` proves every file imports and flies; this
- * proves the app can actually reach one and open it.
- */
 test('an example opens from the library, as its own unsaved design', async ({ page }) => {
   await page.goto('/');
   await openLibrary(page);
@@ -141,8 +101,6 @@ test('an example opens from the library, as its own unsaved design', async ({ pa
   const dlg = page.getByRole('dialog', { name: 'My Rockets' });
   await page.getByRole('tab', { name: 'Examples' }).click();
 
-  // Every entry carries the author's own note under its name: a list of bare
-  // filenames does not tell anyone which one to open.
   const entry = dlg.getByRole('button').filter({ hasText: 'Clustered motors' });
   await expect(entry).toBeVisible({ timeout: 15_000 });
   await expect(entry).toContainText('Cluster');
@@ -150,19 +108,11 @@ test('an example opens from the library, as its own unsaved design', async ({ pa
   await entry.click();
   await expect(dlg).toBeHidden();
 
-  // It lands as an import: the file's own name and parts, in a design of its
-  // own, so editing it can never write back over the bundled copy.
   const title = page.getByRole('button', { name: 'Edit rocket configuration' });
   await expect(title).toContainText('Clustered motors');
-  // Scoped to the tree. The name is also on four SVG <title>s in the
-  // schematic, one per clustered instance, which is its own small proof the
-  // cluster came through.
+  // Scoped to the tree: the name is also on SVG <title>s in the schematic.
   await expect(page.getByRole('tree', { name: 'Components' }).getByText('Clustered Inner Tube')).toBeVisible();
 
-  // An import becomes its own saved design once it autosaves, not an edit to
-  // the bundled file: My rockets lists it, and Examples still offers the
-  // original. Waiting on the autosave, because before it the list is empty and
-  // after it the entry is there; checking either without waiting is a race.
   await autosaved(page, 'Clustered Inner Tube');
   await openLibrary(page);
   const lib = page.getByRole('dialog', { name: 'My Rockets' });
@@ -171,15 +121,6 @@ test('an example opens from the library, as its own unsaved design', async ({ pa
   await expect(lib.getByRole('button').filter({ hasText: 'Clustered motors' })).toBeVisible();
 });
 
-/**
- * The same examples, reached the other way.
- *
- * Menu → Import → Examples is the primary route and the semantically exact
- * one (opening an example runs the identical `openOrkFile` path a picked file
- * does), so it sits beside the `.ork` import rather than beside New. The
- * library tab above is the same list mounted a second time, for the moment you
- * are browsing rather than starting.
- */
 test('an example opens from Import, as its own unsaved design', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Menu' }).click();
@@ -196,17 +137,7 @@ test('an example opens from Import, as its own unsaved design', async ({ page })
   await expect(page.getByRole('tree', { name: 'Components' }).getByText('Tube fin set')).toBeVisible();
 });
 
-/**
- * Re-importing a rocket does not silently stack up copies of it.
- *
- * An import gets its own library entry, which is right (it is a new design,
- * not an edit to whatever was open), but without a check on the name the
- * edit-in-OpenRocket-and-import-again loop would fill File > Open with rows
- * called the same thing, each a real design with its own id and nothing to tell
- * them apart by.
- */
 test.describe('re-importing a rocket the library already holds', () => {
-  /** The rocket names File > Open lists, opening and closing the dialog. */
   const savedNames = async (page: Page): Promise<string[]> => {
     await openLibrary(page);
     const dlg = page.getByRole('dialog', { name: 'My Rockets' });
@@ -220,8 +151,6 @@ test.describe('re-importing a rocket the library already holds', () => {
 
   const importTwice = async (page: Page, clash: NameClash) => {
     await importOrk(page, 'e2e/fixtures/two-stage.ork');
-    // The entry is created by the debounced autosave, so wait for it to exist
-    // rather than racing the second import against the write it clashes with.
     await expect.poll(() => savedNames(page), { timeout: 20_000 }).toHaveLength(1);
     await importOrk(page, 'e2e/fixtures/two-stage.ork', clash);
   };
@@ -230,8 +159,7 @@ test.describe('re-importing a rocket the library already holds', () => {
     await page.goto('/');
     await importTwice(page, 'overwrite');
 
-    // Round-tripped twice: the second read is after the import's own autosave
-    // has had its chance to add a row, which is the thing being ruled out.
+    // Read twice: the second is after the autosave could add a row.
     expect(await savedNames(page)).toHaveLength(1);
     expect(await savedNames(page)).toHaveLength(1);
   });

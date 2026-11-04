@@ -1,19 +1,5 @@
 import { useUnits } from '../../prefs/useUnits';
 
-/**
- * The TreeSchematic measuring frame: length (horizontal) rulers on the top
- * and bottom edges and radial (vertical) rulers on the left and right, each
- * side drawn when it is toggled on.
- * The graduations they draw come from `rulerGraduations` in
- * schematicGeometry.ts (memoized by the schematic); this file is the markup.
- * Both are `pointerEvents="none"` so they never take a click from the drawing.
- */
-
-/**
- * One length (horizontal) ruler: faint minor subdivisions + bold labeled
- * majors. `dir` points the ticks away from the drawing (down at the bottom
- * edge, up at the top). Drawn on both edges for a full measuring frame.
- */
 export function LengthRuler({
   baseY,
   dir,
@@ -32,15 +18,14 @@ export function LengthRuler({
   dir: 1 | -1;
   labelY: number;
   unitY: number;
-  /** Where the baseline starts and ends (viewBox px). */
+  // viewBox px
   x0: number;
   x1: number;
-  /** The datum: model 0 (the nose tip) in viewBox px. */
   ctxX0: number;
   scale: number;
   rulerStep: number;
   rulerDigits: number;
-  /** Labeled majors and their minor subdivisions, in model meters. */
+  // Model meters.
   marks: number[];
   minorMarks: number[];
 }) {
@@ -80,15 +65,10 @@ export function LengthRuler({
   );
 }
 
-/** A minor mark halfway between two labeled majors, drawn longer than the rest. */
 function isHalfStep(m: number, rulerStep: number): boolean {
   return Math.abs(((((m / rulerStep) % 1) + 1) % 1) - 0.5) < 0.02;
 }
 
-/**
- * One radial (vertical) ruler: same treatment; `dir` points the ticks into the
- * side lane (away from the drawing) so the numbers sit clear of the airframe.
- */
 export function RadialRuler({
   baseX,
   dir,
@@ -108,27 +88,21 @@ export function RadialRuler({
   dir: 1 | -1;
   labelX: number;
   anchor: 'start' | 'end';
-  /** Where the baseline starts and ends (viewBox px): the corners of the frame. */
+  // viewBox px
   frameTopY: number;
   frameBotY: number;
-  /** Where the graduations start (viewBox px). */
   vTop: number;
-  /** The radial datum, where a minor tick of 0 sits (viewBox px): `vTop` at
-   *  the fitted view, wherever the zoom has moved it otherwise. */
   originY?: number;
   scale: number;
   rulerStep: number;
   rulerDigits: number;
-  /** Labeled majors (already placed) and their minor subdivisions (model meters). */
+  // Majors already placed in px; minors in model meters.
   ticks: { y: number; label: number }[];
   minorTicks: number[];
 }) {
   const u = useUnits();
   return (
     <g pointerEvents="none">
-      {/* Baseline runs corner-to-corner (to the top/bottom length-ruler baselines,
-          or the viewport edge where that side's ruler is off) so the rulers close
-          into one frame; the ticks stay in vTop..vBot. */}
       <line x1={baseX} y1={frameTopY} x2={baseX} y2={frameBotY} className="stroke-line/55" />
       {minorTicks.map((m, i) => {
         const y = originY + m * scale;

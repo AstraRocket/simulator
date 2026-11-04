@@ -11,7 +11,6 @@ beforeAll(serveData);
 
 const CATALOG = readData<MaterialRow[]>('materials.generated.json');
 
-/** A default material keeps its catalog group, as one picked in the property panel does. */
 describe('Settings default materials', () => {
   it("stores the chosen material's catalog group", async () => {
     const aluminum = CATALOG.find((m) => m.name === 'Aluminum' && m.type === 'bulk')!;

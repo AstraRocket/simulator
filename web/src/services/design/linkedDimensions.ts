@@ -4,21 +4,8 @@ import { mapTreePreserving } from '../../tree/treeWalk';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
 
 /**
- * Dimensions of one part that the kernel clamps against each other.
- *
- * A rail button's heights and bore and a centering ring's two radii are not
- * independent: the kernel's setters hold each one inside a range the others set
- * (`RailButton.setInnerDiameter`, `setTotalHeight`, `setBaseHeight`,
- * `setFlangeHeight`, `RadiusRingComponent.setInnerRadius` and
- * `setOuterRadius`). A value outside that range is not refused, it is changed,
- * so the panel, the saved design and the export have to hold the clamped value
- * or they describe a different part from the one that flies.
- *
- * Each bound is in the node's own units (a ring's radii are radii) and reads
- * the part as it is now. The outer dimension's floor is the inner one, where
- * the kernel would instead pull the inner one down with it: the panel writes on
- * every keystroke, so typing 54 over a 25 mm bore would pass through 5 and
- * leave the bore there.
+ * Outer's floor is the inner (the kernel would pull the inner down instead): the panel writes per
+ * keystroke, so typing 54 over a 25 mm bore would pass through 5 and drag the bore with it.
  */
 export interface DimensionBounds {
   min?: (node: ComponentNode) => number;
@@ -27,7 +14,6 @@ export interface DimensionBounds {
 
 const RB = COMPONENT_DEFAULTS.railbutton;
 
-/** The rail button dimensions the kernel links, with an absent key read as the kernel default. */
 export const RAIL_BUTTON_FALLBACK = {
   outerDiameter: RB.outerDiameter,
   innerDiameter: RB.innerDiameter,
@@ -41,7 +27,6 @@ type RailKey = keyof typeof RAIL_BUTTON_FALLBACK;
 
 const rail = (node: ComponentNode, key: RailKey): number => num(node, key, RAIL_BUTTON_FALLBACK[key]);
 
-/** `RailButton`'s setters: the bore within the outside, and the base and flange within the total height. */
 export const RAIL_BUTTON_BOUNDS: Partial<Record<RailKey, DimensionBounds>> = {
   outerDiameter: { min: (n) => Math.max(0, rail(n, 'innerDiameter')) },
   innerDiameter: { max: (n) => rail(n, 'outerDiameter') },
@@ -50,13 +35,12 @@ export const RAIL_BUTTON_BOUNDS: Partial<Record<RailKey, DimensionBounds>> = {
   flangeHeight: { max: (n) => Math.max(0, rail(n, 'height') - rail(n, 'baseHeight')) },
 };
 
-/** `RadiusRingComponent`'s setters: the inner radius never past the outer. */
 export const RING_BOUNDS: Record<'outerRadius' | 'innerRadius', DimensionBounds> = {
   outerRadius: { min: (n) => Math.max(0, num(n, 'innerRadius')) },
   innerRadius: { max: (n) => num(n, 'outerRadius') },
 };
 
-/** A value held inside a field's bounds, the lower bound applied first as the kernel's setters do. */
+/** Lower bound first, as the kernel's setters do. */
 export function clampToBounds(node: ComponentNode, bounds: DimensionBounds | undefined, v: number): number {
   if (!bounds) return v;
   const lo = bounds.min?.(node);
@@ -67,14 +51,7 @@ export function clampToBounds(node: ComponentNode, bounds: DimensionBounds | und
   return out;
 }
 
-/**
- * A rail button's linked dimensions as the desktop loads them from a file.
- *
- * The loader runs each tag through its setter in the order `RailButtonSaver`
- * writes them (outer, inner, total, base, flange), starting from the
- * constructor's values, so a pair that disagrees comes out clamped. A value
- * the file leaves out keeps the constructor's.
- */
+/** Desktop loader order (`RailButtonSaver`): outer, inner, total, base, flange; do not reorder. */
 export function settleRailButtonLoad(read: Partial<Record<RailKey, number>>): Record<RailKey, number> {
   let od: number = RB.outerDiameter;
   let id: number = RB.innerDiameter;
@@ -99,21 +76,9 @@ export function settleRailButtonLoad(read: Partial<Record<RailKey, number>>): Re
   };
 }
 
-/**
- * A centering ring's outer radius as the desktop loads it: the outer radius is
- * set first, then the inner, whose setter raises the outer to meet it.
- */
 export const settleRingOuterLoad = (outer: number, inner: number): number => Math.max(outer, inner);
 
-/**
- * A rail button's linked dimensions as the bridge builds them
- * (`ComponentFactory`): the outer diameter first, which caps the bore; the base
- * and flange cleared, then the total height, the base and the flange, each
- * against the ones already set. An absent key flies as the kernel default.
- *
- * A button whose dimensions agree comes back unchanged, so this only moves a
- * stored part the panel would never have produced.
- */
+/** `ComponentFactory`'s order; differs from the load order above. */
 function settleRailButtonBuild(node: ComponentNode): Partial<Record<RailKey, number>> {
   const od = rail(node, 'outerDiameter');
   const id = Math.min(rail(node, 'innerDiameter'), od);
@@ -126,12 +91,6 @@ function settleRailButtonBuild(node: ComponentNode): Partial<Record<RailKey, num
   return patch;
 }
 
-/**
- * A centering ring's outer radius as the bridge builds it: the outer radius is
- * set, then the inner, whose setter raises the outer to meet it. An automatic
- * outer radius is switched back on afterward and follows the parent's bore
- * whatever the inner radius is, so it is left alone.
- */
 function settleRingBuild(node: ComponentNode): { outerRadius?: number } {
   if (node['outerRadiusAuto'] === true) return {};
   const outer = node['outerRadius'];
@@ -141,11 +100,6 @@ function settleRingBuild(node: ComponentNode): { outerRadius?: number } {
   return raised === outer ? {} : { outerRadius: raised };
 }
 
-/**
- * A stored design with every rail button and centering ring held as the
- * kernel builds it. Returns the same tree, arrays and nodes where nothing
- * moves, so a design that was already consistent is untouched.
- */
 export function settleLinkedDimensions(tree: RocketTree): RocketTree {
   const components = mapTreePreserving(
     tree.components,

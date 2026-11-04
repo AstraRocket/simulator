@@ -6,12 +6,6 @@ import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 
-/**
- * Round trips for fields the .ork writer must not replace with constants and
- * the reader must parse one way. The desktop-form fixture in
- * orkDesktopFixture.test.ts checks the same fields against OpenRocket's layout.
- */
-
 const node = (o: object) => o as unknown as ComponentNode;
 
 const findByType = (t: RocketTree, type: string): ComponentNode | undefined => {
@@ -123,8 +117,7 @@ describe('recovery packed size', () => {
 });
 
 describe('mass component automatic packed radius', () => {
-  // MassObjectSaver writes `auto <radius>` for any mass object whose radius
-  // follows its tube, and MassObjectHandler reads the marker back as the flag.
+  // MassObjectSaver writes `auto <radius>`; MassObjectHandler reads it back as the flag.
   // A 13 mm tube with a 1 mm wall: the automatic radius is its 12 mm bore.
   const tree = {
     components: [
@@ -215,7 +208,6 @@ describe('rail button geometry and material', () => {
     expect(plain).toContain('<innerdiameter>0.008</innerdiameter>');
     expect(plain).toContain('<height>0.0097</height>');
     expect(plain).toContain('<screwheight>0</screwheight>');
-    // ...and the reader does not grow keys for values equal to those defaults.
     const b = findByType(importOrk(plain).tree, 'railbutton')!;
     expect(b['innerDiameter']).toBeUndefined();
     expect(b['height']).toBeUndefined();
@@ -241,14 +233,7 @@ describe('one finite-number parse', () => {
     `<bodytube><name>B</name><length>0.3</length><radius>0.012</radius></bodytube></subcomponents></stage>` +
     `</subcomponents></rocket><simulations><simulation><name>x</name><conditions>${inner}</conditions></simulation></simulations></openrocket>`;
 
-  /**
-   * A level whose altitude is unreadable is dropped rather than zeroed. The
-   * other three fall back to 0, because a still layer is a meaningful
-   * reading; an altitude is not a quantity with a harmless zero but the level's
-   * identity to the kernel, which keys its levels on it. Zeroing one would put a
-   * second level on the pad, where it would either displace the real surface
-   * wind or collide with it and fail every run (see services/flight/windLevels).
-   */
+  // An unreadable altitude drops the level: a zeroed one would collide with the surface wind.
   it('does not let Infinity through a wind level', () => {
     const bad =
       '<wind model="multilevel" altituderef="MSL"><windlevel altitude="Infinity" speed="1e309" direction="NaN" standarddeviation=""/></wind>' +
@@ -322,18 +307,12 @@ describe('shared defaults', () => {
     const n = findByType(nc.tree, 'nosecone')!;
     expect(n['length']).toBe(KERNEL_DEFAULTS.nosecone.length);
     expect(n['thickness']).toBe(KERNEL_DEFAULTS.nosecone.thickness);
-    // A nose with no <aftradius> is read as automatic and resolves to the tube
-    // behind it, so its stored radius is that tube's, not a fallback.
     expect(n['aftRadiusAuto']).toBe(true);
     expect(n['aftRadius']).toBe(0.015);
   });
 });
 
-/**
- * A centered internal part writes its placement the way the desktop savers do,
- * "0.0" (a Java double), as the desktop-written fixture's inner tube shows, so a
- * saved file does not differ from the desktop's for no reason.
- */
+// "0.0" is how the desktop savers write the Java double.
 describe('radial placement of a centered internal part', () => {
   it('is written as 0.0 for an inner tube and a mass component', () => {
     const xml = exportOrk({
@@ -359,11 +338,7 @@ describe('radial placement of a centered internal part', () => {
   });
 });
 
-/**
- * Desktop's loader hands a lug's or rail button's <angleoffset> to
- * LaunchLug.setAngleOffset / RailButton.setAngleOffset, which clamp to
- * [-180°, 180°]: a file that says 270 opens, and flies, at 180.
- */
+// LaunchLug/RailButton.setAngleOffset clamp to [-180°, 180°].
 describe('a lug or rail button angle past 180 degrees in a .ork', () => {
   const ork = (part: string) =>
     `<openrocket><rocket><name>N</name><subcomponents><stage><name>S</name><subcomponents>` +
@@ -377,11 +352,7 @@ describe('a lug or rail button angle past 180 degrees in a .ork', () => {
   });
 });
 
-/**
- * A stated spacing is the spacing, 0 included: with none, the kernel flies a
- * lug's copies at its constructor spacing (60 mm), so a desktop file's stacked
- * lugs would come back apart if a 0 were dropped.
- */
+// A dropped 0 would fall back to the kernel's 60 mm constructor spacing.
 describe('a lug spacing of 0 in a .ork', () => {
   it('keeps stacked copies stacked', () => {
     const xml =

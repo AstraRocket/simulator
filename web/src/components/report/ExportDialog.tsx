@@ -39,38 +39,17 @@ interface Sel {
 const hasType = (nodes: ComponentNode[], pred: (t: string) => boolean): boolean =>
   [...walkNodes(nodes)].some((n) => pred(n.type));
 
-/**
- * The "Print or export" dialog: pick what to include, tweak output settings,
- * Save as PDF.
- *
- * Mounted only while open (`{open && <ExportDialog />}`). The report model is
- * assembled once and the include/exclude selection is derived from it in the
- * same pass; both then hold still for the dialog's life, so a re-render (the
- * print-settings popover opening or closing) never resets what was picked.
- *
- * Assembling a report builds rockets of its own (each stage of a multi-stage
- * design, each motor configuration other than the one flown), which resets the
- * shared engine, so the whole rocket is rebuilt afterward. Installing that
- * rebuild is a store write, and this dialog cannot make it from the initializer
- * without updating every other store subscriber mid-render, so it takes the
- * build back from `assembleReport` and installs it in a layout effect instead.
- */
+// The rebuild is installed in a layout effect: a store write from the initializer would update subscribers mid-render.
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
   const units = useUnits();
-  // The print-settings popover: a second Dialog on its own layer, with its own focus trap.
   const [showSettings, setShowSettings] = useState(false);
   const [busy, setBusy] = useState(false);
-  // One resolution for both outputs: the PDF and the CSV must never disagree
-  // about what the document is written in.
   const exportUnits = resolveUnitChoice(settings.report.units, units.all);
   const tree = useWorkspaceStore((s) => s.tree);
   const runSim = useWorkspaceStore((s) => s.runSim);
 
-  // A save in flight observes the dialog and checks after every await, writing
-  // nothing once it was dismissed (closed, or unmounted). Closing also stops
-  // the run it is waiting on, so the dialog going away is the end of the export.
   const latest = useLatest();
   const running = useRef(false);
   const close = () => {
@@ -81,18 +60,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   const hasNoses = useMemo(() => hasType(tree.components, (ty) => ty === 'nosecone'), [tree]);
   const hasTransitions = useMemo(() => hasType(tree.components, (ty) => ty === 'transition'), [tree]);
-  // The real rule, not a re-derived one: a marking guide needs a body tube
-  // carrying at least one fin set, which is exactly what markingGuides finds.
-  // Asking it means the checkbox cannot offer a guide the report would not draw.
   const hasMarkingGuides = useMemo(() => markingGuides(tree).guides.length > 0, [tree]);
 
-  // The report's own builds run the real engine; a design it fails on must
-  // leave the dialog standing with its "no design" message, not take the app
-  // down. The failure is remembered here and reported below, so the initializer
-  // stays a pure computation.
-  //
-  // `rebuilt` is the whole-rocket build the report's own builds leave behind,
-  // for the layout effect below to install (see the component's doc comment).
   const [initial] = useState<{ model: ReportModel | null; error: string | null; rebuilt: ReportBuild | null }>(() => {
     const { info, rocket } = useWorkspaceStore.getState();
     if (!info || !rocket) return { model: null, error: null, rebuilt: null };
@@ -105,16 +74,13 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   });
   const model = initial.model;
 
-  // Before the browser paints, so the window is never shown against an engine
-  // left on the last stage that was built. The engine itself is already whole
-  // by here; this is only the store catching up to the new handle.
+  // Before paint, so the store catches up to the rebuilt handle unseen.
   useLayoutEffect(() => {
     if (initial.rebuilt) useWorkspaceStore.getState().applyBuild(initial.rebuilt.info, initial.rebuilt.handle);
   }, [initial.rebuilt]);
   useEffect(() => {
     if (!initial.error) return;
-    // `i18n.t`, not the hook's `t`: this must not depend on a value that
-    // changes identity on every language switch.
+    // `i18n.t`, not the hook's `t`, which changes identity per language switch.
     useWorkspaceStore.getState().setErr(i18n.t('export.reportFailed', { message: initial.error }));
   }, [initial.error]);
 
@@ -131,9 +97,6 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           stages: model.stages.map((st, i) => ({
             parts: true,
             finTemplates: true,
-            // isPlanarFinSet: this gates the fin templates checkbox, and tube
-            // fins produce no template, so a stage finned only with tubes must
-            // not offer one.
             hasFins: hasType(st.children ?? [], isPlanarFinSet),
             label: stageLabel(t, i, st.name),
           })),
@@ -175,25 +138,14 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       if (sel.updateSimData) {
-        // runSim flips the view to Flight and the tab to Results on completion;
-        // the report is a background refresh, so put both back where the user
-        // had them, with the design pane the view switch would otherwise move.
+        // runSim switches view, tab and design pane on completion; restore them.
         const { view: prevView, tab: prevTab, designPane: prevPane } = useWorkspaceStore.getState();
         try {
-          // The run resolves rather than rejects on a failure, a refusal, a
-          // timeout or a cancel, and leaves the previous numbers in place. Only a
-          // landed run means the report has fresh data; anything else writes
-          // nothing. A failure, a refusal and a busy pool say why in the error
-          // banner and a cancel is the user's own doing, but a flight dropped
-          // because the design changed under it says nothing, so it is said here.
           running.current = true;
           const outcome = await runSim();
           if (outcome === 'dropped') useWorkspaceStore.getState().setErr(t('export.simDropped'));
           if (outcome !== 'landed') return;
         } catch (e) {
-          // Reported, not swallowed: swallowing writes the PDF with the
-          // previous run's numbers, unmarked. The user asked for fresh data, so
-          // say why there is none and write nothing.
           useWorkspaceStore.getState().setErr(t('export.simFailed', { message: errorText(e, t) }));
           return;
         } finally {
@@ -203,9 +155,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
       }
       if (canceled()) return;
       const fresh = assembleReport() ?? model;
-      // jsPDF is loaded here rather than first inside the writer, so the last
-      // check below comes after every wait: from there to the download is
-      // synchronous work that a close cannot interleave with.
+      // jsPDF is loaded here so the last cancel check comes after every wait.
       const [{ downloadReportPdf }] = await Promise.all([import('../../services/report/reportPdf'), import('jspdf')]);
       if (canceled()) return;
       await downloadReportPdf(
@@ -226,7 +176,6 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           templateStroke: settings.report.templateStroke,
         },
         exportUnits,
-        // The font fetch is a wait of its own; a close during it saves nothing.
         { canceled },
       );
       onClose();
@@ -238,7 +187,6 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  /** Write one of the CSVs from the current report, and close; the writers load on demand. */
   const writeCsv = async (
     write: (csv: typeof import('../../services/report/reportCsv'), report: NonNullable<typeof model>) => void,
   ) => {
@@ -250,13 +198,10 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
       useWorkspaceStore.getState().setErr(t('export.csvFailed', { message: errorText(e, t) }));
     }
   };
-  // One row per part, in the export's units (services/report/reportCsv).
   const savePartsCsv = () =>
     writeCsv((csv, report) => csv.downloadComponentCsv(report, exportUnits, (type) => t(`part.${type}`)));
   const saveCsv = () => writeCsv((csv, report) => csv.downloadDesignCsv(report, exportUnits));
 
-  // The pinned row of actions, declared here because it is the shell's `footer`
-  // and so has to be named before the body it is passed with.
   const actionRow = (
     <div className="flex items-center justify-between gap-2 border-t border-line/10 p-4">
       <DialogButton onClick={() => setShowSettings(true)}>{t('export.settings')}</DialogButton>
@@ -288,10 +233,6 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         title={t('export.title')}
         onClose={close}
         size="md"
-        // The overlay and Escape do not dismiss this while the PDF is being
-        // written, so a stray click cannot end the export. Cancel and the ✕
-        // still work, and they stop it: the run is canceled and nothing is
-        // downloaded.
         dismissible={!busy}
         footer={sel && model ? actionRow : undefined}
       >
@@ -395,11 +336,6 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         )}
       </Dialog>
 
-      {/* Its own surface on its own layer, outside the dialog rather than a
-          sibling of its panel inside the shared overlay: a trap anchored on the
-          dialog's panel cannot reach controls outside it, so the fill color,
-          paper size and orientation would be unreachable by keyboard. Two
-          dialogs, each with its own trap. */}
       {showSettings && (
         <Dialog
           id="reportPrintSettings"
@@ -409,16 +345,10 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           size="sm"
           layout="pad"
           expandable={false}
-          // Two or three lines and a button, opening on top of a report dialog
-          // that is itself already full-screen on a phone: filling the screen
-          // here would read as that dialog being replaced rather than as
-          // something opening over it.
           fullBleed={false}
         >
           <>
             <div className="space-y-3">
-              {/* A row, not one big <label>: the color is a second control, and a
-                  label may only bind to one. */}
               <div className="flex items-center justify-between gap-3 text-sm text-ink-soft">
                 <label htmlFor={fillId}>{t('export.fill')}</label>
                 <span className="flex items-center gap-2">
@@ -477,12 +407,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
               </label>
             </div>
             <DialogActions>
-              <DialogButton
-                // Only what this popover shows. The report units are chosen in
-                // the dialog behind it, and a reset of the colors must not move
-                // them.
-                onClick={() => update({ report: { ...DEFAULT_REPORT, units: settings.report.units } })}
-              >
+              <DialogButton onClick={() => update({ report: { ...DEFAULT_REPORT, units: settings.report.units } })}>
                 {t('export.reset')}
               </DialogButton>
               <DialogButton variant="primary" onClick={() => setShowSettings(false)}>

@@ -18,7 +18,6 @@ import {
   unitDigits,
 } from '../../../src/components/canvas/aeroTables';
 
-/** A three-sample sweep with two parts, one of them a fin set. */
 const sweep = (): AeroSweep =>
   ({
     machs: [0.1, 0.3, 0.5],
@@ -51,7 +50,6 @@ const sweep = (): AeroSweep =>
         rollDamp: [0.01, 0.02, 0.03],
         type: 'TrapezoidFinSet',
       },
-      // No normal force: must be dropped from the stability table.
       { key: 'k-lug', name: '[LaunchLug.Lug]', cd: [0.01, 0.01, 0.01], cna: [0, 0, 0], type: 'LaunchLug' },
     ],
   }) as unknown as AeroSweep;
@@ -105,7 +103,6 @@ describe('dragRows / dragTotals', () => {
 describe('stabilityRows', () => {
   const masses: ComponentMass[] = [
     { key: 'k-fins', name: 'Fins', eachMass: 0.01, mass: 0.03, cg: 0.5 },
-    // Same name as the tube row but a different key: must not be joined to it.
     { key: 'other', name: 'Body tube', eachMass: 1, mass: 1, cg: 0 },
   ] as ComponentMass[];
   it('joins mass on the stable key, drops parts with no normal force, sorts by CNa', () => {
@@ -119,7 +116,6 @@ describe('stabilityRows', () => {
 describe('rollRows', () => {
   it('keeps fin sets even at zero, and anything with a non-zero coefficient', () => {
     const s = sweep();
-    // A tube that somehow damps roll: kept because the number is non-zero.
     s.components[0]!.rollDamp = [0, 0.5, 0];
     const rows = rollRows(s, 1);
     expect(rows.map((r) => r.key)).toEqual(['k-tube', 'k-fins']);
@@ -170,9 +166,7 @@ describe('stackedBands', () => {
     );
     expect(bands).toHaveLength(2);
     expect(bands[0]!.fill).toBe('#a');
-    // Top edge of the first band is its own values; the bottom edge is 0.
     expect(bands[0]!.d).toBe('M0.0,1.0 L1.0,1.0 L1.0,0.0 L0.0,0.0 Z');
-    // The second band stacks on the first; its negative sample counts as 0.
     expect(bands[1]!.d).toBe('M0.0,3.0 L1.0,1.0 L1.0,1.0 L0.0,1.0 Z');
   });
 });
@@ -185,8 +179,6 @@ describe('machTicks', () => {
     expect(machTicks(0.05, 3)).toEqual([0.05, 1, 2, 3]);
   });
   it('prints every tick as the Mach number it stands at', () => {
-    // The axis prints one decimal up to Mach 1 and none above; the first tick,
-    // the sweep's first sample, needs two.
     for (const [max, axis] of [
       [1, 1],
       [3, 0],
@@ -204,8 +196,6 @@ describe('cpModesFor', () => {
   });
 
   it('leaves out a percentage whose denominator is not positive', () => {
-    // A mode with no denominator would render meters under a "%" axis label,
-    // which is an inert control rather than a disabled one.
     expect(cpModesFor(1.2, 0)).toEqual(['len', 'body']);
     expect(cpModesFor(0, 1.1)).toEqual(['len', 'aero']);
     expect(cpModesFor(0, 0)).toEqual(['len']);
@@ -218,10 +208,7 @@ describe('cpModesFor', () => {
 });
 
 describe('cpDivisor', () => {
-  // The two percentages must not share a denominator: `aero` is the
-  // aerodynamic length, which is what OpenRocket's PercentageOfLengthUnit
-  // divides by, and `body` is the whole airframe. A design with an overhanging
-  // part has both, and they differ.
+  // `aero` divides by the aerodynamic length (PercentageOfLengthUnit), `body` by the whole airframe.
   it('divides by the aerodynamic length for aero and the overall length for body', () => {
     expect(cpDivisor('body', 1.2, 1.1)).toBe(1.2);
     expect(cpDivisor('aero', 1.2, 1.1)).toBe(1.1);
@@ -232,8 +219,6 @@ describe('cpDivisor', () => {
   });
 
   it('is 0 when the selected mode has no usable denominator', () => {
-    // Falling back beats dividing by zero: a stale selection must not leave the
-    // axis claiming a percentage it is not drawing.
     expect(cpDivisor('aero', 1.2, 0)).toBe(0);
     expect(cpDivisor('body', 0, 1.1)).toBe(0);
     expect(cpDivisor('aero', 1.2, Number.NaN)).toBe(0);
@@ -246,10 +231,6 @@ describe('cpDivisor', () => {
   });
 });
 
-/**
- * The sweep altitude box shows the altitude the sweep is flown at, in every
- * distance unit, and steps by a valid amount.
- */
 describe('altitudeField', () => {
   const KM = 1 / 1000;
   const MI = 1 / 1609.344;

@@ -3,15 +3,7 @@ import { newFlightConfig } from '../../src/services/flight/flightConfigs';
 import { findMounts } from '../../src/services/design/treeEdit';
 import type { MotorSpec } from '../../src/engine/openRocketEngine';
 
-/**
- * Give the named simulation a flight configuration of its own, with `spec` in
- * every mount.
- *
- * A row's motors live in the configuration it points at, and several rows can
- * point at one, so a fixture that wants one row flying a curve-less motor (what
- * an unresolved `.ork` import leaves behind) has to mint a configuration for it
- * rather than reach into the row.
- */
+// Configurations are shared, so the row gets its own rather than editing the one it names.
 export function seatMotor(name: string, spec: MotorSpec): void {
   const st = useWorkspaceStore.getState();
   const motors = Object.fromEntries(findMounts(st.tree).map((m) => [m.id as string, { spec }]));
@@ -22,7 +14,6 @@ export function seatMotor(name: string, spec: MotorSpec): void {
   });
 }
 
-/** A motor with no thrust curve: the run gate refuses it ("no motor"). */
 export const CURVELESS: MotorSpec = {
   designation: 'unresolved',
   diameter: 0.024,

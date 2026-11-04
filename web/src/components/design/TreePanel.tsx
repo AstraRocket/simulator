@@ -4,10 +4,6 @@ import { ComponentTree } from './ComponentTree';
 import { ScaleDialog } from './ScaleDialog';
 import { useTreeEdit } from './useTreeEdit';
 
-/** Design tab, left column: the component tree and the Scale dialog it
- *  launches. The selected part's editor is the opposite column
- *  ({@link PropertyPane}), not stacked underneath this; the design's name and
- *  its configuration dialog head the center pane (`LoadedBanner`). */
 export function TreePanel() {
   const tree = useWorkspaceStore((s) => s.tree);
   const selectedId = useWorkspaceStore((s) => s.selectedId);

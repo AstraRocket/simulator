@@ -15,7 +15,7 @@ describe('lerpAt', () => {
 
   it('clamps below the first knot to ys[0]', () => {
     expect(lerpAt(xs, ys, -5)).toBe(0);
-    expect(lerpAt(xs, ys, 0)).toBe(0); // x === xs[0]
+    expect(lerpAt(xs, ys, 0)).toBe(0);
   });
 
   it('clamps above the last knot to the last y', () => {
@@ -32,9 +32,8 @@ describe('lerpAt', () => {
   });
 
   it('steps past a null endpoint of the bracketing span', () => {
-    // ys[1] is null → interpolating in [0,1] falls back to the non-null neighbor
-    expect(lerpAt([0, 1, 2], [0, null, 20], 0.5)).toBe(0); // y1 null → y0
-    expect(lerpAt([0, 1, 2], [null, 10, 20], 0.5)).toBe(10); // y0 null → y1
+    expect(lerpAt([0, 1, 2], [0, null, 20], 0.5)).toBe(0);
+    expect(lerpAt([0, 1, 2], [null, 10, 20], 0.5)).toBe(10);
   });
 
   it('returns null when both bracketing samples are null', () => {
@@ -46,26 +45,17 @@ describe('lerpAt', () => {
   });
 
   it('clamps to the END OF THE X-DOMAIN when ys is longer than xs', () => {
-    // With an equal-length pair `ys[ys.length-1]` and `ys[xs.length-1]` are the
-    // same element. Clamped off `ys`, a longer `ys` would return a value from
-    // outside the x-domain.
     expect(lerpAt([0, 1], [0, 10, 999], 5)).toBe(10);
     expect(lerpAt([0, 1, 2], [0, 10, 20, 30, 40], 99)).toBe(20);
-    // A null at the true last knot still reads as no data, not as the surplus.
     expect(lerpAt([0, 1], [0, null, 999], 5)).toBeNull();
   });
 
   it('does not divide by zero on a zero-width span', () => {
-    expect(lerpAt([1, 1], [5, 9], 1)).toBe(5); // x <= xs[0] → ys[0]
+    expect(lerpAt([1, 1], [5, 9], 1)).toBe(5);
     expect(lerpAt([0, 1, 1, 2], [0, 5, 9, 12], 1)).toBe(5); // first knot with x<=xs[i] wins
   });
 });
 
-/**
- * The binary search, checked against a plain linear scan on random sorted
- * inputs, so any knot the search lands on differently (duplicates, null neighbors, the ends)
- * shows up as a mismatch here rather than as a wrong hover readout.
- */
 describe('lerpAt binary search agrees with the linear scan', () => {
   const linear = (xs: readonly number[], ys: readonly (number | null)[], x: number): number | null => {
     if (!xs.length) return null;
@@ -80,7 +70,6 @@ describe('lerpAt binary search agrees with the linear scan', () => {
     }
     return ys[xs.length - 1] ?? null;
   };
-  // Deterministic PRNG so a failure reproduces.
   let seed = 12345;
   const rnd = () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -93,12 +82,10 @@ describe('lerpAt binary search agrees with the linear scan', () => {
       const xs: number[] = [];
       let x = rnd() * 10;
       for (let i = 0; i < n; i++) {
-        // A zero step now and then, so duplicate knots are exercised.
         x += rnd() < 0.15 ? 0 : rnd() * 3;
         xs.push(x);
       }
       const ys = xs.map(() => (rnd() < 0.1 ? null : rnd() * 100));
-      // Probe below, inside, on knots and above the domain.
       const probes = [xs[0]! - 1, xs[n - 1]! + 1, ...xs, ...xs.map((v) => v + rnd() * 0.5)];
       for (const p of probes) {
         const a = lerpAt(xs, ys, p);
@@ -118,7 +105,6 @@ describe('lerpAt binary search agrees with the linear scan', () => {
 
 describe('lerpAt and NaN samples', () => {
   it('takes the real value at a rail departure, not the NaN recorded on the rail', () => {
-    // The kernel's stability series: NaN on the rail, real from the departure on.
     const time = [0.24, 0.25, 0.27];
     const stability = [NaN, 0.54, 0.55];
     expect(lerpAt(time, stability, 0.25)).toBe(0.54);

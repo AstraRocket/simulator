@@ -2,19 +2,7 @@ import { useId } from 'react';
 
 const RADIO = 'flex items-center gap-1.5 text-xs text-ink-muted';
 
-/**
- * A set of radio buttons in a fieldset, so a screen reader announces the
- * question before the choices. The group's name comes from `useId`: a static
- * name ties every mounted copy of the form together, and checking an option in
- * one would uncheck it in the other.
- *
- * - `row`: the question on the left, the choices on the right, the legend read
- *   out only (the visible `label` stands in for it, with a mixed-value marker
- *   when there is one).
- * - `stack`: the choices one per line under a visible legend; `children` go
- *   under them (a note).
- * - `inline`: the choices in a wrapping row with no visible question.
- */
+/** The name comes from `useId`: a static name would tie every mounted copy into one group. */
 export function RadioGroup<T extends string>({
   legend,
   label,

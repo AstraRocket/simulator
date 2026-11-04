@@ -4,18 +4,8 @@ import { polylinePath, areaPath } from '../common/svgPath';
 import { seriesColor } from '../common/chartPalette';
 import { hasCurve, type CatalogMotor } from '../../services/motors/motorDb';
 
-// Shared scaffold for the thrust-vs-time charts (MotorDetail's ThrustChart plus
-// the motor dashboard's MotorCombinePane and MotorComparePane): one set of linear
-// scales, axis furniture and path builders, so the three cannot drift apart.
-// FlightChartPanel is deliberately not built on this: it has a per-panel
-// y-domain, a hover crosshair, clipping, and event overlays that don't generalize.
-
 export type XY = readonly [number, number];
 
-/**
- * Vertical headroom above the tallest sample: the peak label and the dot need
- * room under the top edge. One number, so every thrust chart leaves the same gap.
- */
 export const CHART_HEADROOM = 1.08;
 
 export interface ChartDims {
@@ -27,20 +17,16 @@ export interface ChartDims {
   padB: number;
 }
 
-/** Linear scales for a time-vs-thrust plot: X maps t∈[0,tMax] and Y maps f∈[0,fMax]
- *  into the padded plot rectangle (Y grows downward, 0 at the baseline). */
+/** Y grows downward, with 0 at the baseline. */
 export function chartScales(d: ChartDims, tMax: number, fMax: number) {
   const X = (tt: number) => d.padL + (tt / tMax) * (d.width - d.padL - d.padR);
   const Y = (f: number) => d.height - d.padB - (f / fMax) * (d.height - d.padT - d.padB);
   return { X, Y };
 }
 
-/** SVG path `d` for a polyline through the [t, f] points, breaking at a non-finite one. */
 export const linePath = (pts: readonly XY[], X: (t: number) => number, Y: (f: number) => number): string =>
   polylinePath(pts.map((p) => [X(p[0]), Y(p[1])]));
 
-/** SVG path `d` for the polyline closed down to the f=0 baseline across [0, tMax]
- *  (the filled area under a curve). Empty string for no points. */
 export const baselineArea = (
   pts: readonly XY[],
   X: (t: number) => number,
@@ -54,9 +40,6 @@ export const baselineArea = (
     [X(0), X(tMax)],
   );
 
-/** Horizontal gridlines with left-edge value labels at `fMax · levels`, plus
- *  bottom-edge time ticks at [0, tMax/2, tMax]: the axis furniture every
- *  thrust-vs-time chart draws identically. Render it inside the chart's `<svg>`. */
 export function ChartAxes({
   dims,
   tMax,
@@ -105,11 +88,9 @@ export function ChartAxes({
   );
 }
 
-/** The sample with the largest value (the first one on a tie). `pts` must not be empty. */
+/** First on a tie. `pts` must not be empty. */
 export const highestSample = (pts: readonly XY[]): XY => pts.reduce((a, b) => (b[1] > a[1] ? b : a));
 
-/** One series curve, optionally named in its own color just above its peak
- *  (the direct label that backs up the legend). Render it inside the chart's `<svg>`. */
 export function SeriesPath({
   pts,
   X,
@@ -125,11 +106,9 @@ export function SeriesPath({
   Y: (f: number) => number;
   color: string;
   strokeWidth: number;
-  /** The direct label; omitted draws the curve alone. */
   label?: string;
-  /** Gap in px between the peak and the label's baseline. */
+  /** In px. */
   labelLift: number;
-  /** Tailwind size and weight classes for the label. */
   labelClass: string;
 }) {
   const peak = highestSample(pts);
@@ -145,8 +124,6 @@ export function SeriesPath({
   );
 }
 
-/** A legend entry: a short line swatch in the series color (dashed for a
- *  reference line) followed by its name. */
 export function LegendSwatch({
   color,
   width,
@@ -156,11 +133,10 @@ export function LegendSwatch({
   children,
 }: {
   color: string;
-  /** Swatch length in px. */
+  /** In px. */
   width: number;
   strokeWidth?: number;
   dash?: boolean;
-  /** The line's own opacity, for a series drawn faint. */
   opacity?: number;
   children: ReactNode;
 }) {
@@ -183,18 +159,12 @@ export function LegendSwatch({
   );
 }
 
-/** One motor's line on a thrust chart. */
 export interface MotorSeries {
   m: CatalogMotor;
   color: string;
   pts: [number, number][];
 }
 
-/**
- * The lines of a thrust chart over several motors: one per motor with a curve,
- * colored in order among those, so a curveless motor takes no color and the
- * chart, its legend and any table dots beside it agree on every motor's color.
- */
 export function seriesFor(motors: readonly CatalogMotor[]): MotorSeries[] {
   return motors.filter(hasCurve).map((m, i) => ({ m, color: seriesColor(i), pts: m.curves![0]!.samples }));
 }

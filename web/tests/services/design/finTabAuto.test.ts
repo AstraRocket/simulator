@@ -3,18 +3,7 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import { autoFinTab, canAutoFinTab } from '../../../src/services/design/finTabAuto';
 import { kernelLength } from '../../../src/tree/kernelDefaults';
 
-/**
- * Calculate automatically, for a through-the-wall fin tab.
- *
- * The tab has to fit between the centering rings, reach down to the motor mount
- * and no further, and stay inside the root chord. The cases below are the ones
- * upstream's own comment enumerates: a ring straddling an end of the root, a
- * ring outside it entirely, two rings glued together, and a ring no wider than
- * the tube it is centering.
- *
- * All dimensions in meters. The body is a 300 mm tube of 26 mm radius and the
- * mount is a 19 mm-diameter tube, so a full-depth tab is 26 - 9.5 = 16.5 mm.
- */
+// Dimensions in meters.
 
 const node = (o: Record<string, unknown>): ComponentNode => o as unknown as ComponentNode;
 
@@ -24,7 +13,6 @@ const BODY_R = 0.026;
 const fins = (extra: Record<string, unknown> = {}) =>
   node({ id: 'fins', type: 'trapezoidfinset', finCount: 3, rootChord: 0.1, tipChord: 0.05, height: 0.05, ...extra });
 
-/** A 300 mm body tube holding `inside`, with the fin set on its outside. */
 const body = (inside: ComponentNode[], fin: ComponentNode = fins(), bodyExtra: Record<string, unknown> = {}) =>
   ({
     name: 'R',
@@ -77,15 +65,9 @@ describe('when it is offered at all', () => {
   });
 });
 
-// The drawings and the tab clamp place a fin against its parent's length, the
-// kernel's default when the node carries none; the auto tab has to as well.
 describe('a parent with no length of its own', () => {
   it('places the fin against the kernel default length', () => {
     const bottomFin = fins({ position: { method: 'bottom', offset: 0 } });
-    // A 3 mm ring 50 mm ahead of the aft end sits under the root of a fin
-    // flush with the aft end of a tube at the kernel's default length, so the
-    // tab runs from the ring to the trailing edge; placed against no length at
-    // all, the root would sit ahead of the tube and miss the ring.
     const L = kernelLength('bodytube')!;
     const inside = [mount(), ring('r1', L - 0.05)];
     const keyless = body(inside, bottomFin, { length: undefined });
@@ -98,7 +80,6 @@ describe('a parent with no length of its own', () => {
 
 describe('the depth of the tab', () => {
   it('reaches from the body down to the motor mount', () => {
-    // 26 mm of body radius less the 9.5 mm mount tube.
     expect(tab(body([mount()]))['tabHeight']).toBeCloseTo(BODY_R - MOUNT_R, 12);
   });
 
@@ -107,7 +88,6 @@ describe('the depth of the tab', () => {
   });
 
   it('ignores a mount tube that does not reach under the fin', () => {
-    // A 40 mm tube at the very front of a 300 mm body, with the fin at the back.
     const forward = mount({ length: 0.04, position: { method: 'top', offset: 0 } });
     expect(tab(body([forward], fins({ position: { method: 'bottom', offset: 0 } })))['tabHeight']).toBeCloseTo(
       BODY_R,
@@ -116,8 +96,6 @@ describe('the depth of the tab', () => {
   });
 
   it('takes the NARROWER end of a tapering body, not the wider one', () => {
-    // A boat tail: 26 mm down to 16 mm. Cutting to the wider end would put the
-    // tab through the skin at the back.
     const boat = {
       name: 'R',
       components: [
@@ -141,41 +119,25 @@ describe('the depth of the tab', () => {
         },
       ],
     } as unknown as RocketTree;
-    // The fin runs 50 to 150 mm along a 200 mm cone, where the radius falls from
-    // 23.5 to 18.5 mm; the tab is cut to the aft end.
     expect(tab(boat)['tabHeight']).toBeCloseTo(0.0185 - MOUNT_R, 6);
   });
 });
 
-/**
- * Desktop takes a tube's outer radius as if it sat on the axis. That is exact
- * for one centered mount, and these keep it so; a cluster or an offset mount
- * is placed where the kernel flies its tubes, and the tab stops at the first
- * one it would cut into.
- */
 describe('the depth of the tab over a cluster or an offset mount', () => {
   const height = (inside: ComponentNode[], fin = fins()) => tab(body(inside, fin))['tabHeight'] as number;
 
   it('stops at the outer edge of a cluster tube under the fin', () => {
-    // A 4-ring clocked so one tube sits on the first fin's line: its center
-    // is one tube diameter apart from its neighbors, sqrt(2) R from the axis.
     const four = mount({ cluster: '4-ring', clusterRotation: Math.PI / 4 });
     const centerOut = Math.SQRT2 * MOUNT_R;
     expect(height([four], fins({ finCount: 4 }))).toBeCloseTo(BODY_R - (centerOut + MOUNT_R), 9);
   });
 
   it('goes past a cluster whose tubes all sit between the fins', () => {
-    // A 4-ring at zero rotation, spread to 1.2 diameters: its tubes sit at 45
-    // degrees off each of four fins, each center 1.2 R across every fin line,
-    // so a thin tab passes them all and may go to the axis, as with no tube.
     const four = mount({ cluster: '4-ring', clusterScale: 1.2 });
     expect(height([four], fins({ finCount: 4, thickness: 0.001 }))).toBeCloseTo(BODY_R, 9);
   });
 
   it('counts the tab thickness: a tube just beside the fin line still stops it', () => {
-    // An offset mount 15 mm out and 10 mm beside the first fin's line: the line
-    // itself misses the 9.5 mm tube, but a 3 mm tab reaches 1.5 mm across and
-    // cuts into it, so the tab stops on the tube's top over the slab.
     const off = mount({ radialPosition: Math.hypot(0.015, 0.01), radialDirection: Math.atan2(0.01, 0.015) });
     const gap = 0.01 - 0.0015;
     const top = 0.015 + Math.sqrt(MOUNT_R * MOUNT_R - gap * gap);
@@ -193,17 +155,14 @@ describe('where the tab sits along the root', () => {
   });
 
   it('runs between two rings that bracket the fin root', () => {
-    // Rings at 100 and 190 mm, 3 mm thick; the fin root runs 100 to 200 mm.
     const t = tab(
       body([mount(), ring('r1', 0.1), ring('r2', 0.19)], fins({ position: { method: 'top', offset: 0.1 } })),
     );
-    // From the aft face of the front ring to the fore face of the back one.
     expect(t['tabOffset']).toBeCloseTo(0.003, 12);
     expect(t['tabLength']).toBeCloseTo(0.19 - 0.103, 12);
   });
 
   it('stops at the trailing edge when the aft ring is past it', () => {
-    // Front ring at 100 mm, back ring at 250 mm, fin root 100 to 200 mm.
     const t = tab(
       body([mount(), ring('r1', 0.1), ring('r2', 0.25)], fins({ position: { method: 'top', offset: 0.1 } })),
     );
@@ -212,7 +171,6 @@ describe('where the tab sits along the root', () => {
   });
 
   it('starts at the leading edge when the forward ring is ahead of the root', () => {
-    // Ring at 50 mm, well clear of a root that starts at 100 mm.
     const t = tab(
       body([mount(), ring('r1', 0.05), ring('r2', 0.15)], fins({ position: { method: 'top', offset: 0.1 } })),
     );
@@ -221,8 +179,6 @@ describe('where the tab sits along the root', () => {
   });
 
   it('treats two rings glued face to face as one obstruction', () => {
-    // 3 mm rings at 100 and 103 mm: one 6 mm block, not a zero-length gap
-    // between them. A third ring at 190 mm gives the tab its far end.
     const t = tab(
       body(
         [mount(), ring('r1', 0.1), ring('r2', 0.103), ring('r3', 0.19)],
@@ -234,8 +190,6 @@ describe('where the tab sits along the root', () => {
   });
 
   it('ignores a ring no wider than the tube it centers', () => {
-    // A ring flush with the mount tube blocks nothing: the tab already clears it
-    // at the depth the tube forces.
     const flush = ring('r1', 0.15, 0.003, MOUNT_R);
     const t = tab(body([mount(), flush], fins({ position: { method: 'top', offset: 0.1 } })));
     expect(t['tabOffset']).toBe(0);
@@ -243,7 +197,6 @@ describe('where the tab sits along the root', () => {
   });
 
   it('never returns a negative length', () => {
-    // Rings overlapping the whole root from both ends.
     const t = tab(
       body(
         [mount(), ring('r1', 0.09, 0.02), ring('r2', 0.1, 0.02)],
@@ -255,9 +208,6 @@ describe('where the tab sits along the root', () => {
 });
 
 describe('a fin placed from the aft end or the middle', () => {
-  // The default placement for a new fin set: flush with the aft end. The mount
-  // runs 100 to 300 mm, a ring sits ahead of the fin and one at the aft end, and
-  // the 100 mm root runs 200 to 300 mm.
   const inside = () => [mount(), ring('fwd', 0.1), ring('aft', 0.297)];
   const atTop = tab(body(inside(), fins({ position: { method: 'top', offset: 0.2 } })));
   const sameTab = (got: Record<string, unknown>) => {
@@ -270,15 +220,12 @@ describe('a fin placed from the aft end or the middle', () => {
   it('finds the leading edge one root chord ahead of the aft end', () => {
     const atBottom = tab(body(inside(), fins({ position: { method: 'bottom', offset: 0 } })));
     sameTab(atBottom);
-    // Down to the mount, not through it to the axis, and from the leading edge
-    // back to the aft ring's front face.
     expect(atBottom['tabHeight']).toBeCloseTo(BODY_R - MOUNT_R, 12);
     expect(atBottom['tabOffset']).toBeCloseTo(0, 12);
     expect(atBottom['tabLength']).toBeCloseTo(0.097, 12);
   });
 
   it('finds the leading edge half a root chord ahead of the middle', () => {
-    // Middle offset 0.1 puts the fin's center at 150 + 100 = 250 mm.
     const atMiddle = tab(body(inside(), fins({ position: { method: 'middle', offset: 0.1 } })));
     sameTab(atMiddle);
     expect(atMiddle['tabHeight']).toBeCloseTo(BODY_R - MOUNT_R, 12);

@@ -9,10 +9,6 @@ vi.mock('../../../src/services/storage/exampleLibrary', () => ({
   loadExampleIndex: () => loadExampleIndex(),
 }));
 
-/**
- * A failed index fetch offers a retry. Offline at first open, the list would
- * otherwise stay dead until the dialog is closed and opened again.
- */
 describe('ExampleList after a failed index fetch', () => {
   it('shows the failure with a retry that loads the list', async () => {
     loadExampleIndex.mockRejectedValueOnce(new Error('offline'));

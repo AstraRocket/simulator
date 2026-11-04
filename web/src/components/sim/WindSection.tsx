@@ -20,10 +20,8 @@ import { WindProfileDialog } from './WindProfileDialog';
 import { QNum } from './QNum';
 import { capFor, type LaunchSectionProps } from './launchSection';
 
-/** Each simulation's wind as it stood before the speed box was edited, by row. */
 export type SpeedEditBase = Map<string, { avg: number; sd: number }>;
 
-/** The wind: a single average with its turbulence and heading, or an altitude-layered profile. */
 export function WindSection({
   launch,
   onChange,
@@ -35,43 +33,20 @@ export function WindSection({
   diff,
   speedEditBase,
 }: LaunchSectionProps & {
-  /** Passed through to the Wind Profile Editor; see `LaunchPanel`. */
   diff?: ReadonlySet<keyof LaunchConditions>;
-  /**
-   * The winds the speed box's current edit started from. Owned by the panel,
-   * which clears it on blur: the box reports every keystroke, so retuning from
-   * the previous keystroke would pass through whatever the user typed on the
-   * way: "0" on the way to "0.5" sets the deviation to 0, and every later
-   * keystroke rescales that 0. Desktop's `PinkNoiseWindModel.setAverage` only
-   * ever sees the committed value, so the turbulence is carried from the value
-   * the edit started on.
-   */
+  /** Retuning per keystroke would pass through the "0" of "0.5" and zero the deviation. */
   speedEditBase: RefObject<SpeedEditBase | null>;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const levels = launch.windLevels ?? [];
   const multilevel = levels.length > 0;
 
-  // Gustiness the way OpenRocket states it and the way the hobby talks about
-  // it: scatter over average, named. The stored value is still the m/s standard
-  // deviation, so this and the deviation field are one number seen two ways.
-  // The profile's per-level equivalent lives in the Wind Profile Editor.
-  // Both halves have to be present for a ratio to exist. A blank reads as 0
-  // here so the percentage field shows something rather than NaN; the blank
-  // itself is reported by the required marker on the field it belongs to.
+  // Stored as the m/s deviation; the percentage is the same value as a ratio.
   const windAvg = isFilled(launch.windAverage) ? launch.windAverage : 0;
   const windSd = isFilled(launch.windStdDev) ? launch.windStdDev : 0;
   const intensity = turbulenceIntensity(windAvg, windSd);
 
-  /**
-   * Switch wind models. Multilevel is represented by having levels, which is
-   * what `simConditions` keys the engine's choice on. As on the desktop, where
-   * the type only picks between two models that both keep their values
-   * (SimulationOptions.setWindModelType), turning Multilevel off keeps the
-   * profile in `keptWindLevels` and turning it back on restores it. With no
-   * profile to restore, one level is seeded from the single wind, so nothing
-   * typed is lost. Each simulation is switched from its own conditions.
-   */
+  /** As SimulationOptions.setWindModelType, turning it off parks the profile in `keptWindLevels`. */
   const setWindModel = (model: 'average' | 'multilevel') => {
     if (model === 'average') {
       return onChange((l) =>
@@ -115,8 +90,7 @@ export function WindSection({
             {...req('windAverage')}
             value={launch.windAverage}
             onChange={(v) => {
-              // Cleared means unset, not 0: 0 is a real wind speed, so
-              // landing there makes emptying the field assert still air.
+              // Cleared means unset, not 0: 0 would assert still air.
               if (v == null) return onChange({ windAverage: null });
               const bases = (speedEditBase.current ??= new Map<string, { avg: number; sd: number }>());
               onChange((l, row) => {
@@ -128,13 +102,7 @@ export function WindSection({
                   };
                   bases.set(row, base);
                 }
-                // OpenRocket holds the turbulence intensity constant when the
-                // average moves (`PinkNoiseWindModel.setAverage`), so wind that
-                // was 15% gusty stays 15% gusty instead of quietly becoming 5%
-                // because the wind picked up, each simulation at its own.
-                // Skipped from a zero average, where the ratio is the 0-or-1
-                // stand-in rather than a real fraction and rescaling would snap
-                // the scatter to the whole wind speed.
+                // Holds turbulence intensity constant, as `PinkNoiseWindModel.setAverage`.
                 if (!hasIntensity(base.avg)) return { windAverage: v };
                 return { windAverage: v, windStdDev: retuneStdDev(base.avg, base.sd, v) };
               });
@@ -154,11 +122,6 @@ export function WindSection({
             value={launch.windStdDev}
             onChange={(v) => onChange({ windStdDev: v })}
           />
-          {/* The same scatter as a percentage of the wind, which is the number
-              the hobby actually quotes. Editable, as the desktop has it: the
-              two fields are one value seen two ways, so typing 10% here
-              rewrites the deviation exactly as typing the deviation rewrites
-              this. Its descriptive name sits under it, as OpenRocket does. */}
           <NumberRow
             label={t('launch.turbulenceIntensity')}
             unit="%"
@@ -167,7 +130,6 @@ export function WindSection({
             max={MAX_TURBULENCE_PERCENT}
             mixed={mixed('windStdDev')}
             value={Math.round(intensity * 100)}
-            // Each simulation's deviation from its own average.
             onChange={(v) =>
               onChange((l) => ({
                 windStdDev: stdDevForIntensity(isFilled(l.windAverage) ? l.windAverage : 0, (v ?? 0) / 100),
@@ -186,7 +148,6 @@ export function WindSection({
             stepSi={degToRad(5)}
             mixed={mixed('windDirectionDeg')}
             value={launch.windDirectionDeg ?? DEFAULT_HEADING_DEG}
-            // See the rod direction: an emptied box goes back to unset.
             onChange={(v) => onChange({ windDirectionDeg: v ?? undefined })}
           />
         </>
@@ -205,7 +166,6 @@ export function WindSection({
           </button>
         </div>
       )}
-      {/* Mounted only while open: its error line and row keys reset by unmount. */}
       {profileOpen && (
         <WindProfileDialog
           launch={launch}

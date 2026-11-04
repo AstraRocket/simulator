@@ -5,17 +5,10 @@ import type { RocketTree } from '../../src/engine/openRocketEngine';
 import de from '../../src/i18n/locales/de.json';
 import ja from '../../src/i18n/locales/ja.json';
 
-// The file is written through saveBlob, which needs a browser; what matters
-// here is what the banner says about it.
 vi.mock('../../src/services/files/saveFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/services/files/saveFile')>()),
   saveBlob: vi.fn(async () => {}),
 }));
-
-/**
- * The store's export actions catch a service's keyed error and put it in the
- * banner, inside a translated wrapper, in the language the app is showing.
- */
 
 const s = () => useWorkspaceStore.getState();
 
@@ -45,8 +38,7 @@ describe('the export banner, in German', () => {
     );
   });
 
-  // RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SURFACE writes a finish it
-  // has no row for as Smooth and adds a warning; the file is still saved.
+  // RASAeroCommonConstants.OPENROCKET_TO_RASAERO_SURFACE writes an unmapped finish as Smooth.
   it('warns, in German, that a finish with no RASAero surface was written as smooth', async () => {
     await i18n.changeLanguage('de');
     const finish = 'satin';
@@ -62,8 +54,6 @@ describe('the export banner, in German', () => {
         },
       ],
     } as unknown as RocketTree;
-    // Built, so the single stage's simulation cell has its figure and the only
-    // warning is the surface one.
     useWorkspaceStore.setState({ tree, info: { mass: 0.1, cg: 0.2 } as never });
     await s().saveRasaero();
     expect(s().err).toBe(de.errors.exportRasaeroSurface);
@@ -82,7 +72,6 @@ describe('the export banner, in German', () => {
       de.part.railbutton,
     ]);
     expect(s().err).toBe(de.errors.exportRktPartial.replace('{{parts}}', parts));
-    // No raw type token, and nothing English.
     expect(s().err).not.toContain('railbutton');
     expect(s().err).not.toContain('beyond');
   });
