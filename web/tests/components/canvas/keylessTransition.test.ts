@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import { buildPieces } from '../../../src/components/canvas/rocketPieces';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 
 const fore = { type: 'bodytube', id: 'fore', length: 0.2, outerRadius: 0.03, thickness: 0.001 } as ComponentNode;
 const bare = { type: 'transition', id: 'tr', length: 0.05, thickness: 0.001, shape: 'conical' } as ComponentNode;

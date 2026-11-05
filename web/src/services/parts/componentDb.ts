@@ -174,6 +174,7 @@ const KNOWN_SHAPES: ReadonlySet<string> = new Set(PROFILE_SHAPES);
 const isShape = (v: unknown): boolean => typeof v === 'string' && KNOWN_SHAPES.has(v);
 
 /** A missing size would silently become a NaN radius in `treeEdit.catalogPatch`. */
+// eslint-disable-next-line complexity -- a flat list of field checks
 export function isComponentRow(v: unknown): v is Component {
   if (!v || typeof v !== 'object') return false;
   const r = v as Record<string, unknown>;

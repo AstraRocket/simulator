@@ -10,26 +10,25 @@ import {
   hasLaunchPosition,
   renderUserTemplate,
   mimeForExtension,
-  WAYPOINT_KINDS,
-  WAYPOINT_LABEL_KEY,
   type Translate,
-  type WaypointKind,
-  type StageTrackStart,
 } from '../../services/exports/flightPathExport';
 import { Dialog } from '../common/Dialog';
-import { LANGUAGES } from '../../i18n';
-import { AltitudeRefSelect, Section, UnitRow, SelectRow } from './PathExportControls';
 import { ExportFormatPicker } from './ExportFormatPicker';
 import { StageColorDialog } from './StageColorDialog';
-import { EXPORT_PRESETS, matchingPreset } from '../../services/exports/pathExportPresets';
 import { useExportOptions } from './useExportOptions';
 import { useUnits } from '../../prefs/useUnits';
 import { useExportTemplates } from './useExportTemplates';
-import { Check } from '../common/Check';
 import { DialogButton, DialogActions } from '../common/DialogButton';
-import { NumberInput } from '../common/NumberInput';
-import { ToggleButton } from '../common/ToggleButton';
 import { smallButton } from '../common/smallButton';
+import {
+  ExportBalloons,
+  ExportMission,
+  ExportPath,
+  ExportPlacement,
+  ExportPresets,
+  ExportUnits,
+  ExportWaypoints,
+} from './PathExportSections';
 
 export function FlightPathExport({
   variant = 'chip',
@@ -93,7 +92,6 @@ export function ExportDialog({
   const staged = (result.branches?.length ?? 0) > 1;
   // In the model's numbering, so a swatch lines up with the branch it colors.
   const branchNames = useMemo(() => exportBranchNames(result, meta, t), [result, meta, t]);
-  const activePreset = useMemo(() => matchingPreset(opts), [opts]);
   // Every locale is bundled at startup, so `getFixedT` loads nothing; '' follows the app.
   const exportT: Translate = useMemo(
     () => (opts.language ? (i18n.getFixedT(opts.language) as unknown as Translate) : (t as Translate)),
@@ -115,13 +113,6 @@ export function ExportDialog({
 
   const showPath = !(resolved.kind === 'builtin' && resolved.format.id === 'waypoints-csv');
   const noPosition = !hasLaunchPosition(launch);
-
-  const toggleWaypoint = (k: WaypointKind) => {
-    const waypoints = new Set(opts.waypoints);
-    if (waypoints.has(k)) waypoints.delete(k);
-    else waypoints.add(k);
-    change({ waypoints });
-  };
 
   const download = () => {
     try {
@@ -162,174 +153,13 @@ export function ExportDialog({
             onDelete={deleteSelected}
           />
 
-          <Section title={t('pathExport.presets')}>
-            <div role="group" aria-label={t('pathExport.presets')} className="flex flex-wrap gap-1.5">
-              {EXPORT_PRESETS.map((preset) => {
-                const active = activePreset === preset.id;
-                return (
-                  <ToggleButton
-                    key={preset.id}
-                    active={active}
-                    // Cloned, so the dialog never mutates the preset's module-level set.
-                    onClick={() => change({ ...preset.options, waypoints: new Set(preset.options.waypoints) })}
-                    title={t(`pathExport.preset.${preset.id}Note`)}
-                    className="rounded-md px-2 py-1 text-xs font-medium ring-1 ring-line/10"
-                  >
-                    {t(`pathExport.preset.${preset.id}`)}
-                  </ToggleButton>
-                );
-              })}
-            </div>
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.presetsNote')}</p>
-          </Section>
-
-          <Section title={t('pathExport.waypoints')}>
-            <div className="grid grid-cols-2 gap-1.5">
-              {WAYPOINT_KINDS.map((k) => (
-                <Check
-                  key={k}
-                  checked={opts.waypoints.has(k)}
-                  onChange={() => toggleWaypoint(k)}
-                  label={t(WAYPOINT_LABEL_KEY[k])}
-                />
-              ))}
-            </div>
-          </Section>
-
-          {showPath && (
-            <Section title={t('pathExport.path')}>
-              <Check
-                checked={opts.includeFlightPath}
-                onChange={(v) => change({ includeFlightPath: v })}
-                label={t('pathExport.includeFlightPath')}
-              />
-              <Check
-                checked={opts.includeGroundTrack}
-                onChange={(v) => change({ includeGroundTrack: v })}
-                label={t('pathExport.includeGroundTrack')}
-              />
-              <label className="mt-1 flex items-center justify-between gap-3">
-                <span className="text-xs text-ink-muted">{t('pathExport.stride')}</span>
-                <NumberInput
-                  min={1}
-                  step={1}
-                  value={opts.pathStride}
-                  ariaLabel={t('pathExport.stride')}
-                  onChange={(v) => v !== null && change({ pathStride: Math.max(1, Math.floor(v)) })}
-                  className="w-20 rounded-md bg-raised px-2 py-1 text-right text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-                />
-              </label>
-              <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                {staged ? (
-                  <SelectRow<StageTrackStart>
-                    label={t('pathExport.stageTrackStart')}
-                    value={opts.stageTrackStart}
-                    onChange={(v) => change({ stageTrackStart: v })}
-                  >
-                    <option value="separation">{t('pathExport.trackStart.separation')}</option>
-                    <option value="pad">{t('pathExport.trackStart.pad')}</option>
-                  </SelectRow>
-                ) : (
-                  <span />
-                )}
-                <button
-                  type="button"
-                  onClick={() => setColorsOpen(true)}
-                  title={t('pathExport.stageColorsTitle')}
-                  className="rounded-md bg-raised px-3 py-1.5 text-sm font-medium text-ink ring-1 ring-line/10 hover:bg-elevated"
-                >
-                  {t('pathExport.stageColors')}
-                </button>
-              </div>
-            </Section>
-          )}
-
-          <Section title={t('pathExport.placement')}>
-            <AltitudeRefSelect
-              label={t('pathExport.trackAltitude')}
-              value={opts.altitudeReference}
-              onChange={(v) => change({ altitudeReference: v })}
-            />
-            <AltitudeRefSelect
-              label={t('pathExport.waypointAltitude')}
-              value={opts.waypointAltitudeReference}
-              onChange={(v) => change({ waypointAltitudeReference: v })}
-            />
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.altitudeReferenceNote')}</p>
-            <Check
-              checked={opts.drawShadow}
-              disabled={opts.altitudeReference === 'clamped' && opts.waypointAltitudeReference === 'clamped'}
-              onChange={(v) => change({ drawShadow: v })}
-              label={t('pathExport.drawShadow')}
-            />
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.shadowNote')}</p>
-            <Check
-              checked={opts.showWaypointLabels}
-              onChange={(v) => change({ showWaypointLabels: v })}
-              label={t('pathExport.showWaypointLabels')}
-            />
-            <Check
-              checked={opts.colorWaypointPins}
-              onChange={(v) => change({ colorWaypointPins: v })}
-              label={t('pathExport.colorWaypointPins')}
-            />
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.pinsNote')}</p>
-          </Section>
-
-          <Section title={t('pathExport.balloons')}>
-            <Check
-              checked={opts.includeDescriptions}
-              onChange={(v) => change({ includeDescriptions: v })}
-              label={t('pathExport.includeDescriptions')}
-            />
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.descriptionsNote')}</p>
-          </Section>
-
-          <Section title={t('pathExport.units')}>
-            <UnitRow
-              label={t('pathExport.altitude')}
-              value={opts.altitudeUnit}
-              onChange={(u) => setUnit('altitude', u)}
-            />
-            <UnitRow
-              label={t('pathExport.distance')}
-              value={opts.distanceUnit}
-              onChange={(u) => setUnit('distance', u)}
-            />
-            <SelectRow
-              label={t('pathExport.language')}
-              value={opts.language}
-              onChange={(v) => change({ language: v })}
-              width="w-40"
-            >
-              <option value="">{t('pathExport.languageSameAsApp')}</option>
-              {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </SelectRow>
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.languageNote')}</p>
-          </Section>
-
-          <Section title={t('pathExport.mission')}>
-            <input
-              type="text"
-              value={opts.missionName}
-              aria-label={t('pathExport.mission')}
-              placeholder={t('pathExport.missionPlaceholder')}
-              // Never persisted: typing must not write the settings (see `useExportOptions`).
-              onChange={(e) => patchOpts({ missionName: e.target.value })}
-              className="w-full rounded-md bg-raised px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-dim focus:outline-none focus:ring-accent-500"
-            />
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.missionNote')}</p>
-            <Check
-              checked={opts.labelWaypointsWithMission}
-              onChange={(v) => change({ labelWaypointsWithMission: v })}
-              label={t('pathExport.labelWaypointsWithMission')}
-            />
-            <p className="text-[11px] leading-snug text-ink-faint">{t('pathExport.missionMarkersNote')}</p>
-          </Section>
+          <ExportPresets opts={opts} change={change} />
+          <ExportWaypoints opts={opts} change={change} />
+          {showPath && <ExportPath opts={opts} change={change} staged={staged} setColorsOpen={setColorsOpen} />}
+          <ExportPlacement opts={opts} change={change} />
+          <ExportBalloons opts={opts} change={change} />
+          <ExportUnits opts={opts} change={change} setUnit={setUnit} />
+          <ExportMission opts={opts} change={change} patchOpts={patchOpts} />
 
           {noPosition && (
             <p className="rounded-lg bg-warn-500/10 px-3 py-2 text-xs leading-relaxed text-warn-300 ring-1 ring-warn-400/30">

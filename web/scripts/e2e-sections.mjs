@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: npm run e2e:sections [-- --skip a11y | --only aero,motors | --list] [-- <playwright args>]
+// Usage: npm run test:e2e:sections [-- --skip a11y | --only aero,motors | --list] [-- <playwright args>]
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';

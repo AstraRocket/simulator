@@ -55,7 +55,7 @@ export function HelpRail({
     ) : (
       <Fragment key={entry.page}>
         <button
-          onClick={() => pick(entry.page!)}
+          onClick={() => entry.page != null && pick(entry.page)}
           aria-current={entry.page === slug ? 'page' : undefined}
           className={`${railRow} ${entry.page === slug ? 'bg-raised font-semibold text-accent-300' : ''}`}
         >

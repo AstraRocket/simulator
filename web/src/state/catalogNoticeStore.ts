@@ -1,10 +1,5 @@
 import { create } from 'zustand';
-
-export interface CatalogChange {
-  name: 'motors' | 'components';
-  added: number;
-  removed: number;
-}
+import { onCatalogChange, type CatalogChange } from '../services/app/catalogUpdates';
 
 interface CatalogNoticeState {
   changes: CatalogChange[];
@@ -17,3 +12,5 @@ export const useCatalogNoticeStore = create<CatalogNoticeState>((set) => ({
   report: (change) => set((s) => ({ changes: [...s.changes.filter((c) => c.name !== change.name), change] })),
   dismiss: () => set({ changes: [] }),
 }));
+
+onCatalogChange((change) => useCatalogNoticeStore.getState().report(change));

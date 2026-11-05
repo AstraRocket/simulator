@@ -59,6 +59,12 @@ Ordered by plausibility: how much stands between the entry and a working change,
 
   So: only if OpenRocket carries a motor mass AND CG override of its own. Then it is a per-mount field, the value passed through, and the usual ten translations.
 
+## Watch
+
+Not planned. Each entry says what would make it worth doing.
+
+- **`ComponentNode` allows any string key** - `[param: string]: unknown` in `engine/openRocketEngine.ts` means a mistyped field name compiles and reads as `undefined`, so the typo can pass as a missing value instead of an error. **Act on it if** a mistyped or wrongly named node field causes a real bug. **The fix is large:** one typed shape per part type as a union on `type`, then updating the code that reads node fields, which spans up to 107 files that mention the type and at least 389 bracket reads. A narrow start would be typing the fields of whichever part type caused the bug.
+
 ## Not doing
 
 Decided against, with the reason, so they are not proposed again. Move one back to the Roadmap if the reason stops holding.

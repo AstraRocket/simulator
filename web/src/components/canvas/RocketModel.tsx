@@ -45,7 +45,7 @@ export function RocketModel({
                 ? (e) => {
                     if (hidden(p, e.point)) return;
                     e.stopPropagation();
-                    onSelect(p.id!);
+                    if (p.id) onSelect(p.id);
                   }
                 : undefined
             }

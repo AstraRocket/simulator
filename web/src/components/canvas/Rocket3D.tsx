@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
@@ -8,7 +7,6 @@ import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { type ExportData } from '../../services/exports/schematicExport.js';
 import { mergePalette } from '../../services/design/partColors';
 import { useSettings } from '../../state/SettingsProvider';
-import { ImageExportMenu } from './ImageExportMenu.js';
 import { useUnits } from '../../prefs/useUnits';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { markerRadius, type RenderMode } from './rocketPieces';
@@ -23,13 +21,10 @@ import { CG_INK, CP_INK } from './stabilityInks';
 import { token } from '../common/colorTokens';
 import { useSceneColors } from './sceneColors';
 import { errorText } from '../../i18n/keyedError';
-import { ToolDivider, ViewBtn } from './ViewBtn';
-import { Segmented } from '../common/Segmented';
-import { SvgExportButton } from './SvgExportButton';
 import { RoomReflections } from './RoomReflections';
 import { keyLight, LightBall, MovableKeyLight, ViewLight } from './MovableKeyLight';
-
-const CAMERA_VIEWS = ['side', 'aft'] as const;
+import { Rocket3DToolbar } from './Rocket3DToolbar';
+import { useCameraViews } from './useCameraViews';
 
 // Rocket axis is +X: nose tip at x=0, aft increasing, as in the engine.
 export function Rocket3D({
@@ -87,99 +82,34 @@ export function Rocket3D({
     [cgTex, cpTex],
   );
 
-  const controls = useRef<import('three-stdlib').OrbitControls | null>(null);
-  const [preset, setPreset] = useState<'side' | 'aft'>('side');
   // Per-material clipping, not renderer.clippingPlanes, because only the airframe is cut.
   const [cutaway, setCutaway] = useState(false);
   // Desktop opens on Figure.
   const [mode, setMode] = useState<RenderMode>('figure');
   const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, -1), 0), []);
-  const sidePos: [number, number, number] = [center, 0, camDist * 1.05];
-  const aftPos: [number, number, number] = [totalLen + camDist * 0.9, 0, 0];
-  const moveCam = (pos: [number, number, number]) => {
-    const st = r3f.current;
-    const c = controls.current;
-    if (!st || !c) return;
-    st.camera.position.set(pos[0], pos[1], pos[2]);
-    c.target.set(center, 0, 0);
-    c.update();
-  };
-  const showView = (which: 'side' | 'aft') => {
-    setPreset(which);
-    moveCam(which === 'side' ? sidePos : aftPos);
-  };
   const [lamp] = useState(keyLight);
-  const resetView = () => {
-    lamp.reset();
-    moveCam(preset === 'side' ? sidePos : aftPos);
-  };
-
-  const presets = (
-    <>
-      <ViewBtn onClick={resetView} title={t('view.reset3dTitle')}>
-        {t('view.reset')}
-      </ViewBtn>
-      <Segmented
-        size="bar"
-        options={CAMERA_VIEWS}
-        value={preset}
-        onChange={showView}
-        fmt={(v) => t(`view.${v}`)}
-        title={(v) => t(`view.${v}Title`)}
-      />
-      <ToolDivider />
-    </>
-  );
-  const tools = (
-    <>
-      <ViewBtn active={cutaway} onClick={() => setCutaway((c) => !c)} title={t('view.cutawayTitle')}>
-        {t('view.cutaway')}
-      </ViewBtn>
-      <Segmented
-        size="bar"
-        options={['figure', 'finished'] as const}
-        value={mode}
-        onChange={setMode}
-        fmt={(m) => t(m === 'figure' ? 'view.figure' : 'view.finished')}
-        title={(m) => t(m === 'figure' ? 'view.figureTitle' : 'view.finishedTitle')}
-      />
-      {exportData && (
-        <SvgExportButton
-          title={t('export.svgTitle3d')}
-          name={exportData.name}
-          view="3d"
-          build={() => svgSnapshot(exportData)}
-          onError={onError}
-        />
-      )}
-      {exportData && (
-        <ImageExportMenu
-          icon="📷"
-          label={t('export.image')}
-          fitOption
-          title={t('export.imageTitle3d')}
-          onPick={snapshot}
-        />
-      )}
-    </>
-  );
+  const { controls, preset, showView, resetView } = useCameraViews({ r3f, lamp, totalLen, center, camDist });
 
   return (
     <div
       className="rocket3d-wrap"
       style={{ position: 'relative', height: '100%', minHeight: 320, display: 'flex', flexDirection: 'column' }}
     >
-      {presetSlot && ctrlSlot ? (
-        <>
-          {createPortal(presets, presetSlot)}
-          {createPortal(tools, ctrlSlot)}
-        </>
-      ) : (
-        <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 2, display: 'flex', gap: 6 }}>
-          {presets}
-          {tools}
-        </div>
-      )}
+      <Rocket3DToolbar
+        presetSlot={presetSlot}
+        ctrlSlot={ctrlSlot}
+        preset={preset}
+        showView={showView}
+        resetView={resetView}
+        cutaway={cutaway}
+        setCutaway={setCutaway}
+        mode={mode}
+        setMode={setMode}
+        exportData={exportData}
+        svgSnapshot={svgSnapshot}
+        snapshot={snapshot}
+        onError={onError}
+      />
       <Canvas
         // A rotated portrait pane swaps getBoundingClientRect's width and height; offsetWidth ignores transforms.
         resize={{ offsetSize: true }}

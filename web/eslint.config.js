@@ -6,6 +6,31 @@ import jsxA11y from 'eslint-plugin-jsx-a11y-x';
 import playwright from 'eslint-plugin-playwright';
 import vitest from '@vitest/eslint-plugin';
 import prettier from 'eslint-config-prettier';
+import { createNodeResolver, importX } from 'eslint-plugin-import-x';
+
+// `arr[i]!` stays allowed: `noUncheckedIndexedAccess` cannot see a loop's bound, and a helper or `?? 0` in numeric
+// and mesh loops would cost speed or turn a visible failure into a wrong number. See docs/CODE_QUALITY.md.
+const NON_NULL_OUTSIDE_INDEX = {
+  selector: 'TSNonNullExpression[expression.computed!=true]',
+  message: 'Narrow the value, or use `must` from services/app/must when the code already guarantees it.',
+};
+
+// `no-restricted-imports` sees only static imports, so the syntax rule catches `import()` and `typeof import()`.
+/** @param {string[]} layers @returns {import('eslint').Linter.RulesRecord} */
+const banLayers = (...layers) => {
+  const names = layers.join('|');
+  const message = `This layer must not depend on ${layers.join(' or ')}: pass what it needs in as an argument.`;
+  const selector = `/(^|\\/)(${names})\\//`;
+  return {
+    'no-restricted-imports': ['error', { patterns: [{ regex: `(^|/)(${names})/`, message }] }],
+    'no-restricted-syntax': [
+      'error',
+      { selector: `ImportExpression[source.value=${selector}]`, message },
+      { selector: `TSImportType[argument.literal.value=${selector}]`, message },
+      NON_NULL_OUTSIDE_INDEX,
+    ],
+  };
+};
 
 export default tseslint.config(
   {
@@ -116,6 +141,45 @@ export default tseslint.config(
       // `getBy*` throws when nothing matches, so it asserts presence.
       'vitest/expect-expect': ['error', { assertFunctionNames: ['expect', 'screen.getBy*', 'within.getBy*'] }],
     },
+  },
+  // Before the layer blocks, which replace `no-restricted-syntax` on their files and so carry it themselves.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    // A function over a limit takes a disable with its reason; one that shrinks back fails on the stale disable.
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    rules: {
+      'no-restricted-syntax': ['error', NON_NULL_OUTSIDE_INDEX],
+      'max-lines-per-function': ['error', { max: 200, IIFEs: true }],
+      complexity: ['error', { max: 30 }],
+    },
+  },
+  {
+    files: ['src/{engine,services,tree,i18n,prefs}/**/*.{ts,tsx}'],
+    // The hook that binds units to the settings provider, so it is UI-side despite its folder.
+    ignores: ['src/prefs/useUnits.ts'],
+    rules: banLayers('state', 'components'),
+  },
+  {
+    files: ['src/state/**/*.{ts,tsx}'],
+    rules: banLayers('components'),
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { 'import-x': importX },
+    settings: {
+      'import-x/ignore': ['engine/vendor'],
+      // Without these it parses no TypeScript file, so it follows no import and passes everything.
+      'import-x/extensions': ['.ts', '.tsx'],
+      'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
+      'import-x/resolver-next': [
+        createNodeResolver({
+          extensions: ['.ts', '.tsx', '.js', '.mjs'],
+          extensionAlias: { '.js': ['.ts', '.tsx', '.js'] },
+        }),
+      ],
+    },
+    // Type-only imports are erased at build, so they cannot form a cycle at run time.
+    rules: { 'import-x/no-cycle': ['error', { ignoreExternal: true }] },
   },
   // Must be last: turns off rules that conflict with Prettier.
   prettier,

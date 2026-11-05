@@ -1,3 +1,4 @@
+import { must } from '../../services/app/must';
 import { useState, type ReactNode } from 'react';
 import { useTabs } from '../common/useTabs';
 import { useTranslation } from 'react-i18next';
@@ -62,7 +63,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (ok) reset();
   };
 
-  const tabName = t(TABS.find((x) => x.key === tab)!.label);
+  const tabName = t(
+    must(
+      TABS.find((x) => x.key === tab),
+      'settings tab',
+    ).label,
+  );
   const resetSection = async () => {
     if (tab === 'launch' || tab === 'materials' || tab === 'flyer') {
       const ok = await confirm({

@@ -37,31 +37,18 @@ export function undirectedEdgeCounts(idx: THREE.BufferAttribute): Map<string, nu
   return count;
 }
 
-/** `areaTol` (m^2) should come from {@link meshTolerances}: a fixed cut erases a tiny model. */
-export function validateSolid(geo: THREE.BufferGeometry, areaTol = 0): MeshIssue[] {
-  const issues: MeshIssue[] = [];
-  const pos = geo.getAttribute('position');
-  const idx = geo.getIndex();
+type Positions = THREE.BufferGeometry['attributes'][string];
 
-  if (!pos || pos.count === 0 || !idx || idx.count === 0) {
-    return [{ kind: 'empty', detail: 'the solid has no triangles' }];
-  }
-  if (idx.count % 3 !== 0) {
-    issues.push({ kind: 'empty', detail: `index length ${idx.count} is not a whole number of triangles` });
-  }
-
+function countNonFinite(pos: Positions): number {
   let nonFinite = 0;
   for (let i = 0; i < pos.count; i++) {
     if (!Number.isFinite(pos.getX(i)) || !Number.isFinite(pos.getY(i)) || !Number.isFinite(pos.getZ(i))) nonFinite++;
   }
-  if (nonFinite) {
-    issues.push({
-      kind: 'non-finite',
-      detail: `${nonFinite} vertex position(s) are NaN or Infinity`,
-      count: nonFinite,
-    });
-  }
+  return nonFinite;
+}
 
+/** One pass over the triangles, gathering what the checks in `validateSolid` need. */
+function surveyTriangles(pos: Positions, idx: THREE.BufferAttribute, areaTol: number) {
   const a = new THREE.Vector3(),
     b = new THREE.Vector3(),
     c = new THREE.Vector3();
@@ -103,6 +90,54 @@ export function validateSolid(geo: THREE.BufferGeometry, areaTol = 0): MeshIssue
     }
   }
 
+  return { degenerate, repeated, volume6, directed, undirected };
+}
+
+function countEdgeUse(undirected: Map<string, number>): { open: number; overused: number } {
+  let open = 0;
+  let overused = 0;
+  for (const n of undirected.values()) {
+    if (n < 2) open++;
+    else if (n > 2) overused++;
+  }
+  return { open, overused };
+}
+
+function nonManifoldIssue(open: number, overused: number): MeshIssue {
+  const parts: string[] = [];
+  if (open) parts.push(`${open} open`);
+  if (overused) parts.push(`${overused} shared by more than two faces`);
+  return {
+    kind: 'non-manifold-edge',
+    detail: `edges not shared by exactly two faces (${parts.join(', ')})`,
+    count: open + overused,
+  };
+}
+
+/** `areaTol` (m^2) should come from {@link meshTolerances}: a fixed cut erases a tiny model. */
+export function validateSolid(geo: THREE.BufferGeometry, areaTol = 0): MeshIssue[] {
+  const issues: MeshIssue[] = [];
+  const pos = geo.getAttribute('position');
+  const idx = geo.getIndex();
+
+  if (!pos || pos.count === 0 || !idx || idx.count === 0) {
+    return [{ kind: 'empty', detail: 'the solid has no triangles' }];
+  }
+  if (idx.count % 3 !== 0) {
+    issues.push({ kind: 'empty', detail: `index length ${idx.count} is not a whole number of triangles` });
+  }
+
+  const nonFinite = countNonFinite(pos);
+  if (nonFinite) {
+    issues.push({
+      kind: 'non-finite',
+      detail: `${nonFinite} vertex position(s) are NaN or Infinity`,
+      count: nonFinite,
+    });
+  }
+
+  const { degenerate, repeated, volume6, directed, undirected } = surveyTriangles(pos, idx, areaTol);
+
   if (repeated) {
     issues.push({
       kind: 'repeated-vertex',
@@ -118,22 +153,8 @@ export function validateSolid(geo: THREE.BufferGeometry, areaTol = 0): MeshIssue
     });
   }
 
-  let open = 0;
-  let overused = 0;
-  for (const n of undirected.values()) {
-    if (n < 2) open++;
-    else if (n > 2) overused++;
-  }
-  if (open || overused) {
-    const parts: string[] = [];
-    if (open) parts.push(`${open} open`);
-    if (overused) parts.push(`${overused} shared by more than two faces`);
-    issues.push({
-      kind: 'non-manifold-edge',
-      detail: `edges not shared by exactly two faces (${parts.join(', ')})`,
-      count: open + overused,
-    });
-  }
+  const { open, overused } = countEdgeUse(undirected);
+  if (open || overused) issues.push(nonManifoldIssue(open, overused));
 
   let flipped = 0;
   for (const n of directed.values()) if (n > 1) flipped++;

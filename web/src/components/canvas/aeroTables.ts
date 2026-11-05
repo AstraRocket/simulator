@@ -249,7 +249,7 @@ export function stackedBands(
     const lower = cum.slice();
     for (let i = 0; i < machs.length; i++) {
       const v = se.values[i];
-      cum[i] = (cum[i] ?? 0) + (Number.isFinite(v) ? Math.max(0, v!) : 0);
+      cum[i] = (cum[i] ?? 0) + (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : 0);
     }
     const parts: string[] = [];
     let run: number[] = [];

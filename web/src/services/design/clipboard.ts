@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { reid } from './componentActions';
 import { canHost, findNode, findParent, isRecoveryDevice, MAIN_DEVICE_KEY, syncDerived } from './treeEdit';
@@ -43,7 +44,9 @@ function insertCopy(tree: RocketTree, clip: ComponentNode, place: PastePlace): P
   const origins = new Map<string, string>();
   const copy = reid(structuredClone(clip), origins);
   const next = structuredClone(tree);
-  const siblings = place.parentId ? (findNode(next, place.parentId)!.children ??= []) : next.components;
+  const siblings = place.parentId
+    ? (must(findNode(next, place.parentId), 'paste parent').children ??= [])
+    : next.components;
   siblings.splice(place.index, 0, copy);
   const id = copy.id as string;
   const stage = stageOf(next, id);

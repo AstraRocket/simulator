@@ -184,7 +184,8 @@ export function decodeStageColors(value: unknown): Map<number, number> {
     const index = Number.parseInt(key, 10);
     if (!Number.isInteger(index) || index < 0) continue;
     if (typeof raw !== 'string' || !/^[0-9a-fA-F]{6}$/.test(raw)) continue;
-    out.set(index, parseHexColor(raw)!);
+    const color = parseHexColor(raw);
+    if (color !== null) out.set(index, color);
   }
   return out;
 }
@@ -323,12 +324,13 @@ export function loadSettings(): Settings {
 export function settingsFrom(value: unknown): Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return structuredClone(DEFAULT_SETTINGS);
   const s = value as Partial<Settings>;
+  const rulers = s.rulers;
   const savedRulers =
-    s.rulers && typeof s.rulers === 'object'
+    rulers && typeof rulers === 'object'
       ? (Object.fromEntries(
           (['top', 'bottom', 'left', 'right'] as const)
-            .filter((k) => typeof s.rulers![k] === 'boolean')
-            .map((k) => [k, s.rulers![k]]),
+            .filter((k) => typeof rulers[k] === 'boolean')
+            .map((k) => [k, rulers[k]]),
         ) as Partial<RulerSides>)
       : {};
   return {
@@ -397,6 +399,7 @@ export function settingsFrom(value: unknown): Settings {
       sim.autoRunOutdated = flag(sim.autoRunOutdated, DEFAULT_SETTINGS.simulation.autoRunOutdated);
       return sim;
     })(),
+    // eslint-disable-next-line complexity -- a flat list of field cleanups
     launchDefaults: (() => {
       // Null `temperatureC`/`pressureHPa` is valid: it means ISA.
       const l = { ...DEFAULT_SETTINGS.launchDefaults, ...(s.launchDefaults ?? {}) };

@@ -24,7 +24,7 @@ const STEPS = {
   desktop: [audit.samples, audit.desktop, audit.fields],
   helpers: [audit.helpers],
   // Every e2e spec, and the offline and service worker checks.
-  e2e: [() => npmRun('e2e:sections')],
+  e2e: [() => npmRun('test:e2e:sections')],
   engine: [() => npmRun('audit', join(WEB, '../engine-java'))],
 };
 const NEEDS_OPENROCKET = ['desktop', 'helpers'];

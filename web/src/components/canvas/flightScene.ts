@@ -85,7 +85,8 @@ export function smokePuffs(
     pos.y = Math.max(pos.y, 0);
     const last = out[out.length - 1];
     if (last && last.pos.distanceTo(pos) < gap) continue;
-    out.push({ pos, time: times[i]!, ...smokeAt(times[i]!)! });
+    const smoke = smokeAt(times[i]!);
+    if (smoke) out.push({ pos, time: times[i]!, ...smoke });
   }
   return out;
 }

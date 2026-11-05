@@ -21,11 +21,12 @@ export function deploymentVerdict(
   sharedNames: ReadonlySet<string> = new Set(),
 ): 'tooFast' | 'tooSlow' | null {
   if (!warnings) return speed > deploymentSpeedWarn ? 'tooFast' : null;
-  const own = warnings.filter((w) =>
-    w.sourceIds?.length
-      ? devices.some((d) => d.id != null && w.sourceIds!.includes(d.id))
-      : devices.some((d) => d.name !== '' && !sharedNames.has(d.name) && w.message?.includes(`"${d.name}"`)),
-  );
+  const own = warnings.filter((w) => {
+    const ids = w.sourceIds;
+    return ids?.length
+      ? devices.some((d) => d.id != null && ids.includes(d.id))
+      : devices.some((d) => d.name !== '' && !sharedNames.has(d.name) && w.message?.includes(`"${d.name}"`));
+  });
   if (own.some((w) => TOO_FAST.has(w.key))) return 'tooFast';
   if (own.some((w) => TOO_SLOW.has(w.key))) return 'tooSlow';
   return null;

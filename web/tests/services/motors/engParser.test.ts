@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { offersPlugged, parseDelays } from '../../../src/services/motors/motorPicker';
-import { parseEng, totalImpulse } from '../../../src/services/motors/engParser';
+import { totalImpulse } from '../../../src/services/motors/motorMath';
+import { parseEng } from '../../../src/services/motors/engParser';
 import { MAX_CURVE_SAMPLES } from '../../../src/services/motors/curveFinalize';
 
 const ENG = `; a comment

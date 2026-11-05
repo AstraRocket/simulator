@@ -202,7 +202,7 @@ export function carryToCopies(configs: FlightConfig[], origins: ReadonlyMap<stri
     return out ?? table;
   };
   return configs.map((c) => {
-    const motors = carry(c.motors)!;
+    const motors = carry(c.motors) ?? c.motors;
     const deployments = carry(c.deployments);
     const separations = carry(c.separations);
     return motors === c.motors && deployments === c.deployments && separations === c.separations

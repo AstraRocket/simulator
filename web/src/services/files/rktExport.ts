@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import i18n from '../../i18n';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { clusterCount, clusterPlacesOf } from '../../tree/cluster';
@@ -97,6 +98,7 @@ const put = (w: Writer, d: number, name: string, v: number | undefined, scale: (
 };
 
 /** `UseKnownCG` stops RockSim computing both mass and CG, so it needs a mass to pair with any CG. */
+// eslint-disable-next-line complexity -- a flat list of elements, each with its own condition
 function writeCommon(
   w: Writer,
   d: number,
@@ -119,6 +121,8 @@ function writeCommon(
   const figures = typeof n.id === 'string' ? w.componentInfo?.(n.id) : undefined;
   const cgOnlyMass = overrideMass === undefined && overrideCg !== undefined ? (ownMass ?? figures?.mass) : undefined;
   const massOnlyCg = overrideMass !== undefined && overrideCg === undefined ? figures?.cgX : undefined;
+  const writtenMass = overrideMass ?? cgOnlyMass;
+  const writtenCg = overrideCg ?? massOnlyCg;
   if (w.inSubtreeMass) {
     // The ancestor's KnownMass already holds it, so 0 keeps RockSim from counting it twice.
     el(w, d, 'KnownMass', 0);
@@ -128,9 +132,9 @@ function writeCommon(
     // A KnownCG of 0 would move the CG to the front.
     if (ownMass !== undefined) el(w, d, 'KnownMass', g(ownMass));
     skip(w, { key: 'errors.rktSkip.massOverride', values: { name: notePartName(n) } });
-  } else if (overrideMass !== undefined || cgOnlyMass !== undefined) {
-    el(w, d, 'KnownMass', g(overrideMass ?? cgOnlyMass!));
-    el(w, d, 'KnownCG', mm(overrideCg ?? massOnlyCg!));
+  } else if (writtenMass !== undefined && writtenCg !== undefined) {
+    el(w, d, 'KnownMass', g(writtenMass));
+    el(w, d, 'KnownCG', mm(writtenCg));
     el(w, d, 'UseKnownCG', 1);
   } else {
     if (ownMass !== undefined) el(w, d, 'KnownMass', g(ownMass));
@@ -170,7 +174,7 @@ function writeWall(w: Writer, d: number, n: ComponentNode): void {
 
 function writeShape(w: Writer, d: number, n: ComponentNode, fallback: string): void {
   const shape = strOf(n, 'shape') ?? fallback;
-  el(w, d, 'ShapeCode', SHAPE_CODES.get(shape) ?? SHAPE_CODES.get(fallback)!);
+  el(w, d, 'ShapeCode', SHAPE_CODES.get(shape) ?? must(SHAPE_CODES.get(fallback), 'shape code'));
   const param = numOpt(n, 'shapeParameter');
   if (param !== undefined) el(w, d, 'ShapeParameter', param);
 }
@@ -252,7 +256,8 @@ const writeRing: PartWriter = (w, d, n) => {
 const writeSurfaceTube = (w: Writer, d: number, n: ComponentNode, boreFirst = false): void => {
   put(w, d, 'Len', numOpt(n, 'length'), mm);
   writeTubeWall(w, d, n, boreFirst);
-  writeRadialAngle(w, d, numOpt(n, rollAngleKey(n.type)!));
+  const rollKey = rollAngleKey(n.type);
+  writeRadialAngle(w, d, rollKey ? numOpt(n, rollKey) : undefined);
 };
 
 const writeLaunchLug: PartWriter = (w, d, n) => {
@@ -447,7 +452,7 @@ function withPodAngle(children: ComponentNode[] | undefined, angle: number): Com
   if (!children || angle === 0) return children;
   return children.map((child) => {
     const key = rollAngleKey(child.type);
-    const turned: ComponentNode = key ? { ...child, [key]: rollAngleOf(child)! + angle } : { ...child };
+    const turned: ComponentNode = key ? { ...child, [key]: (rollAngleOf(child) ?? 0) + angle } : { ...child };
     if (!isAssembly(child.type)) turned.children = withPodAngle(child.children, angle);
     return turned;
   });
@@ -663,12 +668,12 @@ export function exportRkt(
   STAGE_ELEMENTS.forEach((elName, i) => {
     const stage = i < written ? stages[i] : undefined;
     const kids = stage?.children ?? [];
-    if (kids.length === 0) {
+    if (!stage || kids.length === 0) {
       w.emit(3, `<${elName}/>`);
       return;
     }
     w.emit(3, `<${elName}>`);
-    writeChildren(w, 4, stage!, stageStart);
+    writeChildren(w, 4, stage, stageStart);
     w.emit(3, `</${elName}>`);
     stageStart += kids.reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
   });

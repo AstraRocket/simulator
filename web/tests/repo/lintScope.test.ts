@@ -46,6 +46,25 @@ describe('the rules that are enabled are enabled on real files', () => {
     expect(severity(cfg.rules, 'react-hooks/rules-of-hooks')).toBe(2);
   });
 
+  // A later block's `no-restricted-syntax` replaces an earlier one, so each layer block has to carry the selector.
+  it.each([
+    'src/components/layout/AppHeader.tsx',
+    'src/state/store.ts',
+    'src/services/app/must.ts',
+    'src/tree/position.ts',
+  ])('bans a non-null assertion outside an index in %s', async (rel) => {
+    const cfg = await eslint.calculateConfigForFile(rel);
+    expect(JSON.stringify(cfg.rules?.['no-restricted-syntax'])).toContain('TSNonNullExpression');
+  });
+
+  it('limits function size and complexity in the sources, not the tests', async () => {
+    const source = await eslint.calculateConfigForFile('src/state/store.ts');
+    expect(severity(source.rules, 'max-lines-per-function')).toBe(2);
+    expect(severity(source.rules, 'complexity')).toBe(2);
+    const test = await eslint.calculateConfigForFile('tests/repo/lintScope.test.ts');
+    expect(severity(test.rules, 'max-lines-per-function')).toBe(0);
+  });
+
   it('leaves the type-aware rules OFF for the plain .mjs scripts', async () => {
     const cfg = await eslint.calculateConfigForFile('scripts/sync-motors.mjs');
     expect(severity(cfg.rules, '@typescript-eslint/no-floating-promises')).toBe(0);

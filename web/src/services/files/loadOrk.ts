@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import type { OrkSimulation } from './ork/importSimulations';
 import {
   OpenRocketDesign,
@@ -148,6 +149,7 @@ function withoutFreeformOutlines(tree: RocketTree): RocketTree {
   return { ...tree, components: strip(tree.components) ?? [] };
 }
 
+// eslint-disable-next-line complexity -- one import pipeline whose steps run in order over shared notes
 export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
   const res = parseDesignFile(buffer);
   // Reset only after the parse: it voids the open design's handle, which must survive a bad file.
@@ -228,7 +230,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
   };
 
   const declared = res.configs?.length ? res.configs : [defaultOrkConfig({ motors: res.motors ?? {} })];
-  const chosenConfigId = declared.some((c) => c.id === res.chosenConfigId) ? res.chosenConfigId! : declared[0]!.id;
+  const chosenConfigId = (declared.find((c) => c.id === res.chosenConfigId) ?? declared[0]!).id;
 
   const mountNodes = findMounts(res.tree);
   const byId = new Map(mountNodes.map((m) => [m.id as string, m]));
@@ -237,13 +239,13 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
   const checkFit = (mountId: string, spec: MotorSpec): void => {
     const node = byId.get(mountId);
     const fit = node ? mountFit(node) : null;
-    if (!fit || !spec.designation || !(spec.diameter > 0)) return;
+    if (!node || !fit || !spec.designation || !(spec.diameter > 0)) return;
     const motor = { diameter: toCatalogMm(spec.diameter), length: spec.length ? toCatalogMm(spec.length) : undefined };
     if (motorFitsMount(motor, fit)) return;
     const key = `${mountId}|${spec.designation}`;
     if (misfits.has(key)) return;
     misfits.add(key);
-    const mount = notePartName(node!);
+    const mount = notePartName(node);
     const tooWide = motor.diameter > fit.bore;
     notes.push(
       tooWide
@@ -285,7 +287,10 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
     });
   }
 
-  const chosen = configs.find((c) => c.id === chosenConfigId)!;
+  const chosen = must(
+    configs.find((c) => c.id === chosenConfigId),
+    'chosen configuration',
+  );
   const emptyMounts = findMounts(res.tree).filter((m) => !hasUsableCurve(chosen.motors[m.id as string]?.spec));
   if (emptyMounts.length) {
     const named = emptyMounts.filter((m) => !chosen.motors[m.id as string]?.spec.designation);

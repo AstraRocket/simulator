@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { FieldLabel } from '../common/FieldMark';
 import { UnitChip } from '../common/UnitChip';
-import { useUnits, type FieldUnit } from '../../prefs/useUnits';
+import { useUnits, type FieldUnit, type Units } from '../../prefs/useUnits';
 import { clampEntry } from '../../prefs/entryValue';
 import { unitScope, type Quantity, degToRad } from '../../prefs/units';
 import { num } from '../../tree/nodeProps';
@@ -12,7 +12,7 @@ import { FIELDS, type Field, type PanelSection } from '../../services/design/com
 import { DERIVED } from '../../services/design/derivedFields';
 import { clampToBounds, type DimensionBounds } from '../../services/design/linkedDimensions';
 import {
-  KERNEL_AUTO_KEYS,
+  isKernelAutoKey,
   fieldApplies,
   fieldOptions,
   fieldRange,
@@ -21,7 +21,7 @@ import {
 } from '../../services/design/fieldRange';
 import { parentRadiusOf } from '../../tree/finPlanform';
 import { PropSection } from './PropSection';
-import { rebaseTabOffset } from '../../tree/axialRebase';
+import { rebaseTabOffset } from '../../tree/finPlanform';
 import { useWorkspaceStore } from '../../state/store';
 import { trimFloatNoise } from '../../services/app/numbers';
 import { NumberWithUnit } from '../common/NumberRow';
@@ -29,18 +29,18 @@ import { NumberWithUnit } from '../common/NumberRow';
 // Memoized on the live build: each read is a kernel call and the panel re-renders per keystroke.
 function useKernelAutoValue(node: ComponentNode, f: Field): number | undefined {
   const rocket = useWorkspaceStore((s) => s.rocket);
-  const autoOn = !!f.auto && node[f.auto.flag] === true && KERNEL_AUTO_KEYS.has(f.key);
+  const autoKey = f.auto && node[f.auto.flag] === true && isKernelAutoKey(f.key) ? f.key : null;
   const id = typeof node.id === 'string' ? node.id : null;
   return useMemo(() => {
-    if (!autoOn || !rocket || id === null) return undefined;
+    if (autoKey === null || !rocket || id === null) return undefined;
     try {
-      const v = (rocket.componentInfo(id) as unknown as Record<string, unknown>)[f.key];
+      const v = rocket.componentInfo(id)[autoKey];
       return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
     } catch {
       // A part the live build does not hold yet (the rebuild trails the edit).
       return undefined;
     }
-  }, [rocket, id, f.key, autoOn]);
+  }, [rocket, id, autoKey]);
 }
 
 // `FinSet.getMaxTabHeight()`: the parent's radius at the tab's ends, which no field bound can read.
@@ -207,6 +207,148 @@ function selectPatch(node: ComponentNode, key: string, value: string): Partial<C
   return { [key]: value };
 }
 
+type NumericProps = Omit<NumberFieldProps, 'label' | 'required' | 'onCommit'>;
+
+interface NumericContext<F extends Field = Field> {
+  node: ComponentNode;
+  f: F;
+  u: Units;
+  scope: string;
+  patchNumber: (patch: Partial<ComponentNode>) => void;
+}
+
+function boreProps({ node, u, scope, patchNumber }: NumericContext): NumericProps {
+  // Not stored: writes the wall and keeps the outer radius, as OpenRocket's linked tube fields do.
+  const fu = u.at(scope, 'length');
+  const outerR = num(node, 'outerRadius');
+  const od = 2 * outerR;
+  return {
+    unit: <UnitChip quantity="length" scope={scope} />,
+    value: fu.toUi(Math.max(0, od - 2 * num(node, 'thickness'))),
+    step: fu.step(0.0005),
+    min: 0,
+    max: fu.toUi(od),
+    onChange: (v) => {
+      const si = fu.toSi(v);
+      if (si === null) return;
+      const bore = Math.max(0, Math.min(od, si));
+      // Floored: unit round-trip dust gives walls like -1.7e-18.
+      patchNumber({ thickness: Math.max(0, (od - bore) / 2) });
+    },
+  };
+}
+
+function derivedProps({
+  node,
+  f,
+  u,
+  scope,
+  patchNumber,
+}: NumericContext<Extract<Field, { kind: 'derived' }>>): NumericProps {
+  const d = DERIVED[f.derived];
+  const fu = d.quantity ? u.at(scope, d.quantity) : undefined;
+  const patch = (v: number) => {
+    const si = fu ? fu.toSi(v) : clampEntry(v);
+    if (si === null) return;
+    patchNumber(d.write(node, si));
+  };
+  const value = d.read(node);
+  const bound = (v: number | undefined) => (v === undefined ? undefined : trimFloatNoise(fu ? fu.toUi(v) : v));
+  return {
+    unit: d.quantity ? <UnitChip quantity={d.quantity} scope={scope} /> : undefined,
+    value: fu ? fu.toUi(value) : value,
+    // Snapped: the unit round trip turns 89 degrees into 89.00000000000001.
+    min: bound(d.min?.(node) ?? 0),
+    max: bound(d.max?.(node)),
+    step: fu ? fu.step(f.step ?? 0.1) : (f.step ?? 0.1),
+    onChange: patch,
+  };
+}
+
+function SelectField({
+  node,
+  f,
+  label,
+  stageBelow,
+  commitChange,
+}: {
+  node: ComponentNode;
+  f: Extract<Field, { kind: 'select' }>;
+  label: string;
+  stageBelow: NodeEditProps['stageBelow'];
+  commitChange: (patch: Partial<ComponentNode>) => void;
+}) {
+  const { t } = useTranslation();
+  const cur = String(fieldValue(node, f));
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="shrink-0 text-xs text-ink-muted">{label}</span>
+      <select
+        value={cur}
+        onChange={(e) => commitChange(selectPatch(node, f.key, e.target.value))}
+        className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+      >
+        {fieldOptions(node, f, stageBelow).map((o) => (
+          <option key={o} value={o}>
+            {f.optLabel ? f.optLabel(o, t) : f.optI18n ? t(`${f.optI18n}.${o}`) : o}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TextField({
+  node,
+  f,
+  label,
+  onChange,
+  onCommit,
+}: {
+  node: ComponentNode;
+  f: Field;
+  label: string;
+  onChange: NodeEditProps['onChange'];
+  onCommit: NodeEditProps['onCommit'];
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs text-ink-muted">{label}</span>
+      <textarea
+        rows={3}
+        value={typeof node[f.key] === 'string' ? (node[f.key] as string) : ''}
+        onChange={(e) => onChange({ [f.key]: e.target.value || undefined })}
+        onBlur={onCommit}
+        className="w-full resize-y rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+      />
+    </label>
+  );
+}
+
+function BoolField({
+  node,
+  f,
+  label,
+  commitChange,
+}: {
+  node: ComponentNode;
+  f: Field;
+  label: string;
+  commitChange: (patch: Partial<ComponentNode>) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="text-xs text-ink-muted">{label}</span>
+      <input
+        type="checkbox"
+        checked={fieldValue(node, f) === true}
+        onChange={(e) => commitChange({ [f.key]: e.target.checked })}
+        className="accent-accent-500"
+      />
+    </label>
+  );
+}
+
 export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: NodeEditProps & { field: Field }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -221,6 +363,7 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
     if (Object.values(patch).some((v) => v === null || (typeof v === 'number' && !Number.isFinite(v)))) return;
     onChange(patch);
   };
+  const autoFlag = f.auto?.flag ?? '';
   const autoProp = () =>
     f.auto
       ? {
@@ -231,9 +374,7 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
             // Turning Auto off keeps the length it was showing, as desktop does.
             onToggle: (on: boolean) =>
               commitChange(
-                on || kernelAuto === undefined
-                  ? { [f.auto!.flag]: on }
-                  : { [f.auto!.flag]: false, [f.key]: kernelAuto },
+                on || kernelAuto === undefined ? { [autoFlag]: on } : { [autoFlag]: false, [f.key]: kernelAuto },
               ),
           },
         }
@@ -257,50 +398,12 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
   };
 
   switch (f.kind) {
-    case 'select': {
-      const cur = String(fieldValue(node, f));
-      return (
-        <label className="flex items-center justify-between gap-3">
-          <span className="shrink-0 text-xs text-ink-muted">{label}</span>
-          <select
-            value={cur}
-            onChange={(e) => commitChange(selectPatch(node, f.key, e.target.value))}
-            className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-          >
-            {fieldOptions(node, f, stageBelow).map((o) => (
-              <option key={o} value={o}>
-                {f.optLabel ? f.optLabel(o, t) : f.optI18n ? t(`${f.optI18n}.${o}`) : o}
-              </option>
-            ))}
-          </select>
-        </label>
-      );
-    }
+    case 'select':
+      return <SelectField node={node} f={f} label={label} stageBelow={stageBelow} commitChange={commitChange} />;
     case 'text':
-      return (
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-ink-muted">{label}</span>
-          <textarea
-            rows={3}
-            value={typeof node[f.key] === 'string' ? (node[f.key] as string) : ''}
-            onChange={(e) => onChange({ [f.key]: e.target.value || undefined })}
-            onBlur={onCommit}
-            className="w-full resize-y rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-          />
-        </label>
-      );
+      return <TextField node={node} f={f} label={label} onChange={onChange} onCommit={onCommit} />;
     case 'bool':
-      return (
-        <label className="flex items-center justify-between gap-3">
-          <span className="text-xs text-ink-muted">{label}</span>
-          <input
-            type="checkbox"
-            checked={fieldValue(node, f) === true}
-            onChange={(e) => commitChange({ [f.key]: e.target.checked })}
-            className="accent-accent-500"
-          />
-        </label>
-      );
+      return <BoolField node={node} f={f} label={label} commitChange={commitChange} />;
     case 'count': {
       const { min = 1, max = 1 } = fieldRange(node, f);
       return numeric({
@@ -337,46 +440,10 @@ export function FieldRow({ node, field: f, onChange, onCommit, stageBelow }: Nod
       const { min, max } = fieldRange(node, f);
       return inUnit('angle', degToRad(f.step ?? 5), min === undefined ? undefined : (fu) => fu.toUi(min), max);
     }
-    case 'bore': {
-      // Not stored: writes the wall and keeps the outer radius, as OpenRocket's linked tube fields do.
-      const fu = u.at(scope, 'length');
-      const outerR = num(node, 'outerRadius');
-      const od = 2 * outerR;
-      return numeric({
-        unit: <UnitChip quantity="length" scope={scope} />,
-        value: fu.toUi(Math.max(0, od - 2 * num(node, 'thickness'))),
-        step: fu.step(0.0005),
-        min: 0,
-        max: fu.toUi(od),
-        onChange: (v) => {
-          const si = fu.toSi(v);
-          if (si === null) return;
-          const bore = Math.max(0, Math.min(od, si));
-          // Floored: unit round-trip dust gives walls like -1.7e-18.
-          patchNumber({ thickness: Math.max(0, (od - bore) / 2) });
-        },
-      });
-    }
-    case 'derived': {
-      const d = DERIVED[f.derived];
-      const fu = d.quantity ? u.at(scope, d.quantity) : undefined;
-      const patch = (v: number) => {
-        const si = fu ? fu.toSi(v) : clampEntry(v);
-        if (si === null) return;
-        patchNumber(d.write(node, si));
-      };
-      const value = d.read(node);
-      const bound = (v: number | undefined) => (v === undefined ? undefined : trimFloatNoise(fu ? fu.toUi(v) : v));
-      return numeric({
-        unit: d.quantity ? <UnitChip quantity={d.quantity} scope={scope} /> : undefined,
-        value: fu ? fu.toUi(value) : value,
-        // Snapped: the unit round trip turns 89 degrees into 89.00000000000001.
-        min: bound(d.min?.(node) ?? 0),
-        max: bound(d.max?.(node)),
-        step: fu ? fu.step(f.step ?? 0.1) : (f.step ?? 0.1),
-        onChange: patch,
-      });
-    }
+    case 'bore':
+      return numeric(boreProps({ node, f, u, scope, patchNumber }));
+    case 'derived':
+      return numeric(derivedProps({ node, f, u, scope, patchNumber }));
     default: {
       // `diameter` fields are radii in the node and diameters in the box; the doubling lives only here.
       const fu = u.at(scope, 'length');

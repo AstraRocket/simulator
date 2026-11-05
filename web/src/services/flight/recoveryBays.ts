@@ -87,9 +87,10 @@ export function designBays(tree: RocketTree): DesignBay[] {
     for (const d of recoveryDevices(tree, stage.id as string)) stageOf.set(d.id as string, stage.id as string);
   }
   for (const device of findRecoveryDevices(tree)) {
-    const role = device.id ? roles.get(device.id) : undefined;
-    if (!role) continue;
-    const drawn = ejectionBay(tree, device.id!);
+    const id = device.id;
+    const role = id ? roles.get(id) : undefined;
+    if (!id || !role) continue;
+    const drawn = ejectionBay(tree, id);
     if (!drawn) continue;
     const name = typeof device.name === 'string' ? device.name : '';
     const held = out.find((b) => b.tubeId === drawn.tubeId && b.role === role);
@@ -98,7 +99,7 @@ export function designBays(tree: RocketTree): DesignBay[] {
       continue;
     }
     out.push({
-      stageId: stageOf.get(device.id!) ?? '',
+      stageId: stageOf.get(id) ?? '',
       ...(stageNames.has(drawn.tubeId) ? { stageName: stageNames.get(drawn.tubeId) } : {}),
       tubeId: drawn.tubeId,
       tubeName: drawn.tubeName,

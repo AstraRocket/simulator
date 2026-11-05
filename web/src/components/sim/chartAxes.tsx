@@ -166,5 +166,5 @@ export interface MotorSeries {
 }
 
 export function seriesFor(motors: readonly CatalogMotor[]): MotorSeries[] {
-  return motors.filter(hasCurve).map((m, i) => ({ m, color: seriesColor(i), pts: m.curves![0]!.samples }));
+  return motors.filter(hasCurve).map((m, i) => ({ m, color: seriesColor(i), pts: m.curves?.[0]?.samples ?? [] }));
 }

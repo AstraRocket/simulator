@@ -63,7 +63,7 @@ function boreRadii(radii: number[], length: number, wall: number): number[] {
   return radii.map((r, i) => {
     const before = depth[i - 1];
     const after = depth[i];
-    const d = before === undefined ? after! : after === undefined ? before : (before + after) / 2;
+    const d = before === undefined ? (after ?? 0) : after === undefined ? before : (before + after) / 2;
     return Math.max(r - d, 0);
   });
 }

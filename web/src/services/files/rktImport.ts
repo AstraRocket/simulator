@@ -620,7 +620,7 @@ const readPod = (ctx: RktContext, el: Element): ComponentNode => {
 function subtractAngleOffset(children: ComponentNode[], angle: number): void {
   for (const child of children) {
     const key = rollAngleKey(child.type);
-    if (key) child[key] = rollAngleOf(child)! - angle;
+    if (key) child[key] = (rollAngleOf(child) ?? 0) - angle;
     if (!isAssembly(child.type) && child.children) {
       subtractAngleOffset(child.children, angle);
     }
@@ -719,7 +719,7 @@ function readParts(ctx: RktContext, container: Element, depth = 0, parent?: Comp
     if (ext) {
       countComponent(ctx, '.rkt');
       out.push(ext);
-      ctx.notes.push(keyedNote('importNote.rktBaseExtension', { part: notePartName(node), extension: ext.name! }));
+      ctx.notes.push(keyedNote('importNote.rktBaseExtension', { part: notePartName(node), extension: ext.name ?? '' }));
     }
   }
   return out;
@@ -810,7 +810,10 @@ export function importRkt(data: ArrayBuffer | string): OrkImportResult {
   const version = num(doc.documentElement, 'FileVersion');
   if (version !== undefined && version > NEWEST_FILE_VERSION) {
     ctx.notes.unshift(
-      keyedNote('importNote.rktNewerVersion', { version: tag(doc.documentElement, 'FileVersion')!, supported: 4 }),
+      keyedNote('importNote.rktNewerVersion', {
+        version: tag(doc.documentElement, 'FileVersion') ?? String(version),
+        supported: 4,
+      }),
     );
   }
 

@@ -66,7 +66,8 @@ export function deviceDescent(
     if (!opened) continue;
     const mass = seriesAt(branch.series, 'mass', opened.time);
     if (mass == null || !(mass > 0)) return null;
-    const stepStart = deployments.find((e) => opened.time - e.time < TOGETHER_S && e.time <= opened.time)!.time;
+    const stepStart = (deployments.find((e) => opened.time - e.time < TOGETHER_S && e.time <= opened.time) ?? opened)
+      .time;
     const next = events.find(
       (e) =>
         (e.type === GROUND_HIT && e.time > opened.time) || (e.type === DEPLOYMENT && e.time >= stepStart + TOGETHER_S),

@@ -23,7 +23,7 @@ function sources(dir: string, out: { path: string; code: string }[] = []): { pat
   return out;
 }
 
-const RAW_CONVERSION_ALLOWED = ['prefs/units.ts', 'prefs/useUnits.ts', 'components/canvas/TreeSchematic.tsx'];
+const RAW_CONVERSION_ALLOWED = ['prefs/units.ts', 'prefs/useUnits.ts', 'components/canvas/SchematicRulers.tsx'];
 
 const OR_FALLBACK_ALLOWED = ['components/canvas/flightScene.ts'];
 

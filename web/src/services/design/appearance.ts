@@ -119,8 +119,9 @@ const FIGURE_SHININESS: Partial<Record<string, number>> = {
 };
 
 const scaled = (hex: string, k: number): string => {
-  const [r, g, b] = rgbChannels(parseHexColor(hex) ?? 0).map((c) => Math.round(c * k));
-  return hexOf(packRgb(r!, g!, b!));
+  const [r, g, b] = rgbChannels(parseHexColor(hex) ?? 0);
+  const dim = (c: number) => Math.round(c * k);
+  return hexOf(packRgb(dim(r), dim(g), dim(b)));
 };
 
 /** Desktop `FigureRenderer.renderComponent`. */

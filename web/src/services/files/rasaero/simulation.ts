@@ -52,7 +52,7 @@ function stagingDelays(
     if (!included[lower]) continue;
     const lowerStage = stagesIn[lower]!;
     const upperStage = stagesIn[lower - 1]!;
-    const lowerDelay = slots[lower]!.motor!.delay ?? 0;
+    const lowerDelay = slots[lower]?.motor?.delay ?? 0;
     const plugged = lowerDelay >= PLUGGED_DELAY;
     const upper = slots[lower - 1]?.motor;
 

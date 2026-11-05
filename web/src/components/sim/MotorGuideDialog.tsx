@@ -1,3 +1,4 @@
+import { must } from '../../services/app/must';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -449,7 +450,7 @@ function GuideTable({
     const val = (r: GuideRow): number | string => {
       if (sort.key === 'motor') return motorName(r.motor);
       if (sort.key === 'delay') return r.delay;
-      if (sort.key === 'status') return verdictRank(verdicts.get(r.key)!);
+      if (sort.key === 'status') return verdictRank(must(verdicts.get(r.key), 'guide verdict'));
       return COLS.find((c) => c.id === sort.key)?.value(r) ?? NaN;
     };
     return sortGuideRows(guide.rows, val, sort.desc);
@@ -468,7 +469,7 @@ function GuideTable({
     />
   );
   const status = (r: GuideRow) => {
-    const v = verdicts.get(r.key)!;
+    const v = must(verdicts.get(r.key), 'guide verdict');
     const clean = !v.issues.length && !v.warnings;
     return (
       <span
@@ -488,7 +489,7 @@ function GuideTable({
           motor: motorName(r.motor),
           manufacturer: r.motor.manufacturer,
           delay: delayString(r.delay),
-          status: verdictText(verdicts.get(r.key)!, t),
+          status: verdictText(must(verdicts.get(r.key), 'guide verdict'), t),
           row: r,
         })),
         u.all,

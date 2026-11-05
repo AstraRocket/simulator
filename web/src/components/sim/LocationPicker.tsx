@@ -28,7 +28,7 @@ export function LocationPicker({
   onCommit,
   defaultSite = launchDefaultSite,
 }: {
-  launch: LaunchConditions;
+  launch: LocationSite;
   onChange: (patch: Partial<LaunchConditions>) => void;
   onCommit?: () => void;
   defaultSite?: () => LocationSite;

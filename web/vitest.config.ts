@@ -36,7 +36,7 @@ export default defineConfig({
       reporter: ['text-summary', 'json-summary', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/engine/vendor/**', 'src/**/*.d.ts'],
-      thresholds: { lines: 82, branches: 74, functions: 76, statements: 81 },
+      thresholds: { lines: 89, branches: 80, functions: 84, statements: 88 },
     },
   },
 });

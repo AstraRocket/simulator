@@ -1,6 +1,7 @@
+import { must } from '../app/must';
 import type { ComponentNode, ComponentType, RocketTree } from '../../engine/openRocketEngine';
 import { defaultStageName } from './orkTree';
-import type { Component, ParachuteComponent } from '../parts/componentDb';
+import type { Component, ParachuteComponent, TubeComponent } from '../parts/componentDb';
 import { DEFAULT_CHUTE_CD } from '../parts/componentFilter';
 import { presetNode } from '../parts/customParts';
 import { KERNEL_DEFAULTS, KERNEL_MATERIALS } from '../../tree/kernelDefaults.js';
@@ -97,10 +98,8 @@ function breaksPreset(before: ComponentNode, after: ComponentNode, patch: Partia
 export function patchChangesNode(tree: RocketTree, id: string, patch: Partial<ComponentNode>): boolean {
   const node = findNode(tree, id);
   if (!node) return false;
-  const current = node as unknown as Record<string, unknown>;
-  const incoming = patch as unknown as Record<string, unknown>;
-  for (const key of Object.keys(incoming)) {
-    if (current[key] !== incoming[key]) return true;
+  for (const key of Object.keys(patch)) {
+    if (node[key] !== patch[key]) return true;
   }
   return false;
 }
@@ -365,35 +364,88 @@ function parachutePatch(p: ParachuteComponent): Partial<ComponentNode> {
   };
 }
 
+type Stated<T extends Component['type']> = Extract<Component, { type: T }>;
+
+function statedMaterial(p: Component) {
+  return 'materialDensity' in p && p.materialDensity
+    ? { density: p.materialDensity, materialName: (p as { material?: string }).material }
+    : {};
+}
+
+function nosePatch(p: Stated<'nosecone'>, node?: ComponentNode): Partial<ComponentNode> {
+  const radius = p.outerDiameter / 2;
+  // A stated mass without a wall was spread over DEFAULT_THICKNESS (NoseCone.loadFromPreset).
+  const wall = p.filled
+    ? { thickness: radius }
+    : p.thickness != null
+      ? { thickness: p.thickness }
+      : p.mass != null
+        ? { thickness: KERNEL_DEFAULTS.nosecone.thickness }
+        : hollowWall(node, radius);
+  return {
+    ...shapeChange('nosecone', p.shape),
+    length: p.length,
+    aftRadius: radius,
+    // Set both ways: the kernel reads solidness from this flag, not the thickness.
+    filled: !!p.filled,
+    ...wall,
+    ...presetShoulder('', p.shoulderDiameter ?? null, p.shoulderLength ?? null, radius, p, node),
+    ...statedMaterial(p),
+  };
+}
+
+function ringPatch(p: TubeComponent, node?: ComponentNode): Partial<ComponentNode> {
+  const outerRadius = p.outerDiameter / 2;
+  const kept = typeof node?.['innerRadius'] === 'number' ? node['innerRadius'] : null;
+  const bore = p.innerDiameter != null ? p.innerDiameter / 2 : kept != null && kept > outerRadius ? kept : null;
+  return {
+    outerRadius,
+    ...(bore != null
+      ? { innerRadius: clampToBounds({ outerRadius } as unknown as ComponentNode, RING_BOUNDS.innerRadius, bore) }
+      : {}),
+    innerRadiusAuto: false,
+    length: p.length,
+    ...statedMaterial(p),
+  };
+}
+
+function transitionPatch(p: Stated<'transition'>, node?: ComponentNode): Partial<ComponentNode> {
+  const shoulder = (side: 'fore' | 'aft', diameter: number | null, length: number | null) =>
+    presetShoulder(side, diameter, length, (side === 'fore' ? p.foreOuterDiameter : p.aftOuterDiameter) / 2, p, node);
+  return {
+    ...shapeChange('transition', p.shape),
+    length: p.length,
+    foreRadius: p.foreOuterDiameter / 2,
+    aftRadius: p.aftOuterDiameter / 2,
+    filled: !!p.filled,
+    ...(p.thickness != null && !p.filled ? { thickness: p.thickness } : {}),
+    ...shoulder('fore', p.foreShoulderDiameter, p.foreShoulderLength),
+    ...shoulder('aft', p.aftShoulderDiameter, p.aftShoulderLength),
+    ...statedMaterial(p),
+  };
+}
+
+function railButtonPatch(p: Stated<'railbutton'>): Partial<ComponentNode> {
+  return {
+    outerDiameter: p.outerDiameter,
+    height: p.height,
+    ...(p.innerDiameter != null ? { innerDiameter: p.innerDiameter } : {}),
+    ...(p.baseHeight != null ? { baseHeight: p.baseHeight } : {}),
+    ...(p.flangeHeight != null ? { flangeHeight: p.flangeHeight } : {}),
+    ...(p.screwHeight != null ? { screwHeight: p.screwHeight } : {}),
+    ...(p.mass != null ? { overrideMass: p.mass } : {}),
+    ...(p.cd != null && p.cd > 0 ? { overrideCD: p.cd } : {}),
+    ...statedMaterial(p),
+  };
+}
+
 function statedPatch(p: Component, node?: ComponentNode): Partial<ComponentNode> {
   // Storage may hold anything, so a saved part goes through repairNode.
   if (p.custom && p.patch) return presetNode(repairNode(p.patch as ComponentNode).node);
-  const mat =
-    'materialDensity' in p && p.materialDensity
-      ? { density: p.materialDensity, materialName: (p as { material?: string }).material }
-      : {};
+  const mat = statedMaterial(p);
   switch (p.type) {
-    case 'nosecone': {
-      const radius = p.outerDiameter / 2;
-      // A stated mass without a wall was spread over DEFAULT_THICKNESS (NoseCone.loadFromPreset).
-      const wall = p.filled
-        ? { thickness: radius }
-        : p.thickness != null
-          ? { thickness: p.thickness }
-          : p.mass != null
-            ? { thickness: KERNEL_DEFAULTS.nosecone.thickness }
-            : hollowWall(node, radius);
-      return {
-        ...shapeChange('nosecone', p.shape),
-        length: p.length,
-        aftRadius: radius,
-        // Set both ways: the kernel reads solidness from this flag, not the thickness.
-        filled: !!p.filled,
-        ...wall,
-        ...presetShoulder('', p.shoulderDiameter ?? null, p.shoulderLength ?? null, radius, p, node),
-        ...mat,
-      };
-    }
+    case 'nosecone':
+      return nosePatch(p, node);
     // A stated inner diameter of 0 is a solid part (balsa nose blocks), not a missing one.
     case 'bodytube':
     case 'tubecoupler':
@@ -406,58 +458,16 @@ function statedPatch(p: Component, node?: ComponentNode): Partial<ComponentNode>
         ...mat,
       };
     // Clamped: a few catalog rows state an inner diameter above the outer.
-    case 'centeringring': {
-      const outerRadius = p.outerDiameter / 2;
-      const kept = typeof node?.['innerRadius'] === 'number' ? node['innerRadius'] : null;
-      const bore = p.innerDiameter != null ? p.innerDiameter / 2 : kept != null && kept > outerRadius ? kept : null;
-      return {
-        outerRadius,
-        ...(bore != null
-          ? { innerRadius: clampToBounds({ outerRadius } as unknown as ComponentNode, RING_BOUNDS.innerRadius, bore) }
-          : {}),
-        innerRadiusAuto: false,
-        length: p.length,
-        ...mat,
-      };
-    }
+    case 'centeringring':
+      return ringPatch(p, node);
     case 'bulkhead':
       return { outerRadius: p.outerDiameter / 2, length: p.length, ...mat };
     case 'parachute':
       return parachutePatch(p);
-    case 'transition': {
-      const shoulder = (side: 'fore' | 'aft', diameter: number | null, length: number | null) =>
-        presetShoulder(
-          side,
-          diameter,
-          length,
-          (side === 'fore' ? p.foreOuterDiameter : p.aftOuterDiameter) / 2,
-          p,
-          node,
-        );
-      return {
-        ...shapeChange('transition', p.shape),
-        length: p.length,
-        foreRadius: p.foreOuterDiameter / 2,
-        aftRadius: p.aftOuterDiameter / 2,
-        filled: !!p.filled,
-        ...(p.thickness != null && !p.filled ? { thickness: p.thickness } : {}),
-        ...shoulder('fore', p.foreShoulderDiameter, p.foreShoulderLength),
-        ...shoulder('aft', p.aftShoulderDiameter, p.aftShoulderLength),
-        ...mat,
-      };
-    }
+    case 'transition':
+      return transitionPatch(p, node);
     case 'railbutton':
-      return {
-        outerDiameter: p.outerDiameter,
-        height: p.height,
-        ...(p.innerDiameter != null ? { innerDiameter: p.innerDiameter } : {}),
-        ...(p.baseHeight != null ? { baseHeight: p.baseHeight } : {}),
-        ...(p.flangeHeight != null ? { flangeHeight: p.flangeHeight } : {}),
-        ...(p.screwHeight != null ? { screwHeight: p.screwHeight } : {}),
-        ...(p.mass != null ? { overrideMass: p.mass } : {}),
-        ...(p.cd != null && p.cd > 0 ? { overrideCD: p.cd } : {}),
-        ...mat,
-      };
+      return railButtonPatch(p);
     // Streamer.loadFromPreset sets packed length to the strip width.
     case 'streamer':
       return {
@@ -486,17 +496,19 @@ export function moveNode(tree: RocketTree, id: string, dir: -1 | 1): RocketTree 
   const at = findSiblings(tree.components, id);
   if (!at || at.index + dir < 0 || at.index + dir >= at.siblings.length) return tree;
   const next = clone(tree);
-  const { siblings, index } = findSiblings(next.components, id)!;
-  const [x] = siblings.splice(index, 1);
-  siblings.splice(index + dir, 0, x!);
+  const { siblings, index } = must(findSiblings(next.components, id), 'moved part');
+  siblings.splice(index + dir, 0, ...siblings.splice(index, 1));
   return syncDerived(next);
 }
 
 /**
  * Desktop Java constructor values (SI), held to the kernel by `newParts.kernel.test.ts`.
  * App-only seeds: `shoulderAuto` flags, the inner tube mount and overhang, recovery `deployEvent: 'apogee'`.
+ *
+ * One `switch` on purpose: it is a table of default values, one case per part, and splitting it would only scatter them.
  */
-export function defaultNode(type: ComponentType): ComponentNode {
+// eslint-disable-next-line max-lines-per-function -- a table of defaults; see the comment above
+export function defaultNode(type: ComponentType): ComponentNode & { id: string } {
   const id = newId();
   switch (type) {
     case 'stage':
@@ -774,7 +786,7 @@ export function isFirstStage(tree: RocketTree, id: string): boolean {
 
 export function addStage(tree: RocketTree): { tree: RocketTree; id: string } {
   const node = defaultNode('stage');
-  const id = node.id!;
+  const id = node.id;
   const count = stageNodes(tree).length;
   node.name = defaultStageName(count);
   const next = clone(tree);
@@ -788,8 +800,9 @@ export function addPart(
   selectedId: string | null,
   seed: Partial<ComponentNode> = {},
 ): { tree: RocketTree; id: string } {
-  const node = { ...defaultNode(type), ...seed };
-  const id = node.id!;
+  const base = defaultNode(type);
+  const node = { ...base, ...seed };
+  const id = node.id ?? base.id;
   const stageId = stageNodes(tree)[0]?.id;
   const host = selectedId
     ? (lineageOf(tree.components, selectedId).find((n) => allowedChildren(n.type).includes(type)) ?? null)

@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import * as THREE from 'three';
 import { buildPieces } from '../../../src/components/canvas/rocketPieces';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, walkTree, type KernelGeometry } from '../../testing/kernelGeometry';

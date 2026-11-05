@@ -155,7 +155,7 @@ export function tabPosition(offset: number, tabLen: number, rootChord: number, m
 }
 
 /** `AxialMethod.getAsOffset(position, tabLength, rootChord)`. */
-export function tabOffsetAt(position: number, tabLen: number, rootChord: number, method: string): number {
+function tabOffsetAt(position: number, tabLen: number, rootChord: number, method: string): number {
   if (method === 'top' || method === 'absolute') return position;
   if (method === 'after') return position - rootChord;
   if (method === 'bottom') return position + (tabLen - rootChord);
@@ -407,4 +407,13 @@ function mountTabLimit(fin: ComponentNode, mount: FinMount): number {
   const lead = finTabFrontEdge(fin, finRootChord(fin));
   const trail = lead + num(fin, 'tabLength', 0);
   return Math.min(mount.radiusAt(mount.front + lead), mount.radiusAt(mount.front + trail));
+}
+
+/** As `FinSet.setTabOffsetMethod`. An unset method is the kernel default, middle. */
+export function rebaseTabOffset(node: ComponentNode, method: string): Partial<ComponentNode> {
+  const from = typeof node['tabOffsetMethod'] === 'string' ? node['tabOffsetMethod'] : 'middle';
+  const tabLen = num(node, 'tabLength', 0);
+  const root = axialLength(node);
+  const front = tabPosition(num(node, 'tabOffset', 0), tabLen, root, from);
+  return { tabOffsetMethod: method, tabOffset: tabOffsetAt(front, tabLen, root, method) };
 }

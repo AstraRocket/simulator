@@ -1,5 +1,4 @@
 import { saveBlob, exportFilename } from '../files/saveFile';
-import { useWorkspaceStore } from '../../state/store';
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { walkNodes } from '../../tree/treeWalk';
 import { launcherKind, withLauncher } from '../design/launcher';
@@ -26,8 +25,6 @@ export interface ReportPdfHooks {
   canceled?: () => boolean;
 }
 
-const appNotice = (message: string): void => useWorkspaceStore.getState().setErr(message);
-
 export async function downloadReportPdf(
   model: ReportModel,
   tree: RocketTree,
@@ -50,9 +47,8 @@ export async function downloadReportPdf(
     if (hooks.canceled?.()) return;
     if (Object.keys(fonts).length) page = draw(fonts);
   }
-  const notice = hooks.notice ?? appNotice;
-  if (page.lost) notice(t('report.fontFallback'));
-  else if (page.uncovered) notice(t('report.scriptUncovered'));
+  if (page.lost) hooks.notice?.(t('report.fontFallback'));
+  else if (page.uncovered) hooks.notice?.(t('report.scriptUncovered'));
   // saveBlob, not doc.save(): its `<a download>` click does nothing in an iOS PWA.
   await saveBlob(page.doc.output('blob'), exportFilename([model.name, 'report'], 'pdf'));
 }

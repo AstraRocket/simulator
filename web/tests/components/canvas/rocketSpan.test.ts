@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { rocketSpanM } from '../../../src/components/canvas/AftView';
+import { rocketSpanM } from '../../../src/components/canvas/aftScene';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
 const stage = (children: unknown[]): ComponentNode[] =>

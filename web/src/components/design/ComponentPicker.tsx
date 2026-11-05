@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   catalogTypeFor,
@@ -20,15 +20,10 @@ import {
   describeNotes,
   emptyQuery,
   fitRuleFor,
-  manufacturers,
-  materialFamilies,
-  noseShapes,
   queryComponents,
-  queryIsEmpty,
   type ComponentQuery,
   type FitContext,
   type Ranked,
-  type SortKey,
 } from '../../services/parts/componentFilter';
 import { confirm } from '../../state/confirmStore';
 import { fmtNum, fmtPercent } from '../../i18n/format';
@@ -38,10 +33,9 @@ import { useCatalogProgress } from '../common/CatalogLoading';
 import { Dialog } from '../common/Dialog';
 import { errorText } from '../../i18n/keyedError';
 import { progressPercent } from '../../services/app/remoteData';
-import { SortHeader } from '../common/SortHeader';
-import { UnitBound } from '../common/UnitBound';
 import { useAsyncLoad } from '../common/useAsyncLoad';
-import { Check } from '../common/Check';
+import { PickerFilters } from './PickerFilters';
+import { PickerTable, type Col, type CurrentPart } from './PickerTable';
 
 const ROW_CAP = 200;
 
@@ -52,19 +46,6 @@ async function loadRows(type: PickerType): Promise<Component[]> {
   const catalogType = catalogTypeFor(type);
   const [saved, catalog] = await Promise.all([customRowsForType(catalogType), componentsForType(catalogType)]);
   return [...saved, ...catalog];
-}
-
-export interface CurrentPart {
-  manufacturer?: string;
-  partNo?: string;
-}
-
-const sameText = (a: string | undefined, b: string | undefined): boolean =>
-  a != null && b != null && a.trim().toLowerCase() === b.trim().toLowerCase();
-
-/** Part numbers are unique only within a manufacturer, so both must match. */
-function isCurrent(part: Pick<Component, 'mfr' | 'partNo'>, current: CurrentPart | undefined): boolean {
-  return current != null && sameText(part.partNo, current.partNo) && sameText(part.mfr, current.manufacturer);
 }
 
 export function ComponentPicker({
@@ -86,7 +67,9 @@ export function ComponentPicker({
     ? { status: 'loading' }
     : rows.error !== null
       ? { status: 'error', message: rows.error }
-      : { status: 'ready', all: rows.data! };
+      : rows.data
+        ? { status: 'ready', all: rows.data }
+        : { status: 'loading' };
   const progress = useCatalogProgress('components');
   const pct = progressPercent(progress);
   const [open, setOpen] = useState(false);
@@ -124,20 +107,6 @@ export function ComponentPicker({
       )}
     </>
   );
-}
-
-interface Col {
-  key: string;
-  head: string;
-  sort?: SortKey;
-  num?: boolean;
-  /** Required on every column but the slack one: with `table-layout: auto` columns jump on every keystroke. */
-  w?: string;
-  hide?: string;
-  cell: (r: Ranked<Component>) => string;
-  title?: (r: Ranked<Component>) => string;
-  render?: (r: Ranked<Component>) => ReactNode;
-  headSrOnly?: boolean;
 }
 
 function columnsFor(type: ComponentType, u: Units, t: (k: string) => string, ranked: boolean): Col[] {
@@ -327,11 +296,6 @@ function PickerDialog({
 
   // Fit uses the node's type, columns the catalog's; they differ for an inner tube.
   const catType = catalogTypeFor(type);
-  const mfrs = useMemo(() => manufacturers(all), [all]);
-  const mats = useMemo(() => materialFamilies(all), [all]);
-  const shapes = useMemo(() => noseShapes(all), [all]);
-  // Legacy rows are hidden until checked, as desktop's chooser does.
-  const hasLegacy = useMemo(() => all.some((p) => p.legacy), [all]);
   const ranked = useMemo(() => queryComponents(all, q, type, fit), [all, q, type, fit]);
   const shown = ranked.slice(0, ROW_CAP);
   const baseCols = useMemo(() => columnsFor(catType, u, t, canFit), [catType, u, t, canFit]);
@@ -378,119 +342,13 @@ function PickerDialog({
       ]
     : baseCols;
 
-  const sortBy = (key: SortKey) => set(key === q.sort ? { dir: q.dir === 1 ? -1 : 1 } : { sort: key, dir: 1 });
-
   return (
     <Dialog
       id="componentPicker"
       title={t('picker.dialogTitle')}
       onClose={onClose}
       size="4xl"
-      toolbar={
-        <div className="flex flex-col gap-2 p-3">
-          <input
-            value={q.text}
-            onChange={(e) => set({ text: e.target.value })}
-            autoFocus
-            placeholder={t('picker.search')}
-            aria-label={t('picker.search')}
-            className="w-full rounded-lg bg-canvas px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-faint focus:outline-none focus:ring-accent-500"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={q.mfr}
-              onChange={(e) => set({ mfr: e.target.value })}
-              aria-label={t('picker.colMfr')}
-              className="rounded-lg bg-raised px-2 py-2 text-xs text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-            >
-              <option value="">{t('picker.allMfrs')}</option>
-              {mfrs.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            {mats.length > 1 && (
-              <select
-                value={q.material}
-                onChange={(e) => set({ material: e.target.value })}
-                aria-label={t('material.title')}
-                className="rounded-lg bg-raised px-2 py-2 text-xs text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-              >
-                <option value="">{t('picker.allMaterials')}</option>
-                {mats.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            )}
-            {shapes.length > 1 && (
-              <select
-                value={q.shape}
-                onChange={(e) => set({ shape: e.target.value })}
-                aria-label={t('prop.shape')}
-                className="rounded-lg bg-raised px-2 py-2 text-xs text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-              >
-                <option value="">{t('picker.allShapes')}</option>
-                {shapes.map((sh) => (
-                  <option key={sh} value={sh}>
-                    {t(`noseShape.${sh}`)}
-                  </option>
-                ))}
-              </select>
-            )}
-            <span className="flex items-center gap-1 text-xs text-ink-muted">
-              <span className="text-ink-faint">⌀</span>
-              <UnitBound
-                quantity="length"
-                value={q.odMin}
-                onChange={(si) => set({ odMin: si })}
-                placeholder={t('picker.odFrom')}
-                ariaLabel={t('picker.odFrom')}
-                className="w-16 rounded-md bg-canvas px-2 py-1.5 text-right tabular-nums text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-              />
-              <span aria-hidden="true">–</span>
-              <UnitBound
-                quantity="length"
-                value={q.odMax}
-                onChange={(si) => set({ odMax: si })}
-                placeholder={t('picker.odTo')}
-                ariaLabel={t('picker.odTo')}
-                className="w-16 rounded-md bg-canvas px-2 py-1.5 text-right tabular-nums text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-              />
-              <span className="text-ink-faint">{u.sym('length')}</span>
-            </span>
-            {canFit && (
-              <Check
-                checked={q.fitsOnly}
-                onChange={(v) => set({ fitsOnly: v })}
-                label={t('picker.fitsOnly')}
-                title={t('picker.fitsHint')}
-                className="text-xs text-ink-soft"
-              />
-            )}
-            {hasLegacy && (
-              <Check
-                checked={q.showLegacy}
-                onChange={(v) => set({ showLegacy: v })}
-                label={t('picker.showLegacy')}
-                className="text-xs text-ink-soft"
-              />
-            )}
-            {!queryIsEmpty(q) && (
-              <button
-                onClick={() =>
-                  set({ text: '', mfr: '', material: '', shape: '', odMin: null, odMax: null, fitsOnly: false })
-                }
-                className="ml-auto rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft hover:bg-elevated"
-              >
-                {t('picker.clear')}
-              </button>
-            )}
-          </div>
-        </div>
-      }
+      toolbar={<PickerFilters all={all} q={q} set={set} canFit={canFit} />}
       footer={
         <div className="p-2 text-center text-[11px] uppercase tracking-wide text-ink-faint">
           {ranked.length > shown.length
@@ -503,72 +361,7 @@ function PickerDialog({
         </div>
       }
     >
-      {/* `table-fixed`: see Col.w. */}
-      <table className="w-full table-fixed border-collapse text-sm">
-        <thead className="sticky top-0 z-10 bg-surface text-[11px] uppercase tracking-wide text-ink-muted">
-          <tr>
-            {cols.map((c) => (
-              <SortHeader
-                key={c.key}
-                className={`border-b border-line/10 px-2 py-2 font-medium ${c.num ? 'text-right' : 'text-left'} ${c.w ?? ''} ${c.hide ?? ''}`}
-                active={c.sort === q.sort}
-                dir={q.dir === 1 ? 1 : -1}
-                onSort={c.sort ? () => sortBy(c.sort!) : undefined}
-              >
-                {c.headSrOnly && !c.sort ? <span className="sr-only">{c.head}</span> : c.head}
-              </SortHeader>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((r, i) => (
-            <tr
-              key={r.part.id ?? `${r.part.mfr}:${r.part.partNo}:${i}`}
-              // Pointer only; the part-number button is the keyboard target. A button row would swallow delete.
-              onClick={() => onApply(r.part)}
-              aria-current={isCurrent(r.part, current) ? 'true' : undefined}
-              className={`cursor-pointer border-b border-line/5 hover:bg-raised focus-within:bg-raised ${
-                isCurrent(r.part, current) ? 'bg-raised font-semibold text-accent-300' : 'text-ink-soft'
-              }`}
-            >
-              {cols.map((c) => (
-                <td
-                  key={c.key}
-                  title={c.title?.(r) || undefined}
-                  className={`truncate px-2 py-1.5 ${c.num ? 'text-right tabular-nums' : ''} ${
-                    c.key === 'partNo' ? 'font-medium text-ink-strong' : ''
-                  } ${c.key === 'notes' || c.key === 'material' ? 'text-ink-faint' : ''} ${c.hide ?? ''}`}
-                >
-                  {c.key === 'partNo' ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // the row's own click would apply it twice
-                        onApply(r.part);
-                      }}
-                      aria-current={isCurrent(r.part, current) ? 'true' : undefined}
-                      className="max-w-full truncate text-left focus:outline-none focus-visible:underline"
-                    >
-                      {c.cell(r)}
-                    </button>
-                  ) : c.render ? (
-                    c.render(r)
-                  ) : (
-                    c.cell(r)
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-          {shown.length === 0 && (
-            <tr>
-              <td colSpan={cols.length} className="px-3 py-8 text-center text-sm text-ink-faint">
-                {t('picker.noResults')}
-                {q.fitsOnly && <div className="mt-1 text-xs text-ink-dim">{t('picker.fitsHint')}</div>}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      <PickerTable cols={cols} shown={shown} q={q} set={set} current={current} onApply={onApply} />
     </Dialog>
   );
 }

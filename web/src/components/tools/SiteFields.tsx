@@ -1,7 +1,6 @@
 import { useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
-import type { LaunchConditions } from '../../services/design/orkTree';
 import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { LocationPicker } from '../sim/LocationPicker';
 import { loadSettings } from '../../services/storage/settings';
@@ -72,7 +71,7 @@ export function SiteFields({
   return (
     <>
       <LocationPicker
-        launch={site as unknown as LaunchConditions}
+        launch={site}
         defaultSite={() => defaultToolSite(loadSettings().launchDefaults)}
         onChange={(p) =>
           onChange((s) => ({

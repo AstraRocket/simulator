@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, waitFor, within } from '@testing-library/react';
-import { ComponentPicker, type CurrentPart } from '../../../src/components/design/ComponentPicker';
+import { ComponentPicker } from '../../../src/components/design/ComponentPicker';
+import type { CurrentPart } from '../../../src/components/design/PickerTable';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { serveData } from '../../testing/serveData';
 import type { PickerType } from '../../../src/services/parts/componentDb';

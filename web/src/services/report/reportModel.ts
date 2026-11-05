@@ -1,12 +1,13 @@
 import { chargeRows, type ChargeRow } from '../flight/recoveryCharges';
 import { designBays, type DesignBay } from '../flight/recoveryBays';
 import type { ComponentNode, OpenRocketDesign, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
-import { useWorkspaceStore, selectConfig, selectOutdated, configOf } from '../../state/store';
 import { buildConfiguredRocket, buildKey } from '../design/buildRocket';
 import { isRecoveryDevice } from '../design/treeEdit';
 import { MATERIAL_KEYS } from '../design/materialSlots';
 import { activateThrough, stageIdsByTopStage } from '../design/stageStack';
 import { liveMotors, type FlightConfig } from '../flight/flightConfigs';
+import type { Simulation } from '../flight/simulations';
+import type { LoadedMeta } from '../files/wireLoadedOrk';
 import { motorStats, type MotorStats } from './rocketReport';
 import { numOpt } from '../../tree/nodeProps';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
@@ -230,9 +231,21 @@ export function configMotors(
     .map(([id, m]) => ({ ...motorStats(m.spec), loadedMass: massThrough(stageOf.get(id) ?? last) }));
 }
 
+export interface ReportSource {
+  tree: RocketTree;
+  info: StaticInfo | null;
+  rocket: OpenRocketDesign | null;
+  loadedMeta: LoadedMeta | null;
+  sims: readonly Simulation[];
+  flownConfig: () => FlightConfig;
+  configOf: (sim: Simulation) => FlightConfig;
+  isOutdated: (sim: Simulation) => boolean;
+  applyBuild: (info: StaticInfo | null, rocket: OpenRocketDesign | null) => void;
+  setErr: (message: string) => void;
+}
+
 // A caller inside render must pass `install`: the default store write updates subscribers mid-render.
-export function assembleReport(install?: (built: ReportBuild) => void): ReportModel | null {
-  const s = useWorkspaceStore.getState();
+export function assembleReport(s: ReportSource, install?: (built: ReportBuild) => void): ReportModel | null {
   const { tree, info, rocket } = s;
   if (!info || !rocket) return null;
   const name = designNameOf(tree, s.loadedMeta);
@@ -255,7 +268,7 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
   }));
 
   const whole: Summary = { label: name, info };
-  const flown = selectConfig(s);
+  const flown = s.flownConfig();
   const flownKey = buildKey(tree, flown);
 
   let rebuilt = false;
@@ -274,12 +287,12 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
             }))
           : stageList.map((st, i) => ({ label: stageName(st, i), info }));
       const configs: MotorConfig[] = s.sims.map((sim) => {
-        const config = configOf(s.configs, sim);
+        const config = s.configOf(sim);
         return {
           name: sim.name,
           motors: configMotors(tree, config, build, buildKey(tree, config) === flownKey ? info.mass : undefined),
           flight: sim.result ? sim.result.summary : null,
-          outdated: sim.result ? selectOutdated(s, sim) : false,
+          outdated: sim.result ? s.isOutdated(sim) : false,
         };
       });
       return { stageSummaries, configs };

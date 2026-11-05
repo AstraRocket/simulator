@@ -1,4 +1,4 @@
-import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
+import type { ComponentInfo, ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_DEFAULTS, KERNEL_DEPLOYMENT, KERNEL_SEPARATION } from '../../tree/kernelDefaults';
 import { MAX_CANT, MAX_FIN_COUNT, MAX_INSTANCE_COUNT, MAX_LINE_COUNT, num, str } from '../../tree/nodeProps';
 import { shapeIsClippable, shapeParamDefault, shapeParamMax, shapeUsesParameter } from '../../tree/shapeProfile';
@@ -63,7 +63,9 @@ export function fieldOptions(
 }
 
 /** Never written back to the node; on Auto the panel shows the kernel's figure. */
-export const KERNEL_AUTO_KEYS: ReadonlySet<string> = new Set(['cordLength', 'lineLength', 'cd']);
+const KERNEL_AUTO = ['cordLength', 'lineLength', 'cd'] as const satisfies readonly (keyof ComponentInfo)[];
+const KERNEL_AUTO_KEYS: ReadonlySet<string> = new Set(KERNEL_AUTO);
+export const isKernelAutoKey = (key: string): key is (typeof KERNEL_AUTO)[number] => KERNEL_AUTO_KEYS.has(key);
 
 export function liveBounds(f: Field, tabDepth: number | null): DimensionBounds | undefined {
   return f.key === 'tabHeight' && tabDepth != null && Number.isFinite(tabDepth)

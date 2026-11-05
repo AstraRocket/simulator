@@ -78,7 +78,7 @@ export function stageEngineSlots(
     // One engine per stage: the first mount wins, as SimulationListDTO.findMotorMount.
     const mounts = [...walkNodes(st.children ?? [])].filter((n) => n.id && motors[n.id]);
     const mount = mounts[0];
-    const found = mount ? motors[mount.id!] : undefined;
+    const found = mount?.id ? motors[mount.id] : undefined;
     const abbrev = found && engineOn ? rasaeroManufacturerAbbrev(found.manufacturer) : null;
     return {
       engine: found && abbrev ? `${found.designation}  (${abbrev})` : null,

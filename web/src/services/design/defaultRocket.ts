@@ -121,12 +121,12 @@ function fromPreset(row: PresetRow): Record<string, unknown> {
   return { ...link, ...mat };
 }
 
-function tube(row: PresetRow): Record<string, unknown> {
+function tube(row: PresetRow & Required<Pick<PresetRow, 'outerDiameter' | 'innerDiameter'>>): Record<string, unknown> {
   return {
     ...fromPreset(row),
     length: row.length,
-    outerRadius: row.outerDiameter! / 2,
-    thickness: (row.outerDiameter! - row.innerDiameter!) / 2,
+    outerRadius: row.outerDiameter / 2,
+    thickness: (row.outerDiameter - row.innerDiameter) / 2,
     // Pinned: an automatic radius would be resolved over the part (see pinStated).
     outerRadiusAuto: false,
   };

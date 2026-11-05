@@ -1,6 +1,4 @@
 import type { ComponentNode, ComponentPosition, RocketTree } from '../engine/openRocketEngine';
-import { num } from './nodeProps';
-import { tabOffsetAt, tabPosition } from './finPlanform';
 import { axialLength, axialStart, layStages, partLength, stacksInParent, startFromPosition } from './position';
 
 // A method change keeps the part in place, as `setAxialMethod` and `setTabOffsetMethod` do.
@@ -60,13 +58,4 @@ export function rebasePosition(
           ? rel + (childLen - parent.length)
           : rel;
   return { method, offset };
-}
-
-/** As `FinSet.setTabOffsetMethod`. An unset method is the kernel default, middle. */
-export function rebaseTabOffset(node: ComponentNode, method: string): Partial<ComponentNode> {
-  const from = typeof node['tabOffsetMethod'] === 'string' ? node['tabOffsetMethod'] : 'middle';
-  const tabLen = num(node, 'tabLength', 0);
-  const root = axialLength(node);
-  const front = tabPosition(num(node, 'tabOffset', 0), tabLen, root, from);
-  return { tabOffsetMethod: method, tabOffset: tabOffsetAt(front, tabLen, root, method) };
 }

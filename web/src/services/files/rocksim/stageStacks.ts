@@ -25,9 +25,9 @@ export function stageStacks(
   grounded: (id: string) => boolean,
 ): StageFigures[] | undefined {
   const stages = tree.components.filter((n) => n.type === 'stage');
-  const ids = stages.map((s) => s.id);
-  if (stages.length === 0 || ids.some((id) => typeof id !== 'string')) return undefined;
-  const only = (active: (i: number) => boolean) => ids.forEach((id, i) => build.setStageActiveById(id!, active(i)));
+  const ids = stages.map((s) => s.id).filter((id): id is string => typeof id === 'string');
+  if (stages.length === 0 || ids.length !== stages.length) return undefined;
+  const only = (active: (i: number) => boolean) => ids.forEach((id, i) => build.setStageActiveById(id, active(i)));
   try {
     return stages.slice(0, STAGE_ELEMENTS.length).map((_, i) => {
       only((j) => j === i);

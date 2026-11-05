@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '../../state/store';
 import { useUnits } from '../../prefs/useUnits';
 import { APP_VERSION, designNameOf } from '../../services/app/appInfo';
 import type { ExportData } from '../../services/exports/schematicExport';
-import { rocketSpanM } from './AftView';
+import { rocketSpanM } from './aftScene';
 
 export function useExportData(motors: object): ExportData {
   const loadedMeta = useWorkspaceStore((s) => s.loadedMeta);

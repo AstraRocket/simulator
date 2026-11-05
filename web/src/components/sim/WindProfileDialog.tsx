@@ -1,101 +1,19 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { LaunchConditions, LaunchPatch, WindLevel } from '../../services/design/orkTree';
-import { NumberInput } from '../common/NumberInput';
-import { markRing } from '../common/FieldMark';
+import type { LaunchConditions, LaunchPatch } from '../../services/design/orkTree';
 import { Dialog } from '../common/Dialog';
-import { useUnits, type Units } from '../../prefs/useUnits';
-import { onSi } from '../../prefs/entryValue';
-import { MAX_TURBULENCE_PERCENT, MAX_WIND_SPEED_MS } from '../../services/flight/safetyLimits';
-import {
-  retuneStdDev,
-  stdDevForIntensity,
-  turbulenceIntensity,
-  turbulenceLevel,
-} from '../../services/flight/windTurbulence';
-import { parseWindProfileCsv, WindProfileCsvError } from '../../services/flight/windProfileCsv';
-import { duplicateAltitudeRows, levelFromAverage } from '../../services/flight/windLevels';
-import { useLatest } from '../common/useLatest';
-import { fmtNum, shortDigits } from '../../i18n/format';
-import { readFileText } from '../../services/files/decodeText';
-import { degToRad, radToDeg } from '../../prefs/units';
-import { DEFAULT_HEADING_DEG } from '../../services/flight/windLevels';
+import { useUnits } from '../../prefs/useUnits';
+import { levelFromAverage } from '../../services/flight/windLevels';
 import { Check } from '../common/Check';
-import { useFilePick } from '../common/useFilePick';
-import { polylinePath } from '../common/svgPath';
 import { useSettings } from '../../state/SettingsProvider';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { smallButton } from '../common/smallButton';
 import { RadioGroup } from '../common/RadioGroup';
+import { ProfileChart } from './WindProfileChart';
+import { WindLevelTable } from './WindLevelTable';
+import { useWindLevels } from './useWindLevels';
 
-const cell = 'rounded bg-raised px-1 py-1 text-right text-xs tabular-nums text-ink-strong ring-1 ring-line/10';
 const btn = smallButton('row', 'soft');
-
-function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Units; showVectors: boolean }) {
-  const W = 260;
-  const H = 240;
-  const padL = 44;
-  const padR = 16;
-  const padT = 12;
-  const padB = 36;
-
-  const speeds = levels.map((l) => u.toUi('windspeed', l.speed));
-  const alts = levels.map((l) => u.toUi('distance', l.altitudeM));
-  // Pad a flat profile's zero span, which would divide by zero.
-  const sMax = Math.max(...speeds, 0);
-  const aMin = Math.min(...alts, 0);
-  const aMax = Math.max(...alts, 0);
-  const sHi = sMax > 0 ? sMax * 1.2 : 1;
-  const aSpan = aMax - aMin;
-  const aHi = aSpan > 0 ? aMax + aSpan * 0.1 : aMin + 1;
-
-  const X = (s: number) => padL + (s / sHi) * (W - padL - padR);
-  const Y = (a: number) => H - padB - ((a - aMin) / (aHi - aMin)) * (H - padT - padB);
-
-  const pts = levels
-    .map((l, i) => ({ x: X(speeds[i]!), y: Y(alts[i]!), dir: l.directionDeg }))
-    .sort((a, b) => b.y - a.y);
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
-      <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="currentColor" className="text-ink-dim" />
-      <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="currentColor" className="text-ink-dim" />
-      {pts.length > 1 && (
-        <path
-          d={polylinePath(pts.map((p) => [p.x, p.y]))}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          className="text-accent-500"
-        />
-      )}
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r={3} className="fill-accent-400" />
-          {showVectors && (
-            // Screen-space: 0 degrees points up the page.
-            <g transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.dir})`}>
-              <line x1={0} y1={0} x2={0} y2={-14} stroke="currentColor" strokeWidth={1} className="text-accent-300" />
-              <path d="M -2.5 -10 L 0 -15 L 2.5 -10 Z" className="fill-accent-300" />
-            </g>
-          )}
-        </g>
-      ))}
-      <text x={4} y={padT + 8} className="fill-ink-faint text-[9px]">
-        {u.sym('distance')}
-      </text>
-      <text x={W - padR} y={H - 6} textAnchor="end" className="fill-ink-faint text-[9px]">
-        {u.sym('windspeed')}
-      </text>
-      <text x={padL} y={H - padB + 12} textAnchor="middle" className="fill-ink-faint text-[9px]">
-        0
-      </text>
-      <text x={W - padR} y={H - padB + 12} textAnchor="end" className="fill-ink-faint text-[9px]">
-        {fmtNum(sHi, shortDigits(sHi))}
-      </text>
-    </svg>
-  );
-}
 
 export function WindProfileDialog({
   launch,
@@ -114,84 +32,9 @@ export function WindProfileDialog({
   const u = useUnits();
   const { settings } = useSettings();
   const [showVectors, setShowVectors] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  // Which CSV import is current: a file read outlives this dialog.
-  const csvImport = useLatest();
-
-  const levels = launch.windLevels ?? [];
-  // Index keys would shift the typed field after a delete; an outside change (undo)
-  // shows as a length mismatch and falls back to index keys.
-  const [rowIds, setRowIds] = useState<number[]>(() => levels.map((_, i) => i));
-  const nextId = () => rowIds.reduce((m, id) => Math.max(m, id), -1) + 1;
   const reference = launch.windAltitudeReference ?? 'msl';
-  // Only the lowest layer carries the pad-wind cap; lowest altitude, since the list is not sorted.
-  const surfaceLevel = levels.length
-    ? levels.reduce((lowIdx, l, i) => (l.altitudeM < levels[lowIdx]!.altitudeM ? i : lowIdx), 0)
-    : -1;
-  const windCap = (i: number) => (i === surfaceLevel ? u.toUi('windspeed', MAX_WIND_SPEED_MS) : undefined);
-  // Flagged, not prevented: typing 3000 over 300 passes through collisions.
-  const dupeRows = new Set(duplicateAltitudeRows(levels));
-
-  const setLevels = (next: WindLevel[]) => onChange({ windLevels: next.length ? next : undefined });
-  const replaceLevels = (next: WindLevel[]) => {
-    const base = nextId();
-    setRowIds(next.map((_, i) => base + i));
-    setLevels(next);
-  };
-  const patchLevel = (i: number, p: Partial<WindLevel>) => {
-    if (Object.values(p).some((v) => !Number.isFinite(v))) return;
-    setLevels(levels.map((l, j) => (j === i ? { ...l, ...p } : l)));
-  };
-  const removeLevel = (i: number) => {
-    setRowIds(rowIds.filter((_, j) => j !== i));
-    setLevels(levels.filter((_, j) => j !== i));
-  };
-  const addLevel = () => {
-    const last = levels[levels.length - 1];
-    setRowIds([...rowIds, nextId()]);
-    setLevels([
-      ...levels,
-      {
-        // Above the highest level, not the last row: the list is not sorted.
-        altitudeM: Math.max(0, ...levels.map((l) => l.altitudeM)) + 300,
-        speed: last?.speed ?? 0,
-        directionDeg: last?.directionDeg ?? DEFAULT_HEADING_DEG,
-        stddev: last?.stddev ?? 0,
-      },
-    ]);
-  };
-
-  // Retuning per keystroke would pass through the "0" of "0.5" and zero the turbulence.
-  const [speedEditBase, setSpeedEditBase] = useState<{ row: number; speed: number; stddev: number } | null>(null);
-  const setSpeed = (i: number, speed: number) => {
-    const l = levels[i]!;
-    let base = speedEditBase;
-    if (base?.row !== i) {
-      base = { row: i, speed: l.speed, stddev: l.stddev };
-      setSpeedEditBase(base);
-    }
-    // As `LevelWindModel.setSpeed`: turbulence keeps its fraction, not its m/s.
-    patchLevel(i, { speed, stddev: retuneStdDev(base.speed, base.stddev, speed) });
-  };
-
-  const importCsv = async (file: File) => {
-    const mine = csvImport.claim();
-    try {
-      const levels = parseWindProfileCsv(await readFileText(file));
-      if (!mine()) return;
-      replaceLevels(levels);
-      setError(null);
-      onCommit?.();
-    } catch (e) {
-      if (!mine()) return;
-      setError(
-        e instanceof WindProfileCsvError
-          ? t(`windProfile.csv.${e.key}`, { line: e.line })
-          : t('windProfile.csv.unreadable'),
-      );
-    }
-  };
-  const levelsFile = useFilePick({ accept: '.csv,text/csv', onFile: (f) => void importCsv(f) });
+  const wind = useWindLevels({ launch, onChange, onCommit });
+  const { levels, dupeRows, replaceLevels, addLevel, setSpeedEditBase, error, setError, levelsFile } = wind;
 
   return (
     <Dialog
@@ -220,101 +63,7 @@ export function WindProfileDialog({
         )}
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
           <div className="min-w-0">
-            <div className="flex gap-1 px-1 pb-1 text-[10px] uppercase tracking-wide text-ink-faint">
-              <span className="w-20">
-                {t('windProfile.altitude')} {t(`windProfile.${reference}Short`)} ({u.sym('distance')})
-              </span>
-              <span className="w-16">
-                {t('launch.speed')} ({u.sym('windspeed')})
-              </span>
-              <span className="w-14">
-                {t('launch.direction')} ({u.sym('angle')})
-              </span>
-              <span className="w-16">
-                {t('windProfile.deviation')} ({u.sym('windspeed')})
-              </span>
-              <span className="w-14">{t('windProfile.turbulence')} (%)</span>
-              <span className="w-20">{t('windProfile.intensity')}</span>
-              <span className="w-6" />
-            </div>
-
-            {!levels.length && <p className="px-1 py-3 text-xs text-ink-faint">{t('windProfile.noLevels')}</p>}
-
-            <div className="max-h-[320px] space-y-1 overflow-y-auto">
-              {levels.map((l, i) => {
-                const intensity = turbulenceIntensity(l.speed, l.stddev);
-                const key = rowIds.length === levels.length ? `id-${rowIds[i]}` : `i-${i}`;
-                return (
-                  <div key={key} className="flex items-center gap-1">
-                    <NumberInput
-                      step={u.step('distance', 50)}
-                      min={0}
-                      ariaLabel={t('windProfile.levelField', { field: t('windProfile.altitude'), n: i + 1 })}
-                      value={u.toUi('distance', l.altitudeM)}
-                      // No `?? 0`: an emptied box must not move the layer onto the pad.
-                      onChange={onSi(u.plain('distance'), (si) => si !== null && patchLevel(i, { altitudeM: si }))}
-                      invalid={dupeRows.has(i)}
-                      // `markRing`: Tailwind's emit order, not string order, decides which ring wins.
-                      className={markRing(`${cell} w-20`, dupeRows.has(i))}
-                    />
-                    <NumberInput
-                      step={u.step('windspeed', 0.5)}
-                      min={0}
-                      max={windCap(i)}
-                      ariaLabel={t('windProfile.levelField', { field: t('launch.speed'), n: i + 1 })}
-                      value={u.toUi('windspeed', l.speed)}
-                      // A cleared box writes nothing rather than still air.
-                      onChange={onSi(u.plain('windspeed'), (si) => si !== null && setSpeed(i, si))}
-                      className={`${cell} w-16`}
-                    />
-                    <NumberInput
-                      step={u.step('angle', degToRad(5))}
-                      ariaLabel={t('windProfile.levelField', { field: t('launch.direction'), n: i + 1 })}
-                      value={u.toUi('angle', degToRad(l.directionDeg))}
-                      onChange={onSi(
-                        u.plain('angle'),
-                        (si) => patchLevel(i, { directionDeg: si ?? 0 }),
-                        // Stored in degrees, like the `.ork`'s wind direction.
-                        (si) => radToDeg(si),
-                      )}
-                      className={`${cell} w-14`}
-                    />
-                    <NumberInput
-                      step={u.step('windspeed', 0.5)}
-                      min={0}
-                      max={windCap(i)}
-                      ariaLabel={t('windProfile.levelField', { field: t('windProfile.deviation'), n: i + 1 })}
-                      value={u.toUi('windspeed', l.stddev)}
-                      onChange={onSi(u.plain('windspeed'), (si) => patchLevel(i, { stddev: si ?? 0 }))}
-                      className={`${cell} w-16`}
-                    />
-                    <NumberInput
-                      step={1}
-                      min={0}
-                      max={MAX_TURBULENCE_PERCENT}
-                      ariaLabel={t('windProfile.levelField', { field: t('windProfile.turbulence'), n: i + 1 })}
-                      value={Math.round(intensity * 100)}
-                      onChange={(v) => patchLevel(i, { stddev: stdDevForIntensity(l.speed, (v ?? 0) / 100) })}
-                      className={`${cell} w-14`}
-                    />
-                    <span className="w-20 truncate text-[11px] text-ink-muted">
-                      {t(`launch.turbulenceLevel.${turbulenceLevel(intensity)}`)}
-                    </span>
-                    <button
-                      onClick={() => {
-                        removeLevel(i);
-                        onCommit?.();
-                      }}
-                      title={t('launch.removeLevel')}
-                      aria-label={t('windProfile.removeLevelN', { n: i + 1 })}
-                      className="w-6 rounded bg-danger-500/15 py-1 text-xs text-danger-300 ring-1 ring-danger-500/30"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+            <WindLevelTable wind={wind} reference={reference} onCommit={onCommit} />
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button

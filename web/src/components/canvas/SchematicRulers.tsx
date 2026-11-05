@@ -1,6 +1,134 @@
+import { useMemo } from 'react';
 import { useUnits } from '../../prefs/useUnits';
+import { tickDigits } from '../../i18n/format';
+import {
+  isZoomIdentity,
+  niceRulerStep,
+  rulerGraduations,
+  RULER_H,
+  RULER_W,
+  type ZoomState,
+} from '../../tree/schematicGeometry';
+import { token } from '../common/colorTokens';
 
-export function LengthRuler({
+export interface RulerSides {
+  top: boolean;
+  bottom: boolean;
+  left: boolean;
+  right: boolean;
+}
+
+const CORNER_GAP = 5;
+
+/** viewBox px the length rulers run between, which the calipers stop at too. */
+export const rulerSpan = (rulers: RulerSides, w: number) => ({
+  rulerX0: rulers.left ? RULER_W - 4 + CORNER_GAP : 2,
+  rulerX1: rulers.right ? w - RULER_W + 4 - CORNER_GAP : w - 2,
+});
+
+export function SchematicRulerLayer({
+  rulers,
+  w,
+  h,
+  zoom,
+  ctxX0,
+  viewScale,
+  rTop,
+  rBot,
+}: {
+  rulers: RulerSides;
+  w: number;
+  h: number;
+  zoom: ZoomState;
+  ctxX0: number;
+  // Screen px per meter.
+  viewScale: number;
+  rTop: number;
+  rBot: number;
+}) {
+  const u = useUnits();
+  const { rulerX0, rulerX1 } = rulerSpan(rulers, w);
+  const showLen = rulers.top || rulers.bottom;
+  const showRad = rulers.left || rulers.right;
+  const zoomed = !isZoomIdentity(zoom);
+  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / viewScale));
+  const rulerStep = u.fromUi('length', rulerStepUi);
+  // The step's own decimals, so a 2.5 step labels 2.5 and 7.5 rather than 3 and 8.
+  const rulerDigits = tickDigits(rulerStepUi, 0, 3);
+  const frameTopY = rulers.top ? RULER_H - 4 + CORNER_GAP : 2;
+  const frameBotY = rulers.bottom ? h - RULER_H + 4 - CORNER_GAP : h - 2;
+  const vTop = rTop + 4;
+  const vBot = h - rBot - 4;
+  const vSpanM = (vBot - vTop) / viewScale;
+  // Read out first so the memo keys on numbers; reading `ctxX0` inside, the compiler refuses to preserve it.
+  const x0 = zoom.x + zoom.k * ctxX0;
+  const vy0 = zoom.y + zoom.k * vTop;
+  const { rulerMarks, vTicks, rulerMinorMarks, vMinorTicks } = useMemo(
+    () => rulerGraduations({ showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale: viewScale, vSpanM, vTop, vy0 }),
+    [showLen, showRad, rulerStep, rulerX0, rulerX1, x0, viewScale, vSpanM, vTop, vy0],
+  );
+  const lengthRulerProps = { x0: rulerX0, x1: rulerX1, ctxX0: x0, scale: viewScale, rulerStep, rulerDigits };
+  const radialRulerProps = { frameTopY, frameBotY, vTop, originY: vy0, scale: viewScale, rulerStep, rulerDigits };
+
+  return (
+    <>
+      {zoomed && (
+        <g pointerEvents="none" fill={token('surface')} opacity={0.9}>
+          {rulers.top && <rect x={0} y={0} width={w} height={RULER_H} />}
+          {rulers.bottom && <rect x={0} y={h - RULER_H} width={w} height={RULER_H} />}
+          {rulers.left && <rect x={0} y={0} width={RULER_W} height={h} />}
+          {rulers.right && <rect x={w - RULER_W} y={0} width={RULER_W} height={h} />}
+        </g>
+      )}
+      {rulers.bottom && (
+        <LengthRuler
+          {...lengthRulerProps}
+          baseY={h - RULER_H + 4}
+          dir={1}
+          labelY={h - 3}
+          unitY={h - 3}
+          marks={rulerMarks}
+          minorMarks={rulerMinorMarks}
+        />
+      )}
+      {rulers.top && (
+        <LengthRuler
+          {...lengthRulerProps}
+          baseY={RULER_H - 4}
+          dir={-1}
+          labelY={11}
+          unitY={11}
+          marks={rulerMarks}
+          minorMarks={rulerMinorMarks}
+        />
+      )}
+      {rulers.right && vTicks.length > 0 && (
+        <RadialRuler
+          {...radialRulerProps}
+          baseX={w - RULER_W + 4}
+          dir={1}
+          labelX={w - RULER_W + 20}
+          anchor="start"
+          ticks={vTicks}
+          minorTicks={vMinorTicks}
+        />
+      )}
+      {rulers.left && vTicks.length > 0 && (
+        <RadialRuler
+          {...radialRulerProps}
+          baseX={RULER_W - 4}
+          dir={-1}
+          labelX={RULER_W - 20}
+          anchor="end"
+          ticks={vTicks}
+          minorTicks={vMinorTicks}
+        />
+      )}
+    </>
+  );
+}
+
+function LengthRuler({
   baseY,
   dir,
   labelY,
@@ -69,7 +197,7 @@ function isHalfStep(m: number, rulerStep: number): boolean {
   return Math.abs(((((m / rulerStep) % 1) + 1) % 1) - 0.5) < 0.02;
 }
 
-export function RadialRuler({
+function RadialRuler({
   baseX,
   dir,
   labelX,

@@ -2,21 +2,16 @@ import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
-import { useUnits } from '../../prefs/useUnits';
-import { partLabel, tickDigits } from '../../i18n/format';
+import { partLabel } from '../../i18n/format';
 import type { ExportData } from '../../services/exports/schematicExport.js';
 import {
   computeSchematicLayout,
-  niceRulerStep,
-  rulerGraduations,
   RULER_H,
   RULER_W,
-  snapNear,
   ZOOM_IDENTITY,
   zoomStep,
   MAX_ZOOM,
   WHEEL_ZOOM_FACTOR,
-  isZoomIdentity,
   type MotorDims,
 } from '../../tree/schematicGeometry';
 import { buildSchematicShapes, SchematicDefs } from './schematicShapes';
@@ -26,18 +21,18 @@ import { HorizontalCaliper, VerticalCaliper } from './SchematicCalipers';
 import { SchematicControls } from './SchematicControls';
 import { ZoomButtons } from './ZoomButtons';
 import { HoverOverlay, StabilityOverlay } from './SchematicOverlay';
-import { LengthRuler, RadialRuler } from './SchematicRulers';
+import { rulerSpan, SchematicRulerLayer, type RulerSides } from './SchematicRulers';
+import { useSchematicDrag } from './useSchematicDrag';
 import { useElementResize } from '../common/useElementResize';
-import { token } from '../common/colorTokens';
-
-// Client px; a physical click jitters 1-3 px.
-const PAN_SLOP = 4;
 
 // Module scope so memo dependencies keep one identity.
 const DEFAULT_RULERS = { top: true, bottom: false, left: true, right: false };
 const WHEEL_ZOOM = { factor: WHEEL_ZOOM_FACTOR, max: MAX_ZOOM };
 const ZOOM_CLEAR = 36; // px
 
+// Left at this length on purpose: dragging, rulers, overlays and part drawing already live elsewhere.
+// What remains is the layout and the zoom and hover state those parts share, so another split would only move lines.
+// eslint-disable-next-line max-lines-per-function -- its parts already live elsewhere; see the comment above
 export function TreeSchematic({
   tree,
   info,
@@ -68,7 +63,7 @@ export function TreeSchematic({
   onRoll?: (deltaRadians: number) => void;
   controlsSlot?: HTMLElement | null;
   showMarkers?: boolean;
-  rulers?: { top: boolean; bottom: boolean; left: boolean; right: boolean };
+  rulers?: RulerSides;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -77,111 +72,15 @@ export function TreeSchematic({
   const [hoverId, setHoverId] = useState<string | null>(null);
   // viewBox px
   const [zoom, setZoom] = useState(ZOOM_IDENTITY);
-  // Model meters: H is x, V is radial offset from the centerline.
-  const [caliperH, setCaliperH] = useState<{ a: number; b: number } | null>(null);
-  const [caliperV, setCaliperV] = useState<{ a: number; b: number } | null>(null);
-  const caliperDrag = useRef<{ axis: 'h' | 'v'; end: 'a' | 'b' } | null>(null);
   const { t } = useTranslation();
-  const u = useUnits();
-  const pan = useRef<{ pointerX: number; pointerY: number; x0: number; y0: number; active: boolean } | null>(null);
 
   const layout = useMemo(
     () => computeSchematicLayout(tree, info, { chPx, cw, maxHeight, fillHeight, rulers }),
     [tree, info, chPx, cw, maxHeight, fillHeight, rulers],
   );
-  const { chain, totalLen, maxR, vHalf, snapXs, radialSnaps, rTop, rBot, w, h, scale, ctx } = layout;
-
-  // Arms only: capturing on press would land the click on the <svg>, not the part.
-  const beginPan = (e: React.PointerEvent) => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    pan.current = { pointerX: e.clientX, pointerY: e.clientY, x0: zoom.x, y0: zoom.y, active: false };
-  };
-
-  // Meters.
-  const clientToModelX = (clientX: number): number => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || !rect.width) return 0;
-    const viewBoxX = ((clientX - rect.left) / rect.width) * w;
-    return ((viewBoxX - zoom.x) / zoom.k - ctx.x0) / scale;
-  };
-  // Meters, + up.
-  const clientToModelY = (clientY: number): number => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || !rect.height) return 0;
-    const viewBoxY = ((clientY - rect.top) / rect.height) * h;
-    return (ctx.cy - (viewBoxY - zoom.y) / zoom.k) / scale;
-  };
-
-  const beginCaliperDrag = (axis: 'h' | 'v', end: 'a' | 'b') => (e: React.PointerEvent) => {
-    e.stopPropagation();
-    caliperDrag.current = { axis, end };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  };
-
-  const caliperKeys = (axis: 'h' | 'v', end: 'a' | 'b') => (e: React.KeyboardEvent) => {
-    const step = (e.shiftKey ? 0.01 : 0.001) * (e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 1);
-    const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key);
-    if (!isArrow && e.key !== 'Home' && e.key !== 'End') return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (axis === 'h') {
-      setCaliperH((c) => {
-        if (!c) return c;
-        const next = e.key === 'Home' ? 0 : e.key === 'End' ? totalLen : c[end] + step;
-        return { ...c, [end]: Math.max(0, Math.min(totalLen, next)) };
-      });
-    } else {
-      setCaliperV((c) => {
-        if (!c) return c;
-        const next = e.key === 'Home' ? -vHalf : e.key === 'End' ? vHalf : c[end] + step;
-        return { ...c, [end]: Math.max(-vHalf, Math.min(vHalf, next)) };
-      });
-    }
-  };
-
-  const onMove = (e: React.PointerEvent) => {
-    if (caliperDrag.current) {
-      const { axis, end } = caliperDrag.current;
-      const eps = 6 / (scale * zoom.k); // 6 screen px
-      if (axis === 'h') {
-        const mx = Math.max(0, Math.min(totalLen, snapNear(clientToModelX(e.clientX), snapXs, eps)));
-        setCaliperH((c) => (c ? { ...c, [end]: mx } : c));
-      } else {
-        const raw = clientToModelY(e.clientY);
-        const mag = snapNear(Math.abs(raw), radialSnaps, eps);
-        const my = Math.max(-vHalf, Math.min(vHalf, Math.sign(raw || 1) * mag));
-        setCaliperV((c) => (c ? { ...c, [end]: my } : c));
-      }
-      return;
-    }
-    const p = pan.current;
-    if (p) {
-      const dx = e.clientX - p.pointerX;
-      const dy = e.clientY - p.pointerY;
-      if (!p.active) {
-        if (Math.abs(dx) < PAN_SLOP && Math.abs(dy) < PAN_SLOP) return;
-        p.active = true;
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-      }
-      if (onRoll && zoom.k <= 1) {
-        const r = svgRef.current?.getBoundingClientRect();
-        const width = r && r.width ? r.width : 400;
-        onRoll((dx / width) * 2 * Math.PI);
-        p.pointerX = e.clientX;
-        return;
-      }
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0) return;
-      const clientScale = w / rect.width;
-      setZoom((z) => ({ ...z, x: p.x0 + dx * clientScale, y: p.y0 + dy * clientScale }));
-    }
-  };
-
-  const endDrag = () => {
-    pan.current = null;
-    caliperDrag.current = null;
-  };
+  const { chain, totalLen, maxR, vHalf, rTop, rBot, w, h, scale, ctx } = layout;
+  const { caliperH, setCaliperH, caliperV, setCaliperV, beginPan, beginCaliperDrag, caliperKeys, onMove, endDrag } =
+    useSchematicDrag({ svgRef, layout, zoom, setZoom, onRoll });
 
   useElementResize(wrapRef, (_r, el) => {
     if (el.clientWidth > 0) setCw(el.clientWidth);
@@ -233,33 +132,10 @@ export function TreeSchematic({
       }
     : null;
 
-  const showLen = rulers.top || rulers.bottom;
-  const showRad = rulers.left || rulers.right;
   // Screen px per meter.
   const viewScale = scale * zoom.k;
-  const zoomed = !isZoomIdentity(zoom);
   const viewCtx = { ...ctx, x0: zoom.x + zoom.k * ctx.x0, cy: zoom.y + zoom.k * ctx.cy };
-  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / viewScale));
-  const rulerStep = u.fromUi('length', rulerStepUi);
-  // The step's own decimals, so a 2.5 step labels 2.5 and 7.5 rather than 3 and 8.
-  const rulerDigits = tickDigits(rulerStepUi, 0, 3);
-  const CORNER_GAP = 5;
-  const rulerX0 = rulers.left ? RULER_W - 4 + CORNER_GAP : 2;
-  const rulerX1 = rulers.right ? w - RULER_W + 4 - CORNER_GAP : w - 2;
-  const frameTopY = rulers.top ? RULER_H - 4 + CORNER_GAP : 2;
-  const frameBotY = rulers.bottom ? h - RULER_H + 4 - CORNER_GAP : h - 2;
-  const vTop = rTop + 4;
-  const vBot = h - rBot - 4;
-  const vSpanM = (vBot - vTop) / viewScale;
-  // Read out first so the memo keys on numbers; reading `ctx.x0` inside, the compiler refuses to preserve it.
-  const x0 = zoom.x + zoom.k * ctx.x0;
-  const vy0 = zoom.y + zoom.k * vTop;
-  const { rulerMarks, vTicks, rulerMinorMarks, vMinorTicks } = useMemo(
-    () => rulerGraduations({ showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale: viewScale, vSpanM, vTop, vy0 }),
-    [showLen, showRad, rulerStep, rulerX0, rulerX1, x0, viewScale, vSpanM, vTop, vy0],
-  );
-  const lengthRulerProps = { x0: rulerX0, x1: rulerX1, ctxX0: x0, scale: viewScale, rulerStep, rulerDigits };
-  const radialRulerProps = { frameTopY, frameBotY, vTop, originY: vy0, scale: viewScale, rulerStep, rulerDigits };
+  const { rulerX0, rulerX1 } = rulerSpan(rulers, w);
 
   const controls = (
     <SchematicControls
@@ -305,58 +181,16 @@ export function TreeSchematic({
           {overlay}
           {wires}
         </g>
-        {zoomed && (
-          <g pointerEvents="none" fill={token('surface')} opacity={0.9}>
-            {rulers.top && <rect x={0} y={0} width={w} height={RULER_H} />}
-            {rulers.bottom && <rect x={0} y={h - RULER_H} width={w} height={RULER_H} />}
-            {rulers.left && <rect x={0} y={0} width={RULER_W} height={h} />}
-            {rulers.right && <rect x={w - RULER_W} y={0} width={RULER_W} height={h} />}
-          </g>
-        )}
-        {rulers.bottom && (
-          <LengthRuler
-            {...lengthRulerProps}
-            baseY={h - RULER_H + 4}
-            dir={1}
-            labelY={h - 3}
-            unitY={h - 3}
-            marks={rulerMarks}
-            minorMarks={rulerMinorMarks}
-          />
-        )}
-        {rulers.top && (
-          <LengthRuler
-            {...lengthRulerProps}
-            baseY={RULER_H - 4}
-            dir={-1}
-            labelY={11}
-            unitY={11}
-            marks={rulerMarks}
-            minorMarks={rulerMinorMarks}
-          />
-        )}
-        {rulers.right && vTicks.length > 0 && (
-          <RadialRuler
-            {...radialRulerProps}
-            baseX={w - RULER_W + 4}
-            dir={1}
-            labelX={w - RULER_W + 20}
-            anchor="start"
-            ticks={vTicks}
-            minorTicks={vMinorTicks}
-          />
-        )}
-        {rulers.left && vTicks.length > 0 && (
-          <RadialRuler
-            {...radialRulerProps}
-            baseX={RULER_W - 4}
-            dir={-1}
-            labelX={RULER_W - 20}
-            anchor="end"
-            ticks={vTicks}
-            minorTicks={vMinorTicks}
-          />
-        )}
+        <SchematicRulerLayer
+          rulers={rulers}
+          w={w}
+          h={h}
+          zoom={zoom}
+          ctxX0={ctx.x0}
+          viewScale={viewScale}
+          rTop={rTop}
+          rBot={rBot}
+        />
         {/* After the rulers, so a ruler backing never covers them. */}
         <StabilityOverlay
           info={info}

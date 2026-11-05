@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import type { CatalogMotor } from './motorDb';
 import { cumulativeImpulse } from './motorMath';
@@ -76,7 +77,7 @@ export function samplesToMotorSpec(
   const totImpulse = cumImpulse[cumImpulse.length - 1]!;
   // Matches `AbstractMotorLoader.calculateMass`.
   const masses = measured
-    ? pts.map((p) => p.mass!)
+    ? pts.map((p) => must(p.mass, 'measured mass'))
     : cumImpulse.map((impulse) => (totImpulse > 0 ? totalMass - propMass * (impulse / totImpulse) : totalMass));
 
   return {

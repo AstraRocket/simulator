@@ -181,7 +181,9 @@ function pump(): boolean {
   while (queue.length) {
     const free = pool.find((s) => !s.busy) ?? (pool.length < poolLimit() ? spawn() : null);
     if (!free) break;
-    dispatch(free, queue.shift()!);
+    const job = queue.shift();
+    if (!job) break;
+    dispatch(free, job);
     moved = true;
   }
   return moved;

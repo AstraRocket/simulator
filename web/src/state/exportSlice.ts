@@ -17,6 +17,7 @@ import { designNameOf } from '../services/app/appInfo';
 import { errorText, keyedText, type Keyed } from '../i18n/keyedError';
 import { fmtList, partLabel } from '../i18n/format';
 import { configOf, selectActive, selectConfig, selectDesignName } from './workspaceSelectors';
+import { reportSource } from './reportSource';
 import type { WorkspaceState } from './store';
 import { observeWorkspace } from './workspaceHandoff';
 
@@ -70,7 +71,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
     saveOrk: async () => {
       try {
         const replaced = observeWorkspace();
-        // Lazy (a static import closes a store cycle) and before the snapshot, so the report matches it.
+        // Lazy, to stay out of the first load, and before the snapshot, so the report matches it.
         const reportMods = loadSettings().saveDesignInfo ? await import('../services/report/reportModel') : null;
         // Snapshot everything before the next await, or edits could mix into the save.
         const { tree, loadedMeta } = get();
@@ -84,7 +85,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
         if (reportMods) {
           const { assembleReport } = reportMods;
           if (!get().info) rebuildNow(tree, selectConfig(get()));
-          const report = assembleReport();
+          const report = assembleReport(reportSource(get()));
           if (report) designInfo = buildDesignInfo(report);
         }
         const infoLeftOut = reportMods !== null && !designInfo;

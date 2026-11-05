@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import type { jsPDF } from 'jspdf';
 
 // jsPDF Helvetica: Windows-1252 punctuation must be passed as its single byte, and any non-WinAnsi char garbles the whole string.
@@ -88,7 +89,7 @@ export function toWinAnsi(text: string): { text: string; lost: boolean } {
   let lost = false;
   let out = '';
   for (const ch of text) {
-    const c = ch.codePointAt(0)!;
+    const c = must(ch.codePointAt(0), 'code point');
     if (c <= 0xff) {
       out += ch;
       continue;

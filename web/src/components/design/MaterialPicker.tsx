@@ -1,39 +1,24 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  materialsForType,
-  addCustom,
-  customMaterialsVersion,
-  onCustomMaterialsChanged,
-  groupsOf,
-  checkedMaterialName,
-  DEFAULT_CUSTOM_GROUP,
-} from '../../services/materials/materials';
-import {
-  byNameThenDensity,
-  documentMaterialsOf,
-  type DocumentMaterial,
-} from '../../services/materials/documentMaterials';
+import { materialsForType, customMaterialsVersion, onCustomMaterialsChanged } from '../../services/materials/materials';
+import { byNameThenDensity, documentMaterialsOf } from '../../services/materials/documentMaterials';
 import { useWorkspaceStore } from '../../state/store';
 import { ADHESIVE_GROUP, type Material, type MaterialType } from '../../services/materials/materialTypes';
 import { UnitChip } from '../common/UnitChip';
-import { NumberInput } from '../common/NumberInput';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { DENSITY_LABEL, QUANTITY, groupLabel } from './materialUnits';
+import { QUANTITY, groupLabel } from './materialUnits';
 import { MyMaterialsDialog } from './MyMaterialsDialog';
-import { listWriteErrorText } from '../../services/storage/jsonListStore';
 import { useAsyncLoad } from '../common/useAsyncLoad';
-import { useLatest } from '../common/useLatest';
 import { mathEquals } from '../../services/motors/mathEquals';
-import { Check } from '../common/Check';
-import { DialogButton } from '../common/DialogButton';
 import { StatusLine } from '../common/StatusLine';
 import { groupBy } from '../../services/app/collections';
+import { CustomMaterialForm, useCustomMaterialForm } from './CustomMaterialForm';
 
 export type MaterialUse = 'structure' | 'fillet';
 
 // Density 0 with name undefined means the engine default. The `.ork` writer needs the group `onChange` carries.
+// eslint-disable-next-line complexity -- one select's option groups and its readout, which read best together
 export function MaterialPicker({
   value,
   density: ownDensity,
@@ -56,19 +41,9 @@ export function MaterialPicker({
 }) {
   const { t } = useTranslation();
   const [mats, setMats] = useState<Material[]>([]);
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState('');
-  const [group, setGroup] = useState(DEFAULT_CUSTOM_GROUP);
-  // In the field's unit, not SI.
-  const [dens, setDens] = useState<number | null>(null);
-  // Starts unchecked, as desktop's `MaterialModel` opens `CustomMaterialDialog`.
-  const [toLibrary, setToLibrary] = useState(false);
   const rawDocMats = useWorkspaceStore((s) => s.tree.documentMaterials);
-  const addDocumentMaterial = useWorkspaceStore((s) => s.addDocumentMaterial);
-  const [addErr, setAddErr] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   const libraryVersion = useSyncExternalStore(onCustomMaterialsChanged, customMaterialsVersion, customMaterialsVersion);
-  const { observe } = useLatest();
   const u = useUnits();
   const quantity = QUANTITY[type];
   // Per material kind: fabric and cord densities use different units from bulk.
@@ -76,6 +51,7 @@ export function MaterialPicker({
   const fu = u.at(scope, quantity);
   // No fixed decimals: 680 kg/m³ and 0.68 g/cm³ need different counts.
   const density = (si: number) => fu.fmt(si);
+  const form = useCustomMaterialForm({ type, design, fu, setMats, onChange });
 
   const loaded = useAsyncLoad(() => materialsForType(type), type, { onLoaded: setMats, refresh: libraryVersion });
   const loadErr = loaded.error !== null ? t('material.loadFailed') : null;
@@ -111,7 +87,7 @@ export function MaterialPicker({
 
   const handleSelect = (v: string) => {
     if (v === '__default__') return onChange(undefined, 0);
-    if (v === '__add__') return setAdding(true);
+    if (v === '__add__') return form.setAdding(true);
     if (v === '__manage__') return setManaging(true);
     if (v.startsWith(DOC_PREFIX)) {
       const d = docMats[Number(v.slice(DOC_PREFIX.length))];
@@ -122,35 +98,8 @@ export function MaterialPicker({
     if (m) onChange(m.name, m.density, m.group);
   };
 
-  const submitCustom = async () => {
-    try {
-      // `toSi`, not `fromUi`: it applies the density ceiling. NaN makes `addCustom` reject with a message.
-      const si = fu.toSi(dens) ?? NaN;
-      if (design && !toLibrary) {
-        const m: DocumentMaterial = { name: checkedMaterialName(name, si), type, density: si, group };
-        addDocumentMaterial(m);
-        onChange(m.name, m.density, m.group);
-      } else {
-        const live = observe();
-        const next = await addCustom(name, type, si, group);
-        const list = await materialsForType(type);
-        if (!live()) return; // selecting another component unmounts this
-        setMats(list);
-        const added = next[0];
-        if (added) onChange(added.name, added.density, added.group);
-      }
-      setAdding(false);
-      setToLibrary(false);
-      setName('');
-      setDens(null);
-      setGroup(DEFAULT_CUSTOM_GROUP);
-      setAddErr(null);
-    } catch (e) {
-      setAddErr(listWriteErrorText(e, t));
-    }
-  };
-
   const shown = current ?? docCurrent;
+  const shownDensity = shown ? shown.density : own?.density;
 
   return (
     <div>
@@ -159,7 +108,7 @@ export function MaterialPicker({
         <span className="tabular-nums text-xs text-ink-muted">
           {shown || own?.density ? (
             <>
-              {density(shown ? shown.density : own!.density!)} <UnitChip quantity={quantity} scope={scope} />
+              {density(shownDensity ?? 0)} <UnitChip quantity={quantity} scope={scope} />
             </>
           ) : own ? null : (
             t('material.default')
@@ -222,65 +171,7 @@ export function MaterialPicker({
       </StatusLine>
       {managing && <MyMaterialsDialog onClose={() => setManaging(false)} />}
 
-      {adding && (
-        <div className="mt-2 space-y-2 rounded-lg bg-canvas p-2 ring-1 ring-line/10">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t('material.namePlaceholder')}
-            aria-label={t('material.namePlaceholder')}
-            className="w-full rounded bg-surface px-2 py-1.5 text-sm ring-1 ring-line/10 placeholder:text-ink-faint"
-          />
-          <label className="flex items-center justify-between gap-2 text-xs text-ink-muted">
-            {t('material.group')}
-            <select
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
-              className="min-w-0 flex-1 rounded bg-surface px-2 py-1.5 text-sm text-ink-strong ring-1 ring-line/10"
-            >
-              {groupsOf(mats).map((g) => (
-                <option key={g} value={g}>
-                  {groupLabel(t, g)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <NumberInput
-            value={dens}
-            onChange={setDens}
-            min={0}
-            step={fu.step(10)}
-            placeholder={`${t(DENSITY_LABEL[type])} (${fu.sym})`}
-            ariaLabel={`${t(DENSITY_LABEL[type])} (${fu.sym})`}
-            className="w-full rounded bg-surface px-2 py-1.5 text-sm tabular-nums ring-1 ring-line/10 placeholder:text-ink-faint"
-          />
-          {design && (
-            <Check
-              checked={toLibrary}
-              onChange={setToLibrary}
-              label={t('material.addToLibrary')}
-              className="text-xs text-ink-muted"
-            />
-          )}
-          <StatusLine tone="danger">{addErr}</StatusLine>
-          <div className="flex gap-2">
-            <DialogButton variant="primary" size="sm" className="flex-1" onClick={submitCustom}>
-              {t('material.save')}
-            </DialogButton>
-            <DialogButton
-              size="sm"
-              className="flex-1"
-              onClick={() => {
-                setAdding(false);
-                setToLibrary(false);
-                setAddErr(null);
-              }}
-            >
-              {t('material.cancel')}
-            </DialogButton>
-          </div>
-        </div>
-      )}
+      {form.adding && <CustomMaterialForm form={form} mats={mats} type={type} design={design} fu={fu} />}
     </div>
   );
 }

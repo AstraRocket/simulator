@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import { freshId, getDesignLibrary, type DesignLibrary, type DesignMeta, type StoredResults } from './designLibrary';
 import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import { withoutResults, type Simulation } from '../flight/simulations';
@@ -62,21 +63,29 @@ export const resultsOf = (w: Workspace): StoredResults => {
 const nameFor = (w: Workspace) => designNameOf(w.tree, w.loadedMeta);
 
 export class LibraryWorkspaceStore implements WorkspaceStore {
+  /** Null means detached: the next save creates a new entry. */
   private activeId: string | null = null;
   /** Compared by identity: results are replaced wholesale, never mutated. */
   private savedResults = new Map<string, FlightResult | null>();
   /** Without it, overlapping detached saves each create an entry. */
   private creating: Promise<DesignMeta> | null = null;
+  /** The name for the entry a detached workspace will create. */
   private pendingName: string | null = null;
+  /** Kept until a create lands, so a journal replay finds that entry instead of making a second. */
   private createId: string | null = null;
   /** A create resolving after `setActiveId` must not adopt its id. */
   private gen = 0;
+  /** The entry's stamp at our last read or write; a newer one means another tab wrote. */
   private lastSeenAt: number | null = null;
+  /** Another tab won this entry, so unload journals and an old workspace's queued saves stay out. */
   private conflicted = false;
+  /** By entry id, stamps of writes that landed after a switch, so that workspace's next queued save claims them. */
   private detached = new Map<string, number>();
   /** The boot journal is the only copy of its work, so no unload journal may overwrite it. */
   private journalHeld = false;
+  /** Stamped on writes and journals, so this tab can tell its own from another's. */
   private readonly tab = freshTabId();
+  /** Orders saves and journals within this tab, so a save drops only the journals older than it. */
   private mark = 0;
 
   async load(): Promise<Workspace | null> {
@@ -89,9 +98,9 @@ export class LibraryWorkspaceStore implements WorkspaceStore {
       this.activeId = null;
       const latest = newest(journals);
       const w = latest ? migrateWorkspace(latest.j.w) : null;
-      if (!w) return null;
+      if (!latest || !w) return null;
       this.journalHeld = true;
-      if (latest!.j.id === null) this.adoptCreate(latest!.j);
+      if (latest.j.id === null) this.adoptCreate(latest.j);
       return this.trackResults(w);
     }
 
@@ -141,7 +150,7 @@ export class LibraryWorkspaceStore implements WorkspaceStore {
 
   private async replayEntry(lib: DesignLibrary, e: StoredJournal): Promise<Opened> {
     const journal = e.j;
-    const id = journal.id!;
+    const id = must(journal.id, 'journal id');
     if (!journalIsCurrent(journal, await this.metaOf(id))) {
       clearJournal(e.key);
       return await this.readEntry(lib, id);
@@ -191,6 +200,7 @@ export class LibraryWorkspaceStore implements WorkspaceStore {
     return this.trackResults(o.w);
   }
 
+  /** The newest `openActive`; an older read that finishes later is dropped. */
   private opening = 0;
 
   private adoptCreate(j: Journal): void {

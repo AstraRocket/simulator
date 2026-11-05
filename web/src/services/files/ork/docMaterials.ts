@@ -15,6 +15,7 @@ function parseStorable(text: string): DocumentMaterial | null {
   const split = bars.length > 5 ? [...bars.slice(0, 4), bars.slice(4).join('|')] : bars;
   if (split.length < 3) return null;
   const type = Object.hasOwn(FILE_TYPES, split[0]!) ? FILE_TYPES[split[0]!] : undefined;
+  if (!type) return null;
   const density = Number(split[2]!.trim());
   let group: string | undefined;
   if (split.length >= 4) {
@@ -23,7 +24,7 @@ function parseStorable(text: string): DocumentMaterial | null {
     if (fourth !== '' && Number.isFinite(Number(fourth))) group = split[4];
     else group = split[3];
   }
-  const m: DocumentMaterial = { name: split[1]!, type: type!, density, ...(group ? { group } : {}) };
+  const m: DocumentMaterial = { name: split[1]!, type, density, ...(group ? { group } : {}) };
   return isDocumentMaterial(m) ? m : null;
 }
 

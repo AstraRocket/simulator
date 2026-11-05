@@ -11,7 +11,7 @@ export const POPUP_SURFACES = {
   MotorFilterBar: 1,
   RecoveryBaysPane: 1,
   ResultPicker: 1,
-  SimSummary: 1,
+  SafetyCard: 1,
   SimpleHelp: 1,
   StabilityBadge: 1,
 } as const;

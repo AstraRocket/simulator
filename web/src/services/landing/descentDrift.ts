@@ -74,8 +74,8 @@ export function descentDrift(input: DriftInput): DriftResult {
   for (let n = 0; msl > floor && n < 100_000; n++) {
     const aboveFloor = msl - floor;
     const step = Math.min(STEP_M, aboveFloor);
-    const aboveMain = plan.main ? msl - pad > plan.main.aglM : true;
-    const rate = (aboveMain ? plan.firstRateMs : plan.main!.rateMs) * rateFactor;
+    const underMain = plan.main && !(msl - pad > plan.main.aglM) ? plan.main : null;
+    const rate = (underMain ? underMain.rateMs : plan.firstRateMs) * rateFactor;
     const dt = step / rate;
     const air = airVelocity(input.wind, msl - step / 2, input.speedFactor ?? 1, input.directionOffsetDeg ?? 0);
     pos = { east: pos.east + air.east * dt, north: pos.north + air.north * dt };

@@ -1,3 +1,4 @@
+import { must } from './services/app/must';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -15,7 +16,7 @@ useEngineStore.getState().start();
 // Before anything paints, so a light user does not see a dark first frame.
 applyTheme(loadSettings().theme);
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(must(document.getElementById('root'), 'root element')).render(
   <React.StrictMode>
     <SettingsProvider>
       <App />

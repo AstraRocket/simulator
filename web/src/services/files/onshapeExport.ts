@@ -385,6 +385,7 @@ function surfaceRadius(ctx: Ctx, node: ComponentNode, parent: ComponentNode): nu
   return bodyRadiusAt(parent, x) ?? 0;
 }
 
+// eslint-disable-next-line complexity -- one switch with a case per part type
 function paramsOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Record<string, unknown> {
   const info = infoOf(ctx, node);
   switch (node.type) {

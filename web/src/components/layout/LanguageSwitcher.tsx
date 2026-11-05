@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '../../i18n';
 import { fireAction } from '../../state/fireAction';
+import { LanguageOptions } from '../common/LanguageOptions';
 
 export function LanguageSwitcher() {
   const { i18n, t } = useTranslation();
@@ -19,11 +20,7 @@ export function LanguageSwitcher() {
         title={t('lang.label')}
         className="absolute inset-0 h-full w-full appearance-none truncate rounded-lg bg-raised pr-7 pl-2 text-xs font-medium text-ink ring-1 ring-line/10 focus:ring-accent-500 focus:outline-none"
       >
-        {LANGUAGES.map((l) => (
-          <option key={l.code} value={l.code}>
-            {l.name}
-          </option>
-        ))}
+        <LanguageOptions />
       </select>
       {/* Own chevron: the native arrow squeezes the name ('English' closes as 'E...'). */}
       <svg

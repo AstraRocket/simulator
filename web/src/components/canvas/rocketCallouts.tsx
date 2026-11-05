@@ -1,3 +1,4 @@
+import { must } from '../../services/app/must';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Line } from '@react-three/drei';
@@ -7,7 +8,7 @@ export function markerTexture(color: string, light: string): THREE.CanvasTexture
   const cvs = document.createElement('canvas');
   cvs.width = s;
   cvs.height = s;
-  const ctx = cvs.getContext('2d')!;
+  const ctx = must(cvs.getContext('2d'), 'canvas 2D context');
   const cx = s / 2,
     cy = s / 2,
     r = s / 2 - 6;
@@ -36,7 +37,7 @@ export function markerTexture(color: string, light: string): THREE.CanvasTexture
 function labelTexture(text: string, color: string): { texture: THREE.CanvasTexture; aspect: number } {
   const px = 96;
   const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
+  const ctx = must(canvas.getContext('2d'), 'canvas 2D context');
   const font = `700 ${px}px system-ui, 'Segoe UI', sans-serif`;
   ctx.font = font;
   const w = Math.ceil(ctx.measureText(text).width + px * 0.3);

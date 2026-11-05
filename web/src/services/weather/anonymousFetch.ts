@@ -100,11 +100,12 @@ function frameWindow(): Promise<Window> {
   el.srcdoc = `<!doctype html><meta charset="utf-8"><script>${FRAME_SCRIPT}</script>`;
   const ready = new Promise<Window>((resolve, reject) => {
     const hello = (e: MessageEvent) => {
-      if (e.source !== el.contentWindow || !(e.data as { ready?: boolean })?.ready) return;
+      const win = el.contentWindow;
+      if (!win || e.source !== win || !(e.data as { ready?: boolean })?.ready) return;
       clearTimeout(timer);
       window.removeEventListener('message', hello);
       window.addEventListener('message', onMessage);
-      resolve(el.contentWindow!);
+      resolve(win);
     };
     const timer = setTimeout(() => {
       window.removeEventListener('message', hello);

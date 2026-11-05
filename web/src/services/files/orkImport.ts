@@ -14,6 +14,7 @@ import { configNotes, ignoredNotes } from './ork/importNotes';
 import { keyedNote, noteList, type ImportNote } from './importNote';
 import { KeyedError, type Keyed } from '../../i18n/keyedError';
 
+// eslint-disable-next-line complexity -- a flat sequence of reads from one document
 export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   const archive = unpackOrk(data);
   const doc = parseOrkXml(archive.xml);

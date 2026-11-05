@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS, kernelLength } from '../../tree/kernelDefaults';
 import { bodyTubeRadius, noseConeAftRadius, num, str } from '../../tree/nodeProps';
@@ -155,7 +156,12 @@ function rocketOf(components: readonly ComponentNode[]): { rocket: Part; staged:
 /**
  * Replays the bridge's kernel call order (build, instance passes, settleAutoRadii,
  * getComponentGeometry): each `refComp` write changes every later evaluation.
+ *
+ * One long function on purpose: its helpers share `changes`, `depth` and `located` and must run in
+ * the kernel's order. Splitting them would thread that state through every call and make this
+ * harder to compare with the kernel.
  */
+// eslint-disable-next-line max-lines-per-function -- helpers share state in kernel order; see the comment above
 function resolveAxial(
   components: readonly ComponentNode[],
   out: Map<ComponentNode, Patch>,
@@ -209,9 +215,9 @@ function resolveAxial(
 
   const inline = (self: Part, candidate: Part): boolean => {
     if (self.parent === candidate.parent) return true;
-    const own = self.parent!;
+    const own = must(self.parent, 'part parent');
     if (own.ring && !isZero(ringRadius(own, self))) return false;
-    const theirs = candidate.parent!;
+    const theirs = must(candidate.parent, 'part parent');
     if (theirs.ring) {
       // An auto tube's own pods are never in line: their radius reads the tube's.
       if (theirs.parent === self && (self.aftAuto || self.foreAuto)) return false;
@@ -386,11 +392,12 @@ function resolveAxial(
     for (let a = p.parent; a; a = a.parent) if (test(a)) return a;
     return null;
   };
-  const isAutoRing = (p: Part): boolean =>
-    (p.type === 'tubecoupler' || p.type === 'engineblock') &&
-    (p.node!['outerRadiusAuto'] === true || !hasRadius(p.node!, 'outerRadius'));
-  const autoTubeFins = (p: Part): boolean =>
-    p.type === 'tubefinset' && (p.node!['outerRadiusAuto'] === true || !hasRadius(p.node!, 'outerRadius'));
+  const radiusIsAuto = (p: Part): boolean => {
+    const node = must(p.node, 'part node');
+    return node['outerRadiusAuto'] === true || !hasRadius(node, 'outerRadius');
+  };
+  const isAutoRing = (p: Part): boolean => (p.type === 'tubecoupler' || p.type === 'engineblock') && radiusIsAuto(p);
+  const autoTubeFins = (p: Part): boolean => p.type === 'tubefinset' && radiusIsAuto(p);
 
   const locate = (p: Part): void => {
     if (located.has(p)) return;
@@ -456,7 +463,7 @@ function resolveAxial(
     }
   };
   const setAfter = (p: Part): void => {
-    const siblings = p.parent!.kids;
+    const siblings = must(p.parent, 'part parent').kids;
     const i = siblings.indexOf(p);
     const before = i > 0 ? siblings[i - 1]! : null;
     p.x = before ? before.x + lengthOf(before) : 0;
@@ -575,7 +582,7 @@ function resolveAxial(
   }
 
   for (const [p, r] of reads) {
-    const node = p.node!;
+    const node = must(p.node, 'part node');
     const patch: Patch = {};
     if (p.tube) {
       patch['outerRadius'] = r.radius;

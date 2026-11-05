@@ -1,8 +1,13 @@
-import { useCatalogNoticeStore, type CatalogChange } from '../../state/catalogNoticeStore';
 import { IndexedDbKeyValueStore } from '../storage/idbKeyValueStore';
 import type { KeyValueStore } from '../storage/keyValueStore';
 import { nsKey } from '../storage/storageKeys';
 import { catalogHash } from './remoteData';
+
+export interface CatalogChange {
+  name: 'motors' | 'components';
+  added: number;
+  removed: number;
+}
 
 // Read and written in one `update` so two tabs report a change once between them.
 
@@ -48,6 +53,15 @@ export async function checkCatalog(
   return change;
 }
 
+let listener: ((change: CatalogChange) => void) | null = null;
+const unheard: CatalogChange[] = [];
+
+/** Hands over anything held: a catalog can finish loading before the listener's module does. */
+export function onCatalogChange(listen: (change: CatalogChange) => void): void {
+  listener = listen;
+  for (const change of unheard.splice(0)) listen(change);
+}
+
 const noted = new Set<CatalogChange['name']>();
 
 export function noteCatalogLoad(name: CatalogChange['name'], keys: () => readonly string[]): void {
@@ -57,6 +71,8 @@ export function noteCatalogLoad(name: CatalogChange['name'], keys: () => readonl
     const hash = await catalogHash(name);
     if (!hash) return;
     const change = await checkCatalog(name, hash, keys(), new IndexedDbKeyValueStore());
-    if (change) useCatalogNoticeStore.getState().report(change);
+    if (!change) return;
+    if (listener) listener(change);
+    else unheard.push(change);
   })().catch(() => {});
 }

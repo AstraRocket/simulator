@@ -1,6 +1,7 @@
 import { getMotorStore, type CustomMotor } from './motorStore';
 import { MIN_CURVE_SAMPLES } from './motorCurve';
-import { parseEng, totalImpulse } from './engParser';
+import { parseEng } from './engParser';
+import { totalImpulse } from './motorMath';
 import { parseRse } from './rseParser';
 import { finalizeCurve } from './curveFinalize';
 import { motorStatistics } from '../../engine/openRocketEngine';
@@ -218,6 +219,7 @@ export interface MotorFilter {
 
 export function filterMotors(catalog: CatalogMotor[], filter: MotorFilter): CatalogMotor[] {
   const text = filter.text.trim().toLowerCase();
+  // eslint-disable-next-line complexity -- one independent test per filter
   return catalog.filter((m) => {
     if (filter.classes.size > 0 && !filter.classes.has(m.class)) return false;
     if (filter.manufacturers.size > 0 && !filter.manufacturers.has(m.manufacturer)) return false;

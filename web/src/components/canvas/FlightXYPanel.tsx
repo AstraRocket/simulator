@@ -38,8 +38,8 @@ export function FlightXYPanel({
   const padB = 16;
   const ih = height - padT - padB;
   const iw = Math.max(1, w - PAD_L - PAD_R);
-  const xMeta = meta.xy!.x;
-  const yMeta = meta.xy!.y;
+  const xMeta = meta.xy?.x ?? meta;
+  const yMeta = meta.xy?.y ?? meta;
   const xs = traceScale(xMeta, u);
   const xo = traceOffset(xMeta, u);
   const ys = traceScale(yMeta, u);

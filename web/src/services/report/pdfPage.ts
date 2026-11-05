@@ -1,4 +1,5 @@
 // cspell:ignore cmap -- jsPDF's name for a TrueType font's character map
+import { must } from '../app/must';
 import type { jsPDF } from 'jspdf';
 import type { StaticInfo } from '../../engine/openRocketEngine';
 import type { Pt } from './reportGeometry';
@@ -101,7 +102,7 @@ function covered(p: PdfPage, s: string): string {
   if (!map) return s;
   let out = '';
   for (const ch of s) {
-    const c = ch.codePointAt(0)!;
+    const c = must(ch.codePointAt(0), 'code point');
     if (c < 0x20 || (c <= 0xffff && map[c])) {
       out += ch;
       continue;

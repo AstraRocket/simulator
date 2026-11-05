@@ -2,7 +2,7 @@
 import type { CustomMotor } from './motorStore';
 import { impulseClass } from './motorCombine';
 import { delayList } from './motorPicker';
-import { totalImpulse } from './engParser';
+import { totalImpulse } from './motorMath';
 import { parseXmlText } from '../files/xmlUtil';
 import { readDecimal } from '../files/numberText';
 import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';

@@ -31,8 +31,7 @@ export function richText(src: string): ReactNode[] {
   }
   if (last < src.length) push(src.slice(last));
   // An unclosed tag keeps its contents rather than dropping them.
-  while (open.length) {
-    const top = open.pop()!;
+  for (let top = open.pop(); top; top = open.pop()) {
     (open.length ? open[open.length - 1]!.kids : out).push(...top.kids);
   }
   return out;

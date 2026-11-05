@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 import { buildSchematicShapes } from '../../src/components/canvas/schematicShapes';
 import { buildPieces } from '../../src/components/canvas/rocketPieces';
-import { buildAftScene } from '../../src/components/canvas/AftView';
+import { buildAftScene } from '../../src/components/canvas/aftScene';
 import type { TFunction } from 'i18next';
 import { solidForNode } from '../../src/services/exports/solidMesh';
 import { rocketSideView } from '../../src/services/report/reportGeometry';

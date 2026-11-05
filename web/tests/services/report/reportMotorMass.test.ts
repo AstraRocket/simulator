@@ -6,6 +6,7 @@ import { newFlightConfig, type FlightConfig } from '../../../src/services/flight
 import { assembleReport, configMotors, type ReportBuild } from '../../../src/services/report/reportModel';
 import { twRatio } from '../../../src/services/report/motorsSection';
 import { useWorkspaceStore } from '../../../src/state/store';
+import { reportSource } from '../../../src/state/reportSource';
 import { resultKey, type Simulation } from '../../../src/services/flight/simulations';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
@@ -86,7 +87,7 @@ describe('thrust-to-weight per configuration', () => {
       rocket: flown as never,
     });
     let rebuilt: ReportBuild | null = null;
-    const model = assembleReport((b) => (rebuilt = b))!;
+    const model = assembleReport(reportSource(useWorkspaceStore.getState()), (b) => (rebuilt = b))!;
     expect(model.configs.map((c) => c.motors[0]!.loadedMass)).toEqual([
       expect.closeTo(massOf(SINGLE, light), 9),
       expect.closeTo(massOf(SINGLE, heavy), 9),
@@ -149,7 +150,7 @@ describe('simulation results in the report', () => {
       info: flown.staticInfo(),
       rocket: flown as never,
     });
-    const model = assembleReport(() => {})!;
+    const model = assembleReport(reportSource(useWorkspaceStore.getState()), () => {})!;
     expect(model.configs.map((c) => [c.name, c.outdated])).toEqual([
       ['fresh', false],
       ['stale', true],

@@ -90,6 +90,7 @@ const bayName = (t: T, c: ChargeRow): string =>
     t('bays.title', { role: t(`charges.role_${c.role}`), tube: c.tubeName || t('ejectionBay.unnamedTube') }),
   );
 
+// eslint-disable-next-line complexity -- one card's conditional rows; a split would only move them
 function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T; u: Units }) {
   const { info, flight } = docs;
   const held = highestLevel(flyer);

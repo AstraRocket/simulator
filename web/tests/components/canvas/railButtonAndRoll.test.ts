@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import { buildPieces } from '../../../src/components/canvas/rocketPieces';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 
 // With no `height` the kernel keeps 0.0097 m and no screw (RailButton.java:60-66).
 const R = 0.02;

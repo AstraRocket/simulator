@@ -1,3 +1,4 @@
+import { must } from '../../app/must';
 import type { ComponentType } from '../../../engine/openRocketEngine';
 
 // Code tables are in the reader's order (code = index); some writer maps are deliberately asymmetric.
@@ -55,7 +56,7 @@ export const FINISH_CODES: ReadonlyMap<string, number> = new Map([
   ['finishpolished', 0],
   ['mirror', 0],
 ]);
-export const MATT = FINISH_CODES.get('normal')!;
+export const MATT = must(FINISH_CODES.get('normal'), 'normal finish code');
 
 // RockSim has no middle or after mode; middle is converted to a top offset on write.
 export const LOCATION_CODES: ReadonlyMap<string, number> = new Map([

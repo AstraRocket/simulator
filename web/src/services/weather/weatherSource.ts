@@ -68,9 +68,10 @@ const same = (a: unknown, b: unknown) => stableJson(a ?? null) === stableJson(b 
 export function sourceStatus(launch: LaunchConditions, nowMs: number): SourceStatus | null {
   const s = launch.weatherSource;
   if (!isWeatherSource(s)) return null;
+  const { applied } = s;
   const edited =
     s.edited === true ||
-    (s.applied !== undefined && sourceFields(s).some((k) => k in s.applied! && !same(launch[k], s.applied![k])));
+    (applied !== undefined && sourceFields(s).some((k) => k in applied && !same(launch[k], applied[k])));
   const otherSite = !sameSite(launch.latitudeDeg, launch.longitudeDeg, s.latitudeDeg, s.longitudeDeg);
   const validMs = Date.parse(s.validAt);
   const old = s.endpoint === 'forecast' && validMs > nowMs && nowMs - Date.parse(s.fetchedAt) > STALE_AFTER_MS;

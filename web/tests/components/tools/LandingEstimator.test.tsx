@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
-import {
-  forgetLandingEstimator,
-  LandingEstimator,
-  minutesSeconds,
-} from '../../../src/components/tools/LandingEstimator';
+import { forgetLandingEstimator, LandingEstimator } from '../../../src/components/tools/LandingEstimator';
+import { minutesSeconds } from '../../../src/components/tools/LandingParts';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { answer } from '../../testing/openMeteoFixture';
 import { resetWeatherState, setWeatherTransport } from '../../../src/services/weather/openMeteo';

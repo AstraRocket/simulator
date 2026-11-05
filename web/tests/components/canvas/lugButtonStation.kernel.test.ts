@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TFunction } from 'i18next';
 import { buildPieces, piecesBounds } from '../../../src/components/canvas/rocketPieces';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 import { axialChain } from '../../../src/tree/position';
 import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';

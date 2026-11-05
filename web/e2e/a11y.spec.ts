@@ -446,8 +446,8 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
-  ExportDialog: [
-    header('report'),
+  ExportDialog: [header('report')],
+  ReportPrintSettings: [
     {
       name: 'Report / print settings',
       open: async (page) => {
@@ -965,7 +965,7 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
-  SimSummary: [
+  SafetyCard: [
     {
       name: 'Popup / safety card folded',
       open: async (page) => {

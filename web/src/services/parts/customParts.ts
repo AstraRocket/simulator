@@ -27,6 +27,7 @@ function dia(node: Partial<ComponentNode>, key: string): number | null {
 }
 
 /** The inverse of `treeEdit.catalogPatch`. */
+// eslint-disable-next-line complexity -- a flat per-type list of fields
 function rowGeometry(node: Partial<ComponentNode>, type: string): Record<string, unknown> | null {
   const material = typeof node.materialName === 'string' ? node.materialName : undefined;
   // 0, not null: the row schema requires a finite density; the node carries the real one.

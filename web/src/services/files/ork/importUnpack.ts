@@ -228,16 +228,17 @@ export function unpackOrk(data: ArrayBuffer | string, gunzipped = false): OrkArc
     const entries = unzipCapped(bytes);
     const names = [...entries.keys()];
     const entryName = names.find((n) => n.endsWith('.ork')) ?? names[0];
-    if (!entryName) throw new KeyedError('errors.file.archiveEmpty');
+    const entry = entryName ? entries.get(entryName) : undefined;
+    if (!entry) throw new KeyedError('errors.file.archiveEmpty');
     const motorFiles: string[] = [];
     const dropped: string[] = [];
-    for (const name of names) {
+    for (const [name, data] of entries) {
       if (name === entryName) continue;
       // Any `.rse`: the `thrustcurves/` folder is only a convention.
-      if (name.toLowerCase().endsWith('.rse')) motorFiles.push(decodeFileText(entries.get(name)!));
+      if (name.toLowerCase().endsWith('.rse')) motorFiles.push(decodeFileText(data));
       else if (name !== 'preview.png') dropped.push(name);
     }
-    return { xml: decodeFileText(entries.get(entryName)!), motorFiles, dropped };
+    return { xml: decodeFileText(entry), motorFiles, dropped };
   }
   return { xml: decodeFileText(bytes), motorFiles: [], dropped: [] };
 }

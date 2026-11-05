@@ -1,3 +1,4 @@
+import { must } from '../app/must';
 import type { MotorSpec, RocketTree } from '../../engine/openRocketEngine';
 import { collectNodes, stageNodes } from '../../tree/treeWalk';
 import type { FlightConfig } from '../flight/flightConfigs';
@@ -100,7 +101,10 @@ export function exhaustIdFor(motor: MotorLook | undefined): ExhaustId {
 
 export function exhaustFor(motor: MotorLook | undefined): Exhaust {
   const id = exhaustIdFor(motor);
-  const look = EXHAUST_LOOKS.find((l) => l.id === id)!.look;
+  const look = must(
+    EXHAUST_LOOKS.find((l) => l.id === id),
+    'exhaust look',
+  ).look;
   return motor?.sparky && !look.sparks ? { ...look, sparks: true } : look;
 }
 

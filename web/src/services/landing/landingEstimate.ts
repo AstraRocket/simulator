@@ -134,8 +134,9 @@ export async function runLandingEstimate(
     if ((err as { kind?: string }).kind === 'aborted') throw err;
     grid = null;
   }
-  const estimate = grid
-    ? estimateLanding({ ...base, groundAt: relativeGround(grid, q.latitudeDeg, q.longitudeDeg, padElevationM) })!
-    : flat;
+  const estimate =
+    (grid
+      ? estimateLanding({ ...base, groundAt: relativeGround(grid, q.latitudeDeg, q.longitudeDeg, padElevationM) })
+      : null) ?? flat;
   return { answer, estimate, padElevationM, validUnix: sample.unix, terrain: grid !== null };
 }

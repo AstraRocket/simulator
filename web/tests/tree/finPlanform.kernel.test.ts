@@ -508,8 +508,8 @@ describe('no module grows its own fin sampler', () => {
 
   // The trig guard cannot see an SVG arc or polygon literal; add fin-drawing modules here.
   const OUTLINE_CONSUMERS = [
-    'components/canvas/AftView.tsx',
-    'components/canvas/schematicShapes.tsx',
+    'components/canvas/aftScene.ts',
+    'components/canvas/schematicParts.tsx',
     'components/canvas/rocketPieces.ts',
     'services/report/reportGeometry.ts',
     'services/report/templatesSection.ts',

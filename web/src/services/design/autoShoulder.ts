@@ -35,6 +35,7 @@ const neighborOf = (
 };
 
 // Mirrors `Transition.setForeShoulderLength` / `setAftShoulderLength`; the bridge sets none of this itself.
+// eslint-disable-next-line complexity -- mirrors two kernel setters rule by rule, easiest to compare whole
 export function shoulderSeed(
   before: ComponentNode,
   after: ComponentNode,
@@ -63,9 +64,9 @@ export function shoulderSeed(
           after['filled'] === true
             ? solidWall(after)
             : num(after, 'thickness', COMPONENT_DEFAULTS[after.type as 'nosecone' | 'transition'].thickness);
-        const wall = !neighbor ? own : solid ? solidWall(neighbor) : open!.wall;
+        const wall = !neighbor || !open ? own : solid ? solidWall(neighbor) : open.wall;
         // An offer of -1 (nothing fixed beyond an auto tube) would seed a negative shoulder.
-        const outer = !neighbor ? KERNEL_AUTO_RADIUS : found!.offers >= 0 ? found!.offers : open!.outer;
+        const outer = !found || !open ? KERNEL_AUTO_RADIUS : found.offers >= 0 ? found.offers : open.outer;
         const end = shoulderEnd(after, s.side);
         const radius = Math.max(0, outer - wall);
         if (free(s.thickness) && isZero(num(after, s.thickness, 0))) out[s.thickness] = wall;

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import type { TFunction } from 'i18next';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, type KernelGeometry } from '../../testing/kernelGeometry';

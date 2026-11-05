@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_RSE_ENGINES, parseRse, removeDelay } from '../../../src/services/motors/rseParser';
 import { MAX_CURVE_SAMPLES } from '../../../src/services/motors/curveFinalize';
-import { parseEng, totalImpulse } from '../../../src/services/motors/engParser';
+import { totalImpulse } from '../../../src/services/motors/motorMath';
+import { parseEng } from '../../../src/services/motors/engParser';
 import { samplesToMotorSpec } from '../../../src/services/motors/motorSpec';
 
 // Held to `RockSimMotorLoader.java`. jsdom for `DOMParser`.

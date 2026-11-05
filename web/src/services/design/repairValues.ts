@@ -30,9 +30,9 @@ export function repairNode(node: ComponentNode): { node: ComponentNode; repaired
     // A catalog preset's density can exceed the limit; desktop flies it as stated.
     if (key === 'density' && node['preset']) continue;
     const limit = SI_LIMITS[quantity];
-    const v = (node as unknown as Record<string, unknown>)[key];
+    const v = node[key];
     if (!limit || typeof v !== 'number' || !Number.isFinite(v)) continue;
-    const now = clampEntry(v, limit.min, limit.max)!;
+    const now = clampEntry(v, limit.min, limit.max) ?? v;
     if (now === v) continue;
     repaired.push({ type: node.type, name: typeof node.name === 'string' ? node.name : '', field: key, was: v, now });
     out = { ...out, [key]: now };

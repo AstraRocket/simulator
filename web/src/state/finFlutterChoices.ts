@@ -1,3 +1,4 @@
+import { must } from '../services/app/must';
 import { useSyncExternalStore } from 'react';
 import type { ComponentNode } from '../engine/openRocketEngine';
 import { changeSignal } from '../services/app/changeSignal';
@@ -13,7 +14,10 @@ export interface FinStockChoice {
 }
 
 export function stockModulus(key: FinMaterialKey): number {
-  return FIN_MATERIALS.find((m) => m.key === key)!.shearModulusPa;
+  return must(
+    FIN_MATERIALS.find((m) => m.key === key),
+    'fin material',
+  ).shearModulusPa;
 }
 
 export type FinStockChoices = ReadonlyMap<string, FinStockChoice>;

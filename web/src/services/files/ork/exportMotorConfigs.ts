@@ -56,7 +56,8 @@ export function motorMountXml(w: OrkWriter, depth: number, mount: ComponentNode)
   emit(depth + 1, `<ignitiondelay>${bare.ignitionDelay ?? 0}</ignitiondelay>`);
   emit(depth + 1, `<overhang>${num(mount, 'motorOverhang', 0)}</overhang>`);
   for (const c of withMotor) {
-    const m = c.motors[nodeId!]!;
+    const m = nodeId ? c.motors[nodeId] : undefined;
+    if (!m) continue;
     emit(depth + 1, `<motor configid="${escapeXml(c.id)}">`);
     // No <type>: MotorHandler filters by it, and a wrong one finds nothing.
     // No <manufacturer> when unknown: findMotors filters on it, and a made-up one matches nothing.
@@ -70,7 +71,8 @@ export function motorMountXml(w: OrkWriter, depth: number, mount: ComponentNode)
     emit(depth + 1, '</motor>');
   }
   for (const c of withMotor) {
-    const m = c.motors[nodeId!]!;
+    const m = nodeId ? c.motors[nodeId] : undefined;
+    if (!m) continue;
     emit(depth + 1, `<ignitionconfiguration configid="${escapeXml(c.id)}">`);
     emit(depth + 2, `<ignitionevent>${escapeXml(m.ignitionEvent ?? 'automatic')}</ignitionevent>`);
     emit(depth + 2, `<ignitiondelay>${m.ignitionDelay ?? 0}</ignitiondelay>`);

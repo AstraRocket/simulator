@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { axialFrameOf, rebasePosition, rebaseTabOffset } from '../../src/tree/axialRebase';
+import { axialFrameOf, rebasePosition } from '../../src/tree/axialRebase';
+import { rebaseTabOffset } from '../../src/tree/finPlanform';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 
 // Mirrors `RocketComponent.setAxialMethod` and `FinSet.setTabOffsetMethod`.

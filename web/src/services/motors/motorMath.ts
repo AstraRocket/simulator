@@ -54,3 +54,10 @@ export function curveStats(samples: readonly ThrustSample[]): {
   for (const s of samples) if (s[1] > max) max = s[1];
   return { impulse, burn, avg, max };
 }
+
+export function totalImpulse(samples: { time: number; thrust: number }[]): number {
+  return trapezoidImpulse(
+    samples.map((s) => s.time),
+    samples.map((s) => s.thrust),
+  );
+}

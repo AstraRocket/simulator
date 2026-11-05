@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { ComponentNode, ComponentType, RocketTree } from '../../src/engine/openRocketEngine';
 import { FIELDS, type Field } from '../../src/services/design/componentFields';
 import {
-  KERNEL_AUTO_KEYS,
+  isKernelAutoKey,
   fieldApplies,
   fieldRange,
   fieldValue,
@@ -248,7 +248,7 @@ describe('the panel shows what the kernel flies', () => {
           for (const f of fields) {
             if (NO_KEY.has(f.kind) || !(f.key in built) || !fieldApplies(app, f)) continue;
             if (READ_ONLY_WHEN[f.key] && !READ_ONLY_WHEN[f.key]!(app)) continue;
-            if (f.auto && app[f.auto.flag] === true && KERNEL_AUTO_KEYS.has(f.key)) continue;
+            if (f.auto && app[f.auto.flag] === true && isKernelAutoKey(f.key)) continue;
             compared.add(`${type}.${f.key}`);
             const shown = fieldValue(app, f);
             if (!agrees(shown, built[f.key], f.kind === 'angle')) {

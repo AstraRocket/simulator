@@ -147,7 +147,7 @@ function presetXml(w: OrkWriter, depth: number, node: ComponentNode): void {
 
 function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
   const body = (a: PartAppearance) => {
-    const [r, g, b] = rgbChannels(parseHexColor(a.paint)!);
+    const [r, g, b] = rgbChannels(parseHexColor(a.paint) ?? 0);
     w.emit(depth + 1, `<paint red="${r}" green="${g}" blue="${b}" alpha="${a.alpha}"/>`);
     w.emit(depth + 1, `<shine>${a.shine}</shine>`);
     // Unknown to 24.12, so written only when set to avoid its warning.
