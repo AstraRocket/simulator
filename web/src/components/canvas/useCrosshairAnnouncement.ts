@@ -13,7 +13,7 @@ import {
   type Branch,
   type Meta,
 } from './flightChartTraces';
-import { hoverValue } from './FlightChartHover';
+import { hoverValue } from './flightChartHoverValue';
 import { crosshairReadout } from './chartSummary';
 
 // Only key steps change the live region, so mouse hover stays quiet.

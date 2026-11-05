@@ -1,13 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type CatalogProgress, progressPercent, subscribeCatalogProgress } from '../../services/app/remoteData';
+import { progressPercent } from '../../services/app/remoteData';
 import { fmtMb } from '../../i18n/format';
-
-export function useCatalogProgress(name: string): CatalogProgress | null {
-  const [progress, setProgress] = useState<CatalogProgress | null>(null);
-  useEffect(() => subscribeCatalogProgress(name, setProgress), [name]);
-  return progress;
-}
+import { useCatalogProgress } from './useCatalogProgress';
 
 export function CatalogLoading({ name, label }: { name: string; label: string }) {
   const { t } = useTranslation();

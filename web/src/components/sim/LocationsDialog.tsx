@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
-import { MasterDetail, MasterRow, useGuardedSelection, MasterDetailDialog } from '../common/MasterDetail';
+import { MasterDetail, MasterRow, MasterDetailDialog } from '../common/MasterDetail';
+import { useGuardedSelection } from '../common/useGuardedSelection';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';

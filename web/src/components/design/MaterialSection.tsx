@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { MaterialPicker } from './MaterialPicker';
-import { FieldRow, sectionFields, type CommitEditProps } from './DimensionFields';
+import { FieldRow, type CommitEditProps } from './DimensionFields';
+import { sectionFields } from './fieldHelpers';
 
 export function MaterialSection({ node, onCommitChange }: CommitEditProps) {
   return (

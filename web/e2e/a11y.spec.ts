@@ -531,6 +531,15 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
     {
+      name: 'Motor Dashboard / Exhaust styles',
+      open: async (page) => {
+        await menu(page, 'Motor Dashboard');
+        const dialog = await dialogOpen(page);
+        await dialog.getByRole('button', { name: 'Exhaust styles', exact: true }).click();
+        await expect(dialog.getByRole('heading', { name: 'Dark smoke' })).toBeVisible();
+      },
+    },
+    {
       name: 'Motor Dashboard / Compare',
       open: async (page) => {
         const dialog = await dashboardWithTwo(page);
@@ -867,6 +876,15 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
         const row = tree.locator('[role="treeitem"][aria-expanded="true"]').first();
         await row.getByRole('button', { name: 'Collapse' }).click();
         await expect(tree.locator('[role="treeitem"][aria-expanded="false"]').first()).toBeVisible();
+      },
+    },
+  ],
+  DesignNotesSection: [
+    {
+      name: 'Popup / design notes',
+      open: async (page) => {
+        await openTab(page, 'Design');
+        await toggle(page.getByRole('button', { name: 'Design notes', exact: true }));
       },
     },
   ],

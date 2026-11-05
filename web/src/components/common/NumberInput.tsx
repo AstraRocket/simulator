@@ -1,11 +1,8 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
-import { parseEntry } from '../../prefs/entryValue';
 import { trimFloatNoise } from '../../services/app/numbers';
+import { parseFieldValue } from './parseFieldValue';
 
 const fmt = (v: number) => String(trimFloatNoise(v));
-
-/** Clamps because HTML `min`/`max` are only spinner hints; a unit-converted field must also guard `toSi`. */
-export const parseFieldValue = parseEntry;
 
 const reportDraft = (
   draft: string,

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { toggleDaylight } from '../../services/app/theme';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { ToggleButton } from '../common/ToggleButton';
 
 export function DaylightToggle() {

@@ -45,7 +45,8 @@ export function CenterToolbar({
   const onResetView = useWorkspaceStore((s) => s.resetView);
   const status = useWorkspaceStore(selectShownStatus);
   const chip = STATUS_CHIP[status];
-  const { showMarkers, showInfoCard, rulers, toggleMarkers, toggleInfoCard, toggleRulerSide } = useViewPrefs();
+  const { showMarkers, showInfoCard, showGrid, rulers, toggleMarkers, toggleInfoCard, toggleGrid, toggleRulerSide } =
+    useViewPrefs();
 
   // `@container/bar`: ToolDivider responds to this row's width.
   return (
@@ -92,6 +93,11 @@ export function CenterToolbar({
             </ViewBtn>
             {view === '2d' && (
               <>
+                {twoD === 'side' && (
+                  <ViewBtn active={showGrid} onClick={toggleGrid} title={t('view.gridTitle')}>
+                    {t('view.grid')}
+                  </ViewBtn>
+                )}
                 <ToolDivider />
                 <span className="text-xs font-medium text-ink-muted">{t('view.rulers')}</span>
                 <ToolGroup label={t('view.rulers')}>

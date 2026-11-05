@@ -3,18 +3,12 @@ import type { ComponentNode } from '../../engine/openRocketEngine';
 import { designSeparation, type FlightConfig, sepOverride, stageFlies } from '../../services/flight/flightConfigs';
 import { useWorkspaceStore } from '../../state/store';
 import { findStages } from '../../services/design/treeEdit';
-import {
-  OverrideCard,
-  overrideFieldLabel,
-  OverrideNumber,
-  OverrideRow,
-  OverrideSelect,
-  OverrideAltitude,
-} from './OverrideFields';
+import { OverrideCard, OverrideNumber, OverrideRow, OverrideSelect, OverrideAltitude } from './OverrideFields';
+import { overrideFieldLabel } from './overrideFieldLabel';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { fmtUpTo } from '../../i18n/format';
-import { partName } from './ConfigsTable';
+import { partName } from './partName';
 import { SEPARATION_EVENTS } from '../../services/design/componentFields';
 
 export function SeparationSection({

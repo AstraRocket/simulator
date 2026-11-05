@@ -5,11 +5,13 @@ import { hasMaterial, isRecoveryDevice } from '../../services/design/treeEdit';
 import { updateCustomPart, type PartMeta } from '../../services/parts/customParts';
 import type { CustomPart } from '../../services/parts/presetStore';
 import { AppearanceSection } from './AppearanceSection';
-import { FieldRow, FieldSection, ShoulderSections, sectionFields, visibleFields } from './DimensionFields';
+import { FieldRow, FieldSection, ShoulderSections } from './DimensionFields';
+import { sectionFields, visibleFields } from './fieldHelpers';
 import { OverridesSection } from './OverridesSection';
 import { CordMaterialSection, MaterialSection, RecoveryMaterialSection } from './MaterialSection';
 import { errorText } from '../../i18n/keyedError';
-import { EditorFooter, useReportDirty, EditorHeading } from '../common/MasterDetail';
+import { EditorFooter, EditorHeading } from '../common/MasterDetail';
+import { useReportDirty } from '../common/useGuardedSelection';
 import { PartMetaFields } from './PartMetaFields';
 
 export function SavedPartEditor({

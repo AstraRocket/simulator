@@ -14,21 +14,23 @@ import {
   PluggedFilter,
   SparkyFilter,
   OopFilter,
-  useMotorFilter,
   type MotorFilterHeld,
 } from './MotorFilterBar';
+import { useMotorFilter } from './useMotorFilter';
 import { useVisibleColumns } from './motorColumns';
 import { useMotorSort, type MotorSortHeld } from './useMotorSort';
 import { ColumnChooser, MotorGrid } from './MotorGrid';
 import { MotorComparePane } from './MotorComparePane';
 import { MotorCombinePane } from './MotorCombinePane';
+import { ExhaustStylesPane } from './ExhaustStylesPane';
 import { ToggleButton } from '../common/ToggleButton';
 import { fmtNum } from '../../i18n/format';
 import { toggledEntry } from '../../services/app/collections';
-import { MotorSearch, useCatalogInfo } from './MotorPanelParts';
+import { MotorSearch } from './MotorPanelParts';
+import { useCatalogInfo } from './useCatalogInfo';
 import { useRemembered, useSlot, type RememberedSlot } from '../tools/remembered';
 
-type Mode = 'detail' | 'combine' | 'compare';
+type Mode = 'detail' | 'combine' | 'compare' | 'exhaust';
 
 interface MotorDashboardHeld {
   selected: CatalogMotor | null;
@@ -41,6 +43,40 @@ export interface MotorDashboardSlots {
   filter: RememberedSlot<MotorFilterHeld>;
   sort: RememberedSlot<MotorSortHeld>;
   view: RememberedSlot<MotorDashboardHeld>;
+}
+
+function PaneBar({ mode, checkedCount, onMode }: { mode: Mode; checkedCount: number; onMode: (mode: Mode) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line/10 bg-surface px-3 py-2">
+      <button
+        onClick={() => onMode('detail')}
+        className="rounded-lg bg-raised px-3 py-1 text-xs font-medium text-ink hover:bg-elevated"
+      >
+        <span aria-hidden="true">←</span> {t('dash.back')}
+      </button>
+      {mode !== 'exhaust' && (
+        <>
+          <ToggleButton
+            active={mode === 'compare'}
+            disabled={checkedCount < 2}
+            onClick={() => onMode('compare')}
+            className="w-24 rounded-lg px-3 py-1 text-center text-xs font-medium ring-1 ring-line/10"
+          >
+            {t('dash.compareN', { n: checkedCount })}
+          </ToggleButton>
+          <ToggleButton
+            active={mode === 'combine'}
+            disabled={checkedCount < 2}
+            onClick={() => onMode('combine')}
+            className="w-24 rounded-lg px-3 py-1 text-center text-xs font-medium ring-1 ring-line/10"
+          >
+            {t('dash.combine', { n: checkedCount })}
+          </ToggleButton>
+        </>
+      )}
+    </div>
+  );
 }
 
 /** `frame` places the title-bar actions and the panes: a dialog, or the Tools tab. */
@@ -99,7 +135,8 @@ export function MotorDashboardView({
 
   // Stable for the combine pane's memo.
   const checkedMotors = useMemo(() => [...checked.values()], [checked]);
-  const effMode: Mode = (mode === 'combine' || mode === 'compare') && checked.size >= 2 ? mode : 'detail';
+  const effMode: Mode =
+    mode === 'exhaust' || ((mode === 'combine' || mode === 'compare') && checked.size >= 2) ? mode : 'detail';
 
   const toggleCheck = (m: CatalogMotor) => setChecked((prev) => toggledEntry(prev, keyOf(m), m));
 
@@ -124,6 +161,13 @@ export function MotorDashboardView({
           </button>
         </>
       )}
+      <ToggleButton
+        active={effMode === 'exhaust'}
+        onClick={() => setMode(effMode === 'exhaust' ? 'detail' : 'exhaust')}
+        className="rounded-lg px-2 py-1 text-xs"
+      >
+        {t('exhaust.title')}
+      </ToggleButton>
     </>,
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       {/* min-w-0 lets the grid scroll internally instead of pushing the detail pane. */}
@@ -168,33 +212,10 @@ export function MotorDashboardView({
       <div
         className={`min-h-0 overflow-y-auto ${effMode === 'detail' ? 'w-full max-md:max-h-[40%] md:w-[440px] md:shrink-0' : 'w-full flex-1'}`}
       >
-        {effMode !== 'detail' && (
-          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line/10 bg-surface px-3 py-2">
-            <button
-              onClick={() => setMode('detail')}
-              className="rounded-lg bg-raised px-3 py-1 text-xs font-medium text-ink hover:bg-elevated"
-            >
-              <span aria-hidden="true">←</span> {t('dash.back')}
-            </button>
-            <ToggleButton
-              active={effMode === 'compare'}
-              disabled={checked.size < 2}
-              onClick={() => setMode('compare')}
-              className="w-24 rounded-lg px-3 py-1 text-center text-xs font-medium ring-1 ring-line/10"
-            >
-              {t('dash.compareN', { n: checked.size })}
-            </ToggleButton>
-            <ToggleButton
-              active={effMode === 'combine'}
-              disabled={checked.size < 2}
-              onClick={() => setMode('combine')}
-              className="w-24 rounded-lg px-3 py-1 text-center text-xs font-medium ring-1 ring-line/10"
-            >
-              {t('dash.combine', { n: checked.size })}
-            </ToggleButton>
-          </div>
-        )}
-        {effMode === 'compare' ? (
+        {effMode !== 'detail' && <PaneBar mode={effMode} checkedCount={checked.size} onMode={setMode} />}
+        {effMode === 'exhaust' ? (
+          <ExhaustStylesPane />
+        ) : effMode === 'compare' ? (
           <MotorComparePane motors={checkedMotors} cols={cols} />
         ) : effMode === 'combine' ? (
           <MotorCombinePane motors={checkedMotors} />
@@ -223,7 +244,12 @@ export function MotorDashboardView({
             </div>
           </div>
         ) : selected ? (
-          <MotorDetail motor={selected} curveIndex={curveIdx} onCurveChange={setCurveIdx} />
+          <MotorDetail
+            motor={selected}
+            curveIndex={curveIdx}
+            onCurveChange={setCurveIdx}
+            onShowExhaustStyles={() => setMode('exhaust')}
+          />
         ) : (
           <div className="grid h-full place-items-center p-6 text-center text-sm text-ink-faint">{t('dash.hint')}</div>
         )}

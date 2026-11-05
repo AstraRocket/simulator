@@ -5,11 +5,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Line, Html } from '@react-three/drei';
 import type { RocketTree } from '../../engine/openRocketEngine';
 import type { Piece } from './rocketPieces';
-import { LookMaterial, surfacesOf } from './LookMaterial';
+import { LookMaterial } from './LookMaterial';
+import { surfacesOf } from './lookSurfaces';
 import { RoomReflections } from './RoomReflections';
 import { usePieces } from './usePieces';
 import { mergePalette } from '../../services/design/partColors';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { EVENT_LABEL } from '../../services/flight/simReport';
 import {
   burnAt,

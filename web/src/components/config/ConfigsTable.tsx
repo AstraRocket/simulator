@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
+import type { RocketTree } from '../../engine/openRocketEngine';
 import { configLabel, type FlightConfig } from '../../services/flight/flightConfigs';
 
 export interface ConfigColumn {
@@ -74,13 +74,4 @@ export function ConfigsTable({
       </tbody>
     </table>
   );
-}
-
-export function partName(
-  node: ComponentNode,
-  i: number,
-  t: (k: string, opts?: Record<string, unknown>) => string,
-): string {
-  const own = typeof node.name === 'string' ? node.name.trim() : '';
-  return own || t('configs.partNumbered', { part: t(`part.${node.type}`), n: i + 1 });
 }

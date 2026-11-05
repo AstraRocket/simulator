@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { FieldLabel, markRing } from './FieldMark';
+import { FieldLabel } from './FieldMark';
+import { markRing } from './markRing';
 import { NumberInput } from './NumberInput';
 
 export interface NumberRowMarks {

@@ -5,7 +5,7 @@ import { NO_VALUE } from '../../i18n/noValue';
 import { stagePrefixed } from '../../i18n/format';
 import { useWorkspaceStore } from '../../state/store';
 import { chargeRows } from '../../services/flight/recoveryCharges';
-import { useScopedUnit } from '../common/UnitChip';
+import { useScopedUnit } from '../common/useScopedUnit';
 import { CardGroup } from '../common/CardGroup';
 
 export function RecoveryChargesCard() {

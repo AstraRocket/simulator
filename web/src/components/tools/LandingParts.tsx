@@ -10,12 +10,7 @@ import { formatCoord } from '../../services/map/slippyMap';
 import { fmtSiteTime } from '../../i18n/format';
 import { RadioGroup } from '../common/RadioGroup';
 import type { LandingForm } from './LandingEstimator';
-
-/** m:ss, rounded to the whole second before splitting. */
-export function minutesSeconds(s: number): string {
-  const total = Math.round(s);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
+import { minutesSeconds } from './minutesSeconds';
 
 export function LandingFlightCard({ form }: { form: LandingForm }) {
   const { t } = useTranslation();

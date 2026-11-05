@@ -5,8 +5,8 @@ export type DesignPane = 'stats' | 'sketch';
 
 export type ConfigsTab = 'motors' | 'recovery' | 'separation' | 'bays';
 
-/** In tab order. */
-export const TOOLS = ['landing', 'chute', 'flutter', 'ejection', 'exhaust', 'motors'] as const;
+/** Shown sorted by translated label; see ToolsPane. */
+export const TOOLS = ['landing', 'chute', 'flutter', 'ejection', 'motors'] as const;
 export type Tool = (typeof TOOLS)[number];
 
 export type AeroPane = 'charts' | 'components';

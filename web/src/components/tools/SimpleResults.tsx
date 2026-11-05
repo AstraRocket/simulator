@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { unitScope } from '../../prefs/units';
 import { NO_VALUE } from '../../i18n/noValue';
 import { fmtNum, withUnit } from '../../i18n/format';

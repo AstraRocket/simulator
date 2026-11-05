@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useMotorFilter } from '../../../src/components/sim/MotorFilterBar';
+import { useMotorFilter } from '../../../src/components/sim/useMotorFilter';
 import { MAX_IDX, STD_DIAMS, fitIdx } from '../../../src/services/motors/motorPicker';
 
 describe('the remembered diameter range', () => {

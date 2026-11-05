@@ -29,7 +29,7 @@ import { confirm } from '../../state/confirmStore';
 import { fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useUnits, type Units } from '../../prefs/useUnits';
-import { useCatalogProgress } from '../common/CatalogLoading';
+import { useCatalogProgress } from '../common/useCatalogProgress';
 import { Dialog } from '../common/Dialog';
 import { errorText } from '../../i18n/keyedError';
 import { progressPercent } from '../../services/app/remoteData';

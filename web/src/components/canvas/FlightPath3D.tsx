@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { withFixedUnit } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import { buildFlightScene, indexForProgress } from './flightScene';

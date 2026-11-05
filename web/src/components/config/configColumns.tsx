@@ -10,20 +10,12 @@ import {
 } from '../../services/flight/flightConfigs';
 import { findMounts, findRecoveryDevices, findSeparators, findStages } from '../../services/design/treeEdit';
 import type { FieldUnit } from '../../prefs/useUnits';
-import { partName, type ConfigColumn } from './ConfigsTable';
+import type { ConfigColumn } from './ConfigsTable';
+import { partName } from './partName';
 import { motorDesignation } from '../../services/motors/motorName';
 import { fmtUpTo } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
-
-function Overridden({ children, t }: { children: React.ReactNode; t: TFunction }) {
-  return (
-    <span className="text-warn-300/90" title={t('configs.overridden')}>
-      {children}
-      <sup aria-hidden>*</sup>
-      <span className="sr-only"> {t('configs.overridden')}</span>
-    </span>
-  );
-}
+import { Overridden } from './Overridden';
 
 const delayText = (s: number, t: TFunction) => ` +${fmtUpTo(s, 3)}${t('units.second')}`;
 

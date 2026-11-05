@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectDesignName, selectShownSim } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { StabilityBadge } from './StabilityBadge';
 import { RocketOverview } from './RocketOverview';
 import { DesignWarnings } from './DesignWarnings';

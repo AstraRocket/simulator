@@ -8,23 +8,17 @@ import { clampEntry } from '../../prefs/entryValue';
 import { unitScope, type Quantity, degToRad } from '../../prefs/units';
 import { num } from '../../tree/nodeProps';
 import { shapeSelect } from '../../tree/shapeProfile';
-import { FIELDS, type Field, type PanelSection } from '../../services/design/componentFields';
+import type { Field } from '../../services/design/componentFields';
 import { DERIVED } from '../../services/design/derivedFields';
 import { clampToBounds, type DimensionBounds } from '../../services/design/linkedDimensions';
-import {
-  isKernelAutoKey,
-  fieldApplies,
-  fieldOptions,
-  fieldRange,
-  fieldValue,
-  liveBounds,
-} from '../../services/design/fieldRange';
+import { isKernelAutoKey, fieldOptions, fieldRange, fieldValue, liveBounds } from '../../services/design/fieldRange';
 import { parentRadiusOf } from '../../tree/finPlanform';
 import { PropSection } from './PropSection';
 import { rebaseTabOffset } from '../../tree/finPlanform';
 import { useWorkspaceStore } from '../../state/store';
 import { trimFloatNoise } from '../../services/app/numbers';
 import { NumberWithUnit } from '../common/NumberRow';
+import { commitWith, sectionFields } from './fieldHelpers';
 
 // Memoized on the live build: each read is a kernel call and the panel re-renders per keystroke.
 function useKernelAutoValue(node: ComponentNode, f: Field): number | undefined {
@@ -47,15 +41,6 @@ function useKernelAutoValue(node: ComponentNode, f: Field): number | undefined {
 function useTabDepthLimit(node: ComponentNode, f: Field): number | null {
   const id = f.key === 'tabHeight' && typeof node.id === 'string' ? node.id : null;
   return useWorkspaceStore((s) => (id === null ? null : parentRadiusOf(s.tree, id)));
-}
-
-export function visibleFields(node: ComponentNode, isFirstStage: boolean): Field[] {
-  const allFields = node.type === 'stage' && isFirstStage ? [] : (FIELDS[node.type] ?? []);
-  return allFields.filter((f) => f.section === undefined && fieldApplies(node, f));
-}
-
-export function sectionFields(node: ComponentNode, section: PanelSection): Field[] {
-  return (FIELDS[node.type] ?? []).filter((f) => f.section === section && fieldApplies(node, f));
 }
 
 export function FieldSection({
@@ -83,13 +68,6 @@ export function FieldSection({
     </PropSection>
   );
 }
-
-export const commitWith =
-  (onChange: NodeEditProps['onChange'], onCommit?: () => void) =>
-  (patch: Partial<ComponentNode>): void => {
-    onChange(patch);
-    onCommit?.();
-  };
 
 export interface NodeEditProps {
   node: ComponentNode;

@@ -12,9 +12,16 @@ A to-scale side view of the rocket with **CG** (▲) and **CP** (●) markers an
 
 - **Calipers**: **↔ Length** and **↕ Diameter** in the toolbar are drag-to-measure tools. **Length** measures the distance between two vertical lines; **Diameter** measures across (diameters / spans). Lines **snap** to component edges. Zoomed in, each caliper's readout stays in view, and Diameter's grips move to the view's left edge once the nose is off screen.
 - **Rulers**: a measurement frame around the drawing, with a **toggle per side** (top / bottom / left / right) next to the CG/CP and Info buttons. The rulers stay through a zoom or pan: their marks follow the drawing and get finer as you zoom in, so a zoomed-in part can still be read off them.
+- **Grid**: draws lines at the ruler's marks behind the side view, and follows a zoom or pan. Image and SVG exports leave it out.
 - **Zoom / pan**: **+**, **−** and **Fit** in the drawing's bottom-right corner, or scroll, to zoom. Once zoomed in, drag to pan; **Fit** brings the whole rocket back. The CG / CP markers, their labels and the calipers keep their size as you zoom. The aft view has the same zoom block.
 - **Roll**: at the fitted view, a sideways drag on the drawing spins the rocket about its long axis, so you can see fin sets edge-on or broadside. The slider along the left edge does the same at any zoom.
 - **Side / Aft**: switch between the side profile and an aft (head-on) view; **Reset** restores the default framing.
+
+## Hiding parts (2D and 3D)
+
+The eye button on a row of the component tree hides that part and everything inside it from the side view, the aft view and the 3D model, so you can get at what is behind it. The parts behind it stay where they are. **Show all** under the tree brings every part back.
+
+Hiding changes only the picture: hidden parts still count in mass, CG, aerodynamics and every flight number, and the 3D flight path still draws them. Hiding is not saved with the design, and opening another design clears it.
 
 ## View toggles (2D and 3D)
 

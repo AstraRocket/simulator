@@ -12,9 +12,16 @@ Una vista lateral a escala del cohete con los marcadores de **CG** (▲) y **CP*
 
 - **Calibres**: **↔ Longitud** y **↕ Diámetro** en la barra son herramientas de medición que se arrastran. **Longitud** mide la distancia entre dos líneas verticales; **Diámetro** mide en transversal (diámetros y envergaduras). Las líneas se **ajustan** a los bordes de los componentes. Con el dibujo ampliado, la lectura de cada calibre sigue a la vista, y los tiradores de Diámetro pasan al borde izquierdo de la vista cuando la ojiva queda fuera.
 - **Reglas**: un marco de medición alrededor del dibujo, con un **interruptor por lado** (arriba / abajo / izquierda / derecha) junto a los botones de CG/CP y **Datos**. Las reglas se mantienen al ampliar o desplazar: sus marcas siguen al dibujo y se afinan al acercar, así que una pieza ampliada se sigue pudiendo medir con ellas.
+- **Cuadrícula**: dibuja líneas en las marcas de la regla detrás de la vista lateral, y sigue el zoom y el desplazamiento. Las exportaciones de imagen y SVG la omiten.
 - **Zoom y desplazamiento**: **+**, **−** y **Ajustar** en la esquina inferior derecha del dibujo, o la rueda, para acercar. Con el dibujo ampliado, arrastra para desplazarte; **Ajustar** vuelve a mostrar el cohete entero. Los marcadores de CG / CP, sus etiquetas y los calibres mantienen su tamaño al ampliar. La vista trasera tiene el mismo bloque de zoom.
 - **Giro**: con el encuadre ajustado, arrastrar el dibujo hacia los lados gira el cohete sobre su eje longitudinal, para ver los juegos de aletas de canto o de frente. El deslizador del borde izquierdo hace lo mismo con cualquier zoom.
 - **Lateral / Trasera**: cambia entre el perfil lateral y una vista posterior (de frente); **Restablecer** recupera el encuadre por defecto.
+
+## Ocultar piezas (2D y 3D)
+
+El botón del ojo en una fila del árbol de componentes oculta esa pieza y todo lo que contiene en la vista lateral, la vista trasera y el modelo 3D, para que puedas ver lo que hay detrás. Las piezas posteriores no se mueven. **Mostrar todo**, bajo el árbol, las devuelve todas.
+
+Ocultar solo cambia la imagen: las piezas ocultas siguen contando en la masa, el CG, la aerodinámica y todos los datos de vuelo, y la trayectoria de vuelo 3D las sigue dibujando. Ocultar no se guarda con el diseño, y abrir otro diseño lo borra.
 
 ## Interruptores de vista (2D y 3D) {#view-toggles-2d-and-3d}
 

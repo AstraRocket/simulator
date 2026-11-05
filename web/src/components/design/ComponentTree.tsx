@@ -11,6 +11,8 @@ import { token } from '../common/colorTokens';
 import { toggled } from '../../services/app/collections';
 import { collectNodes } from '../../tree/treeWalk';
 import { useTreeNavigation, type TreeEdit } from './useTreeNavigation';
+import { HiddenPartsNote, PartVisibilityToggle, type PartVisibility } from './PartVisibilityToggle';
+import { isPartHidden } from './isPartHidden';
 
 const ADD_GROUPS: { group: string; items: ComponentType[] }[] = [
   { group: 'groupBody', items: ['nosecone', 'bodytube', 'transition'] },
@@ -140,6 +142,7 @@ function Row({
   onSelect,
   collapsed,
   onToggleCollapse,
+  visibility,
 }: {
   node: ComponentNode;
   depth: number;
@@ -148,6 +151,7 @@ function Row({
   onSelect?: (id: string) => void;
   collapsed: ReadonlySet<string>;
   onToggleCollapse: (id: string) => void;
+  visibility?: PartVisibility;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -162,6 +166,7 @@ function Row({
   const hasKids = (node.children?.length ?? 0) > 0;
   const isCollapsed = hasKids && !!id && collapsed.has(id);
   const selectable = !!id && !!onSelect;
+  const rowTabIndex = selectable && id === tabbableId ? 0 : -1;
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (selected) rowRef.current?.scrollIntoView({ block: 'nearest' });
@@ -207,7 +212,12 @@ function Row({
         <span className="w-4 shrink-0 text-center text-xs leading-none" style={{ color }} aria-hidden>
           {symbol}
         </span>
-        <span className={`truncate text-sm ${selected ? 'text-accent-200' : 'text-ink'}`}>{name}</span>
+        <span
+          className={`truncate text-sm ${selected ? 'text-accent-200' : 'text-ink'}`}
+          style={isPartHidden(visibility, id) ? { opacity: 0.5 } : undefined}
+        >
+          {name}
+        </span>
         {isMount && (
           <span className="shrink-0 rounded bg-accent-500/15 px-1 text-[10px] font-medium text-accent-200">
             {t('tree.motorTag')}
@@ -217,7 +227,8 @@ function Row({
           {det && (
             <span className={`text-[11px] tabular-nums ${selected ? 'text-ink-muted' : 'text-ink-faint'}`}>{det}</span>
           )}
-          <ComponentExportButton node={node} tabIndex={selectable && id === tabbableId ? 0 : -1} />
+          <ComponentExportButton node={node} tabIndex={rowTabIndex} />
+          <PartVisibilityToggle id={id} visibility={visibility} tabIndex={rowTabIndex} />
         </div>
       </div>
       {!isCollapsed &&
@@ -231,6 +242,7 @@ function Row({
             onSelect={onSelect}
             collapsed={collapsed}
             onToggleCollapse={onToggleCollapse}
+            visibility={visibility}
           />
         ))}
     </>
@@ -392,6 +404,7 @@ export function ComponentTree({
   onScale,
   onAddStage,
   edit,
+  visibility,
 }: {
   tree: RocketTree;
   selectedId?: string | null;
@@ -400,6 +413,7 @@ export function ComponentTree({
   onScale?: () => void;
   onAddStage?: () => void;
   edit?: TreeEdit;
+  visibility?: PartVisibility;
 }) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
@@ -453,6 +467,7 @@ export function ComponentTree({
                 onSelect={onSelect}
                 collapsed={collapsed}
                 onToggleCollapse={toggleCollapse}
+                visibility={visibility}
               />
             ))
           ) : (
@@ -460,6 +475,7 @@ export function ComponentTree({
           )}
         </div>
       )}
+      {visibility && <HiddenPartsNote visibility={visibility} />}
     </section>
   );
 }

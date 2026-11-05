@@ -442,12 +442,23 @@ export interface ComponentNode {
   [param: string]: unknown;
 }
 
+export interface RevisionEntry {
+  id: string;
+  /** `YYYY-MM-DD`. */
+  date: string;
+  note: string;
+}
+
 export interface RocketTree {
   name?: string;
   designer?: string;
   kitName?: string;
   comment?: string;
   revision?: string;
+  /** App-only notes: desktop has no field for these three, see `orkDesignNotes`. */
+  kitManufacturer?: string;
+  kitPartNumber?: string;
+  revisionLog?: RevisionEntry[];
   designType?: string;
   /** Carried only: the app always measures against `maximum`. */
   referenceType?: string;

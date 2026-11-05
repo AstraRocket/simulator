@@ -44,7 +44,20 @@ export interface EditSlice {
   addStageToTree: () => void;
   moveSelected: (dir: -1 | 1) => void;
   updateDesignMeta: (
-    patch: Partial<Pick<RocketTree, 'name' | 'designer' | 'kitName' | 'comment' | 'revision' | 'designType'>>,
+    patch: Partial<
+      Pick<
+        RocketTree,
+        | 'name'
+        | 'designer'
+        | 'kitName'
+        | 'comment'
+        | 'revision'
+        | 'designType'
+        | 'kitManufacturer'
+        | 'kitPartNumber'
+        | 'revisionLog'
+      >
+    >,
   ) => void;
   addDocumentMaterial: (m: DocumentMaterial) => void;
 }

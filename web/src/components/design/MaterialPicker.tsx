@@ -13,7 +13,8 @@ import { useAsyncLoad } from '../common/useAsyncLoad';
 import { mathEquals } from '../../services/motors/mathEquals';
 import { StatusLine } from '../common/StatusLine';
 import { groupBy } from '../../services/app/collections';
-import { CustomMaterialForm, useCustomMaterialForm } from './CustomMaterialForm';
+import { CustomMaterialForm } from './CustomMaterialForm';
+import { useCustomMaterialForm } from './useCustomMaterialForm';
 
 export type MaterialUse = 'structure' | 'fillet';
 

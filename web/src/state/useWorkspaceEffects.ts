@@ -12,7 +12,7 @@ import { onStorageDegraded } from '../services/storage/idbKeyValueStore';
 import { requestPersistentStorage } from '../services/storage/persistStorage';
 import { computeStaticInfo, buildKey } from '../services/design/buildRocket';
 import { buildFailureText } from '../services/flight/runnability';
-import { useSettings } from './SettingsProvider';
+import { useSettings } from './useSettings';
 import { warmSimWorker } from '../engine/simClient';
 import { appName, defaultDesignName } from '../services/app/appInfo';
 import { defaultStageName } from '../services/design/orkTree';

@@ -27,6 +27,8 @@ export interface SchematicShapesCfg {
   /** clipPath id namespace: two schematics in one document would otherwise cross-clip. */
   uid: string;
   motors?: Record<string, { length: number; diameter: number; label?: string }>;
+  /** Not drawn, but still taking up their length, so the parts behind them stay in place. */
+  hiddenIds?: ReadonlySet<string>;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   setHoverId: React.Dispatch<React.SetStateAction<string | null>>;

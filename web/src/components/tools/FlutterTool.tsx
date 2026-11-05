@@ -1,4 +1,4 @@
-import { rememberedSlot, useRemembered } from './remembered';
+import { useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { flutterSpeed, flutterVerdict } from '../../services/flight/finFlutter';
@@ -6,25 +6,9 @@ import { QNum } from '../sim/QNum';
 import { CardGroup } from '../common/CardGroup';
 import { SiteElevationField } from './SiteFields';
 import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from './FlutterFields';
-import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
+import { stockModulus } from '../../state/finFlutterChoices';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
-
-interface Remembered {
-  rootM: number | null;
-  tipM: number | null;
-  spanM: number | null;
-  thicknessM: number | null;
-  material: FinStock;
-  shearPa: number | null;
-  speedMs: number | null;
-  altitudeM: number | null;
-  siteM: number | null;
-}
-const remembered = rememberedSlot<Remembered>();
-
-export function forgetFlutterTool(): void {
-  remembered.forget();
-}
+import { Remembered, remembered } from './flutterToolMemory';
 
 export function FlutterTool() {
   const { t } = useTranslation();

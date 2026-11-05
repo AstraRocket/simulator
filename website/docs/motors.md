@@ -6,7 +6,7 @@ A motor is assigned to a rocket's **motor mount** (inner tube). Motors live in a
 
 ## The motor picker
 
-The picker searches a bundled catalog of **~1,150 real motors** from [thrustcurve.org](https://www.thrustcurve.org): filter by manufacturer, diameter, impulse class, total impulse (a minimum and a maximum, either one optional), and designation. Selecting a motor shows its dimensions and total impulse, and a small preview of the flame and smoke the 3D flight path draws for its propellant (see [Exhaust looks](./tools.md#exhaust-looks)).
+The picker searches a bundled catalog of **~1,150 real motors** from [thrustcurve.org](https://www.thrustcurve.org): filter by manufacturer, diameter, impulse class, total impulse (a minimum and a maximum, either one optional), and designation. Selecting a motor shows its dimensions and total impulse, and a small preview of the flame and smoke the 3D flight path draws for its propellant (see [Exhaust styles](./tools.md#exhaust-styles)).
 
 - **Fits the mount**: only motors that go in this mount, by its bore and the length it has room for, including the motor overhang. The bore is shown in the label. It is on by default when the picker is opened for a mount; turn it off to see the whole catalog.
 - **Plugged**: only motors the manufacturer lists without an ejection charge, for staging or electronic recovery. Any motor can still be flown plugged from the delay control (see [Ejection delay](#ejection-delay)).

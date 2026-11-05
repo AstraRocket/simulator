@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { partName } from '../../../src/components/config/ConfigsTable';
+import { partName } from '../../../src/components/config/partName';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
 const t = (key: string, opts?: Record<string, unknown>) =>

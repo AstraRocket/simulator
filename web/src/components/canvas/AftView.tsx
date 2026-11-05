@@ -37,11 +37,13 @@ function clientToViewBox(
 export function AftView({
   tree,
   motors,
+  hiddenIds,
   roll = 0,
   onRoll,
 }: {
   tree: RocketTree;
   motors?: MotorDims;
+  hiddenIds?: ReadonlySet<string>;
   /** Radians. */
   roll?: number;
   onRoll?: (deltaRadians: number) => void;
@@ -55,8 +57,8 @@ export function AftView({
   const zoomBy = (f: number) => setZoom((z) => zoomStep(z, 0, 0, f, WHEEL_ZOOM.max));
   // Roll and zoom are applied by the SVG transform, so neither is a memo input.
   const { hulls, inner, outer, extent } = useMemo(
-    () => buildAftScene(tree.components, motors, t),
-    [tree.components, motors, t],
+    () => buildAftScene(tree.components, motors, t, hiddenIds),
+    [tree.components, motors, t, hiddenIds],
   );
 
   const E = extent * 1.12;

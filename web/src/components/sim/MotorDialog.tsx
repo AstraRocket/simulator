@@ -1,32 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CatalogMotor } from '../../services/motors/motorDb';
 import { MAX_IDX, type MountFit } from '../../services/motors/motorPicker';
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import { Dialog } from '../common/Dialog';
 import { keyOf } from '../../services/motors/motorKey';
 import { useCatalog } from './useCatalog';
-import { useMotorFilter } from './MotorFilterBar';
+import { useMotorFilter } from './useMotorFilter';
 import { loadDia, loadMfrs, saveDia, saveMfrs } from './motorPrefs';
-import { roundTo } from '../../services/app/numbers';
-import { toCatalogMm } from '../../services/motors/catalogUnits';
 import { useLiftoffFields, type LiftoffAt } from './useLiftoffFields';
-import { useCatalogInfo } from './MotorPanelParts';
+import { useCatalogInfo } from './useCatalogInfo';
 import { MotorFilters, MotorList, SelectedMotor } from './MotorDialogParts';
 import { useCatalogEdits, useMotorChoice } from './useMotorChoice';
-
-/** A designation is shared (F67W, F67C), so same-name matches narrow by bore and curve source. */
-export function findSeated(catalog: CatalogMotor[], cur: MotorSpec): CatalogMotor | undefined {
-  const named = catalog.filter(
-    (m) => m.manufacturer === cur.manufacturer && (m.designation === cur.designation || m.code === cur.designation),
-  );
-  if (named.length <= 1) return named[0];
-  // The catalog states diameters to 0.1 mm (the 10.5 mm Apogee motors).
-  const mm = roundTo(toCatalogMm(cur.diameter), 1);
-  const byBore = named.filter((m) => m.diameter === mm);
-  const pool = byBore.length ? byBore : named;
-  return (cur.curveSrc && pool.find((m) => m.curves?.some((c) => c.src === cur.curveSrc))) || pool[0];
-}
+import { findSeated } from '../../services/motors/seatedMotor';
 
 export function MotorDialog({
   onClose,

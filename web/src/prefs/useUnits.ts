@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useSettings } from '../state/SettingsProvider';
+import { useSettings } from '../state/useSettings';
 import { fmtNum, withUnit } from '../i18n/format';
 import { NO_VALUE } from '../i18n/noValue';
 import {

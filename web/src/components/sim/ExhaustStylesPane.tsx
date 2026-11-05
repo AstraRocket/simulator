@@ -2,10 +2,9 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EXHAUST_LOOKS, exhaustIdFor, type ExhaustId } from '../../services/motors/exhaust';
 import type { CatalogMotor } from '../../services/motors/motorDb';
-import { useCatalog } from '../sim/useCatalog';
-import { ExhaustPreview } from '../sim/ExhaustPreview';
+import { useCatalog } from './useCatalog';
+import { ExhaustPreview } from './ExhaustPreview';
 import { CatalogError, CatalogLoading } from '../common/CatalogLoading';
-import { ToolForm } from './ToolLayout';
 
 function propellantsByLook(catalog: readonly CatalogMotor[]): Map<ExhaustId, { names: string[]; sparky: number }> {
   const out = new Map<ExhaustId, { names: Set<string>; sparky: number }>();
@@ -21,14 +20,18 @@ function propellantsByLook(catalog: readonly CatalogMotor[]): Map<ExhaustId, { n
   );
 }
 
-export function ExhaustTool() {
+export function ExhaustStylesPane() {
   const { t } = useTranslation();
   const { catalog, loading, error, retry } = useCatalog();
   const byLook = useMemo(() => propellantsByLook(catalog), [catalog]);
   const unnamed = useMemo(() => catalog.filter((m) => !m.propInfo).length, [catalog]);
 
   return (
-    <ToolForm title={t('exhaust.title')} intro={t('exhaust.intro')}>
+    <div className="space-y-4 p-3">
+      <div>
+        <h3 className="text-sm font-semibold text-ink">{t('exhaust.title')}</h3>
+        <p className="mt-1 text-xs text-ink-muted">{t('exhaust.intro')}</p>
+      </div>
       {error && <CatalogError message={`${t('catalog.failedMotors')} ${error}`} onRetry={retry} />}
       {loading && <CatalogLoading name="motors" label={t('catalog.loadingMotors')} />}
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -37,7 +40,7 @@ export function ExhaustTool() {
           return (
             <li key={id} className="space-y-2 rounded-lg bg-surface p-3 ring-1 ring-line/10">
               <ExhaustPreview look={look} className="h-12 w-full" />
-              <h3 className="text-sm font-semibold text-ink">{t(`exhaust.look_${id}`)}</h3>
+              <h4 className="text-sm font-semibold text-ink">{t(`exhaust.look_${id}`)}</h4>
               <p className="text-xs text-ink-muted">{t(`exhaust.about_${id}`)}</p>
               {!loading && !error && (
                 <p className="text-[11px] leading-snug text-ink-soft">
@@ -50,6 +53,6 @@ export function ExhaustTool() {
           );
         })}
       </ul>
-    </ToolForm>
+    </div>
   );
 }

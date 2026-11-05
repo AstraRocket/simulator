@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import type { ComponentMass, AeroSweep } from '../../engine/openRocketEngine';

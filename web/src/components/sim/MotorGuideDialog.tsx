@@ -14,12 +14,12 @@ import {
   PerfFilters,
   PluggedFilter,
   SparkyFilter,
-  useMotorFilter,
 } from './MotorFilterBar';
+import { useMotorFilter } from './useMotorFilter';
 import { MotorSearch } from './MotorPanelParts';
 import { useUnits } from '../../prefs/useUnits';
 import { useLauncherT } from '../common/useLauncher';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import {
   useWorkspaceStore,
   configOf,
@@ -40,7 +40,7 @@ import { effectivePrefs } from '../../services/flight/simulations';
 import { sharedDeviceNames } from '../../services/flight/recoveryFlown';
 import { delayString, motorName } from '../../services/motors/motorName';
 import { warningText } from '../../services/app/warningText';
-import { partName } from '../config/ConfigsTable';
+import { partName } from '../config/partName';
 import { useLiftoffFields } from './useLiftoffFields';
 import { guideVerdict, verdictRank, type GuideIssue, type GuideVerdict } from './motorGuideIssues';
 import { fmtNum } from '../../i18n/format';
@@ -49,16 +49,8 @@ import { motorGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
 import { useIsDesktop } from '../common/useMediaQuery';
-import {
-  GuideResults,
-  GuideToolbar,
-  GuideUseButton,
-  motorCols,
-  sortGuideRows,
-  useGuideCandidates,
-  type GuideCol,
-  type GuideSort,
-} from './GuideResults';
+import { GuideResults, GuideToolbar, GuideUseButton, type GuideCol, type GuideSort } from './GuideResults';
+import { motorCols, sortGuideRows, useGuideCandidates } from './guideRows';
 
 export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: () => void }) {
   const { t } = useTranslation();

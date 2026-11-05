@@ -1,4 +1,4 @@
-import { rememberedSlot, useRemembered } from './remembered';
+import { useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { siteAirDensity } from '../../services/flight/recoverySizing';
@@ -8,19 +8,7 @@ import { CardGroup } from '../common/CardGroup';
 import { SiteElevationField, SiteTemperatureField } from './SiteFields';
 import { NumberRow } from '../common/NumberRow';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
-
-interface Remembered {
-  massKg: number | null;
-  cd: number | null;
-  diameterM: number | null;
-  siteM: number | null;
-  temperatureC: number | null;
-}
-const remembered = rememberedSlot<Remembered>();
-
-export function forgetParachuteTool(): void {
-  remembered.forget();
-}
+import { remembered } from './parachuteToolMemory';
 
 export function ParachuteTool() {
   const { t } = useTranslation();

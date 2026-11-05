@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { confirm } from '../../state/confirmStore';
-import { MasterDetail, MasterRow, useGuardedSelection, MasterDetailDialog } from '../common/MasterDetail';
+import { MasterDetail, MasterRow, MasterDetailDialog } from '../common/MasterDetail';
+import { useGuardedSelection } from '../common/useGuardedSelection';
 import { fmtNum } from '../../i18n/format';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import { DEFAULT_CHUTE_CD } from '../../services/parts/componentFilter';

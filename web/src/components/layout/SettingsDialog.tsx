@@ -2,7 +2,7 @@ import { must } from '../../services/app/must';
 import { useState, type ReactNode } from 'react';
 import { useTabs } from '../common/useTabs';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { DEFAULT_SETTINGS } from '../../services/storage/settings';
 import { Dialog } from '../common/Dialog';
 import { DialogButton } from '../common/DialogButton';

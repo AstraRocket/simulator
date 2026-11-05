@@ -14,7 +14,8 @@ vi.mock('@react-three/fiber', () => ({ Canvas: () => null, useFrame: () => {}, u
 vi.mock('@react-three/drei', () => ({ OrbitControls: () => null, Bounds: () => null }));
 // The marker textures need a 2D canvas, which jsdom lacks; the mock records their ink.
 const markerTexture = vi.hoisted(() => vi.fn((..._args: unknown[]) => ({ dispose: () => {} })));
-vi.mock('../../../src/components/canvas/rocketCallouts', () => ({ markerTexture, AxisCallout: () => null }));
+vi.mock('../../../src/components/canvas/markerTexture', () => ({ markerTexture }));
+vi.mock('../../../src/components/canvas/rocketCallouts', () => ({ AxisCallout: () => null }));
 
 const { Rocket3D } = await import('../../../src/components/canvas/Rocket3D');
 const { CenterCanvas } = await import('../../../src/components/canvas/CenterCanvas');

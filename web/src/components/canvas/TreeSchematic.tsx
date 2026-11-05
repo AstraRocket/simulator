@@ -14,14 +14,16 @@ import {
   WHEEL_ZOOM_FACTOR,
   type MotorDims,
 } from '../../tree/schematicGeometry';
-import { buildSchematicShapes, SchematicDefs } from './schematicShapes';
+import { buildSchematicShapes } from './schematicShapes';
+import { SchematicDefs } from './SchematicDefs';
 import { useWheelZoom } from './useWheelZoom';
 import { zoomSurfaceProps } from './keyPan';
 import { HorizontalCaliper, VerticalCaliper } from './SchematicCalipers';
 import { SchematicControls } from './SchematicControls';
 import { ZoomButtons } from './ZoomButtons';
 import { HoverOverlay, StabilityOverlay } from './SchematicOverlay';
-import { rulerSpan, SchematicRulerLayer, type RulerSides } from './SchematicRulers';
+import { SchematicGrid, SchematicRulerLayer, type RulerSides } from './SchematicRulers';
+import { rulerSpan } from './rulerSpan';
 import { useSchematicDrag } from './useSchematicDrag';
 import { useElementResize } from '../common/useElementResize';
 
@@ -37,6 +39,8 @@ export function TreeSchematic({
   tree,
   info,
   motors,
+  hiddenIds,
+  showGrid = false,
   maxHeight = 480,
   selectedId,
   onSelect,
@@ -52,6 +56,8 @@ export function TreeSchematic({
   tree: RocketTree;
   info: StaticInfo | null;
   motors?: MotorDims;
+  hiddenIds?: ReadonlySet<string>;
+  showGrid?: boolean;
   maxHeight?: number; // px
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -114,13 +120,14 @@ export function TreeSchematic({
         roll,
         uid,
         motors,
+        hiddenIds,
         selectedId,
         onSelect,
         setHoverId,
         partName,
         typeTag,
       }),
-    [chain, ctx, scale, w, h, roll, uid, motors, selectedId, onSelect, partName, typeTag],
+    [chain, ctx, scale, w, h, roll, uid, motors, hiddenIds, selectedId, onSelect, partName, typeTag],
   );
   const hovered = hoverId ? extents.get(hoverId) : undefined;
   const hoverBox = hovered
@@ -176,6 +183,18 @@ export function TreeSchematic({
         onPointerCancel={endDrag}
       >
         <SchematicDefs clipDefs={clipDefs} />
+        {showGrid && (
+          <SchematicGrid
+            rulers={rulers}
+            w={w}
+            h={h}
+            zoom={zoom}
+            ctxX0={ctx.x0}
+            viewScale={viewScale}
+            rTop={rTop}
+            rBot={rBot}
+          />
+        )}
         <g transform={`translate(${zoom.x} ${zoom.y}) scale(${zoom.k})`}>
           {shapes}
           {overlay}

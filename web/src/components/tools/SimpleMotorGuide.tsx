@@ -12,22 +12,14 @@ import {
   PerfFilters,
   PluggedFilter,
   SparkyFilter,
-  useMotorFilter,
 } from '../sim/MotorFilterBar';
+import { useMotorFilter } from '../sim/useMotorFilter';
 import { MotorSearch } from '../sim/MotorPanelParts';
 import { CandidateList } from '../sim/MotorGuideDialog';
-import {
-  GuideResults,
-  GuideToolbar,
-  GuideUseButton,
-  motorCols,
-  sortGuideRows,
-  useGuideCandidates,
-  type GuideCol,
-  type GuideSort,
-} from '../sim/GuideResults';
+import { GuideResults, GuideToolbar, GuideUseButton, type GuideCol, type GuideSort } from '../sim/GuideResults';
+import { motorCols, sortGuideRows, useGuideCandidates } from '../sim/guideRows';
 import { useUnits } from '../../prefs/useUnits';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { PERF_FIELDS, twrField } from '../../services/motors/motorPerf';
 import { catalogMotorSpec } from '../../services/motors/motorSpec';
 import { keyOf } from '../../services/motors/motorKey';

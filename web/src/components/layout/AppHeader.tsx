@@ -11,7 +11,8 @@ import { SaveStatus } from './SaveStatus';
 import { UndoRedoButtons } from './UndoRedoButtons';
 import { DaylightToggle } from './DaylightToggle';
 import { FileMenuButton } from './FileMenu';
-import { useHeaderDialogs } from './HeaderDialogs';
+import { HeaderDialogs } from './HeaderDialogs';
+import { useHeaderDialogs } from './useHeaderDialogs';
 import { useUndoShortcuts } from './useUndoShortcuts';
 import { useFilePick } from '../common/useFilePick';
 
@@ -28,7 +29,7 @@ export function AppHeader() {
   const openFile = (f: File) => fireAction(onOpenFile(f));
   const ork = useFilePick({ accept: '.ork', onFile: openFile });
   const rkt = useFilePick({ accept: '.rkt', onFile: openFile });
-  const { open, dialogs } = useHeaderDialogs();
+  const { flags, open, close } = useHeaderDialogs();
   const openHelp = useHelpStore((s) => s.openHelp);
 
   useUndoShortcuts();
@@ -106,7 +107,7 @@ export function AppHeader() {
 
       {ork.input}
       {rkt.input}
-      {dialogs}
+      <HeaderDialogs flags={flags} onClose={close} />
     </header>
   );
 }

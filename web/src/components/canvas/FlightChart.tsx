@@ -9,15 +9,15 @@ import { useChartZoom } from './useChartZoom';
 import { useChartCrosshair } from './useChartCrosshair';
 import { useChartSeries } from './useChartSeries';
 import { useCrosshairAnnouncement } from './useCrosshairAnnouncement';
-import { EventLabelStrip, eventStripHeight, packEventLabels } from './FlightChartEvents';
+import { EventLabelStrip } from './FlightChartEvents';
+import { eventStripHeight, packEventLabels } from './flightChartEventLabels';
 import { FlightChartHeader, SeriesPicker, StageToggles } from './FlightChartControls';
 import { FlightChartPanel } from './FlightChartPanel';
 import { eventsSummary } from './chartSummary';
 import { FlightXYPanel } from './FlightXYPanel';
 import { useElementResize } from '../common/useElementResize';
 
-// GroundTrack imports the trace builder through this module.
-export { buildTraces, type ChartFlight } from './flightChartTraces';
+export type { ChartFlight } from './flightChartTraces';
 
 export function FlightChart({ flight, flow = false }: { flight: ChartFlight; flow?: boolean }) {
   const { t } = useTranslation();

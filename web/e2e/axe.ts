@@ -42,7 +42,6 @@ export const TOOL: Record<Tool, string> = {
   chute: 'Parachute sizing',
   flutter: 'Fin flutter',
   ejection: 'Ejection charge',
-  exhaust: 'Exhaust looks',
   motors: 'Motor Dashboard',
 };
 

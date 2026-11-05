@@ -13,7 +13,7 @@ import type { Units } from '../../prefs/useUnits';
 import { fmtNum, partLabel, stageLabel, stagePrefixed, withFixedUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { DialogButton } from '../common/DialogButton';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { highestLevel, orgLabel, type Flyer } from '../../services/storage/flyer';
 
 type T = (key: string, opts?: Record<string, unknown>) => string;

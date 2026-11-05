@@ -11,7 +11,7 @@ import { configOf } from '../../state/store';
 import { launcherKind } from '../../services/design/launcher';
 import { useLauncherT } from '../common/useLauncher';
 import { useFlutterFindings } from './useFlutterFindings';
-import { flutterWarningText } from './FlutterWarningRows';
+import { flutterWarningText } from './flutterWarningText';
 
 const TONE: Record<SimStatus, string> = {
   upToDate: 'bg-ok-400',

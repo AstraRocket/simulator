@@ -1,5 +1,5 @@
 import { fmtNum } from '../../i18n/format';
-import { lerpAt } from '../../services/flight/interpolate';
+import { hoverValue } from './flightChartHoverValue';
 
 // The e2e suite selects on the crosshair's `data-crosshair`.
 
@@ -9,11 +9,6 @@ export interface HoverSeries {
   ys: number[];
   t0?: number;
   t1?: number;
-}
-
-// Null outside the stage's own span, so a landed booster shows no clamped dot.
-export function hoverValue(s: Pick<HoverSeries, 'xs' | 'ys' | 't0' | 't1'>, hoverT: number): number | null {
-  return s.t0 != null && s.t1 != null && hoverT >= s.t0 && hoverT <= s.t1 ? lerpAt(s.xs, s.ys, hoverT) : null;
 }
 
 export function PanelHover({

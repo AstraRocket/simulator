@@ -6,7 +6,7 @@ import { FIN_MATERIALS, FLUTTER_MARGIN, type FlutterVerdict } from '../../servic
 import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
 import { QNum } from '../sim/QNum';
 import { FieldLabel } from '../common/FieldMark';
-import { useScopedUnit } from '../common/UnitChip';
+import { useScopedUnit } from '../common/useScopedUnit';
 
 const FLUTTER_TONE: Record<FlutterVerdict, string> = {
   over: 'text-danger-400',

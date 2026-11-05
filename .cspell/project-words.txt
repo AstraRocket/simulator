@@ -45,6 +45,7 @@ astrarocket
 astrarocketbays
 astrarocketjs
 astrarocketmain
+astrarocketnotes
 astrarrocketjs
 atmo
 authorable

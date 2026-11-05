@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { useRef, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectDesignName, selectShownSim } from '../../state/store';
 import { TreePanel } from '../design/TreePanel';
@@ -7,7 +7,6 @@ import { SimSummary } from '../sim/SimSummary';
 import { FlightWarnings } from '../sim/FlightWarnings';
 import { RecoveryChargesCard } from '../sim/RecoveryChargesCard';
 import { PaneSplitter } from './PaneSplitter';
-import { useSettings } from '../../state/SettingsProvider';
 import {
   SIDE_PANE_DEFAULT,
   SIDE_PANE_MAX,
@@ -17,29 +16,6 @@ import {
   TREE_PANE_MIN,
 } from '../../services/storage/settings';
 import { Banner } from '../common/Banner';
-
-/** The saved pane widths, or the width being dragged. */
-export function usePaneWidths() {
-  const { settings, update } = useSettings();
-  const [dragTree, setDragTree] = useState<number | null>(null);
-  const [dragSide, setDragSide] = useState<number | null>(null);
-  const treeW = dragTree ?? settings.treePaneWidth;
-  const sideW = dragSide ?? settings.sidePaneWidth;
-  return {
-    treeW,
-    sideW,
-    onDragTree: setDragTree,
-    onCommitTree: (w: number) => {
-      setDragTree(null);
-      update({ treePaneWidth: w });
-    },
-    onDragSide: setDragSide,
-    onCommitSide: (w: number) => {
-      setDragSide(null);
-      update({ sidePaneWidth: w });
-    },
-  };
-}
 
 export function AppBanners() {
   const err = useWorkspaceStore((s) => s.err);

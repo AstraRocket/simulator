@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { renderWithProviders } from '../../testing/renderWithProviders';
-import { ShapeDescription, richText } from '../../../src/components/design/ShapeDescription';
+import { ShapeDescription } from '../../../src/components/design/ShapeDescription';
+import { richText } from '../../../src/components/design/richText';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import en from '../../../src/i18n/locales/en.json';
 

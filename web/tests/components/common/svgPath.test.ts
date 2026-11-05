@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { areaPath, polylinePath } from '../../../src/components/common/svgPath';
-import { baselineArea, linePath } from '../../../src/components/sim/chartAxes';
+import { baselineArea, linePath } from '../../../src/components/sim/chartScales';
 
 describe('polylinePath', () => {
   it('writes either number style', () => {

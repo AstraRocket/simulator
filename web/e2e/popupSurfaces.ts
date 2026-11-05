@@ -3,6 +3,7 @@ export const POPUP_SURFACES = {
   CheckMenu: 1,
   ComponentExportButton: 1,
   ComponentTree: 2,
+  DesignNotesSection: 1,
   FileMenu: 2,
   GroundTrack: 1,
   HelpDialog: 1,

@@ -1,30 +1,20 @@
 import { useRef } from 'react';
-import { rememberedSlot, useForecastFields, useRemembered } from './remembered';
+import { useForecastFields, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { todayYmd } from '../../services/weather/openMeteo';
 import { readWeatherKey } from '../../services/weather/weatherKey';
-import { runLandingEstimate, type LandingRun } from '../../services/landing/landingEstimate';
+import { runLandingEstimate } from '../../services/landing/landingEstimate';
 import type { DescentPlan } from '../../services/landing/descentDrift';
 import { SiteFields, type ToolSite } from './SiteFields';
 import { WhenFields } from '../sim/WhenFields';
 import { CardGroup } from '../common/CardGroup';
 import { useOnline } from '../common/useOnline';
 import { StatusLine } from '../common/StatusLine';
-import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
+import { useForecastRequest } from '../common/useForecastRequest';
 import { ToolLayout, ToolForm } from './ToolLayout';
 import { LandingFlightCard, LandingResult } from './LandingParts';
-
-type Recovery = 'single' | 'dual';
-
-interface EstimateInputs {
-  latitudeDeg: number;
-  longitudeDeg: number;
-  padElevationM: number | null;
-  date: string;
-  hour: number;
-  plan: DescentPlan;
-}
+import { EstimateInputs, State, remembered } from './landingEstimatorMemory';
 
 const sameInputs = (a: EstimateInputs, b: EstimateInputs | null): boolean =>
   b !== null &&
@@ -37,26 +27,6 @@ const sameInputs = (a: EstimateInputs, b: EstimateInputs | null): boolean =>
   a.plan.firstRateMs === b.plan.firstRateMs &&
   a.plan.main?.rateMs === b.plan.main?.rateMs &&
   a.plan.main?.aglM === b.plan.main?.aglM;
-
-type State = ForecastState<{ run: LandingRun; inputs: EstimateInputs }>;
-
-interface Remembered {
-  site: ToolSite;
-  date: string;
-  hour: number;
-  apogee: number | null;
-  recovery: Recovery;
-  singleRate: number | null;
-  drogueRate: number | null;
-  mainRate: number | null;
-  mainAgl: number | null;
-  state: State;
-}
-const remembered = rememberedSlot<Remembered>();
-
-export function forgetLandingEstimator(): void {
-  remembered.forget();
-}
 
 function descentPlan(
   apogee: number | null,

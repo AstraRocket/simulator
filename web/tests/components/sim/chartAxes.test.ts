@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { chartScales, linePath, baselineArea, seriesFor, type XY } from '../../../src/components/sim/chartAxes';
+import type { XY } from '../../../src/components/sim/chartAxes';
+import { chartScales, linePath, baselineArea, seriesFor } from '../../../src/components/sim/chartScales';
 import { seriesColor } from '../../../src/components/common/chartPalette';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 

@@ -1,16 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { Room, Reflections } from './useReflections';
 
 const FACE_PX = 64;
-
-interface Room {
-  texture: THREE.CubeTexture;
-  rotation: THREE.Euler;
-}
-
-const Reflections = createContext<Room | null>(null);
 
 // A plain cube map, not PMREM: Phong takes PMREM as extra ambient light on every part.
 export function RoomReflections({ children }: { children: ReactNode }) {
@@ -31,5 +25,3 @@ export function RoomReflections({ children }: { children: ReactNode }) {
   });
   return <Reflections.Provider value={room}>{children}</Reflections.Provider>;
 }
-
-export const useReflections = () => useContext(Reflections);

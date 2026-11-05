@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
-import { ErrorBoundary, isChunkLoadError, LazyBoundary, lazyNamed } from '../../../src/components/common/ErrorBoundary';
+import { ErrorBoundary, LazyBoundary } from '../../../src/components/common/ErrorBoundary';
+import { isChunkLoadError, lazyNamed } from '../../../src/components/common/lazyNamed';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
 const Boom = ({ error }: { error: Error }) => {

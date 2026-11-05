@@ -1,4 +1,5 @@
 import { asStageNodes } from '../design/orkTree';
+import { designNotesXml } from './ork/orkDesignNotes';
 import { findStages } from '../design/treeEdit';
 import { escapeXml } from './xmlUtil';
 import { uuid } from '../app/uuid';
@@ -43,6 +44,8 @@ export function exportOrk({
   metaField('designer');
   if (typeof tree.kitName === 'string' && tree.kitName.trim()) emit(2, `<kitname>${escapeXml(tree.kitName)}</kitname>`);
   metaField('revision');
+  const designNotes = designNotesXml(tree);
+  if (designNotes) emit(2, designNotes);
   emit(2, `<designtype>${escapeXml(tree.designType || 'original')}</designtype>`);
   for (const raw of passthroughOf(tree, ROCKET_EXTRA_KEY)) emit(2, raw);
   const stageNodes = asStageNodes(tree);

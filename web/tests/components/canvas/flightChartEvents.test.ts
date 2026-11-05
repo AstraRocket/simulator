@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { eventStripHeight, packEventLabels } from '../../../src/components/canvas/FlightChartEvents';
+import { eventStripHeight, packEventLabels } from '../../../src/components/canvas/flightChartEventLabels';
 import { EVENT_ROW_H, PAD_L, PAD_R } from '../../../src/components/canvas/flightChartAxis';
 
 const width = () => 40;

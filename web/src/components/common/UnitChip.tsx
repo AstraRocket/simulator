@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { UNITS, unitFor, type Quantity } from '../../prefs/units';
 import { withKey } from '../../services/app/objectKeys';
-import { useUnits } from '../../prefs/useUnits';
 
 /** Picking the Settings default removes the override, so the field follows later preference changes. */
 export function UnitChip({
@@ -45,14 +44,4 @@ export function UnitChip({
       ))}
     </select>
   );
-}
-
-export function useScopedUnit(scope: string, quantity: Quantity) {
-  const field = useUnits().at(scope, quantity);
-  return {
-    ...field,
-    chip: (label: string, className?: string) => (
-      <UnitChip label={label} quantity={quantity} scope={scope} className={className} />
-    ),
-  };
 }

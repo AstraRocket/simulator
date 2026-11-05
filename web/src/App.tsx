@@ -20,7 +20,7 @@ import { UpdateToast } from './components/layout/UpdateToast';
 import { CatalogNotice } from './components/layout/CatalogNotice';
 import { EngineNotice } from './components/layout/EngineNotice';
 import { useIsDesktop, useIsWide } from './components/common/useMediaQuery';
-import { useSettings } from './state/SettingsProvider';
+import { useSettings } from './state/useSettings';
 import { CENTER_PANE_MIN } from './services/storage/settings';
 import {
   AppBanners,
@@ -28,9 +28,9 @@ import {
   RightColumn,
   TabSection,
   TreeColumn,
-  usePaneWidths,
   type SideSplit,
 } from './components/layout/AppPanes';
+import { usePaneWidths } from './components/layout/usePaneWidths';
 
 export default function App() {
   useWorkspaceEffects();

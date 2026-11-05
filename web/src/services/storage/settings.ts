@@ -112,6 +112,7 @@ export interface Settings {
   statsLayout: StatsLayout;
   showMarkers: boolean;
   showInfoCard: boolean;
+  showGrid: boolean;
   showStats: boolean;
   showImportNotes: boolean;
   showSafetyCard: boolean;
@@ -245,6 +246,7 @@ export const DEFAULT_SETTINGS: Settings = {
   statsLayout: 'compact',
   showMarkers: true,
   showInfoCard: false,
+  showGrid: false,
   showStats: true,
   showImportNotes: true,
   showSafetyCard: true,
@@ -463,6 +465,7 @@ export function settingsFrom(value: unknown): Settings {
     })(),
     showMarkers: typeof s.showMarkers === 'boolean' ? s.showMarkers : DEFAULT_SETTINGS.showMarkers,
     showInfoCard: typeof s.showInfoCard === 'boolean' ? s.showInfoCard : DEFAULT_SETTINGS.showInfoCard,
+    showGrid: typeof s.showGrid === 'boolean' ? s.showGrid : DEFAULT_SETTINGS.showGrid,
     showStats: typeof s.showStats === 'boolean' ? s.showStats : DEFAULT_SETTINGS.showStats,
     showImportNotes: typeof s.showImportNotes === 'boolean' ? s.showImportNotes : DEFAULT_SETTINGS.showImportNotes,
     showSafetyCard: typeof s.showSafetyCard === 'boolean' ? s.showSafetyCard : DEFAULT_SETTINGS.showSafetyCard,

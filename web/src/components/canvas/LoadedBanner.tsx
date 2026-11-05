@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { RocketConfigDialog } from '../design/RocketConfigDialog';
 import { useCanBuildDesign } from '../design/useCanBuildDesign';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { importNoteText, type ImportNote } from '../../services/files/importNote';
 import type { DesignFormat } from '../../services/files/designFile';
 import { designNameOf } from '../../services/app/appInfo';

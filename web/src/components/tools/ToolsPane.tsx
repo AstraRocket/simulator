@@ -5,25 +5,20 @@ import { LandingEstimator } from './LandingEstimator';
 import { ParachuteTool } from './ParachuteTool';
 import { FlutterTool } from './FlutterTool';
 import { EjectionTool } from './EjectionTool';
-import { ExhaustTool } from './ExhaustTool';
 import { MotorsTool } from './MotorsTool';
 import { TOOLS, type Tool } from '../../state/tabs';
-
-let rememberedTool: Tool = 'landing';
-
-export function forgetToolsPane(): void {
-  rememberedTool = 'landing';
-}
+import { getRememberedTool, rememberTool } from './toolsPaneMemory';
 
 /** Only the open tool is mounted, so no two tools put the same field in the document. */
 export function ToolsPane() {
-  const { t } = useTranslation();
-  const [tool, setToolState] = useState<Tool>(rememberedTool);
+  const { t, i18n } = useTranslation();
+  const [tool, setToolState] = useState<Tool>(getRememberedTool);
   const setTool = (next: Tool) => {
-    rememberedTool = next;
+    rememberTool(next);
     setToolState(next);
   };
-  const tabs = useTabs(TOOLS, tool, setTool);
+  const tools = [...TOOLS].sort((x, y) => t(`tools.tool_${x}`).localeCompare(t(`tools.tool_${y}`), i18n.language));
+  const tabs = useTabs(tools, tool, setTool);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div
@@ -31,7 +26,7 @@ export function ToolsPane() {
         aria-label={t('tools.label')}
         className="flex shrink-0 gap-1 overflow-x-auto border-b border-line/10 px-3 pt-2"
       >
-        {TOOLS.map((k) => (
+        {tools.map((k) => (
           <button
             key={k}
             type="button"
@@ -46,8 +41,6 @@ export function ToolsPane() {
       </div>
       <div
         {...tabs.panel}
-        // The exhaust gallery has no focusable field, so its panel needs a tab stop to scroll.
-        tabIndex={tool === 'exhaust' ? 0 : undefined}
         // The dashboard scrolls its own grid and detail panes, as it does in its dialog.
         className={tool === 'motors' ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-auto p-3'}
       >
@@ -55,7 +48,6 @@ export function ToolsPane() {
         {tool === 'chute' && <ParachuteTool />}
         {tool === 'flutter' && <FlutterTool />}
         {tool === 'ejection' && <EjectionTool />}
-        {tool === 'exhaust' && <ExhaustTool />}
         {tool === 'motors' && <MotorsTool />}
       </div>
     </div>

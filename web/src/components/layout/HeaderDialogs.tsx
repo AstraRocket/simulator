@@ -1,9 +1,9 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { selectDesignName } from '../../state/workspaceSelectors';
 import { fireAction } from '../../state/fireAction';
-import { LazyBoundary, lazyNamed } from '../common/ErrorBoundary';
+import { LazyBoundary } from '../common/ErrorBoundary';
+import { lazyNamed } from '../common/lazyNamed';
 import { DesignLibraryDialog } from './DesignLibraryDialog';
 import { DesignPropertiesDialog } from './DesignPropertiesDialog';
 import { ExamplesDialog } from './ExamplesDialog';
@@ -22,36 +22,10 @@ import { MyMaterialsDialog } from '../design/MyMaterialsDialog';
 import { BackupDialog } from './BackupDialog';
 import { useHelpStore } from '../../state/helpStore';
 import type { HeaderDialog } from './dialogKeys';
-
-type OpenFlags = Record<HeaderDialog, boolean>;
-
-const NONE_OPEN: OpenFlags = {
-  motors: false,
-  report: false,
-  about: false,
-  updates: false,
-  privacy: false,
-  settings: false,
-  library: false,
-  examples: false,
-  print: false,
-  locations: false,
-  parts: false,
-  materials: false,
-  backup: false,
-  restore: false,
-  saveAs: false,
-};
-
-export function useHeaderDialogs() {
-  const [flags, setFlags] = useState<OpenFlags>(NONE_OPEN);
-  const open = (id: HeaderDialog) => setFlags((f) => ({ ...f, [id]: true }));
-  const close = (id: HeaderDialog) => setFlags((f) => ({ ...f, [id]: false }));
-  return { open, dialogs: <HeaderDialogs flags={flags} onClose={close} /> };
-}
+import type { OpenFlags } from './useHeaderDialogs';
 
 // Mounted only while open: a closed dialog must run no effects and keep no state.
-function HeaderDialogs({ flags, onClose }: { flags: OpenFlags; onClose: (id: HeaderDialog) => void }) {
+export function HeaderDialogs({ flags, onClose }: { flags: OpenFlags; onClose: (id: HeaderDialog) => void }) {
   const { t } = useTranslation();
   const helpPage = useHelpStore((s) => s.page);
   const closeHelp = useHelpStore((s) => s.closeHelp);

@@ -13,7 +13,8 @@ import { stageLabel } from '../../i18n/format';
 import { airDensity, descentMass } from '../../services/flight/recoverySizing';
 import { Dialog } from '../common/Dialog';
 import { SizingFigures } from '../tools/SizingFigures';
-import { commitWith, type NodeEditProps } from './DimensionFields';
+import type { NodeEditProps } from './DimensionFields';
+import { commitWith } from './fieldHelpers';
 import { ReadoutOpener } from './ReadoutOpener';
 
 export function RecoverySizingReadout({ node, onChange, onCommit }: NodeEditProps) {

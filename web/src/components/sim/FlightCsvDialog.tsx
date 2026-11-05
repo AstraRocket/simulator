@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { useUnits } from '../../prefs/useUnits';
 import { Dialog } from '../common/Dialog';
 import { flightColumns, type FlightColumn } from '../../services/flight/flightColumns';

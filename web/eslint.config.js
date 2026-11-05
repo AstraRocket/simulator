@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
+import { reactRefresh } from 'eslint-plugin-react-refresh';
 import jsxA11y from 'eslint-plugin-jsx-a11y-x';
 import playwright from 'eslint-plugin-playwright';
 import vitest from '@vitest/eslint-plugin';
@@ -85,6 +86,10 @@ export default tseslint.config(
       // React never awaits a JSX handler, so `onClick={async () => ...}` is fine.
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
     },
+  },
+  {
+    files: ['src/**/*.tsx'],
+    extends: [reactRefresh.configs.vite()],
   },
   {
     files: ['src/**/*.tsx'],
