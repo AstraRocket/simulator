@@ -14,14 +14,16 @@ import {
   WHEEL_ZOOM_FACTOR,
   type MotorDims,
 } from '../../tree/schematicGeometry';
-import { buildSchematicShapes, SchematicDefs } from './schematicShapes';
+import { buildSchematicShapes } from './schematicShapes';
+import { SchematicDefs } from './SchematicDefs';
 import { useWheelZoom } from './useWheelZoom';
 import { zoomSurfaceProps } from './keyPan';
 import { HorizontalCaliper, VerticalCaliper } from './SchematicCalipers';
 import { SchematicControls } from './SchematicControls';
 import { ZoomButtons } from './ZoomButtons';
 import { HoverOverlay, StabilityOverlay } from './SchematicOverlay';
-import { rulerSpan, SchematicGrid, SchematicRulerLayer, type RulerSides } from './SchematicRulers';
+import { SchematicGrid, SchematicRulerLayer, type RulerSides } from './SchematicRulers';
+import { rulerSpan } from './rulerSpan';
 import { useSchematicDrag } from './useSchematicDrag';
 import { useElementResize } from '../common/useElementResize';
 

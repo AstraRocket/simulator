@@ -30,7 +30,7 @@ import { NumberRow } from '../common/NumberRow';
 import { FieldLabel } from '../common/FieldMark';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
-import { useScopedUnit } from '../common/UnitChip';
+import { useScopedUnit } from '../common/useScopedUnit';
 import { EjectionFigures } from '../tools/EjectionFigures';
 
 function pinsText(

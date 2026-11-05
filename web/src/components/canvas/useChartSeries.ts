@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { stageLabel } from '../../i18n/format';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { SERIES, buildTraces, extraSeries, pairSeries, visibleSeries, type ChartFlight } from './flightChartTraces';
 
 /** The traces of a flight, and which stages and series are shown. */

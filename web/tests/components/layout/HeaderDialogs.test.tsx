@@ -1,18 +1,19 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { useHeaderDialogs } from '../../../src/components/layout/HeaderDialogs';
+import { HeaderDialogs } from '../../../src/components/layout/HeaderDialogs';
+import { useHeaderDialogs } from '../../../src/components/layout/useHeaderDialogs';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
 function Harness() {
-  const { open, dialogs } = useHeaderDialogs();
+  const { flags, open, close } = useHeaderDialogs();
   return (
     <>
       <button type="button" onClick={() => open('saveAs')}>
         open save as
       </button>
-      {dialogs}
+      <HeaderDialogs flags={flags} onClose={close} />
     </>
   );
 }

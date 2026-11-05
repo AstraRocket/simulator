@@ -9,7 +9,8 @@ import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { uuid } from '../../services/app/uuid';
 import { SiteMap } from './SiteMap';
 import { LAUNCH_SITE_LIMITS as LIMITS, type LaunchLocation } from '../../services/storage/launchLocationStore';
-import { EditorFooter, useReportDirty, EditorBack } from '../common/MasterDetail';
+import { EditorFooter, EditorBack } from '../common/MasterDetail';
+import { useReportDirty } from '../common/useGuardedSelection';
 
 /** The parent keys this on the location, so selecting another re-seeds by remount. */
 export function LocationEditor({

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import {
   DEFAULT_SETTINGS,
   HEADER_SUMMARY_PREFS,

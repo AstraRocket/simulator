@@ -18,8 +18,8 @@ import {
   SparkyFilter,
   OopFilter,
   UsedFilter,
-  type useMotorFilter,
 } from './MotorFilterBar';
+import type { useMotorFilter } from './useMotorFilter';
 import type { useFilePick } from '../common/useFilePick';
 import { ToggleButton } from '../common/ToggleButton';
 import { ImportedStar } from './ImportedStar';

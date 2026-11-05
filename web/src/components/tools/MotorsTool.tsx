@@ -1,18 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { MotorDashboardView, type MotorDashboardSlots } from '../sim/MotorDashboard';
-import { rememberedSlot } from './remembered';
-
-const slots: MotorDashboardSlots = {
-  filter: rememberedSlot(),
-  sort: rememberedSlot(),
-  view: rememberedSlot(),
-};
-
-export function forgetMotorsTool(): void {
-  slots.filter.forget();
-  slots.sort.forget();
-  slots.view.forget();
-}
+import { MotorDashboardView } from '../sim/MotorDashboard';
+import { slots } from './motorsToolMemory';
 
 export function MotorsTool() {
   const { t } = useTranslation();

@@ -1,18 +1,7 @@
 import * as THREE from 'three';
 import type { ThreeElements } from '@react-three/fiber';
-import { useReflections } from './RoomReflections';
+import { useReflections } from './useReflections';
 import type { Look } from '../../services/design/appearance';
-import { isSurfaced, SURFACE, type Piece, type RenderMode } from './rocketPieces';
-
-export function surfacesOf(p: Piece, mode: RenderMode): [string, Look][] {
-  const looks = p.looks[mode];
-  if (!isSurfaced(p.geometry)) return [['material', looks.outside]];
-  return [
-    [`material-${SURFACE.outside}`, looks.outside],
-    [`material-${SURFACE.inside}`, looks.inside],
-    [`material-${SURFACE.edges}`, looks.edges],
-  ];
-}
 
 const REFLECTIVITY = 0.2;
 

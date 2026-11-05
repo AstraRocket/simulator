@@ -13,7 +13,7 @@ import {
   type PartAppearance,
 } from '../../services/design/appearance';
 import { hexOf, parseHexColor } from '../../services/design/colorHex';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { readLineStyle } from '../../services/design/figureStyle';
 import { figureToken } from '../../tree/schematicGeometry';
 import { LineStyleRow } from './LineStyleRow';

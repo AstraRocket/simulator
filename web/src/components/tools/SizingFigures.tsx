@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtNum, fmtUpTo, withUnit } from '../../i18n/format';
-import { useScopedUnit } from '../common/UnitChip';
+import { useScopedUnit } from '../common/useScopedUnit';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { QNum } from '../sim/QNum';

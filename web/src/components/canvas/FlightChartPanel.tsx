@@ -13,7 +13,8 @@ import {
   type Branch,
   type Meta,
 } from './flightChartTraces';
-import { PanelHover, hoverValue } from './FlightChartHover';
+import { PanelHover } from './FlightChartHover';
+import { hoverValue } from './flightChartHoverValue';
 import { NO_VALUE } from '../../i18n/noValue';
 import { polylinePath, areaPath } from '../common/svgPath';
 import { ChartPanelFrame, PanelClip, PanelLines, YEnds } from './ChartPanelFrame';

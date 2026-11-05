@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectActive, selectOutdated } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { SimulationsTable } from './SimulationsTable';
 import { SimEditor } from './SimEditor';
 import { RunButton } from './RunButton';

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { unitScope } from '../../prefs/units';
 import { blackPowderMass, pinShearPressure } from '../../services/flight/ejectionCharge';
-import { useScopedUnit } from '../common/UnitChip';
+import { useScopedUnit } from '../common/useScopedUnit';
 
 export function EjectionFigures({
   boreM,

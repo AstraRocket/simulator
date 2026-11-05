@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { NumberInput, parseFieldValue } from '../../../src/components/common/NumberInput';
+import { NumberInput } from '../../../src/components/common/NumberInput';
+import { parseFieldValue } from '../../../src/components/common/parseFieldValue';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
 describe('NumberInput', () => {

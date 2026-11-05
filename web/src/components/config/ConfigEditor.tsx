@@ -5,7 +5,7 @@ import { useWorkspaceStore, selectEditedConfig } from '../../state/store';
 import { MotorRow } from '../sim/MotorRow';
 import { DeploymentSection } from './DeploymentSection';
 import { SeparationSection } from './SeparationSection';
-import { partName } from './ConfigsTable';
+import { partName } from './partName';
 import { mountFit } from '../../services/motors/motorPicker';
 import { mountIgnition, sameIgnition } from '../../services/flight/flightConfigs';
 

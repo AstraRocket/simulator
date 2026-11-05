@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { fmtNum, ladderDigits, withUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useUnits } from '../../prefs/useUnits';
-import { hoverValue } from './FlightChartHover';
+import { hoverValue } from './flightChartHoverValue';
 import { PAD_L, PAD_R } from './flightChartAxis';
 import { traceLabel, traceOffset, traceScale, traceUnit, type Branch, type Meta } from './flightChartTraces';
 import { polylinePath } from '../common/svgPath';

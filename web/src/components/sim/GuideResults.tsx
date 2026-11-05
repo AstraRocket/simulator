@@ -1,10 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import type { Quantity } from '../../prefs/units';
-import { hasLocalCurve, type CatalogMotor } from '../../services/motors/motorDb';
-import { keyOf } from '../../services/motors/motorKey';
-import { avgThrustOf } from '../../services/motors/motorMath';
+import type { CatalogMotor } from '../../services/motors/motorDb';
 import { motorName } from '../../services/motors/motorName';
 import { fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
@@ -23,11 +21,6 @@ export interface GuideCol<R> {
   digits?: number;
 }
 
-export const motorCols = <R extends GuideRowBase>(): GuideCol<R>[] => [
-  { id: 'impulse', label: 'motorDlg.totalImpulse', quantity: 'impulse', value: (r) => r.motor.impulse },
-  { id: 'avgThrust', label: 'motorDlg.avgThrust', quantity: 'force', value: (r) => avgThrustOf(r.motor) },
-];
-
 const cellText = <R,>(c: GuideCol<R>, r: R, u: Units): string => {
   const v = c.value(r);
   if (v == null || !Number.isFinite(v)) return NO_VALUE;
@@ -37,28 +30,6 @@ const cellText = <R,>(c: GuideCol<R>, r: R, u: Units): string => {
 export interface GuideSort {
   key: string;
   desc: boolean;
-}
-
-/** Unknown figures sort last in either direction. */
-export function sortGuideRows<R>(rows: readonly R[], val: (r: R) => number | string, desc: boolean): R[] {
-  return [...rows].sort((a, b) => {
-    const x = val(a);
-    const y = val(b);
-    const xn = typeof x === 'number' && !Number.isFinite(x);
-    const yn = typeof y === 'number' && !Number.isFinite(y);
-    if (xn || yn) return xn === yn ? 0 : xn ? 1 : -1;
-    const c = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
-    return desc ? -c : c;
-  });
-}
-
-/** Kept as exclusions, so a motor a filter change brings in arrives ticked. */
-export function useGuideCandidates(matches: CatalogMotor[]) {
-  const candidates = useMemo(() => matches.filter(hasLocalCurve), [matches]);
-  const noCurve = useMemo(() => matches.filter((m) => !hasLocalCurve(m)), [matches]);
-  const [dropped, setDropped] = useState<ReadonlySet<string>>(() => new Set());
-  const flying = useMemo(() => candidates.filter((m) => !dropped.has(keyOf(m))), [candidates, dropped]);
-  return { candidates, noCurve, dropped, setDropped, flying };
 }
 
 export function GuideUseButton({

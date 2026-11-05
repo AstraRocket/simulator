@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { hasOpenSurface } from '../common/useFocusTrap';
 
 export function useMaximizeCenter() {

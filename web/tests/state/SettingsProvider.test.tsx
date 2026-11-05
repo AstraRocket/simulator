@@ -13,7 +13,8 @@ vi.mock('../../src/services/storage/settings', async (orig) => {
   return { ...real, saveSettings, loadSettings };
 });
 
-import { SettingsProvider, useSettings } from '../../src/state/SettingsProvider';
+import { SettingsProvider } from '../../src/state/SettingsProvider';
+import { useSettings } from '../../src/state/useSettings';
 import { DEFAULT_SETTINGS } from '../../src/services/storage/settings';
 import { nsKey } from '../../src/services/storage/storageKeys';
 

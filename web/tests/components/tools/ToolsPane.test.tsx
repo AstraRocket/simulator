@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { forgetToolsPane, ToolsPane } from '../../../src/components/tools/ToolsPane';
-import { forgetParachuteTool } from '../../../src/components/tools/ParachuteTool';
-import { forgetLandingEstimator } from '../../../src/components/tools/LandingEstimator';
-import { forgetFlutterTool } from '../../../src/components/tools/FlutterTool';
-import { forgetEjectionTool } from '../../../src/components/tools/EjectionTool';
-import { forgetMotorsTool } from '../../../src/components/tools/MotorsTool';
+import { ToolsPane } from '../../../src/components/tools/ToolsPane';
+import { forgetToolsPane } from '../../../src/components/tools/toolsPaneMemory';
+import { forgetParachuteTool } from '../../../src/components/tools/parachuteToolMemory';
+import { forgetLandingEstimator } from '../../../src/components/tools/landingEstimatorMemory';
+import { forgetFlutterTool } from '../../../src/components/tools/flutterToolMemory';
+import { forgetEjectionTool } from '../../../src/components/tools/ejectionToolMemory';
+import { forgetMotorsTool } from '../../../src/components/tools/motorsToolMemory';
 import { MotorDashboard } from '../../../src/components/sim/MotorDashboard';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
@@ -31,6 +32,19 @@ describe('the Tools tab', () => {
     expect(screen.getByRole('tab', { name: 'Parachute sizing' }).getAttribute('aria-selected')).toBe('true');
   });
 
+  it('lists the tools alphabetically, and arrow keys follow that order', () => {
+    renderWithProviders(<ToolsPane />);
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Ejection charge',
+      'Fin flutter',
+      'Landing estimator',
+      'Motor Dashboard',
+      'Parachute sizing',
+    ]);
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Landing estimator' }), { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: 'Motor Dashboard' }).getAttribute('aria-selected')).toBe('true');
+  });
+
   it('holds the motor dashboard, and keeps its filters across a trip to another tab', () => {
     const { unmount } = renderWithProviders(<ToolsPane />);
     fireEvent.click(screen.getByRole('tab', { name: 'Motor Dashboard' }));
@@ -42,6 +56,15 @@ describe('the Tools tab', () => {
     unmount();
     renderWithProviders(<ToolsPane />);
     expect((screen.getByLabelText(SEARCH) as HTMLInputElement).value).toBe('H128');
+  });
+
+  it('opens the exhaust styles from the dashboard, and goes back to the list', () => {
+    renderWithProviders(<MotorDashboard onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Exhaust styles' }));
+    expect(screen.getByRole('heading', { name: 'Dark smoke' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Back to list/ }));
+    expect(screen.queryByRole('heading', { name: 'Dark smoke' })).toBeNull();
+    expect(screen.getByLabelText(SEARCH)).toBeTruthy();
   });
 
   it('leaves the menu dialog with its own filters, starting fresh each time', () => {

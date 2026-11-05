@@ -1,7 +1,8 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { computeSchematicLayout, type MotorDims } from '../../tree/schematicGeometry';
-import { buildSchematicShapes, SchematicDefs } from './schematicShapes';
+import { buildSchematicShapes } from './schematicShapes';
+import { SchematicDefs } from './SchematicDefs';
 import { StabilityOverlay } from './SchematicOverlay';
 import { useElementResize } from '../common/useElementResize';
 

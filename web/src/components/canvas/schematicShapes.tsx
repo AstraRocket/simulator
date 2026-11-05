@@ -19,17 +19,6 @@ import { axialStart, figureToken, profilePath } from '../../tree/schematicGeomet
 import { createPainter, fillOf, type HoverExtents, type SchematicShapesCfg } from './schematicPainter';
 import { fairingShape, finSetShapes, internalShapes, lugShape, tubeFinShapes } from './schematicParts';
 
-export function SchematicDefs({ clipDefs }: { clipDefs: React.ReactNode }) {
-  return (
-    <defs>
-      <pattern id="bulkhead-hatch" patternUnits="userSpaceOnUse" width="5" height="5">
-        <path d="M0 5 L5 0" stroke={token('sch-hatch')} strokeWidth="0.9" />
-      </pattern>
-      {clipDefs}
-    </defs>
-  );
-}
-
 export function buildSchematicShapes(cfg: SchematicShapesCfg): {
   shapes: React.ReactNode[];
   overlay: React.ReactNode[];

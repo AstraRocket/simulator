@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { WindLevel } from '../../services/design/orkTree';
 import { NumberInput } from '../common/NumberInput';
-import { markRing } from '../common/FieldMark';
+import { markRing } from '../common/markRing';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { MAX_TURBULENCE_PERCENT } from '../../services/flight/safetyLimits';

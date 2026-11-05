@@ -1,4 +1,4 @@
-import { rememberedSlot, useRemembered } from './remembered';
+import { useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { blackPowderMass, DEFAULT_BAY_PRESSURE_PA } from '../../services/flight/ejectionCharge';
@@ -7,19 +7,7 @@ import { CardGroup } from '../common/CardGroup';
 import { NumberRow } from '../common/NumberRow';
 import { EjectionFigures } from './EjectionFigures';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
-
-interface Remembered {
-  boreM: number | null;
-  lengthM: number | null;
-  pressurePa: number | null;
-  pinCount: number | null;
-  pinForceN: number | null;
-}
-const remembered = rememberedSlot<Remembered>();
-
-export function forgetEjectionTool(): void {
-  remembered.forget();
-}
+import { remembered } from './ejectionToolMemory';
 
 export function EjectionTool() {
   const { t } = useTranslation();

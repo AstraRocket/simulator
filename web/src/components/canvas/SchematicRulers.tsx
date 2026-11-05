@@ -10,6 +10,7 @@ import {
   type ZoomState,
 } from '../../tree/schematicGeometry';
 import { token } from '../common/colorTokens';
+import { rulerSpan, CORNER_GAP } from './rulerSpan';
 
 export interface RulerSides {
   top: boolean;
@@ -17,14 +18,6 @@ export interface RulerSides {
   left: boolean;
   right: boolean;
 }
-
-const CORNER_GAP = 5;
-
-/** viewBox px the length rulers run between, which the calipers stop at too. */
-export const rulerSpan = (rulers: RulerSides, w: number) => ({
-  rulerX0: rulers.left ? RULER_W - 4 + CORNER_GAP : 2,
-  rulerX1: rulers.right ? w - RULER_W + 4 - CORNER_GAP : w - 2,
-});
 
 interface RulerFrameProps {
   rulers: RulerSides;

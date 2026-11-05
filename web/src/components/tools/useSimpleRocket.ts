@@ -6,7 +6,7 @@ import { unitScope } from '../../prefs/units';
 import { useWorkspaceStore } from '../../state/store';
 import { fireAction } from '../../state/fireAction';
 import { flySimple, simpleKey } from './simpleFlight';
-import { findSeated } from '../sim/MotorDialog';
+import { findSeated } from '../../services/motors/seatedMotor';
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import { loadCatalog } from '../../services/motors/motorDb';
 import { nearestDelay } from '../../services/flight/motorGuide';

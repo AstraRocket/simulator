@@ -6,7 +6,7 @@ import {
   type FlightPathExportOptions,
 } from '../../services/exports/flightPathExport';
 import { useUnits } from '../../prefs/useUnits';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { hydrateExportOptions, persistedExportSettings, type UnitField } from '../../services/exports/pathExportFields';
 
 /** `patchOpts` updates the dialog only, for the never-stored mission name; `change` also persists. */

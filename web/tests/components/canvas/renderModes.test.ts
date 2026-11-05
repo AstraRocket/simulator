@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { figureLooks } from '../../../src/services/design/appearance';
 import { DEFAULT_PART_COLORS } from '../../../src/services/design/partColors';
-import { drawnOpacity } from '../../../src/components/canvas/RocketModel';
+import { drawnOpacity } from '../../../src/components/canvas/drawnOpacity';
 import type { Piece } from '../../../src/components/canvas/rocketPieces';
 
 const node = (extra: Record<string, unknown>) => ({ type: 'bodytube', ...extra }) as unknown as ComponentNode;

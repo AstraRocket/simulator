@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectConfig, selectMotorDims } from '../../state/store';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { withFigureDefaults } from '../../services/design/figureStyle';
 import type { StaticInfo } from '../../engine/api';
 import { useSimSummary } from '../layout/useSimSummary';

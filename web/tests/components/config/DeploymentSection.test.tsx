@@ -5,7 +5,7 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { DeploymentSection } from '../../../src/components/config/DeploymentSection';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import type { FlightConfig } from '../../../src/services/flight/flightConfigs';
-import { partName } from '../../../src/components/config/ConfigsTable';
+import { partName } from '../../../src/components/config/partName';
 import i18n from '../../../src/i18n';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { findRecoveryDevices } from '../../../src/services/design/treeEdit';

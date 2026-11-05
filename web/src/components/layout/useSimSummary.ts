@@ -1,16 +1,13 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectActive, configOf } from '../../state/store';
 import { configLabel } from '../../services/flight/flightConfigs';
-import { isOutdated, simStatus, simStatusLabel } from '../../services/flight/simulations';
+import { isOutdated, simStatus } from '../../services/flight/simulations';
 import { designBlocker } from '../../services/flight/runnability';
-import { stabilityState, stabilityToneOf, stabilityVerdictKey } from '../../services/flight/simReport';
-import { STABILITY_GLYPH } from '../../tree/schematicGeometry';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { fmtNum } from '../../i18n/format';
-import { NO_VALUE } from '../../i18n/noValue';
 import type { StaticInfo } from '../../engine/api';
+import { flightReadout, stabilityReadout } from './simSummaryReadouts';
 
 export function useSimSummary(info: StaticInfo) {
   const { t } = useTranslation();
@@ -34,51 +31,25 @@ export function useSimSummary(info: StaticInfo) {
   const massUnit = u.at(unitScope('stats', 'mass'), 'mass');
   const apogee = u.at(unitScope('sim', 'apogee'), 'distance');
 
-  const cal = info.stabilityCalibers;
-  const pad = stabilityState(cal);
-  const flying = status === 'running' || status === 'queued';
-
-  const stability = (
-    <span className={pad ? stabilityToneOf(pad) : 'text-ink-muted'}>
-      {pad && <span aria-hidden>{`${STABILITY_GLYPH[pad]} `}</span>}
-      {fmtNum(cal, 2)} {t('stability.caliber')}
-      {pad && <span className="sr-only">{` (${t(stabilityVerdictKey(cal))})`}</span>}
-    </span>
-  );
-
   const summary = sim.result?.summary ?? sim.fileSummary?.summary;
-  let flight: ReactNode = NO_VALUE;
-  if (flying) flight = <span className="text-accent-400">{simStatusLabel(status, t)}</span>;
-  else if (summary) {
-    const value = `${apogee.fmt(summary.maxAltitude)} ${apogee.sym}`;
-    flight = outdated ? (
-      <>
-        <span className="text-ink-muted">{value}</span>{' '}
-        <span className="text-[10px] font-medium text-warn-300">{simStatusLabel('outdated', t)}</span>
-      </>
-    ) : (
-      value
-    );
-    if (sim.result)
-      flight = (
-        <button
-          onClick={() => {
-            setResultSimId(sim.id);
-            setTab('results');
-          }}
-          title={t('summary.openResults')}
-          className="rounded-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-        >
-          {flight}
-        </button>
-      );
-  }
+  const flight = flightReadout({
+    status,
+    outdated,
+    value: summary ? `${apogee.fmt(summary.maxAltitude)} ${apogee.sym}` : null,
+    onOpen: sim.result
+      ? () => {
+          setResultSimId(sim.id);
+          setTab('results');
+        }
+      : null,
+    t,
+  });
 
   return {
     sim,
     busy,
     blocked,
-    stability,
+    stability: stabilityReadout(info.stabilityCalibers, t),
     mass: `${massUnit.fmt(info.mass)} ${massUnit.sym}`,
     config,
     configs,

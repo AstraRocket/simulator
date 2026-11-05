@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useWorkspaceStore, selectRunFailed, selectOutdated, selectShownSim } from '../../state/store';
 import { fireAction } from '../../state/fireAction';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { isResultView } from '../../state/tabs';
 
 export function useAutoRunOutdated() {

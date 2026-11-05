@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { useHoverCursor } from '../common/useHoverCursor';
 import type { Piece, RenderMode } from './rocketPieces';
-import type { Look } from '../../services/design/appearance';
-import { LookMaterial, surfacesOf } from './LookMaterial';
+import { LookMaterial } from './LookMaterial';
+import { surfacesOf } from './lookSurfaces';
 import { ROCKET_MODEL_NAME } from './rocketSvgExport';
 import { useSceneColors } from './sceneColors';
+import { drawnOpacity } from './drawnOpacity';
 
 // Does not dispose geometry; whoever built the pieces owns it.
 export function RocketModel({
@@ -84,9 +85,4 @@ export function RocketModel({
       })}
     </group>
   );
-}
-
-export function drawnOpacity(p: Piece, look: Look, layered: boolean): number {
-  const tier = !layered ? 1 : p.translucent ? 0.55 : p.innerGlass ? 0.5 : 1;
-  return tier * look.opacity;
 }

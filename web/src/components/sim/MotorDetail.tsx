@@ -6,15 +6,8 @@ import { useUnits } from '../../prefs/useUnits';
 import type { CatalogMotor } from '../../services/motors/motorDb';
 import { initialThrust } from '../../services/motors/motorPicker';
 import { avgThrustOf, ispOf, massFracOf } from '../../services/motors/motorMath';
-import {
-  ChartAxes,
-  CHART_HEADROOM,
-  chartScales,
-  linePath,
-  baselineArea,
-  LegendSwatch,
-  highestSample,
-} from './chartAxes';
+import { ChartAxes, CHART_HEADROOM, LegendSwatch } from './chartAxes';
+import { chartScales, linePath, baselineArea, highestSample } from './chartScales';
 import { inUserUnit, motorTypeLabel } from './motorFormat';
 import { withFixedUnit } from '../../i18n/format';
 import { token } from '../common/colorTokens';
@@ -38,11 +31,13 @@ export function MotorDetail({
   onBack,
   curveIndex,
   onCurveChange,
+  onShowExhaustStyles,
 }: {
   motor: CatalogMotor;
   onBack?: () => void;
   curveIndex: number;
   onCurveChange: (i: number) => void;
+  onShowExhaustStyles?: () => void;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -165,9 +160,19 @@ export function MotorDetail({
       </dl>
       <div className="mt-2 flex items-center gap-2">
         <ExhaustPreview look={exhaustFor(motor)} className="h-9 w-36 shrink-0" />
-        <p className="text-[11px] leading-snug text-ink-muted">
-          {t('exhaust.inFlight', { look: t(`exhaust.look_${exhaustIdFor(motor)}`) })}
-        </p>
+        {onShowExhaustStyles ? (
+          <button
+            type="button"
+            onClick={onShowExhaustStyles}
+            className="text-left text-[11px] leading-snug text-ink-muted underline hover:text-ink"
+          >
+            {t('exhaust.inFlight', { look: t(`exhaust.look_${exhaustIdFor(motor)}`) })}
+          </button>
+        ) : (
+          <p className="text-[11px] leading-snug text-ink-muted">
+            {t('exhaust.inFlight', { look: t(`exhaust.look_${exhaustIdFor(motor)}`) })}
+          </p>
+        )}
       </div>
       <p className="mt-2 text-[11px] leading-snug text-ink-faint">{t('motorDlg.calcNote')}</p>
     </div>

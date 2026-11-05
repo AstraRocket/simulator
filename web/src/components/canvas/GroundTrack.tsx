@@ -15,7 +15,7 @@ import type { LaunchConditions } from '../../services/design/orkTree';
 import { DriftSweepPanel } from './DriftSweepPanel';
 import { PlanView } from '../common/map/PlanView';
 import { useGroundLayer } from '../common/map/useTileVerdict';
-import { buildTraces, type ChartFlight } from './FlightChart';
+import { buildTraces, type ChartFlight } from './flightChartTraces';
 import { useElementResize } from '../common/useElementResize';
 import { token } from '../common/colorTokens';
 import { LandingRing, LinedTrack, SampleDots, ZoneEllipse } from '../common/map/PlanMarks';

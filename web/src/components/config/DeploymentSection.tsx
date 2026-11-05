@@ -6,7 +6,7 @@ import { OverrideCard, OverrideNumber, OverrideSelect, OverrideAltitude } from '
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { fmtUpTo } from '../../i18n/format';
-import { partName } from './ConfigsTable';
+import { partName } from './partName';
 import { DEPLOY_EVENTS } from '../../services/design/componentFields';
 import { LOWER_STAGE_SEPARATION, hasStageBelow } from '../../services/design/fieldRange';
 import { findNode } from '../../services/design/treeEdit';

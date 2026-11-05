@@ -11,7 +11,8 @@ import { token } from '../common/colorTokens';
 import { toggled } from '../../services/app/collections';
 import { collectNodes } from '../../tree/treeWalk';
 import { useTreeNavigation, type TreeEdit } from './useTreeNavigation';
-import { HiddenPartsNote, isPartHidden, PartVisibilityToggle, type PartVisibility } from './PartVisibilityToggle';
+import { HiddenPartsNote, PartVisibilityToggle, type PartVisibility } from './PartVisibilityToggle';
+import { isPartHidden } from './isPartHidden';
 
 const ADD_GROUPS: { group: string; items: ComponentType[] }[] = [
   { group: 'groupBody', items: ['nosecone', 'bodytube', 'transition'] },

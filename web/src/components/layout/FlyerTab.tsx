@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import {
   CERT_LEVELS,
   CERT_ORGS,

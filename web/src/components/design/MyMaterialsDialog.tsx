@@ -24,7 +24,8 @@ import {
   type DesignAccess,
   type ScopedMaterial,
 } from '../../services/materials/myMaterials';
-import { MasterDetail, MasterRow, useGuardedSelection, MasterDetailDialog } from '../common/MasterDetail';
+import { MasterDetail, MasterRow, MasterDetailDialog } from '../common/MasterDetail';
+import { useGuardedSelection } from '../common/useGuardedSelection';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { MaterialEditor } from './MaterialEditor';
 import { QUANTITY } from './materialUnits';

@@ -1,6 +1,6 @@
 import { useRef, useState, type RefObject } from 'react';
 import type { R3fHandles } from './useRocketExport';
-import type { keyLight } from './MovableKeyLight';
+import type { keyLight } from './keyLight';
 
 export function useCameraViews({
   r3f,

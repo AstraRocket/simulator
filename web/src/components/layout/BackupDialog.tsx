@@ -4,7 +4,7 @@ import { Dialog } from '../common/Dialog';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { useFilePick } from '../common/useFilePick';
 import { errorText } from '../../i18n/keyedError';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { assertImportSize, readFileText } from '../../services/files/decodeText';
 import { exportFilename, saveText } from '../../services/files/saveFile';
 import { appName } from '../../services/app/appInfo';

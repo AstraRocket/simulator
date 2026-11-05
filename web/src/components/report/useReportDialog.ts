@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { useWorkspaceStore } from '../../state/store';
 import { reportSource } from '../../state/reportSource';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { useUnits } from '../../prefs/useUnits';
 import { resolveUnitChoice } from '../../prefs/units';
 import { assembleReport, type ReportBuild, type ReportModel } from '../../services/report/reportModel';

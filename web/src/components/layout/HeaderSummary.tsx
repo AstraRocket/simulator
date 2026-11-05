@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { useIsXl } from '../common/useMediaQuery';
 import { useSimSummary } from './useSimSummary';
 import { useElementResize } from '../common/useElementResize';

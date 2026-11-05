@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { appName, isPreRelease } from '../../services/app/appInfo';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { AlertDialog } from '../common/AlertDialog';
 
 export function WorkInProgressDialog() {

@@ -5,7 +5,7 @@ import { Dialog } from '../common/Dialog';
 import { useUnits } from '../../prefs/useUnits';
 import { levelFromAverage } from '../../services/flight/windLevels';
 import { Check } from '../common/Check';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { smallButton } from '../common/smallButton';
 import { RadioGroup } from '../common/RadioGroup';

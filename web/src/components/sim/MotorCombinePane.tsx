@@ -7,17 +7,8 @@ import { SpecItem } from './MotorDetail';
 import { keyOf } from '../../services/motors/motorKey';
 import { inUserUnit } from './motorFormat';
 import { withFixedUnit } from '../../i18n/format';
-import {
-  ChartAxes,
-  CHART_HEADROOM,
-  chartScales,
-  linePath,
-  baselineArea,
-  LegendSwatch,
-  SeriesPath,
-  seriesFor,
-  MotorSeries,
-} from './chartAxes';
+import { ChartAxes, CHART_HEADROOM, LegendSwatch, SeriesPath, MotorSeries } from './chartAxes';
+import { chartScales, linePath, baselineArea, seriesFor } from './chartScales';
 import { token } from '../common/colorTokens';
 import { fmtList } from '../../i18n/format';
 import { motorStatistics } from '../../engine/openRocketEngine';

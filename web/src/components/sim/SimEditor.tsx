@@ -4,7 +4,7 @@ import { useWorkspaceStore, selectActive, selectConfig } from '../../state/store
 import { launchDiffKeys, prefDiffKeys } from '../../services/flight/simDiff';
 import { configFor, configLabel, loadoutLabel } from '../../services/flight/flightConfigs';
 import { configPowerClass } from '../../services/flight/powerClass';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { RunButton } from './RunButton';
 import { useIsDesktop } from '../common/useMediaQuery';
 import { LaunchPanel } from './LaunchPanel';
@@ -14,7 +14,8 @@ import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import type { SimPrefs, Simulation } from '../../services/flight/simulations';
 import { clampMaxAngleStep, seedFromInput, stepperOf } from '../../services/flight/simulations';
-import { FieldLabel, markRing } from '../common/FieldMark';
+import { FieldLabel } from '../common/FieldMark';
+import { markRing } from '../common/markRing';
 import { NumberRow } from '../common/NumberRow';
 import { fmtUpTo } from '../../i18n/format';
 import { SPEED_WARNINGS } from './speedWarnings';

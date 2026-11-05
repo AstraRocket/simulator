@@ -9,9 +9,6 @@ export interface PartVisibility {
   onShowAll: () => void;
 }
 
-export const isPartHidden = (visibility: PartVisibility | undefined, id: string | undefined): boolean =>
-  !!id && !!visibility?.shownHidden.has(id);
-
 function EyeIcon({ crossed }: { crossed: boolean }) {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>

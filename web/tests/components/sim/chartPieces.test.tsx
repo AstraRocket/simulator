@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { LegendSwatch, SeriesPath, highestSample } from '../../../src/components/sim/chartAxes';
+import { LegendSwatch, SeriesPath } from '../../../src/components/sim/chartAxes';
+import { highestSample } from '../../../src/components/sim/chartScales';
 import { CATEGORICAL, seriesColor } from '../../../src/components/common/chartPalette';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 

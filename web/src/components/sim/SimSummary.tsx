@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useLauncherT } from '../common/useLauncher';
 import { fmtNum } from '../../i18n/format';
-import { useScopedUnit } from '../common/UnitChip';
+import { useScopedUnit } from '../common/useScopedUnit';
 import { fmtDegrees, useUnits } from '../../prefs/useUnits';
 import { NO_VALUE } from '../../i18n/noValue';
 import { degToRad, unitScope } from '../../prefs/units';
@@ -9,7 +9,7 @@ import type { FlightResult } from '../../engine/api';
 import { forwardFlightEnd, maxQ, maxQAlpha, maxRollRate, seriesAt } from '../../services/flight/flightEvents';
 import { distanceFromPad, landingPoint } from '../../services/flight/groundTrack';
 import { railVerdictKey, stabilityTone } from '../../services/flight/simReport';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { Stat } from '../common/Stat';
 import { deploymentVerdict, lastDeployment } from './speedWarnings';
 import { sharedDeviceNames } from '../../services/flight/recoveryFlown';

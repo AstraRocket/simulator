@@ -1,5 +1,5 @@
 import { useLauncherT } from '../common/useLauncher';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { confirm } from '../../state/confirmStore';
 import { useHelpStore } from '../../state/helpStore';
 import { WARNING_TONE } from './warningTone';

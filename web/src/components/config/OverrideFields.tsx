@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
 import { onSi } from '../../prefs/entryValue';
 import type { FieldUnit } from '../../prefs/useUnits';
-
-export const overrideFieldLabel = (name: string, label: string): string => `${name} - ${label}`;
+import { overrideFieldLabel } from './overrideFieldLabel';
 
 export function OverrideCard({
   name,

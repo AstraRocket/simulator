@@ -8,7 +8,7 @@ import { UnitChip } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { STABILITY_GLYPH } from '../../tree/schematicGeometry';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 
 export function StabilityBadge({
   info,

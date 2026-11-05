@@ -1,4 +1,4 @@
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { useIsDesktop } from '../common/useMediaQuery';
 
 export function useCanBuildDesign(): boolean {

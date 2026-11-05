@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { UNIT_CHOICES, type UnitChoice } from '../../prefs/units';
 import { Check } from '../common/Check';
 import type { ReportSelection, Sel } from './useReportDialog';
