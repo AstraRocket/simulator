@@ -19,7 +19,7 @@ import {
   isZoomIdentity,
   type MotorDims,
 } from '../../tree/schematicGeometry';
-import { buildSchematicShapes } from './schematicShapes';
+import { buildSchematicShapes, SchematicDefs } from './schematicShapes';
 import { useWheelZoom } from './useWheelZoom';
 import { zoomSurfaceProps } from './keyPan';
 import { HorizontalCaliper, VerticalCaliper } from './SchematicCalipers';
@@ -299,12 +299,7 @@ export function TreeSchematic({
         // A touch the OS takes over ends without pointerup.
         onPointerCancel={endDrag}
       >
-        <defs>
-          <pattern id="bulkhead-hatch" patternUnits="userSpaceOnUse" width="5" height="5">
-            <path d="M0 5 L5 0" stroke={token('sch-hatch')} strokeWidth="0.9" />
-          </pattern>
-          {clipDefs}
-        </defs>
+        <SchematicDefs clipDefs={clipDefs} />
         <g transform={`translate(${zoom.x} ${zoom.y}) scale(${zoom.k})`}>
           {shapes}
           {overlay}

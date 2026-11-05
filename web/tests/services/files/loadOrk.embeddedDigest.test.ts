@@ -58,7 +58,6 @@ const catalogDigests = { value: [] as { digest: string; delays: number[] }[] };
 const catalogRow = () => ({ designation: 'C6', manufacturer: 'Estes', diameter: 18, digests: catalogDigests.value });
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => catalogRow(),
   matchCatalogMotor: () => ({ motor: catalogRow() }),
 }));
 

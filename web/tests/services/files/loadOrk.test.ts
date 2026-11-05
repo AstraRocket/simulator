@@ -30,7 +30,6 @@ vi.mock('../../../src/services/motors/motorSpec', () => ({
 
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => ({ designation: 'K550', manufacturer: 'AeroTech', diameter: 54 }),
   matchCatalogMotor: () => ({ motor: { designation: 'K550', manufacturer: 'AeroTech', diameter: 54 } }),
 }));
 

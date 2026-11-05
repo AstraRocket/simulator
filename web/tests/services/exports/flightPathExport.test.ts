@@ -7,18 +7,18 @@ import {
   defaultExportOptions,
   exportBranchNames,
   hasLaunchPosition,
-  renderKml,
-  renderGpx,
-  renderWaypointCsv,
   renderUserTemplate,
   mimeForExtension,
-  resolveAltitudeReference,
-  EXPORT_FALLBACK_LATITUDE,
-  EXPORT_FALLBACK_LONGITUDE,
   EXPORT_FORMATS,
   hexToRgbInt,
   type WaypointKind,
 } from '../../../src/services/exports/flightPathExport';
+import { renderKml, renderGpx, renderWaypointCsv } from '../../../src/services/exports/flightPath/formats';
+import { resolveAltitudeReference } from '../../../src/services/exports/flightPath/options';
+import {
+  EXPORT_FALLBACK_LATITUDE,
+  EXPORT_FALLBACK_LONGITUDE,
+} from '../../../src/services/exports/flightPath/buildModel';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import en from '../../../src/i18n/locales/en.json';

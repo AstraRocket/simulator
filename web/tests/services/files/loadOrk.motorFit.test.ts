@@ -72,7 +72,6 @@ const row = { designation: 'J360', manufacturer: 'Cesaroni', diameter: 54, diges
 
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => row,
   matchCatalogMotor: () => ({ motor: row, ...(doubt.value ? { doubt: doubt.value } : {}) }),
 }));
 

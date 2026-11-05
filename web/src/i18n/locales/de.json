@@ -2521,7 +2521,8 @@
     "tool_chute": "Fallschirmauslegung",
     "tool_flutter": "Flossenflattern",
     "tool_ejection": "Ausstoßladung",
-    "tool_exhaust": "Abgasbilder"
+    "tool_exhaust": "Abgasbilder",
+    "tool_motors": "Motorübersicht"
   },
   "chuteTool": {
     "title": "Fallschirmauslegung",

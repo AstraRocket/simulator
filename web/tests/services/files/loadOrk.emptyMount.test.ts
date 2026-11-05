@@ -51,7 +51,6 @@ vi.mock('../../../src/services/files/designFile', () => ({
 vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec: vi.fn() }));
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => undefined,
   matchCatalogMotor: () => undefined,
 }));
 

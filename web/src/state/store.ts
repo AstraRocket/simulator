@@ -37,6 +37,8 @@ import { loadSettings } from '../services/storage/settings';
 import { defaultMaterialPatch } from '../services/design/materialSlots';
 import { createViewSlice, type ViewSlice } from './viewSlice';
 import { createFileSlice, type FileSlice } from './fileSlice';
+import { createDesignLibrarySlice, type DesignLibrarySlice } from './designLibrarySlice';
+import { createExportSlice, type ExportSlice } from './exportSlice';
 import { createConfigSlice, sanitizeConfigs, type ConfigSlice } from './configSlice';
 import { createSimSlice, sanitizeSims, type SimSlice } from './simSlice';
 import { abortRunWork, createRunSlice, type RunSlice } from './runSlice';
@@ -45,7 +47,7 @@ import { createMotorGuideSlice, type MotorGuideSlice } from './motorGuideSlice';
 import { markWritten, voidPendingAutosave } from './writtenWorkspace';
 import { configOf, defaultConfig, repairNotes, type StorageWarningKind } from './workspaceSelectors';
 
-// Defined in a leaf module so fileSlice can import them without a run-time cycle.
+// Defined in a leaf module so the slices can import them without a run-time cycle.
 export {
   configOf,
   saveFailure,
@@ -77,7 +79,16 @@ type HistoryEntry = {
 const HISTORY_LIMIT = 100;
 
 export interface WorkspaceState
-  extends ViewSlice, FileSlice, ConfigSlice, SimSlice, RunSlice, DriftSweepSlice, MotorGuideSlice {
+  extends
+    ViewSlice,
+    FileSlice,
+    DesignLibrarySlice,
+    ExportSlice,
+    ConfigSlice,
+    SimSlice,
+    RunSlice,
+    DriftSweepSlice,
+    MotorGuideSlice {
   tree: RocketTree;
   info: StaticInfo | null;
   err: string | null;
@@ -282,6 +293,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     future: [],
     ...createViewSlice(set, get, api),
     ...createFileSlice({ replaceWorkspace, clearHistory })(set, get, api),
+    ...createDesignLibrarySlice({ clearHistory })(set, get, api),
+    ...createExportSlice(set, get, api),
     ...createConfigSlice({ ...steps, seed: config0 })(set, get, api),
     ...createSimSlice({ ...steps, seed: sim0 })(set, get, api),
     ...createRunSlice(set, get, api),

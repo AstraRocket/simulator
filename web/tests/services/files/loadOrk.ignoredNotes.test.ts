@@ -17,7 +17,6 @@ vi.mock('../../../src/engine/openRocketEngine', () => ({
 vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec: vi.fn() }));
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => undefined,
   matchCatalogMotor: () => undefined,
 }));
 

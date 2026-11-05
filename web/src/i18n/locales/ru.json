@@ -2543,7 +2543,8 @@
     "tool_chute": "Подбор парашюта",
     "tool_flutter": "Флаттер стабилизаторов",
     "tool_ejection": "Вышибной заряд",
-    "tool_exhaust": "Вид выхлопа"
+    "tool_exhaust": "Вид выхлопа",
+    "tool_motors": "Сводка по двигателям"
   },
   "chuteTool": {
     "title": "Подбор парашюта",

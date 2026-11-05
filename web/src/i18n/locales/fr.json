@@ -2532,7 +2532,8 @@
     "tool_chute": "Dimensionnement du parachute",
     "tool_flutter": "Flottement des ailerons",
     "tool_ejection": "Charge d'éjection",
-    "tool_exhaust": "Aspect de l'échappement"
+    "tool_exhaust": "Aspect de l'échappement",
+    "tool_motors": "Tableau des moteurs"
   },
   "chuteTool": {
     "title": "Dimensionnement du parachute",

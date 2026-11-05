@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode, FlightResult } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
@@ -14,29 +14,19 @@ import { airDensity, descentMass } from '../../services/flight/recoverySizing';
 import { Dialog } from '../common/Dialog';
 import { SizingFigures } from '../tools/SizingFigures';
 import { commitWith, type NodeEditProps } from './DimensionFields';
-import { smallButton } from '../common/smallButton';
+import { ReadoutOpener } from './ReadoutOpener';
 
 export function RecoverySizingReadout({ node, onChange, onCommit }: NodeEditProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
   return (
-    <div className="border-t border-line/5 pt-3">
-      <button type="button" onClick={() => setOpen(true)} className={smallButton('sm', 'ink', 'w-full')}>
-        {t('recovery.open')}
-      </button>
-      {open && (
-        <Dialog
-          id="recovery-sizing"
-          title={t('recovery.title')}
-          onClose={() => setOpen(false)}
-          layer="over"
-          layout="pad"
-          size="md"
-        >
+    <ReadoutOpener
+      label={t('recovery.open')}
+      dialog={(close) => (
+        <Dialog id="recovery-sizing" title={t('recovery.title')} onClose={close} layer="over" layout="pad" size="md">
           <SizingBody node={node} onUse={(d) => commitWith(onChange, onCommit)({ diameter: d })} />
         </Dialog>
       )}
-    </div>
+    />
   );
 }
 

@@ -1,4 +1,4 @@
-// Only a type edge back to store.ts: fileSlice reads these while store.ts is still loading.
+// Only a type edge back to store.ts: the slices read these while store.ts is still loading.
 import i18n from '../i18n';
 import type { RocketTree } from '../engine/openRocketEngine';
 import { configFor, newFlightConfig, reconcileConfig, type FlightConfig } from '../services/flight/flightConfigs';

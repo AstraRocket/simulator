@@ -6,6 +6,7 @@ import { ParachuteTool } from './ParachuteTool';
 import { FlutterTool } from './FlutterTool';
 import { EjectionTool } from './EjectionTool';
 import { ExhaustTool } from './ExhaustTool';
+import { MotorsTool } from './MotorsTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 
 let rememberedTool: Tool = 'landing';
@@ -47,13 +48,15 @@ export function ToolsPane() {
         {...tabs.panel}
         // The exhaust gallery has no focusable field, so its panel needs a tab stop to scroll.
         tabIndex={tool === 'exhaust' ? 0 : undefined}
-        className="min-h-0 flex-1 overflow-auto p-3"
+        // The dashboard scrolls its own grid and detail panes, as it does in its dialog.
+        className={tool === 'motors' ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-auto p-3'}
       >
         {tool === 'landing' && <LandingEstimator />}
         {tool === 'chute' && <ParachuteTool />}
         {tool === 'flutter' && <FlutterTool />}
         {tool === 'ejection' && <EjectionTool />}
         {tool === 'exhaust' && <ExhaustTool />}
+        {tool === 'motors' && <MotorsTool />}
       </div>
     </div>
   );

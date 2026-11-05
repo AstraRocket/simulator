@@ -1,10 +1,9 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { computeSchematicLayout, type MotorDims } from '../../tree/schematicGeometry';
-import { buildSchematicShapes } from './schematicShapes';
+import { buildSchematicShapes, SchematicDefs } from './schematicShapes';
 import { StabilityOverlay } from './SchematicOverlay';
 import { useElementResize } from '../common/useElementResize';
-import { token } from '../common/colorTokens';
 
 const NO_RULERS = { top: false, bottom: false, left: false, right: false };
 const noHover = () => {};
@@ -46,12 +45,7 @@ export function SchematicPreview({
         pointerEvents="none"
         style={{ width: '100%', height: 'auto', display: 'block' }}
       >
-        <defs>
-          <pattern id="bulkhead-hatch" patternUnits="userSpaceOnUse" width="5" height="5">
-            <path d="M0 5 L5 0" stroke={token('sch-hatch')} strokeWidth="0.9" />
-          </pattern>
-          {clipDefs}
-        </defs>
+        <SchematicDefs clipDefs={clipDefs} />
         {shapes}
         {overlay}
         {wires}

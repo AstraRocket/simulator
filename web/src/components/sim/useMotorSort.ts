@@ -1,15 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { CatalogMotor } from '../../services/motors/motorDb';
 import { COLUMNS } from './motorColumns';
 import { compareSortKeys } from '../../services/app/sortKeys';
+import { useRemembered, useSlot, type RememberedSlot } from '../tools/remembered';
 
 export interface MotorSort {
   id: string;
   dir: 1 | -1;
 }
 
-export function useMotorSort(filtered: CatalogMotor[]) {
-  const [sort, setSort] = useState<MotorSort | null>(null);
+export interface MotorSortHeld {
+  sort: MotorSort | null;
+}
+
+export function useMotorSort(filtered: CatalogMotor[], slot?: RememberedSlot<MotorSortHeld>) {
+  const [sort, setSort] = useRemembered(useSlot(slot), 'sort', null);
 
   const shown = useMemo(() => {
     const col = sort && COLUMNS.find((c) => c.id === sort.id);

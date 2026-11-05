@@ -2,7 +2,7 @@
 title: "Tools"
 sidebar_position: 12.5
 ---
-The **Tools** tab holds quick answers that need no design: where a rocket lands, what size parachute it needs, how fast its fins can fly, how much black powder its ejection charge needs, and how each propellant looks in the 3D flight path. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
+The **Tools** tab holds quick answers that need no design: where a rocket lands, what size parachute it needs, how fast its fins can fly, how much black powder its ejection charge needs, how each propellant looks in the 3D flight path, and how the motors in the catalog compare. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
 
 Every tool here is an estimate, and says so. A rocket designed here gets better answers from its own simulation.
 
@@ -99,3 +99,7 @@ How the [3D flight path](./features.md) draws each motor's flame and smoke, one 
 - **Classic composite**: the orange flame for every other propellant, and for a motor whose propellant the catalog does not name.
 
 A motor the catalog calls sparky adds sparks to whatever look it takes. Each motor's detail in the motor picker shows the same preview and names its look. It is a look, not a measurement: real exhaust varies with the motor, the weather and the light.
+
+## Motor Dashboard {#motor-dashboard}
+
+The same table as **Motor Dashboard** on the menu: every motor in the catalog, to sort and filter, with **Compare** and **Combine** for two or more selected motors. [Motors](./motors.md) covers its filters. Here it keeps its filters and selection while you switch tools or tabs; the one on the menu starts fresh each time it opens.

@@ -52,6 +52,13 @@ npm run e2e:sections # the same suite one section at a time (shell, design, aero
                      # `-- --skip a11y,update`, `-- --only aero,motors`, `-- --list`; Playwright
                      # options after a second `--`. Sections and steps live in
                      # scripts/lib/e2eSectionList.mjs.
+npm run check        # THE ONE TO RUN BEFORE YOU PUSH: every test and check in the
+                     # project (all unit tests, all e2e, the offline and update checks,
+                     # the desktop comparisons, the engine audit), then one pass/fail
+                     # table. If OpenRocket needs building, it stops and says how.
+npm run test:<step>  # one step of check: types, lint, build, docs, format, spell, knip,
+                     # dupes, unit, repo, desktop, helpers, e2e, engine
+npm run coverage     # the unit suite with coverage and its floors; not part of check
 npm run dupes        # jscpd copy-paste check over src (see below); part of audit
 npm run verify       # the pre-push gate: typecheck, lint, the production build,
                      # and the unit suite. Format, spell, knip and dupes run in
@@ -60,8 +67,10 @@ npm run audit        # every web check CI does not run: coverage, then the files
                      # the app saves opened in desktop OpenRocket, then every
                      # part of them read back and compared with what the app's
                      # kernel flies, then the Java helpers compiled (needs a JDK
-                     # and the pinned OpenRocket; pass --jar <OpenRocket.jar> if
-                     # it is not installed).
+                     # and `npm run openrocket:build`, once and after each
+                     # engine repin).
+npm run openrocket:build # clones and builds the OpenRocket commit the engine is
+                     # extracted from, into engine-java/.openrocket-build.
                      # ~350 s, which is why CI runs `verify` and you run this one by hand.
 ```
 
@@ -248,26 +257,28 @@ Open a PR from your branch to **`dev`** (or to **`hotfix`** for a hotfix, see [B
 2. The underlying cause.
 3. How you fixed it.
 
-Make sure `npm run verify` passes (the typecheck, lint, build and unit suite CI runs; CI also runs the core Playwright specs and the docs site typecheck, all in parallel), and that you've checked the change in the browser. Add or update tests for any logic you touch under `web/src/services` or `web/src/engine`. Keep engine `.mjs`/`.wasm` regenerations in the same PR as their Java changes.
+Make sure `npm run check` passes (every test and check in the project), and that you've checked the change in the browser. Add or update tests for any logic you touch under `web/src/services` or `web/src/engine`. Keep engine `.mjs`/`.wasm` regenerations in the same PR as their Java changes.
 
 What CI gates on the PR itself (`.github/workflows/gates.yml`):
 
 | Job              | Runs                                                                                                      |
 | ---------------- | --------------------------------------------------------------------------------------------------------- |
 | `build-and-test` | `npm run build` in three parts: `typecheck`, `lint`, `vite build`                                         |
+| `housekeeping`   | `format:check`, `spell`, `knip` and `dupes`, one runner each                                              |
 | `unit`           | the unit suite, without coverage, split three ways (`vitest run --shard`)                                 |
+| `repo`           | the checks on the project itself (`tests/repo`, with `REPO_CHECKS=1`), also a step of `npm run audit`      |
 | `e2e`            | `npm run e2e:core`, the core Playwright specs (`CORE_SPECS` in `playwright.config.ts`), split three ways  |
 | `website`        | `npm run typecheck` in `website/` (Docusaurus builds through Babel, which checks no types)                |
 
 The engine checks are not CI gates. After a change under `engine-java/` or to the vendored engine, run `npm run audit` in `engine-java/` (needs a JDK): parity, a rebuild that fails if the committed engine binaries differ, the extraction check, the pinned upstream date, and the aero scorecards. It stops at the first failure and names the step.
 
-The checks against desktop OpenRocket are not CI gates either, since they need a JDK and the pinned release jar. `npm run check:ork` in `web/` opens the `.ork` and `.rkt` files the app writes in desktop; `orkDesktopSamples.test.ts` writes them when `ORK_SAMPLES_DIR` is set (see `web/scripts/check-ork-opens.mjs`). `npm run check:fields` reads every part of those files back in desktop and compares it with what the app's kernel flies, which the samples test writes beside each file (see `web/scripts/check-desktop-fields.mjs`). Run `npm run audit`, which does all three, after changing anything either writer emits or anything the bridge builds. The catalog Java helpers under `web/scripts/` (`MotorDump.java`, `PresetDump.java`, `MaterialDump.java`) compile when a sync step runs them, by hand or in the weekly catalog workflow, and in `npm run audit` (its `helpers` step).
+The checks against desktop OpenRocket are not CI gates either, since they need a JDK and a build of OpenRocket. They run against the commit the engine is extracted from (`ref` in `engine-java/extract/UPSTREAM`), which `npm run openrocket:build` clones and builds, and they refuse a build of any other commit. The catalog sync scripts are separate: they stay pinned to the release jar in `web/scripts/data/openrocket-release.json`. `npm run check:ork` in `web/` opens the `.ork` and `.rkt` files the app writes in desktop; `orkDesktopSamples.test.ts` writes them when `ORK_SAMPLES_DIR` is set (see `web/scripts/check-ork-opens.mjs`). `npm run check:fields` reads every part of those files back in desktop and compares it with what the app's kernel flies, which the samples test writes beside each file (see `web/scripts/check-desktop-fields.mjs`). Run `npm run audit`, which does all three, after changing anything either writer emits or anything the bridge builds. The catalog Java helpers under `web/scripts/` (`MotorDump.java`, `PresetDump.java`, `MaterialDump.java`) compile when a sync step runs them, by hand or in the weekly catalog workflow, and in `npm run audit` (its `helpers` step).
 
 Every change goes through the change audit in [`docs/AUDIT_PROMPT_CHANGES.md`](./AUDIT_PROMPT_CHANGES.md) before it is called done, and every fix for an audit finding ships with a test whose expected value comes from the kernel, the Java or desktop and that fails without the fix ("Fixes" in [`docs/AUDIT_PROMPT.md`](./AUDIT_PROMPT.md)).
 
 The full Playwright suite is not a PR gate. It runs by hand from `.github/workflows/e2e-full.yml` (**Run workflow**), sharded two ways.
 
-A push to a branch with no pull request open runs no gate in CI. Run the gates locally (`npm run verify` and `npm run audit` in `web`, then `npx playwright test`).
+A push to a branch with no pull request open runs no gate in CI. Run `npm run check` in `web`.
 
 A pull request runs every `gates.yml` job on the merge result (`ci.yml`), then its own `verify` job, `CI / verify`: one check that stands for every gate on the merge result, and the one a pull request from a fork also gets. `web/tests/repo/ciTriggers.test.ts` fails if the `verify` job stops running after a failed gate or stops failing with it.
 

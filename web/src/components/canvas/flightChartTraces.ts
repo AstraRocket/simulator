@@ -6,23 +6,6 @@ import { dynamicPressure, qAlpha, rollRate } from '../../services/flight/flightE
 import { token } from '../common/colorTokens';
 import { ladderDigits } from '../../i18n/format';
 
-export type Key =
-  | 'altitude'
-  | 'velocity'
-  | 'acceleration'
-  | 'mach'
-  | 'thrust'
-  | 'drag'
-  | 'mass'
-  | 'stability'
-  | 'cpLocation'
-  | 'cgLocation'
-  | 'aoa'
-  | 'dynamicPressure'
-  | 'qAlpha'
-  | 'rollRate'
-  | 'velocityAltitude';
-
 export interface Meta {
   key: string;
   label: string;

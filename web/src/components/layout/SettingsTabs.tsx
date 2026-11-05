@@ -18,7 +18,8 @@ import { LineStyleRow } from '../design/LineStyleRow';
 import { NumberRow } from '../common/NumberRow';
 import { DefaultMaterials } from './DefaultMaterials';
 import { LaunchPanel } from '../sim/LaunchPanel';
-import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from '../sim/simOptionFields';
+import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, simOptionUnit } from '../sim/simOptionFields';
+import { StepperOptions } from '../sim/StepperOptions';
 import { withRequiredFrom, type CompleteLaunch } from '../../services/flight/requiredLaunch';
 import { launchPatchFor } from '../../services/design/orkTree';
 import { IMPERIAL_UNITS, METRIC_UNITS, QUANTITIES, UNITS, unitScope } from '../../prefs/units';
@@ -31,7 +32,7 @@ import { SPEED_WARNINGS } from '../sim/speedWarnings';
 import { EsriKeyField } from '../sim/EsriKeyField';
 import { CardGroup } from '../common/CardGroup';
 import { THEME_PREFS, type ThemePref } from '../../services/app/theme';
-import { SIM_STEPPERS, seedFromInput, stepperOf } from '../../services/flight/simulations';
+import { seedFromInput, stepperOf } from '../../services/flight/simulations';
 import { withKey } from '../../services/app/objectKeys';
 import { useLatestRef } from '../common/useLatestRef';
 import { smallButton } from '../common/smallButton';
@@ -344,11 +345,7 @@ export function SimTab() {
           onChange={(e) => setSim({ stepper: stepperOf(e.target.value, DEFAULT_SETTINGS.simulation.stepper) })}
           className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
         >
-          {SIM_STEPPERS.map((s) => (
-            <option key={s} value={s}>
-              {t(STEPPER_LABELS[s])}
-            </option>
-          ))}
+          <StepperOptions />
         </select>
       </label>
       {SIM_OPTION_FIELDS.map((f) => {

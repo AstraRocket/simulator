@@ -6,10 +6,15 @@ import { forgetParachuteTool } from '../../../src/components/tools/ParachuteTool
 import { forgetLandingEstimator } from '../../../src/components/tools/LandingEstimator';
 import { forgetFlutterTool } from '../../../src/components/tools/FlutterTool';
 import { forgetEjectionTool } from '../../../src/components/tools/EjectionTool';
+import { forgetMotorsTool } from '../../../src/components/tools/MotorsTool';
+import { MotorDashboard } from '../../../src/components/sim/MotorDashboard';
 import { renderWithProviders } from '../../testing/renderWithProviders';
+
+const SEARCH = 'Search by code (e.g. C6)…';
 
 beforeEach(() => {
   forgetToolsPane();
+  forgetMotorsTool();
   forgetParachuteTool();
   forgetLandingEstimator();
   forgetFlutterTool();
@@ -24,6 +29,28 @@ describe('the Tools tab', () => {
     expect(screen.getByRole('heading', { name: 'Parachute sizing' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Landing estimator' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Parachute sizing' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('holds the motor dashboard, and keeps its filters across a trip to another tab', () => {
+    const { unmount } = renderWithProviders(<ToolsPane />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Motor Dashboard' }));
+    expect(screen.getByRole('heading', { name: 'Motor Dashboard' })).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // Left on the tab list, so arrow keys go on moving between tools.
+    expect(document.activeElement).not.toBe(screen.getByLabelText(SEARCH));
+    fireEvent.change(screen.getByLabelText(SEARCH), { target: { value: 'H128' } });
+    unmount();
+    renderWithProviders(<ToolsPane />);
+    expect((screen.getByLabelText(SEARCH) as HTMLInputElement).value).toBe('H128');
+  });
+
+  it('leaves the menu dialog with its own filters, starting fresh each time', () => {
+    const tool = renderWithProviders(<ToolsPane />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Motor Dashboard' }));
+    fireEvent.change(screen.getByLabelText(SEARCH), { target: { value: 'H128' } });
+    tool.unmount();
+    renderWithProviders(<MotorDashboard onClose={() => {}} />);
+    expect((screen.getByLabelText(SEARCH) as HTMLInputElement).value).toBe('');
   });
 
   it('sizes a parachute from typed inputs, and rates a canopy given one', () => {

@@ -68,7 +68,6 @@ const catalogMotorSpec = vi.fn();
 vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec, customMotorToSpec: vi.fn() }));
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: (_c: unknown, designation: string) => ({ designation }),
   matchCatalogMotor: (_c: unknown, designation: string) => ({ motor: { designation } }),
 }));
 

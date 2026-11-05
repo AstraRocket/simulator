@@ -326,11 +326,3 @@ function doubtAbout(
   if (candidates > 1) return { doubt: 'several' };
   return undefined;
 }
-
-export function findCatalogMotor(
-  catalog: CatalogMotor[],
-  designation: string,
-  manufacturer?: string,
-): CatalogMotor | undefined {
-  return matchCatalogMotor(catalog, designation, manufacturer)?.motor;
-}

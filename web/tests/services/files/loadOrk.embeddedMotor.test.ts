@@ -53,7 +53,6 @@ vi.mock('../../../src/services/motors/motorSpec', () => ({
 const catalogHit = { value: false };
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => (catalogHit.value ? { designation: 'J350', manufacturer: 'AeroTech', diameter: 38 } : null),
   matchCatalogMotor: () =>
     catalogHit.value ? { motor: { designation: 'J350', manufacturer: 'AeroTech', diameter: 38 } } : undefined,
 }));

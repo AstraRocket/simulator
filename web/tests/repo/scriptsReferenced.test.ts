@@ -28,7 +28,8 @@ const sources = (): Source[] => {
 const orphansIn = (dir: 'scripts' | 'scripts/lib', files: string[], from: Source[]): string[] =>
   files.filter((f) => {
     const self = `${dir}/${f}`;
-    const asPath = new RegExp(`${dir === 'scripts' ? 'scripts' : 'lib'}/${f.replace('.', '\\.')}\\b`);
+    // A lib module's importers name it as `lib/x.mjs`, or as `./x.mjs` from beside it.
+    const asPath = new RegExp(`${dir === 'scripts' ? 'scripts' : '(?:lib|\\.)'}/${f.replace('.', '\\.')}\\b`);
     return !from.some((s) => s.path !== self && asPath.test(s.text));
   });
 
@@ -44,13 +45,15 @@ describe('no orphan build script', () => {
   });
 
   it('does not count a script naming itself as its caller', () => {
-    const own = (path: string) => all.filter((s) => s.path === path);
-    expect(own('scripts/gen-icons.mjs')[0]?.text).toMatch(/scripts\/gen-icons\.mjs/);
-    expect(orphansIn('scripts', ['gen-icons.mjs'], own('scripts/gen-icons.mjs'))).toEqual(['gen-icons.mjs']);
-    expect(own('scripts/lib/dataManifest.mjs')[0]?.text).toMatch(/lib\/dataManifest\.mjs/);
-    expect(orphansIn('scripts/lib', ['dataManifest.mjs'], own('scripts/lib/dataManifest.mjs'))).toEqual([
-      'dataManifest.mjs',
-    ]);
+    const script = { path: 'scripts/gen-icons.mjs', text: '// scripts/gen-icons.mjs' };
+    expect(orphansIn('scripts', ['gen-icons.mjs'], [script])).toEqual(['gen-icons.mjs']);
+    const lib = { path: 'scripts/lib/dataManifest.mjs', text: '// lib/dataManifest.mjs, or ./dataManifest.mjs' };
+    expect(orphansIn('scripts/lib', ['dataManifest.mjs'], [lib])).toEqual(['dataManifest.mjs']);
+  });
+
+  it('counts an import from beside a lib module as its importer', () => {
+    const sibling = { path: 'scripts/lib/motorRow.mjs', text: "import { rankCurves } from './rankCurves.mjs';" };
+    expect(orphansIn('scripts/lib', ['rankCurves.mjs'], [sibling])).toEqual([]);
   });
 
   it('scans a plausible number of scripts, so an empty glob cannot pass', () => {

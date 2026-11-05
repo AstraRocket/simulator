@@ -18,6 +18,7 @@ import { UnitBound } from '../common/UnitBound';
 import { CheckMenu } from '../common/CheckMenu';
 import { toggled } from '../../services/app/collections';
 import { usePersistedState } from '../common/usePersistedState';
+import { useRemembered, useSlot, type RememberedSlot } from '../tools/remembered';
 import { Check } from '../common/Check';
 import { NumberInput } from '../common/NumberInput';
 import type { Quantity } from '../../prefs/units';
@@ -36,6 +37,21 @@ export interface MotorFilterInit {
   dia?: [number, number];
   mount?: MountFit | null;
   perfFields?: readonly PerfDef[];
+  /** Keeps the filters past an unmount. */
+  slot?: RememberedSlot<MotorFilterHeld>;
+}
+
+export interface MotorFilterHeld {
+  text: string;
+  cls: string | null;
+  mfrs: Set<string>;
+  imp: ImpulseRange;
+  perf: PerfRanges;
+  plugged: boolean;
+  sparky: SparkyChoice;
+  freeLow: number;
+  freeHigh: number;
+  dia: [number, number];
 }
 
 const EMPTY: ReadonlySet<string> = new Set();
@@ -44,26 +60,29 @@ const EMPTY: ReadonlySet<string> = new Set();
 export type ImpulseRange = [min: number | null, max: number | null];
 
 export function useMotorFilter(catalog: CatalogMotor[], init: MotorFilterInit = {}, used: ReadonlySet<string> = EMPTY) {
-  const [text, setText] = useState('');
+  const slot = useSlot(init.slot);
+  const [text, setText] = useRemembered(slot, 'text', '');
   const [hideOop, setHideOop] = usePersistedState(loadHideOop, saveHideOop);
   const [hideUsed, setHideUsed] = useState(false);
-  const [cls, setCls] = useState<string | null>(null);
-  const [mfrs, setMfrs] = useState<Set<string>>(() => init.mfrs ?? new Set());
-  const [imp, setImp] = useState<ImpulseRange>([null, null]);
-  const [perf, setPerfAll] = useState<PerfRanges>({});
-  const [plugged, setPlugged] = useState(false);
-  const [sparky, setSparky] = useState<SparkyChoice>('any');
+  const [cls, setCls] = useRemembered(slot, 'cls', null);
+  const [mfrs, setMfrs] = useRemembered(slot, 'mfrs', init.mfrs ?? new Set());
+  const [imp, setImp] = useRemembered(slot, 'imp', [null, null]);
+  const [perf, setPerfAll] = useRemembered(slot, 'perf', {});
+  const [plugged, setPlugged] = useRemembered(slot, 'plugged', false);
+  const [sparky, setSparky] = useRemembered(slot, 'sparky', 'any');
   const mount = init.mount ?? null;
   const perfFields = init.perfFields ?? PERF_FIELDS;
   const mountIdx = mount ? fitIdx(mount.bore) : MAX_IDX;
   const [fits, setFits] = useState(mount !== null);
   // Kept apart from the displayed range so the mount's cap is never saved as a preference.
-  const [freeLow, setFreeLow] = useState(() => (init.dia ?? [0, MAX_IDX])[0]);
-  const [freeHigh, setFreeHigh] = useState(() => (init.dia ?? [0, MAX_IDX])[1]);
-  const [dia, setDiaRaw] = useState<[number, number]>(() => {
-    const d = init.dia ?? [0, MAX_IDX];
-    return mount ? [Math.min(d[0], mountIdx), Math.min(d[1], mountIdx)] : d;
-  });
+  const startDia = init.dia ?? [0, MAX_IDX];
+  const [freeLow, setFreeLow] = useRemembered(slot, 'freeLow', startDia[0]);
+  const [freeHigh, setFreeHigh] = useRemembered(slot, 'freeHigh', startDia[1]);
+  const [dia, setDiaRaw] = useRemembered(
+    slot,
+    'dia',
+    mount ? [Math.min(startDia[0], mountIdx), Math.min(startDia[1], mountIdx)] : startDia,
+  );
 
   const setFitsAndCeiling = (on: boolean) => {
     setFits(on);

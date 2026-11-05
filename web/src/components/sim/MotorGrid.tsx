@@ -65,6 +65,9 @@ export function MotorGrid({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       if (takesArrowKeys(e.target as Element) || !shown.length) return;
+      // On the Tools tab a dialog can sit over the grid, and the key is the dialog's.
+      const dialog = e.target instanceof Element ? e.target.closest('[role="dialog"]') : null;
+      if (dialog && !dialog.contains(bodyRef.current)) return;
       e.preventDefault();
       const i = selected ? shown.findIndex((m) => keyOf(m) === keyOf(selected)) : -1;
       onSelect(shown[e.key === 'ArrowDown' ? Math.min(shown.length - 1, i + 1) : Math.max(0, i - 1)] ?? null);

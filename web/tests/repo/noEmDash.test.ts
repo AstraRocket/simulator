@@ -24,6 +24,7 @@ const skipped = [
   '/website/.docusaurus',
   '/engine-java/src/java',
   '/engine-java/.openrocket-src',
+  '/engine-java/.openrocket-build',
   '/engine-java/build',
   '/engine-java/reference/build',
   '/engine-java/.gradle',

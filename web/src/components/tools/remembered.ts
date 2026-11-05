@@ -22,6 +22,12 @@ export function rememberedSlot<T>(): RememberedSlot<T> {
   return slot;
 }
 
+/** With no slot given, one that lasts as long as the component does. */
+export function useSlot<T>(slot?: RememberedSlot<T>): RememberedSlot<T> {
+  const [own] = useState(() => rememberedSlot<T>());
+  return slot ?? own;
+}
+
 /** A held `null` is a value, so a cleared box stays cleared. */
 export function useRemembered<T, K extends keyof T>(
   slot: RememberedSlot<T>,

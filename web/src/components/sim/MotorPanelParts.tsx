@@ -10,17 +10,19 @@ export function MotorSearch({
   value,
   onChange,
   className = '',
+  autoFocus = true,
 }: {
   value: string;
   onChange: (text: string) => void;
   className?: string;
+  autoFocus?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <input
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      autoFocus
+      autoFocus={autoFocus}
       placeholder={t('motorDlg.searchCode')}
       aria-label={t('motorDlg.searchCode')}
       className={`flex-1 rounded-lg bg-canvas px-3 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-faint focus:outline-none focus:ring-accent-500 ${className}`}

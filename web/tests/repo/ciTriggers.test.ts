@@ -11,6 +11,28 @@ describe('CI trigger coverage', () => {
     expect(wf('ci.yml')).toContain('uses: ./.github/workflows/gates.yml');
   });
 
+  it('runs the repo checks in the gate set, which the unit suite leaves out', () => {
+    const job = wf('gates.yml')
+      .split(/^ {2}repo:\s*$/m)[1]
+      ?.split(/^ {2}\w[\w-]*:\s*$/m)[0];
+    expect(job).toBeDefined();
+    expect(job).toMatch(/- run: npx vitest run tests\/repo\n\s+env:\n\s+REPO_CHECKS: '1'/);
+  });
+
+  it('blocks a pull request on the housekeeping checks', () => {
+    expect(wf('gates.yml')).toContain('check: [format:check, spell, knip, dupes]');
+  });
+
+  it('runs coverage and the full e2e suite only on a pull request into master', () => {
+    const job = (name: string) => wf('gates.yml').split(new RegExp(`^ {2}${name}:\\s*$`, 'm'))[1];
+    expect(job('coverage')).toMatch(/^\s*if: github\.base_ref == 'master'/);
+    expect(job('coverage')).toContain('- run: npx vitest run --coverage');
+    expect(job('e2e-full')).toMatch(
+      /^\s*if: github\.base_ref == 'master'\s+uses: \.\/\.github\/workflows\/e2e-full\.yml/,
+    );
+    expect(wf('e2e-full.yml')).toMatch(/^on:\s*\n\s*workflow_call:/m);
+  });
+
   it('typechecks the docs site in the gate set', () => {
     const site = wf('gates.yml').split(/^ {2}website:s*$/m)[1];
     expect(site).toBeDefined();

@@ -3,7 +3,7 @@
 import https from 'node:https';
 
 export const USER_AGENT = 'astrarocket-sync-motors';
-export const DEADLINE_MS = 120_000;
+const DEADLINE_MS = 120_000;
 export const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 
 export function httpsFetch(url, init = {}, request = https.request) {

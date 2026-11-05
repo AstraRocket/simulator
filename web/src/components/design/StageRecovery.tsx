@@ -6,6 +6,49 @@ import { partLabel } from '../../i18n/format';
 import { PropSection } from './PropSection';
 import { RadioGroup } from '../common/RadioGroup';
 
+function DeviceSelect({
+  label,
+  value,
+  current,
+  options,
+  enabled,
+  onChange,
+  none,
+}: {
+  label: string;
+  value: string;
+  current: ComponentNode | undefined;
+  options: ComponentNode[];
+  enabled: boolean;
+  onChange: (id: string) => void;
+  /** Label of a blank first option, for when no device is chosen. */
+  none?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="shrink-0 text-xs text-ink-muted">{label}</span>
+      <select
+        value={value}
+        disabled={!enabled}
+        aria-label={label}
+        title={current ? partLabel(t, current) : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        className={`min-w-0 flex-1 rounded-md px-2 py-1 text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${
+          enabled ? 'bg-raised text-ink-strong' : 'bg-raised/50 text-ink-faint'
+        }`}
+      >
+        {none !== undefined && <option value="">{none}</option>}
+        {options.map((d) => (
+          <option key={d.id as string} value={d.id as string}>
+            {partLabel(t, d)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 // The drogue flag (`RecoveryDevice.setDrogue`) changes only warning thresholds, not the simulation.
 export function StageRecovery({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
@@ -24,12 +67,6 @@ export function StageRecovery({ node }: { node: ComponentNode }) {
   const mains = devices.filter((d) => d !== drogue);
   const main = stageMain(devices);
 
-  const deviceName = (d: ComponentNode) => partLabel(t, d);
-  const select = (on: boolean) =>
-    `min-w-0 flex-1 rounded-md px-2 py-1 text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${
-      on ? 'bg-raised text-ink-strong' : 'bg-raised/50 text-ink-faint'
-    }`;
-
   return (
     <PropSection title={t('prop.recoveryType')}>
       <RadioGroup
@@ -43,41 +80,23 @@ export function StageRecovery({ node }: { node: ComponentNode }) {
       />
       {hasDevices ? (
         <>
-          <label className="flex items-center justify-between gap-3">
-            <span className="shrink-0 text-xs text-ink-muted">{t('prop.drogueDevice')}</span>
-            <select
-              value={picked}
-              disabled={!dual}
-              aria-label={t('prop.drogueDevice')}
-              title={shown ? deviceName(shown) : undefined}
-              onChange={(e) => setDrogue(stageId, e.target.value)}
-              className={select(dual)}
-            >
-              {devices.map((d) => (
-                <option key={d.id as string} value={d.id as string}>
-                  {deviceName(d)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center justify-between gap-3">
-            <span className="shrink-0 text-xs text-ink-muted">{t('prop.mainDevice')}</span>
-            <select
-              value={main?.id ?? ''}
-              disabled={!dual || mains.length === 0}
-              aria-label={t('prop.mainDevice')}
-              title={main ? deviceName(main) : undefined}
-              onChange={(e) => setMain(stageId, e.target.value)}
-              className={select(dual && mains.length > 0)}
-            >
-              {!main && <option value="">{t('prop.mainNone')}</option>}
-              {mains.map((d) => (
-                <option key={d.id as string} value={d.id as string}>
-                  {deviceName(d)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <DeviceSelect
+            label={t('prop.drogueDevice')}
+            value={picked}
+            current={shown}
+            options={devices}
+            enabled={dual}
+            onChange={(id) => setDrogue(stageId, id)}
+          />
+          <DeviceSelect
+            label={t('prop.mainDevice')}
+            value={main?.id ?? ''}
+            current={main}
+            options={mains}
+            enabled={dual && mains.length > 0}
+            onChange={(id) => setMain(stageId, id)}
+            none={main ? undefined : t('prop.mainNone')}
+          />
         </>
       ) : (
         <p className="text-xs text-ink-faint">{t('prop.noDevices')}</p>

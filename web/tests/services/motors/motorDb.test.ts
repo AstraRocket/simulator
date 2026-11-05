@@ -3,13 +3,15 @@ import {
   filterMotors,
   allClasses,
   allManufacturers,
-  findCatalogMotor,
   matchCatalogMotor,
   hasCurve,
   loadCatalog,
   type CatalogMotor,
   type MotorFilter,
 } from '../../../src/services/motors/motorDb';
+
+const findCatalogMotor = (list: CatalogMotor[], designation: string, manufacturer?: string) =>
+  matchCatalogMotor(list, designation, manufacturer)?.motor;
 import { fetchCatalog } from '../../../src/services/app/remoteData';
 vi.mock('../../../src/services/app/remoteData', () => ({ fetchCatalog: vi.fn() }));
 vi.mock('../../../src/services/motors/motorStore', () => ({
@@ -468,10 +470,6 @@ describe('matchCatalogMotor: how sure the match is', () => {
 
   it('finds nothing rather than doubting something', () => {
     expect(matchCatalogMotor(cat, 'ZZ9', 'Estes')).toBeUndefined();
-  });
-
-  it('is what findCatalogMotor returns, without the doubt', () => {
-    expect(findCatalogMotor(cat, 'I170', 'Kosdon')).toBe(matchCatalogMotor(cat, 'I170', 'Kosdon')!.motor);
   });
 });
 

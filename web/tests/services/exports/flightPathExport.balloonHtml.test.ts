@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { buildFlightPathModel, defaultExportOptions, renderKml } from '../../../src/services/exports/flightPathExport';
+import { buildFlightPathModel, defaultExportOptions } from '../../../src/services/exports/flightPathExport';
+import { renderKml } from '../../../src/services/exports/flightPath/formats';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import en from '../../../src/i18n/locales/en.json';

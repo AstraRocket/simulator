@@ -3,7 +3,17 @@ import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import { withoutResults, type Simulation } from '../flight/simulations';
 import type { FlightConfig } from '../flight/flightConfigs';
 import { migrateWorkspace } from './workspaceMigrate';
-import { nsKey } from './storageKeys';
+import {
+  clearJournal,
+  dropSupersededJournal,
+  journalFor,
+  journalIsCurrent,
+  journalKey,
+  newest,
+  readJournals,
+  type Journal,
+  type StoredJournal,
+} from './workspaceJournal';
 import { designNameOf } from '../app/appInfo';
 import type { LoadedMeta } from '../files/wireLoadedOrk';
 import { shortId } from '../app/uuid';
@@ -34,31 +44,6 @@ export interface WorkspaceStore {
   setPendingName?(name: string | null): void;
 }
 
-// IndexedDB writes cannot complete during teardown, so unload journals to localStorage.
-const UNLOAD_KEY = nsKey('designs:unload');
-const journalKey = (id: string) => `${UNLOAD_KEY}:${id}`;
-
-// Write time cannot order a journal: a stale tab still journals after another tab's save.
-interface Journal {
-  id: string | null;
-  w: Workspace;
-  base?: number | null;
-  tab: string;
-  /** Epoch ms. */
-  t: number;
-  /** Orders the journal against the tab's saves, which a wall clock cannot. */
-  mark?: number;
-  createId?: string;
-  name?: string;
-}
-
-function journalIsCurrent(j: Journal, meta: DesignMeta | null): boolean {
-  if (!meta) return true;
-  if (meta.writer === j.tab) return true;
-  if (typeof j.base === 'number') return meta.updatedAt <= j.base;
-  return meta.updatedAt <= j.t;
-}
-
 const freshTabId = () => shortId('t', 8);
 
 export const lean = (w: Workspace): Workspace => ({ ...w, sims: withoutResults(w.sims) });
@@ -73,62 +58,6 @@ export const resultsOf = (w: Workspace): StoredResults => {
   for (const s of w.sims) if (s.result) out[s.id] = s.result;
   return out;
 };
-
-interface StoredJournal {
-  key: string;
-  j: Journal;
-}
-
-function readJournalAt(key: string): Journal | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const j = JSON.parse(raw) as Journal;
-    return j && j.w ? j : null;
-  } catch {
-    return null;
-  }
-}
-
-function readJournals(): StoredJournal[] {
-  const keys: string[] = [];
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith(`${UNLOAD_KEY}:`)) keys.push(k);
-    }
-  } catch {
-    return [];
-  }
-  const out: StoredJournal[] = [];
-  for (const key of keys) {
-    const j = readJournalAt(key);
-    if (j) out.push({ key, j });
-    else clearJournal(key);
-  }
-  return out;
-}
-
-const newest = (list: StoredJournal[]): StoredJournal | undefined =>
-  list.reduce<StoredJournal | undefined>((a, b) => (!a || b.j.t > a.j.t ? b : a), undefined);
-
-const journalFor = (list: StoredJournal[], id: string): StoredJournal | undefined => list.find((e) => e.j.id === id);
-
-// A same-tab journal left behind would roll a later autosave back after a crash.
-function dropSupersededJournal(tab: string, id: string, startedAt: number): void {
-  const key = journalKey(id);
-  const j = readJournalAt(key);
-  if (!j || j.tab !== tab || typeof j.mark !== 'number' || j.mark >= startedAt) return;
-  if (j.id === id || (j.id === null && j.createId === id)) clearJournal(key);
-}
-
-function clearJournal(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    /* best-effort */
-  }
-}
 
 const nameFor = (w: Workspace) => designNameOf(w.tree, w.loadedMeta);
 

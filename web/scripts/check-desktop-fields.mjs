@@ -1,11 +1,11 @@
-// Usage: npm run check:fields -- [--jar <OpenRocket.jar>] <samples dir>
+// Usage: npm run check:fields -- <samples dir>. Needs `npm run openrocket:build`.
 // KNOWN is checked both ways: a new difference fails, and so does an entry that no longer occurs.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chooseBuild } from './lib/openrocketJava.mjs';
+import { engineBuild } from './lib/openrocketJava.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const SOURCES = [
@@ -52,9 +52,29 @@ const KNOWN = [
   },
   {
     rule: 'rkt:*.finish',
-    why: "RockSim's finish codes have no rough; it goes out as matt, which desktop reads as normal",
-    when: (a, d) => a === 'rough' && d === 'normal',
+    why: "RockSim's finish codes have no rough; it goes out as the nearest, unfinished",
+    when: (a, d) => a === 'rough' && d === 'unfinished',
   },
+  ...['massOverridden', 'overrideMass', 'overrideSubcomponentsMass'].map((key) => ({
+    rule: `rkt:stage.${key}`,
+    why: "RockSim's stage overrides are all or nothing (`RockSimSaver.setStageOverrides`), so one override states every stage's weighed mass",
+    when: (a, d, af, df) => af.massOverridden !== true && df.massOverridden === true,
+  })),
+  ...['cgOverridden', 'overrideCGX', 'overrideSubcomponentsCG'].map((key) => ({
+    rule: `rkt:stage.${key}`,
+    why: "RockSim's stage overrides are all or nothing (`RockSimSaver.setStageOverrides`), so one override states every stack's weighed CG",
+    when: (a, d, af, df) => af.cgOverridden !== true && df.cgOverridden === true,
+  })),
+  {
+    rule: 'rkt:stage.overrideCGX',
+    why: "OPEN: the sustainer mass and CG the app weighs for the file differ from desktop's (816.48 g, 635.02 mm against 818.10 g, 634.09 mm on every-part), which moves the booster's derived CG",
+    when: (a, d) => Math.abs(a - d) < 0.005,
+  },
+  ...['nosecone.shoulderCapped', 'transition.foreShoulderCapped', 'transition.aftShoulderCapped'].map((key) => ({
+    rule: `rkt:${key}`,
+    why: 'RockSim has no capped shoulder; `Transition.setForeShoulderLength` and its aft twin cap a shoulder as they give it a length',
+    when: (a, d) => a === false && d === true,
+  })),
   {
     rule: 'rkt:launchlug.thickness',
     why: 'no element sets a lug wall; LaunchLugHandler keeps the 1 mm default',
@@ -76,7 +96,6 @@ const KNOWN = [
     when: (a, d) => d === 'masscomponent',
   },
   { rule: 'rkt:masscomponent.radius', why: 'MassObjectHandler does not read Dia', when: (a, d) => d === 0.0125 },
-  { rule: 'rkt:nosecone.shoulderCapped', why: 'RockSim has no capped shoulder', when: (a, d) => d === false },
   {
     rule: 'rkt:*.cdOverridden',
     why: 'RockSim has no drag coefficient override, so the writer names the part in its skipped list',
@@ -158,7 +177,6 @@ const KNOWN = [
     why: "separation is only in RockSim's simulation results, which desktop does not import",
     when: (a, d) => d === 'ejection',
   },
-  { rule: 'rkt:*.cant', why: 'the 24.12 FinSetHandler does not read CantAngle', when: (a, d) => d === 0 },
   {
     rule: 'rkt:streamer.length',
     why: 'StreamerHandler reads no packed size; desktop keeps its default',
@@ -185,19 +203,8 @@ const KNOWN = [
     when: (a, d) => a === '' && d === 'custom',
   },
   {
-    rule: 'ork:config.motor',
-    why: '24.12 looks motors up in its own database only and does not read the curve the app embeds under thrustcurves/ (upstream OpenRocket does)',
-    when: (a, d, am) => am.embedded === true && d === null,
-  },
-  {
     rule: 'ork:config.motor.digest',
-    files: ['source/pods-powered-with-recovery-deployment.ork', 'source/two-stage-high-power-rocket.ork'],
-    why: "the source file names motors by the OpenRocket 26 database's digests, which 24.12 does not hold, so it takes its own curve by name",
-  },
-  {
-    rule: 'ork:config.motor.digest',
-    files: ['pods-powered-with-recovery-deployment.ork', 'two-stage-high-power-rocket.ork'],
-    why: "the file carries the source file's OpenRocket 26 curve under its own digest, which 24.12 does not hold, so it takes its own curve by name",
+    why: "the catalog's motor digests are synced from the OpenRocket 24.12 release and the engine's own commit recomputes them; desktop still finds the same motor, since ork:config.motor agrees",
   },
   {
     rule: 'rkt:nosecone.shoulderThickness',
@@ -207,12 +214,12 @@ const KNOWN = [
   {
     rule: 'rkt:transition.foreShoulderThickness',
     why: 'TransitionHandler takes the wall, or the shoulder radius when solid',
-    when: (a, d, af, df) => d === df.thickness || d === df.foreShoulderRadius,
+    when: (a, d, af, df) => Math.abs(d - df.thickness) < 1e-9 || d === df.foreShoulderRadius,
   },
   {
     rule: 'rkt:transition.aftShoulderThickness',
     why: 'TransitionHandler takes the wall, or the shoulder radius when solid',
-    when: (a, d, af, df) => d === df.thickness || d === df.aftShoulderRadius,
+    when: (a, d, af, df) => Math.abs(d - df.thickness) < 1e-9 || d === df.aftShoulderRadius,
   },
   {
     rule: 'rkt:parachute.length',
@@ -256,7 +263,7 @@ if (!files.length) {
   process.exit(2);
 }
 
-const { cp, label } = chooseBuild();
+const { cp, label } = engineBuild();
 console.log(`reading ${files.length} files back in ${label}`);
 const work = mkdtempSync(join(tmpdir(), 'or-fields-'));
 let desktop;

@@ -1,23 +1,30 @@
-// Usage: npm run check:ork -- [--jar <OpenRocket.jar>] <file.ork|file.rkt> [...]
+// Usage: npm run check:ork -- <file.ork|file.rkt> [...]. Needs `npm run openrocket:build`.
 // A KNOWN entry that no named file produced also fails, so a fix must remove its entry.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chooseBuild } from './lib/openrocketJava.mjs';
+import { engineBuild } from './lib/openrocketJava.mjs';
 
 const KNOWN = [
-  // The app keeps a loaded part link as found, so 26-only digests warn here too.
   {
-    file: 'pods-powered-with-recovery-deployment.ork',
-    warning: 'found matching Estes PNC-50YR',
-    reason: 'the source file names a part 24.12 does not hold',
+    file: 'source/rocksim.rkt',
+    warning:
+      "Parachute 'Chute' was imported as a single round parachute with the same drag area (diameter 361.6 mm instead of 400.0 mm).",
+    reason:
+      'OpenRocket parachutes are round with no spill hole; desktop says so when it reads a RockSim canopy, and the app gives the same note',
   },
   {
-    file: 'pods-powered-with-recovery-deployment.ork',
-    warning: 'found matching Estes PNC-20,',
-    reason: 'the source file names a part 24.12 does not hold',
+    file: 'source/rocksim.rkt',
+    warning: "Ring tail 'Not supported' was imported as a mass component; its aerodynamics are not simulated.",
+    reason: 'OpenRocket has no ring tail part; desktop says so when it reads one, and the app gives the same note',
+  },
+  {
+    file: 'default-design.ork',
+    warning: 'No matching ComponentPreset for component Nose Cone found matching Estes PNC-50KA',
+    reason:
+      "the catalog's preset digests are synced from the OpenRocket 24.12 release; the engine's own commit has a newer parts database",
   },
   {
     file: 'every-part.ork',
@@ -30,85 +37,10 @@ const KNOWN = [
     reason: 'the app keeps its automatic cord length in its own tag; desktop flies the number written beside it',
   },
   {
-    file: 'source/rocksim.rkt',
-    warning: 'Parachute spill holes are not supported. Ignoring.',
-    reason: "desktop's ParachuteHandler drops a spill hole; the app keeps it for upstream OpenRocket",
-  },
-  {
-    file: 'source/rocksim.rkt',
-    warning: 'Ring tails are not currently supported. Ignoring.',
-    reason: 'neither desktop nor the app has a ring tail part; both skip it',
-  },
-  {
-    file: 'rocksim-from-rkt.ork',
-    warning: "Unknown parameter type 'spillholediameter' for Parachute, ignoring.",
-    reason: '24.12 has no parachute spill hole; <spillholediameter> is the element upstream OpenRocket reads',
-  },
-  {
     file: 'conditions.ork',
     warning: "Unknown parameter type 'linelengthauto' for Parachute, ignoring.",
     reason: 'the app keeps its automatic line length in its own tag; desktop flies the number written beside it',
   },
-  {
-    file: 'conditions.ork',
-    warning: "Unknown text in element 'baserelativehumidity', ignoring.",
-    reason:
-      "24.12's atmosphere has no humidity and flies dry air; <baserelativehumidity> is the element upstream OpenRocket reads",
-  },
-  {
-    file: 'conditions.ork',
-    warning: "No motor with designation 'X42' for manufacturer 'Homemade' found.",
-    reason:
-      '24.12 looks motors up in its own database only; the curve the app embeds under thrustcurves/ is read by upstream OpenRocket',
-  },
-  {
-    file: 'source/pods-powered-with-recovery-deployment.ork',
-    warning: 'Unsupported document version 1.11',
-    reason: 'the source file is format 1.11, which an OpenRocket 26 build wrote and 24.12 does not list',
-  },
-  {
-    file: 'source/pods-powered-with-recovery-deployment.ork',
-    warning: 'found matching Estes PNC-50YR',
-    reason: 'the source file names a part 24.12 does not hold',
-  },
-  {
-    file: 'source/pods-powered-with-recovery-deployment.ork',
-    warning: 'found matching Estes PNC-20,',
-    reason: 'the source file names a part 24.12 does not hold',
-  },
-  {
-    file: 'source/pods-powered-with-recovery-deployment.ork',
-    warning: "Motor with designation 'A10' for manufacturer 'Estes' has differing thrust curve than the original.",
-    reason:
-      "the source file names the motor by the OpenRocket 26 database's digest, which 24.12's curve does not match",
-  },
-  {
-    file: 'source/pods-powered-with-recovery-deployment.ork',
-    warning: "Motor with designation 'A8' for manufacturer 'Estes' has differing thrust curve than the original.",
-    reason:
-      "the source file names the motor by the OpenRocket 26 database's digest, which 24.12's curve does not match",
-  },
-  {
-    file: 'source/two-stage-high-power-rocket.ork',
-    warning: 'Unsupported document version 1.11',
-    reason: 'the source file is format 1.11, which an OpenRocket 26 build wrote and 24.12 does not list',
-  },
-  ...['H148R', 'I59WN', 'I357T'].map((motor) => ({
-    file: 'source/two-stage-high-power-rocket.ork',
-    warning: `Motor with designation '${motor}' for manufacturer 'AeroTech' has differing thrust curve than the original.`,
-    reason:
-      "the source file names the motor by the OpenRocket 26 database's digest, which 24.12's curve does not match",
-  })),
-  {
-    file: 'pods-powered-with-recovery-deployment.ork',
-    warning: "Motor with designation 'A8' for manufacturer 'Estes' has differing thrust curve than the original.",
-    reason: "the file carries the source file's OpenRocket 26 curve, which 24.12's curve does not match",
-  },
-  ...['H148R', 'I59WN', 'I357T'].map((motor) => ({
-    file: 'two-stage-high-power-rocket.ork',
-    warning: `Motor with designation '${motor}' for manufacturer 'AeroTech' has differing thrust curve than the original.`,
-    reason: "the file carries the source file's OpenRocket 26 curve, which 24.12's curve does not match",
-  })),
 ];
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -130,7 +62,7 @@ for (const f of files) {
   }
 }
 
-const { cp, label } = chooseBuild();
+const { cp, label } = engineBuild();
 console.log(`opening in ${label}`);
 const work = mkdtempSync(join(tmpdir(), 'or-check-'));
 let out;

@@ -13,12 +13,13 @@ import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import type { SimPrefs, Simulation } from '../../services/flight/simulations';
-import { SIM_STEPPERS, clampMaxAngleStep, seedFromInput, stepperOf } from '../../services/flight/simulations';
+import { clampMaxAngleStep, seedFromInput, stepperOf } from '../../services/flight/simulations';
 import { FieldLabel, markRing } from '../common/FieldMark';
 import { NumberRow } from '../common/NumberRow';
 import { fmtUpTo } from '../../i18n/format';
 import { SPEED_WARNINGS } from './speedWarnings';
 import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from './simOptionFields';
+import { StepperOptions } from './StepperOptions';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
 
@@ -207,11 +208,7 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
           )}
         >
           <option value="">{t('sims.stepperDefault', { method: t(STEPPER_LABELS[g.stepper]) })}</option>
-          {SIM_STEPPERS.map((s) => (
-            <option key={s} value={s}>
-              {t(STEPPER_LABELS[s])}
-            </option>
-          ))}
+          <StepperOptions />
         </select>
       </label>
 

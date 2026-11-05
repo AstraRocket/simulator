@@ -102,13 +102,25 @@ const testOnlyExports = (): string[] => {
 
 const BASELINE = [
   'src/engine/openRocketEngine.ts#__setEngineForTests',
+  'src/components/tools/EjectionTool.tsx#forgetEjectionTool',
+  'src/components/tools/FlutterTool.tsx#forgetFlutterTool',
   'src/components/tools/LandingEstimator.tsx#forgetLandingEstimator',
+  'src/components/tools/MotorsTool.tsx#forgetMotorsTool',
   'src/components/tools/ParachuteTool.tsx#forgetParachuteTool',
   'src/components/tools/ToolsPane.tsx#forgetToolsPane',
   'src/services/app/helpSearch.ts#resetHelpIndex',
   'src/services/weather/openMeteo.ts#resetWeatherState',
   'src/services/weather/openMeteo.ts#setWeatherTransport',
   'src/services/report/reportFonts.ts#resetReportFontsForTests',
+  'src/services/exports/templateStore.ts#setTemplateStore',
+  'src/services/materials/materialStore.ts#setMaterialStore',
+  'src/services/motors/motorStore.ts#setMotorStore',
+  'src/services/parts/presetStore.ts#setPresetStore',
+  'src/services/storage/bayStore.ts#__setBayStoreForTests',
+  'src/services/storage/designLibrary.ts#setDesignLibrary',
+  'src/services/storage/idbKeyValueStore.ts#__resetIdbForTests',
+  'src/services/storage/launchLocationStore.ts#setLaunchLocationStore',
+  'src/state/finFlutterChoices.ts#forgetFinStockChoices',
 ];
 
 describe('src exports reached only from tests are a decision', () => {

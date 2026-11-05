@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
@@ -17,30 +17,20 @@ import {
 import { chooseFinStock, finStockChoice, useFinStockChoices, type FinStock } from '../../state/finFlutterChoices';
 import { Dialog } from '../common/Dialog';
 import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from '../tools/FlutterFields';
-import { smallButton } from '../common/smallButton';
+import { ReadoutOpener } from './ReadoutOpener';
 
 // Checked at every sample, not just top speed: air thins on the way up, so a slower point can be closer.
 export function FinFlutterReadout({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
   return (
-    <div className="border-t border-line/5 pt-3">
-      <button type="button" onClick={() => setOpen(true)} className={smallButton('sm', 'ink', 'w-full')}>
-        {t('finFlutter.open')}
-      </button>
-      {open && (
-        <Dialog
-          id="fin-flutter"
-          title={t('finFlutter.title')}
-          onClose={() => setOpen(false)}
-          layer="over"
-          layout="pad"
-          size="md"
-        >
+    <ReadoutOpener
+      label={t('finFlutter.open')}
+      dialog={(close) => (
+        <Dialog id="fin-flutter" title={t('finFlutter.title')} onClose={close} layer="over" layout="pad" size="md">
           <FlutterBody node={node} />
         </Dialog>
       )}
-    </div>
+    />
   );
 }
 

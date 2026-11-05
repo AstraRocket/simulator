@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { arg } from './args.mjs';
 import { checkJar, checkSourceTree } from './openrocketRelease.mjs';
 
@@ -105,6 +106,39 @@ export function chooseBuild() {
     process.exit(2);
   }
   return { cp: classpath(orDir, jar), label: jar ?? orDir };
+}
+
+const ENGINE_JAVA = fileURLToPath(new URL('../../../engine-java/', import.meta.url));
+
+/** The clone `npm run openrocket:build` makes. Gitignored, like `.openrocket-src`. */
+export const ENGINE_BUILD = join(ENGINE_JAVA, '.openrocket-build');
+export const CLASSPATH_FILE = 'build/classpath.txt';
+
+/** The commit the engine is extracted from. `extract/UPSTREAM` is the only copy of it. */
+export function upstreamPin() {
+  const text = readFileSync(join(ENGINE_JAVA, 'extract/UPSTREAM'), 'utf8');
+  const field = (name) => text.match(new RegExp(`^${name}\\s*=\\s*(\\S+)`, 'm'))?.[1];
+  return { repo: field('repo'), ref: field('ref') };
+}
+
+/** The desktop checks compare against the engine's own commit, so a build of any other commit is refused. */
+export function engineBuild() {
+  const problem = engineBuildProblem();
+  if (problem) {
+    console.error(`${problem}\nRun: npm run openrocket:build`);
+    process.exit(2);
+  }
+  const list = join(ENGINE_BUILD, 'core', CLASSPATH_FILE);
+  return { cp: readFileSync(list, 'utf8').trim(), label: `OpenRocket ${upstreamPin().ref.slice(0, 9)}` };
+}
+
+export function engineBuildProblem() {
+  if (!existsSync(join(ENGINE_BUILD, 'core', CLASSPATH_FILE))) {
+    return `No build of the engine's OpenRocket at ${ENGINE_BUILD}.`;
+  }
+  const { ref } = upstreamPin();
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ENGINE_BUILD, encoding: 'utf8' }).trim();
+  return head === ref ? null : `${ENGINE_BUILD} is at ${head}, but the engine is pinned to ${ref}.`;
 }
 
 export function runDumper({ cp, javaSrc, className }) {

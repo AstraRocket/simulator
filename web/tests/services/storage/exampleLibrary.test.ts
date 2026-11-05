@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { importOrk } from '../../../src/services/files/orkFile';
-import { findCatalogMotor, type CatalogMotor } from '../../../src/services/motors/motorDb';
+import { matchCatalogMotor, type CatalogMotor } from '../../../src/services/motors/motorDb';
 import { __setEngineForTests, OpenRocketDesign } from '../../../src/engine/openRocketEngine';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
@@ -81,7 +81,7 @@ describe.each(index.examples.map((e) => [e.name, e] as const))('example: %s', (_
     const motors = Object.values(res.motors ?? {});
     expect(motors.length, 'no motor in the file').toBeGreaterThan(0);
     for (const m of motors) {
-      const hit = findCatalogMotor(catalog, m.designation, m.manufacturer);
+      const hit = matchCatalogMotor(catalog, m.designation, m.manufacturer)?.motor;
       expect(hit, `${m.designation} (${m.manufacturer ?? '?'})`).toBeTruthy();
       expect(hit?.noCurve ?? false, `${m.designation} has no thrust curve`).toBe(false);
     }

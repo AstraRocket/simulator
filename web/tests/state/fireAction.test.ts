@@ -49,7 +49,13 @@ describe('fireAction', () => {
 describe('async store actions in components', () => {
   it('go through fireAction, never void', () => {
     const src = resolve(__dirname, '../../src');
-    const stateFiles = ['state/store.ts', 'state/fileSlice.ts', 'state/viewSlice.ts'];
+    const stateFiles = [
+      'state/store.ts',
+      'state/fileSlice.ts',
+      'state/designLibrarySlice.ts',
+      'state/exportSlice.ts',
+      'state/viewSlice.ts',
+    ];
     const asyncActions = new Set(
       stateFiles.flatMap((f) =>
         [...readFileSync(join(src, f), 'utf8').matchAll(/^\s+(\w+): \([^)]*\) => Promise</gm)].map((m) => m[1]!),

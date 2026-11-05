@@ -2521,7 +2521,8 @@
     "tool_chute": "Parachute sizing",
     "tool_flutter": "Fin flutter",
     "tool_ejection": "Ejection charge",
-    "tool_exhaust": "Exhaust looks"
+    "tool_exhaust": "Exhaust looks",
+    "tool_motors": "Motor Dashboard"
   },
   "chuteTool": {
     "title": "Parachute sizing",

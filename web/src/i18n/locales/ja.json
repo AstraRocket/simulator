@@ -2510,7 +2510,8 @@
     "tool_chute": "パラシュートの設計",
     "tool_flutter": "フィンフラッター",
     "tool_ejection": "放出チャージ",
-    "tool_exhaust": "排気の見た目"
+    "tool_exhaust": "排気の見た目",
+    "tool_motors": "モーター一覧"
   },
   "chuteTool": {
     "title": "パラシュートの設計",
