@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand';
 import { isResultView, type Tab, type DesignPane, type TwoDView, type ViewMode } from './tabs';
 import type { WorkspaceState } from './store';
+import { toggled } from '../services/app/collections';
 
 export interface ViewSlice {
   tab: Tab;
@@ -9,6 +10,8 @@ export interface ViewSlice {
   twoD: TwoDView;
   roll: number; // radians, kept in [0, 2π)
   resetKey: number;
+  /** Part ids hidden in the 2D and 3D views. Not design data: no undo step, not saved, as on desktop. */
+  hiddenParts: ReadonlySet<string>;
 
   setTab: (tab: Tab) => void;
   setDesignPane: (pane: DesignPane) => void;
@@ -17,6 +20,8 @@ export interface ViewSlice {
   setRoll: (roll: number) => void;
   rollBy: (d: number) => void;
   resetView: () => void;
+  toggleHiddenPart: (id: string) => void;
+  showAllParts: () => void;
 }
 
 // Every `view` write that can change the tab goes through this, or Results can open empty.
@@ -32,6 +37,7 @@ export const createViewSlice: StateCreator<WorkspaceState, [], [], ViewSlice> = 
   twoD: 'side',
   roll: 0,
   resetKey: 0,
+  hiddenParts: new Set<string>(),
 
   setTab: (tab) =>
     set((s) => {
@@ -50,4 +56,6 @@ export const createViewSlice: StateCreator<WorkspaceState, [], [], ViewSlice> = 
       return { roll: x < 0 ? x + 2 * Math.PI : x };
     }),
   resetView: () => set((s) => ({ roll: 0, resetKey: s.resetKey + 1 })),
+  toggleHiddenPart: (id) => set((s) => ({ hiddenParts: toggled(s.hiddenParts, id) })),
+  showAllParts: () => set({ hiddenParts: new Set<string>() }),
 });

@@ -120,6 +120,7 @@ export const KNOWN_ROCKET_TAGS: ReadonlySet<string> = new Set([
   'designer',
   'kitname',
   'revision',
+  'astrarocketnotes',
   'designtype',
   'referencetype',
   'customreference',

@@ -4,6 +4,12 @@ sidebar_position: 8
 ---
 The **Components** panel (left on desktop) holds your rocket's component tree. As you add and edit parts, the 2D view and the **stability stats** (bottom strip) update live, so you always see the effect of a change on CG, CP, and stability.
 
+## Design notes
+
+The collapsible **Design notes** section above the tree holds the designer, kit name, kit manufacturer, kit part number, design type, comments and revision history, plus a log of dated revisions: pick a date, write a note and press **Add revision**. Each change is one undo step.
+
+A `.ork` saved here keeps all of it. The kit manufacturer, kit part number and dated revisions are this app's own, so desktop OpenRocket drops them if it saves the file. A `.rkt` keeps neither those three nor the kit name.
+
 ## The component tree
 
 A rocket is a tree of components, nose-to-tail, grouped into stages. Select any part (in the tree **or** by clicking it in the 2D view) to edit its properties.

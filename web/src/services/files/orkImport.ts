@@ -1,4 +1,5 @@
 import i18n from '../../i18n';
+import { readDesignNotes } from './ork/orkDesignNotes';
 import { xmlText as text } from './xmlUtil';
 import { syncAutoRadii } from '../design/autoRadius';
 import { findStages } from '../design/treeEdit';
@@ -84,6 +85,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
       ...(kitName ? { kitName } : {}),
       ...(comment ? { comment } : {}),
       ...(revision ? { revision } : {}),
+      ...readDesignNotes(rocketEl),
       ...(designType ? { designType } : {}),
       ...(referenceType ? { referenceType } : {}),
       ...(customReference !== undefined ? { customReference } : {}),

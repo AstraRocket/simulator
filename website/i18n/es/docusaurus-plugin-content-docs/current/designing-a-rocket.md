@@ -4,6 +4,12 @@ sidebar_position: 8
 ---
 El panel de **Componentes** (a la izquierda en escritorio) contiene el árbol de componentes de tu cohete. A medida que añades y editas piezas, la vista 2D y las **estadísticas de estabilidad** (la franja inferior) se actualizan en vivo, así que siempre ves el efecto de un cambio sobre el CG, el CP y la estabilidad.
 
+## Notas del diseño {#design-notes}
+
+La sección plegable **Notas del diseño**, sobre el árbol, reúne el diseñador, el nombre del kit, el fabricante del kit, la referencia del kit, el tipo de diseño, los comentarios y el historial de revisiones, además de un registro de revisiones con fecha: elige una fecha, escribe una nota y pulsa **Añadir revisión**. Cada cambio es un paso de deshacer.
+
+Un `.ork` guardado aquí lo conserva todo. El fabricante del kit, la referencia del kit y las revisiones con fecha son propios de esta aplicación, así que OpenRocket de escritorio los descarta si guarda el archivo. Un `.rkt` no guarda esos tres ni el nombre del kit.
+
 ## El árbol de componentes {#the-component-tree}
 
 Un cohete es un árbol de componentes, de la ojiva a la cola, agrupados en etapas. Selecciona cualquier pieza (en el árbol **o** haciendo clic en ella en la vista 2D) para editar sus propiedades.

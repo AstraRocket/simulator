@@ -111,6 +111,7 @@ export function schematicSvg(
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
   const zoomG = clone.querySelector(':scope > g');
   zoomG?.setAttribute('transform', 'translate(0 0) scale(1)');
+  clone.querySelector('[data-schematic-grid]')?.remove();
 
   let inner = new XMLSerializer().serializeToString(clone);
   inner = inner.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');

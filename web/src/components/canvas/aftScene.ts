@@ -86,7 +86,10 @@ interface AftBuild {
   farthest: number;
   /** Key suffix naming the enclosing instances, so each copy's shapes stay unique. */
   copy: string;
+  hiddenIds: ReadonlySet<string> | undefined;
 }
+
+const isHidden = (b: AftBuild, n: ComponentNode): boolean => !!n.id && !!b.hiddenIds?.has(n.id);
 
 /**
  * `pRadius` (the parent's largest radius) sizes internal parts; outside parts stand on `surfaceUnder`.
@@ -354,6 +357,7 @@ function walkInternal(b: AftBuild, child: ComponentNode, { pRadius, cy, cz, pSta
 
 function walkChildren(b: AftBuild, at: AftParent) {
   for (const child of at.parent.children ?? []) {
+    if (isHidden(b, child)) continue;
     const type = child.type;
     if (isAssembly(type)) drawAssembly(b, child, at);
     else if (isPlanarFinSet(type)) drawPlanarFins(b, child, at);
@@ -384,6 +388,7 @@ function walkChain(b: AftBuild, nodes: ComponentNode[], cy: number, cz: number, 
     const len = isChainType(n.type) ? partLength(n) : 0;
     const start = x;
     x += len;
+    if (isHidden(b, n)) continue;
     const r = n.type === 'bodytube' ? bodyTubeRadius(n) : anyOuterRadius(n);
     if (r <= 0) continue;
     b.hulls.push({
@@ -411,8 +416,9 @@ export function buildAftScene(
   components: ComponentNode[],
   motors: MotorDims | undefined,
   t: TFunction,
+  hiddenIds?: ReadonlySet<string>,
 ): { hulls: Shape[]; inner: Shape[]; outer: Shape[]; extent: number; reach: number } {
-  const b: AftBuild = { hulls: [], inner: [], outer: [], motors, t, farthest: 0, copy: '' };
+  const b: AftBuild = { hulls: [], inner: [], outer: [], motors, t, farthest: 0, copy: '', hiddenIds };
   walkChain(b, withKernelEnds({ name: '', components }).components, 0, 0, 0, 0);
 
   // Big circles first so nested ones stay visible.

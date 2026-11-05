@@ -193,6 +193,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     voidPendingAutosave();
     abortRunWork();
     set((s) => ({
+      hiddenParts: new Set<string>(),
       simRuns: {},
       lastRunIds: [],
       resultSimId: null,

@@ -7,6 +7,7 @@ import { stageNodes } from '../../tree/treeWalk';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useWorkspaceStore } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
+import { localToday } from '../../services/app/localDate';
 import { uuid } from '../../services/app/uuid';
 import { DEFAULT_BAY_PRESSURE_PA } from '../../services/flight/ejectionCharge';
 import { PIN_SIZES, PIN_STRENGTH_N, type PinSize, type ShearPins } from '../../services/flight/ejectionBay';
@@ -282,13 +283,6 @@ function BayCard({ bay }: { bay: DesignBay }) {
   );
 }
 
-/** Local time, not `toISOString` (UTC). */
-function today(): string {
-  const d = new Date();
-  const two = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
-}
-
 function TestLog({
   bay,
   suggestion,
@@ -303,7 +297,7 @@ function TestLog({
   const { t } = useTranslation();
   const u = useUnits();
   const mass = useScopedUnit(unitScope('launch', 'testCharge'), 'mass');
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(localToday);
   const [chargeKg, setChargeKg] = useState<number | null>(suggestion);
   const [result, setResult] = useState<TestResult>('clean');
   const [notes, setNotes] = useState('');

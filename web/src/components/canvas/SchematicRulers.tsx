@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useUnits } from '../../prefs/useUnits';
+import { useUnits, type Units } from '../../prefs/useUnits';
 import { tickDigits } from '../../i18n/format';
 import {
   isZoomIdentity,
@@ -26,16 +26,7 @@ export const rulerSpan = (rulers: RulerSides, w: number) => ({
   rulerX1: rulers.right ? w - RULER_W + 4 - CORNER_GAP : w - 2,
 });
 
-export function SchematicRulerLayer({
-  rulers,
-  w,
-  h,
-  zoom,
-  ctxX0,
-  viewScale,
-  rTop,
-  rBot,
-}: {
+interface RulerFrameProps {
   rulers: RulerSides;
   w: number;
   h: number;
@@ -45,24 +36,65 @@ export function SchematicRulerLayer({
   viewScale: number;
   rTop: number;
   rBot: number;
-}) {
+}
+
+/** Where the marks fall, shared so the grid's lines land on the ruler's. */
+function rulerFrame({ rulers, w, h, zoom, ctxX0, viewScale, rTop, rBot }: RulerFrameProps, u: Units) {
+  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / viewScale));
+  const vTop = rTop + 4;
+  const vBot = h - rBot - 4;
+  return {
+    ...rulerSpan(rulers, w),
+    rulerStepUi,
+    rulerStep: u.fromUi('length', rulerStepUi),
+    frameTopY: rulers.top ? RULER_H - 4 + CORNER_GAP : 2,
+    frameBotY: rulers.bottom ? h - RULER_H + 4 - CORNER_GAP : h - 2,
+    vTop,
+    vSpanM: (vBot - vTop) / viewScale,
+    x0: zoom.x + zoom.k * ctxX0,
+    vy0: zoom.y + zoom.k * vTop,
+  };
+}
+
+/**
+ * A `path`, not a `g`: `schematicSvg` takes the svg's first `g` as the zoom group.
+ * Drawn at the current zoom, so that export leaves it out.
+ */
+export function SchematicGrid(props: RulerFrameProps) {
   const u = useUnits();
-  const { rulerX0, rulerX1 } = rulerSpan(rulers, w);
+  const { rulerX0, rulerX1, rulerStep, frameTopY, frameBotY, vTop, vSpanM, x0, vy0 } = rulerFrame(props, u);
+  const scale = props.viewScale;
+  const { rulerMarks, vTicks } = rulerGraduations({
+    showLen: true,
+    showRad: true,
+    rulerStep,
+    rulerX0,
+    rulerX1,
+    x0,
+    scale,
+    vSpanM,
+    vTop,
+    vy0,
+  });
+  const d = [
+    ...rulerMarks.map((m) => `M${x0 + m * scale} ${frameTopY}V${frameBotY}`),
+    ...vTicks.map((tk) => `M${rulerX0} ${tk.y}H${rulerX1}`),
+  ].join('');
+  return <path data-schematic-grid d={d} fill="none" pointerEvents="none" className="stroke-line/20" />;
+}
+
+export function SchematicRulerLayer(props: RulerFrameProps) {
+  const { rulers, w, h, zoom, viewScale } = props;
+  const u = useUnits();
+  const { rulerX0, rulerX1, rulerStepUi, rulerStep, frameTopY, frameBotY, vTop, vSpanM, x0, vy0 } = rulerFrame(
+    props,
+    u,
+  );
   const showLen = rulers.top || rulers.bottom;
   const showRad = rulers.left || rulers.right;
   const zoomed = !isZoomIdentity(zoom);
-  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / viewScale));
-  const rulerStep = u.fromUi('length', rulerStepUi);
   // The step's own decimals, so a 2.5 step labels 2.5 and 7.5 rather than 3 and 8.
   const rulerDigits = tickDigits(rulerStepUi, 0, 3);
-  const frameTopY = rulers.top ? RULER_H - 4 + CORNER_GAP : 2;
-  const frameBotY = rulers.bottom ? h - RULER_H + 4 - CORNER_GAP : h - 2;
-  const vTop = rTop + 4;
-  const vBot = h - rBot - 4;
-  const vSpanM = (vBot - vTop) / viewScale;
-  // Read out first so the memo keys on numbers; reading `ctxX0` inside, the compiler refuses to preserve it.
-  const x0 = zoom.x + zoom.k * ctxX0;
-  const vy0 = zoom.y + zoom.k * vTop;
   const { rulerMarks, vTicks, rulerMinorMarks, vMinorTicks } = useMemo(
     () => rulerGraduations({ showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale: viewScale, vSpanM, vTop, vy0 }),
     [showLen, showRad, rulerStep, rulerX0, rulerX1, x0, viewScale, vSpanM, vTop, vy0],

@@ -1,5 +1,6 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { bodyRadiusAt } from '../../tree/finPlanform';
+import { isChainType } from '../../tree/componentKinds';
 import { hasShoulder, profileEnds, shouldersOf, type Shoulder } from '../../tree/shapeProfile';
 import { bodyTubeRadius, countOf, noseConeAftRadius, num } from '../../tree/nodeProps';
 import { lineInstances } from '../../tree/placement';
@@ -41,6 +42,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
   const p = createPainter(cfg);
   const { ctx, shapes, overlay, wires, clipDefs, extents, nextKey, nameOf, isSel, clickable, selWidth, partLine } = p;
   const { noteHover, motorShapes } = p;
+  const isHidden = (n: ComponentNode): boolean => !!n.id && !!cfg.hiddenIds?.has(n.id);
 
   // `turn` is the view roll plus every enclosing pod angle (FlightConfiguration.java:470-485).
   const renderChildren = (
@@ -54,6 +56,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
     const surfaceAt = (x: number): number => bodyRadiusAt(parent, x - pStart) ?? pRadius;
     const at = { parent, pStart, pLen, pRadius, baseY, turn, surfaceAt };
     for (const child of (parent.children ?? []).flatMap(lineInstances)) {
+      if (isHidden(child)) continue;
       const t = child.type;
       // -off.y: the section frame's +y is up and SVG y grows down.
       if (isAssembly(t)) {
@@ -132,6 +135,10 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
     let cx = xStart;
     for (const n of nodes) {
       const len = partLength(n);
+      if (isHidden(n)) {
+        if (isChainType(n.type)) cx += len;
+        continue;
+      }
       if (n.type === 'nosecone') {
         const r = noseConeAftRadius(n);
         const flipped = n['flipped'] === true;

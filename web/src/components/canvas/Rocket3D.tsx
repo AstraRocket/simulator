@@ -6,7 +6,7 @@ import { OrbitControls, Bounds } from '@react-three/drei';
 import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import { type ExportData } from '../../services/exports/schematicExport.js';
 import { mergePalette } from '../../services/design/partColors';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { useUnits } from '../../prefs/useUnits';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { markerRadius, type RenderMode } from './rocketPieces';
@@ -31,6 +31,7 @@ export function Rocket3D({
   tree,
   info,
   motors,
+  hiddenIds,
   exportData,
   selectedId,
   onSelect,
@@ -43,6 +44,7 @@ export function Rocket3D({
   info: StaticInfo | null;
   showMarkers?: boolean;
   motors?: MotorDims;
+  hiddenIds?: ReadonlySet<string>;
   exportData?: ExportData;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
@@ -55,6 +57,11 @@ export function Rocket3D({
   const { settings } = useSettings();
   const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
   const { pieces, totalLen, maxR } = usePieces(tree, motors, palette);
+  // Framing and the export camera keep using every piece, so hiding a part never moves the view.
+  const shownPieces = useMemo(
+    () => (hiddenIds?.size ? pieces.filter((p) => !p.id || !hiddenIds.has(p.id)) : pieces),
+    [pieces, hiddenIds],
+  );
   const r3f = useRef<R3fHandles | null>(null);
 
   const snapshot = useRocketExport(r3f, pieces, exportData, (e) =>
@@ -129,7 +136,7 @@ export function Rocket3D({
           <group>
             <RoomReflections>
               <RocketModel
-                pieces={pieces}
+                pieces={shownPieces}
                 selectedId={selectedId}
                 onSelect={onSelect}
                 clip={cutaway ? clipPlane : null}

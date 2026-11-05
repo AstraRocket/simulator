@@ -18,9 +18,10 @@ import { useViewPrefs } from './useViewPrefs';
 import { useBurnExhausts } from './useBurnExhausts';
 import { degToRad, radToDeg } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { withFigureDefaults } from '../../services/design/figureStyle';
 import { RULER_H } from '../../tree/schematicGeometry';
+import { hiddenPartIds } from '../../tree/partVisibility';
 
 const Rocket3D = lazyNamed(() => import('./Rocket3D'), 'Rocket3D');
 const FlightPath3D = lazyNamed(() => import('./FlightPath3D'), 'FlightPath3D');
@@ -50,6 +51,9 @@ export function CenterCanvas({
   const { settings } = useSettings();
   // The flight path draws `design`: figure styles do not reach it.
   const tree = useMemo(() => withFigureDefaults(design, settings.figureStyles), [design, settings.figureStyles]);
+  const hiddenParts = useWorkspaceStore((s) => s.hiddenParts);
+  // The flight path draws every part too: hiding is for looking at the design.
+  const hiddenIds = useMemo(() => hiddenPartIds(design.components, hiddenParts), [design.components, hiddenParts]);
   const info = useWorkspaceStore((s) => s.info);
   const selectedId = useWorkspaceStore((s) => s.selectedId);
   const onSelect = useWorkspaceStore((s) => s.setSelectedId);
@@ -58,7 +62,7 @@ export function CenterCanvas({
   const motors = useMemo(() => selectMotorDims(design, config), [design, config]);
   const exhausts = useBurnExhausts(design, config, view === 'path');
   const exportData = useExportData(motors);
-  const { showMarkers, showInfoCard, rulers } = useViewPrefs();
+  const { showMarkers, showInfoCard, showGrid, rulers } = useViewPrefs();
   const loading = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('view.loading3d')}</div>;
   const prompt = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('sim.prompt')}</div>;
 
@@ -85,6 +89,8 @@ export function CenterCanvas({
               tree={tree}
               info={info}
               motors={motors}
+              hiddenIds={hiddenIds}
+              showGrid={showGrid}
               fillHeight
               roll={roll}
               onRoll={onRollBy}
@@ -97,7 +103,14 @@ export function CenterCanvas({
               onError={setErr}
             />
           ) : (
-            <AftView key={`aft-${resetKey}`} tree={tree} roll={roll} motors={motors} onRoll={onRollBy} />
+            <AftView
+              key={`aft-${resetKey}`}
+              tree={tree}
+              roll={roll}
+              motors={motors}
+              hiddenIds={hiddenIds}
+              onRoll={onRollBy}
+            />
           )}
         </div>
       ) : view === '3d' ? (
@@ -106,6 +119,7 @@ export function CenterCanvas({
             tree={tree}
             info={info}
             motors={motors}
+            hiddenIds={hiddenIds}
             selectedId={selectedId}
             onSelect={onSelect}
             showMarkers={showMarkers}
