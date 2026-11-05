@@ -19,10 +19,6 @@ const tree = {
 
 afterEach(() => vi.restoreAllMocks());
 
-/**
- * The whole-rocket print file is named the way every export is: rocket, then
- * what the file is. A bare "Bertha.3mf" says which rocket and not which document.
- */
 describe('downloadRocket3mf', () => {
   it('names the single file rocket plus what it is', async () => {
     const spy = vi.spyOn(saveFile, 'saveBlob').mockResolvedValue(undefined as never);
@@ -30,12 +26,6 @@ describe('downloadRocket3mf', () => {
     expect(spy.mock.calls[0]![1]).toBe('Bertha-print.3mf');
   });
 
-  /**
-   * A part name comes from the design, which can be a shared `.ork`. A name
-   * with no letter or digit must not become a zip entry as written: `../..`
-   * points outside the folder it is extracted into, and `:` or `*` fails the
-   * whole archive on Windows.
-   */
   it('names a separate file safely when the part name has no letter or digit', async () => {
     const odd = {
       ...tree,
@@ -60,10 +50,6 @@ describe('downloadRocket3mf', () => {
   });
 });
 
-/**
- * The printed ring around a cluster has the same holes the DXF cut sheet
- * draws: one per tube, even where touching tubes leave the holes touching.
- */
 describe('solidFor on a ring around a cluster', () => {
   it('builds a ring with a hole per tube', () => {
     const cluster = {
@@ -94,8 +80,6 @@ describe('solidFor on a ring around a cluster', () => {
     const box = geo.boundingBox!;
     expect(box.max.x - box.min.x).toBeCloseTo(0.003, 6);
     expect(box.max.y).toBeCloseTo(0.039, 4);
-    // Each tube's hole: a rim of vertices exactly a tube radius round where the
-    // kernel puts it, and none inside it.
     const pos = geo.getAttribute('position');
     const d = 0.02 / Math.sqrt(3);
     for (const dir of [Math.PI / 2, Math.PI / 2 + (2 * Math.PI) / 3, Math.PI / 2 - (2 * Math.PI) / 3]) {
@@ -111,7 +95,6 @@ describe('solidFor on a ring around a cluster', () => {
       expect(rim).toBeGreaterThan(50);
       expect(inside).toBe(0);
     }
-    // The solid still exports.
     expect(() => makeWatertight(geo)).not.toThrow();
   });
 });

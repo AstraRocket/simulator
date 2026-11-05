@@ -8,21 +8,9 @@ import { exportOrk } from '../../../../src/services/files/orkFile';
 import { loadOrk } from '../../../../src/services/files/loadOrk';
 import { wireLoadedOrk } from '../../../../src/services/files/wireLoadedOrk';
 
-/**
- * A desktop file's recovery and staging, edited in the Design tab.
- *
- * Desktop keeps the design's value as the default of a
- * FlightConfigurableParameterSet, and a configuration overrides it only when
- * the set holds an entry for it: `get` falls back to the default otherwise
- * (core/.../rocketcomponent/FlightConfigurableParameterSet.java:142-150). The
- * savers write the default bare and a block per entry
- * (RecoveryDeviceSaver.java:31-45, AxialStageSaver.java:48-64), so a file with
- * no block is a design whose every configuration flies the default, and an
- * edit to the default changes every one of those flights.
- */
+// A configuration with no entry falls back to the default (FlightConfigurableParameterSet.java:142-150);
+// savers then write only the bare default (RecoveryDeviceSaver.java:31-45, AxialStageSaver.java:48-64).
 
-// The kernel build and the motor catalog are not what is under test, and the
-// fixture carries no motors.
 vi.mock('../../../../src/engine/openRocketEngine', async (original) => ({
   ...(await original<typeof import('../../../../src/engine/openRocketEngine')>()),
   OpenRocketDesign: {
@@ -35,7 +23,7 @@ vi.mock('../../../../src/services/motors/motorDb', async (original) => ({
   loadCatalog: async () => [],
 }));
 
-/** Written element for element as RecoveryDeviceSaver and AxialStageSaver write a one-configuration design. */
+/** Element for element as RecoveryDeviceSaver and AxialStageSaver write it. */
 const DESKTOP_ORK = `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="OpenRocket 24.12">
   <rocket>
@@ -109,11 +97,7 @@ const byName = (t: RocketTree, name: string): ComponentNode => {
   return found;
 };
 
-/**
- * What desktop reads for one configuration of a saved part: the bare default,
- * or the configuration's own block cloned from it
- * (DeploymentConfigurationHandler.java:31, StageSeparationConfigurationHandler.java:30).
- */
+/** Own block, else bare default (DeploymentConfigurationHandler.java:31, StageSeparationConfigurationHandler.java:30). */
 function desktopValue(xml: string, part: string, blockTag: string, tag: string, configId: string): string | null {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   const el = Array.from(doc.querySelectorAll('*')).find((e) => e.querySelector(':scope > name')?.textContent === part)!;

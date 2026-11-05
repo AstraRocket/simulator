@@ -9,19 +9,11 @@ import { fmtList } from '../../i18n/format';
 import { motorName } from '../../services/motors/motorName';
 import { NoCurveNote } from './MotorPanelParts';
 
-/**
- * The motor dashboard's Compare tool: the checked motors' thrust curves
- * overlaid on one chart, with a legend and direct labels as the required
- * secondary encoding, and a side-by-side spec table using the grid's chosen
- * columns.
- */
 export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; cols: Col[] }) {
   const { t } = useTranslation();
   const u = useUnits();
-  // A color only for a motor with a curve, so a curveless one gets none.
   const series = seriesFor(motors);
   const colorFor = new Map(series.map((s) => [keyOf(s.m), s.color]));
-  // Identity is the motor name (+ color dot); show every other chosen column.
   const specCols = cols.filter((c) => c.id !== 'designation');
 
   const dims = { width: 440, height: 190, padL: 36, padR: 12, padT: 12, padB: 24 };
@@ -62,7 +54,6 @@ export function MotorComparePane({ motors, cols }: { motors: CatalogMotor[]; col
             ))}
             {/* jscpd:ignore-end */}
           </svg>
-          {/* Legend: identity is never color alone. */}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-soft">
             {series.map((s) => (
               <LegendSwatch key={keyOf(s.m)} color={s.color} width={12}>

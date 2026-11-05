@@ -1,14 +1,4 @@
-/**
- * The end-to-end specs in sections, for `npm run e2e:sections`: each section
- * runs on its own and reports when it finishes. Every spec in `e2e/` is in
- * exactly one section (tests/repo/e2eSections.test.ts holds the list to the
- * folder), so a new spec has to be placed before it runs here.
- *
- * STEPS are the checks that are not Playwright specs: each makes its own
- * production builds in its own folder and serves them on its own port, with
- * the network switched off around a real service worker, so none can share the
- * sections' build. They run after the sections, by script name in `scripts/`.
- */
+/** STEPS make their own builds, so they cannot share the sections' build and run after them. */
 export const SECTIONS = {
   shell: [
     'smoke',

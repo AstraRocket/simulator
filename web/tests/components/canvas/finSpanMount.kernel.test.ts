@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import type { TFunction } from 'i18next';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, type KernelGeometry } from '../../testing/kernelGeometry';
@@ -9,15 +9,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Seen from behind, a fin reaches from the body out by its span, the one the
- * kernel reports. For a freeform fin that is `FreeformFinSet.getSpan`
- * (FreeformFinSet.java:428-436): the highest point of the outline as the
- * kernel stores it, after `clampLastPoint` has moved the trailing point onto
- * the parent, less that point's depth below the front. On a tapered parent it
- * is not the stored outline's height. Each span below is read from the kernel's
- * outline (`getComponentGeometry`), or its `height` field for a trapezoid.
- */
+// Span is `FreeformFinSet.getSpan` (FreeformFinSet.java:428-436), not the stored outline's height.
 
 const t = ((k: string) => k) as unknown as TFunction;
 
@@ -100,7 +92,6 @@ const designs: Record<string, unknown[]> = {
 const build = (chain: unknown[]): RocketTree =>
   syncDerived({ name: 'x', components: [{ type: 'stage', id: 's', children: chain }] } as unknown as RocketTree);
 
-/** The span the kernel reports for the set. */
 function kernelSpan(k: KernelGeometry, type: string): number {
   if (type !== 'freeformfinset') return k.fields!['height'] as number;
   const pts = k.finPoints!.map(([, y]) => y!);

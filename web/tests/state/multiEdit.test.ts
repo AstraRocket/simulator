@@ -7,25 +7,14 @@ import { primaryMotor } from '../../src/services/flight/flightConfigs';
 
 const st = () => useWorkspaceStore.getState();
 const byName = (n: string) => st().sims.find((x) => x.name === n)!;
-/** The default design's one mount, and what a named row has seated in it. */
 const mountId = () => findMounts(st().tree)[0]!.id as string;
 const motorOf = (n: string) => primaryMotor(st().tree, configOf(st().configs, byName(n)))!;
 const configIdOf = (n: string) => byName(n).configId;
 const ignitionOf = (n: string) => configOf(st().configs, byName(n)).motors[mountId()]?.ignitionEvent;
 
-/**
- * Editing follows the selection: a tick means "fly these" and "delete these",
- * and "edit these" too. Each mutator merges into the target's own state, so
- * only the field the user touched moves.
- */
 describe('editing across a selection', () => {
   beforeEach(() => {
-    // From a clean workspace, so one case's motor change cannot leave the next
-    // case's rows on configurations of their own: `addSim` joins the setup that
-    // already holds the default loadout, and an edited one no longer holds it.
     st().resetWorkspace();
-    // Three simulations that disagree, so a patch that wrongly copied the
-    // active one's whole block would be visible rather than a no-op.
     const s = st();
     s.setSimsSelected([]);
     while (st().sims.length > 1) st().deleteSim(st().sims[st().sims.length - 1]!.id);
@@ -47,8 +36,6 @@ describe('editing across a selection', () => {
     st().setActiveId(first);
     st().setSimsSelected([]);
     st().commitEdit();
-    // Every row flown on the fixtures as built, so "this edit aged these rows"
-    // is a real assertion.
     useWorkspaceStore.setState((s) => ({
       sims: s.sims.map((x) => asFlown(s, { ...x, result: { summary: {} } as never })),
     }));
@@ -66,12 +53,10 @@ describe('editing across a selection', () => {
     st().patchLaunch({ windAverage: 42 });
     expect(byName('A').launch.windAverage).toBe(42);
     expect(byName('C').launch.windAverage).toBe(42);
-    expect(byName('B').launch.windAverage).toBe(2); // not ticked
+    expect(byName('B').launch.windAverage).toBe(2);
   });
 
   it('moves ONLY the edited key, leaving each row its own other values', () => {
-    // Merging `{...active.launch, ...p}` would copy the active simulation's rod
-    // length onto the others.
     st().setSimsSelected([byName('A').id, byName('B').id, byName('C').id]);
     st().patchLaunch({ windAverage: 42 });
     expect(byName('A').launch.launchRodLengthM).toBe(1);
@@ -99,9 +84,6 @@ describe('editing across a selection', () => {
   });
 
   it('changes the motor for every row flying that configuration, tick or no tick', () => {
-    // A motor belongs to a configuration, not to a row. A/B/C were created with
-    // the same loadout, so they fly one configuration and all three move: that is
-    // what sharing a setup means, and it is why the selection is not consulted.
     st().setSimsSelected([byName('A').id]);
     const D12 = { ...C6, designation: 'D12' };
     st().setMountMotor(configIdOf('A'), mountId(), D12);
@@ -140,7 +122,6 @@ describe('editing across a selection', () => {
     expect(byName('B').prefs?.timeStep).toBe(0.01);
     expect(byName('C').prefs?.timeStep).toBeUndefined();
 
-    // A second key must not drop the first on either row.
     st().setSimPref('maxTime', 300);
     expect(byName('A').prefs).toEqual({ timeStep: 0.01, maxTime: 300 });
     expect(byName('B').prefs).toEqual({ timeStep: 0.01, maxTime: 300 });
@@ -155,7 +136,7 @@ describe('editing across a selection', () => {
 
     const before = st().sims;
     st().clearSimPrefs();
-    expect(st().sims).toBe(before); // nothing to clear, so nothing changed
+    expect(st().sims).toBe(before);
   });
 
   it('undoes a bulk edit in one step', () => {

@@ -11,42 +11,18 @@ import { flightBranches } from './flightColumns';
 import { launchLimitViolations, type LimitViolation } from './safetyLimits';
 import type { PowerClass } from './powerClass';
 
-/**
- * How a designed rocket's landing moves over the hours around the forecast its
- * conditions came from: the same design flown by the engine under each hour's
- * forecast, with everything else as the simulation has it. The Environment
- * view's landing section asks for it; nothing runs until it does.
- */
-
 export interface HourLanding {
-  /** Hours from the forecast hour the simulation used. */
   offset: number;
-  /** When that hour starts, ms since the epoch. */
+  /** Ms since the epoch. */
   validMs: number;
-  /** One landing per flight branch (stage), meters east and north of the pad. */
   landings: (GroundPoint | null)[];
-  /**
-   * How that hour's conditions fall outside the safety codes. Such an hour is
-   * not flown and has no landings, the same refusal a run and a wind sweep make.
-   */
   outsideLimits?: LimitViolation[];
 }
 
-/**
- * Why an hour was not flown: one i18n key per safety code it breaks, empty
- * for an hour that flew.
- */
 export const refusalKeys = (h: HourLanding): string[] =>
   (h.outsideLimits ?? []).map((v) => (v.field === 'windSpeed' ? 'env.landing.overWind' : 'env.landing.overRodAngle'));
 
-/**
- * Fly each hour. Hours the held forecast does not cover are left out, and an
- * hour outside the safety codes is listed without flying it. The same random
- * seed for every hour, so turbulence does not pass for the wind changing.
- * `powerClass` is the class of the rocket `config` flies, which sets the
- * launcher angle the codes allow. Throws `WeatherError` if the forecast cannot
- * be had; rejects if `signal` aborts.
- */
+// One seed for every hour, so turbulence does not pass for the wind changing.
 export async function flyForecastHours(
   q: {
     tree: RocketTree;
@@ -83,9 +59,6 @@ export async function flyForecastHours(
   });
   let done = 0;
   q.onProgress?.(0, hours.length);
-  // One failed hour fails the whole answer, so the flights still in the worker
-  // pool are canceled with it rather than flown for results nobody reads. The
-  // caller's signal cancels them too.
   const ctl = new AbortController();
   const cancel = () => ctl.abort(o.signal?.reason);
   if (o.signal?.aborted) cancel();
@@ -108,8 +81,7 @@ export async function flyForecastHours(
         tree: q.tree,
         config: q.config,
         options: { ...simConditions(launch, { ...q.prefs, randomSeed: seed }), series: 'summary' },
-        // Sent with each flight, as a run sends it: the worker's unit must not
-        // depend on whether the main-thread build has caught up.
+        // The worker's unit must not depend on the main-thread build having caught up.
         lengthUnit: q.prefs.lengthUnit,
       },
       { signal: ctl.signal },

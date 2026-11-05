@@ -20,7 +20,6 @@ const SITE = {
   pressureHPa: null,
 } as LaunchConditions;
 
-/** Tomorrow on the site's calendar (America/Denver), and an answer from the day before it on. */
 const date = ymdInZone(Date.now() + 86_400_000, 'America/Denver');
 const start = Date.parse(`${date}T00:00:00Z`) / 1000 - 24 * 3600;
 
@@ -80,7 +79,6 @@ describe('WeatherDialog', () => {
     );
     expect(screen.getByText('Set the launch site’s elevation first.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Fetch' })).toBeNull();
-    // The site line is where a minted 0 m would show.
     expect(document.body.textContent).not.toMatch(/(^|[^\d.,])0 m/);
   });
 
@@ -136,14 +134,7 @@ describe('WeatherDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  /**
-   * A forecast is for one place and one height: its pressure is corrected to
-   * the site's elevation and its wind levels start above it. Applied to several
-   * simulations at once, only the rows at that site (within the source line's
-   * same-site tolerance) and elevation take it; the others keep their own.
-   */
   it('applies the forecast only to rows at the fetched site and elevation', async () => {
-    // Asked for at the site's elevation and the terrain's, the service answers both.
     setWeatherTransport(((url: string) => {
       const body = url.includes('/v1/elevation')
         ? { elevation: [1700] }
@@ -158,7 +149,6 @@ describe('WeatherDialog', () => {
     const here = launchPatchFor(made, SITE, 'here');
     expect(here.launchAltitudeM).toBe(1700);
     expect(here.weatherSource?.elevationApplied).toBe(true);
-    // A position picked again at the same field, a few meters off.
     expect(launchPatchFor(made, { ...SITE, latitudeDeg: SITE.latitudeDeg! + 0.0003 }, 'near')).toEqual(here);
     expect(launchPatchFor(made, { ...SITE, latitudeDeg: SITE.latitudeDeg! + 1 }, 'elsewhere')).toEqual({});
     expect(launchPatchFor(made, { ...SITE, launchAltitudeM: 20 }, 'lower')).toEqual({});
@@ -249,7 +239,6 @@ describe('WeatherDialog', () => {
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: next } });
     release();
     await new Promise((r) => setTimeout(r, 30));
-    // The old date's answer does not land under the new date.
     expect(screen.queryByText('Atmosphere aloft')).toBeNull();
     expect(screen.getByRole('button', { name: 'Fetch' })).toBeTruthy();
   });
@@ -290,7 +279,7 @@ describe('WeatherDialog', () => {
   });
 });
 
-/** Pose as offline for one test; jsdom reports online otherwise. */
+// jsdom always reports online.
 const goOffline = () => {
   Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
   return () => Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });

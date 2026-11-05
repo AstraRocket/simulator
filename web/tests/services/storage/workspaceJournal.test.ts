@@ -5,10 +5,6 @@ import { LibraryWorkspaceStore, type Workspace } from '../../../src/services/sto
 import { DesignLibrary, setDesignLibrary } from '../../../src/services/storage/designLibrary';
 import { LocalStorageKeyValueStore, type KeyValueStore } from '../../../src/services/storage/keyValueStore';
 
-// The unload journal exists because the store is IndexedDB-backed: an async
-// write cannot complete while the page tears down, so `saveSync` puts the
-// workspace in localStorage synchronously and `load` folds it back in.
-
 class FakeKv implements KeyValueStore {
   readonly map = new Map<string, string>();
   full = false;
@@ -35,7 +31,6 @@ class FakeKv implements KeyValueStore {
 
 const UNLOAD_KEY = nsKey('designs:unload');
 
-/** Every journal key in storage: one per design. */
 const journalKeys = (): string[] => {
   const out: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -44,13 +39,11 @@ const journalKeys = (): string[] => {
   }
   return out;
 };
-/** Store a journal as another tab's `saveSync` would, under its design's key. */
 const putJournal = (id: string | null, w: unknown, over: object = {}) =>
   localStorage.setItem(
     `${UNLOAD_KEY}:${id ?? 'pending'}`,
     JSON.stringify({ id, w, tab: 'other-tab', t: Date.now(), ...over }),
   );
-/** The one journal in storage, raw, or null when there is none. */
 const anyJournal = (): string | null => {
   const keys = journalKeys();
   expect(keys.length).toBeLessThanOrEqual(1);
@@ -82,26 +75,16 @@ beforeEach(() => {
 });
 
 describe('unload journal', () => {
-  // `readJournalAt` only checks that the blob parses and has a `w`. A journal
-  // written by a different app build (an installed PWA can run an older cached
-  // build) parses cleanly and is still not a workspace this build can open.
-  // The journal must be validated
-  // before it is written into the library: writing first would overwrite the real
-  // stored design with the bad blob and clear the journal, so the design would be
-  // gone for good and every later load would re-read the same bad blob.
   it('does not overwrite the stored design with a journal of the wrong shape', async () => {
     await store.save(ws('precious'));
-    const loaded = await store.load(); // learn the active id
+    const loaded = await store.load();
     expect(nameOf(loaded)).toBe('precious');
 
-    // Valid JSON, wrong shape: a future build's version stamp.
     const activeId = kv.map.get(nsKey('designs:active'))!;
     putJournal(activeId, { ...ws('from-a-newer-build'), version: 4 });
 
     const again = await new LibraryWorkspaceStore().load();
-    // The stored design is untouched and still opens.
     expect(nameOf(again)).toBe('precious');
-    // And the unusable journal is dropped rather than retried forever.
     expect(anyJournal()).toBeNull();
   });
 
@@ -109,7 +92,6 @@ describe('unload journal', () => {
     await store.save(ws('saved'));
     await store.load(); // learn the active id
 
-    // Edit, then the page goes away before the 500ms debounce fires.
     store.saveSync(ws('edited-at-the-last-moment'));
 
     const fresh = new LibraryWorkspaceStore();
@@ -123,7 +105,6 @@ describe('unload journal', () => {
 
     await new LibraryWorkspaceStore().load();
     expect(anyJournal()).toBeNull();
-    // The library now holds it, so the next load needs no journal.
     expect(nameOf(await new LibraryWorkspaceStore().load())).toBe('pending');
   });
 
@@ -141,13 +122,10 @@ describe('unload journal', () => {
     const a = await lib.create('A', ws('a'));
     const b = await lib.create('B', ws('b')); // create() makes B active
 
-    // A journal left over from editing A, while B is what is now open.
     putJournal(a.id, ws('a-unsaved'));
 
-    // Replaying it would overwrite an unrelated rocket.
     expect(nameOf(await new LibraryWorkspaceStore().load())).toBe('b');
     expect(nameOf(await lib.read(b.id))).toBe('b');
-    // Kept for A, which opens with it.
     expect(anyJournal()).not.toBeNull();
     expect(nameOf(await new LibraryWorkspaceStore().openActive(a.id))).toBe('a-unsaved');
     expect(anyJournal()).toBeNull();
@@ -180,22 +158,12 @@ describe('unload journal', () => {
   });
 });
 
-/**
- * A journal written before the first save carries a null id, because that is
- * all `saveSync` has to record at that point.
- *
- * It matches no design, so `load` replays it by creating one. Left unmatched,
- * work done before the first debounced autosave would be lost on reload even
- * though `saveSync` wrote it, and the dead blob (a whole lean workspace) would
- * sit in the ~5 MB localStorage budget forever.
- */
 describe('unload journal written before the first save', () => {
   it('replays it into a NEW design instead of discarding the work', async () => {
     const kv = new FakeKv();
     setDesignLibrary(new DesignLibrary(kv));
     const store = new LibraryWorkspaceStore();
 
-    // Nothing saved yet: the page is torn down mid-edit.
     store.saveSync(ws('typed-before-first-autosave'));
     expect(anyJournal()).not.toBeNull();
 
@@ -203,17 +171,10 @@ describe('unload journal written before the first save', () => {
     expect(loaded).not.toBeNull();
     expect(loaded!.tree.components[0]!.name).toBe('typed-before-first-autosave');
 
-    // It is now a real design, and the journal is spent.
     expect(await new DesignLibrary(kv).list()).toHaveLength(1);
     expect(anyJournal()).toBeNull();
   });
 
-  /**
-   * A tab with no design yet is hidden (the journal, with the id its first
-   * create will use), then comes back and its first save creates the design
-   * with newer work. That journal is dropped, so a session that ends with no
-   * pagehide reopens the saved work rather than the hide's.
-   */
   it('drops the journal once the first create lands with newer work', async () => {
     const kv = new FakeKv();
     setDesignLibrary(new DesignLibrary(kv));
@@ -227,9 +188,6 @@ describe('unload journal written before the first save', () => {
     expect(await new DesignLibrary(kv).list()).toHaveLength(1);
   });
 
-  // The create fails on a full store, which is the failure the journal exists
-  // for. Cleared first, the only copy of the work would be gone and the app
-  // would open the default rocket.
   it('keeps the journal and opens its work when the create is refused', async () => {
     const kv = new FakeKv();
     setDesignLibrary(new DesignLibrary(kv));
@@ -240,7 +198,6 @@ describe('unload journal written before the first save', () => {
     expect(nameOf(loaded)).toBe('typed-before-first-autosave');
     expect(anyJournal()).not.toBeNull();
 
-    // Once storage has room, the next load stores it.
     kv.full = false;
     expect(nameOf(await new LibraryWorkspaceStore().load())).toBe('typed-before-first-autosave');
     expect(await new DesignLibrary(kv).list()).toHaveLength(1);
@@ -250,21 +207,14 @@ describe('unload journal written before the first save', () => {
   it('clears the journal even when it cannot be replayed', async () => {
     const kv = new FakeKv();
     setDesignLibrary(new DesignLibrary(kv));
-    // A blob that parses but is not a workspace this build can open.
     putJournal(null, { version: 99 });
 
     await new LibraryWorkspaceStore().load();
 
-    // Left in place it would sit there forever, holding a slice of a 5 MB budget.
     expect(anyJournal()).toBeNull();
   });
 });
 
-/**
- * New and import detach the store while the library still points at the design
- * that was open. A reload inside the autosave debounce finds that design active,
- * and the journal is the only copy of the new one.
- */
 describe('unload journal of a design started while another was open', () => {
   const start = async () => {
     await store.save(ws('previous'));
@@ -290,7 +240,6 @@ describe('unload journal of a design started while another was open', () => {
 
   it('does not create it twice when the tab’s own create landed after the journal', async () => {
     await start();
-    // `onHidden` writes the journal and starts the save that creates the entry.
     const saving = store.save(ws('new-design'));
     store.saveSync(ws('new-design-edited'));
     await saving;
@@ -302,17 +251,12 @@ describe('unload journal of a design started while another was open', () => {
 });
 
 describe('a journal older than the stored design', () => {
-  // The unload write is a last resort and can lose the race: the debounced
-  // async save in flight at pagehide commits after it, or another tab of the
-  // PWA saves the same design later. Replaying such a journal would roll the
-  // design back to the older text.
   it('is dropped, not replayed over the newer save', async () => {
     await store.save(ws('newer'));
     const loaded = await store.load();
     expect(nameOf(loaded)).toBe('newer');
     const activeId = kv.map.get(nsKey('designs:active'))!;
 
-    // A journal stamped a minute before that save landed.
     putJournal(activeId, ws('stale-unload'), { t: Date.now() - 60_000 });
 
     expect(nameOf(await new LibraryWorkspaceStore().load())).toBe('newer');
@@ -337,16 +281,6 @@ describe('a journal older than the stored design', () => {
   });
 });
 
-/**
- * Two tabs of the PWA open the same design. The one left behind writes its
- * journal at unload whether or not it ever tried to save, and that write is
- * later than the other tab's save. Replaying it on the next load would put the
- * stale design over the newer one with no edit made in the stale tab.
- *
- * Run against both tiers: the index the writer is recorded on lives in
- * IndexedDB normally and in localStorage (beside the journal) when IndexedDB
- * is blocked.
- */
 describe.each([
   ['IndexedDB', () => new FakeKv() as KeyValueStore],
   ['localStorage', () => new LocalStorageKeyValueStore() as KeyValueStore],
@@ -354,8 +288,6 @@ describe.each([
   let tabA: LibraryWorkspaceStore;
   let tabB: LibraryWorkspaceStore;
   let id: string;
-  // A real gap between the steps: two saves inside one millisecond push the
-  // stamp past the clock, which would hide a journal stamped by wall time.
   const later = () => vi.setSystemTime(Date.now() + 1000);
   afterEach(() => vi.useRealTimers());
   beforeEach(async () => {
@@ -386,7 +318,6 @@ describe.each([
   it('is not replayed over it when the tab is hidden (save and journal together)', async () => {
     later();
     await tabB.save(ws('newer-from-b'));
-    // `onHidden` starts the async save and writes the journal at once.
     later();
     const saving = tabA.save(ws('original'));
     tabA.saveSync(ws('original'));
@@ -413,8 +344,6 @@ describe.each([
   });
 
   it('is replayed when the tab’s own save commits after it', async () => {
-    // The debounced save in flight at pagehide lands after the journal, with
-    // the edits made since still only in the journal.
     later();
     const saving = tabA.save(ws('debounced'));
     tabA.saveSync(ws('typed-after-the-debounce'));
@@ -424,12 +353,6 @@ describe.each([
     expect(nameOf(await new LibraryWorkspaceStore().load())).toBe('typed-after-the-debounce');
   });
 
-  /**
-   * Each hide writes the journal. A save that began after it holds newer work,
-   * so once that save lands the journal is dropped; left behind, a session that
-   * ends with no final pagehide (a crash, a killed process) would reopen the
-   * design as it was at that hide.
-   */
   it('is dropped once a later save of the tab lands, so a crash does not roll it back', async () => {
     later();
     tabA.saveSync(ws('at-the-hide'));
@@ -452,13 +375,7 @@ describe.each([
   });
 });
 
-/**
- * A read that fails at boot is not an empty library. Read as one, the journal
- * looks like it belongs to a design that no longer exists and is dropped: the
- * user's last unsaved work, gone on a transient IndexedDB error.
- */
 describe('a library that cannot be read at boot', () => {
-  /** `get` answers null on a failed read, as the IndexedDB store does; `getChecked` rejects. */
   class FlakyKv extends FakeKv {
     broken = false;
     override async get(k: string) {
@@ -485,7 +402,6 @@ describe('a library that cannot be read at boot', () => {
     session.saveSync(ws('default-rocket'));
     expect(nameOf(JSON.parse(anyJournal()!).w)).toBe('unsaved');
 
-    // Read again once storage answers: the journal replays into its design.
     flaky.broken = false;
     setDesignLibrary(new DesignLibrary(flaky));
     expect(nameOf(await new LibraryWorkspaceStore().load())).toBe('unsaved');
@@ -499,11 +415,6 @@ describe('a library that cannot be read at boot', () => {
   });
 });
 
-/**
- * Two tabs on different designs each write their journal at unload. Each is
- * the only copy of its tab's last edits, so neither may overwrite the other,
- * and a boot that opens one design keeps the other's until it is opened.
- */
 describe('unload journals of two tabs on different designs', () => {
   it('keeps both, replaying each into its own design', async () => {
     const tabA = new LibraryWorkspaceStore();
@@ -515,7 +426,6 @@ describe('unload journals of two tabs on different designs', () => {
     await tabB.save(ws('b'));
     const b = (await lib.list()).find((m) => m.id !== a)!.id;
 
-    // Both tabs close inside their autosave debounce.
     tabA.saveSync(ws('a-unsaved'));
     tabB.saveSync(ws('b-unsaved'));
 
@@ -528,19 +438,12 @@ describe('unload journals of two tabs on different designs', () => {
   });
 });
 
-/**
- * A hidden tab saves and journals the same workspace. When the save lands the
- * journal holds nothing the entry does not, so opening the design must not
- * write it again: a write stamps `updatedAt`, and the library lists the most
- * recently updated first.
- */
 describe('a journal of what the design already holds', () => {
   it('is dropped without re-stamping the design', async () => {
     const tab = new LibraryWorkspaceStore();
     await tab.save(ws('x'));
     await tab.load();
     const id = kv.map.get(nsKey('designs:active'))!;
-    // The hide: the save starts, then the journal, then the save lands.
     const saving = tab.save(ws('edited'));
     tab.saveSync(ws('edited'));
     await saving;

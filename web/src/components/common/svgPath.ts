@@ -1,18 +1,6 @@
-/** A point already in screen coordinates. */
 export type ScreenPoint = readonly [x: number, y: number];
 
-/**
- * SVG `d` for a polyline through screen points, skipping non-finite ones.
- *
- * The command letter comes from whether one has been emitted, not from the
- * array index. With `${i ? 'L' : 'M'}` a non-finite first point gives a `d`
- * that starts with `L`, which is invalid path data: the browser drops the whole
- * <path> and the line renders blank with no error. A gap mid-line starts a
- * fresh `M`, so a hole reads as a break rather than a straight line across it,
- * and so does any point `breakBefore` names (a wrap from 359 to 1 degrees).
- *
- * `comma` writes `M1.0,2.0`, `space` writes `M 1.0 2.0`.
- */
+// The command letter tracks what was emitted, not the index: the browser silently drops a `d` starting with `L`.
 export function polylinePath(
   pts: readonly ScreenPoint[],
   style: 'comma' | 'space' = 'space',
@@ -32,13 +20,6 @@ export function polylinePath(
   return out.join(' ');
 }
 
-/**
- * SVG `d` for the filled area between a line through screen points and a
- * horizontal baseline at `baseY`: down to the baseline at `ends[0]`, along the
- * points, back down at `ends[1]`, closed. `ends` defaults to the first and last
- * finite points' x. Non-finite points are skipped; with none left the path is
- * empty, so nothing is drawn rather than a broken `d`.
- */
 export function areaPath(
   pts: readonly ScreenPoint[],
   baseY: number,

@@ -18,8 +18,6 @@ describe('weatherErrorText', () => {
     expect(weatherErrorText(new Error('x'), t, 'env.landing.failed')).toBe('env.landing.failed');
   });
 
-  // The app's own notes on a malformed answer are English; they stay in the
-  // error message for the logs and never reach a translated sentence.
   it('keeps the app-built detail of a malformed answer out of the user text', () => {
     expect(weatherErrorText(new WeatherError('shape', 'no hourly data'), t)).toBe('weather.error.shape');
     expect(weatherErrorText(new WeatherError('units', 'temperature_2m in °F'), t)).toBe('weather.error.units');
@@ -48,7 +46,6 @@ describe('weatherErrorText', () => {
   });
 });
 
-/** The CC BY 4.0 credit is one component, so the license line cannot drift. */
 describe('the Open-Meteo credit', () => {
   it('is written in one place', () => {
     const src = resolve(__dirname, '../../../src');

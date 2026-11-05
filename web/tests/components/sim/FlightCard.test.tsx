@@ -8,7 +8,6 @@ import type { ResultFlight } from '../../../src/services/flight/simulations';
 import type { FlightConfig } from '../../../src/services/flight/flightConfigs';
 import type { FlightResult, MotorSpec, RocketTree, StaticInfo } from '../../../src/engine/openRocketEngine';
 
-/** A flat 1 s burn of 300 N: an H. */
 const spec = {
   designation: 'H128',
   code: 'H128W',
@@ -92,7 +91,6 @@ describe('the flight card', () => {
     expect(card.textContent).toContain('AeroTech H128W');
     expect(card.textContent).toContain('Altitude (descending) at 150 m');
     expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy();
-    // It ends with the Results tab's own Before you fly, less the line that says it is no flight card.
     expect(within(card).getByRole('region', { name: 'Before you fly' }).textContent).toContain('Not modeled at all');
     expect(card.textContent).not.toContain('not a flight card');
   });
@@ -101,7 +99,6 @@ describe('the flight card', () => {
     const flight = seed();
     const { unmount } = renderWithProviders(<FlightCard flight={flight} />);
     expect(document.documentElement.classList.contains('print-flight-card')).toBe(true);
-    // The copy the printer gets sits on the document itself, outside every pane.
     expect(document.body.querySelector(':scope > .flight-card-print article')).toBeTruthy();
     unmount();
     expect(document.documentElement.classList.contains('print-flight-card')).toBe(false);
@@ -127,7 +124,6 @@ describe('the flight card', () => {
     expect(within(card).getByRole('note').textContent).toContain(
       'This flight needs Level 1; the highest you hold is None.',
     );
-    // Nothing left to write in but the date.
     expect(card.textContent).not.toContain('Certification held');
   });
 

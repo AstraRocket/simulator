@@ -2,10 +2,6 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LINE_STYLES, readLineStyle, type LineStyle } from '../../services/design/figureStyle';
 
-/**
- * A line style: desktop's combo, "Default style" and the four `LineStyle`s.
- * Default leaves the part to its type's saved style, else the view's own.
- */
 export function LineStyleRow({
   label,
   value,
@@ -17,7 +13,6 @@ export function LineStyleRow({
   value: LineStyle | undefined;
   disabled?: boolean;
   onCommit: (v: LineStyle | undefined) => void;
-  /** The label's text style, to match the rows around it. */
   labelClassName?: string;
 }) {
   const { t } = useTranslation();

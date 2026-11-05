@@ -20,11 +20,6 @@ const fin = {
 
 afterEach(() => vi.restoreAllMocks());
 
-/**
- * The fin outline download is named the way every export is (exportFilename):
- * rocket, part, what it is. A bare "Fin_set.csv" would say nothing about which
- * rocket, beside "Bertha-aero-table.csv" in the same downloads folder.
- */
 describe('FreeformFinActions', () => {
   it('names the CSV after the rocket and the fin', () => {
     useWorkspaceStore.setState({ tree: { ...useWorkspaceStore.getState().tree, name: 'Bertha' } });
@@ -46,7 +41,6 @@ describe('FreeformFinActions', () => {
   });
 
   it('floors the scale factor at desktop SCALE_MIN', () => {
-    // A mistyped factor must not shrink the fin to microns.
     const applyTreeAction = vi.fn();
     useWorkspaceStore.setState({ applyTreeAction });
     renderWithProviders(<FreeformFinActions node={fin} />);
@@ -70,7 +64,6 @@ describe('FreeformFinActions', () => {
       canvasSizes.push([this.width, this.height]);
       return {
         drawImage: () => {},
-        // A dark block over the left half of the bottom half: a fin on the root edge.
         getImageData: (_x: number, _y: number, w: number, h: number) => {
           const data = new Uint8ClampedArray(w * h * 4).fill(255);
           for (let y = h / 2; y < h; y++)
@@ -91,7 +84,6 @@ describe('FreeformFinActions', () => {
     expect(closes.sort()).toEqual(['full', 'small']);
     const action = applyTreeAction.mock.calls[0]![0] as (t: unknown) => { components: ComponentNode[] };
     const pts = action({ name: 'T', components: [fin] }).components[0]!['points'] as number[][];
-    // 3000 source pixels wide at one millimeter each, traced at a fifth of that.
     expect(Math.max(...pts.map((p) => p[0]!))).toBeCloseTo(3, 1);
     vi.unstubAllGlobals();
   });

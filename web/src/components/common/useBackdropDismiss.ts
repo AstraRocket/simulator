@@ -1,14 +1,6 @@
 import { useRef, type MouseEvent, type PointerEvent } from 'react';
 
-/**
- * Handlers for a modal's backdrop that dismiss only on a press that both starts
- * and ends on the backdrop itself. A text selection dragged out of the panel
- * fires its click on the backdrop, the nearest common ancestor, and must not
- * close the dialog and discard what is in it.
- *
- * The click never propagates: a nested dialog renders inside its parent's
- * backdrop, and a click that bubbled on would close both.
- */
+// Press must start and end on the backdrop: a selection dragged out of the panel clicks it. Never propagates, or a nested dialog closes its parent.
 export function useBackdropDismiss(onDismiss: (() => void) | undefined) {
   const pressedHere = useRef(false);
   return {

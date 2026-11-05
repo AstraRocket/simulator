@@ -12,14 +12,10 @@ import { seedSettings } from '../../testing/renderWithProviders';
 const st = () => useWorkspaceStore.getState();
 const wrapper = ({ children }: { children: ReactNode }) => <SettingsProvider>{children}</SettingsProvider>;
 
-/**
- * Auto-run re-flies the flight the Outdated chip describes: the row the Results
- * picker is on, not the active row.
- */
+// Auto-run re-flies the row the Results picker is on, not the active row.
 describe('useAutoRunOutdated', () => {
   const runSims = vi.fn(() => Promise.resolve({}));
 
-  /** Two rows flown, the active one first, with the picker on the second. */
   const setRows = (activeFresh: boolean, shownFresh: boolean) => {
     st().resetWorkspace();
     st().addSim();

@@ -12,10 +12,7 @@ interface Contributor {
   avatar?: string;
 }
 
-// GitHub contributors, written at build time by scripts/sync-contributors.mjs
-// (avatars inlined as data URIs) and served from our own origin like the other
-// catalogs, so opening this dialog makes no call to github.com. Each url
-// becomes a live href, so only an https link is accepted.
+// Each url becomes an href, so only https is accepted.
 const isContributors = (v: unknown): v is { contributors: Contributor[] } =>
   !!v &&
   Array.isArray((v as { contributors?: unknown }).contributors) &&
@@ -27,9 +24,6 @@ const isContributors = (v: unknown): v is { contributors: Contributor[] } =>
       /^https:\/\//.test((c as Contributor).url),
   );
 
-/** The credits list, fetched on mount. The dialog is only mounted while open
- *  (`{open && <AboutDialog />}`), so nothing is fetched until it is asked for,
- *  and an unreachable file just means the section is not drawn. */
 function useContributors(): Contributor[] {
   const { data } = useAsyncLoad(
     () => fetchCatalog<{ contributors: Contributor[] }>('contributors', isContributors),
@@ -38,8 +32,6 @@ function useContributors(): Contributor[] {
   return data?.contributors ?? [];
 }
 
-/** When the motor and parts catalogs last changed and their sizes, from the
- *  catalog manifest alone: neither catalog is downloaded to say this. */
 function useCatalogInfo(): { motors?: CatalogInfo; components?: CatalogInfo } {
   const { data } = useAsyncLoad(
     async () => ({ motors: await catalogInfo('motors'), components: await catalogInfo('components') }),
@@ -48,7 +40,6 @@ function useCatalogInfo(): { motors?: CatalogInfo; components?: CatalogInfo } {
   return data ?? {};
 }
 
-// Credited open-source projects → homepage.
 const LINKS: [string, string][] = [
   ['OpenRocket', 'https://openrocket.info'],
   ['TeaVM', 'https://teavm.org'],
@@ -61,18 +52,12 @@ const LINKS: [string, string][] = [
   ['Vite', 'https://vite.dev'],
 ];
 
-/** "About {app}" modal: what the app is (a light web UI over the OpenRocket
- *  engine, full .ork support), version, and credits. Copy lives in i18n.
- *  Mounted only while open (`{open && <AboutDialog />}`). */
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const CONTRIBUTORS = useContributors();
   const catalogs = useCatalogInfo();
   return (
     <Dialog id="about" title={appName()} onClose={onClose} layout="pad" size="lg">
-      {/* The mark, the tagline and the version open the body rather than a
-          custom header: the dialog header is shared and has one shape, and
-          these read as content rather than chrome. */}
       <div className="mb-4 flex flex-col items-center gap-2">
         <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" aria-hidden="true" className="h-32 w-32" />
         <p className="text-center text-xs text-ink-muted">
@@ -105,10 +90,6 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 
       <div className="mt-4 border-t border-line/10 pt-3 text-xs leading-relaxed text-ink-faint">
         <p>{t('about.credits')}</p>
-        {/* Which OpenRocket. "The same physics core" is not checkable on its
-              own: comparing a number against the desktop app, or asking whether
-              a feature from some release is in here, needs the commit. Read from
-              engine-java/extract/UPSTREAM at build time, never typed here. */}
         <p className="mt-1">
           <Trans
             i18nKey="about.enginePin"
@@ -125,8 +106,6 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
             }}
           />
         </p>
-        {/* Which catalogs. The sync replaces them on its own schedule, apart
-            from the app's version, so the version above does not date them. */}
         {catalogs.motors?.count !== undefined && (
           <p className="mt-1">
             {t('catalog.motorsInfo', { count: fmtNum(catalogs.motors.count), date: catalogs.motors.updated })}
@@ -145,8 +124,6 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       {CONTRIBUTORS.length > 0 && (
         <div className="mt-4 border-t border-line/10 pt-3 text-xs leading-relaxed text-ink-faint">
           <p>
-            {/* The heading links to the full contributor graph when one is
-                  configured; the list here is a build-time snapshot. */}
             {CONTRIBUTORS_URL ? (
               <a
                 href={CONTRIBUTORS_URL}

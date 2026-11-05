@@ -1,13 +1,5 @@
 import { test, expect, ready } from './base';
 
-/**
- * The JSON export through the real app.
- *
- * The payload has unit and kernel tests (`onshapeExport.kernel.test.ts`,
- * `exportOnshape.test.ts`); this covers what those cannot: that the menu entry
- * is wired, and that the default design downloads as the feature's JSON with
- * its kernel figures filled in.
- */
 test('the design exports as the Onshape import JSON', async ({ page }) => {
   await ready(page);
 
@@ -27,6 +19,5 @@ test('the design exports as the Onshape import JSON', async ({ page }) => {
   expect(payload.rocket.unitSystem).toBe('SI');
   expect(payload.rocket.components[0]?.type).toBe('stage');
   expect(payload.rocket.components[0]?.children.length).toBeGreaterThan(0);
-  // From the engine's build, so a number here means the export read the kernel.
   expect(payload.rocket.centerOfPressure).toBeGreaterThan(0);
 });

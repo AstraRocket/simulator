@@ -3,12 +3,6 @@ import type { WeatherSource } from '../../../src/services/design/orkTree';
 import { PROPOSAL_GROUPS, proposalPatch, type WeatherProposal } from '../../../src/services/weather/weatherProposal';
 import { sourceFields } from '../../../src/services/weather/weatherSource';
 
-/**
- * The fields a source says it speaks for are the fields applying its groups
- * wrote. Two lists of the same thing (`GROUP_FIELDS` and the patch's writes)
- * held together here rather than merged: the patch rounds each field its own
- * way, and a loop over the list would hide that.
- */
 describe('weather group fields', () => {
   const full: WeatherProposal = {
     temperatureC: 15,

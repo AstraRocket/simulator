@@ -4,19 +4,8 @@ import { NumberInput } from '../common/NumberInput';
 import { onSi } from '../../prefs/entryValue';
 import type { FieldUnit } from '../../prefs/useUnits';
 
-/**
- * The pieces of a per-configuration override card (recovery deployment, stage
- * separation). Every field falls through: empty means the part's own value on
- * the design, shown as the placeholder or as the "As designed" option, so the
- * control reads as the value the flight will use.
- *
- * Each control is labeled "<part> - <field>": a configuration lists several
- * parts with the same fields, and the part name is what tells them apart.
- */
-
 export const overrideFieldLabel = (name: string, label: string): string => `${name} - ${label}`;
 
-/** The card: the part name, and an Overridden badge when anything differs from the design. */
 export function OverrideCard({
   name,
   overridden,
@@ -40,7 +29,6 @@ export function OverrideCard({
   );
 }
 
-/** One labeled row of a card. */
 export function OverrideRow({ label, first, children }: { label: string; first?: boolean; children: ReactNode }) {
   return (
     <label className={`${first ? '' : 'mt-2 '}flex items-center justify-between gap-3`}>
@@ -50,11 +38,6 @@ export function OverrideRow({ label, first, children }: { label: string; first?:
   );
 }
 
-/**
- * An event override. "As designed" is the first option, not a blank: the
- * reader has to be able to tell "follows the design" from a value somebody
- * chose. Picking it reports null.
- */
 export function OverrideSelect({
   name,
   label,
@@ -68,7 +51,6 @@ export function OverrideSelect({
   name: string;
   label: string;
   value: string | null | undefined;
-  /** The design's own choice, already translated. */
   designed: string;
   options: readonly { value: string; label: string }[];
   onChange: (value: string | null) => void;
@@ -95,7 +77,6 @@ export function OverrideSelect({
   );
 }
 
-/** A number override in display units, with the design's value as the placeholder. */
 export function OverrideNumber({
   name,
   label,
@@ -138,14 +119,7 @@ export function OverrideNumber({
   );
 }
 
-/**
- * An altitude override (a deployment or a separation trigger), in the field's
- * unit and stored in SI. Floored at zero, as the design-side box is by
- * `fieldRange`: `onSi` rejects only a null or a failed conversion, not a
- * negative, and a negative altitude never fires the kernel's altitude trigger,
- * so the part would never deploy or separate on altitude under that one
- * configuration.
- */
+// Floored at zero: `onSi` accepts negatives, and a negative altitude never fires the kernel's trigger.
 export function OverrideAltitude({
   name,
   label,
@@ -157,7 +131,7 @@ export function OverrideAltitude({
 }: {
   name: string;
   label: string;
-  /** The stored override in meters, or null to fall through to the design. */
+  /** Meters. */
   si: number | null | undefined;
   designedSi: number;
   unit: FieldUnit;

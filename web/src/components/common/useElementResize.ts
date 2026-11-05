@@ -1,18 +1,11 @@
 import { useEffect, type RefObject } from 'react';
 import { useLatestRef } from './useLatestRef';
 
-/**
- * Call `onResize` whenever the element behind `ref` changes size, with its
- * content box and the element itself. Each caller keeps its own clamp; what is
- * shared is the observer, its disconnect, and the guard for an environment with
- * no ResizeObserver at all, where an unguarded call would crash.
- */
 export function useElementResize<T extends Element>(
   ref: RefObject<T | null>,
   onResize: (rect: DOMRectReadOnly, el: T) => void,
 ): void {
-  // The latest callback, so a caller can pass an inline function without
-  // re-subscribing the observer on every render.
+  // So an inline callback does not re-subscribe the observer every render.
   const latest = useLatestRef(onResize);
   useEffect(() => {
     const el = ref.current;

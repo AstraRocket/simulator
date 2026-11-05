@@ -6,15 +6,6 @@ import { ShapeDescription, richText } from '../../../src/components/design/Shape
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import en from '../../../src/i18n/locales/en.json';
 
-/**
- * The shape description, in OpenRocket's own words.
- *
- * The strings are vendored from the desktop's `l10n/messages*.properties`, so
- * two things matter: that the right one is picked for the part and the shape,
- * and that their markup is turned into elements rather than handed to
- * `dangerouslySetInnerHTML`. The second is why `richText` is tested on its own:
- * it is the only part of this that could ever render something it was given.
- */
 const part = (type: string, shape: string) => ({ id: 'x', type, shape }) as unknown as ComponentNode;
 
 describe('richText', () => {
@@ -48,7 +39,6 @@ describe('ShapeDescription', () => {
 
   it('describes the SAME shape differently on a transition', () => {
     renderWithProviders(<ShapeDescription node={part('transition', 'ellipsoid')} />);
-    // The transition text is the one that explains what clipping does.
     expect(screen.getByText(/not clipped/i)).toBeTruthy();
   });
 
@@ -58,8 +48,6 @@ describe('ShapeDescription', () => {
   });
 
   it('has a description for every shape the pickers offer, on both parts', () => {
-    // The shape lists and the description block have to stay in step: a shape
-    // added to one and not the other shows an empty box or a missing key.
     const shapes = ['ogive', 'conical', 'ellipsoid', 'power', 'parabolic', 'haack'];
     for (const part of ['nosecone', 'transition'] as const) {
       for (const s of shapes) {

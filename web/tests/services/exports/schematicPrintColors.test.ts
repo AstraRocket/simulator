@@ -4,11 +4,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bakeTokens, PRINT_COLORS } from '../../../src/services/exports/schematicExport';
 
-/**
- * The schematic draws through tokens on screen and prints in colors of its own:
- * a downloaded SVG has no stylesheet, and a page prints on white whatever the
- * screen's theme is.
- */
 describe('bakeTokens', () => {
   afterEach(() => document.documentElement.style.removeProperty('--c-accent-400'));
 

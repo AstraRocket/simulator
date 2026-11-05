@@ -16,11 +16,8 @@ import { KERNEL_DEFAULTS, KERNEL_SHAPES } from '../../src/tree/kernelDefaults';
 import type { ComponentNode } from '../../src/engine/openRocketEngine';
 
 describe('shape parameter metadata', () => {
-  // Transition.Shape's own defaultParameter() overrides: OGIVE 1.0 ("Tangent
-  // ogive by default", Transition.java:1039-1041), power 0.5 (:1104-1106),
-  // PARABOLIC 1.0 (:1150-1152); the shapes that do not use the parameter
-  // report 0. HAACK's ceiling is maxParameter() = 1.0/3.0 ("Range 0...1/3",
-  // :1187-1189), the LV-Haack end of the series.
+  // defaultParameter() overrides: OGIVE 1.0 (Transition.java:1039-1041), POWER 0.5
+  // (:1104-1106), PARABOLIC 1.0 (:1150-1152). HAACK's maxParameter() is 1/3 (:1187-1189).
   it('defaults per shape (ogive/parabolic 1, power 0.5, rest 0)', () => {
     expect(shapeParamDefault('ogive')).toBe(1);
     expect(shapeParamDefault('parabolic')).toBe(1);
@@ -100,11 +97,11 @@ describe('outerProfile', () => {
     const pts = outerProfile('conical', 0, 0.1, 0, 0.05, 4, [0.03]);
     expect(pts).toHaveLength(6);
     expect(pts.some(([x]) => Math.abs(x - 0.03) < 1e-9)).toBe(true);
-    expect(pts.map(([x]) => x)).toEqual([...pts.map(([x]) => x)].sort((a, b) => a - b)); // sorted
+    expect(pts.map(([x]) => x)).toEqual([...pts.map(([x]) => x)].sort((a, b) => a - b));
   });
 
   it('replaces (not duplicates) an extra abscissa that coincides with a sample', () => {
-    const pts = outerProfile('conical', 0, 0.1, 0, 0.05, 4, [0.05]); // 0.05 is already a sample
+    const pts = outerProfile('conical', 0, 0.1, 0, 0.05, 4, [0.05]);
     expect(pts).toHaveLength(5);
   });
 
@@ -121,26 +118,10 @@ describe('outerProfile', () => {
   });
 });
 
-/**
- * The clipped profile: `calculateClip()`, the binary search that positions
- * every clipped ellipsoid / power / haack transition.
- *
- * It is the one piece of this port whose output is not obvious by inspection: it
- * solves for how far up a virtual nose cone the transition starts. The kernel states
- * the equation it solves, in the comment over `Transition.calculateClip`
- * (Transition.java:695-700), which the code calls with the shape parameter:
- *
- *     r1 == type.getRadius(clipLength,r2,clipLength+length)
- *
- * so these tests recover `clipLength` by an independent solve of that same published
- * equation and check the drawn profile against it. A binary search with the wrong
- * bracket or convergence, or one clipping something it should not, fails; any
- * rewrite that still solves the kernel's equation passes.
- */
+// `Transition.calculateClip` (Transition.java:695-700): r1 == type.getRadius(clipLength, r2, clipLength + length).
 describe('calculateClip (via the clipped profile)', () => {
   const CLIPPABLE = ['ellipsoid', 'power', 'haack'] as const;
 
-  /** Solve the kernel's equation independently: plain 200-iteration bisection. */
   const solveClip = (shape: string, param: number, length: number, r1: number, r2: number): number => {
     let lo = 0;
     let hi = length;
@@ -153,11 +134,7 @@ describe('calculateClip (via the clipped profile)', () => {
     return (lo + hi) / 2;
   };
 
-  // The second geometry is deliberately near-cylindrical: a 0.5 mm rise over
-  // 200 mm sits so far up the virtual nose that `max = length` does not even
-  // bracket the root, so it is the case that exercises the doubling loop the
-  // search opens with. Without that loop the bisection converges on the wrong
-  // side and the profile is wrong everywhere but its endpoints.
+  // The second geometry is not bracketed by `max = length`, so it exercises the doubling loop.
   const GEOMS: [number, number, number][] = [
     [0.1, 0.02, 0.04],
     [0.2, 0.0495, 0.05],
@@ -168,7 +145,7 @@ describe('calculateClip (via the clipped profile)', () => {
     for (const [len, r1, r2] of GEOMS) {
       const clip = solveClip(shape, p, len, r1, r2);
       for (const [x, r] of outerProfile(shape, p, len, r1, r2, 16)) {
-        if (x <= 0 || x >= len) continue; // the endpoints are returned verbatim
+        if (x <= 0 || x >= len) continue;
         expect(r).toBeCloseTo(shapeRadius(shape, clip + x, r2, clip + len, p), 5);
       }
     }
@@ -179,9 +156,6 @@ describe('calculateClip (via the clipped profile)', () => {
     const pts = outerProfile(shape, p, 0.1, 0.02, 0.04, 16);
     expect(pts[0]![1]).toBeCloseTo(0.02, 12);
     expect(pts[pts.length - 1]![1]).toBeCloseTo(0.04, 12);
-    // ...and arrives there continuously, rather than jumping at the first
-    // interior sample, which is what a clipLength solved off the curve looks
-    // like on screen.
     expect(pts[1]![1]).toBeGreaterThan(0.02);
     expect(pts[1]![1]).toBeLessThan(0.024);
   });
@@ -192,7 +166,6 @@ describe('calculateClip (via the clipped profile)', () => {
   });
 
   it('a nose cone (foreR 0) is never clipped: clipLength is 0 by definition', () => {
-    // r1 == 0 short-circuits the search: the profile is the shape itself.
     for (const shape of CLIPPABLE) {
       const p = shapeParamDefault(shape);
       for (const [x, r] of outerProfile(shape, p, 0.1, 0, 0.04, 8)) {
@@ -210,8 +183,6 @@ describe('calculateClip (via the clipped profile)', () => {
   });
 
   it('a shrinking transition is the mirror of the growing one', () => {
-    // Transition.getRadius() normalizes to the small end and flips back, so a
-    // boat tail must be the same curve read backwards, not a different solve.
     const p = shapeParamDefault('haack');
     const grow = outerProfile('haack', p, 0.1, 0.02, 0.04, 16);
     const shrink = outerProfile('haack', p, 0.1, 0.04, 0.02, 16);
@@ -221,15 +192,11 @@ describe('calculateClip (via the clipped profile)', () => {
   });
 
   it('a zero-length transition degenerates to the fore radius', () => {
-    // `length <= 0` returns clipLength 0 in the kernel; outerProfile short-
-    // circuits earlier still, and must not divide by the zero length.
     const pts = outerProfile('haack', 0, 0, 0.02, 0.04, 4);
     expect(pts.every(([, r]) => r === 0.02)).toBe(true);
   });
 
   it('a near-cylindrical clipped transition still lands on both radii', () => {
-    // A 0.5 mm rise over 200 mm pushes the search's opening bracket: the first
-    // guess sits far up a very shallow virtual nose.
     const pts = outerProfile('ellipsoid', 0, 0.2, 0.0495, 0.05, 16);
     expect(pts[0]![1]).toBeCloseTo(0.0495, 12);
     expect(pts[pts.length - 1]![1]).toBeCloseTo(0.05, 12);
@@ -237,13 +204,6 @@ describe('calculateClip (via the clipped profile)', () => {
   });
 });
 
-/**
- * A nose cone or transition with no `shape` key is the shape the kernel builds:
- * ComponentFactory reads `str(node, "shape", "ogive")` for a nose cone and
- * `"conical"` for a transition. Defaulting both to conical in `stationRadius`
- * would size an auto fin tab on a keyless nose cone against a cone the kernel
- * does not fly.
- */
 describe('a node with no shape key', () => {
   const nose = (shape?: string) =>
     ({
@@ -277,8 +237,6 @@ describe('a node with no shape key', () => {
 
 describe('stationRadius on a part with no length on record', () => {
   it('reads the profile at the length the bridge builds it at', () => {
-    // ComponentFactory builds a keyless transition at Transition()'s length
-    // (KERNEL_DEFAULTS.transition.length). A conical transition is r1 + (r2 - r1) x / L.
     const L = KERNEL_DEFAULTS.transition.length;
     const t = { type: 'transition', shape: 'conical', foreRadius: 0.02, aftRadius: 0.03 } as unknown as ComponentNode;
     expect(stationRadius(t, 0)).toBeCloseTo(0.02, 12);
@@ -306,11 +264,6 @@ describe('profileEnds for a transition with no radius on record', () => {
   });
 });
 
-/**
- * One reader of the shoulder keys for the 2D and 3D views, the printed solid
- * and the Onshape export: a nose cone's one shoulder sits on its base, fore once
- * it is flipped, and a shoulder is there only with a radius and a length.
- */
 describe('shouldersOf', () => {
   const nose = (o: Record<string, unknown>) =>
     ({ type: 'nosecone', shoulderRadius: 0.02, shoulderLength: 0.03, ...o }) as unknown as ComponentNode;

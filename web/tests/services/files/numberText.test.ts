@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { plainDecimal, plainSig, readDecimal } from '../../../src/services/files/numberText';
 
-/**
- * Locale-free decimal text for a file. Each writer picks its precision and what
- * a non-finite value becomes, rather than "NaN" landing in the file.
- */
 describe('plainDecimal', () => {
   it('rounds to the given places and drops the trailing zeros', () => {
     expect(plainDecimal(1.23456789, 6)).toBe('1.234568');

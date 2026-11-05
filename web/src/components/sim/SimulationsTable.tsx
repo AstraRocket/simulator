@@ -13,29 +13,16 @@ import { useLauncherT } from '../common/useLauncher';
 import { useFlutterFindings } from './useFlutterFindings';
 import { flutterWarningText } from './FlutterWarningRows';
 
-/** Dot color per status. Paired with a text label in the cell, never color alone. */
 const TONE: Record<SimStatus, string> = {
   upToDate: 'bg-ok-400',
   outdated: 'bg-warn-400',
-  // Queued is the same hue as running but still: with a pool, a batch shows a
-  // few rows in the air and the rest waiting, and a waiting row that pulses
-  // claims to be doing work it is not.
   queued: 'bg-accent-400/50',
   running: 'bg-accent-400 animate-pulse',
   failed: 'bg-danger-500',
   notRun: 'bg-prominent',
-  // Figures from a file, not flown here: present, but not this app's run.
   fromFile: 'bg-ink-soft',
 };
 
-/**
- * A row's warning count, the kernel's and the app's flutter findings together,
- * when it has any.
- *
- * A button, so keyboard and touch users can reach the warnings too: it opens
- * the Results tab that lists them, and a screen reader hears them from the
- * description.
- */
 function WarningsButton({
   sim,
   t,
@@ -56,7 +43,7 @@ function WarningsButton({
     <button
       type="button"
       onClick={(e) => {
-        e.stopPropagation(); // the row click only selects; this navigates
+        e.stopPropagation();
         onOpen();
       }}
       title={lines.join('\n')}
@@ -72,18 +59,6 @@ function WarningsButton({
   );
 }
 
-/**
- * The simulations table: one row per flight setup over the shared design, with
- * the figures OpenRocket's own simulation tab carries, less its Warnings, Motors,
- * Velocity at deployment and Optimum delay columns, and with the rod exit after
- * the acceleration.
- *
- * The tab gives room for the table and the editor beside it, so comparing two
- * motors is reading two rows rather than switching back and forth.
- *
- * Narrow screens keep three columns (status, name, apogee) and drop the rest,
- * so the table never scrolls sideways on a phone.
- */
 export function SimulationsTable({
   sims,
   activeId,
@@ -100,39 +75,26 @@ export function SimulationsTable({
 }: {
   sims: Simulation[];
   activeId: string;
-  /** Rows ticked for running. Empty means "just the active one" - see selectRunIds. */
+  /** Empty means "just the active one" (see selectRunIds). */
   selectedIds: string[];
-  /** Live run state per sim id: queued, running, or failed. Several rows can be
-   *  running at once, since the worker pool flies them in parallel. */
   runs: Record<string, SimRun>;
-  /** The design on screen. A `failed` entry only counts against the design it
-   *  was recorded on; an edit since then means the run was never retried, not
-   *  that it fails. */
   tree: RocketTree;
-  /** The design's flight configurations, so each row can say what it flies. */
   configs: FlightConfig[];
-  /** The global run preferences, which a row's result is compared against. */
   simPrefs: SimPrefs;
-  /** Point one row at another configuration. */
   onSetConfig: (simId: string, configId: string) => void;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onToggleAll: (all: boolean) => void;
-  /** Open this simulation's flight on the Results tab. Only rows that have one. */
   onOpenResults: (id: string) => void;
 }) {
   const t = useLauncherT(launcherKind(tree));
   const u = useUnits();
-  // Each column owns its unit, and shares the scope with the summary tiles, so
-  // reading apogee in feet there reads in feet here too.
   const apogee = u.at(unitScope('sim', 'apogee'), 'distance');
   const rodExit = u.at(unitScope('sim', 'rodExit'), 'velocity');
   const maxSpeed = u.at(unitScope('sim', 'maxSpeed'), 'velocity');
   const maxAccel = u.at(unitScope('sim', 'maxAccel'), 'acceleration');
   const landing = u.at(unitScope('sim', 'landing'), 'velocity');
 
-  // Ticking is a separate question from selecting: the tick says "fly this",
-  // the name says "edit this". Header box ticks or clears every row.
   const allTicked = sims.length > 0 && selectedIds.length === sims.length;
   const someTicked = selectedIds.length > 0 && !allTicked;
 
@@ -145,8 +107,6 @@ export function SimulationsTable({
               type="checkbox"
               checked={allTicked}
               ref={(el) => {
-                // Some but not all: the box is neither on nor off, and saying so
-                // is the only way the header reflects a partial selection.
                 if (el) el.indeterminate = someTicked;
               }}
               onChange={(e) => onToggleAll(e.target.checked)}
@@ -185,17 +145,10 @@ export function SimulationsTable({
         {sims.map((s) => {
           const status = simStatus(s, runs, tree, isOutdated(s, tree, configOf(configs, s), simPrefs));
           const isActive = s.id === activeId;
-          // A file's summary fills the row until the simulation is flown here.
           const r = s.result?.summary ?? s.fileSummary?.summary;
-          // Every number is from the last run, which for an outdated row
-          // describes a design that has since moved on. The row is dimmed to say
-          // so: the numbers are still worth reading, they are just not current.
           const dim = status === 'outdated' || status === 'fromFile' ? 'text-ink-muted' : 'text-ink';
           return (
-            // The row click is a mouse convenience; the button in the name cell
-            // is what actually selects, so the table stays reachable from the
-            // keyboard. (`aria-selected` would need a grid role on the table to
-            // mean anything, so the button carries `aria-current` instead.)
+            // `aria-current`, not `aria-selected`, which needs a grid role.
             <tr
               key={s.id}
               onClick={() => onSelect(s.id)}
@@ -207,8 +160,6 @@ export function SimulationsTable({
                 <input
                   type="checkbox"
                   checked={selectedIds.includes(s.id)}
-                  // The row's own click selects it for editing; the tick must not
-                  // also drag the editor over to a row you only wanted to fly.
                   onClick={(e) => e.stopPropagation()}
                   onChange={() => onToggle(s.id)}
                   aria-label={t('sims.selectOne', { name: s.name })}
@@ -219,9 +170,6 @@ export function SimulationsTable({
                 <span className="flex items-center gap-1.5">
                   <span className={`size-2 shrink-0 rounded-full ${TONE[status]}`} aria-hidden />
                   <span className="text-[11px] text-ink-muted">{simStatusLabel(status, t)}</span>
-                  {/* A run can be current and have flagged something, which the
-                      status dot on its own cannot say. The detail is on the
-                      Results tab; this is the pointer to it. */}
                   <WarningsButton sim={s} t={t} onOpen={() => onOpenResults(s.id)} />
                 </span>
               </Td>
@@ -237,11 +185,6 @@ export function SimulationsTable({
                 </button>
               </Td>
               <Td wide>
-                {/* A picker, not a readout: which setup a row flies is the one
-                    thing about a row you change from the table, and crossing to
-                    another tab to do it would make comparing two motors a
-                    navigation exercise. `stopPropagation` because the row's own
-                    click selects the simulation. */}
                 <select
                   value={configOf(configs, s).id}
                   onClick={(e) => e.stopPropagation()}
@@ -279,14 +222,10 @@ export function SimulationsTable({
                 {r ? landing.fmt(r.groundHitVelocity) : null}
               </Num>
               <td className="w-10 px-2 py-2 text-right">
-                {/* A run that has a result is worth looking at, and the Results
-                    tab shows one simulation, so each row needs its own way in.
-                    Without this a batch would leave every row flown and no route
-                    to any of them but re-running one. */}
                 {!!s.result && (
                   <button
                     onClick={(e) => {
-                      e.stopPropagation(); // the row click only selects; this navigates
+                      e.stopPropagation();
                       onOpenResults(s.id);
                     }}
                     title={t('sims.viewResults')}
@@ -305,7 +244,6 @@ export function SimulationsTable({
   );
 }
 
-/** `wide` columns are dropped below the desktop breakpoint; see the file docs. */
 function Th({ children, num, wide }: { children: React.ReactNode; num?: boolean; wide?: boolean }) {
   return (
     <th
@@ -321,9 +259,6 @@ function Td({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return <td className={`${wide ? 'hidden lg:table-cell' : ''} px-2 py-2`}>{children}</td>;
 }
 
-/** A measured cell: right-aligned and tabular, so the column reads as a column.
- *  An empty value renders a dash rather than nothing, so a never-run row is
- *  visibly blank rather than looking like a rendering failure. */
 function Num({ children, wide, className }: { children: React.ReactNode; wide?: boolean; className?: string }) {
   return (
     <td className={`${wide ? 'hidden lg:table-cell' : ''} px-2 py-2 text-right tabular-nums ${className ?? ''}`}>

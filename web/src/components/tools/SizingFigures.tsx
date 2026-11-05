@@ -4,7 +4,7 @@ import { fmtNum, fmtUpTo, withUnit } from '../../i18n/format';
 import { useScopedUnit } from '../common/UnitChip';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import {
   canopyDiameter,
   canopyRoundUp,
@@ -16,7 +16,6 @@ import {
 } from '../../services/flight/recoverySizing';
 import { smallButton } from '../common/smallButton';
 
-/** Tone for the current-chute descent rate: green inside a band, amber outside. */
 const VERDICT_TONE: Record<RateVerdict, string> = {
   slow: 'text-warn-400',
   main: 'text-ok-400',
@@ -27,15 +26,6 @@ const VERDICT_TONE: Record<RateVerdict, string> = {
 
 const useBtn = smallButton('tight', 'soft');
 
-/**
- * The descent-sizing figures for one descent mass and canopy Cd: how fast the
- * canopy at hand comes down, and the diameter that lands the mass inside the
- * main band, the drogue band, or at a rate of your own. Shared by the parachute
- * editor's sizing dialog and the Tools tab, which differ only in where the mass,
- * Cd and air come from.
- *
- * `onUse`, when given, offers each suggested diameter as a button that sets it.
- */
 export function SizingFigures({
   massKg,
   cd,
@@ -46,11 +36,9 @@ export function SizingFigures({
 }: {
   massKg: number;
   cd: number;
-  /** Air density at the site, kg/m³. */
+  /** kg/m³ */
   rho: number;
-  /** The canopy at hand, if any. */
   diameterM: number | null;
-  /** A measured rate for the canopy at hand, used in place of the equation's. */
   rateMs?: number | null;
   onUse?: (diameterM: number) => void;
 }) {
@@ -62,9 +50,7 @@ export function SizingFigures({
   const targetUnit = useScopedUnit(unitScope('recovery', 'targetD'), 'length');
   const [target, setTarget] = useState<number | null>(null);
 
-  // The bands are authored in ft/s, so they are round there and nowhere else:
-  // "15-20 ft/s" is "4.6-6.1 m/s". One decimal at most, trailing zeros dropped,
-  // keeps both readable instead of picking a fixed count that spoils one.
+  // Bands are authored in ft/s, so one decimal with trailing zeros dropped reads cleanly in both.
   const rateBand = (minSi: number, maxSi: number) =>
     withUnit(`${fmtUpTo(rateUnit.toUi(minSi), 1)}–${fmtUpTo(rateUnit.toUi(maxSi), 1)}`, rateUnit.sym);
 

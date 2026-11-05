@@ -71,7 +71,7 @@ npm view @react-three/fiber peerDependencies.react
 If the ceiling has moved, upgrade the whole group in **one** command, then run the full gate:
 
 ```bash
-npm run verify && npm run e2e
+npm run test:quick && npm run gate:e2e
 ```
 
 The e2e suite opens the 3D views: `rocket-cutaway`, `sketch-rotation`, `overlay-layering` and `flight-ground-map` drive the 3D tab and the 3D path, and `image-export` checks that the 3D snapshot is not a blank frame. It does not check the 3D tab's CG/CP markers or the 3D path's boost/coast coloring, and a console error does not fail a spec. After an upgrade touching `three`, `fiber` or `drei`, open the **3D** tab and the **3D path** tab (run a sim, press play), check the markers and the trajectory coloring, and confirm the browser console is clean.

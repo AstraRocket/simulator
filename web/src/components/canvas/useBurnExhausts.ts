@@ -5,15 +5,6 @@ import { loadCatalog, type CatalogMotor } from '../../services/motors/motorDb';
 import { burnExhausts, type Exhaust } from '../../services/motors/exhaust';
 import { findSeated } from '../sim/MotorDialog';
 
-/**
- * Each burn's exhaust look for the 3D flight, from the propellants the
- * catalog names for the seated motors.
- *
- * The catalog loads only once `enabled` (the flight view is open), and is
- * cached after that (`fetchCatalog`). Until it is in, or if it never comes, the
- * flight draws the default look: this is decoration, so a failed load says
- * nothing.
- */
 export function useBurnExhausts(tree: RocketTree, config: FlightConfig, enabled: boolean): Exhaust[] | undefined {
   const [catalog, setCatalog] = useState<CatalogMotor[] | null>(null);
   useEffect(() => {

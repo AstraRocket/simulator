@@ -5,16 +5,9 @@ import i18n from '../../i18n';
 import { partLabel } from '../../i18n/format';
 import { plainSig } from '../files/numberText';
 
-// Builds the optional <designinfo> block from the report model (whole-rocket +
-// per-stage static info and fin-set positions). Pure data apart from naming an
-// unnamed fin set, so it has no runtime dependency on the engine or store and
-// is easy to test.
-
-/** The Mach number the coast drag coefficient is sampled at (matches the store's
- *  single-point drag sweep that fills StaticInfo.cd). */
+/** Must match the store's single-point drag sweep that fills StaticInfo.cd. */
 const CD_MACH = 0.3;
 
-// Unit tokens (SI base units for dimensional values; natural units otherwise).
 const M = 'm';
 const KG = 'kg';
 const INERTIA = 'kg*m^2';
@@ -23,14 +16,8 @@ const PCT = '%';
 const PER_RAD = '1/rad';
 const NONE = '';
 
-/**
- * Round to 4 significant figures, rendered as a plain decimal string with no
- * exponent and no trailing zeros. e.g. 0.4250 → "0.425", 24993 → "24990",
- * 9.3e-6 → "0.0000093".
- */
 export const sig4 = (v: number): string => plainSig(v, 4, '0');
 
-/** One whole-rocket or per-stage statistic, by a stable key. */
 export type StatKey =
   | 'length'
   | 'maxDiameter'
@@ -47,21 +34,14 @@ export type StatKey =
   | 'pitchInertia'
   | 'rollInertia';
 
-/** A statistic row: its key, its English field name (the .ork and CSV label),
- *  and its SI value. */
+/** `field` is the untranslated .ork and CSV label; `value` is SI. */
 export interface StatRow {
   key: StatKey;
   field: string;
   value: number;
 }
 
-/**
- * Which statistics a rocket or stage has, in order: the one list the .ork
- * <designinfo> block, the design CSV and the PDF summary all write, each with
- * its own formatting. A finless design has no defined CP, so OpenRocket omits CP,
- * both stability rows and CNα; a design with no reference diameter has no
- * fineness. A non-finite value is left in for the writer to show its own way.
- */
+/** A finless design has no CP, so OpenRocket omits CP, both stability rows and CNα. */
 export function staticInfoRows(info: StaticInfo): StatRow[] {
   const rows: StatRow[] = [];
   const add = (key: StatKey, field: string, value: number) => rows.push({ key, field, value });
@@ -76,8 +56,7 @@ export function staticInfoRows(info: StaticInfo): StatRow[] {
   if (hasAero && Number.isFinite(info.cp) && info.cp > 0) {
     add('cp', 'CP', info.cp);
     add('stabilityCal', 'Stability (on pad)', info.stabilityCalibers);
-    // The engine's own figure, not ours: see StaticInfo.stabilityPercent. The
-    // margin is over the aerodynamic length, which this module does not have.
+    // The engine's figure: the margin is over the aerodynamic length, not `length`.
     add('stabilityPct', 'Stability (%)', info.stabilityPercent);
   }
   if (info.cd != null) add('cd', `Drag Coeff. (Ma ${CD_MACH})`, info.cd);
@@ -104,7 +83,6 @@ const UNIT: Record<StatKey, string> = {
   rollInertia: INERTIA,
 };
 
-/** The <designinfo> statistics for one rocket/stage: every row with a finite value. */
 function statsFor(info: StaticInfo): DesignStat[] {
   return staticInfoRows(info)
     .filter((r) => Number.isFinite(r.value))
@@ -114,21 +92,17 @@ function statsFor(info: StaticInfo): DesignStat[] {
 export function buildDesignInfo(report: ReportModel): DesignInfo {
   const groups: DesignStatGroup[] = [];
 
-  // Whole rocket (all stages active). Only the live whole-rocket info carries cd.
   groups.push({ scope: 'rocket', stats: statsFor(report.whole.info) });
 
-  // Per-stage: multi-stage designs only (a single stage is the whole rocket).
   if (report.stageSummaries.length > 1) {
     report.stageSummaries.forEach((s, i) => {
       groups.push({ scope: 'stage', stageNumber: i, name: s.label, stats: statsFor(s.info) });
     });
   }
 
-  // One <finset> per fin set; suffix duplicate names within a stage (#1, #2, …).
   const finsets: DesignFinSet[] = [];
   report.finSetsByStage.forEach((grp, stageNumber) => {
     const counts = new Map<string, number>();
-    // An unnamed fin set is named by its type, as a new part is in the UI.
     const labelOf = (set: (typeof grp.sets)[number]) => partLabel(i18n.t, set);
     for (const set of grp.sets) counts.set(labelOf(set), (counts.get(labelOf(set)) ?? 0) + 1);
     const seen = new Map<string, number>();

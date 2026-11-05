@@ -1,5 +1,4 @@
-/** One term and its value in a `<dl>`. Renders `<dt>`/`<dd>`, so it must sit
- *  inside a `<dl>`. `detail` adds a second, dimmer `<dd>` under the value. */
+/** Renders `<dt>`/`<dd>`, so it must sit inside a `<dl>`. */
 export function TermRow({
   label,
   children,

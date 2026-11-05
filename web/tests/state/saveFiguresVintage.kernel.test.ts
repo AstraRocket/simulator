@@ -8,8 +8,6 @@ const downloadOrk = vi.hoisted(() => vi.fn());
 const downloadRkt = vi.hoisted(() => vi.fn());
 vi.mock('../../src/services/files/saveOrk', () => ({ downloadOrk, downloadRkt }));
 
-// The motor-catalog lookup is the await a save sits on; held open when asked,
-// so the design can change in the middle of it.
 const digests = vi.hoisted(() => ({ hold: false, release: null as null | (() => void) }));
 vi.mock('../../src/services/motors/exportMotors', async (orig) => ({
   ...(await orig<typeof import('../../src/services/motors/exportMotors')>()),
@@ -25,15 +23,6 @@ import type { ComponentFigures, StageFigures } from '../../src/services/files/rk
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The .ork and .rkt writers put the kernel's figures for a part into the file
- * (an automatic shock cord's length is three times the rocket's,
- * `ShockCord.getAutoCordLength`), and desktop reads them as fixed values. The
- * figures in a file have to be the ones for the tree written beside them, not
- * for a build of an earlier tree still waiting out the rebuild debounce, nor
- * for one made while the save waited.
- */
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped
 let engine: any;
 beforeAll(async () => {
@@ -43,20 +32,17 @@ beforeAll(async () => {
 
 const s = () => useWorkspaceStore.getState();
 
-/** The kernel's own cord length for `tree`, read through the bridge. */
 const kernelCordLength = (tree: RocketTree): number => {
   const h = engine.buildRocket(JSON.stringify(tree));
   return (JSON.parse(engine.getComponentInfo(h, 'cord')) as { cordLength: number }).cordLength;
 };
 
-/** Stand in for the rebuild effect: build the open design and install it. */
 const rebuild = () => {
   const built = computeStaticInfo(s().tree, selectConfig(s()));
   if ('error' in built) throw new Error(JSON.stringify(built.error));
   s().applyBuild(built.info, built.rocket);
 };
 
-/** Lengthen the body tube, which lengthens the rocket and so the automatic cord. */
 const lengthen = () => {
   s().setSelectedId('body');
   s().patchSelected({ length: 0.6 });
@@ -119,8 +105,6 @@ describe('the kernel figures a saved file carries', () => {
     expect(cordIn(figures)).toBeCloseTo(expected, 12);
   });
 
-  // RockSim's stage overrides are all or nothing, so a stage override has the
-  // kernel weigh every stage, on the store's build, which is left as it was.
   it('.rkt: carry the stage figures when a stage overrides its mass', async () => {
     const w = workspaceSnapshot(s());
     const stageId = w.tree.components[0]!.id!;

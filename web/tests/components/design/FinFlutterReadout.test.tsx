@@ -10,7 +10,7 @@ import { useWorkspaceStore, selectActive } from '../../../src/state/store';
 import { asFlown } from '../../testing/flown';
 import type { ComponentNode, FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/** A 15 cm root, 5 cm tip, 10 cm high fin of 1/8 in stock: G10 flutters near 231 m/s at sea level. */
+// G10 flutters near 231 m/s at sea level on this fin.
 const fin = (materialName: string) =>
   ({
     id: 'fins',
@@ -39,7 +39,6 @@ const tree = (node: ComponentNode) =>
     ],
   }) as unknown as RocketTree;
 
-/** A flight whose fastest point is `top` m/s at 100 m. */
 const flight = (top: number): FlightResult =>
   ({
     summary: {},

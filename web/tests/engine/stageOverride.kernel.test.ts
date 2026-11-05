@@ -4,16 +4,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A stage flies its own mass and CG overrides.
- *
- * A stage is built by the bridge's buildRocket, not by ComponentFactory.create,
- * so it has to apply the overrides itself. Desktop applies them when it opens
- * the file (the `fields` step of `npm run audit` compares the two); here the
- * kernel has to hold them and its mass breakdown has to fly them: with the
- * subcomponents covered, the stage's mass is the stated mass, whatever is
- * inside it.
- */
+// Stages skip ComponentFactory.create, so buildRocket applies their overrides itself.
 const design = {
   components: [
     {
@@ -52,7 +43,6 @@ describe('stage overrides', () => {
       overrideSubcomponentsMass: true,
       overrideSubcomponentsCG: true,
     });
-    // The booster states none and keeps none.
     expect(JSON.parse(engine.getComponentFields(handle, 'booster'))).toMatchObject({
       massOverridden: false,
       cgOverridden: false,
@@ -86,8 +76,7 @@ describe('stage overrides', () => {
         ],
       }),
     );
-    // OpenRocket states a part's CG override from the part's front, and
-    // getComponentInfo gives where that front sits from the nose.
+    // OpenRocket measures a CG override from the part's own front.
     const front = (JSON.parse(engine.getComponentInfo(handle, 'booster')) as { positionX: number }).positionX;
     const masses = JSON.parse(engine.getComponentMasses(handle)) as { name: string; mass: number; cg: number }[];
     const booster = masses.find((m) => m.name === 'Booster');

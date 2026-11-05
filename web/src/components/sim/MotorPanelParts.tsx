@@ -2,33 +2,27 @@ import { useTranslation } from 'react-i18next';
 import { catalogInfo } from '../../services/app/remoteData';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 
-/**
- * Pieces the motor picker and the motor dashboard share, so the two read as
- * one catalog: the code search, the catalog's manifest, a motor's heading and
- * the note for a motor with no thrust curve.
- */
-
-/** The published motor catalog's manifest (its size and date), or undefined until it loads or when it says nothing. */
 export function useCatalogInfo() {
   return useAsyncLoad(() => catalogInfo('motors'), 'motorsInfo').data;
 }
 
-/** The search by motor code. `className` sizes it within its row. */
 export function MotorSearch({
   value,
   onChange,
   className = '',
+  autoFocus = true,
 }: {
   value: string;
   onChange: (text: string) => void;
   className?: string;
+  autoFocus?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <input
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      autoFocus
+      autoFocus={autoFocus}
       placeholder={t('motorDlg.searchCode')}
       aria-label={t('motorDlg.searchCode')}
       className={`flex-1 rounded-lg bg-canvas px-3 text-sm text-ink-strong ring-1 ring-line/10 placeholder:text-ink-faint focus:outline-none focus:ring-accent-500 ${className}`}
@@ -36,11 +30,6 @@ export function MotorSearch({
   );
 }
 
-/**
- * A motor's (or a cluster's) heading: who makes it over its class and name.
- * `designation` sets the title as a motor name (`font-data`); a cluster's
- * title is words.
- */
 export function MotorHeading({
   kicker,
   impulseClass,
@@ -63,7 +52,6 @@ export function MotorHeading({
   );
 }
 
-/** In place of a chart, for a motor the catalog has no thrust curve for. */
 export function NoCurveNote() {
   const { t } = useTranslation();
   return <p className="my-4 rounded-lg bg-raised/50 p-3 text-xs text-ink-muted">{t('motorDlg.noCurve')}</p>;

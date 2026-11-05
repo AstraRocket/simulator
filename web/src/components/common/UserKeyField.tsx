@@ -3,15 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { UserKeyStore } from '../../services/storage/userKey';
 import { StatusLine } from './StatusLine';
 
-/**
- * A field for a key the user enters for a third-party service
- * (services/storage/userKey), with its label, placeholder and note.
- *
- * Writes only what the user typed: on blur, and on unmount too, since the
- * Settings dialog closing with Escape removes the field with no blur. A field
- * that was not edited writes nothing, so a key saved meanwhile in another tab
- * is never overwritten with this one's stale copy.
- */
+/** Writes on unmount too (Escape closes Settings with no blur), and only when edited, so another tab's key survives. */
 export function UserKeyField({
   store,
   label,

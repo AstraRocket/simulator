@@ -18,12 +18,6 @@ import {
   type PdfPage,
 } from './pdfPage';
 
-/**
- * The 1:1 templates: the hint and the printed scale bar, then a cutting
- * outline for each selected fin set, nose cone and transition. A template
- * that does not fit the page is replaced by the `report.tooLarge` note,
- * never shrunk.
- */
 export function writeTemplatesSection(
   p: PdfPage,
   tree: RocketTree,
@@ -51,16 +45,12 @@ export function writeTemplatesSection(
 
 function writeFinTemplates(p: PdfPage, tree: RocketTree, finSets: ComponentNode[]): void {
   for (const n of finSets) {
-    // Pass where the fin stands so the printed template's root follows its
-    // parent and its tab is clamped to the depth the kernel allows, matching
-    // the DXF and the STL of the same fin. Without it a 20 mm tab on a 12 mm
-    // body would print at full depth.
     const f = finPlanformMm(n, finMountOf(tree, String(n.id)));
     template(p, `${partLabel(p.t, n)} × ${f.count}`, f.pts, outlineBox(f.pts));
   }
 }
 
-/** The box a template drawing occupies, in its own millimeters. */
+/** mm. */
 interface TemplateBox {
   minX: number;
   minY: number;
@@ -68,15 +58,7 @@ interface TemplateBox {
   h: number;
 }
 
-/**
- * The bounds of a fin outline, on both sides of its origin. A forward-swept fin
- * puts its tip ahead of the root's leading edge (negative x), and a root along
- * a taper or a tab can reach past either end of the span, so neither edge of
- * the drawing is known to be zero.
- *
- * A loop, not `Math.max(...pts)`: a freeform outline is file-sourced and
- * spreading a huge one into a call overflows the stack.
- */
+// A loop, not Math.max(...pts): a huge file-sourced outline would overflow the stack.
 function outlineBox(pts: Pt[]): TemplateBox {
   let minX = Infinity;
   let minY = Infinity;
@@ -95,8 +77,6 @@ function template(p: PdfPage, label: string, pts: Pt[], box: TemplateBox): void 
   const { t, M } = p;
   const { minX, minY, w, h } = box;
   const fits = templateFits(w, h, pageFrame(p.PW, p.PH));
-  // The label (6 mm) and what it names break to a new page together, so a
-  // label never sits at the foot of a page with its outline on the next.
   ensure(p, 6 + (fits ? h + 6 : 6));
   sub(p, label, 9);
   if (!fits) {
@@ -105,7 +85,6 @@ function template(p: PdfPage, label: string, pts: Pt[], box: TemplateBox): void 
     p.y += 6;
     return;
   }
-  // The drawing's left and top edges land on the margin and the cursor.
   fillPolygon(p, pts, M - minX, p.y - minY);
   p.y += h + 6;
 }

@@ -13,7 +13,6 @@ import {
 } from '../../../src/services/exports/solidMesh';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 
-/** Count open (hole) and non-manifold edges of one geometry, by vertex position. */
 function quality(g: THREEType.BufferGeometry): { hole: number; nonManifold: number } {
   const idx = g.getIndex()!;
   const pos = g.getAttribute('position');
@@ -154,25 +153,22 @@ describe('solid mesher (per component)', () => {
   });
 
   it('makeWatertight caps EVERY boundary loop when two share a vertex', () => {
-    // Two open triangles sharing one corner (vertex 0). That shared vertex is the
-    // start of two boundary edges, so a single-successor Map keeps only the last
-    // and leaves one triangle's loop uncapped; the multimap caps both.
     const g = new THREE.BufferGeometry();
     g.setAttribute(
       'position',
       new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0.5, 1, 0, -1, 0, 0, -0.5, -1, 0], 3),
     );
     g.setIndex([0, 1, 2, 0, 3, 4]);
-    expect(countBoundaryEdges(g)).toBeGreaterThan(0); // open to begin with
-    expect(countBoundaryEdges(makeWatertight(g))).toBe(0); // both loops sealed
+    expect(countBoundaryEdges(g)).toBeGreaterThan(0);
+    expect(countBoundaryEdges(makeWatertight(g))).toBe(0);
   });
 
   it('returns null for degenerate geometry instead of a broken/non-manifold solid', () => {
     const n = (o: object) => solidForNode(o as unknown as ComponentNode);
-    expect(n({ type: 'nosecone', shape: 'ogive', length: 0.1, aftRadius: 0 })).toBeNull(); // zero radius
-    expect(n({ type: 'nosecone', shape: 'ogive', length: 0, aftRadius: 0.013 })).toBeNull(); // zero length
+    expect(n({ type: 'nosecone', shape: 'ogive', length: 0.1, aftRadius: 0 })).toBeNull();
+    expect(n({ type: 'nosecone', shape: 'ogive', length: 0, aftRadius: 0.013 })).toBeNull();
     expect(n({ type: 'transition', shape: 'conical', length: 0, foreRadius: 0.01, aftRadius: 0.008 })).toBeNull();
-    expect(n({ type: 'trapezoidfinset', rootChord: 0.06, height: 0, thickness: 0.003 })).toBeNull(); // zero-area fin
+    expect(n({ type: 'trapezoidfinset', rootChord: 0.06, height: 0, thickness: 0.003 })).toBeNull();
     expect(
       n({
         type: 'freeformfinset',
@@ -182,25 +178,18 @@ describe('solid mesher (per component)', () => {
         ],
         thickness: 0.003,
       }),
-    ).toBeNull(); // < 3 points
+    ).toBeNull();
   });
 
   it('returns null for a wall at least as thick as the radius, rather than a solid rod', () => {
-    // Reachable from a units slip in a hand-edited .ork (thickness 0.02 against
-    // radius 0.012). Without the guard the no-bore branch would export the part
-    // as a 24 mm solid rod with nothing able to fit inside it, watertight and
-    // wrong. Unlike the degenerate cases above, the values here are not zero.
     const n = (o: object) => solidForNode(o as unknown as ComponentNode);
     expect(n({ type: 'bodytube', length: 0.3, outerRadius: 0.012, thickness: 0.02 })).toBeNull();
-    expect(n({ type: 'bodytube', length: 0.3, outerRadius: 0.012, thickness: 0.012 })).toBeNull(); // exactly equal
+    expect(n({ type: 'bodytube', length: 0.3, outerRadius: 0.012, thickness: 0.012 })).toBeNull();
     expect(n({ type: 'innertube', length: 0.07, outerRadius: 0.0095, thickness: 0.05 })).toBeNull();
-    // A wall thinner than the radius is still a tube and still exports.
     expect(n({ type: 'bodytube', length: 0.3, outerRadius: 0.012, thickness: 0.0119 })).not.toBeNull();
   });
 
   it('folds a through-the-wall tab into the fin solid, and stays watertight', () => {
-    // The DXF and the 1:1 PDF template both include the tab; a mesh without it
-    // would print a fin that does not seat in the airframe slot.
     const fin = (o: object) => solidForNode(o as unknown as ComponentNode)!;
     const plain = fin({
       type: 'trapezoidfinset',
@@ -220,20 +209,15 @@ describe('solid mesher (per component)', () => {
       tabHeight: 0.005,
       tabLength: 0.02,
     });
-    // The tab adds material below the root line, so the solid gets bigger…
     plain.computeBoundingBox();
     tabbed.computeBoundingBox();
     expect(tabbed.boundingBox!.min.y).toBeLessThan(plain.boundingBox!.min.y - 1e-6);
-    // …and it is still a closed, printable solid.
     const q = quality(tabbed);
     expect(q.hole).toBe(0);
     expect(q.nonManifold).toBe(0);
   });
 
   it('refuses an inverted ring rather than exporting it as a solid disc', () => {
-    // ID >= OD is reachable from a malformed .ork or a bad catalog row. Falling
-    // through to the solid-cylinder branch would print a centering ring as a
-    // solid disc that blocks the motor tube, with nothing said.
     expect(discSolid(0.012, 0.012, 0.003)).toBeNull();
     expect(discSolid(0.012, 0.02, 0.003)).toBeNull();
   });
@@ -287,8 +271,7 @@ describe('solid mesher (per component)', () => {
         thickness: 0.001,
       } as unknown as ComponentNode,
     ];
-    for (const t of tubes) expect(minRadius(solidForNode(t)!)).toBeGreaterThan(0.001); // has a bore
-    // A nose is a solid body: it reaches the axis.
+    for (const t of tubes) expect(minRadius(solidForNode(t)!)).toBeGreaterThan(0.001);
     expect(
       minRadius(
         solidForNode({ type: 'nosecone', shape: 'ogive', length: 0.1, aftRadius: 0.013 } as unknown as ComponentNode)!,
@@ -297,9 +280,6 @@ describe('solid mesher (per component)', () => {
   });
 });
 
-/**
- * Two ways the exporter could hand out a solid it should not.
- */
 const geom = (pos: number[], idx: number[]) => {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -309,23 +289,16 @@ const geom = (pos: number[], idx: number[]) => {
 
 describe('makeWatertight keeps its contract or fails', () => {
   it('still caps an ordinary open loop', () => {
-    // One triangle: a closed three-edge boundary, capped as usual.
     expect(countBoundaryEdges(makeWatertight(geom([0, 0, 0, 1, 0, 0, 0, 1, 0], [0, 1, 2])))).toBe(0);
   });
 
   it('caps both loops of a mesh where two meet at one vertex', () => {
-    // The shared-vertex case above, checked unconditionally: what comes back
-    // is watertight.
     const bowTie = geom([0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0, 0, 0, -1, 0], [0, 1, 2, 0, 3, 4]);
     expect(countBoundaryEdges(bowTie)).toBe(6);
     expect(countBoundaryEdges(makeWatertight(bowTie))).toBe(0);
   });
 
   it('throws on a non-manifold edge rather than returning it as watertight', () => {
-    // Three triangles sharing one edge. Capping cannot fix an edge used three
-    // times, and the walk never sees it (it is not a boundary edge, it is an
-    // over-used one), so capping what can be capped returns a geometry with seven
-    // bad edges that meshExport would label watertight and write into an STL.
     const fan = geom([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1], [0, 1, 2, 0, 1, 3, 0, 1, 4]);
     expect(countBoundaryEdges(fan)).toBe(7);
     expect(() => makeWatertight(fan)).toThrow(/open edge/i);
@@ -383,10 +356,7 @@ describe('isSimplePolygon', () => {
 });
 
 describe('a self-crossing freeform fin is not exportable', () => {
-  // Root chord = last.x − first.x = 0.06, so this clears the existing
-  // degenerate-geometry gate and reaches the crossing check, which is the point
-  // being tested. With first.x === last.x the root would be 0, and the fixture
-  // would be rejected as degenerate and prove nothing.
+  // Root chord is 0.06 so the fixture clears the degenerate gate and reaches the crossing check.
   const crossed = [
     [0, 0],
     [0.06, 0.04],
@@ -412,57 +382,33 @@ describe('a self-crossing freeform fin is not exportable', () => {
   });
 });
 
-/**
- * The validation choke point for discs and rings.
- *
- * The per-component export and the print sheet both resolve a disc/ring
- * themselves, so they go through `discSolidForNode` rather than `discSolid` raw;
- * otherwise centering rings, bulkheads, couplers and engine blocks would leave
- * with no validation at all.
- */
 describe('discSolidForNode applies the same validation as solidForNode', () => {
   it('builds an ordinary ring', () => {
     expect(discSolidForNode(0.012, 0.008, 0.003)).not.toBeNull();
   });
 
   it('refuses a zero outer radius instead of a zero-triangle solid', () => {
-    // Four on-axis points: `dropDegenerate` removes every triangle, and
-    // `makeWatertight` returns early on `boundaryEdges === 0` before its own
-    // throw. Without the check the STL would download with no geometry in it
-    // and the export would report success.
     expect(discSolidForNode(0, 0, 0.003)).toBeNull();
   });
 
   it('refuses a non-positive outer radius, inverted winding and all', () => {
-    // A negative radius lathes an inside-out solid. The dimension is refused
-    // where it is read, before any mesh is built, rather than left to the
-    // mesh checks.
     expect(discSolid(-0.012, 0, 0.003)).toBeNull();
     expect(discSolidForNode(-0.012, 0, 0.003)).toBeNull();
     expect(discSolidForNode(0, 0, 0.003)).toBeNull();
   });
 
   it('refuses a zero length, which the simulation flew as no part', () => {
-    // A missing `length` key is resolved to the kernel's default before this
-    // point (discGeometry), so a zero here is a stated zero.
+    // A missing `length` key is defaulted earlier (discGeometry), so this zero is stated.
     expect(discSolidForNode(0.012, 0.008, 0)).toBeNull();
   });
 
   it('agrees with discSolid wherever discSolid already refused', () => {
-    // A bore equal to the outer radius is the inverted-ring case discSolid
-    // itself rejects; the wrapper must not resurrect it.
     expect(discSolid(0.012, 0.012, 0.003)).toBeNull();
     expect(discSolidForNode(0.012, 0.012, 0.003)).toBeNull();
   });
 });
 
-/**
- * A nose cone, body tube or transition with no `length` key is laid out at the
- * kernel's length for its type (ComponentFactory: nose 150 mm, body 200 mm,
- * transition 75 mm), not at zero. Zero would draw the part as nothing while the
- * engine flies it full length. An explicit 0 (the phantom tube a T-tail hangs
- * from) is still 0.
- */
+// A missing `length` takes the kernel default (ComponentFactory); an explicit 0 stays 0.
 describe('a keyless chain part as a printable solid', () => {
   it('is meshed at the kernel length, not refused as zero-length', () => {
     const geo = solidForNode({ type: 'nosecone', shape: 'ogive', aftRadius: 0.012 } as unknown as ComponentNode);
@@ -474,9 +420,7 @@ describe('a keyless chain part as a printable solid', () => {
 });
 
 describe('a transition with no end radii on record', () => {
-  // The bridge makes such an end automatic, and with nothing to follow the
-  // kernel gives it SymmetricComponent.DEFAULT_RADIUS (0.025 m). The printed
-  // part is that cylinder, not a cone between two invented sizes.
+  // An automatic end with nothing to follow gets SymmetricComponent.DEFAULT_RADIUS (0.025 m).
   it('is meshed at the kernel radius at both ends', () => {
     const geo = solidForNode({ type: 'transition', length: 0.05, thickness: 0.002 } as unknown as ComponentNode)!;
     geo.computeBoundingBox();

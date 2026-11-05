@@ -5,11 +5,6 @@ import { USER_PREFIX } from './useExportTemplates';
 import { useFilePick } from '../common/useFilePick';
 import { smallButton } from '../common/smallButton';
 
-/**
- * The flight-path export dialog's format block: the format select (built-ins,
- * then any imported templates), import and download-template, and delete for a
- * selected user template. State and handlers come from `useExportTemplates`.
- */
 export function ExportFormatPicker({
   selected,
   templates,

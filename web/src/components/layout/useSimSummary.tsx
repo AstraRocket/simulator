@@ -12,12 +12,6 @@ import { fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import type { StaticInfo } from '../../engine/api';
 
-/**
- * The active simulation at a glance, as the pieces its two views lay out: the
- * header's strip on a wide screen (HeaderSummary) and the phone's Rocket card
- * (canvas/RocketOverview). One source, so the two never disagree about what
- * the rocket is or what its last flight did.
- */
 export function useSimSummary(info: StaticInfo) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -37,8 +31,6 @@ export function useSimSummary(info: StaticInfo) {
   const outdated = isOutdated(sim, tree, config, simPrefs);
   const status = simStatus(sim, runs, tree, outdated);
   const blocked = useMemo(() => !!designBlocker(tree), [tree]);
-  // The same units as the stat tile and the run table's column, so the summary
-  // never disagrees with the number it summarizes.
   const massUnit = u.at(unitScope('stats', 'mass'), 'mass');
   const apogee = u.at(unitScope('sim', 'apogee'), 'distance');
 
@@ -46,8 +38,6 @@ export function useSimSummary(info: StaticInfo) {
   const pad = stabilityState(cal);
   const flying = status === 'running' || status === 'queued';
 
-  // The band is in the glyph and, for a screen reader, in words, as well as in
-  // the color.
   const stability = (
     <span className={pad ? stabilityToneOf(pad) : 'text-ink-muted'}>
       {pad && <span aria-hidden>{`${STABILITY_GLYPH[pad]} `}</span>}
@@ -56,8 +46,6 @@ export function useSimSummary(info: StaticInfo) {
     </span>
   );
 
-  // A flight from this session, else the figures an imported file carried, as
-  // the run table reads them.
   const summary = sim.result?.summary ?? sim.fileSummary?.summary;
   let flight: ReactNode = NO_VALUE;
   if (flying) flight = <span className="text-accent-400">{simStatusLabel(status, t)}</span>;
@@ -71,7 +59,6 @@ export function useSimSummary(info: StaticInfo) {
     ) : (
       value
     );
-    // Only a flight flown here has a Results page to open.
     if (sim.result)
       flight = (
         <button

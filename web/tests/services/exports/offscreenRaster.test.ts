@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { clampExportSize, flipRows } from '../../../src/services/exports/offscreenRaster';
 
-/**
- * The pure half of the offscreen 3D export. The WebGL half cannot run under
- * vitest, so these are the numbers that can be pinned: the size the render
- * target is asked for, and the row order of the readback.
- */
-
 describe('clampExportSize', () => {
   it('derives the height from the aspect and keeps a request under the limit as is', () => {
     expect(clampExportSize(1920, 2, 8192)).toEqual({ width: 1920, height: 960 });
@@ -18,8 +12,6 @@ describe('clampExportSize', () => {
   });
 
   it('scales both edges down together when the width exceeds the texture limit', () => {
-    // An 8K request on a 4096 GPU: the width lands on the limit and the height
-    // shrinks by the same factor, so the aspect survives.
     const s = clampExportSize(7680, 16 / 9, 4096);
     expect(s.width).toBe(4096);
     expect(s.height).toBe(Math.floor(4320 / (7680 / 4096)));
@@ -45,7 +37,6 @@ describe('clampExportSize', () => {
 
 describe('flipRows', () => {
   it('reverses the row order and leaves each row intact', () => {
-    // 2x3 RGBA: row r has every byte equal to r, so the order is legible.
     const w = 2;
     const h = 3;
     const src = new Uint8Array(w * h * 4);

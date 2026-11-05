@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 import { buildSchematicShapes } from '../../src/components/canvas/schematicShapes';
 import { buildPieces } from '../../src/components/canvas/rocketPieces';
-import { buildAftScene } from '../../src/components/canvas/AftView';
+import { buildAftScene } from '../../src/components/canvas/aftScene';
 import type { TFunction } from 'i18next';
 import { solidForNode } from '../../src/services/exports/solidMesh';
 import { rocketSideView } from '../../src/services/report/reportGeometry';
@@ -23,29 +23,11 @@ import { exportOnshape } from '../../src/services/files/onshapeExport';
 import { exportCdx1 } from '../../src/services/files/rasaeroExport';
 import { fitContextFor } from '../../src/services/parts/componentFit';
 
-/**
- * Every flag that changes a part's shape, against every reader that draws,
- * meshes or measures that shape.
- *
- * A flag the kernel flies but a reader ignores is a part drawn, printed or
- * measured as a different part from the one that flies, and no test of the
- * reader on its own notices, because each was written for the cases its author
- * had in mind. Here each flag is toggled on a fixed part and each reader's
- * output compared: it has to change, or the pair is listed in `UNAFFECTED` with
- * the reason the reader cannot see it.
- *
- * The automatic-radius flags are not here: they change a stored number, which
- * every reader then reads, and geometryParity.kernel.test.ts checks that number
- * against the kernel.
- */
-
 type Reader = (tree: RocketTree, node: ComponentNode) => unknown;
 
-/** Numbers rounded to a micrometer, so float noise is not mistaken for a change. */
 const round = (v: unknown): unknown =>
   typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : Array.isArray(v) ? v.map(round) : v;
 
-/** The geometry-bearing props of a rendered SVG tree, in order. */
 function svgProps(nodes: ReactNode[]): unknown[] {
   const out: unknown[] = [];
   const visit = (n: ReactNode) => {
@@ -61,11 +43,9 @@ function svgProps(nodes: ReactNode[]): unknown[] {
   return out;
 }
 
-/** Vertex positions of a mesh, rounded. */
 const positions = (geo: THREE.BufferGeometry | null | undefined): unknown =>
   geo ? round(Array.from(geo.getAttribute('position').array)) : null;
 
-/** A jsPDF stand-in that records each drawing call, so a template's outline can be compared. */
 function recordingPage(): { page: PdfPage; calls: unknown[] } {
   const calls: unknown[] = [];
   const doc: unknown = new Proxy(
@@ -101,7 +81,6 @@ function recordingPage(): { page: PdfPage; calls: unknown[] } {
   return { page, calls };
 }
 
-/** Every id in a design, depth first. */
 const walkIds = (nodes: ComponentNode[]): string[] =>
   nodes.flatMap((n) => [String(n.id), ...walkIds(n.children ?? [])]);
 
@@ -138,8 +117,6 @@ const READERS: Record<string, Reader> = {
     return calls;
   },
   'printable solid': (_tree, node) => positions(solidForNode(node)),
-  // The print export's own entry point, which sizes a ring or bulkhead from the
-  // part it sits in.
   'print export solid': (tree, node) => positions(solidFor(tree, node)),
   '3D view': (tree, node) =>
     buildPieces(tree)
@@ -149,11 +126,9 @@ const READERS: Record<string, Reader> = {
   'PDF parts table': (tree, node) =>
     round(stageParts(tree.components[0]!, { componentInfo: () => ({ mass: 0 }) }).filter((r) => r.type === node.type)),
   'aft view': (tree) => round(buildAftScene(tree.components, undefined, ((k: string) => k) as unknown as TFunction)),
-  // Every part of the design, so a ring cut to fit inside the flagged part is read too.
   DXF: (tree) => walkIds(tree.components).map((id) => componentToDxf(tree, id)),
   'RockSim export': (tree) => exportRkt('t', tree).xml,
   'Onshape export': (tree) => exportOnshape({ name: 't', tree }),
-  // A design RASAero cannot hold is refused by key; the refusal is the output.
   'RASAero export': (tree) => {
     try {
       return exportCdx1({ name: 't', tree });
@@ -161,16 +136,9 @@ const READERS: Record<string, Reader> = {
       return `refused: ${(e as { key?: string }).key ?? String(e)}`;
     }
   },
-  // The diameters the parts picker offers a part, matched to its neighbors.
   'part fitting': (tree, node) => round(fitContextFor(tree, node.id ?? null)),
 };
 
-/**
- * A flag, the part it is toggled on, and the value it is toggled to. `like`
- * names the single flag whose `UNAFFECTED` reasons hold for a combination too.
- * `reads` is the id of the part the readers measure, when the flag is set on
- * one part to change another; `inPod` puts the part in a pod set.
- */
 interface Flag {
   name: string;
   part: ComponentNode;
@@ -216,31 +184,26 @@ const RING: ComponentNode = {
   position: { method: 'top', offset: 0.1 },
 } as unknown as ComponentNode;
 
-// The Filled checkbox leaves the wall thickness on the part, so each `filled`
-// toggle keeps it: a reader that reads the thickness and ignores the flag must
-// show up here as not reacting.
+// `filled` keeps the wall thickness, as the Filled checkbox does.
 const FLAGS: Flag[] = [
   { name: 'flipped nose cone', part: NOSE, on: { flipped: true } },
   { name: 'filled nose cone', part: NOSE, on: { filled: true } },
   { name: 'filled transition', part: TRANSITION, on: { filled: true } },
   { name: 'filled body tube', part: TUBE, on: { filled: true } },
   { name: 'unclipped transition', part: TRANSITION, on: { clipped: false } },
-  // A centering ring sized to the bore (`RadiusRingComponent.getOuterRadius`
-  // reads the parent's inner radius), which a filled tube does not have.
+  // `RadiusRingComponent.getOuterRadius` reads the parent's bore, which a filled tube lacks.
   {
     name: 'filled body tube holding a ring',
     part: { ...TUBE, children: [RING] } as ComponentNode,
     on: { filled: true },
     reads: 'ring',
   },
-  // A shape parameter, on the one shape of each part that takes one here.
   { name: 'shape parameter on a nose cone', part: NOSE, on: { shapeParameter: 0.5 } },
   {
     name: 'shape parameter on a transition',
     part: { ...TRANSITION, shape: 'power', shapeParameter: 0.5 } as ComponentNode,
     on: { shapeParameter: 0.25 },
   },
-  // The same flags on other shapes, so a reader that handles one shape only shows.
   {
     name: 'flipped conical nose cone',
     part: { ...NOSE, shape: 'conical' } as ComponentNode,
@@ -253,7 +216,6 @@ const FLAGS: Flag[] = [
     on: { clipped: false },
     like: 'unclipped transition',
   },
-  // A flag on a part inside a pod set, which readers reach through the assembly.
   { name: 'flipped nose cone in a pod', part: NOSE, on: { flipped: true }, like: 'flipped nose cone', inPod: true },
   {
     name: 'flipped nose cone in a parallel stage',
@@ -262,7 +224,6 @@ const FLAGS: Flag[] = [
     like: 'flipped nose cone',
     inParallel: true,
   },
-  // The shoulder moves to the fore end with the base.
   {
     name: 'flipped shouldered nose cone',
     part: { ...NOSE, shoulderLength: 0.03, shoulderRadius: 0.023, shoulderThickness: 0.002 } as ComponentNode,
@@ -275,8 +236,6 @@ const FLAGS: Flag[] = [
     on: { clipped: false },
     like: 'unclipped transition',
   },
-  // One flag toggled with another already set: a reader that handles each
-  // alone can still let one mask the other.
   {
     name: 'flipped filled nose cone',
     part: { ...NOSE, filled: true } as ComponentNode,
@@ -303,10 +262,6 @@ const FLAGS: Flag[] = [
   },
 ];
 
-/**
- * Pairs where the reader cannot see the flag, with why. A reader that only
- * draws the outside of a part is not affected by its wall.
- */
 const UNAFFECTED: Record<string, string> = {
   'filled nose cone / station radius': 'outer radius only',
   'filled nose cone / report side view': 'outline only',
@@ -320,8 +275,6 @@ const UNAFFECTED: Record<string, string> = {
   'filled body tube / report side view': 'outline only',
   'filled body tube / report template': 'the template section draws no body tubes',
   'filled body tube / schematic': 'side outline only; walls are not drawn',
-  // The ring's own readers: its outline and its mesh, through the parts that
-  // take a ring.
   'filled body tube holding a ring / printable solid': 'the per-part mesh lathes airframe parts and fins, not rings',
   'filled body tube holding a ring / disc geometry': "reads a tube's radii and bore, and a ring is not a tube",
   'filled body tube holding a ring / report side view': 'outline only',
@@ -330,8 +283,7 @@ const UNAFFECTED: Record<string, string> = {
   'filled nose cone / print export solid': 'printed as a solid of revolution, wall or not',
   'flipped nose cone / print export solid': 'the same part turned round; the printed file is the part itself',
   'filled transition / print export solid': 'printed as a solid of revolution, wall or not',
-  // Desktop's RockSim reader (BodyTubeHandler, TransitionHandler) has no
-  // filled body tube and no clip flag, so the format carries neither.
+  // Desktop's RockSim reader (BodyTubeHandler, TransitionHandler) has neither.
   'filled body tube / RockSim export': 'RockSim has no filled body tube',
   'unclipped transition / RockSim export': 'RockSim has no clip flag',
   ...Object.fromEntries(
@@ -352,8 +304,7 @@ const UNAFFECTED: Record<string, string> = {
   'unclipped transition / disc geometry': 'the ends and the wall, which clipping does not change',
   'unclipped transition / PDF parts table': 'lists the ends and the length, which clipping does not change',
   'flipped filled nose cone / disc geometry': 'a filled part has no bore at either end',
-  // RASAero's parts are outside shapes, and its transitions are cones only
-  // (desktop's TransitionDTO refuses any other shape).
+  // Desktop's TransitionDTO refuses any non-conical transition.
   ...Object.fromEntries(
     ['filled nose cone', 'filled transition', 'filled body tube', 'filled body tube holding a ring'].map((flag) => [
       `${flag} / RASAero export`,
@@ -374,9 +325,7 @@ const UNAFFECTED: Record<string, string> = {
       'a pod set or parallel stage is refused whatever it holds',
     ]),
   ),
-  // The picker matches a part's end diameters to its neighbors' (desktop's
-  // ComponentPresetChooserDialog); a wall, a fill, a clip or a shape parameter
-  // leaves both ends where they were.
+  // As desktop's ComponentPresetChooserDialog, the picker matches end diameters only.
   ...Object.fromEntries(
     [
       'filled nose cone',
@@ -397,14 +346,8 @@ const UNAFFECTED: Record<string, string> = {
   ),
 };
 
-/**
- * Pairs known to ignore a flag they should honor. Each entry states its reason
- * in words; the value lands in the test title, so it carries no audit finding
- * ID. The fix removes the line.
- */
 const KNOWN: Record<string, string> = {};
 
-/** The part where it sits in a real rocket: its chain, nose first. */
 function chainFor(part: ComponentNode, tag = ''): ComponentNode[] {
   const nose = part.type === 'nosecone' ? part : ({ ...NOSE, id: `nose${tag}` } as ComponentNode);
   return part.type === 'nosecone'
@@ -419,10 +362,6 @@ function chainFor(part: ComponentNode, tag = ''): ComponentNode[] {
       : [nose, part];
 }
 
-/**
- * A design holding the part where it sits in a real rocket, or, `inPod`, in
- * the chain of a pod set beside the main body tube.
- */
 function design(part: ComponentNode, inPod = false, inParallel = false): RocketTree {
   const chain =
     inPod || inParallel
@@ -444,11 +383,9 @@ function design(part: ComponentNode, inPod = false, inParallel = false): RocketT
           },
         ]
       : chainFor(part);
-  // Synced as the app holds every design, so automatic radii follow the flag.
   return syncDerived({ components: [{ type: 'stage', id: 'stage', children: chain }] } as unknown as RocketTree);
 }
 
-/** The node a reader measures in a design: the flagged part, or the one `reads` names. */
 const measured = (tree: RocketTree, flag: Flag, part: ComponentNode): ComponentNode =>
   flag.reads ? findIn(tree.components, flag.reads)! : part;
 
@@ -468,9 +405,6 @@ describe('every shape flag reaches every reader', () => {
     for (const [reader, read] of Object.entries(READERS)) {
       const pair = `${flag.name} / ${reader}`;
       const reason = UNAFFECTED[pair] ?? (flag.like ? UNAFFECTED[`${flag.like} / ${reader}`] : undefined);
-      // Listed as unaffected: the reader must still not react, or the reason
-      // no longer holds. Listed as known: still ignored until the fix, which
-      // removes the line. Otherwise the reader has to react.
       const expected = reason === undefined && !(pair in KNOWN);
       it(`${pair}: ${expected ? 'reacts' : (reason ?? `ignored, ${KNOWN[pair]}`)}`, () => {
         const read2 = (part: ComponentNode) => {
@@ -483,15 +417,6 @@ describe('every shape flag reaches every reader', () => {
   }
 });
 
-/**
- * A fin set standing on the flagged part, against every reader that places,
- * draws or cuts a fin. A fin's root runs along its parent's profile and its tab
- * starts at the body surface (`FinSet.getRootPoints`, `getTabPoints`), so a
- * flag that changes the parent's profile changes the fin each reader outputs.
- *
- * The fin's tab is shallower than the body, so a reader that only clamps the
- * tab to the parent's radius, and otherwise cuts a flat root, does not react.
- */
 const FIN: ComponentNode = {
   type: 'freeformfinset',
   id: 'fins',
@@ -509,7 +434,6 @@ const FIN: ComponentNode = {
   position: { method: 'top', offset: 0.01 },
 } as unknown as ComponentNode;
 
-/** The fin set's node in a design. */
 const finIn = (tree: RocketTree): ComponentNode => {
   const walk = (nodes: ComponentNode[]): ComponentNode | undefined => {
     for (const n of nodes) {
@@ -522,7 +446,7 @@ const finIn = (tree: RocketTree): ComponentNode => {
   return walk(tree.components)!;
 };
 
-/** The 2D schematic of a design's first stage, at 1 px per mm. */
+/** 1 px per mm. */
 const schematicOf = (tree: RocketTree) =>
   buildSchematicShapes({
     chain: tree.components[0]!.children ?? [],
@@ -535,16 +459,11 @@ const schematicOf = (tree: RocketTree) =>
     setHoverId: () => {},
   });
 
-/** The `points` of every polygon in a rendered SVG list: the fins and their tabs. */
 const polygonPoints = (nodes: ReactNode[]): unknown[] =>
   nodes
     .filter((n): n is ReactElement<{ points: unknown }> => isValidElement(n) && n.type === 'polygon')
     .map((n) => n.props.points);
 
-/**
- * Readers of one fin set: every reader that places, draws or cuts it, each
- * returning only that fin's geometry.
- */
 const FIN_READERS: Record<string, Reader> = {
   'schematic fins': (tree) => {
     const { shapes, overlay, extents } = schematicOf(tree);
@@ -589,8 +508,7 @@ const FIN_FLAGS: Flag[] = [
     on: { filled: true },
   },
   { name: 'fins on a filled body tube', part: { ...TUBE, children: [FIN] } as ComponentNode, on: { filled: true } },
-  // A flag on the fin set itself: the cant turns each fin about the middle of
-  // its root (`FinSet.getCantRotation`), and its root drops to stay on the body.
+  // The cant turns each fin about its root midpoint (`FinSet.getCantRotation`).
   {
     name: 'canted fins on a body tube',
     part: { ...TUBE, children: [FIN] } as ComponentNode,
@@ -602,7 +520,6 @@ const FIN_FLAGS: Flag[] = [
     on: { children: [{ ...FIN, cant: -0.1 }] },
     like: 'canted fins on a body tube',
   },
-  // One flag toggled with another already set on the parent.
   {
     name: 'fins on a flipped filled nose cone',
     part: { ...NOSE, filled: true, children: [FIN] } as ComponentNode,
@@ -629,36 +546,23 @@ const FIN_FLAGS: Flag[] = [
   },
 ];
 
-/**
- * A fin stands on its parent's outer surface (`FinSet.getRootPoints` reads
- * `SymmetricComponent.getRadius`), and its tab is cut at most as deep as the
- * outer radius (`getMaxTabHeight`), so filling the parent changes no fin.
- */
+// `FinSet.getRootPoints` and `getMaxTabHeight` read only the parent's outer radius.
 const FILL_REASON = 'a fin stands on the outer surface, which filling does not move';
 
-/** Fin pairs where the reader cannot see the flag, with why. */
 const FIN_UNAFFECTED: Record<string, string> = {
   ...Object.fromEntries(
     ['fins on a filled nose cone', 'fins on a filled transition', 'fins on a filled body tube'].flatMap((flag) =>
       Object.keys(FIN_READERS).map((reader) => [`${flag} / ${reader}`, FILL_REASON]),
     ),
   ),
-  // `FreeformFinSet.getSpan` is the outline's height less a trailing point
-  // below the root. This transition widens aft, clipped or not, so the trailing
-  // point moved onto it stays above the root and under the outline's peak.
+  // `FreeformFinSet.getSpan` subtracts only a trailing point below the root.
   'fins on an unclipped transition / fin parts table':
     'the trailing point stays above the root on a widening transition',
-  // The tab's depth limit is the parent's radius at the tab's two ends
-  // (`FinSet.getMaxTabHeight`), which the cant does not move.
   'canted fins on a body tube / fin tab limit': "the parent's radius at the tab ends, which the cant does not move",
   'canted fins on a body tube / fin tab auto': 'sized from the mount and its rings, which the cant does not move',
   'canted fins on a body tube / fin parts table': "lists the fin's dimensions, which the cant does not change",
 };
 
-/**
- * Fin pairs known to ignore a flag they should honor. Each entry states its
- * reason in words; the fix removes the line.
- */
 const FIN_KNOWN: Record<string, string> = {};
 
 describe('every shape flag on the part a fin set stands on reaches every fin reader', () => {
@@ -682,7 +586,7 @@ describe('every shape flag on the part a fin set stands on reaches every fin rea
 });
 
 describe('a filled body tube has no bore', () => {
-  /** The smallest distance of any vertex from the rocket axis (+X). */
+  /** Smallest vertex distance from the rocket axis (+X). */
   const minRadius = (geo: THREE.BufferGeometry | null | undefined): number => {
     const p = geo!.getAttribute('position');
     let min = Infinity;

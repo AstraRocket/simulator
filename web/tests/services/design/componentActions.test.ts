@@ -14,15 +14,8 @@ import {
 import { clusterOffsets } from '../../../src/tree/cluster';
 import { trapezoidFinPoints } from '../../../src/tree/finPlanform';
 
-/**
- * The config-dialog buttons that change the tree: Convert to freeform, the three
- * Splits, and the cluster Reset. Each replaces the part being edited, so what
- * matters is what survives the replacement and where the pieces land.
- */
-
 const node = (o: Record<string, unknown>): ComponentNode => o as unknown as ComponentNode;
 
-/** A stage holding one body tube, with `kids` inside it. */
 const rocket = (kids: ComponentNode[]): RocketTree =>
   ({
     name: 'R',
@@ -63,7 +56,6 @@ describe('convert to freeform', () => {
   it('is offered for a trapezoid and an elliptical fin set, and nothing else', () => {
     expect(canConvertToFreeform(fins())).toBe(true);
     expect(canConvertToFreeform(node({ type: 'ellipticalfinset' }))).toBe(true);
-    // A freeform fin already is one, and a tube fin set has no planform.
     expect(canConvertToFreeform(node({ type: 'freeformfinset' }))).toBe(false);
     expect(canConvertToFreeform(node({ type: 'tubefinset' }))).toBe(false);
     expect(canConvertToFreeform(node({ type: 'bodytube' }))).toBe(false);
@@ -77,7 +69,6 @@ describe('convert to freeform', () => {
 
   it('drops the four dimensions the outline now describes', () => {
     const out = kids(convertToFreeform(rocket([fins()]), 'fins'))[0]!;
-    // Two descriptions of one shape, with nothing keeping them in step.
     for (const k of ['rootChord', 'tipChord', 'sweep', 'height']) expect(out[k]).toBeUndefined();
   });
 
@@ -91,7 +82,6 @@ describe('convert to freeform', () => {
     expect(out['filletRadius']).toBe(0.002);
     expect(out['materialName']).toBe('Plywood (birch)');
     expect(out['comment']).toBe('keep me');
-    // Same part, so the selection and anything naming it survive.
     expect(out.id).toBe('fins');
   });
 
@@ -105,11 +95,9 @@ describe('convert to freeform', () => {
 describe('split fins', () => {
   it('counts the fins, and refuses a single one', () => {
     expect(splitCount(fins())).toBe(3);
-    // A split makes one node per instance, so it stops at the same ceiling.
     expect(splitCount(fins({ finCount: 100000 }))).toBe(MAX_INSTANCE_COUNT);
     expect(canSplit(fins())).toBe(true);
     expect(canSplit(fins({ finCount: 1 }))).toBe(false);
-    // Not a splittable type at all.
     expect(canSplit(node({ type: 'bodytube', instanceCount: 3 }))).toBe(false);
   });
 
@@ -127,14 +115,13 @@ describe('split fins', () => {
   });
 
   it('divides an override mass between them', () => {
-    // 30 g was a figure for the whole set, not for one fin.
     const out = kids(splitInstances(rocket([fins({ overrideMass: 0.03 })]), 'fins', 'Fins'));
     expect(out.map((n) => n['overrideMass'])).toEqual([0.01, 0.01, 0.01]);
   });
 
   it('gives every copy but the first a fresh id', () => {
     const out = kids(splitInstances(rocket([fins()]), 'fins', 'Fins'));
-    expect(out[0]!.id).toBe('fins'); // keeps the selection
+    expect(out[0]!.id).toBe('fins');
     expect(new Set(out.map((n) => n.id)).size).toBe(3);
   });
 
@@ -194,14 +181,11 @@ describe('split cluster', () => {
     const want = clusterOffsets('4-ring', 0.0095, 1, 0);
     out.forEach((n, i) => {
       const { y, z } = want[i]!;
-      // Stated as a distance and a direction, the way the file carries it.
       expect(n['radialPosition'] as number).toBeCloseTo(Math.hypot(y, z), 12);
       expect(n['radialDirection'] as number).toBeCloseTo(Math.atan2(z, y), 12);
     });
   });
 
-  // A mount with no radius key flies at the kernel's inner tube default, so its
-  // tubes are spaced from that, not stacked at the center.
   it('spaces a mount with no radius key from the kernel default', () => {
     const keyless = tube();
     delete (keyless as Record<string, unknown>)['outerRadius'];
@@ -214,8 +198,7 @@ describe('split cluster', () => {
   });
 
   it('keeps an off-center cluster off center', () => {
-    // The kernel rotates the pattern by clusterRotation - radialDirection and
-    // then adds the tube's own offset, so the tubes stay where they were drawn.
+    // The kernel rotates by clusterRotation - radialDirection, then adds the tube's own offset.
     const out = kids(splitCluster(rocket([tube({ radialPosition: 0.005, radialDirection: 0 })]), 'mount', 'Mount'));
     const want = clusterOffsets('4-ring', 0.0095, 1, 0);
     out.forEach((n, i) => {
@@ -231,7 +214,6 @@ describe('split cluster', () => {
   });
 
   it('duplicates what was attached, with fresh ids', () => {
-    // The warning on the desktop's own tooltip: four tubes, four engine blocks.
     const out = kids(splitCluster(rocket([tube()]), 'mount', 'Mount'));
     const blocks = out.flatMap((n) => (n.children ?? []) as ComponentNode[]);
     expect(blocks.map((b) => b.type)).toEqual(['engineblock', 'engineblock', 'engineblock', 'engineblock']);

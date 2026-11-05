@@ -1,29 +1,4 @@
-// Help with the network switched off, against a real build and a real worker.
-//
-//   npm run e2e:offline-help
-//
-// The Playwright suite never takes the network away from a worker-controlled
-// page, so nothing in it can see whether Help actually works at a launch site
-// with no signal. That is the reason the docs are built into the app rather
-// than only published, so it is worth a check of its own.
-//
-// Three things are proven here. The first two are cached by different
-// mechanisms:
-//
-//  1. The in-app Help dialog opens a page nobody has read, offline. It asks for
-//     `docs/<slug>/index.html`, which is the key Workbox precaches each page
-//     under, so every page is available from the first install onward. This is
-//     the promise the feature is for.
-//
-//  2. Navigating straight to a docs URL still works offline for a page already
-//     visited. Those requests go to `docs/<slug>/`, which the precache does not
-//     answer (`directoryIndex` is off, see vite.config.ts), so they are covered
-//     by the `astra-docs` runtimeCaching rule instead.
-//
-//  3. The Help dialog's search builds its index offline, from the precache.
-//
-// Needs web/public/docs to exist: `npm run docs:build` first, which the deploy
-// does for itself. Exit 0 on success, 1 with the failing step named.
+// The precache answers only `docs/<slug>/index.html` (`directoryIndex` is off); `docs/<slug>/` needs a prior visit.
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -36,19 +11,11 @@ const DOCS = resolve(WEB, 'public/docs/index.html');
 const OUT = 'dist-offline-check';
 const PORT = 4181;
 const URL_ = `http://localhost:${PORT}/`;
-// The app settings blob (services/storage/settings.ts); the same key e2e/base.ts
-// seeds. Spelled out because this is a plain .mjs harness with no TS loader, so it
-// cannot import STORAGE_PREFIX. A mismatch is self-detecting: the app would come up
-// without settings and the check below would fail.
+// Must match services/storage/settings.ts; this .mjs cannot import TS.
 const SETTINGS_KEY = 'astrarocket:settings:v1';
 
-// Pages nobody opens before going offline. The first is read through the
-// dialog, the second by navigating at it directly.
 const UNREAD_PAGE = { menuItem: 'Safety', heading: 'Safety' };
 const DIRECT_PAGE = 'docs/motors/';
-// A search run with the network off. It has to reach pages nobody opened, so
-// the term is one that appears across the guide rather than on the page the
-// dialog happens to be showing.
 const SEARCH = { query: 'ejection delay', match: /Ejection delay/ };
 
 const log = (...a) => console.log('[offline-help]', ...a);
@@ -86,8 +53,6 @@ async function main() {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    // A fresh profile gets the pre-release "work in progress" modal, whose
-    // backdrop would swallow the click on the menu.
     await page.addInitScript((key) => {
       let stored = {};
       try {
@@ -135,8 +100,6 @@ async function main() {
     await step(`offline, Help opens "${UNREAD_PAGE.heading}", a page never read`, async () => {
       await page.getByRole('button', { name: 'Menu' }).click();
       await page.getByRole('menuitem', { name: UNREAD_PAGE.menuItem }).click();
-      // The article inside the frame, not the dialog heading: this has to fail
-      // if the frame came up on the "open it online" fallback instead.
       const article = page.frameLocator('iframe[title="Help"]').locator('article h1');
       await article.waitFor({ timeout: 30_000 });
       const text = (await article.textContent())?.trim();
@@ -150,10 +113,7 @@ async function main() {
       const rows = dialog.getByRole('button', { name: SEARCH.match });
       await rows.first().waitFor({ timeout: 30_000 });
 
-      // The index is one fetch per page, and every one of them is answered by
-      // the precache or not at all. A page the worker does not hold would show
-      // up here as a failed request rather than as a shorter list, which is the
-      // difference between search being offline and merely looking offline.
+      // A page missing from the precache shows up as a failed request, not a shorter list.
       const broke = failed.slice(before).filter((r) => r.includes('/docs/'));
       if (broke.length) throw new Error(`docs requests failed offline: ${broke.join(', ')}`);
 
@@ -165,8 +125,7 @@ async function main() {
 
     await step(`offline, ${DIRECT_PAGE} still loads by direct navigation`, async () => {
       await page.goto(URL_ + DIRECT_PAGE, { waitUntil: 'commit' }).catch((e) => {
-        // A navigation while offline can reject at the navigation layer even
-        // when the worker answered it; what rendered is what matters.
+        // Offline navigation can reject even when the worker answered it.
         log('navigation while offline:', String(e.message).split(/\r?\n/)[0]);
       });
       await page.locator('article h1').waitFor({ timeout: 30_000 });

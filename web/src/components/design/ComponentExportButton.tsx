@@ -7,7 +7,6 @@ import { useMenuPopover } from '../common/useMenuPopover';
 import { useCapability } from '../common/useMediaQuery';
 import type { Capability } from '../../services/app/capabilities';
 
-/** The capability behind each format (services/app/capabilities.ts). */
 const CAPABILITY: Record<ExportFormat, Capability> = {
   stl: 'export:part:stl',
   obj: 'export:part:obj',
@@ -24,16 +23,6 @@ const LABEL: Record<ExportFormat, string> = {
   dxf: 'file.dxf',
 };
 
-/**
- * Per-component export affordance for a tree row: a small ⬇ button that drops
- * the formats this component supports (`componentFormats`: a nose cone or a
- * launch lug offers the mesh formats; a fin set, a centering ring or a bulkhead
- * offers the mesh formats and DXF). Renders nothing for parts with no
- * exportable object (parachute, streamer, shock cord, mass component, rail
- * button), so export sits only with the parts that can produce one. Each
- * format is a capability, so a phone or tablet offers only the ones
- * services/app/capabilities.ts allows it (GLB).
- */
 export function ComponentExportButton({ node, tabIndex }: { node: ComponentNode; tabIndex?: number }) {
   const { t } = useTranslation();
   const exportComponent = useWorkspaceStore((s) => s.exportComponent);

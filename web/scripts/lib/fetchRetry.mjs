@@ -1,10 +1,3 @@
-// Retry a request while the server says it is unavailable.
-//
-// ThrustCurve.org answers 503 during short outages, which would otherwise fail
-// a scheduled catalog sync outright. A 429 or 5xx, or a request that never reached
-// the server, is tried again after each delay in turn; any other status is
-// returned to the caller at once, since asking again cannot change it.
-
 const RETRY_DELAYS_MS = [15_000, 60_000, 180_000];
 
 const retryable = (status) => status === 429 || status >= 500;

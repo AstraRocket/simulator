@@ -9,13 +9,6 @@ import { useGroundLayer } from './useTileVerdict';
 import { useElementResize } from '../useElementResize';
 import { token } from '../colorTokens';
 
-/**
- * The landing estimate seen from above: the pad at the center, north up, the
- * descent's drift, where it lands, every dispersion landing as a dot and the
- * two-sigma zone around them, with range rings for scale. Imagery under it is
- * the ground track's: off until asked for, the same None / Satellite / Street
- * choice, remembered across both.
- */
 export function LandingMap({
   latitudeDeg,
   longitudeDeg,
@@ -31,7 +24,6 @@ export function LandingMap({
   landing: GroundPoint;
   samples: readonly GroundPoint[];
   ellipse: DriftEllipse | null;
-  /** The unit the host reads this landing's distance in, so the rings agree with it. */
   distanceUnit: FieldUnit;
 }) {
   const { t } = useTranslation();
@@ -42,7 +34,6 @@ export function LandingMap({
   useElementResize(fitRef, (r) => setSize(Math.max(240, Math.min(r.width, 640))));
 
   const zone = useMemo(() => (ellipse ? ellipsePolygon(ellipse) : []), [ellipse]);
-  // The ground track's framing rule, so both plan views size a flight alike.
   const extent = useMemo(
     () => trackExtent([], [...path, ...samples, ...zone, landing]),
     [path, samples, zone, landing],

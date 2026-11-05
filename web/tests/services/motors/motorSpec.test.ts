@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { samplesToMotorSpec, catalogMotorSpec } from '../../../src/services/motors/motorSpec';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
-
-// samplesToMotorSpec's metadata param is module-internal; build a shaped literal.
 const motor = (over: Record<string, unknown> = {}) =>
   ({
     designation: 'C6',
@@ -40,8 +38,8 @@ describe('samplesToMotorSpec', () => {
       ],
       0,
     );
-    expect(spec.masses[0]).toBeCloseTo(0.02, 9); // loaded mass
-    expect(spec.masses[spec.masses.length - 1]).toBeCloseTo(0.01, 9); // loaded − prop
+    expect(spec.masses[0]).toBeCloseTo(0.02, 9);
+    expect(spec.masses[spec.masses.length - 1]).toBeCloseTo(0.01, 9);
   });
 
   it('prepends a {0,0} sample when the curve does not start at t=0', () => {
@@ -184,7 +182,7 @@ describe('catalogMotorSpec: bundled catalog motor', () => {
   it('builds a MotorSpec entirely from bundled data: no thrustcurve.org fetch', async () => {
     const spec = await catalogMotorSpec(bundled, 5);
     expect(spec.designation).toBe('C6');
-    expect(spec.diameter).toBeCloseTo(0.018, 9); // mm → m
+    expect(spec.diameter).toBeCloseTo(0.018, 9);
     expect(spec.length).toBeCloseTo(0.07, 9);
     expect(spec.ejectionDelay).toBe(5);
     expect(spec.times[0]).toBe(0);
@@ -242,12 +240,6 @@ describe('catalogMotorSpec: bundled catalog motor', () => {
     expect(second.thrusts).toContain(40);
   });
 });
-
-/**
- * The sync asks thrustcurve.org for every motor's curve files, and the pick-time
- * lookup asked the same endpoint the same question, so a motor the sync found
- * no curve for has none to fetch. It is refused, and nothing reaches the network.
- */
 describe('catalogMotorSpec: catalog motor with no bundled curve', () => {
   afterEach(() => vi.unstubAllGlobals());
 

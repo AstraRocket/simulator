@@ -1,8 +1,5 @@
-import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import info.openrocket.core.database.ComponentPresetDao;
-import info.openrocket.core.database.ComponentPresetDatabase;
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.simulation.FlightData;
@@ -32,32 +29,17 @@ import java.io.File;
  * that resolved and the digest it resolved to, every simulation with the status
  * the loader gave it, and then the loader's own warning set. Exit code 1 if
  * there are any warnings, so this can gate a change.
- *
- * WIRING. `CoreModule` builds its own database loaders and only starts them when
- * asked, and the preset database cannot be built before `Application.setInjector`
- * because loading a `.orc` reaches back through it for the material database. So
- * the injector is created first with the preset DAO bound to a provider that
- * reads a field, and the field is filled after `startLoader()`.
  */
 public class OrkCheck {
-    static ComponentPresetDatabase presets;
-
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.err.println("usage: OrkCheck <file.ork|file.rkt> [...]");
             System.exit(2);
         }
-        com.google.inject.Module wiring = new AbstractModule() {
-            @Override
-            protected void configure() {
-                bind(ComponentPresetDao.class).toProvider(() -> presets);
-            }
-        };
         CoreModule core = new CoreModule();
-        Injector injector = Guice.createInjector(core, new PluginModule(), wiring);
+        Injector injector = Guice.createInjector(core, new PluginModule());
         Application.setInjector(injector);
         core.startLoader();
-        presets = injector.getInstance(ComponentPresetDatabase.class);
 
         int failed = 0;
         for (String path : args) {

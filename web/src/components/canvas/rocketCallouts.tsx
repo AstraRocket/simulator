@@ -1,26 +1,14 @@
+import { must } from '../../services/app/must';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Line } from '@react-three/drei';
 
-/**
- * Owns the annotation primitives of the 3D view: the OpenRocket-style CG/CP
- * marker texture, the billboard label texture and sprite, and the on-axis
- * callout (marker + dashed leader + label). Scene components only; the
- * stability-specific CP row is an AxisCallout composed in StabilityCallout.tsx.
- */
-
-/**
- * OpenRocket-style CG/CP symbol as a billboard texture: a quartered circle
- * (two opposite quadrants in `color`, two in `light`) with a colored rim.
- * Drawn to a canvas so a <sprite> can always face the camera instead of a 3D
- * ball. `light` is the scene's own light ink.
- */
 export function markerTexture(color: string, light: string): THREE.CanvasTexture {
   const s = 128;
   const cvs = document.createElement('canvas');
   cvs.width = s;
   cvs.height = s;
-  const ctx = cvs.getContext('2d')!;
+  const ctx = must(cvs.getContext('2d'), 'canvas 2D context');
   const cx = s / 2,
     cy = s / 2,
     r = s / 2 - 6;
@@ -46,21 +34,16 @@ export function markerTexture(color: string, light: string): THREE.CanvasTexture
   return tex;
 }
 
-/**
- * Canvas-texture for a billboard label. Drawn at 3× the nominal glyph size so
- * it stays devicePixel-sharp when zoomed; the thin dark outline keeps the ink
- * legible over a light background.
- */
 function labelTexture(text: string, color: string): { texture: THREE.CanvasTexture; aspect: number } {
   const px = 96;
   const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
+  const ctx = must(canvas.getContext('2d'), 'canvas 2D context');
   const font = `700 ${px}px system-ui, 'Segoe UI', sans-serif`;
   ctx.font = font;
   const w = Math.ceil(ctx.measureText(text).width + px * 0.3);
   const h = Math.ceil(px * 1.25);
   canvas.width = w;
-  canvas.height = h; // resizing resets the 2D context state; restyle below
+  canvas.height = h; // resizing resets the 2D context state
   ctx.font = font;
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
@@ -74,14 +57,7 @@ function labelTexture(text: string, color: string): { texture: THREE.CanvasTextu
   return { texture, aspect: w / h };
 }
 
-/**
- * Billboard text beside an axis marker. The sprite `center` shifts it in
- * screen space by `gap` (world units), so every label hangs the same distance
- * from its anchor at any camera angle; a world-space offset would swing
- * around with the orbit. `place` splits the labels vertically (CG above, CP
- * below by default): CG and CP sit almost on one station when the margin is
- * small, the case that matters most, and labels hung to one side would pile up.
- */
+// Offset via sprite `center` (screen space): a world-space offset would swing with the orbit.
 function CalloutLabel({
   text,
   color,
@@ -118,11 +94,6 @@ function CalloutLabel({
   );
 }
 
-/**
- * CG/CP callout with 2D semantics: a small quartered-circle marker on the axis
- * station, a dashed leader out past the rocket (CG up, CP down), and the label
- * in the clear at the leader's end. Mirrors TreeSchematic's leader-line lanes.
- */
 export function AxisCallout({
   x,
   dir,
@@ -138,21 +109,17 @@ export function AxisCallout({
 }: {
   x: number;
   dir: 1 | -1;
-  /** The leader's ink, and the label's unless `labelColor` is given. */
   color: string;
   tex: THREE.Texture;
-  /** The label text; omitted draws the marker and leader alone. */
   label: string | undefined;
   len: number;
   markerR: number;
   labelColor?: string;
-  /** Which side of the leader's end the label hangs; defaults to past the end. */
   place?: 'right' | 'left' | 'above' | 'below';
   dashSize?: number;
   gapSize?: number;
 }) {
-  // drei's Line rebuilds its geometry whenever `points` changes identity, so
-  // the leader is memoized rather than written as a literal per render.
+  // drei's Line rebuilds its geometry whenever `points` changes identity.
   const { end, points } = useMemo(() => {
     const e: [number, number, number] = [x, dir * len, 0];
     return { end: e, points: [[x, 0, 0] as [number, number, number], e] };

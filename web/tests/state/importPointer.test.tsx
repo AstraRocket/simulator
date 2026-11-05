@@ -6,8 +6,6 @@ vi.mock('../../src/engine/simClient', () => ({ warmSimWorker: vi.fn() }));
 vi.mock('../../src/services/storage/persistStorage', () => ({
   requestPersistentStorage: vi.fn(() => Promise.resolve(true)),
 }));
-// The kernel build and the motor catalog are not what is under test, and the
-// fixture carries no motors.
 vi.mock('../../src/engine/openRocketEngine', async (original) => ({
   ...(await original<typeof import('../../src/engine/openRocketEngine')>()),
   OpenRocketDesign: {
@@ -34,16 +32,9 @@ import { nsKey } from '../../src/services/storage/storageKeys';
 import { renderWithProviders } from '../testing/renderWithProviders';
 import { useConfirmStore } from '../../src/state/confirmStore';
 
-/**
- * An import that ends without replacing the design on screen, while an open it
- * superseded has already named its own design active. The library must name
- * the design on screen again, or the next boot opens one nobody was looking at.
- */
-
 const designKey = (id: string) => nsKey(`designs:${id}`);
 const ACTIVE = nsKey('designs:active');
 
-/** In-memory storage that can hold one read open and refuse one write. */
 class TestKv implements KeyValueStore {
   map = new Map<string, string>();
   private held: { key: string; skip: number; reached: () => void; release?: () => void } | null = null;
@@ -56,7 +47,6 @@ class TestKv implements KeyValueStore {
     this.held = h;
     return { reached: whenReached, release: () => h.release!() };
   }
-  /** Refuse the next write to `key`, as a full store does. */
   refuseNext(key: string) {
     this.refuse = key;
   }
@@ -91,7 +81,6 @@ class TestKv implements KeyValueStore {
   }
 }
 
-/** A desktop file whose rocket is named like the design on screen. */
 const orkNamed = (name: string) => `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="OpenRocket 24.12">
   <rocket>
@@ -154,9 +143,7 @@ afterEach(() => {
   setDesignLibrary(original);
 });
 
-/** Start opening B and stop inside its read, after it has named B active. */
 async function openBHeld() {
-  // The first read of B is openDesign's own check; the second is the open.
   const held = kv.hold(designKey(b), 1);
   const opening = s().openDesign(b);
   await held.reached;
@@ -167,7 +154,6 @@ async function openBHeld() {
 describe('an import that ends without replacing the design on screen', () => {
   it('points the library back at it when the import is abandoned', async () => {
     const { opening, release } = await openBHeld();
-    // Overwrite the clashing design, and storage refuses the pointer write.
     const answer = useConfirmStore.subscribe((st) => {
       if (st.request) useConfirmStore.getState().settle(true);
     });
@@ -180,7 +166,6 @@ describe('an import that ends without replacing the design on screen', () => {
     } finally {
       answer();
     }
-    // The refusal is what abandoned it.
     expect(s().storageWarning).toBeTruthy();
     release();
     await act(async () => {

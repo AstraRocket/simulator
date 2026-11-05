@@ -6,11 +6,6 @@ import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 
-/**
- * The warning count on a row is the only pointer to what a run flagged. It has
- * to be reachable from a keyboard and readable by a screen reader, not a
- * tooltip on a span.
- */
 describe('SimulationsTable warning count', () => {
   it('is a button that opens the results and describes each warning', () => {
     const s = useWorkspaceStore.getState();
@@ -61,8 +56,7 @@ describe('SimulationsTable warning count', () => {
 
 describe('SimulationsPane run-table export', () => {
   it('is named for what it does, not for its arrow glyph', async () => {
-    // jsdom has no matchMedia; answer "desktop", where the editor is a column of
-    // its own and the pane is the toolbar and the table.
+    // jsdom has no matchMedia; answer "desktop".
     window.matchMedia = ((query: string) => ({
       matches: true,
       media: query,
@@ -79,7 +73,6 @@ describe('SimulationsPane run-table export', () => {
   });
 });
 
-/** The time columns name their unit in the reader's language, as the rest of the app does. */
 describe('SimulationsTable time columns', () => {
   it('name seconds through the translated unit', async () => {
     const { default: i18n } = await import('../../../src/i18n');

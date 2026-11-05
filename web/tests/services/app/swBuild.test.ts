@@ -1,14 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { askBuild, isNewerBuild, waitingIsNewer } from '../../../src/services/app/swBuild';
 
-/**
- * The page takes up a waiting service worker only when it is a newer build.
- * A browser reports any differing sw.js as waiting, older included, and after a
- * deploy the CDN can serve the previous one; applying that reloads into the old
- * build, which finds the new one again, and the page cycles.
- */
-
-/** A stand-in worker that answers the build question with `reply`, or never. */
 const worker = (reply?: unknown) =>
   ({
     postMessage: (_msg: unknown, ports: MessagePort[]) => {
@@ -66,8 +58,6 @@ describe('waitingIsNewer', () => {
     expect(await waitingIsNewer(reg(worker({ build: 500 }), worker({ build: 1000 })))).toBe(false);
   });
 
-  // A current active worker slow to wake misses the first question. Taking it
-  // for a pre-feature build would let a stale older copy in the waiting slot in.
   it('asks a silent active worker again before taking it for an old build', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     let asked = 0;
@@ -77,7 +67,6 @@ describe('waitingIsNewer', () => {
       },
     } as unknown as ServiceWorker;
     const pending = waitingIsNewer(reg(worker({ build: 500 }), slow));
-    // The waiting worker's answer arrives over the real message channel first.
     await new Promise((r) => setImmediate(r));
     await vi.advanceTimersByTimeAsync(3_000);
     await vi.waitFor(() => expect(asked).toBe(2));

@@ -11,7 +11,6 @@ import { C6 } from '../../src/engine/api';
 
 const s = () => useWorkspaceStore.getState();
 
-/** Freeze everything an undo entry can share with live state, all the way down. */
 function deepFreeze<T>(v: T): T {
   if (v && typeof v === 'object' && !Object.isFrozen(v)) {
     Object.freeze(v);
@@ -30,12 +29,6 @@ const freezeWorkspace = () => {
 
 beforeEach(() => s().resetWorkspace());
 
-/**
- * Undo entries hold the state they recorded by reference. That is only sound
- * while no action edits state in place, so this drives every recording action
- * over frozen state: an in-place write throws here (modules are strict) instead
- * of silently rewriting history.
- */
 describe('undo history shares state by reference', () => {
   it('restores the very tree an edit replaced', () => {
     const before = s().tree;
@@ -115,9 +108,6 @@ describe('updateDesignMeta', () => {
     s().undo();
     const tree = s().tree;
     const past = s().past.length;
-    // What the Rocket-configuration dialog sends on OK when nothing was edited:
-    // every field as the tree holds it, and the design type the dialog
-    // defaults an absent one to.
     s().updateDesignMeta({
       name: tree.name,
       designer: tree.designer,
@@ -185,16 +175,10 @@ describe('patchActiveLaunch', () => {
   });
 });
 
-/**
- * A discrete change is its own undo step, closing any field edit still open
- * first (`recordStep`), as every other atomic action does. Folded into the open
- * edit, Undo after renaming the design would also revert the half-typed value
- * in another field.
- */
 describe('an atomic change beside an open field edit', () => {
   it('renaming the design leaves the open edit its own step', () => {
     s().setSelectedId('nose');
-    s().patchSelected({ length: 0.31 }); // a field still being typed in: no commit
+    s().patchSelected({ length: 0.31 }); // no commit
     s().updateDesignMeta({ name: 'Renamed' });
     s().undo();
     expect(s().tree.name).not.toBe('Renamed');

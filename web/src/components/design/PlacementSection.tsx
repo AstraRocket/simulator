@@ -13,32 +13,18 @@ import { axialFrameOf, rebasePosition } from '../../tree/axialRebase';
 import { axialLength } from '../../tree/position';
 import { positionOf } from '../../tree/nodeProps';
 
-/**
- * The property panel's placement section: where a nested part sits, as
- * against what shape it is. Along the parent tube (the reference method and
- * the offset from it), and around it (the rotation, for the parts that have
- * one).
- *
- * The rotation belongs here, not in the dimension list, so a lug's "Angle around
- * body" and a fin set's "Base rotation" sit in the same section. They are one
- * kernel property: `FinSet.getBaseRotation()` returns `getAngleOffset()`.
- */
-
-/** Placement: only meaningful for parts nested inside a tube. */
+// Rotation lives here: `FinSet.getBaseRotation()` is `getAngleOffset()`, one kernel property.
 export function PlacementSection({ node, onChange, onCommit }: NodeEditProps) {
   const { t } = useTranslation();
   const u = useUnits();
-  // The placement offset carries its own unit, like the override rows.
   const offsetScope = unitScope('prop', node.type, PANEL_SCOPE_KEYS[2]);
   const offsetUnit = u.at(offsetScope, 'length');
-  // As the kernel places it: a part with no position keeps its constructor's.
   const pos = positionOf(node);
   const commitChange = commitWith(onChange, onCommit);
 
   const rotations = sectionFields(node, 'placement');
 
-  // A new reference keeps the part where it is, as the kernel's
-  // setAxialMethod does: the offset is re-measured, not carried over.
+  // The offset is re-measured so the part stays put, as setAxialMethod does.
   const changeMethod = (method: ComponentPosition['method']) => {
     const tree = useWorkspaceStore.getState().tree;
     const parent = node.id ? findParent(tree, node.id) : null;
@@ -69,8 +55,7 @@ export function PlacementSection({ node, onChange, onCommit }: NodeEditProps) {
         unit={<UnitChip quantity="length" scope={offsetScope} />}
         value={offsetUnit.toUi(pos.offset)}
         step={offsetUnit.step(0.001)}
-        // A negative offset is legal (a part sitting proud of its parent);
-        // the bound is in the field's unit so it doesn't shrink in inches.
+        // Negative is legal; the bound is converted so it holds in inches.
         min={-offsetUnit.toUi(100)}
         onChange={onSi(offsetUnit, (si) => si !== null && onChange({ position: { ...pos, offset: si } }))}
         onCommit={onCommit}

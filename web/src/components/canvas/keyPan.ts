@@ -1,18 +1,9 @@
 import type { KeyboardEvent } from 'react';
 import type { ZoomState } from '../../tree/schematicGeometry';
 
-/** The fraction of the view one arrow press moves it; Shift moves five times as far. */
-const STEP = 0.1;
+const STEP = 0.1; // fraction of the view
 
-/**
- * Pan a zoomed view from the keyboard: the arrows bring the part of the drawing
- * on that side into view, the way a drag toward the other side would. `span` is
- * the view's width in its own (viewBox) units.
- *
- * Returns null for a key that is not a pan or a view that is not zoomed in: at
- * the fitted view the whole drawing is already on screen, so there is nothing
- * to bring in, and the key is left to whatever else answers it.
- */
+// Null when not a pan key or not zoomed, leaving the key to others.
 export function keyPan(z: ZoomState, key: string, shift: boolean, span: number): ZoomState | null {
   if (z.k <= 1) return null;
   const d = span * STEP * (shift ? 5 : 1);
@@ -30,12 +21,6 @@ export function keyPan(z: ZoomState, key: string, shift: boolean, span: number):
   }
 }
 
-/**
- * What the side and aft views' zoomable SVG share: a grab cursor and focus
- * once zoomed in, so the arrows can pan (a drag is otherwise the only way to
- * bring the far end into view), and the pan hint in the name only then. The
- * pointer handlers differ by view and stay with each.
- */
 export function zoomSurfaceProps(
   zoom: ZoomState,
   setZoom: (z: ZoomState) => void,

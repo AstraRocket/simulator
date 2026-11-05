@@ -5,19 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { exportOrk, importOrk } from '../../../src/services/files/orkFile';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * The design's own materials: desktop's document material database, which a
- * `.ork` carries as `<docprefs><docmaterials>`. Desktop's material box lists them
- * on every part (`MaterialModel` adds `DocumentPreferences.getDatabase(type)`
- * to the application database), so they are read into the tree, not carried as
- * raw XML.
- *
- * The `<docprefs>` blocks below are what OpenRocket 24.12 wrote: its
- * `GeneralRocketSaver` saving the bundled a-simple-model-rocket.ork with four
- * document materials added (two of one name at two densities, a surface and a
- * line). `getAllMaterials` merges the three databases into one, so the list is
- * sorted by name and then density across all types.
- */
+// As 24.12's `GeneralRocketSaver` writes it: sorted by name then density across all three types.
 const DESKTOP_DOCPREFS = `  <docprefs>
     <docmaterials>
       <material>BULK|Birch ply|650.0|Woods</material>
@@ -57,7 +45,6 @@ const roundTrip = (xml: string): string => {
   return exportOrk({ name: res.name, tree: res.tree });
 };
 
-/** The `<material>` texts of a written file's `<docmaterials>`, in order. */
 const written = (xml: string): string[] =>
   [...(xml.match(/<docmaterials>([\s\S]*?)<\/docmaterials>/)?.[1] ?? '').matchAll(/<material>(.*?)<\/material>/g)].map(
     (m) => m[1]!,
@@ -79,7 +66,6 @@ describe('reading a desktop document material list', () => {
   });
 
   it('reads the newer five-piece form, the shear modulus between density and group', () => {
-    // Upstream's `toStorableString` since the shear modulus was added.
     const { tree } = importOrk(
       docWith(
         '<docprefs><docmaterials><material>BULK|G10|1800.0|3.0E9|Composites</material></docmaterials></docprefs>',
@@ -152,8 +138,7 @@ describe('writing the design materials back', () => {
       name,
       tree: { ...tree, documentMaterials: [{ name: 'Mine|best', type: 'bulk', density: 420, group: 'Paper' }] },
     });
-    // A bar would split the name, so desktop's saver writes a space for it;
-    // the catalog's Paper is desktop's PaperProducts.
+    // Desktop's saver writes a bar as a space; the catalog's Paper is desktop's PaperProducts.
     expect(out).toMatch(
       /<docprefs><docmaterials><material>BULK\|Mine best\|420\|PaperProducts<\/material><\/docmaterials><\/docprefs>\s*<\/openrocket>/,
     );

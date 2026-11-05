@@ -10,24 +10,8 @@ import { polylinePath } from '../common/svgPath';
 import { ChartPanelFrame, PanelClip, PanelLines, YEnds } from './ChartPanelFrame';
 import { peakAcross, xySummary } from './chartSummary';
 
-/** Quantities whose two axes are drawn to one scale, so a track over the ground keeps its shape. */
 const SAME_SCALE = new Set(['distance', 'length']);
 
-/**
- * One series against another, one line per shown stage: velocity over
- * altitude, or any pair the reader adds (`meta.xy`).
- *
- * The panels not on the shared time axis: the zoom and the event lines (both
- * times) do not apply to them. The crosshair still does, as a dot at the
- * hovered moment on each line, so moving along the time panels walks the dot
- * along the curve.
- *
- * Each axis follows its series' own rules: its unit, a temperature's offset,
- * a zero baseline for a flow series and a tight fit for a level one, and an
- * aero series stopping where forward flight ends (`clipT`). Two lengths of the
- * same kind (north against east) share one scale, so the curve is not
- * stretched out of shape.
- */
 export function FlightXYPanel({
   meta,
   branches,
@@ -43,7 +27,6 @@ export function FlightXYPanel({
   w: number;
   height: number;
   hoverT: number | null;
-  /** Where forward flight ends; an aero series on either axis stops there. */
   clipT?: number;
   expanded: boolean;
   onToggleExpand: () => void;
@@ -55,8 +38,8 @@ export function FlightXYPanel({
   const padB = 16;
   const ih = height - padT - padB;
   const iw = Math.max(1, w - PAD_L - PAD_R);
-  const xMeta = meta.xy!.x;
-  const yMeta = meta.xy!.y;
+  const xMeta = meta.xy?.x ?? meta;
+  const yMeta = meta.xy?.y ?? meta;
   const xs = traceScale(xMeta, u);
   const xo = traceOffset(xMeta, u);
   const ys = traceScale(yMeta, u);
@@ -71,8 +54,6 @@ export function FlightXYPanel({
     let xMax = -Infinity;
     let yMin = Infinity;
     let yMax = -Infinity;
-    // A plain loop: the domain scan writes the bounds, which a `.map` callback
-    // must not.
     const out: { color: string; pts: [number, number][]; time: number[]; xv: number[]; yv: number[] }[] = [];
     for (const b of branches) {
       const pts: [number, number][] = [];
@@ -102,8 +83,6 @@ export function FlightXYPanel({
       out.push({ color: b.color, pts, time, xv, yv });
     }
     if (!(xMin < Infinity)) [xMin, xMax, yMin, yMax] = [0, 1, 0, 1];
-    // A flow series keeps zero on its axis, as its time panel does; a level
-    // one fits its data with a margin.
     const span = (lo: number, hi: number) => hi - lo || Math.abs(hi) || 1;
     let lx = xMeta.level ? xMin - span(xMin, xMax) * 0.05 : Math.min(0, xMin);
     let hx = xMeta.level ? xMax + span(xMin, xMax) * 0.05 : Math.max(0, xMax);
@@ -112,7 +91,6 @@ export function FlightXYPanel({
     if (!(hx > lx)) hx = lx + 1;
     if (!(hy > ly)) hy = ly + 1;
     if (sameScale) {
-      // Widen the tighter axis so a unit spans as many pixels on both.
       const k = Math.max((hx - lx) / iw, (hy - ly) / ih);
       const cx = (lx + hx) / 2;
       const cy = (ly + hy) / 2;
@@ -139,7 +117,6 @@ export function FlightXYPanel({
     };
   }, [lines, x0, x1, y0, y1, iw, ih]);
 
-  // Each line's own flight span bounds its dot, the rule the time panels use.
   const hovered =
     hoverT == null
       ? []
@@ -153,11 +130,7 @@ export function FlightXYPanel({
   const title = traceLabel(meta, t);
   const yText = (v: number) => withUnit(fmtNum(v, yDigits), yUnit);
   const xText = (v: number) => withUnit(fmtNum(v, xDigits), xUnit);
-  // The largest magnitude across every shown stage, sign kept: the time
-  // panels' rule, and the peak the summary below reads.
   const peak = peakAcross(lines.map((l) => ({ xs: l.xv, ys: l.yv })))?.value ?? null;
-  // What a screen reader hears for this panel: the y's peak and the x it was
-  // reached at, per shown stage (see chartSummary).
   const summary = useMemo(() => {
     const xd = ladderDigits(x1 - x0);
     const yd = ladderDigits(y1 - y0);
@@ -178,9 +151,6 @@ export function FlightXYPanel({
     <ChartPanelFrame
       title={title}
       reading={
-        // With a crosshair, the primary stage's reading there, or no value
-        // outside its flight; with none, its peak, tagged as the peak so it
-        // never reads as a value at a moment.
         <>
           {hoverT == null && <span className="text-[10px] text-ink-faint">{t('flight.peakTag')}</span>}
           <span className="text-xs font-semibold tabular-nums text-ink-strong">

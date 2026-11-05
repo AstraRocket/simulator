@@ -21,11 +21,6 @@ const flight = {
   launch: { latitudeDeg: 39.7392, longitudeDeg: -104.9903 },
 } as unknown as ResultFlight;
 
-/**
- * The landing distance reads in the Downrange tile's unit (the 'sim.downrange'
- * scope), the one Ground Track shows the same landing in. Any other scope would
- * make two views of one flight disagree once that chip is set to feet.
- */
 describe('EnvironmentLanding', () => {
   beforeEach(() => localStorage.clear());
 
@@ -37,7 +32,6 @@ describe('EnvironmentLanding', () => {
   });
 });
 
-/** The landing bearing is an angle held in degrees; it prints in the reader's angle unit. */
 describe('EnvironmentLanding bearing', () => {
   beforeEach(() => localStorage.clear());
 
@@ -49,12 +43,6 @@ describe('EnvironmentLanding bearing', () => {
   });
 });
 
-/**
- * The landing coordinate of a simulated flight is the kernel's own: it records
- * latitude and longitude (φ, λ) at every step with the Earth model the
- * simulation chose. Re-projecting the east/north offset with a formula of the
- * view's own would agree with neither the kernel nor the export.
- */
 describe('EnvironmentLanding coordinates', () => {
   beforeEach(() => localStorage.clear());
 
@@ -70,9 +58,6 @@ describe('EnvironmentLanding coordinates', () => {
   });
 
   it('shows no coordinate for a result that carries no kernel latitude and longitude', () => {
-    // `flight` has the east/north offset only. A coordinate projected from it
-    // here would read as the kernel's, so the row shows the no-value glyph and
-    // keeps the distance and bearing, which the offset does give.
     renderWithProviders(<EnvironmentLanding flight={flight} />);
     const row = screen.getByText('Lands at').parentElement!;
     const [value, detail] = Array.from(row.querySelectorAll('dd')).map((dd) => dd.textContent);
@@ -82,17 +67,11 @@ describe('EnvironmentLanding coordinates', () => {
   });
 });
 
-/**
- * "Fly the hours" flies the design and conditions as they are now. Against an
- * outdated result that is another rocket or site than the landing it is shown
- * beside, so the action waits for a fresh run and says why.
- */
 describe('EnvironmentLanding forecast hours', () => {
   beforeEach(() => localStorage.clear());
 
   it('waits for a fresh run when the result is outdated', () => {
     const st = useWorkspaceStore.getState();
-    // A result with no resultKey reads as outdated against any design.
     useWorkspaceStore.setState({
       sims: [{ ...st.sims[0]!, id: 's1', result: {} as never, resultKey: undefined }],
     });
@@ -107,10 +86,6 @@ describe('EnvironmentLanding forecast hours', () => {
   });
 });
 
-/**
- * The hours fly with the preferences a run reads, the length unit among them:
- * the worker decides airframe-step warnings in it.
- */
 describe('EnvironmentLanding forecast hours preferences', () => {
   beforeEach(() => localStorage.clear());
 
@@ -134,7 +109,6 @@ describe('EnvironmentLanding forecast hours preferences', () => {
   });
 });
 
-/** The flown hour is marked in words in the hour table, not by its color alone. */
 describe('EnvironmentLanding flown hour', () => {
   beforeEach(() => localStorage.clear());
 

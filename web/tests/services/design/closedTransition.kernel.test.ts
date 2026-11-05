@@ -11,11 +11,6 @@ import { kernelGeometry, loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A transition that closes to a point at one end is a part the kernel builds
- * and flies, so the run check lets it through. So is one closed at both ends,
- * which the kernel builds with no volume.
- */
 const design = (transition: ComponentNode): RocketTree =>
   ({
     components: [

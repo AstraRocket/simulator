@@ -14,13 +14,7 @@ import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 
 const node = (o: object) => o as unknown as ComponentNode;
 
-/**
- * `discDims` is the one source the DXF cut sheet, the printable solids and the
- * 3D internals all share for ring and coupler sizing, so a wrong answer here is
- * three wrong parts at once.
- */
 describe('discDims', () => {
-  /** A 12 mm-radius tube with a 1 mm wall, as the enclosing airframe. */
   const tube: Tube = { outerR: 0.012, innerR: 0.011 };
 
   it('gives a coupler its bore', () => {
@@ -31,19 +25,12 @@ describe('discDims', () => {
   });
 
   it('refuses a wall past the radius instead of reporting a solid rod', () => {
-    // `discSolid` takes its no-bore branch on innerR === 0 and lathes a solid
-    // cylinder, so a units slip (a 20 mm wall on a 12 mm radius) would print the
-    // coupler as a plug with nothing saying so. `solidMesh`'s tube branch
-    // refuses the same case, and the disc path has to match it.
     expect(discDims(node({ type: 'tubecoupler', thickness: 0.02, length: 0.05 }), tube, [])).toBeNull();
     expect(discDims(node({ type: 'engineblock', thickness: 0.05 }), tube, [])).toBeNull();
   });
 
   it('takes a wall exactly equal to the radius as a solid part', () => {
-    // A catalog part that states an inner diameter of 0 (a balsa nose block)
-    // is solid, and `ThicknessRingComponent.loadFromPreset` gives it a wall of
-    // its whole radius; the kernel flies it solid, so it is drawn, cut and
-    // printed solid. Only a wall past the radius is a slip.
+    // ThicknessRingComponent.loadFromPreset gives a 0-bore catalog part a full-radius wall; it flies solid.
     const r = plateOuter(node({ type: 'tubecoupler' }), tube);
     const d = discDims(node({ type: 'tubecoupler', thickness: r }), tube, []);
     expect(d).not.toBeNull();
@@ -65,7 +52,6 @@ describe('discDims', () => {
 
 describe('tubeRadii', () => {
   it('offers no bore inside a filled body tube', () => {
-    // BodyTube.getInnerRadius is 0 when the tube is filled.
     expect(tubeRadii(node({ type: 'bodytube', outerRadius: 0.012, thickness: 0.001, filled: true }))).toEqual({
       outerR: 0.012,
       innerR: 0,
@@ -83,13 +69,6 @@ describe('tubeRadii', () => {
   });
 });
 
-/**
- * A tube with no `thickness` key takes its own type's kernel wall, wherever its
- * bore is read. The kernel gives a body tube and a coupler a 2 mm wall and an
- * inner tube 0.5 mm (ComponentFactory, cases "bodytube", "tubecoupler" and
- * "innertube"); reading one type's wall for all three would put an inner
- * tube's bore 1.5 mm off from the one the kernel flies.
- */
 describe('a keyless tube wall', () => {
   const tube = (type: string, outerRadius: number) => ({ type, id: type, outerRadius }) as unknown as ComponentNode;
 
@@ -103,10 +82,6 @@ describe('a keyless tube wall', () => {
   });
 });
 
-/**
- * A filled part is solid: `BodyTube.getInnerRadius` returns 0 when `filled`,
- * so there is no bore for a shoulder to plug into.
- */
 describe('boreAt on a filled part', () => {
   it('offers no bore, as tubeRadii says', () => {
     const solid = {
@@ -122,12 +97,7 @@ describe('boreAt on a filled part', () => {
   });
 });
 
-/**
- * `CenteringRing.getInnerRadius` compares the ring's span with each inner
- * tube's as placed (`toRelative`, no clamp): it skips a tube when
- * `pos2 < 0 || pos1 > sibling.getLength()`, with `pos1`/`pos2` the ring's fore
- * and aft faces measured from the tube's front.
- */
+// CenteringRing.getInnerRadius uses unclamped positions: skips when `pos2 < 0 || pos1 > sibling.getLength()`.
 describe('ringBore past the parent end', () => {
   const parent = (ringAt: number, mountAt: number) =>
     ({
@@ -148,15 +118,12 @@ describe('ringBore past the parent end', () => {
   });
 
   it('takes a mount that overlaps it past the tube end', () => {
-    // Ring 105-107 mm, mount 90-140 mm.
     const p = parent(0.105, 0.09);
     expect(ringBore(p.children![0]!, p, 0.019, 0)).toBe(0.009);
   });
 });
 
 describe('boreAt on a nose cone', () => {
-  // NoseCone.getBaseRadius: `isFlipped ? getForeRadius() : getAftRadius()`. The
-  // base is the open end; the tip, radius 0, offers nothing.
   const cone = (flipped: boolean) =>
     ({ type: 'nosecone', id: 'n', aftRadius: 0.025, thickness: 0.002, flipped }) as unknown as ComponentNode;
 
@@ -168,13 +135,6 @@ describe('boreAt on a nose cone', () => {
   });
 });
 
-/**
- * A centering ring stored with no bore (a workspace from an older build) is
- * resolved on the way in, as the kernel resolves it (`CenteringRing.getInnerRadius`:
- * the widest inner tube whose span overlaps the ring's), so every reader of the
- * stored tree, the DXF sheet and the print solids among them, cuts the bore
- * that flies rather than the first inner tube it finds.
- */
 describe('a centering ring with no bore on record', () => {
   const tree = {
     name: 'R',

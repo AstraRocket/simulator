@@ -2,23 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { DESKTOP_QUERY, formFactorsSnapshot, isMobileDevice, subscribeFormFactors } from '../../services/app/device';
 import { capabilityAllowed, type Capability, type DeviceClass } from '../../services/app/capabilities';
 
-/**
- * Whether a CSS media query currently matches, as React state.
- *
- * Almost everything responsive in this app is a Tailwind `lg:` class, and should
- * stay that way: CSS needs no JavaScript and no re-render. This is for the one
- * case classes cannot express: a component that must exist in exactly one place
- * in the DOM, but a different place per breakpoint.
- *
- * Rendering it twice and hiding one copy is the usual trick, and it is wrong
- * here. A hidden copy is still in the document: its inputs still carry the same
- * `aria-label`, so "the Ignition select" resolves to two elements, and the
- * accessibility tree of a phone-sized viewport carries a desktop column nobody
- * can reach. `display:none` hides pixels, not identity.
- *
- * `useSyncExternalStore` rather than an effect + state, so the first render
- * already has the right answer and there is no flash of the wrong layout.
- */
+// Prefer Tailwind classes; this is only for a component that must exist in exactly one DOM place.
 function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (onChange) => {
@@ -27,59 +11,27 @@ function useMediaQuery(query: string): boolean {
       return () => mql.removeEventListener('change', onChange);
     },
     () => window.matchMedia(query).matches,
-    // Server/prerender: no viewport to measure, so answer "no match" and let
-    // the first client render correct it.
     () => false,
   );
 }
 
-/** The `lg:` breakpoint, as a boolean. Keep in step with Tailwind's default. */
+/** Keep in step with Tailwind's default `lg:`. */
 export const useIsDesktop = (): boolean => useMediaQuery(DESKTOP_QUERY);
 
-/**
- * The `xl:` breakpoint, as a boolean: wide enough for a tool page's third
- * column (see tools/ToolLayout's `help`). Below it the Simple rocket's help
- * folds at the top of the form instead of falling under it.
- */
+/** Keep in step with Tailwind's `xl:`. */
 export const useIsXl = (): boolean => useMediaQuery('(min-width: 1280px)');
 
-/**
- * The `2xl:` breakpoint, as a boolean.
- *
- * The Design tab's property column needs the window to be this wide: it is a
- * third column beside the component tree and the drawing, and under 1536 the
- * three of them leave the drawing too little to be a drawing. An ordinary
- * laptop is on the dialog, which is the point: 1280 and 1440 are the widths
- * this is about, not only phones. Below it the component editor is a dialog
- * instead (see components/design/ComponentDialog), which is why this is a
- * JavaScript query rather than a `2xl:` class: the editor has to exist in
- * exactly one of the two places, never both.
- *
- * The header's save status says how long ago the write landed only from here
- * up (see layout/SaveStatus), for the same reason: "Saved just now" and
- * "Saved" are one status, and rendering both would put two of them on screen
- * for every role and text query.
- */
+/** Keep in step with Tailwind's `2xl:`. */
 export const useIsWide = (): boolean => useMediaQuery('(min-width: 1536px)');
 
-/**
- * This device's class as React state: `desktop` in the `lg:` layout on a
- * device that is not a phone or tablet, else `mobile` (services/app/device.ts
- * says how a device is told). The width test alone would class an iPad in
- * landscape as a desktop, hence the device test as well.
- */
+// The width test alone would class a landscape iPad as a desktop.
 const useDeviceClass = (): DeviceClass => {
   const desktop = useIsDesktop();
-  // Subscribed so the browser's `formFactors` answer, which arrives after the
-  // first render, re-renders the caller.
+  // `formFactors` arrives after the first render.
   useSyncExternalStore(subscribeFormFactors, formFactorsSnapshot, () => null);
   return desktop && !isMobileDevice() ? 'desktop' : 'mobile';
 };
 
-/**
- * Whether this device offers a capability from services/app/capabilities.ts,
- * as a function of the capability, so one component can ask about several.
- */
 export const useCapability = (): ((cap: Capability) => boolean) => {
   const device = useDeviceClass();
   return (cap) => capabilityAllowed(cap, device);

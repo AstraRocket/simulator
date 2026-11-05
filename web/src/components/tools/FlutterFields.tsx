@@ -4,15 +4,9 @@ import { unitScope } from '../../prefs/units';
 import { fmtNum } from '../../i18n/format';
 import { FIN_MATERIALS, FLUTTER_MARGIN, type FlutterVerdict } from '../../services/flight/finFlutter';
 import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { FieldLabel } from '../common/FieldMark';
 import { useScopedUnit } from '../common/UnitChip';
-
-/**
- * The pieces of the flutter estimate the Fin flutter tool and a fin set's
- * flutter check share: the fin stock and its shear modulus, the flutter speed,
- * and the margin with its verdict.
- */
 
 const FLUTTER_TONE: Record<FlutterVerdict, string> = {
   over: 'text-danger-400',
@@ -20,11 +14,6 @@ const FLUTTER_TONE: Record<FlutterVerdict, string> = {
   ok: 'text-ok-400',
 };
 
-/**
- * The fin stock menu and the shear modulus it fills in. Picking a stock sets
- * its typical modulus; typing a modulus switches the stock to Custom. `hint`
- * replaces the modulus's usual note, for a caller with more to say.
- */
 export function FinStockFields({
   stock,
   shearPa,
@@ -76,7 +65,6 @@ export function FinStockFields({
   );
 }
 
-/** One label and value line of a flutter result. */
 function FlutterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
@@ -86,7 +74,6 @@ function FlutterRow({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-/** A flutter speed with its Mach number, under `label`. */
 export function FlutterSpeedRow({ label, speedMs, mach }: { label: string; speedMs: number; mach: number }) {
   const { t } = useTranslation();
   const speedUnit = useScopedUnit(unitScope('flutter', 'speed'), 'velocity');
@@ -100,7 +87,6 @@ export function FlutterSpeedRow({ label, speedMs, mach }: { label: string; speed
   );
 }
 
-/** The margin over the top speed and what it means. */
 export function FlutterMarginRows({ ratio, verdict }: { ratio: number; verdict: FlutterVerdict }) {
   const { t } = useTranslation();
   return (

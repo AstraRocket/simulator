@@ -4,14 +4,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import type { AeroSweep } from '../../../src/engine/openRocketEngine';
 
-/**
- * The aero pane's header agrees with its tables, and its flight-condition boxes
- * read in the user's angle and roll rate units.
- *
- * The sweep is stubbed: these are facts about the pane, not the kernel. Its grid
- * is the real one (0.05 then every 0.02), on which the 0.3 default is not a
- * sample.
- */
+// The 0.3 default is not a sample on this grid.
 const machs = Array.from({ length: 48 }, (_, i) => 0.05 + 0.02 * i);
 const flat = (v: number) => machs.map(() => v);
 const curve = { total: flat(0.5), friction: flat(0.3), pressure: flat(0.1), base: flat(0.1) };
@@ -38,7 +31,6 @@ describe('the Mach the pane reports at', () => {
     renderWithProviders(<AeroAnalysis />);
     fireEvent.click(screen.getByRole('button', { name: 'Per component' }));
     const readouts = screen.getAllByText(/^at Mach /).map((el) => el.textContent);
-    // The header and the tables beside it: one Mach between them.
     expect(readouts.length).toBeGreaterThan(1);
     expect(new Set(readouts).size).toBe(1);
   });

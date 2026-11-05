@@ -2,13 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerReady, WorkerRequest, WorkerResponse } from '../../src/engine/simProtocol';
 import { englishText } from '../../src/i18n/keyedError';
 
-/**
- * The worker's message loop, driven directly: `self` is the module's
- * `DedicatedWorkerGlobalScope`, which in this process is `globalThis`, so the
- * handler it installs is `globalThis.onmessage` and its replies go to a
- * stubbed `postMessage`. The engine is mocked; these assert the protocol the
- * worker keeps, not the physics.
- */
+// `self` is stubbed so the module installs its handler on `g`. The engine is mocked.
 const engine = vi.hoisted(() => ({
   initEngine: vi.fn(),
   resetEngine: vi.fn(),
@@ -20,9 +14,7 @@ vi.mock('../../src/services/design/buildRocket', () => ({
 }));
 
 const posted: WorkerResponse[] = [];
-/** The unprompted engine-ready notices, kept apart from the replies. */
 const readies: WorkerReady[] = [];
-/** The stand-in for DedicatedWorkerGlobalScope the module installs its handler on. */
 const g: {
   onmessage: ((e: { data: WorkerRequest }) => Promise<void>) | null;
   postMessage: (m: WorkerResponse | WorkerReady) => void;
@@ -59,8 +51,7 @@ describe('simWorker', () => {
     engine.initEngine.mockResolvedValue('js');
     await send({ id: 1, method: 'ping', args: null, engine: 'js' });
     expect(posted).toEqual([{ id: 1, ok: true, result: 'ok' }]);
-    // The preference is what the first request carried; the worker cannot
-    // read the page's `?engine=` or localStorage itself.
+    // A worker cannot read the page's `?engine=` or localStorage.
     expect(engine.initEngine).toHaveBeenCalledWith(undefined, 'js');
     expect(engine.initEngine).toHaveBeenCalledTimes(1);
   });
@@ -75,9 +66,6 @@ describe('simWorker', () => {
   });
 
   it('reports a failed engine load as FATAL on every request, with no unhandled rejection', async () => {
-    // A rejected engine load must not escape as an unhandled rejection, and
-    // each request must say the failure is fatal so the client retires the
-    // worker instead of sending it more calls it cannot answer.
     engine.initEngine.mockRejectedValue(new Error('WASM and JS both failed'));
     const unhandled = vi.fn();
     process.on('unhandledRejection', unhandled);

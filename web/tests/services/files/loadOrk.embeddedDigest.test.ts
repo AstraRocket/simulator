@@ -3,16 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
 import { rseDigest } from '../../../src/services/files/ork/embeddedMotors';
 
-/**
- * A `.ork` names an embedded motor by digest. An imported motor can share its
- * name with a catalog motor (a user's own curve for an Estes C6), and matched by
- * name it would reopen as the catalog's motor: a different curve under the same
- * label. The digest says which, so the file's curve wins unless the catalog
- * holds that exact motor.
- *
- * Mocked as in loadOrk.embeddedMotor.test.ts: the wiring decision is under test.
- */
-
 const design = {
   setMotorById: vi.fn(),
   setMotorIgnitionById: vi.fn(),
@@ -20,7 +10,7 @@ const design = {
 };
 
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: { buildTree: () => design },
   resetEngine: () => {},
 }));
@@ -68,7 +58,6 @@ const catalogDigests = { value: [] as { digest: string; delays: number[] }[] };
 const catalogRow = () => ({ designation: 'C6', manufacturer: 'Estes', diameter: 18, digests: catalogDigests.value });
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: () => catalogRow(),
   matchCatalogMotor: () => ({ motor: catalogRow() }),
 }));
 

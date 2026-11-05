@@ -8,78 +8,34 @@ import { importNoteText, type ImportNote } from '../../services/files/importNote
 import type { DesignFormat } from '../../services/files/designFile';
 import { designNameOf } from '../../services/app/appInfo';
 
-/**
- * The design card at the head of the center pane: the rocket's name, the ✎ that
- * opens its configuration, and, for an imported `.ork` or `.rkt`, its format and
- * what the file could not bring across, with a button to dismiss it.
- *
- * The name lives here and not in the component tree's header too, which would say
- * the same thing twice on one screen. Here it has the width for a long name and
- * sits over the drawing it titles rather than over the parts list.
- *
- * It is a control only where the tree is (`useCanBuildDesign`). Naming a design,
- * its designer and its revision history is something you do to a design you are
- * building, and a window that cannot add a part to one is not the place for it;
- * there the line is a plain title.
- *
- * The import notes collapse. They matter most on the import that raised them and
- * less on the tenth look at the same design, and on a file with several they take a
- * third of the canvas; dismissing the card is the only other way to fold them away,
- * and that throws away the only record of them.
- *
- * Collapsed or not is a setting (`showImportNotes`), not component state: the card
- * unmounts whenever you close a design or leave the Design tab, and the choice has
- * to survive that. App-wide rather than per design, for the reasons on the setting
- * itself. A new import with notes opens them again: they are news on the import
- * that raised them, and collapsed they show only as a count.
- */
-
-/** The last import whose notes were opened, across the card's mounts this session. */
+// Module-level so it survives the card's remounts this session.
 let notesOpenedForImport = 0;
 export function LoadedBanner({
   loaded,
   onClose,
 }: {
-  /**
-   * Import metadata, or null for a design that did not come from a file. The
-   * format is absent for an import stored before it was recorded.
-   */
+  // `format` is absent on older stored imports.
   loaded: { name: string; notes: ImportNote[]; format?: DesignFormat } | null;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const treeName = useWorkspaceStore((s) => s.tree.name);
-  // The name, the designer, the design type and the revision history are things
-  // you set on a design you are building, and the window that cannot add a part
-  // to it has no business renaming it either. Where the component tree is not
-  // offered the name is a title and nothing more (useCanBuildDesign).
   const canEditMeta = useCanBuildDesign();
   const { settings, update } = useSettings();
   const open = settings.showImportNotes;
   const [configOpen, setConfigOpen] = useState(false);
-  // The repairs ride with the file's own notes: both say what the app did to a
-  // design on the way in, and a reader has no reason to care which list they
-  // came from. A design that came from nowhere - a restored session - still
-  // gets the card when there is something to report.
   const repaired = useWorkspaceStore((s) => s.repairNotes);
   const notes: ImportNote[] = [...(loaded?.notes ?? []), ...repaired];
   const count = notes.length;
-  // Open the notes once for each new import that has any (see importSeq).
   const importSeq = useWorkspaceStore((s) => s.importSeq);
   useEffect(() => {
     if (importSeq <= notesOpenedForImport || count === 0) return;
     notesOpenedForImport = importSeq;
     if (!open) update({ showImportNotes: true });
   }, [importSeq, count, open, update]);
-  // The tree's name is the live one: it is what the editor changes and what an
-  // export writes. `loaded.name` is only the value the file arrived with.
-  // `designNameOf` is the chain every filename and report header uses.
+  // The tree's name is the live one; `loaded.name` is only what the file arrived with.
   const name = designNameOf({ name: treeName }, loaded);
 
-  // A design that came from a file gets the full card: it has a label, notes and
-  // a Close. One that did not has only its name, so it gets a slim title row
-  // rather than 64px of card chrome around a single line - the drawing below is
-  // what the pane is for.
   const shell = loaded || repaired.length ? 'm-3 rounded-xl bg-surface p-3 ring-1 ring-line/10' : 'mx-3 mt-2';
 
   return (
@@ -91,9 +47,6 @@ export function LoadedBanner({
               {loaded.format ? t('banner.loaded', { ext: `.${loaded.format}` }) : t('banner.loadedFile')}
             </div>
           )}
-          {/* A button or a title, never a button that does nothing: the ✎ and
-              the sky tint are what say this line is a control, so both go with
-              the action rather than being left as a dead affordance. */}
           {canEditMeta ? (
             <button
               onClick={() => setConfigOpen(true)}
@@ -106,8 +59,7 @@ export function LoadedBanner({
               <span aria-hidden className="shrink-0 text-xs text-ink-faint group-hover:text-accent-300">
                 ✎
               </span>
-              {/* The action after the visible name, not in place of it: a voice
-                  command that says the design's name has to reach this button. */}
+              {/* After the visible name, not in place of it, so voice control by name works. */}
               <span className="sr-only"> {t('config.edit')}</span>
             </button>
           ) : (
@@ -130,8 +82,6 @@ export function LoadedBanner({
               </span>
             </button>
           )}
-          {/* Only an imported file can be "closed": it drops the association
-              with the file, and there is nothing to drop otherwise. */}
           {loaded && (
             <button
               onClick={onClose}
@@ -150,10 +100,7 @@ export function LoadedBanner({
           ))}
         </ul>
       )}
-      {/* Mounted only while open, so its fields seed from the live design on
-          each opening by construction rather than by a reseed effect. Closed
-          along with the affordance that opens it, so a window narrowed while it
-          is up does not leave it stranded on a design it can no longer edit. */}
+      {/* Mounted only while open so fields seed fresh. */}
       {configOpen && canEditMeta && <RocketConfigDialog onClose={() => setConfigOpen(false)} />}
     </div>
   );

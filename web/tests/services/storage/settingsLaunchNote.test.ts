@@ -3,13 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../../src/services/storage/settings';
 import en from '../../../src/i18n/locales/en.json';
 
-/**
- * The launch-defaults note says a new simulation starts here in still air
- * where desktop starts one in a wind, into the wind. Both halves are read
- * from where they live rather than restated: desktop's figures from the
- * preferences source the kernel runs with, the app's from its own defaults.
- * A change on either side has to reword or retire the note.
- */
 describe('the launch-defaults note', () => {
   const java = (rel: string) => readFileSync(new URL(`../../../../engine-java/src/${rel}`, import.meta.url), 'utf8');
 

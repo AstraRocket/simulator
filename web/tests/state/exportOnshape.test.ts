@@ -5,8 +5,6 @@ import { saveBlob } from '../../src/services/files/saveFile';
 import type { MotorSpec, RocketTree } from '../../src/engine/openRocketEngine';
 import en from '../../src/i18n/locales/en.json';
 
-// The file is written through saveBlob, which needs a browser; the test reads
-// the blob it was handed.
 vi.mock('../../src/services/files/saveFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/services/files/saveFile')>()),
   saveBlob: vi.fn(async () => {}),
@@ -14,7 +12,6 @@ vi.mock('../../src/services/files/saveFile', async (importOriginal) => ({
 
 const s = () => useWorkspaceStore.getState();
 
-/** A nose, a tube with a motor mount, and a camera shroud the feature cannot build. */
 const tree = {
   name: 'x',
   components: [
@@ -50,7 +47,6 @@ const tree = {
 
 const C6 = { designation: 'C6', manufacturer: 'Estes', diameter: 0.018, length: 0.07, ejectionDelay: 5 } as MotorSpec;
 
-/** The payload handed to the last download, parsed. */
 const written = async (): Promise<{ rocket: { components: Record<string, unknown>[] } }> => {
   const blob = vi.mocked(saveBlob).mock.calls.at(-1)![0];
   return JSON.parse(await blob.text()) as never;

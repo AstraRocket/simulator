@@ -6,10 +6,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { StageColorDialog } from '../../../src/components/canvas/StageColorDialog';
 import i18n from '../../../src/i18n';
 
-/**
- * Each swatch is named for its stage and role through one key, so a language
- * that puts the role first ("Bahn für Oberstufe") reads right.
- */
 describe('StageColorDialog swatch names', () => {
   const render = () =>
     renderWithProviders(

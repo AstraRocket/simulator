@@ -4,13 +4,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A pack with an automatic radius keeps its volume at the bore it sits in
- * (MassObject.getLength), but only getRadius() settles the pair. The part's own
- * figures (componentInfo, which the .rkt writer takes a mass-only override's CG
- * from) must be the settled ones the panel's field read shows, not those of the
- * radius stored before the part was placed.
- */
+// Only getRadius() settles an auto-radius pack's length (MassObject.getLength).
 describe('componentInfo for an automatic-radius pack', () => {
   it('has the length and CG of the settled radius', async () => {
     const engine = await loadEngine();
@@ -39,7 +33,7 @@ describe('componentInfo for an automatic-radius pack', () => {
     const h = engine.buildRocket(JSON.stringify(tree));
     const info = JSON.parse(engine.getComponentInfo(h, 'chute')) as { length: number; cgX: number };
     const fields = JSON.parse(engine.getComponentFields(h, 'chute')) as { length: number; radius: number };
-    // The bore (29 mm), not the stored 20 mm: the pack is shorter than stored.
+    // The bore, not the stored 20 mm.
     expect(fields.radius).toBeCloseTo(0.029, 9);
     expect(info.length).toBeCloseTo(fields.length, 12);
     expect(info.cgX).toBeCloseTo(fields.length / 2, 12);

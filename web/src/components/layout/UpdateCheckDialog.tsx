@@ -7,30 +7,17 @@ import { Dialog } from '../common/Dialog';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { useLatest } from '../common/useLatest';
 
-/**
- * The menu's "Check for updates": checks the moment it opens and says what came
- * of it, including that this is the latest version, which the update banner's
- * own timer never says. A newer version also brings the banner up, which is
- * where it is applied.
- *
- * The menu disables its entry where there is nothing to ask (offline, or the
- * development server, which registers no service worker), so this always has
- * a check to run. Mounted only while open.
- */
 export function UpdateCheckDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const stored = useUpdateStore((s) => s.result);
   const checkNow = useUpdateStore((s) => s.checkNow);
-  // The store keeps the last answer between openings. Until this opening's
-  // check has finished, the answer shown (and announced) is "checking", never
-  // the previous one.
+  // The store keeps the last answer between openings; show "checking" until this one finishes.
   const [answered, setAnswered] = useState(false);
   const result = answered ? stored : 'checking';
 
   // `observe` is stable; the object `useLatest` returns is not.
   const { observe } = useLatest();
   useEffect(() => {
-    // Nothing lands on a dialog closed before the check finished.
     const live = observe();
     fireAction(
       checkNow().then(() => {
@@ -49,7 +36,6 @@ export function UpdateCheckDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog id="updateCheck" title={t('update.check')} onClose={onClose} layout="pad" size="sm" expandable={false}>
       <p className="text-xs text-ink-muted">{t('update.running', { version: APP_VERSION })}</p>
-      {/* Mounted always, so the answer is announced when it lands. */}
       <p
         role="status"
         aria-live="polite"

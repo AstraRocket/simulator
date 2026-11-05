@@ -7,11 +7,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 
 type Pt = [number, number];
 
-/**
- * The point coordinate boxes are named through the locale, not by a fixed
- * letter. Sentinels stand in for the axis names, so a hard-coded "X" or "Y"
- * cannot pass.
- */
 describe('the freeform point boxes', () => {
   it('take their axis names from the locale', () => {
     const own = { x: i18n.t('freeform.x'), y: i18n.t('freeform.y') };

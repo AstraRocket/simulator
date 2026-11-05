@@ -12,25 +12,6 @@ import { errorText } from '../../i18n/keyedError';
 import { EditorFooter, useReportDirty, EditorHeading } from '../common/MasterDetail';
 import { PartMetaFields } from './PartMetaFields';
 
-/**
- * The detail half of Custom Parts: what the selected saved part is called, and
- * what it is.
- *
- * Built out of the property panel's own pieces (`visibleFields` / `FieldRow`,
- * the shoulder, material, appearance and override sections) rather than a
- * second set of inputs, so a saved body tube is edited with the same fields,
- * the same units and the same validation as a body tube in a design. Each of
- * those takes only a node and an onChange.
- *
- * It does not show the half of the panel that describes a part's place in a
- * rocket: position, move, the fit-ranked picker, the descent-rate readout. A
- * saved part has no parent, no siblings and no design to be judged against.
- *
- * Edits are held locally and written on Save, so this is a form over a stored
- * record rather than the live design. The parent mounts it keyed on the part,
- * so selecting another one re-seeds every field by remounting rather than by
- * an effect that has to notice.
- */
 export function SavedPartEditor({
   part,
   onDirtyChange,
@@ -38,24 +19,18 @@ export function SavedPartEditor({
   onBack,
 }: {
   part: CustomPart;
-  /** Lets the list ask before a selection change would discard edits. */
   onDirtyChange: (dirty: boolean) => void;
   onDelete: () => void;
-  /** Phone only: the two panes share the width, so the list needs a way back. */
   onBack: () => void;
 }) {
   const { t } = useTranslation();
   const [meta, setMeta] = useState<PartMeta>({ mfr: part.mfr, partNo: part.partNo, desc: part.desc });
-  // The saved node plus its type, which is what the field tables key off. The
-  // type is not stored on the node (customParts.presetNode strips it, since it
-  // identifies the node a part came from), so it is put back here.
+  // The field tables key off `type`, which customParts.presetNode strips from the stored node.
   const [node, setNode] = useState<ComponentNode>({ ...part.node, type: part.type } as ComponentNode);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Compared against what is stored rather than tracked by a flag set on every
-  // keystroke, so typing a character and deleting it again leaves the editor
-  // clean and the discard prompt does not fire over an edit nobody made.
+  // Against the stored part, not a keystroke flag, so typing and deleting a character stays clean.
   const dirty =
     meta.mfr !== part.mfr ||
     meta.partNo !== part.partNo ||
@@ -79,15 +54,9 @@ export function SavedPartEditor({
     setSaving(true);
     try {
       const saved = await updateCustomPart(part.id, meta, savedShape(node));
-      // The labels as stored (trimmed, a blank maker filled in), so the editor
-      // compares clean against the part it just wrote.
+      // The labels as stored (trimmed, blank maker filled), so dirty clears.
       setMeta({ mfr: saved.mfr, partNo: saved.partNo, desc: saved.desc });
-      // No onClose: the list refreshes under this pane through the store's
-      // change signal, and the part stays selected. Staying put is the point
-      // of a master-detail view.
     } catch (e) {
-      // A name another part already uses, a refused write, or geometry that no
-      // longer projects to a row.
       setErr(errorText(e, t));
     } finally {
       setSaving(false);
@@ -110,9 +79,6 @@ export function SavedPartEditor({
             <FieldRow key={f.key} node={node} field={f} onChange={change} />
           ))}
 
-          {/* A cone's or transition's shoulders and a body tube's motor-mount
-              pair: the same sections the panel groups them into, for the same
-              reason. */}
           <ShoulderSections node={node} onChange={change} />
           <FieldSection node={node} title={t('prop.motor')} fields={sectionFields(node, 'motor')} onChange={change} />
 
@@ -120,9 +86,6 @@ export function SavedPartEditor({
           {isRecoveryDevice(node.type) && <RecoveryMaterialSection node={node} onCommitChange={change} />}
           {node.type === 'shockcord' && <CordMaterialSection node={node} onCommitChange={change} />}
           <AppearanceSection node={node} onCommitChange={change} />
-          {/* Applying the part writes these onto the part it fills, so they
-              are edited here like everything else it carries. No ancestor can
-              decide them: a saved part has none. */}
           <OverridesSection node={node} onChange={change} />
         </div>
       </div>
@@ -139,11 +102,7 @@ export function SavedPartEditor({
   );
 }
 
-/**
- * The node as it would be stored: without the `type` the editor put back on it
- * for the field tables to read. Used for the write and for the dirty
- * comparison, so the two cannot disagree about what a change is.
- */
+// Shared by save and the dirty check so they agree.
 function savedShape(node: ComponentNode): Partial<ComponentNode> {
   const { type: _type, ...rest } = node;
   return rest;

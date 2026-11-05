@@ -838,6 +838,8 @@ could move 1.65 m and flight time 0.51 s silently. Golden now scales those by
 0.6, still above the worst drift ever observed (1.9e-3). The 1e-4 absolute
 escape is scaled too for ordinary flight fields, where it was a 17% free change
 in descent acceleration, but NOT for series lengths, where the slack is real.
+The gusty limit later dropped from 5e-2 to 1e-2 (golden 6e-3), and the series
+length slack from 25 to 5.
 
 **G12 - the shipped binary is checked now.** `-Pparity` changes no numerics
 setting, so the headline worry did not apply; what it changes is the program,

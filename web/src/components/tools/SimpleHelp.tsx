@@ -1,16 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { useIsXl } from '../common/useMediaQuery';
 
-/**
- * What the Simple rocket wants measured, what it works out and what it leaves
- * out. On a wide screen (xl) it is always open in a column of its own; on
- * anything narrower, a phone or a small laptop, it folds shut at the top of
- * the form, where it is found before the fields it explains.
- * The page places it twice and `at` says which one shows on this screen.
- */
+/** The page places it twice; `at` says which placement renders on this screen. */
 export function SimpleHelp({ at }: { at: 'top' | 'side' }) {
   const { t } = useTranslation();
-  // The side column exists only where ToolLayout has a third column for it.
   const side = useIsXl();
   if (side !== (at === 'side')) return null;
 

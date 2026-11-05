@@ -1,16 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { heat, hsv, niceName } from '../../../src/components/canvas/aeroTables';
 
-/**
- * The cell-shading port of OpenRocket's table shading.
- *
- * The `openrocket` style is a formula-for-formula port of
- * `java.awt.Color.getHSBColor` plus the desktop's absolute full-red-at-1.5 Cd
- * anchor. `aero-heat.spec.ts` can see that shading exists, but not that it
- * matches the desktop, so the match is checked here.
- */
+// `openrocket` ports `java.awt.Color.getHSBColor` and the desktop's full-red-at-1.5 Cd anchor.
 
-/** `rgb(r, g, b)` back to numbers, so the ramp can be reasoned about. */
 const rgb = (css: string): [number, number, number] => {
   const m = css.match(/rgb\((\d+), (\d+), (\d+)\)/);
   if (!m) throw new Error(`not an rgb() string: ${css}`);
@@ -18,7 +10,7 @@ const rgb = (css: string): [number, number, number] => {
 };
 
 describe('hsv matches java.awt.Color.getHSBColor', () => {
-  /** The reference, transcribed from the Java rather than from our own code. */
+  // Transcribed from the Java, not from our own code.
   const javaHSBtoRGB = (h: number, s: number, v: number): [number, number, number] => {
     if (s === 0) {
       const g = Math.round(v * 255);
@@ -67,8 +59,8 @@ describe('the openrocket ramp', () => {
   it('runs green at zero to red at the 1.5 Cd anchor', () => {
     const low = rgb((heat(0.01, 10, 'openrocket') as { backgroundColor: string }).backgroundColor);
     const high = rgb((heat(1.5, 10, 'openrocket') as { backgroundColor: string }).backgroundColor);
-    expect(low[1]).toBeGreaterThan(low[0]); // green dominates at the bottom
-    expect(high[0]).toBeGreaterThan(high[1]); // red dominates at the anchor
+    expect(low[1]).toBeGreaterThan(low[0]);
+    expect(high[0]).toBeGreaterThan(high[1]);
   });
 
   it('is ABSOLUTE: the same value shades the same whatever the row maximum is', () => {
@@ -94,7 +86,6 @@ describe('the sky ramp', () => {
     const half = heat(5, 10, 'sky') as { backgroundColor: string };
     const full = heat(10, 10, 'sky') as { backgroundColor: string };
     expect(half.backgroundColor).not.toBe(full.backgroundColor);
-    // Same share of a different maximum shades identically.
     expect(heat(50, 100, 'sky')).toEqual(half);
   });
 
@@ -125,8 +116,6 @@ describe('niceName', () => {
     expect(niceName('[BodyTube.Upper Airframe]')).toBe('Upper Airframe');
   });
 
-  // A renamed part arrives as the kernel's getName(), exactly as the user typed
-  // it (OpenRocketEngine.getAeroSweep sends c.getName()).
   it.each(['Fins 4.5in', 'Nose v2.1', 'My.Tube', 'BT-55 2.6in', 'PayloadBay', 'NoseCone'])(
     'shows the typed name %s as typed',
     (name) => {

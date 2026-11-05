@@ -3,39 +3,30 @@ import { impulseClass } from '../motors/motorCombine';
 import { motorName } from '../motors/motorName';
 import { curveStats, specSamples } from '../motors/motorMath';
 
-/**
- * Report computations: the numbers that back the print/export rocket report.
- * Pure and unit-agnostic (SI in, SI out); the view formats + labels them.
- */
+// SI in, SI out.
 
 export interface MotorStats {
   designation: string;
   manufacturer?: string;
-  /** Average thrust over the burn (N). */
+  /** N */
   avgThrust: number;
-  /** Peak thrust (N). */
+  /** N */
   maxThrust: number;
-  /** Burn time (s). */
+  /** s */
   burnTime: number;
-  /** Total impulse (N·s). */
+  /** N·s */
   totalImpulse: number;
-  /** NAR/TRA impulse class letter. */
   impulseClass: string;
-  /** Loaded motor mass (kg). */
+  /** Loaded mass (kg). */
   weight: number;
-  /** Case diameter (m). */
+  /** m */
   diameter: number;
-  /** Case length (m). */
+  /** m */
   length: number;
 }
 
-/** Thrust-curve summary for one motor. */
 export function motorStats(spec: MotorSpec): MotorStats {
-  // The kernel's figures (ThrustCurveMotor.computeStatistics), as desktop's
-  // motor table prints them: the burn between the crossings of 5% of peak,
-  // not to the last sample. A report is assembled with the engine running.
-  // A curve the kernel builds no motor from has no burn or average to state:
-  // those print as no value, and the impulse and peak are the curve's own.
+  // Desktop ThrustCurveMotor.computeStatistics; a curve the kernel rejects has no burn or average.
   const curve = specSamples(spec);
   const kernel = motorStatistics(curve);
   const own = curveStats(curve);

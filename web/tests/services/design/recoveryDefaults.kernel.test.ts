@@ -5,12 +5,7 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/**
- * A new parachute flies the shroud line length desktop's `Parachute()` gives
- * it: automatic, 1.5 times the canopy diameter (`AUTO_LINE_LENGTH_RATIO`), and
- * still 1.5 times it after the diameter changes. A stated length with no
- * automatic flag would fly as the user's own number.
- */
+// Desktop's `Parachute()` line length is automatic at 1.5x the canopy diameter (`AUTO_LINE_LENGTH_RATIO`).
 describe('a new parachute', () => {
   const lineLength = async (chute: ComponentNode): Promise<number> => {
     const engine = await loadEngine();

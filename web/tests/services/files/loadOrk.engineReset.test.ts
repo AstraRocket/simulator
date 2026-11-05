@@ -1,14 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-/**
- * `resetEngine()` voids every handle, the open design's included. A file that
- * will not parse must leave that design's handle alive, so the reset waits for
- * the parse to succeed.
- */
 const order = vi.hoisted(() => [] as string[]);
 const resetEngine = vi.hoisted(() => vi.fn(() => order.push('reset')));
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: {
     buildTree: () => {
       order.push('build');

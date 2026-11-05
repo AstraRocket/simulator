@@ -10,17 +10,6 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The Onshape payload describes the rocket the kernel flies.
- *
- * Each shipped example is built in the kernel and exported, and every number
- * the feature builds a part from is checked against the kernel's own: where
- * each part starts (`getComponentInfo`), the resolved radii, fin outlines,
- * cluster and pod placements (`getComponentGeometry`), and the volume of each
- * nose cone and transition section, which at the part's density has to weigh
- * what the kernel weighs it at.
- */
-
 const EXAMPLES = [
   'a-simple-model-rocket.ork',
   '3d-printable-nose-cone-and-fins.ork',
@@ -38,7 +27,6 @@ const load = (file: string): RocketTree => {
   return importOrk(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer).tree;
 };
 
-/** The kernel's figures in the shape the store hands the exporter. */
 const figuresOf =
   (k: Map<string, KernelGeometry>) =>
   (id: string): ComponentInfo | undefined => {
@@ -46,7 +34,6 @@ const figuresOf =
     return g ? ({ mass: g.mass, length: g.settledLength, positionX: g.positionX } as ComponentInfo) : undefined;
   };
 
-/** A payload part with its rocket-frame front, laid out as the feature's `resolveTransform` lays it. */
 interface Placed {
   comp: OnshapeComponent;
   start: number;
@@ -69,13 +56,9 @@ function place(stages: OnshapeComponent[]): Placed[] {
   return out;
 }
 
-/** The kernel id a cluster copy was made from. */
 const sourceId = (id: string): string => id.replace(/-cluster\d+(\.\d+)*$/, '');
 
-/**
- * `2π ∬ r dA` over the closed section: the outer outline fore to aft, then the
- * bore back aft to fore, by Green's theorem one segment at a time.
- */
+/** `2π ∬ r dA` over the closed section (outer fore to aft, bore back), by Green's theorem. */
 function revolvedVolume(outer: [number, number][], inner: [number, number][]): number {
   const ring = [...outer, ...[...inner].reverse()];
   let sum = 0;
@@ -233,7 +216,6 @@ describe.each(EXAMPLES)('the Onshape payload of %s', (file) => {
         ).toBe(true);
       }
     }
-    // The two rings around its 4-ring mount.
     if (file === 'clustered-motors.ork') expect(cut).toBe(2);
   });
 

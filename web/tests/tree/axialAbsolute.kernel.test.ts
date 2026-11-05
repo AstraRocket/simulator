@@ -9,17 +9,7 @@ import { kernelGeometry, loadEngine, walkTree } from '../testing/kernelGeometry'
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A part placed `absolute` is where the kernel flies it.
- *
- * The kernel measures an ABSOLUTE offset from the rocket's origin, the nose
- * tip, whatever the parent: `RocketComponent.setAxialOffset` stores the offset
- * less the parent's first location (`getComponentLocations()[0].getX()`). The
- * stations here are the kernel's own, read back through the bridge
- * (`getComponentInfo` positionX), for parts nested two deep, inside a pod's
- * second tube, and on a transition, where the station also decides the bore a
- * ring fills and the radius a fin tab is clamped to.
- */
+// ABSOLUTE is from the nose tip whatever the parent (`RocketComponent.setAxialOffset`).
 
 const abs = (offset: number): ComponentPosition => ({ method: 'absolute', offset });
 
@@ -135,15 +125,12 @@ describe('absolute placement against the kernel', () => {
   it('places every absolute part at the kernel station, nested parents and a pod included', async () => {
     const rows = await stations(syncDerived(design(0.1)));
     for (const row of rows) expect(row.app, row.id).toBeCloseTo(row.kernel!, 12);
-    // The absolute parts sit at their offsets from the nose tip.
     const at = Object.fromEntries(rows.map((r) => [r.id, r.kernel]));
     expect([at['block'], at['ring'], at['fins'], at['pod'], at['podMass'], at['plug'], at['tailFins']]).toEqual([
       0.7, 0.6, 0.8, 0.6, 0.7, 0.47, 0.42,
     ]);
   });
 
-  // An absolute part stays put when the parts ahead of it grow; a part placed
-  // from its parent moves with it.
   it('keeps an absolute part at its station when its parent moves', async () => {
     const rows = await stations(syncDerived(design(0.15)));
     for (const row of rows) expect(row.app, row.id).toBeCloseTo(row.kernel!, 12);
@@ -160,8 +147,6 @@ describe('absolute placement against the kernel', () => {
     expect(parentRadiusOf(tree, 'tailFins')).toBeCloseTo(kernel.get('tailFins')!.maxTabHeight!, 12);
   });
 
-  // The editor's method switch keeps the part where it is, so the design it
-  // writes flies the part at the same station as before the switch.
   it('switching a nested part to absolute in the editor keeps the kernel station', async () => {
     const before = syncDerived(design(0.1));
     const engine = await loadEngine();

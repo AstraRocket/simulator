@@ -4,12 +4,6 @@ import { hexOf, parseHexColor } from '../../../src/services/design/colorHex';
 import { exportOrk } from '../../../src/services/files/orkFile';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * One reading of a hex color for every file and view (KML, 3MF, .ork). It
- * refuses a partial match rather than reading a hex prefix ("12zz" is not 0x12),
- * expands "#rgb" the same way for every writer, and leaves each caller only its
- * own fallback.
- */
 describe('parseHexColor', () => {
   it('reads six digits, with or without the hash, in either case', () => {
     expect(parseHexColor('#ff8800')).toBe(0xff8800);

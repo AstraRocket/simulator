@@ -17,25 +17,10 @@ import { useWorkspaceStore } from '../../state/store';
 import { partLabel } from '../../i18n/format';
 import { PanelButton } from './PanelButton';
 
-/**
- * The buttons on OpenRocket's config dialogs that change the tree rather than a
- * field: Convert to freeform, Split fins, Split pods, Split boosters, Split
- * cluster and the cluster's Reset settings.
- *
- * One row above Overrides rather than scattered through the sections
- * the desktop puts them in, because every one of them replaces the part being
- * edited - so they belong together and away from the rows that describe it.
- *
- * A button that cannot do anything is disabled with the reason in its tooltip,
- * not hidden: a one-fin set and a single tube are exactly the cases where
- * someone goes looking for Split and needs to know why it is not offered.
- */
 export function ComponentActions({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
   const apply = useWorkspaceStore((s) => s.applyTreeAction);
   const id = node.id as string;
-  // What the copies get numbered from. An unnamed part shows its type, which is
-  // what the tree displays for it, so that is what a copy of it is called.
   const baseName = partLabel(t, node);
 
   const splitLabel =
@@ -73,8 +58,6 @@ export function ComponentActions({ node }: { node: ComponentNode }) {
       key: 'resetCluster',
       label: t('prop.resetCluster'),
       title: t('prop.resetClusterTip'),
-      // Nothing to reset on a single tube, or on a cluster already at the
-      // default spacing and roll.
       enabled: canSplitCluster(node) && (num(node, 'clusterScale', 1) !== 1 || num(node, 'clusterRotation', 0) !== 0),
       run: () => apply((tree) => resetCluster(tree, id)),
     });

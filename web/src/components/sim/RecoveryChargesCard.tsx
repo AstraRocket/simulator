@@ -8,12 +8,6 @@ import { chargeRows } from '../../services/flight/recoveryCharges';
 import { useScopedUnit } from '../common/UnitChip';
 import { CardGroup } from '../common/CardGroup';
 
-/**
- * The ejection charges the design carries, drogue then main, each with its
- * backup: what goes into the bays before this flight. Design data rather than
- * a result, so it is the same for every simulation, and it is not shown at all
- * for a design that has none saved (`recoveryCharges`).
- */
 export function RecoveryChargesCard() {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);

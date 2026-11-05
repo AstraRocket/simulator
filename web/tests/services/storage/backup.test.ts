@@ -33,11 +33,6 @@ import {
   type BackupLibrary,
 } from '../../../src/services/storage/backup';
 
-/**
- * Backup and restore: one file holding the browser's libraries, read back
- * through each store's own guard and merged by each library's identity.
- */
-
 const ALL = new Set<BackupLibrary>(BACKUP_LIBRARIES);
 
 const part = (partNo: string, id = `custom:${partNo}`): CustomPart => ({
@@ -66,7 +61,6 @@ const motor: CustomMotor = {
   source: 'eng',
 };
 
-/** Fresh stores over localStorage, as a new browser would have. */
 function freshStores() {
   localStorage.clear();
   const kv = new LocalStorageKeyValueStore();
@@ -129,7 +123,6 @@ describe('a backup file', () => {
   it('merges by each library’s identity: a saved part by its type, maker and part number', async () => {
     await fillStores();
     const text = await makeBackup(ALL, custom);
-    // The same part saved again here under another id, and a second part.
     freshStores();
     await getPresetStore().add(part('BT-1', 'custom:here'));
     await getPresetStore().add(part('BT-2'));
@@ -152,7 +145,6 @@ describe('a backup file', () => {
         { name: 'Good', type: 'bulk', density: 500, group: 'Woods' },
         { name: 'Weightless', type: 'bulk', density: 0, group: 'Woods' },
       ],
-      // A part the picker could not list: no dimensions.
       parts: [part('BT-1'), { ...part('BT-9'), node: {} }],
       locations: [{ id: 'x', name: 'Off the map', latitudeDeg: 95, longitudeDeg: 0, launchAltitudeM: null }],
       settings: 'not settings',

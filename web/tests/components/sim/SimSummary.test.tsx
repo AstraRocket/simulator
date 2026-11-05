@@ -25,29 +25,16 @@ const sim = (Px: (number | null)[], Py: (number | null)[]) =>
     series: { time: [0, 1, 2], altitude: [0, 100, 0], Px, Py },
   }) as unknown as FlightResult;
 
-/** The value line of the tile whose label is `label`. */
 const tile = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
 
 describe('SimSummary downrange', () => {
-  /**
-   * The landing point is the last sample where both halves are finite, as the
-   * ground track reads it (groundTrack.landingPoint). Taking the last finite
-   * east and the last finite north separately pairs numbers from two different
-   * samples, and the tile then disagrees with the ground-track readout.
-   */
+  // East and north come from the same last finite sample, as groundTrack.landingPoint reads it.
   it('reads the landing from one sample, the way the ground track does', () => {
     renderWithProviders(<SimSummary sim={sim([0, 30, 40], [0, 40, null])} />);
     expect(tile('Downrange')).toBe('50.0');
   });
 });
 
-/**
- * A figure reads the same on its tile as in the simulations table: both take
- * the ladder's precision (`ladderDigits`), which follows the size of the number
- * in whatever unit the reader picked. With digits fixed per tile, a 6.2 m/s
- * landing would read "6.2" here and "6.20" in the table, and a fixed 0 digits
- * would turn 8.67 g into "9".
- */
 describe('SimSummary figure precision', () => {
   it('formats each figure the way the simulations table does', () => {
     const flown = sim([0, 0, 0], [0, 0, 0]);
@@ -66,10 +53,6 @@ describe('SimSummary figure precision', () => {
   });
 });
 
-/**
- * The launcher is named the way the design's guides name it: rail buttons ride a
- * rail, a launch lug rides a rod (services/design/launcher).
- */
 describe('SimSummary names the launcher after the design', () => {
   const before = useWorkspaceStore.getState().tree;
   afterEach(() => act(() => useWorkspaceStore.setState({ tree: before })));
@@ -99,10 +82,6 @@ describe('SimSummary names the launcher after the design', () => {
   });
 });
 
-/**
- * A safety reading out of bounds says so in words, not only in amber: a
- * color-blind or screen-reader user gets the verdict too.
- */
 describe('SimSummary verdicts', () => {
   const subOf = (label: RegExp) => screen.getByText(label).nextElementSibling?.nextElementSibling?.textContent;
 
@@ -123,11 +102,6 @@ describe('SimSummary verdicts', () => {
   });
 });
 
-/**
- * The deployment tile agrees with the kernel: it judges against the shown
- * simulation's own threshold, and for a dual-deployment main against the main's
- * pair, which is what the kernel's warnings are raised from.
- */
 describe('SimSummary deployment threshold', () => {
   const before = useWorkspaceStore.getState();
   afterEach(() =>
@@ -153,8 +127,7 @@ describe('SimSummary deployment threshold', () => {
   });
 
   it('takes the verdict from the kernel warnings when the flight has them', () => {
-    // 25 m/s is over the 20 m/s single-deployment default, but a dual-deployment
-    // main is judged against its own pair, and the kernel raised nothing.
+    // 25 m/s exceeds the single-deployment default, but a dual-deployment main is judged against its pair.
     const quiet = sim([0, 0, 0], [0, 0, 0]);
     Object.assign(quiet, { warnings: [] });
     Object.assign(quiet.summary, { deploymentVelocity: 25 });
@@ -175,13 +148,6 @@ describe('SimSummary deployment threshold', () => {
     renderWithProviders(<SimSummary sim={slow} />);
     expect(subOf(/^Deploy speed$/)).toContain('Too slow');
   });
-  /**
-   * A result stored before the engine sent node ids keeps its warnings, which
-   * name their chute only by the name the kernel flew it under. Two unnamed
-   * chutes, one per stage, share the kernel's default name, so a fast-opening
-   * warning that names it could be the booster's: it must not mark the
-   * sustainer's tile.
-   */
   it('does not take a warning by a name two recovery devices share', () => {
     const chute = '[Parachute.Parachute]';
     act(() =>
@@ -206,10 +172,6 @@ describe('SimSummary deployment threshold', () => {
   });
 });
 
-/**
- * Max q·α reads in the Max q figure's pressure unit times the reader's angle
- * unit, so the two figures beside each other are in the same pressure.
- */
 describe('SimSummary max q·α', () => {
   afterEach(() => localStorage.clear());
 

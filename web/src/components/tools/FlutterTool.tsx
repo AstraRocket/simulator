@@ -2,19 +2,12 @@ import { rememberedSlot, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { flutterSpeed, flutterVerdict } from '../../services/flight/finFlutter';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { CardGroup } from '../common/CardGroup';
 import { SiteElevationField } from './SiteFields';
 import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from './FlutterFields';
 import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
-
-/**
- * Fin flutter with no design: a trapezoidal fin, its material and the fastest
- * point of the flight give the speed the fin flutters at there, and how far
- * the flight stays under it. A fin set in a design has the same estimate in
- * its editor, flown against its simulation (`FinFlutterReadout`).
- */
 
 interface Remembered {
   rootM: number | null;
@@ -29,7 +22,6 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** Clears the remembered inputs, so each test starts from the defaults. */
 export function forgetFlutterTool(): void {
   remembered.forget();
 }

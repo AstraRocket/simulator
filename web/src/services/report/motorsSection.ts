@@ -20,12 +20,6 @@ import {
 
 type MotorConfig = ReportModel['configs'][number];
 
-/**
- * The motors section: one block per configuration that carries motors, with
- * its simulation results (when it flew) and its motor table. Results flown
- * from an earlier state of the design say so above their figures, since the
- * thrust-to-weight beside them is the current design's.
- */
 export function writeMotorsSection(p: PdfPage, model: ReportModel): void {
   sectionBreak(p);
   heading(p, p.t('report.motors'));
@@ -43,7 +37,6 @@ export function writeMotorsSection(p: PdfPage, model: ReportModel): void {
   }
 }
 
-/** The simulation results grid for one configuration. */
 function writeFlightSummary(p: PdfPage, flight: NonNullable<MotorConfig['flight']>): void {
   const { t } = p;
   kvGrid(p, [
@@ -57,16 +50,12 @@ function writeFlightSummary(p: PdfPage, flight: NonNullable<MotorConfig['flight'
   ]);
 }
 
-/**
- * Average thrust over the weight of the stack the motor lifts, as `n.nn:1`. A
- * mass the kernel could not give has no ratio.
- */
 export function twRatio(avgThrust: number, loadedMass: number): string {
   const ratio = avgThrust / (loadedMass * G0);
   return Number.isFinite(ratio) && loadedMass > 0 ? `${fmtNum(ratio, 2)}:1` : NO_VALUE;
 }
 
-/** The motor table's columns, across a content width of `w` millimeters. */
+/** `w` is mm. */
 export function motorColumns(t: T, w: number): Col[] {
   return [
     { title: t('report.motor'), w: w * 0.22 },
@@ -83,9 +72,7 @@ export function motorColumns(t: T, w: number): Col[] {
 function writeMotorTable(p: PdfPage, c: MotorConfig): void {
   const { t, units } = p;
   const cols = motorColumns(t, p.CW);
-  // Motor sizes are whole millimeters; in centimeters or inches they follow
-  // the ladder, so a 24 mm motor is 0.945 in, not 1. A decimal in millimeters
-  // would also overrun the column for a 98 mm motor a meter long.
+  // Non-mm units follow the ladder so a 24 mm motor is 0.945 in, not 1.
   const sizeDigits = units.motorDimensions === 'mm' ? 0 : undefined;
   const rows = c.motors.map((m) => [
     `${m.manufacturer ? m.manufacturer + ' ' : ''}${m.designation}`,

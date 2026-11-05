@@ -11,23 +11,13 @@ import { loadEngine, type KernelGeometry } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Every kind of catalog row, applied to a part and built by the real engine.
- *
- * `catalogPatch` writes node keys the bridge reads by name, so a key spelled
- * wrong (or one the bridge does not know) is simply ignored: the part keeps its
- * default size and the picker looks like it did nothing. Building each row and
- * reading back the length the kernel gives the part catches that, and a
- * positive mass says the material reached it too.
- */
+// The bridge silently ignores a misspelled node key, so sizes are read back.
 
 const catalog = (
   JSON.parse(readFileSync(join(__dirname, '../../../public/data/components.generated.json'), 'utf8')) as {
     components: unknown[];
   }
 ).components.filter(isComponentRow) as Component[];
-
-/** A few rows of a type, spread across the catalog rather than the first maker's. */
 const sample = (type: string): Component[] => {
   const rows = catalog.filter((p) => p.type === type);
   return [0, 0.5, 0.999].map((at) => rows[Math.floor(at * (rows.length - 1))]!);
@@ -36,7 +26,6 @@ const sample = (type: string): Component[] => {
 const node = (type: ComponentType, id: string, extra: Partial<ComponentNode> = {}, children: ComponentNode[] = []) =>
   ({ ...defaultNode(type), id, ...extra, children }) as ComponentNode;
 
-/** The part inside something that may hold it, inside a stage. */
 function design(probe: ComponentNode): unknown {
   const body = { outerRadius: 0.1, length: 1 } as Partial<ComponentNode>;
   const holders: Record<string, (p: ComponentNode) => ComponentNode[]> = {
@@ -48,20 +37,12 @@ function design(probe: ComponentNode): unknown {
   const chain = (holders[probe.type] ?? ((p) => [node('bodytube', 'tube', body, [p])]))(probe);
   return { components: [node('stage' as ComponentType, 'st', {}, chain)] };
 }
-
-/**
- * A design holding a new part with the row picked onto it, as the property
- * panel applies a pick: the patch and the link in one `updateNode`, so every
- * rule the editor runs on an edit (shoulder seeding, the automatic radii)
- * runs on the pick too.
- */
 function picked(row: Component): RocketTree {
   const probe = node(row.type as ComponentType, 'probe');
   const tree = design(probe) as RocketTree;
   return updateNode(tree, 'probe', { ...catalogPatch(row, probe), ...presetRef(row) });
 }
 
-/** The kernel's geometry and info for one part, picked onto a new part and built. */
 function build(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped
   engine: any,
@@ -75,29 +56,8 @@ function build(
   };
 }
 
-/**
- * What the desktop's `loadFromPreset` makes of a row's stated sizes, as
- * `[what, kernel value, expected]` triples, written out from the Java:
- *
- * - `BodyTube`, `ThicknessRingComponent` (coupler, engine block) and
- *   `LaunchLug`: the outer radius is half the outer diameter, and a stated
- *   inner diameter sets the wall to `(od - id) / 2`, so the bore is half the
- *   inner diameter (a stated 0 is a solid part). A lug's radii reach the bridge
- *   only through its mass, `LaunchLug.getComponentVolume` times the density of
- *   the material it states.
- * - `RadiusRingComponent` (centering ring, bulkhead): both radii as stated.
- * - `Transition.loadFromPreset` (and a nose cone through it): both ends as
- *   stated, and the wall a hollow part states, so the bore at the aft end is
- *   `max(r - t, 0)` (`Transition.getInnerRadius`). That method ignores
- *   `filled`, so a filled part's bore is not compared; its volume is, through
- *   the stated mass test below.
- * - `RailButton.loadFromPreset`: every stated size as is.
- * - A streamer's strip: its area in the surface material it states.
- *
- * A part that states no material keeps the one it had (`StructuralComponent`
- * and `ExternalComponent.loadFromPreset` set it only from the preset), so its
- * mass says nothing about its size and is not compared.
- */
+// Desktop `loadFromPreset` sizes as `[what, kernel, expected]`; a transition's aft bore
+// `max(r - t, 0)` ignores `filled`.
 function expectedSizes(
   row: Component,
   geo: KernelGeometry,
@@ -163,18 +123,10 @@ function expectedSizes(
       if (row.material != null) add('mass', info['mass'], row.stripLength * row.stripWidth * row.materialDensity);
       break;
     case 'parachute':
-      // The canopy's diameter reaches the kernel only through its mass; see 'a catalog parachute'.
       break;
   }
   return out;
 }
-
-/**
- * Whether a row is a part with a body. Upstream states a few that are not: a
- * ring or coupler whose inner diameter is larger than its outer one (desktop
- * gives it a negative wall and a negative volume), and a transition whose two
- * ends are both under 0.01 mm.
- */
 function buildable(p: Component): boolean {
   if ('innerDiameter' in p && 'outerDiameter' in p && p.innerDiameter != null && p.innerDiameter > p.outerDiameter)
     return false;
@@ -225,11 +177,6 @@ describe('catalogPatch through the kernel', () => {
       expect(wrong).toEqual([]);
       if (type !== 'parachute') expect(compared).toBeGreaterThanOrEqual(rows.length - 2);
     });
-
-  // A row that names a material with no density (`BaseComponentDTO.find` gives
-  // it 0, and desktop weighs the part at nothing) takes the nearest built-in
-  // material in the sync (scripts/lib/nearestMaterial.mjs). A part that states
-  // its mass takes its density from that mass, so only the rest can be left at 0.
   it('weighs every part that states no mass by a material with a density', () => {
     const weightless = catalog
       .filter((p) => 'material' in p && p.material != null && p.materialDensity === 0 && p.mass == null)
@@ -237,16 +184,6 @@ describe('catalogPatch through the kernel', () => {
     expect(weightless).toEqual([]);
   });
 });
-
-/**
- * A catalog part that states a mass weighs that mass when it flies, as on the
- * desktop: `ComponentPresetFactory` turns the mass of a tube, ring, bulkhead,
- * nose cone or transition into its material's density, and
- * `Parachute.loadPreset` takes a parachute's as its mass override. Every such
- * row is picked onto a new part through updateNode and built in the kernel, so a node that
- * reaches the kernel with a different shape, wall or volume than the desktop
- * gave the preset shows up as a different mass.
- */
 describe('a stated catalog mass', () => {
   it('is the mass the part flies at', async () => {
     const engine = await loadEngine();
@@ -262,10 +199,6 @@ describe('a stated catalog mass', () => {
     }
     expect(wrong).toEqual([]);
   });
-
-  // Every workspace load and every .ork open runs the design through
-  // repairValues, so a picked part has to fly its stated mass after a reload as
-  // well as in the session it was picked.
   it('is still the mass the part flies at once the design is loaded again', async () => {
     const engine = await loadEngine();
     const wrong: string[] = [];
@@ -279,11 +212,7 @@ describe('a stated catalog mass', () => {
     expect(wrong).toEqual([]);
   });
 
-  // A degenerate shape (a reversed nose cone whose ends are 0 and 2.54 µm, with
-  // a 21.6 mm shoulder on its 0 end) has no volume once its shoulder is held to
-  // that end: PresetDump on the 24.12 jar reports the density
-  // `ComponentPresetFactory` gave SEMROC `BC-08542 [R]` as Infinity. Its stated
-  // mass applies in neither build, so the row carries none.
+  // No volume: PresetDump on the 24.12 jar reports its density as Infinity.
   it('is not carried for a reversed SEMROC cone that no build gives a volume', async () => {
     const engine = await loadEngine();
     const row = catalog.find((p) => p.mfr === 'SEMROC Astronautics' && p.partNo === 'BC-08542 [R]')!;
@@ -296,15 +225,8 @@ describe('a stated catalog mass', () => {
   });
 });
 
-/**
- * A stated shoulder, held to the end it plugs as the 24.12 release's
- * `Transition.loadFromPreset` applies it: `setForeShoulderRadius(double)` and
- * `setAftShoulderRadius(double)` clamp to `Math.min(radius, getForeRadius())`
- * and `getAftRadius()` (`javap -c` on `info.openrocket.core.rocketcomponent.Transition`
- * in OpenRocket-24.12.jar), after the end radius is set, and a nose cone is
- * loaded unflipped so its one shoulder is the aft one. The bridge builds the
- * shoulder unclamped, so the node has to carry the clamped radius itself.
- */
+// 24.12 `Transition.loadFromPreset` clamps each shoulder radius to its end radius;
+// the bridge does not, so the node must carry it.
 describe('a stated shoulder', () => {
   const sides = (p: Component): { key: string; stated: number; end: number }[] =>
     p.type === 'nosecone'
@@ -326,7 +248,6 @@ describe('a stated shoulder', () => {
     const engine = await loadEngine();
     const rows = catalog.filter((p) => sides(p).length > 0);
     expect(rows.length).toBeGreaterThan(500);
-    // The rows the clamp is for are among them.
     expect(rows.some((p) => sides(p).some((sd) => sd.stated > sd.end))).toBe(true);
     const wrong: string[] = [];
     for (const row of rows) {
@@ -344,13 +265,7 @@ describe('a stated shoulder', () => {
   });
 });
 
-/**
- * A catalog rail button weighs, without its mass override, the button's own
- * stated mass: `ComponentPresetFactory.makeRailButton` divides the preset's
- * `MASS` by `RailButton.getComponentVolume` and gives the material that
- * density (`javap -c` on OpenRocket-24.12.jar). `MASS` is the button alone, as
- * PresetDump on that jar reports it below; the override adds the screw and nut.
- */
+// `makeRailButton` derives density from `MASS` (button alone); the override adds screw and nut.
 describe('a catalog rail button', () => {
   // [maker, part number, MASS in kg], PresetDump on the 24.12 release jar.
   const PRESET_MASS: [string, string, number][] = [
@@ -382,18 +297,6 @@ describe('a catalog rail button', () => {
     expect(info.mass / mass).toBeCloseTo(1, 3);
   });
 });
-
-/**
- * A pick onto a part whose shoulder is capped keeps the cap. The 24.12
- * release's `Transition.loadFromPreset` (which `NoseCone.loadFromPreset` calls)
- * sets each stated shoulder's length and radius, and a filled part's shoulder
- * wall, and never its cap (`javap -c` on
- * `info.openrocket.core.rocketcomponent.Transition` in OpenRocket-24.12.jar).
- * The kernel's `loadFromPreset` also never sets the cap, and its shoulder length
- * setter leaves the cap alone on a shoulder that already has a length: the
- * oracle is the kernel's `setShoulderLength` on the part as it was before the
- * pick.
- */
 describe('a pick onto a capped shoulder', () => {
   const stated = (p: Component, side: '' | 'fore' | 'aft'): boolean => {
     const r = p as unknown as Record<string, number | null | undefined>;
@@ -435,20 +338,11 @@ describe('a pick onto a capped shoulder', () => {
     expect(got[key('Capped')]).toBe(kernel[key('Capped')]);
   });
 });
-
-/**
- * A catalog parachute with no stated mass weighs what the desktop gives it:
- * `Parachute.loadFromPreset` applies the part's line count and length and its
- * canopy and line materials, so the canopy's area in its material plus the
- * lines in theirs is the mass desktop flies. A row that loses any of those on
- * the way to the kernel weighs a new parachute's lines or nylon instead.
- */
 describe('a catalog parachute', () => {
   it('flies at the mass of its own canopy and lines', async () => {
     const engine = await loadEngine();
     const chutes = catalog.filter((p): p is ParachuteComponent => p.type === 'parachute' && p.mass == null);
     expect(chutes.length).toBeGreaterThan(100);
-    // Every field the desktop applies is carried, or the rows test nothing.
     expect(chutes.every((p) => p.lineCount != null && p.lineLength != null)).toBe(true);
     const wrong: string[] = [];
     for (const row of chutes) {
@@ -456,7 +350,6 @@ describe('a catalog parachute', () => {
       engine.reset();
       const handle = engine.buildRocket(JSON.stringify(design(probe)));
       const info = JSON.parse(engine.getComponentInfo(handle, 'probe'));
-      // Parachute.getComponentMass: the canopy's area in its material, plus the lines in theirs.
       const canopy = ((Math.PI * row.diameter ** 2) / 4) * (row.materialDensity ?? KERNEL_MATERIALS.surface.density);
       const lines = row.lineCount! * row.lineLength! * (row.lineMaterialDensity ?? KERNEL_MATERIALS.line.density);
       const expected = canopy + lines;
@@ -468,19 +361,9 @@ describe('a catalog parachute', () => {
 });
 
 const JAVA_ROOT = join(__dirname, '../../../../engine-java/src/java/info/openrocket/core/rocketcomponent/');
-/** Java source with runs of whitespace collapsed, so the guards survive reformatting. */
 const javaSource = (file: string): string => readFileSync(join(JAVA_ROOT, file), 'utf8').replace(/\s+/g, ' ');
 
-/**
- * A recovery part picked from the catalog, against `Streamer.loadFromPreset`,
- * `RecoveryDevice.loadFromPreset` and `Parachute.loadFromPreset`.
- */
-/**
- * `Parachute.loadFromPreset` takes a stated Cd, line count and line length only
- * when it is above 0, and gives the parachute its own default otherwise
- * (Parachute.java:233-282). The Cd and line count defaults are read from the
- * kernel: a parachute built with neither key.
- */
+// `Parachute.loadFromPreset` takes Cd, line count and length only when above 0 (Parachute.java:233-282).
 describe('a catalog parachute stating a zero', () => {
   it('flies the kernel default for each zero, as desktop loads it', async () => {
     const engine = await loadEngine();
@@ -502,8 +385,7 @@ describe('a catalog parachute stating a zero', () => {
     } as unknown as ParachuteComponent;
     const got = fields({ ...node('parachute', 'probe'), ...catalogPatch(row) } as ComponentNode);
     for (const key of ['cd', 'cdAuto', 'lineCount']) expect(got[key], key).toEqual(defaults[key]);
-    // A new parachute sizes its lines from its canopy; a preset without a line
-    // length gets DEFAULT_LINE_LENGTH, fixed (Parachute.java:22, :258-259).
+    // A preset without a line length gets DEFAULT_LINE_LENGTH (Parachute.java:22, :258-259).
     expect(got['lineLength']).toBeCloseTo(0.3, 12);
   });
 });
@@ -551,15 +433,11 @@ describe('a picked recovery part', () => {
   it('names a parachute after the description it states', () => {
     const row = catalog.find((p): p is ParachuteComponent => p.type === 'parachute' && p.desc.length > 0)!;
     expect(catalogPatch(row, node('parachute', 'probe', { name: 'Main' }))['name']).toBe(row.desc);
-    // An empty description falls back to the type's own name.
     expect(catalogPatch({ ...row, desc: '' }, node('parachute', 'probe', { name: 'Main' }))['name']).toBeUndefined();
   });
 });
 
-/**
- * A row's text as desktop's JAXB loader reads the `.orc`: XML references
- * resolved, and of an element a part repeats, the last one.
- */
+// As desktop's JAXB loader reads the `.orc`: references resolved, last repeated element wins.
 describe("a catalog row's text", () => {
   it('carries no unresolved XML reference', () => {
     const raw = catalog.filter((p) =>
@@ -572,7 +450,6 @@ describe("a catalog row's text", () => {
   });
 
   it('takes the last of a repeated description, as desktop does', () => {
-    // The part list PresetDump.java reads from the 24.12 release jar gives these descriptions.
     const desc = (mfr: string, partNo: string) => catalog.find((p) => p.mfr === mfr && p.partNo === partNo)?.desc;
     expect(desc('BalsaMachining', 'NB80-4')).toBe('2.558X4.00, BT80 Nose Block 4 inch, fits BT80');
     expect(desc('Giant Leap', 'CR-3.00/38')).toBe('CR 3.00/38mm');

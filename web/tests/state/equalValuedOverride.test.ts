@@ -9,21 +9,8 @@ import { wireLoadedOrk } from '../../src/services/files/wireLoadedOrk';
 import { migrateWorkspace } from '../../src/services/storage/workspaceMigrate';
 import { useWorkspaceStore, workspaceSnapshot } from '../../src/state/store';
 
-/**
- * A desktop file whose configuration overrides a part with the part's own
- * values.
- *
- * Desktop keeps such an override: `FlightConfigurableParameterSet.isDefault`
- * compares the configuration's entry with the default by identity, and
- * `RecoveryDeviceSaver.addParams` and `AxialStageSaver` write a block for every
- * configuration that is not the default (OpenRocket 24.12, javap). Opened in
- * desktop, a change to the part's value leaves that configuration where its
- * block put it. The same has to hold after the app stores the design, reloads
- * it and saves it again.
- */
+// Desktop's `FlightConfigurableParameterSet.isDefault` compares by identity, so an equal override is kept.
 
-// The kernel build and the motor catalog are not what is under test, and the
-// fixture carries no motors.
 vi.mock('../../src/engine/openRocketEngine', async (original) => ({
   ...(await original<typeof import('../../src/engine/openRocketEngine')>()),
   OpenRocketDesign: {
@@ -36,11 +23,6 @@ vi.mock('../../src/services/motors/motorDb', async (original) => ({
   loadCatalog: async () => [],
 }));
 
-/**
- * Three configurations, written as the 24.12 savers write them: the default
- * bare; "windy" (cfg-2) with blocks equal to the bare values; "late" (cfg-3)
- * with blocks that repeat one value and change another.
- */
 const DESKTOP_ORK = `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="OpenRocket 24.12">
   <rocket>
@@ -132,12 +114,7 @@ const byName = (t: RocketTree, name: string): ComponentNode => {
   return found;
 };
 
-/**
- * One configuration's value of a part's tag as desktop reads a file: its own
- * block, else the bare tag (DeploymentConfigurationHandler and
- * StageSeparationConfigurationHandler clone the default before applying the
- * block). Null when the file has neither.
- */
+// DeploymentConfigurationHandler / StageSeparationConfigurationHandler fall back to the bare tag.
 function desktopValue(xml: string, part: string, blockTag: string, tag: string, configId: string): number | null {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   const el = Array.from(doc.querySelectorAll('*')).find((e) => e.querySelector(':scope > name')?.textContent === part)!;
@@ -146,7 +123,6 @@ function desktopValue(xml: string, part: string, blockTag: string, tag: string, 
   return text == null ? null : Number(text);
 }
 
-/** Whether a file holds a block of its own for that configuration. */
 function hasBlock(xml: string, part: string, blockTag: string, configId: string): boolean {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   const el = Array.from(doc.querySelectorAll('*')).find((e) => e.querySelector(':scope > name')?.textContent === part)!;
@@ -155,7 +131,6 @@ function hasBlock(xml: string, part: string, blockTag: string, configId: string)
 
 const s = () => useWorkspaceStore.getState();
 
-/** The open design saved as File > Save as .ork writes it. */
 const save = (): string =>
   exportOrk({
     name: 'Two stage',
@@ -171,7 +146,6 @@ const save = (): string =>
     activeConfigId: s().configs[0]!.id,
   });
 
-/** The deployment and separation tags each configuration reads from the file as desktop wrote it. */
 const CASES = [
   ['Main', 'deployAltitude', 'deploymentconfiguration', 'deployaltitude'],
   ['Main', 'deployDelay', 'deploymentconfiguration', 'deploydelay'],
@@ -184,18 +158,15 @@ describe('a desktop configuration overriding a part with equal values', async ()
     await loadOrk(new TextEncoder().encode(DESKTOP_ORK).buffer as ArrayBuffer),
     loadSettings().launchDefaults,
   );
-  // Stored as the autosave writes it, then read back as a reload reads it.
   const stored = JSON.parse(JSON.stringify(workspaceSnapshot(wired)));
   s().hydrate(migrateWorkspace(stored)!);
   const chute = byName(s().tree, 'Main').id as string;
   const booster = byName(s().tree, 'Booster').id as string;
-  // The part's own values moved off the ones the blocks repeat.
   s().setSelectedId(chute);
   s().patchSelected({ deployAltitude: 90, deployDelay: 0.5 });
   s().setSelectedId(booster);
   s().patchSelected({ separationDelay: 2.5 });
-  // Read now: every describe body runs before any test, and the next one
-  // replaces the store's workspace.
+  // Read now: every describe body runs before any test, and the next replaces the workspace.
   const part = s().tree;
   const flownTrees = new Map(s().configs.map((c) => [c.id, configuredTree(part, c)]));
   const flown = (id: string) => flownTrees.get(id)!;
@@ -245,11 +216,9 @@ describe('an override set in the app to the part’s own value', async () => {
   );
   s().hydrate(migrateWorkspace(JSON.parse(JSON.stringify(workspaceSnapshot(wired))))!);
   const chute = byName(s().tree, 'Main');
-  // What the part holds before the edit: the file's bare value.
   const partAltitude = chute['deployAltitude'] as number;
   s().setDeployment('cfg-1', chute.id as string, 'deployAltitude', partAltitude);
   const xml = save();
-  // Then stored, reloaded, and the part's value moved.
   s().hydrate(migrateWorkspace(JSON.parse(JSON.stringify(workspaceSnapshot(s()))))!);
   s().setSelectedId(chute.id as string);
   s().patchSelected({ deployAltitude: 90 });

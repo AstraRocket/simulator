@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
@@ -17,47 +17,20 @@ import {
 import { chooseFinStock, finStockChoice, useFinStockChoices, type FinStock } from '../../state/finFlutterChoices';
 import { Dialog } from '../common/Dialog';
 import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from '../tools/FlutterFields';
-import { smallButton } from '../common/smallButton';
+import { ReadoutOpener } from './ReadoutOpener';
 
-/**
- * Fin flutter for a selected fin set, opened from its editor as a dialog: the
- * Fin flutter tool's estimate with the fin, the site and the flight taken from
- * the design and its active simulation.
- *
- * The margin is read at every sample of the last run, in the air the run flew
- * through (`worstFlutterPoint`), not only at the top speed, since the air thins
- * on the way up and a lower, slower point can be the closer one. That is the
- * stack's flight (branch 0), which is what a booster's fins fly too until it
- * separates, and slower after. The speed at the pad is the run's first sample's
- * air too, or the standard atmosphere at the site before there is a run.
- *
- * The material is the one input a design does not carry: the catalog's
- * materials have a density and nothing else. A stock the estimate has a figure
- * for is matched by the material's name; any other leaves the shear modulus to
- * be typed. The choice is kept per fin set (`finFlutterChoices`), where the
- * flight warnings read it too.
- */
+// Checked at every sample, not just top speed: air thins on the way up, so a slower point can be closer.
 export function FinFlutterReadout({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
   return (
-    <div className="border-t border-line/5 pt-3">
-      <button type="button" onClick={() => setOpen(true)} className={smallButton('sm', 'ink', 'w-full')}>
-        {t('finFlutter.open')}
-      </button>
-      {open && (
-        <Dialog
-          id="fin-flutter"
-          title={t('finFlutter.title')}
-          onClose={() => setOpen(false)}
-          layer="over"
-          layout="pad"
-          size="md"
-        >
+    <ReadoutOpener
+      label={t('finFlutter.open')}
+      dialog={(close) => (
+        <Dialog id="fin-flutter" title={t('finFlutter.title')} onClose={close} layer="over" layout="pad" size="md">
           <FlutterBody node={node} />
         </Dialog>
       )}
-    </div>
+    />
   );
 }
 

@@ -16,11 +16,6 @@ import ja from '../../../src/i18n/locales/ja.json';
 import en from '../../../src/i18n/locales/en.json';
 import de from '../../../src/i18n/locales/de.json';
 
-/**
- * The sentences a screen reader hears for each chart, in place of the drawing.
- * Built from real locale strings, so a renamed key or a lost placeholder fails
- * here rather than reaching a reader as a raw key.
- */
 const t = localeTranslator(en);
 
 describe('peakOf and rangeOf', () => {

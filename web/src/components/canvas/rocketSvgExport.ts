@@ -2,27 +2,11 @@ import * as THREE from 'three';
 import { SVGRenderer } from 'three/examples/jsm/renderers/SVGRenderer.js';
 import { svgWithHeader, type ExportData } from '../../services/exports/schematicExport.js';
 
-/** The name of the group RocketModel draws the rocket in, which the SVG export keeps. */
 export const ROCKET_MODEL_NAME = 'rocket-model';
 
-/** The SVG export's width in its own units; it is vector, so this sets the proportions and the header size only. */
 const SVG_EXPORT_WIDTH = 1920;
 
-/**
- * The 3D model as an SVG document, from `camera`, under the same header band
- * the 2D schematic's SVG carries.
- *
- * The WebGL view is pixels, so this draws the scene again with three.js's
- * `SVGRenderer`: every visible triangle becomes one flat-shaded polygon,
- * sorted back to front. What that renderer cannot do is left out rather than
- * faked: there is no specular term, so shine does not show, and it ignores
- * clipping planes, so a cutaway is drawn closed. Only the rocket is kept; the
- * CG and CP markers are textured sprites it would draw as blank squares, and
- * the header states both numbers.
- *
- * The scene is the live one, edited for the length of one synchronous render
- * and put back before returning, so no frame can see it changed.
- */
+/** CG/CP sprites are hidden because `SVGRenderer` draws them as blank squares. */
 export function rocketSvg(scene: THREE.Scene, camera: THREE.Camera, aspect: number, d: ExportData): string {
   const width = SVG_EXPORT_WIDTH;
   const height = Math.round(width / aspect);
@@ -36,14 +20,12 @@ export function rocketSvg(scene: THREE.Scene, camera: THREE.Camera, aspect: numb
   scene.traverse((o) => {
     if (keep.has(o)) return;
     if (o instanceof THREE.AmbientLight) {
-      // `SVGRenderer` adds an ambient light's color at full strength, ignoring
-      // its intensity, which washes the model out; scaled for the render.
+      // `SVGRenderer` ignores ambient intensity, washing the model out.
       ambient.push([o, o.color.clone()]);
       o.color.multiplyScalar(o.intensity);
       return;
     }
     if ((o as THREE.Light).isLight) return;
-    // The topmost object off the rocket's branch; its children go with it.
     if (o.visible && o.parent && keep.has(o.parent)) {
       o.visible = false;
       hidden.push(o);
@@ -57,8 +39,7 @@ export function rocketSvg(scene: THREE.Scene, camera: THREE.Camera, aspect: numb
     renderer.setSize(width, height);
     renderer.render(scene, camera);
     const serializer = new XMLSerializer();
-    // The renderer draws around the origin (its viewBox is centered); the
-    // header expects a box from the origin.
+    // The renderer's viewBox is centered; the header expects one from the origin.
     inner =
       `<g transform="translate(${width / 2} ${height / 2})">` +
       Array.from(renderer.domElement.childNodes, (n) => serializer.serializeToString(n)).join('') +

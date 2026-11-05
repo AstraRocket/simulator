@@ -2532,7 +2532,8 @@
     "tool_chute": "Dimensionamento do paraquedas",
     "tool_flutter": "Flutter das aletas",
     "tool_ejection": "Carga de ejeção",
-    "tool_exhaust": "Aparência do escape"
+    "tool_exhaust": "Aparência do escape",
+    "tool_motors": "Painel de motores"
   },
   "chuteTool": {
     "title": "Dimensionamento do paraquedas",

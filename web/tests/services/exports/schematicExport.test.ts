@@ -34,11 +34,7 @@ describe('dataHeaderLines', () => {
     expect(lines[1]).toMatch(/v9\.9\.9, .*\d{4}/);
   });
 
-  /**
-   * The footer carries the day on the user's own clock. Late on the 15th in
-   * Los Angeles it is already the 16th in UTC; early on the 15th in Tokyo it
-   * is still the 14th. The expected day is the instant's own local date.
-   */
+  // Both instants fall on a different day in UTC than locally.
   describe('dates the footer on the local day', () => {
     afterEach(() => {
       vi.useRealTimers();
@@ -70,7 +66,7 @@ describe('dataHeaderLines', () => {
     const lines = dataHeaderLines(data());
     expect(lines[0]).toBe('My Rocket');
     expect(lines.some((l) => l.includes('Length') && l.includes('max diameter'))).toBe(true);
-    expect(lines.some((l) => l.includes('margin 1.23 cal'))).toBe(true); // toFixed(2)
+    expect(lines.some((l) => l.includes('margin 1.23 cal'))).toBe(true);
   });
 
   it('states no CP or margin for a design with no normal force', () => {
@@ -90,14 +86,11 @@ describe('dataHeaderLines', () => {
     await i18n.changeLanguage('de');
     try {
       const lines = dataHeaderLines(data({ spanM: 0.1 }));
-      // German decimals take a comma, like the lengths beside the margin.
       expect(lines.some((l) => l.includes(' 1,23 '))).toBe(true);
       expect(lines.some((l) => l.includes('1.23'))).toBe(false);
-      // The lengths and masses too: 0.6 m long, 120 g at launch, 90 g dry.
       expect(lines.some((l) => l.includes('0,6 m'))).toBe(true);
       expect(lines.some((l) => l.includes('0,024 m'))).toBe(true);
       expect(lines.some((l) => l.includes('0.6 m') || l.includes('0.024 m'))).toBe(false);
-      // Three dimensions as one German list: "A, B und C".
       expect(lines.some((l) => / und /.test(l) && l.includes(i18n.t('export.headerSpan', { value: '' }).trim()))).toBe(
         true,
       );

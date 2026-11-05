@@ -9,15 +9,7 @@ import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, partLooks } from '../../../src/ser
 import { noteTexts } from '../../testing/importNotes';
 import { DEFAULT_PART_COLORS } from '../../../src/services/design/partColors';
 
-/**
- * A part's 3D appearance in a `.ork`: the `<appearance>` and
- * `<insideappearance>` blocks desktop's Appearance tab writes.
- *
- * The expected values are what OpenRocket 24.12 itself loads from this XML
- * (`GeneralRocketLoader` on the release jar, reading each part's
- * `getAppearance()`, `getInsideAppearance()` and the two handler flags), and
- * 24.12 loads the file this app writes from it back to the same values.
- */
+// Expected values are what OpenRocket 24.12 loads from this XML (`GeneralRocketLoader`).
 const FIXTURE = `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.9" creator="OpenRocket 24.12">
   <rocket>
@@ -97,7 +89,6 @@ const FIXTURE = `<?xml version='1.0' encoding='utf-8'?>
 
 const KEYS = ['color', 'appearance', 'insideAppearance', 'separateInsideOutside', 'edgesSameAsInside'];
 
-/** Each named part's appearance keys, the ones it has. */
 function looksByName(tree: RocketTree): Record<string, Record<string, unknown>> {
   const out: Record<string, Record<string, unknown>> = {};
   for (const n of walkNodes(tree.components)) {
@@ -107,7 +98,6 @@ function looksByName(tree: RocketTree): Record<string, Record<string, unknown>> 
   return out;
 }
 
-/** What 24.12 loads from FIXTURE, in the app's terms. */
 const DESKTOP = {
   // A block that states only a paint keeps the builder's 0.3 shine.
   Nose: { color: '#010203', appearance: { paint: '#0a141e', alpha: 255, shine: 0.3 } },
@@ -117,17 +107,14 @@ const DESKTOP = {
     separateInsideOutside: true,
     edgesSameAsInside: true,
   },
-  // Shine clamped to 0-1 by the Appearance constructor; the flags read in their
-  // 22.02 beta spellings.
+  // The Appearance constructor clamps shine to 0-1; the flags use the 22.02 beta spellings.
   Fins: {
     appearance: { paint: '#ff0000', alpha: 255, shine: 1 },
     insideAppearance: { paint: '#0000ff', alpha: 255, shine: 0 },
     separateInsideOutside: true,
   },
-  // No alpha attribute is opaque. A centering ring has no inside, so the inside
-  // block is not applied to it.
+  // No alpha is opaque. A centering ring has no inside, so that block is not applied.
   Ring: { appearance: { paint: '#0c2238', alpha: 255, shine: 0.5 } },
-  // An inside block with no outside one: the outside stays on the default.
   Lug: { insideAppearance: { paint: '#090807', alpha: 255, shine: 0.3 }, edgesSameAsInside: true },
 };
 
@@ -137,8 +124,7 @@ describe('reading a desktop appearance', () => {
   });
 
   it('reads a paint that is not a color as the builder default, keeping the rest of the block', () => {
-    // `ORColor.fromXMLAttributes` returns no color for a channel outside 0-255,
-    // and `AppearanceHandler` then leaves the builder's paint in place.
+    // A channel outside 0-255 gives no color, so `AppearanceHandler` keeps the builder's paint.
     const xml = FIXTURE.replace('<paint red="12" green="34" blue="56"/>', '<paint red="300" green="34" blue="56"/>');
     expect(looksByName(importOrk(xml).tree)['Ring']).toEqual({
       appearance: { paint: BUILDER_DEFAULT.paint, alpha: 255, shine: 0.5 },
@@ -202,7 +188,6 @@ describe('which parts have an inside', () => {
       .map((f) => f.replace('.java', ''))
       .sort();
     expect(classes).toEqual(['BodyTube', 'FinSet', 'InnerTube', 'LaunchLug', 'NoseCone', 'Transition', 'TubeFinSet']);
-    // FinSet is the three planar fin sets.
     expect([...INSIDE_COLOR_TYPES].sort()).toEqual(
       [
         'bodytube',
@@ -220,9 +205,7 @@ describe('which parts have an inside', () => {
 });
 
 describe('what each surface is drawn with', () => {
-  // RealisticRenderer.renderComponent: an inside appearance applies only when
-  // the two are separate, and the edges follow the inside only when
-  // edgesSameAsInside is set.
+  // Mirrors RealisticRenderer.renderComponent.
   const node = (extra: Record<string, unknown>) =>
     ({
       type: 'bodytube',

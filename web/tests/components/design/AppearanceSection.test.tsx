@@ -6,13 +6,6 @@ import { readSettings, renderWithProviders, seedSettings } from '../../testing/r
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { DEFAULT_PART_COLORS } from '../../../src/services/design/partColors';
 
-/**
- * Desktop's Appearance tab (`AppearancePanel`) without the texture: the figure
- * style the 2D views draw, and the 3D appearance with its own "Use default",
- * color, shine and opacity, plus the inside and the edges on a part that has
- * an inside. Every control lands as one undo step.
- */
-
 const render = (node: Record<string, unknown>) => {
   const onCommitChange = vi.fn();
   renderWithProviders(<AppearanceSection node={node as unknown as ComponentNode} onCommitChange={onCommitChange} />);
@@ -110,7 +103,6 @@ describe('the 3D appearance', () => {
     const color = screen.getByLabelText('Color') as HTMLInputElement;
     expect((color as HTMLInputElement).disabled).toBe(true);
     expect(color.value).toBe(DEFAULT_PART_COLORS.body);
-    // ESTES_BT's shine.
     expect((screen.getByLabelText('Shine') as HTMLInputElement).value).toBe('30');
     fireEvent.click(screen.getByLabelText('Use default'));
     expect(commit).toHaveBeenCalledWith({ appearance: { paint: DEFAULT_PART_COLORS.body, alpha: 255, shine: 0.3 } });
@@ -157,7 +149,6 @@ describe('the inside', () => {
 
   it('edits the outside until the two are set apart, then offers an inside tab', () => {
     const commit = render({ type: 'bodytube', id: 'b' });
-    // The one Inside button is the edge choice; there is no tab yet.
     expect(screen.getAllByRole('button', { name: 'Inside' })).toHaveLength(1);
     fireEvent.click(screen.getByLabelText('Use separate appearance for outside and inside'));
     expect(commit).toHaveBeenCalledWith({ separateInsideOutside: true });
@@ -170,7 +161,6 @@ describe('the inside', () => {
       appearance: PAINTED,
       separateInsideOutside: true,
     });
-    // The edge choice and the tab both name the two sides.
     const [, insideTab] = screen.getAllByRole('button', { name: 'Inside' });
     fireEvent.click(insideTab!);
     expect((screen.getByLabelText('Use default') as HTMLInputElement).checked).toBe(true);

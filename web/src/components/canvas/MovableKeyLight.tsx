@@ -2,26 +2,16 @@ import { useEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 
-/**
- * Where the key light starts, and where Reset puts it back, in the camera's
- * own frame: above, to the right, and from the viewer's side.
- */
+// In the camera's frame.
 const KEY_LIGHT_HOME = new THREE.Vector3(1.5, 2.5, 2);
 
-/** Radians the light turns per pixel of drag. */
-const TURN_PER_PX = 0.01;
+const TURN_PER_PX = 0.01; // radians
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 const turn = new THREE.Quaternion();
 
-/**
- * A directional light fixed to the camera rather than the scene: `from` is
- * the direction it shines from as the viewer sees it (+x right, +y up, +z
- * toward the viewer). Orbiting the model turns the light with the view, so
- * whichever side faces you is lit the same way, as in desktop OpenRocket's
- * 3D view.
- */
+// `from` is in view space: +x right, +y up, +z toward the viewer.
 export function ViewLight({
   from,
   color,
@@ -43,16 +33,7 @@ export function ViewLight({
   return <directionalLight ref={light} intensity={intensity} color={color} />;
 }
 
-/**
- * The 3D view's key light, which a right-button drag swings around the model,
- * as desktop OpenRocket's 3D view does: across swings it left and right as
- * you see it, up and down raises and lowers it. It is fixed to the camera
- * (`ViewLight`), so where you put it stays put as you orbit.
- *
- * `light` holds where it shines from, so the view can put it back (Reset)
- * and show where it is (`LightBall`). OrbitControls must leave the right
- * button alone for this to have it.
- */
+// Right-button drag: OrbitControls must leave the right button free.
 export function MovableKeyLight({ light, color, intensity }: { light: KeyLight; color: string; intensity: number }) {
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
@@ -97,7 +78,6 @@ export function MovableKeyLight({ light, color, intensity }: { light: KeyLight; 
   return <ViewLight from={light.dir} intensity={intensity} color={color} />;
 }
 
-/** Where the key light is, as the ball draws it: its direction, and whether it is being dragged. */
 interface LightView {
   x: number;
   y: number;
@@ -105,16 +85,9 @@ interface LightView {
   dragging: boolean;
 }
 
-/**
- * The key light's direction, shared by the light in the scene and the ball
- * outside it. The scene reads `dir` every frame; the ball subscribes, so a
- * drag redraws the ball and not the whole view around it.
- */
 export interface KeyLight {
   dir: RefObject<THREE.Vector3>;
-  /** Tell the ball the light moved, and whether a drag is still on. */
   changed: (dragging: boolean) => void;
-  /** Back where it started. */
   reset: () => void;
   subscribe: (fn: () => void) => () => void;
   view: () => LightView;
@@ -147,19 +120,10 @@ export function keyLight(): KeyLight {
   };
 }
 
-/** The ball's size, px. */
 const BALL_PX = 44;
 
-/**
- * Where the key light is: a small ball lit from the light's direction, as the
- * viewer sees it, so its bright side points at the light. A light from behind
- * the model leaves the ball mostly dark, lit at the rim. Shown while the light
- * is dragged, and fades once it is let go.
- */
 export function LightBall({ light, className }: { light: KeyLight; className?: string }) {
   const { x, y, z, dragging } = useSyncExternalStore(light.subscribe, light.view);
-  // The highlight sits where the light's direction meets the ball's face; a
-  // light from behind pushes it out to the rim and dims it.
   const hx = 50 + 38 * x;
   const hy = 50 - 38 * y;
   const glow = Math.round(255 * (0.45 + 0.55 * Math.max(0, z)));

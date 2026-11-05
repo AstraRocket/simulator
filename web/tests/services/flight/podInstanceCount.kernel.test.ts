@@ -19,7 +19,6 @@ const motor: MotorSpec = {
   delay: 3,
 } as unknown as MotorSpec;
 
-/** A core with a pod assembly around it, each pod carrying a motor mount. */
 const design = (type: 'podset' | 'parallelstage', count?: number): RocketTree =>
   ({
     components: [

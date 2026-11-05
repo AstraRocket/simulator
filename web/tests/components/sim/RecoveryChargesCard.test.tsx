@@ -113,7 +113,6 @@ describe('the Results card of recovery charges', () => {
     });
     renderWithProviders(<RecoveryChargesCard />);
     const rows = screen.getAllByRole('rowheader', { name: 'Main' }).map((h) => h.closest('tr')!.textContent);
-    // The same tube name in each, told apart by the stage; an unnamed one by its type.
     expect(rows[0]).toMatch(/Sustainer · Body tube.*4\.00/);
     expect(rows[1]).toMatch(/Stage · Body tube.*5\.00/);
   });

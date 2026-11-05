@@ -45,7 +45,6 @@ describe('EnvironmentView', () => {
     const pad = within(document.querySelector('dl')!);
     expect(pad.getByText('Site elevation').nextSibling?.textContent).toBe('1,609 m');
     expect(pad.getByText('Air temperature').nextSibling?.textContent).toMatch(/^22\.50 °C$/);
-    // Four significant figures in the user's unit (g/cm³ by default), not a rounded 0.00.
     expect(pad.getByText('Air density').nextSibling?.textContent).toBe('0.0009985 g/cm³');
     expect(pad.getByText('Wind direction').nextSibling?.textContent).toBe('350°');
   });
@@ -110,19 +109,16 @@ describe('EnvironmentView', () => {
     expect(pad.getByText('Latitude').nextSibling?.textContent).toBe('39.7392° N');
     expect(pad.getByText('Longitude').nextSibling?.textContent).toBe('104.9903° W');
     expect(pad.getByText('Date / time').nextSibling?.textContent).toMatch(/^Oct 5, 2026, 12:00 PM MDT$/);
-    // The row carries the date, time and place, so the sentence repeating them is left out.
     expect(screen.queryByText(/^Open-Meteo forecast for /)).toBeNull();
     expect(screen.getByRole('link', { name: 'Weather data by Open-Meteo.com' }).getAttribute('href')).toBe(
       'https://open-meteo.com/',
     );
     expect(screen.getByRole('link', { name: 'CC BY 4.0' })).toBeTruthy();
-    // No Weather dialog on the Results tab, so nothing to refresh from here.
     expect(screen.queryByRole('button', { name: 'Refresh…' })).toBeNull();
   });
 
   it('shows no credit for weather that did not come from Open-Meteo', () => {
     renderWithProviders(<EnvironmentView flight={flight(AIR)} />);
-    // No forecast, no date: the run itself has none.
     expect(screen.queryByText('Date / time')).toBeNull();
     expect(screen.queryByRole('link', { name: 'CC BY 4.0' })).toBeNull();
   });

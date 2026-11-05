@@ -13,8 +13,6 @@ import {
 } from '../../../src/services/parts/customParts';
 import { setPresetStore, type CustomPart, type PresetStore } from '../../../src/services/parts/presetStore';
 import { catalogPatch } from '../../../src/services/design/treeEdit';
-
-/** An in-memory PresetStore, so these tests never touch IndexedDB. */
 class MemoryPresetStore implements PresetStore {
   parts: CustomPart[] = [];
   async list() {
@@ -78,7 +76,6 @@ describe('a saved part as a picker row', () => {
     expect(row.partNo).toBe('BT-50ish');
     expect(row.custom).toBe(true);
     expect(row).toMatchObject({ outerDiameter: 0.026, length: 0.2, material: 'Cardboard', materialDensity: 680 });
-    // OD less two walls, which is what `catalogPatch` turns back into a wall.
     expect((row as { innerDiameter: number }).innerDiameter).toBeCloseTo(0.025, 9);
   });
 
@@ -138,12 +135,7 @@ describe('applying a saved part', () => {
     const node = tube();
     const part = await saveCustomPart(node, 'bodytube', meta);
     const patch = catalogPatch(customPartToRow(part)!);
-    // Plus the pin: a saved part states a diameter, so applying it turns the
-    // automatic flag off on whatever it is applied to, exactly as the kernel's
-    // own `setOuterRadius` does. Without it the auto resolver would overwrite
-    // the part on its next pass and the picker would read as doing nothing.
     expect(patch).toEqual({ ...presetNode(node), outerRadiusAuto: false });
-    // The point of the feature: a flag no catalog row has a column for.
     expect(patch.motorMount).toBe(true);
     expect(patch.color).toBe('#ff0000');
   });
@@ -246,7 +238,6 @@ describe('updateCustomPart', () => {
     await saveCustomPart(tube(), 'bodytube', meta);
     const second = await saveCustomPart(tube(), 'bodytube', { ...meta, partNo: 'other' });
     await expect(updateCustomPart(second.id, meta, second.node)).rejects.toThrow(/already uses/i);
-    // Two parts still, neither of them merged into the other.
     expect((await listSavedParts()).length).toBe(2);
   });
 
@@ -282,8 +273,6 @@ describe('listSavedParts (the manage view)', () => {
   it('KEEPS a part that no longer projects, which customRowsForType drops', async () => {
     await saveCustomPart(tube(), 'bodytube', meta);
     store.parts.push({ id: 'broken', type: 'bodytube', mfr: 'm', partNo: 'p', desc: '', node: {} });
-    // The picker hides it; the only list you can delete from must not, or it
-    // is a part that can never be removed.
     expect((await customRowsForType('bodytube')).map((r) => r.partNo)).toEqual(['BT-50ish']);
     const all = await listSavedParts();
     expect(all.map((e) => e.part.partNo).sort()).toEqual(['BT-50ish', 'p']);

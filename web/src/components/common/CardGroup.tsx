@@ -3,13 +3,7 @@ import { useId } from 'react';
 const FILL = { surface: 'bg-surface', raised: 'bg-raised/40' } as const;
 const HEADING = 'text-xs font-semibold uppercase tracking-wide text-ink-muted';
 
-/**
- * One titled card of a form or a results pane: a heading over a vertically
- * spaced stack. `aside` sits at the heading's end (an export button); `fill`
- * is `raised` inside a dialog, whose own background is the surface color.
- * `region` names the section by its heading, making it a landmark; only for a
- * card worth jumping to, since a form card often shares its title with a field.
- */
+/** Use `fill="raised"` inside a dialog, whose background is already the surface color. */
 export function CardGroup({
   title,
   aside,

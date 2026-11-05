@@ -1,27 +1,8 @@
-/**
- * Thin app-facing helpers over the OpenRocket engine wrapper (openRocketEngine.ts).
- * Keeps the UI free of engine handle bookkeeping.
- */
 import { OpenRocketDesign, resetEngine, type MotorSpec, type RocketTree } from './openRocketEngine';
 
 export type { StaticInfo, FlightResult } from './openRocketEngine';
 
-/**
- * The Estes C6 (SI units) as the bundled catalog states it: the certified RASP
- * curve with a t = 0 point ahead of it, and the catalog's 23.1 g loaded and
- * 10.8 g propellant weights.
- *
- * Seated into any mount that has no motor (`flightConfigs.reconcileConfig`), so
- * it is what the default design flies until somebody picks something. The
- * masses fall from loaded to burnout in proportion to cumulative impulse, as
- * `motorSpec.samplesToMotorSpec` builds them for a catalog row, so this motor
- * flies the same as the Estes C6 picked from the catalog.
- *
- * The 5 s delay is the one the picker itself would choose: Estes sells the C6 in
- * 0, 3, 5 and 7, and `MotorDialog.choose` takes the middle of a motor's own
- * charges rather than a fixed number, so the motor the app seats for you matches
- * what the picker would have chosen.
- */
+/** Must match the catalog row (`motorSpec.samplesToMotorSpec`) exactly so both fly the same. */
 export const C6: MotorSpec = {
   designation: 'C6',
   manufacturer: 'Estes',
@@ -44,16 +25,7 @@ export const C6: MotorSpec = {
   ejectionDelay: 5.0,
 };
 
-/**
- * Build a rocket from an editable component tree, with no motors in it.
- *
- * Motors are seated by `services/design/buildRocket.buildConfiguredRocket`, from the
- * flight configuration being flown: one place decides which motor goes in which
- * mount, so the drawing, the static readouts and the flight cannot disagree.
- *
- * resetEngine() frees the previous design's handles, so always rebuild before
- * reading static info / simulating.
- */
+/** resetEngine() frees the previous design's handles, so always rebuild before reading or simulating. */
 export function buildRocketTree(tree: RocketTree): OpenRocketDesign {
   resetEngine();
   return OpenRocketDesign.buildTree(tree);

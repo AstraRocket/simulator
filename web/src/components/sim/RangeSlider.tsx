@@ -1,13 +1,11 @@
 import { useTranslation } from 'react-i18next';
 
-// The slider thumbs sit above a custom track; each native range input is
-// transparent with only its thumb clickable, so the two overlap cleanly.
+// Each native range input is transparent with only its thumb clickable, so the two overlap.
 const THUMB =
   'pointer-events-none absolute inset-x-0 top-0 m-0 h-5 w-full cursor-pointer appearance-none bg-transparent focus:outline-none' +
   ' [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-400 [&::-webkit-slider-thumb]:ring-2 [&::-webkit-slider-thumb]:ring-surface' +
   ' [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-accent-400';
 
-/** A two-thumb range slider over `count` discrete stops (OpenRocket-style). */
 export function RangeSlider({
   count,
   low,
@@ -21,19 +19,6 @@ export function RangeSlider({
   high: number;
   onChange: (lo: number, hi: number) => void;
   label: string;
-  /**
-   * What each stop is, one label per stop, drawn as a tick under the track and
-   * readable on hover.
-   *
-   * The stops are discrete sizes (for the diameter filter, the ten standard motor
-   * diameters from 6 to 150 mm), not a continuous scale, and without marks the
-   * slider would look like one, leaving no way to aim at a size except to drag
-   * and read the number back.
-   *
-   * Decorative for assistive tech, so the ticks are hidden from it rather than
-   * read out ten times. Each thumb announces its stop's label instead of its
-   * index, through `aria-valuetext`.
-   */
   stops?: string[];
 }) {
   const { t } = useTranslation();
@@ -45,9 +30,6 @@ export function RangeSlider({
         className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-500"
         style={{ left: `${pct(low)}%`, right: `${100 - pct(high)}%` }}
       />
-      {/* Under the track rather than on it, so the selected-range fill never
-          hides them, and lit within the range so the marks say which sizes are
-          in as well as where they are. */}
       {stops?.map((stop, i) => (
         <span
           key={i}
@@ -69,9 +51,7 @@ export function RangeSlider({
         aria-label={t('motorDlg.rangeMin', { label })}
         onChange={(e) => onChange(Math.min(Number(e.target.value), high), high)}
         className={THUMB}
-        // Where the thumbs meet, the one on top is the one that can still move:
-        // the low thumb, except at the first stop, where it cannot go lower and
-        // only the high thumb can leave.
+        // Where the thumbs meet, the one that can still move is on top: low, except at the first stop.
         style={{ zIndex: low >= high && low > 0 ? 5 : 3 }}
       />
       <input

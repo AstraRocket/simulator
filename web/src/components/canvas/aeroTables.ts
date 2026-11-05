@@ -5,14 +5,9 @@ import { niceStep } from '../../prefs/units';
 import { componentName, isDefaultComponentName } from '../../services/app/warningText';
 import { roundFixed } from '../../services/app/numbers';
 
-/**
- * The pure half of AeroAnalysis: the cell-shading formulas, the per-table row
- * builders and the chart geometry (domain, stacked bands, axis ticks).
- */
-
 export type HeatStyle = 'sky' | 'openrocket';
 
-/** HSV to CSS rgb, matching java.awt.Color.getHSBColor. */
+// Matches java.awt.Color.getHSBColor.
 export function hsv(h: number, sat: number, val: number): string {
   const f = (n: number) => {
     const k = (n + h * 6) % 6;
@@ -21,17 +16,7 @@ export function hsv(h: number, sat: number, val: number): string {
   return `rgb(${f(5)}, ${f(3)}, ${f(1)})`;
 }
 
-/**
- * Cell shading for a magnitude, in either of two styles.
- *
- * `sky` (default) is one hue that strengthens with the value, scaled against the
- * row set's own largest: a relative magnitude ramp on a dark table. Capped short
- * of opaque so the text keeps its own color.
- *
- * `openrocket` is the desktop's renderer, formula for formula: hue rotates green
- * to red over an absolute Cd scale (full red at 1.5), saturation climbs with it,
- * value pinned at 1. The cells come out light, so the text goes dark with them.
- */
+// `openrocket` is the desktop's formula over absolute Cd (full red at 1.5).
 export function heat(value: number, max: number, style: HeatStyle): CSSProperties | undefined {
   if (!Number.isFinite(value) || value <= 0) return undefined;
 
@@ -47,21 +32,12 @@ export function heat(value: number, max: number, style: HeatStyle): CSSPropertie
   return { backgroundColor: `rgba(2, 132, 199, ${a.toFixed(3)})` };
 }
 
-/** A translator, narrowed to what a component name needs. */
 type Translate = (key: string) => string;
 
-/**
- * A component's display name. A part the user never named arrives as the
- * kernel's bundle key ("[BodyTube.BodyTube]"); with `translate`, that reads as
- * this app's own name for the part type in the reader's language, the name the
- * tree and the drawings give it. Without, or for a key the app has no name
- * for, the CamelCase class is split into words (BodyTube -> "Body Tube"). A
- * name the user typed is returned as typed.
- */
+// An unnamed part arrives as the kernel's bundle key ("[BodyTube.BodyTube]").
 export function niceName(raw: string, translate?: Translate): string {
   if (translate && isDefaultComponentName(raw)) return componentName(raw, translate);
-  // The bridge sends a renamed part's getName() as typed, dots and capitals
-  // included ("Fins 4.5in", "PayloadBay"); only a bracketed key is rewritten.
+  // Typed names keep their dots and capitals ("Fins 4.5in"); only a bracketed key is rewritten.
   if (!/^\[[^\]]*\]$/.test(raw)) return raw;
   const m = raw.match(/^\[?([^.\]]+)\.([^.\]]+)\]?$/);
   const cls = m?.[1] ?? raw.replace(/[[\]]/g, '');
@@ -70,12 +46,7 @@ export function niceName(raw: string, translate?: Translate): string {
   return base.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
 }
 
-/**
- * The sweep altitude box in the user's distance unit (`factor` is meters to
- * that unit). Kilometers and miles carry two decimals: in whole units the box
- * would read "2" over a sweep flown at 1.5 km. A typed value is stored rounded
- * the same way, so the figure on screen is the altitude the sweep is flown at.
- */
+// `factor` is meters to the user's unit; toSi rounds too, so the screen shows the flown altitude.
 export function altitudeField(factor: number): {
   toUi: (m: number) => number;
   toSi: (ui: number) => number;
@@ -88,25 +59,17 @@ export function altitudeField(factor: number): {
     toUi: (m) => round(m * factor),
     toSi: (ui) => round(ui) / factor,
     max: round(30_000 * factor),
-    // About 500 m a step, never zero: Math.round(500 m in miles) is 0, which
-    // is not a valid step.
+    // Never zero: Math.round(500 m in miles) is 0.
     step: digits ? niceStep(500 * factor) : Math.round(500 * factor),
   };
 }
 
-/**
- * Decimals that resolve `siStep` in a unit `factor` times the SI one: a column
- * of positions to 0.1 mm reads 523.4 in mm, 0.5234 in m and 1.719 in ft. One
- * fixed count cannot serve every unit: a CP of 0.523 m at one decimal is
- * "0.5", and a 47 g part in kg is "0.0".
- */
 export function unitDigits(factor: number, siStep: number): number {
   const step = Math.abs(factor * siStep);
   if (!(step > 0) || !Number.isFinite(step)) return 1;
   return Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
 }
 
-/** SVG `d` for one series against Mach, skipping non-finite samples (see {@link polylinePath}). */
 export function buildLinePath(
   machs: readonly number[],
   vals: readonly number[],
@@ -122,11 +85,7 @@ export function buildLinePath(
   );
 }
 
-/**
- * The sampled Mach nearest `mach`. The tables quote a real sample rather than
- * interpolating between two, so their numbers match the CSV exactly. Ties go
- * to the lower index.
- */
+// A real sample, not interpolated, so tables match the CSV.
 export function nearestSampleIndex(machs: readonly number[], mach: number): number {
   let best = 0;
   for (let k = 1; k < machs.length; k++) {
@@ -137,8 +96,7 @@ export function nearestSampleIndex(machs: readonly number[], mach: number): numb
 
 type SweepComponent = AeroSweep['components'][number];
 
-/** The engine's stable id. Two parts can share a NAME (an unnamed pair are
- *  both "Body tube"), so the label cannot be the row key. */
+// Two parts can share a name, so the label cannot be the row key.
 const rowKey = (c: SweepComponent): string => c.key ?? c.name;
 
 export interface DragRow {
@@ -152,7 +110,6 @@ export interface DragRow {
   base: number | null | undefined;
 }
 
-/** Per-component drag at sample `i`, the worst offender first: that is the question. */
 export function dragRows(sweep: AeroSweep, i: number, translate?: Translate): DragRow[] {
   return sweep.components
     .map((c) => ({
@@ -168,12 +125,6 @@ export function dragRows(sweep: AeroSweep, i: number, translate?: Translate): Dr
     .sort((a, b) => b.cd - a.cd);
 }
 
-/**
- * The whole-rocket figures the drag table reads against. Rounding aside, the
- * component totals are the rocket's drag; `unattributed` is the remainder, which
- * only matters if the kernel starts booking drag somewhere the walk does not
- * reach. `hasSplit` and `hasInstances` say which optional columns have data.
- */
 export function dragTotals(
   sweep: AeroSweep,
   i: number,
@@ -189,8 +140,7 @@ export function dragTotals(
   };
 }
 
-/** Masses keyed on the engine's stable id, not the label: joining on the name
- *  would give two same-named parts each other's mass. */
+// Keyed on the stable id: same-named parts would swap masses on a name join.
 export const massIndex = (masses: readonly ComponentMass[]): Map<string, ComponentMass> =>
   new Map(masses.map((m) => [m.key || m.name, m]));
 
@@ -202,8 +152,6 @@ export interface StabilityRow {
   mass: ComponentMass | undefined;
 }
 
-/** Each component's share of the normal-force slope at sample `i`, largest
- *  first; a part with no normal force has no CP to report and is dropped. */
 export function stabilityRows(
   sweep: AeroSweep,
   i: number,
@@ -230,13 +178,7 @@ export interface RollRow {
   damp: number;
 }
 
-/**
- * Roll forcing and damping per fin set at sample `i`. Fin sets are the only
- * parts that generate or resist roll, which is what the desktop lists; anything
- * with a non-zero coefficient is kept too, so a kernel that starts attributing
- * roll elsewhere is not hidden. Fin sets are picked out by the kernel's class
- * name, because their numbers at rest are indistinguishable from a body tube's.
- */
+// Fin sets match by class name: at rest their numbers equal a body tube's.
 export function rollRows(sweep: AeroSweep, i: number, translate?: Translate): RollRow[] {
   return sweep.components
     .map((c) => ({
@@ -249,7 +191,6 @@ export function rollRows(sweep: AeroSweep, i: number, translate?: Translate): Ro
     .filter((r) => /FinSet/i.test(r.type) || Math.abs(r.force) > 1e-12 || Math.abs(r.damp) > 1e-12);
 }
 
-/** The largest magnitude in a column; 0 for an empty one. */
 export function columnMax(rows: readonly number[]): number {
   let m = 0;
   for (const v of rows) if (Math.abs(v) > m) m = Math.abs(v);
@@ -262,12 +203,6 @@ export interface ChartSeries {
   values: number[];
 }
 
-/**
- * The y-domain of a chart: for a stacked chart the tallest cumulative column
- * (floored at 0), otherwise the finite extremes of every series with 0 always
- * in range. Degenerate data gets a unit span, and 8% of headroom is added so
- * the top curve clears the frame.
- */
 export function chartDomain(
   series: readonly ChartSeries[],
   machs: readonly number[],
@@ -301,21 +236,7 @@ export function chartDomain(
   return { yMin, yMax };
 }
 
-/**
- * Stacked areas: cumulative bottom-to-top, each band a closed polygon whose top
- * edge is the running sum through this series and whose bottom edge is the
- * running sum before it. Negative samples count as zero so a band never
- * inverts.
- *
- * Non-finite samples are handled the way {@link buildLinePath} handles them, and
- * for the same reason: they do occur, since `sweep.nonFinite` is surfaced in
- * the UI. Here one NaN is worse than a hole in a line: accumulated into `cum`,
- * it would put the literal string `NaN` into the path data of every band
- * stacked above it, and the browser silently drops a path whose data it cannot
- * parse. A non-finite sample contributes zero to the running sum, which keeps the
- * stack finite, and splits the band into separate closed polygons, so the gap
- * reads as a gap instead of as a band pinched to the axis.
- */
+// A non-finite sample adds zero to the sum: a NaN there makes the browser drop every band above.
 export function stackedBands(
   series: readonly ChartSeries[],
   machs: readonly number[],
@@ -328,16 +249,12 @@ export function stackedBands(
     const lower = cum.slice();
     for (let i = 0; i < machs.length; i++) {
       const v = se.values[i];
-      // Zero, not NaN: a sample we cannot read must not move the stack that the
-      // bands above this one are measured from.
-      cum[i] = (cum[i] ?? 0) + (Number.isFinite(v) ? Math.max(0, v!) : 0);
+      cum[i] = (cum[i] ?? 0) + (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : 0);
     }
-    // One closed polygon per run of samples that can be drawn at all.
     const parts: string[] = [];
     let run: number[] = [];
     const flush = () => {
       if (run.length < 2) {
-        // A single point has no area; a band of one sample is nothing to draw.
         run = [];
         return;
       }
@@ -364,11 +281,6 @@ export function stackedBands(
   return bands;
 }
 
-/**
- * Mach axis ticks: the sweep's first sample, then every 0.2 for a sweep that
- * ends at 1 (whole numbers would carry two ticks for the whole axis) or every
- * whole Mach above that.
- */
 export function machTicks(machMin: number, machMax: number): number[] {
   const step = machMax <= 1 ? 0.2 : 1;
   const ticks = [machMin];
@@ -376,27 +288,9 @@ export function machTicks(machMin: number, machMax: number): number[] {
   return ticks;
 }
 
-/**
- * How the CP vs Mach axis reads: the user's length unit, a percentage of the
- * whole airframe, or a percentage of the AERODYNAMIC length.
- *
- * Both percentages are offered because they answer different questions. `aero`
- * is the denominator OpenRocket's own `PercentageOfLengthUnit` uses
- * (`getLengthAerodynamic`), so it is the figure the desktop shows. `body`
- * divides by the overall length, which is what "how far along the rocket in
- * front of me" means and is shorter to explain at a launch. They differ on any
- * design carrying a non-aerodynamic part outside the aerodynamic envelope: an
- * overhanging rail button, a shock cord, an aft mass.
- */
+// `aero` matches desktop's `PercentageOfLengthUnit` (`getLengthAerodynamic`).
 export type CpMode = 'len' | 'body' | 'aero';
 
-/**
- * The modes a design can actually express, in display order.
- *
- * A percentage needs a positive denominator, so a mode whose length is zero is
- * left out rather than offered and silently ignored: a button that rendered
- * meters under a `%` axis label would be an inert control.
- */
 export function cpModesFor(bodyLen: number, aeroLen: number): CpMode[] {
   const modes: CpMode[] = ['len'];
   if (bodyLen > 0) modes.push('body');
@@ -404,13 +298,7 @@ export function cpModesFor(bodyLen: number, aeroLen: number): CpMode[] {
   return modes;
 }
 
-/**
- * The divisor for a mode, or 0 when the axis should stay in length units.
- *
- * 0 for `len`, and also for a percentage mode whose length is not positive, so
- * a selection the current design cannot express falls back to the length axis
- * rather than dividing by zero.
- */
+// 0 means length units.
 export function cpDivisor(mode: CpMode, bodyLen: number, aeroLen: number): number {
   const d = mode === 'body' ? bodyLen : mode === 'aero' ? aeroLen : 0;
   return d > 0 ? d : 0;

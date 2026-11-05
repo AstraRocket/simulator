@@ -1,22 +1,3 @@
-// Every engine check CI does not run, in one command:
-//
-//   npm run audit          (from engine-java/)
-//
-// Run it after any change under engine-java/ or to the vendored engine, and
-// for every audit. Needs a JDK. Stops at the first failing step and names it.
-//
-//   parity      JVM, TeaVM-JS and WASM-GC agree, on a fixed number of golden
-//               values, so a re-record cannot quietly shrink the check.
-//   committed   The engine the app ships was built from src/java: rebuild over
-//               the binaries in the working tree and fail if a byte changed.
-//               A change is a Java edit whose binaries were not rebuilt, a
-//               hand-edited binary, or a build that is not reproducible on
-//               this JDK. Compared with the working tree rather than the last
-//               commit, so a Java change rebuilt but not yet committed passes.
-//   extract     src/java regenerates from the pinned upstream plus patches.
-//   date        UPSTREAM's date is the pinned commit's date, since the About
-//               dialog and the docs show it.
-//   scorecards  The aero scorecards hold their floors, classic and supersonic.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -30,11 +11,9 @@ const VENDORED = [
   '../web/public/engine/openrocket-engine.wasm-runtime.js',
 ];
 
-/** Run a command in engine-java with its output shown; true when it exits 0. */
 const run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit' }).status === 0;
 const node = (...args) => run(process.execPath, args);
 
-/** The SHA-256 of each shipped engine binary, in order. */
 const hashes = () =>
   VENDORED.map((f) =>
     createHash('sha256')
@@ -42,7 +21,6 @@ const hashes = () =>
       .digest('hex'),
   );
 
-/** Rebuild the engine and report any binary that came out different. */
 function rebuildMatches() {
   const before = hashes();
   if (!node('build-engine.mjs')) return false;

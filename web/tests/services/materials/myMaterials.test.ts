@@ -13,22 +13,8 @@ import {
   type ScopedMaterial,
 } from '../../../src/services/materials/myMaterials';
 
-/**
- * Custom Materials follows desktop's material manager, OpenRocket 24.12's
- * `MaterialEditPanel` (disassembled from the release jar):
- *
- * - the Edit action removes the old material without a warning, then: a result
- *   in the document is `loadFrom` into the original `Material` object every
- *   using component shares, so those parts change; a result in the application
- *   database leaves them alone, and if components used the old one it is
- *   marked a document material and added to each using document;
- * - `removeMaterial(m, true)` refuses a document material components use
- *   (matedtpan.dlg.RemoveUsedMaterial.Document), and for an application
- *   material components use, removes it from the database and adds it to the
- *   document (RemoveUsedMaterial.Application);
- * - Revert all removes every user-defined material from the application
- *   database and from the document's three databases.
- */
+// Mirrors OpenRocket 24.12's `MaterialEditPanel`: document and application edits and
+// removals differ (matedtpan.dlg.RemoveUsedMaterial.Document / .Application).
 
 let library: Material[] = [];
 let tree: RocketTree;
@@ -47,11 +33,8 @@ const ply = (density = 650): ScopedMaterial => ({
   group: 'Woods',
   scope: 'design',
 });
-
-/** A design-list entry as the tree stores it: no scope. */
 const asDoc = ({ scope: _scope, ...m }: ScopedMaterial) => m;
 
-/** A body tube and a fin set (body and fillet) of `bulk`, and a parachute and shock cord of cloth and cord. */
 const designWith = (bulk: { name: string; density: number }): RocketTree => ({
   name: 'Test',
   components: [
@@ -106,7 +89,6 @@ describe('which parts use a material', () => {
     expect(partsUsing(t, ply()).map((n) => n.id)).toEqual(['tube', 'fins']);
     expect(partsUsing(t, ply(651))).toEqual([]);
     expect(partsUsing(t, { name: 'Kev', type: 'line', density: 0.002 }).map((n) => n.id)).toEqual(['chute', 'cord']);
-    // A cloth of that name is not a cord of that name.
     expect(partsUsing(t, { name: 'Kev', type: 'surface', density: 0.002 })).toEqual([]);
   });
 

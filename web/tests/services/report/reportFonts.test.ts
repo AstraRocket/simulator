@@ -11,17 +11,6 @@ import type { ReportModel } from '../../../src/services/report/reportModel';
 import type { ReportOptions } from '../../../src/services/report/options';
 import { METRIC_UNITS } from '../../../src/prefs/units';
 import { resetReportFontsForTests, scriptOf, toWinAnsi } from '../../../src/services/report/reportFonts';
-
-/**
- * The PDF report's Unicode fonts, against the real jsPDF.
- *
- * Helvetica writes WinAnsi only, so a report in Russian, Japanese or Polish, or
- * with "CNα" or a transition's "Ø a → b" in it, has to draw those runs in a
- * Noto font. The font is fetched only when a run needs it, and a report whose
- * font cannot be fetched still saves, in Helvetica, and says what was lost.
- */
-
-/** Every run drawn: the font it was set in, and the text handed over. */
 const runs: { font: string; text: string }[] = [];
 const added: string[] = [];
 vi.mock('jspdf', async (importOriginal) => {
@@ -57,8 +46,6 @@ vi.mock('../../../src/services/files/saveFile', async (importOriginal) => ({
 const { downloadReportPdf } = await import('../../../src/services/report/reportPdf');
 
 const FONT_DIR = resolve(__dirname, '../../../public/fonts');
-
-/** Serves public/fonts the way the static host does, and records each request. */
 const fetched: string[] = [];
 const serveFonts = (url: string): Promise<Response> => {
   fetched.push(url);
@@ -70,7 +57,6 @@ const offline = (url: string): Promise<Response> => {
   return Promise.reject(new TypeError('Failed to fetch'));
 };
 
-/** `t` over one locale's JSON, with `{{name}}` interpolation. */
 const tFor =
   (locale: Record<string, unknown>) =>
   (key: string, o?: Record<string, unknown>): string => {
@@ -144,7 +130,6 @@ describe('report fonts', () => {
     const heading = runs.find((r) => r.text === ru.report.title)!;
     expect(heading.font).toBe('NotoSans');
     expect(runs.find((r) => r.text === 'Ракета')!.font).toBe('NotoSans');
-    // A number with its unit is WinAnsi, and stays in Helvetica.
     expect(runs.filter((r) => scriptOf(r.text) === null).every((r) => r.font === 'helvetica')).toBe(true);
     expect(runs.filter((r) => scriptOf(r.text) !== null).every((r) => r.font === 'NotoSans')).toBe(true);
     const pdf = await pdfText();
@@ -172,8 +157,6 @@ describe('report fonts', () => {
 
   it('fetches nothing for a report Helvetica can write', async () => {
     const fetcher = vi.fn(serveFonts);
-    // The English labels with "CNα" taken out: every run is WinAnsi, the
-    // en dash of a missing value included.
     const t = (key: string, o?: Record<string, unknown>) => tFor(en)(key, o).replace('α', 'a');
     await downloadReportPdf(model('Rocket – Mk II'), tree, t, opts, METRIC_UNITS, { fetch: fetcher });
     expect(fetcher).not.toHaveBeenCalled();
@@ -211,7 +194,6 @@ describe('report fonts', () => {
   it('writes a French grouped number in Helvetica offline, its narrow space as a no-break space', async () => {
     const notice = vi.fn();
     const t = (key: string, o?: Record<string, unknown>) => tFor(en)(key, o).replace('α', 'a');
-    // fr groups thousands with U+202F; U+2009 and U+2007 group the same way elsewhere.
     await downloadReportPdf(model('Fusée 1\u202f234 2\u20093 4\u20075'), tree, t, opts, METRIC_UNITS, {
       fetch: offline,
       notice,
@@ -267,8 +249,6 @@ describe('toWinAnsi', () => {
 
 describe('every report string in every locale', () => {
   it('is either WinAnsi or covered by a shipped font', () => {
-    // The fonts' own character maps are checked by the build that made them;
-    // here the claim is that each string routes to a family at all.
     for (const loc of [en, ru, ja, pl]) {
       for (const s of Object.values(loc.report)) {
         const script = scriptOf(s);

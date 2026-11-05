@@ -29,7 +29,6 @@ describe('axialStart', () => {
     const child: ComponentNode = { type: 'innertube', position: { method: 'top', offset: 0.02 } };
     expect(axialStart(child, 0.05, 0.1, 0.2)).toBeCloseTo(0.12);
   });
-  // keylessParts.kernel.test.ts holds each type's constructor method to the kernel.
   it('places a part with no position where its constructor does, at offset 0', () => {
     // InternalComponent: bottom, so pStart 0.1 + pLen 0.2 - childLen 0.05.
     expect(axialStart({ type: 'innertube' }, 0.05, 0.1, 0.2)).toBeCloseTo(0.25);
@@ -38,7 +37,6 @@ describe('axialStart', () => {
   });
   it('centers a middle-positioned child', () => {
     const child: ComponentNode = { type: 'centeringring', position: { method: 'middle', offset: 0 } };
-    // pStart 0.1 + (pLen 0.2 − childLen 0.05)/2 = 0.1 + 0.075
     expect(axialStart(child, 0.05, 0.1, 0.2)).toBeCloseTo(0.175);
   });
 });
@@ -64,9 +62,9 @@ describe('calloutLayout', () => {
     const out = calloutLayout(200, 300, 150, 40, 600, 320, null);
     expect(out.cg!.x).toBe(200);
     expect(out.cp!.x).toBe(300);
-    expect(out.cg!.leaderY1).toBeLessThan(150); // CG leader goes up from cy
-    expect(out.cp!.leaderY1).toBeGreaterThan(150); // CP leader goes down from cy
-    expect(out.margin).toBeNull(); // no marginText
+    expect(out.cg!.leaderY1).toBeLessThan(150);
+    expect(out.cp!.leaderY1).toBeGreaterThan(150);
+    expect(out.margin).toBeNull();
   });
 
   it('clamps the margin label inside the viewBox width', () => {
@@ -88,7 +86,6 @@ describe('profilePath', () => {
     const d = profilePath(ctx, nose, 0, 0.1, 0, 0.05, 150);
     expect(d.startsWith('M ')).toBe(true);
     expect(d.trimEnd().endsWith('Z')).toBe(true);
-    // outerProfile samples 24 steps ⇒ 25 points; the outline is top (25) + bottom (25).
     expect(d.split(' L ').length).toBe(50);
     expect(d).not.toMatch(/NaN/);
   });

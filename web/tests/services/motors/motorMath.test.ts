@@ -34,7 +34,6 @@ describe('motorMath', () => {
   });
 
   it('computes Isp from impulse and propellant weight, NaN when unknown', () => {
-    // 61 N.s over 30 g of propellant: 61 / (0.030 * 9.80665) = 207.3 s
     expect(ispOf(motor({ propWeightG: 30 }))).toBeCloseTo(207.34, 1);
     expect(ispOf(motor({}))).toBeNaN();
     expect(ispOf(motor({ propWeightG: 0 }))).toBeNaN();
@@ -47,7 +46,6 @@ describe('motorMath', () => {
   });
 
   it('integrates a thrust curve by the trapezoid rule', () => {
-    // A 2 s burn ramping 0 -> 10 -> 0 N: area of a triangle, 10 N.s.
     const s = curveStats([
       [0, 0],
       [1, 10],
@@ -65,7 +63,6 @@ describe('motorMath', () => {
 });
 
 describe('trapezoidImpulse / cumulativeImpulse', () => {
-  // A triangle from 0 to 100 N over 0.5 s and back to 0 at 1 s: 50 N·s.
   const times = [0, 0.5, 1];
   const thrusts = [0, 100, 0];
 

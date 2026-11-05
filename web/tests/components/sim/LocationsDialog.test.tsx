@@ -27,11 +27,6 @@ const memoryStore = (items: LaunchLocation[]): LaunchLocationStore => ({
 
 const st = () => useWorkspaceStore.getState();
 
-/**
- * Applying a location writes to the active simulation only. The dialog also
- * opens from the menu, away from the editor's "editing N simulations" banner,
- * so it never reaches the ticked rows. And it is one undo step.
- */
 describe('LocationsDialog, Use', () => {
   beforeEach(() => {
     setLaunchLocationStore(memoryStore([HOME]));
@@ -76,10 +71,6 @@ describe('LocationsDialog, Use', () => {
   });
 });
 
-/**
- * Closing throws an unsaved edit away as surely as picking another location
- * does, so it asks the same question first.
- */
 describe('LocationsDialog, closing with unsaved edits', () => {
   beforeEach(() => {
     setLaunchLocationStore(memoryStore([HOME]));

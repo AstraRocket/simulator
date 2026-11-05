@@ -30,31 +30,15 @@ import { MaterialEditor } from './MaterialEditor';
 import { QUANTITY } from './materialUnits';
 import { smallButton } from '../common/smallButton';
 
-/** The selection token for the material being created, which has no key yet. */
 const NEW = 'new';
 
 const keyOf = (m: ScopedMaterial): string => JSON.stringify([m.scope, m.type, m.name, m.density]);
 
-/** The open design as Custom Materials reads and changes it: each change one undo step. */
 const design: DesignAccess = {
   tree: () => useWorkspaceStore.getState().tree,
   apply: (change) => useWorkspaceStore.getState().applyTreeAction((tree) => change(tree)),
 };
 
-/**
- * Every material the user defined, in one place: desktop's material manager
- * (Preferences ▸ Custom materials, `MaterialEditPanel`) as a list beside an
- * editor, the way Custom Parts and Launch Locations are built.
- *
- * Two lists, as desktop's Scope column has two values: the open design's own
- * materials, which are saved in its `.ork`, and the user's custom materials in
- * this browser, which every design is offered. The built-in materials are not
- * listed: none of them can be changed or deleted, and every part's picker
- * already offers them.
- *
- * What a save or a delete does to the design's parts follows desktop; see
- * services/materials/myMaterials.ts.
- */
 export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -84,7 +68,6 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   const selected = creating ? null : ([...designList, ...libraryList].find((m) => keyOf(m) === selectedId) ?? null);
   const showsDetail = creating || selected !== null;
 
-  /** Groups a material of a type can be filed under: the catalog's and the user's own. */
   const groups = (type: MaterialType): string[] => {
     const all: Material[] = [...(builtins.data ?? []).flat(), ...(library.data ?? [])];
     return groupsOf(all.filter((m) => m.type === type));
@@ -96,8 +79,7 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
     } catch (e) {
       return errorText(e, t);
     }
-    // Stay on what was written, as Custom Parts does. A name or density edit moves
-    // the entry, so the selection follows it.
+    // A name or density edit changes the key, so the selection follows it.
     settle(keyOf({ ...draft, name: draft.name.trim() }));
     return null;
   };
@@ -159,7 +141,6 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
           <button onClick={() => void select(NEW)} className={actionClass}>
             {t('myMaterials.new')}
           </button>
-          {/* Desktop's "Revert all": every material the user defined, in both lists. */}
           <button onClick={() => void removeAll()} disabled={empty} className={actionClass}>
             {t('myMaterials.deleteAll')}
           </button>
@@ -171,8 +152,6 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
         hint={t('myMaterials.pickHint')}
         list={
           empty ? (
-            // Reachable from the menu before anything is defined, so it says
-            // where custom materials come from rather than show a void.
             <p className="p-6 text-center text-sm leading-snug text-ink-muted">{t('myMaterials.empty')}</p>
           ) : (
             <>
@@ -203,7 +182,6 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** One scope's materials, or nothing when it has none. */
 function Section({
   title,
   list,

@@ -4,10 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { SECTIONS, STEPS } from '../../scripts/lib/e2eSectionList.mjs';
 
-/**
- * `npm run e2e:sections` runs only the specs its sections name, so a spec in no
- * section would never run there, and one in two would run twice.
- */
 const web = fileURLToPath(new URL('../..', import.meta.url));
 const onDisk = globSync('e2e/*.spec.ts', { cwd: web })
   .map((f) =>

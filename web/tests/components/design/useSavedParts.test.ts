@@ -9,11 +9,6 @@ vi.mock('../../../src/services/parts/customParts', async (orig) => ({
 
 const { useSavedParts } = await import('../../../src/components/design/useSavedParts');
 
-/**
- * A store that cannot be read is not an empty one: read as an empty list, Custom
- * Parts would say "nothing saved" over a database that has parts. The failure is
- * reported instead, as Custom Materials reports its own.
- */
 describe('useSavedParts when storage fails', () => {
   it('reports the failure rather than reading it as no parts', async () => {
     const { result } = renderHook(() => useSavedParts());

@@ -2,10 +2,7 @@ import type { ComponentNode, NoseShape, RocketTree } from '../../src/engine/open
 import { defaultMaterialPatch } from '../../src/services/design/materialSlots';
 import { defaultDesignName } from '../../src/services/app/appInfo';
 
-/**
- * A fixed-layout design: nose, body, fins, motor mount and an optional chute,
- * lengths in m. Test fixtures only; the editor builds no designs this way.
- */
+/** Lengths in m. */
 export interface RocketSpec {
   noseCone: {
     length: number;
@@ -14,11 +11,8 @@ export interface RocketSpec {
     shape?: NoseShape;
     /** Bulk density kg/m^3; omit for OpenRocket's default material. */
     materialDensity?: number;
-    /** Selected material name (display / .ork round-trip only; density drives physics). */
     material?: string;
-    /** The material's `.ork` group, as `MaterialGroup.getDatabaseString()` spells
-     *  it. Written to the file beside the name, so a design saved here files the
-     *  material under the same category the desktop would. */
+    /** Spelled as `MaterialGroup.getDatabaseString()` does, so the desktop files it the same. */
     materialGroup?: string;
   };
   bodyTube: {
@@ -51,26 +45,9 @@ export interface RocketSpec {
   };
 }
 
-/**
- * Test fixture: a fixed-layout `RocketSpec` as a component tree: nose, body, fins,
- * motor mount, two centering rings and an optional chute. The editor builds no
- * `RocketSpec` designs, so this belongs to tests only.
- *
- * Shape: stage, then nose plus body carrying the fins, the motor-mount inner tube
- * and the parachute. Returns the mount's node id so the caller can attach a motor
- * by id.
- */
 export function specToTree(spec: RocketSpec): { tree: RocketTree; mountId: string } {
   const mountId = 'mount';
-  /**
-   * What a part of this design is made of: the spec's material where it names
-   * one, and otherwise the stock material for every slot the type has
-   * (`defaultMaterialPatch` with no user preference).
-   *
-   * Never nothing. Without the fallback a part with no density would read "Not
-   * specified" in the panel while the kernel flies it on its default material:
-   * the editor disagreeing with the simulation about the same rocket.
-   */
+  // Without a material the panel reads "Not specified" while the kernel flies its default.
   const material = (type: string, m?: { materialDensity?: number; material?: string; materialGroup?: string }) =>
     m?.materialDensity
       ? {
@@ -106,8 +83,6 @@ export function specToTree(spec: RocketSpec): { tree: RocketTree; mountId: strin
         sweep: spec.fins.sweep,
         height: spec.fins.height,
         thickness: spec.fins.thickness,
-        // Fin sets sit at the aft end of the body tube (bottom-aligned), like
-        // OpenRocket's default; without this they draw up by the nose.
         position: { method: 'bottom', offset: 0 },
         ...material('trapezoidfinset', spec.fins),
       },
@@ -118,15 +93,11 @@ export function specToTree(spec: RocketSpec): { tree: RocketTree; mountId: strin
         length: spec.motorMount.length,
         outerRadius: spec.motorMount.outerRadius,
         thickness: spec.motorMount.thickness,
-        // Motor mount at the tail so the motor loads from the aft. The motor
-        // protrudes ~0.25 in (6.35 mm) past the aft end, the usual overhang.
+        // ~0.25 in (6.35 mm)
         position: { method: 'bottom', offset: 0 },
         motorOverhang: 0.00635,
         ...material('innertube'),
       },
-      // Two centering rings hold the motor mount concentric in the body tube:
-      // one at the mount's fore end, one at the aft end. Outer wall = body inner
-      // radius, inner bore = mount outer radius.
       {
         type: 'centeringring',
         id: 'ring-fore',
@@ -154,15 +125,11 @@ export function specToTree(spec: RocketSpec): { tree: RocketTree; mountId: strin
               cd: spec.parachute.dragCoefficient ?? 0.8,
               lineCount: 6,
               lineLength: 0.3,
-              // Deploy at apogee by default (matches the editor default) so the UI
-              // and the engine agree rather than the kernel falling back to ejection.
+              // Without it the kernel falls back to ejection.
               deployEvent: 'apogee',
               deployAltitude: 200,
               deployDelay: 0,
-              // Two slots, not one: the canopy is a surface material and the
-              // shroud lines are a line material, and both feed the chute's mass.
               ...material('parachute'),
-              // Recovery packs up near the nose (front of the body tube).
               position: { method: 'top', offset: 0.02 },
             } as ComponentNode,
           ]

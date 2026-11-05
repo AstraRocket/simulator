@@ -3,11 +3,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UNITS } from '../../src/prefs/units';
 
-/**
- * Pound-force, as desktop's UnitGroup defines it for force and impulse
- * (UNITS_FORCE, UNITS_IMPULSE). Read from the Java, so a thrust or impulse
- * shown in lbf is the figure desktop shows.
- */
 describe('pound-force', () => {
   const java = readFileSync(
     join(process.cwd(), '../engine-java/src/java/info/openrocket/core/unit/UnitGroup.java'),

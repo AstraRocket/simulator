@@ -17,15 +17,7 @@ beforeAll(async () => {
   /* eslint-enable @typescript-eslint/no-explicit-any */
 });
 
-/**
- * RockSim's stage overrides, through the kernel, as `RockSimStageOverrideExportTest`
- * and `RockSimLoaderTest.testStageMassAndCGOverrides` check them upstream.
- *
- * RockSim flies each stack of stages at the sum of the stage masses and at the
- * stack's CG from the nose tip, and its overrides are all or nothing. So
- * overriding only the booster still writes every stage and every stack, and
- * the file read back flies the same stacks as the design written.
- */
+// RockSim's stage overrides are all or nothing, so overriding only the booster writes every stack.
 
 const tube = (id: string, length: number): ComponentNode => ({
   type: 'bodytube',
@@ -58,7 +50,6 @@ const design: RocketTree = {
   ],
 };
 
-/** The dry mass and CG of the first `count` stages, from a build with the others removed. */
 function stack(tree: RocketTree, count: number): { mass: number; cg: number } {
   const info = buildRocketTree({ ...tree, components: tree.components.slice(0, count) }).staticInfo();
   return { mass: info.massEmpty, cg: info.cgEmpty };

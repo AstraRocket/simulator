@@ -1,12 +1,6 @@
 import { test, expect, ready, type Page } from './base';
 
-/**
- * A Settings value typed and left with Escape is kept.
- *
- * Those fields report on blur or Enter. Escape closes the dialog and removes
- * the focused field, and a removed node gets no blur from React, which a real
- * browser shows and jsdom does not.
- */
+// Escape unmounts the focused field, and React sends a removed node no blur.
 
 const openSimSettings = async (page: Page) => {
   await page.getByRole('button', { name: 'Menu' }).click();
@@ -36,7 +30,6 @@ test('a time step or maximum time typed and left with Escape is saved', async ({
     await expect(dialog).toBeHidden();
   }
 
-  // Stored, not only held by the open page.
   await page.reload();
   await ready(page);
   const dialog = await openSimSettings(page);

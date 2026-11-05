@@ -1,18 +1,9 @@
-// A fetch-shaped transport for thrustcurve.org built on node:https.
-//
-// thrustcurve.org went behind Cloudflare on 2026-10-27. Node's built-in fetch
-// (undici) draws a Cloudflare challenge on its first request, while node:https
-// sending only Host + User-Agent, with no ALPN, gets HTTP 200; adding undici's
-// headers and ALPN brings the challenge back (found in the mmrocket-sim review,
-// 2026-10-29, where the site's operator approved the approach for that client).
-// So this sends only the headers it is given plus Content-Length, opens a fresh
-// connection per request, and asks for no compression.
+// Cloudflare challenges undici's fetch but passes node:https with minimal headers and no ALPN; do not add headers.
 
 import https from 'node:https';
 
 export const USER_AGENT = 'astrarocket-sync-motors';
-export const DEADLINE_MS = 120_000;
-/** A full search or a 100-motor download batch fits well inside this. */
+const DEADLINE_MS = 120_000;
 export const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 
 export function httpsFetch(url, init = {}, request = https.request) {

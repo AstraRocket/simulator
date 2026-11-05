@@ -22,7 +22,6 @@ describe('the Esri key field', () => {
     expect(esriKeyStore.read()).toBe('test-key');
   });
 
-  /** Settings closing with Escape removes the field with no blur. */
   it('saves the key when the field goes away before it loses focus', () => {
     const { unmount } = render(<EsriKeyField />);
     fireEvent.change(screen.getByLabelText(i18n.t('map.keyLabel')), { target: { value: 'test-key' } });
@@ -30,7 +29,6 @@ describe('the Esri key field', () => {
     expect(esriKeyStore.read()).toBe('test-key');
   });
 
-  /** Another tab may have saved a key since this field mounted. */
   it('writes nothing when the field was not edited', () => {
     const { unmount } = render(<EsriKeyField />);
     esriKeyStore.write('test-key-other-tab');

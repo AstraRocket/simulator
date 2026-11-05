@@ -12,13 +12,6 @@ import type { ComponentNode, FlightResult, RocketTree } from '../../../src/engin
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The descent-sizing block names the stage branch a chute was measured on. The
- * branch names are the kernel's, through the bridge: a stage whose Name field
- * was cleared flies under the kernel's default, and the block has to name it the
- * way the app names a stage, never as the raw key.
- */
-
 afterEach(cleanup);
 
 const stageTree = (sustainer: string, booster: string): RocketTree =>
@@ -117,7 +110,6 @@ async function fly(tree: RocketTree): Promise<FlightResult> {
   return JSON.parse(engine.simulateJson(h, JSON.stringify({ launchRodLength: 1, randomSeed: 7 }))) as FlightResult;
 }
 
-/** Plant the flight as the active simulation's current result. */
 function plant(tree: RocketTree, result: FlightResult) {
   const s = useWorkspaceStore.getState();
   const [first] = s.sims;
@@ -138,7 +130,6 @@ function plant(tree: RocketTree, result: FlightResult) {
   useWorkspaceStore.setState({ activeId: selectActive(useWorkspaceStore.getState()).id });
 }
 
-/** The block's measured-on line for one chute. */
 function measuredLine(tree: RocketTree, chuteId: string): string {
   const chute = tree.components
     .flatMap((st) => st.children ?? [])
@@ -149,7 +140,6 @@ function measuredLine(tree: RocketTree, chuteId: string): string {
   return screen.getByText(/Measured in the last run/).textContent ?? '';
 }
 
-/** The kernel's branch index and name for the branch a chute deployed on. */
 function deployedOn(result: FlightResult, chuteId: string): { index: number; name: string } {
   const branches = result.branches ?? [];
   const index = branches.findIndex((b) =>
@@ -167,7 +157,7 @@ describe('the descent-sizing block on a staged flight', () => {
       expect(result.branches?.length).toBeGreaterThan(1);
       const on = deployedOn(result, chuteId);
       expect(on.index).toBeGreaterThanOrEqual(0);
-      // The kernel's own name for the cleared stage is its default key.
+      // The kernel names a cleared stage by its default key.
       expect(on.name).toMatch(/^\[.+\]$/);
       plant(tree, result);
       const line = measuredLine(tree, chuteId);
@@ -180,7 +170,6 @@ describe('the descent-sizing block on a staged flight', () => {
     const tree = stageTree('Upper', 'Lower');
     const result = await fly(tree);
     const on = deployedOn(result, chuteId);
-    // The kernel flies the typed names.
     expect(['Upper', 'Lower']).toContain(on.name);
     plant(tree, result);
     expect(measuredLine(tree, chuteId)).toContain(`on ${on.name},`);

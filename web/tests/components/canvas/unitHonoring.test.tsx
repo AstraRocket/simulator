@@ -12,8 +12,7 @@ import type { ExportData } from '../../../src/services/exports/schematicExport';
 // No WebGL in jsdom: the canvas renders nothing, so only the HTML around it mounts.
 vi.mock('@react-three/fiber', () => ({ Canvas: () => null, useFrame: () => {}, useThree: () => ({}) }));
 vi.mock('@react-three/drei', () => ({ OrbitControls: () => null, Bounds: () => null }));
-// The CG/CP marker textures draw on a 2D canvas, which jsdom does not have; the
-// ink each one is drawn with is what is observed.
+// The marker textures need a 2D canvas, which jsdom lacks; the mock records their ink.
 const markerTexture = vi.hoisted(() => vi.fn((..._args: unknown[]) => ({ dispose: () => {} })));
 vi.mock('../../../src/components/canvas/rocketCallouts', () => ({ markerTexture, AxisCallout: () => null }));
 
@@ -36,12 +35,6 @@ const exportData = {
   t: (k: string) => k,
 } as unknown as ExportData;
 
-/**
- * Readouts and controls that follow the user's unit.
- *
- * The caliper tag is a length readout like the one in its handles' value text,
- * so it carries the length symbol.
- */
 describe('the schematic caliper readouts', () => {
   const noop = () => () => {};
   const props = {
@@ -60,7 +53,6 @@ describe('the schematic caliper readouts', () => {
         <HorizontalCaliper {...props} h={200} rBot={10} onDragStart={noop} onKey={noop} />
       </svg>,
     );
-    // 0.5 m.
     expect(container.querySelector('text')?.textContent).toBe('1.64 ft');
   });
 
@@ -75,10 +67,6 @@ describe('the schematic caliper readouts', () => {
   });
 });
 
-/**
- * The 2D roll slider steps in whole degrees; without a value text a screen
- * reader reads that raw number while the readout beside it is in radians.
- */
 describe('the 2D roll slider', () => {
   it('carries the formatted angle as its value text', () => {
     seedSettings({ units: { angle: 'rad' } });
@@ -89,12 +77,6 @@ describe('the 2D roll slider', () => {
   });
 });
 
-/**
- * A decorative glyph on a button stays out of its accessible name, or a screen
- * reader reads out the glyph's Unicode name before "SVG". Each one sits in an
- * aria-hidden span, and the image menu takes its glyph as an icon rather than in
- * the label.
- */
 describe('button glyphs are not part of the name', () => {
   it('on the schematic SVG and image export buttons', () => {
     renderWithProviders(
@@ -128,10 +110,6 @@ describe('button glyphs are not part of the name', () => {
   });
 });
 
-/**
- * The 3D view's legend dot identifies its marker, so it is the marker's ink, from
- * the same shared token.
- */
 describe('the 3D legend matches its markers', () => {
   it('draws each marker and its legend dot in the same ink', () => {
     document.documentElement.style.setProperty('--c-scene-cg', '#112233');

@@ -2,18 +2,6 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { uniqueRows } from '../../scripts/lib/partRows.mjs';
 
-/**
- * Desktop's library holds one preset per `.orc` element
- * (`ComponentPresetFactory.create` runs once per element the loader reads), and
- * a saved `.ork` names a preset by its digest, an MD5 over every property the
- * preset holds. Two parachute elements that differ only in what
- * `Parachute.loadFromPreset` applies beyond the canopy (line count, line
- * length, packed size, materials) are two presets with two digests. The row
- * sync-components pushes for a parachute carries the canopy only, and
- * sync-preset-digests fills in the rest from the desktop's loader, so the
- * pushed row is the same for both elements and the key it is kept under has to
- * read the element.
- */
 const chute = (fields: Record<string, string>) =>
   `<Parachute>
   <Manufacturer>Example Chutes</Manufacturer>
@@ -28,7 +16,6 @@ const chute = (fields: Record<string, string>) =>
   ${fields.packedLength ? `<PackedLength Unit="in">${fields.packedLength}</PackedLength>` : ''}
 </Parachute>`;
 
-/** The row the parachute pass pushes: the canopy only. */
 const canopy = () => ({
   type: 'parachute',
   mfr: 'Example Chutes',

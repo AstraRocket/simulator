@@ -2543,7 +2543,8 @@
     "tool_chute": "Dobór spadochronu",
     "tool_flutter": "Flatter statecznika",
     "tool_ejection": "Ładunek wyrzucający",
-    "tool_exhaust": "Wygląd wylotu"
+    "tool_exhaust": "Wygląd wylotu",
+    "tool_motors": "Przegląd silników"
   },
   "chuteTool": {
     "title": "Dobór spadochronu",

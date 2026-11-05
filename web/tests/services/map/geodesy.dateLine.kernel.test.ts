@@ -8,13 +8,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A landing across the date line, projected from the pad and checked against
- * where the kernel says the flight came down. The kernel stores every position
- * as a WorldCoordinate, whose constructor reduces the longitude with
- * MathUtil.reducePi (WorldCoordinate.java:27, MathUtil.java:199), so its λ is
- * in [-180, 180] on either side of the line.
- */
+// The kernel reduces longitude to [-180, 180] (WorldCoordinate.java:27, MathUtil.java:199).
 
 const TREE = {
   name: 'Drifter',
@@ -82,8 +76,6 @@ async function fly(lonDeg: number): Promise<FlightResult> {
 
 describe('offsetToLatLon across the date line', () => {
   it('lands where the kernel puts the flight, on the far side of 180', async () => {
-    // The drift sets which side of the line the pad goes on: a third of the
-    // drift short of it, so the landing is two thirds of the drift past it.
     const probe = trackPoints((await fly(0)).series).at(-1)!;
     const degPerM = 180 / Math.PI / 6371000 / Math.cos((LAT * Math.PI) / 180);
     const margin = (Math.abs(probe.east) / 3) * degPerM;
@@ -93,7 +85,6 @@ describe('offsetToLatLon across the date line', () => {
     const result = await fly(site);
     const landing = trackPoints(result.series).at(-1)!;
     const kernel = landingLatLon(result.series)!;
-    // The kernel's own landing is across the line from the pad.
     expect(Math.sign(kernel.lon)).toBe(-Math.sign(site));
 
     const ll = offsetToLatLon(LAT, site, landing);
@@ -102,8 +93,6 @@ describe('offsetToLatLon across the date line', () => {
   });
 
   it('reads the terrain grid across the line as it reads it anywhere else', () => {
-    // The same grid shape and the same offset, once across the line and once
-    // well away from it: the ground found there has to be the same.
     const heights = Array.from({ length: TERRAIN_POINTS ** 2 }, (_, k) => k % TERRAIN_POINTS);
     const at = (lon: number) => {
       const b = terrainBounds(LAT, lon, 2000);

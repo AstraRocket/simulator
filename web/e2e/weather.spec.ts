@@ -1,19 +1,6 @@
 import { test, expect, openTab, ready, type Page } from './base';
 import { answer } from '../tests/testing/openMeteoFixture';
 
-/**
- * Weather from Open-Meteo, in a real browser.
- *
- * The unit tests cover the client and the dialog against a stand-in transport,
- * because jsdom does not run the sandboxed frame the requests go through. What
- * only a browser can show is what those requests actually carry: the frame is
- * there so that nothing in them names this app or the site it is served from,
- * which a page's own fetch cannot do (the browser adds `Origin` to it).
- *
- * Open-Meteo is answered locally with fixtures, so nothing here leaves the
- * machine.
- */
-
 interface Seen {
   url: string;
   headers: Record<string, string>;
@@ -58,7 +45,6 @@ test('a weather request names neither the app nor its site', async ({ page }) =>
     }
   }
 
-  // And the answer still arrives and applies.
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText(/^Open-Meteo forecast for /)).toBeVisible();
   await expect(page.getByRole('link', { name: 'CC BY 4.0' })).toBeVisible();
@@ -100,7 +86,7 @@ test('a place search names neither the app nor its site, and sets the site', asy
 
   const site = new URL(page.url());
   expect(seen).toHaveLength(1);
-  const { url, headers } = seen[0]!; // length checked just above
+  const { url, headers } = seen[0]!;
   expect(url.startsWith('https://geocoding-api.open-meteo.com/v1/search?name=Pueblo')).toBe(true);
   expect(headers['origin']).toBe('null');
   expect(headers['referer']).toBeUndefined();
@@ -119,6 +105,5 @@ test('the forecast shows cloud cover and visibility for the hour, without applyi
   const row = (name: string) => dialog.locator('dl > div').filter({ hasText: name });
   await expect(row('Low cloud cover')).toContainText('10%');
   await expect(row('Visibility')).toContainText(/24\.1 km|15\.0 mi/);
-  // Nothing to tick: the readouts are information, not something a flight reads.
   await expect(dialog.getByRole('checkbox', { name: /cloud|visibility/i })).toHaveCount(0);
 });

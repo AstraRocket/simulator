@@ -11,15 +11,6 @@ import { partLabel } from '../../i18n/format';
 import { overriddenBy, type OverrideKind } from '../../services/design/overriddenBy';
 import { hasStageBelow } from '../../services/design/fieldRange';
 
-/**
- * Everything {@link PropertyPanel} needs about the current selection: the node,
- * the guarded edit/delete/move actions, and the few facts about its place in the
- * tree that the node itself doesn't carry.
- *
- * Its own hook because the tree and the property editor sit in opposite columns of
- * the Design tab (see App.tsx) rather than stacked in one, so neither pane has to
- * import the other to get this.
- */
 export function useSelectedComponent() {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -30,9 +21,6 @@ export function useSelectedComponent() {
   const onMove = useWorkspaceStore((s) => s.moveSelected);
 
   const node = useMemo(() => (selectedId ? findNode(tree, selectedId) : null), [tree, selectedId]);
-  // Tube fins ring a body, and whether their tubes collide depends on that
-  // radius, which is not on the fin set itself. A body tube with no stored
-  // radius flies at the bridge's default, which `bodyTubeRadius` reads.
   const parentRadius = useMemo(() => {
     if (node?.type !== 'tubefinset' || !selectedId) return 0;
     const parent = findParent(tree, selectedId);
@@ -40,25 +28,16 @@ export function useSelectedComponent() {
     return parent.type === 'bodytube' ? bodyTubeRadius(parent) : num(parent, 'outerRadius');
   }, [tree, selectedId, node]);
   const sib = useMemo(() => (selectedId ? siblingIndex(tree, selectedId) : null), [tree, selectedId]);
-  // What the part being edited has to fit, for the catalog picker's ranking.
-  // Only for the types that have a catalog: for everything else it would be a
-  // tree walk per selection with nothing reading the result.
   const fit = useMemo(
     () => (node && hasCatalog(node.type) ? fitContextFor(tree, selectedId) : undefined),
     [tree, selectedId, node],
   );
 
-  // Guard the last motor mount: deleting it, or turning its motorMount off,
-  // leaves nowhere to seat a motor, so the rocket can no longer be simulated.
   const isOnlyMount = !!node && node.motorMount === true && findMounts(tree).length === 1;
-  // A rocket needs at least one stage, so the only remaining stage can't be deleted.
   const stages = stageNodes(tree);
   const isOnlyStage = !!node && node.type === 'stage' && stages.length <= 1;
   const isFirstStage = !!node && node.type === 'stage' && stages[0]?.id === node.id;
-  // Whether a stage sits below this part's, which is what a recovery device's
-  // lower-stage separation event needs to ever fire.
   const stageBelow = !!selectedId && hasStageBelow(tree, selectedId);
-  // The ancestor whose override decides each of this part's values, by name.
   const coveredBy = useMemo(() => {
     const out: Partial<Record<OverrideKind, string>> = {};
     if (!selectedId) return out;
@@ -71,8 +50,6 @@ export function useSelectedComponent() {
 
   const onRemove = async () => {
     if (!node || isOnlyStage) return;
-    // Every deletion confirms; the last motor mount carries an extra warning
-    // (it also loses simulate-ability). Name the part being removed.
     const label = partLabel(t, node);
     const message = isOnlyMount ? t('warn.lastMountDelete') : t('warn.deletePart', { name: label });
     if (!(await confirm({ message, confirmLabel: t('common.delete'), danger: true }))) return;
@@ -81,8 +58,7 @@ export function useSelectedComponent() {
   const onChange = async (p: Partial<ComponentNode>) => {
     if (p.motorMount === false && isOnlyMount) {
       if (!(await confirm({ message: t('warn.lastMountDisable'), danger: true }))) return;
-      // The checkbox closes its undo entry as it fires, which is before the
-      // confirm resolves, so the confirmed edit closes its own.
+      // The checkbox closed its undo entry before the confirm resolved, so this closes its own.
       patch(p);
       onCommit();
       return;

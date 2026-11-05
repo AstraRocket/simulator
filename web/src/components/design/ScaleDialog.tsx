@@ -26,11 +26,6 @@ import { DialogButton, DialogActions } from '../common/DialogButton';
 import { Check } from '../common/Check';
 import { smallButton } from '../common/smallButton';
 
-/**
- * The size "Scale from" starts at, as desktop's Scale dialog picks it: a body
- * part's larger end diameter, a pod's or booster's radial offset, any other
- * part's length, and with nothing selected the design's widest body.
- */
 function initialSize(node: ComponentNode | null, widest: number): number {
   if (!node) return widest;
   if (isChainType(node.type)) {
@@ -38,27 +33,14 @@ function initialSize(node: ComponentNode | null, widest: number): number {
     return ends.length ? Math.max(...ends) * 2 : widest;
   }
   if (node.type === 'podset' || node.type === 'parallelstage') return num(node, 'radiusOffset');
-  // `FinSet.getLength()` is the root chord, which a fin set stores as
-  // `rootChord` or, on a freeform fin, as its outline.
+  // `FinSet.getLength()` is the root chord (from the outline on a freeform fin).
   if (isPlanarFinSet(node.type)) return finRootChord(node);
   return num(node, 'length');
 }
 
-/**
- * Desktop OpenRocket's Scale dialog: what to scale (the whole design, the
- * selected part and everything inside it, or the part alone), the factor or a
- * from/to pair of lengths that sets it, whether typed masses follow, and
- * whether positions do. Applied as one undoable step (the store's
- * {@link scaleDesign}).
- *
- * Mounted only while open (`{open && <ScaleDialog />}`), so every choice starts
- * fresh each time by construction.
- */
 export function ScaleDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const u = useUnits();
-  // The from/to lengths and the before/after summary read the same unit; one
-  // scope keeps them agreeing.
   const scope = unitScope('scale', 'length');
   const fu = u.at(scope, 'length');
   const tree = useWorkspaceStore((s) => s.tree);
@@ -69,10 +51,6 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
   const baseD = maxBodyDiameter(tree); // m
   const baseL = rocketLength(tree); // m
 
-  // Desktop's choices: the whole design always; the selection with what is
-  // inside it when it holds anything; the selection alone when there is one.
-  // A selected part other than a stage starts on the selection, since that is
-  // why someone selects one before scaling.
   const scopes: ScaleScope[] = [
     'rocket',
     ...(node?.children?.length ? ['subtree' as const] : []),
@@ -80,16 +58,12 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
   ];
   const [what, setWhat] = useState<ScaleScope>(scopes.length > 1 && node?.type !== 'stage' ? scopes[1]! : 'rocket');
   const [factor, setFactor] = useState(2);
-  // Opening on the whole design (a stage selected), or on a part with no size
-  // of its own (a pod or booster at radius 0), starts from the widest body.
   const [from, setFrom] = useState(() => {
     const size = what === 'rocket' ? baseD : initialSize(node, baseD);
     return size > 0 ? size : baseD;
   });
   const explicitMass = hasExplicitMass(tree);
   const [masses, setMasses] = useState(true);
-  // Positions follow by default, except when one part alone is scaled: there
-  // the usual intent is a bigger part at the same station.
   const [offsets, setOffsets] = useState(what !== 'part');
 
   const pct = fmtPercent(factor * 100);
@@ -167,9 +141,7 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
-            {/* Desktop's from/to pair: the factor is `to / from`, so typing the
-                size you have ("my tube is 41.6 mm") against the size the plan
-                has sets it. Changing `from` keeps the factor and moves `to`. */}
+            {/* As desktop: changing `from` keeps the factor (`to / from`) and moves `to`. */}
             <div className="flex flex-wrap items-center gap-2" title={t('scale.fromToTip')}>
               <label className={rowLabel}>{t('scale.from')}</label>
               <NumberInput
@@ -184,14 +156,11 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
               <NumberInput
                 ariaLabel={t('scale.toLabel')}
                 value={fu.toUi(from * factor)}
-                // Nothing to divide by until `from` has a size: the box waits
-                // for one rather than refusing every entry.
                 disabled={from <= 0}
                 onChange={onSi(
                   fu,
                   (ratio) => ratio !== null && ratio >= SCALE_MIN && ratio <= SCALE_MAX && setFactor(ratio),
-                  // The box holds a length and the dialog holds the ratio of it
-                  // to `from`, so the division is part of the conversion.
+                  // The box shows a length; the state holds its ratio to `from`.
                   (si) => (from > 0 ? si / from : NaN),
                 )}
                 step={fu.step(0.001)}

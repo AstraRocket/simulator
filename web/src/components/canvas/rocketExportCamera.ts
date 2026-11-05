@@ -1,23 +1,7 @@
 import * as THREE from 'three';
 import { piecesBounds, type Piece } from './rocketPieces';
 
-/**
- * Owns the export framing for the 3D image snapshot: the NaN-safe box guard,
- * the corner-by-corner camera fit and the throwaway export camera with its
- * near/far bracket. Pure three.js math, no React.
- */
-
-/**
- * Is `box` safe to aim a camera at? `!box.isEmpty()` is not enough on its own.
- * `Box3.isEmpty()` is `max.x < min.x || max.y < min.y || max.z < min.z`, and
- * every comparison involving NaN is false, so a box poisoned by a NaN
- * dimension reports itself non-empty and goes straight into the fit. One NaN
- * field on one component is all it takes (a nosecone `length` of NaN reaches
- * the lathe profile, the geometry's bounding box, then this union), and the
- * result is a NaN camera position, a NaN center, and a blank export with
- * nothing logged. Demand six finite components; the caller then falls back to
- * the live camera, which gives the un-fitted export.
- */
+/** `isEmpty()` alone passes a NaN box (NaN comparisons are false), giving a blank export. */
 export function isFittableBox(box: THREE.Box3): boolean {
   return (
     !box.isEmpty() &&
@@ -25,24 +9,10 @@ export function isFittableBox(box: THREE.Box3): boolean {
   );
 }
 
-/** Breathing room around the fitted subject: 6 % keeps the nose tip and the
- *  fin tips off the border without visibly wasting frame. */
 const FIT_MARGIN = 1.06;
-/** Fallback distance for a degenerate (empty/zero-size) box: any finite,
- *  non-zero number will do; the point is that no NaN/Infinity reaches the
- *  camera, which would blank the export. */
 const MIN_FIT_DIST = 1e-3;
 
-/**
- * Reframe a camera so `box` fills the frame, keeping the caller's viewing
- * direction: only distance and target move, so a user who rotated to a
- * three-quarter view gets that same view, filled.
- *
- *
- * @param direction where the camera looks (camera → subject), i.e. exactly
- *                  what `camera.getWorldDirection()` returns.
- * @param aspect    the export aspect (width/height), not the on-screen one.
- */
+/** `direction` is camera to subject; `aspect` is the export aspect, not the on-screen one. */
 export function fitCameraToBox(
   box: THREE.Box3,
   direction: THREE.Vector3,
@@ -54,26 +24,12 @@ export function fitCameraToBox(
   const target = box.getCenter(new THREE.Vector3());
   const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
 
-  // Camera-space basis. `back` runs subject → camera, so the returned position
-  // is target + back·dist and the view direction survives bit-exactly.
   const back = new THREE.Vector3().copy(direction).negate();
   if (!Number.isFinite(back.lengthSq()) || back.lengthSq() === 0) back.set(0, 0, 1);
   back.normalize();
   const upv = new THREE.Vector3().copy(up);
   if (!Number.isFinite(upv.lengthSq()) || upv.lengthSq() === 0) upv.set(0, 1, 0);
-  // Dead overhead (view parallel to `up`): the cross degenerates, and whatever
-  // basis we invent here is a guess about roll around the view axis. It has to
-  // be the same guess three makes, because exportCamera feeds this position to
-  // `cam.lookAt(target)` and Matrix4.lookAt does not substitute an axis: it
-  // nudges its own z (our `back`) by 1e-4 and re-crosses. Substituting (1,0,0)
-  // would give a basis rotated 90° from the camera that actually renders, so a
-  // straight-down view would measure the rocket's length as frame height and
-  // its diameter as frame width, and size the fit to the wrong pair. Mirror
-  // three's nudge instead (`=== 0` is three's own test, so the two agree on
-  // when to nudge as well as how), then derive `right` the normal way.
-  // Nudging `back`, not `right`, is what makes this airtight:
-  // the returned position lies along the nudged axis, so lookAt sees a
-  // non-degenerate case, skips its own nudge, and rebuilds this very basis.
+  // View parallel to `up`: mirror Matrix4.lookAt's 1e-4 nudge of z exactly, or the fit basis turns 90°.
   const right = new THREE.Vector3().crossVectors(upv, back);
   if (right.lengthSq() === 0) {
     if (Math.abs(upv.z) === 1) back.x += 1e-4;
@@ -84,35 +40,15 @@ export function fitCameraToBox(
   right.normalize();
   const trueUp = new THREE.Vector3().crossVectors(back, right).normalize();
 
-  // Support function of an AABB along an axis: the box's half-extent as seen
-  // along that axis, whatever the viewing angle.
   const extent = (a: THREE.Vector3) => Math.abs(half.x * a.x) + Math.abs(half.y * a.y) + Math.abs(half.z * a.z);
 
   const tanHalfFov = Math.tan((fovDeg * Math.PI) / 360);
   const m = Number.isFinite(margin) && margin > 0 ? margin : 1;
-  // Fit corner by corner, not extent-plus-extent. A corner sitting at
-  // camera-space (u, v, w) (w measured along `back`, i.e. toward the lens)
-  // is in frame when m·|u| <= tan·aspect·(d − w) and m·|v| <= tan·(d − w),
-  // so that one corner demands
-  //     d >= max( m·|u|/(tan·aspect), m·|v|/tan ) + w
-  // and the fit is the max of that over all eight. The horizontal half-angle
-  // is the vertical one widened by the aspect ratio, hence the /aspect on the
-  // width term: a rocket is long and thin, so it is nearly always width that
-  // wins, and using the height term alone is what chops the nose and the fins
-  // off a 16:9 export.
-  //
-  // max(widthTerm, heightTerm) + halfD would sum two maxima reached at
-  // different corners: the widest corner is rarely the nearest one, so it
-  // charges the full depth to a corner that does not have it, and on a stubby
-  // subject the slack frames the rocket smaller than no fit at all. The
-  // per-corner max is the exact bound: every corner satisfied, at least one
-  // tight against the edge.
+  // Fit per corner: summing the separate maxima under-fills stubby subjects.
   const rel = new THREE.Vector3();
   let raw = 0;
   for (let i = 0; i < 8; i++) {
-    // Corners as center ± half, not box.min/max: an empty Box3 carries
-    // ±Infinity extremes but reports a (0,0,0) size, so going through `half`
-    // keeps this loop finite and lets the degenerate guard below do its job.
+    // Via `half`, not min/max: an empty Box3 has ±Infinity extremes but zero size.
     rel.set(i & 1 ? half.x : -half.x, i & 2 ? half.y : -half.y, i & 4 ? half.z : -half.z);
     const u = rel.dot(right),
       v = rel.dot(trueUp),
@@ -124,10 +60,6 @@ export function fitCameraToBox(
   return { position: new THREE.Vector3().copy(target).addScaledVector(back, dist), target };
 }
 
-/**
- * A throwaway camera that frames `box` the way `src` is currently looking, with
- * clipping planes that bracket the subject.
- */
 export function exportCamera(box: THREE.Box3, src: THREE.PerspectiveCamera, aspect: number): THREE.PerspectiveCamera {
   const { position, target } = fitCameraToBox(
     box,
@@ -142,10 +74,7 @@ export function exportCamera(box: THREE.Box3, src: THREE.PerspectiveCamera, aspe
   cam.position.copy(position);
   cam.lookAt(target);
   cam.updateMatrixWorld();
-  // Near/far must bracket the subject at its new distance: fitting a small
-  // rocket pulls the camera well inside the live camera's 0.1 m default near
-  // plane, which would export an empty frame. Camera space looks down -Z, so
-  // the box's z range there is exactly the depth span to cover.
+  // A small rocket's fit lands inside the live 0.1 m near plane.
   const view = box.clone().applyMatrix4(cam.matrixWorldInverse);
   cam.near = Math.max(1e-4, -view.max.z * 0.9);
   cam.far = Math.max(cam.near * 16, -view.min.z * 1.1);
@@ -153,11 +82,6 @@ export function exportCamera(box: THREE.Box3, src: THREE.PerspectiveCamera, aspe
   return cam;
 }
 
-/**
- * The camera an export draws through: a throwaway fitted to the rocket when
- * `fit` asks for it and the live camera is a perspective one whose box can be
- * fitted, otherwise the live camera (the on-screen framing).
- */
 export function exportView(live: THREE.Camera, pieces: Piece[], fit: boolean, aspect: number): THREE.Camera {
   const src = live as THREE.PerspectiveCamera;
   const box = fit && src.isPerspectiveCamera ? piecesBounds(pieces) : null;

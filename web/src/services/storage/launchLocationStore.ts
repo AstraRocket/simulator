@@ -4,76 +4,32 @@ import { JsonListStore } from './jsonListStore';
 import { uuid } from '../app/uuid';
 import { nsKey } from './storageKeys';
 
-/**
- * Swappable client-side store for the user's saved launch locations.
- *
- * A location is the place you fly from: a name, and the three site fields the
- * launch panel otherwise makes you retype every time: latitude, longitude and
- * elevation. Those three drive the atmosphere model, gravity, Coriolis and the
- * origin of every KML/GPX export, so getting them right matters and typing them
- * from memory at a field is how they go wrong.
- *
- * Deliberately the same shape as `materialStore.ts` and `templateStore.ts`: a
- * typed domain store over a `KeyValueStore` (IndexedDB by default), with the
- * seam left in place (`setLaunchLocationStore`) for a bespoke backend. No server is
- * needed or wanted: this is local data like your custom motors and materials.
- *
- * What it deliberately does not hold: the rod, the wind, the atmosphere. Those
- * are conditions on the day, not properties of the field, and a location that
- * restored last month's wind would be actively misleading.
- */
-
 export interface LaunchLocation {
-  /** Stable id, minted on save. Names can be edited and repeated; ids cannot. */
   id: string;
   name: string;
   latitudeDeg: number;
   longitudeDeg: number;
-  /**
-   * Site elevation above sea level, in meters (SI, like everything stored), or
-   * null when it is not known. A site saved from a tool with its elevation left
-   * to the terrain model has none, and a guessed sea level would fly a high
-   * field's thin air as sea-level air.
-   */
+  /** Null when unknown: assuming sea level would fly a high field's thin air as sea-level air. */
   launchAltitudeM: number | null;
 }
 
 export interface LaunchLocationStore {
-  /** Saved locations, most recently saved first. */
   list(): Promise<LaunchLocation[]>;
-  /** Add, or replace the location with the same id. */
   save(location: LaunchLocation): Promise<void>;
   remove(id: string): Promise<void>;
 }
 
-/**
- * The stored key says `pads`, and has to.
- *
- * The key is what existing browsers have their saved locations under, and
- * changing it would leave that entry behind with nothing reading it: a list that
- * silently comes back empty, which is exactly the failure this store exists to
- * prevent.
- */
+/** Says `pads` because existing browsers store locations under it; renaming would orphan them. */
 const LOCATIONS_KEY = nsKey('pads:custom');
 
-/**
- * The ranges a launch site's numbers must fall in. The launch fields clamp to
- * them and a stored location is validated against them, so a location saved from
- * the fields always reads back.
- *
- * Latitude past +/-90 is rejected outright by Google Earth in the KML export, and
- * all three reach the kernel (gravity, Coriolis, the atmosphere model). Altitude
- * runs from the Dead Sea shore to above any launch site.
- */
+// The launch fields clamp to these too, so a location saved from the fields always reads back.
 export const LAUNCH_SITE_LIMITS = {
   latitudeDeg: { min: -90, max: 90 },
   longitudeDeg: { min: -180, max: 180 },
   launchAltitudeM: { min: -500, max: 10000 },
-  /** Air temperature at the site, °C: the launch panel's and the tools' bounds. */
   temperatureC: { min: -90, max: 70 },
 } as const;
 
-/** A location whose numbers are inside {@link LAUNCH_SITE_LIMITS}. */
 export function isLocation(v: unknown): v is LaunchLocation {
   const p = v as LaunchLocation;
   const num = (x: unknown, { min, max }: { min: number; max: number }): boolean =>
@@ -89,12 +45,6 @@ export function isLocation(v: unknown): v is LaunchLocation {
   );
 }
 
-/**
- * Default store: the location list as one JSON array under one key-value entry
- * (see JsonListStore for the read and write rules), newest save first, one
- * entry per id. A location outside {@link LAUNCH_SITE_LIMITS} is refused on
- * save, not stored to be dropped on the next read.
- */
 export class KeyValueLaunchLocationStore implements LaunchLocationStore {
   private readonly items: JsonListStore<LaunchLocation>;
 
@@ -126,7 +76,6 @@ export function setLaunchLocationStore(next: LaunchLocationStore): void {
   store = next;
 }
 
-/** A new location from the launch fields currently on screen. */
 export function locationFrom(
   name: string,
   site: { latitudeDeg: number | null; longitudeDeg: number | null; launchAltitudeM: number | null },
@@ -134,23 +83,14 @@ export function locationFrom(
   return {
     id: uuid(),
     name: name.trim(),
-    // The zeroes are a last resort, not a default: both coordinates are
-    // required launch fields and the save button is disabled while either is
-    // blank, so a location at 0,0 is not reachable from the panel. A `LaunchLocation` has to
-    // be a place, hence numbers rather than holes. Elevation is the exception:
-    // a blank one stays unknown rather than becoming sea level.
+    // Unreachable zeroes: save is disabled while either coordinate is blank.
     latitudeDeg: site.latitudeDeg ?? 0,
     longitudeDeg: site.longitudeDeg ?? 0,
     launchAltitudeM: site.launchAltitudeM,
   };
 }
 
-/**
- * The three launch fields a location sets, taken from anything that carries
- * them (a saved location, the launch defaults): where the site is and how high.
- * Applying a location sets all three, since keeping the previous site's
- * elevation would fly the wrong air unannounced.
- */
+/** Always all three: keeping the previous site's elevation would fly the wrong air. */
 export function siteOf<T extends Pick<LaunchLocation, 'latitudeDeg' | 'longitudeDeg'> & { launchAltitudeM: unknown }>(
   x: T,
 ): Pick<T, 'latitudeDeg' | 'longitudeDeg' | 'launchAltitudeM'> {

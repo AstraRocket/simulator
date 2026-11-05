@@ -1,14 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { rocketSpanM } from '../../../src/components/canvas/AftView';
+import { rocketSpanM } from '../../../src/components/canvas/aftScene';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
-
-/**
- * The span both image exports print: twice the farthest any part reaches from
- * the axis, each measured from the surface it stands on. The 2D view used to
- * add the largest fin span to the largest body radius wherever the fins sat,
- * and the 3D view left launch lugs out, so one rocket printed two spans.
- */
 
 const stage = (children: unknown[]): ComponentNode[] =>
   [{ type: 'stage', id: 'st', children }] as unknown as ComponentNode[];
@@ -27,8 +20,6 @@ const FIN = {
 
 describe('rocketSpanM', () => {
   it('measures fins from the tube they stand on, not the widest part', () => {
-    // A 60 mm payload over a 25 mm finned tube: the fins reach 55 mm, inside
-    // the payload's 60.
     const span = rocketSpanM(
       stage([
         { type: 'bodytube', id: 'payload', length: 0.2, outerRadius: 0.06, thickness: 0.002 },

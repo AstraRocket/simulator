@@ -1,16 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-/**
- * A `.ork` can carry several flight configurations, and all of them come in.
- *
- * Reading one and dropping the rest loses work the moment the design is saved
- * back: the file says a rocket was set up three ways, and a save that wrote one
- * would be the app deciding the other two no longer exist.
- *
- * The engine, the zip parser and the catalog are mocked: what is under test is
- * the wiring, not the kernel.
- */
-
 const design = {
   setMotorById: vi.fn(),
   setMotorIgnitionById: vi.fn(),
@@ -18,7 +7,7 @@ const design = {
 };
 
 vi.mock('../../../src/engine/openRocketEngine', () => ({
-  engineActive: () => true, // the kernel is loaded: the file goes through it
+  engineActive: () => true,
   OpenRocketDesign: { buildTree: () => design },
   resetEngine: () => {},
 }));
@@ -48,7 +37,6 @@ vi.mock('../../../src/services/files/designFile', () => ({
         },
       ],
     },
-    // The chosen configuration's motors, as the config-scoped reads resolve them.
     motors: { body: ref('D12') },
     configs: [
       {
@@ -80,7 +68,6 @@ const catalogMotorSpec = vi.fn();
 vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec, customMotorToSpec: vi.fn() }));
 vi.mock('../../../src/services/motors/motorDb', () => ({
   loadCatalog: () => Promise.resolve([]),
-  findCatalogMotor: (_c: unknown, designation: string) => ({ designation }),
   matchCatalogMotor: (_c: unknown, designation: string) => ({ motor: { designation } }),
 }));
 
@@ -120,8 +107,7 @@ describe('loadOrk with several flight configurations', () => {
   });
 
   it('fills a mount a configuration named no motor for with a curve-less placeholder', async () => {
-    // Never a default: "Low power" says nothing about the pod, so the pod flies
-    // nothing under it rather than a C6 the file never named.
+    // Never a default: the pod flies nothing rather than a motor the file never named.
     const res = await loadOrk(new ArrayBuffer(0));
     const pod = res.configs[0]!.motors.pod!;
     expect(pod.spec.designation).toBe('');
@@ -129,7 +115,6 @@ describe('loadOrk with several flight configurations', () => {
   });
 
   it('resolves each distinct motor once, however many configurations use it', async () => {
-    // Three motors across the two configurations, and D12 appears in both.
     await loadOrk(new ArrayBuffer(0));
     expect(catalogMotorSpec).toHaveBeenCalledTimes(3);
   });
@@ -147,24 +132,13 @@ describe('loadOrk with several flight configurations', () => {
   it('carries a configuration"s deployment overrides through untouched', async () => {
     const res = await loadOrk(new ArrayBuffer(0));
     expect(res.configs[1]!.deployments).toEqual({ chute: { deployAltitude: 150 } });
-    expect(res.configs[0]!.deployments).toBeUndefined(); // it had none
+    expect(res.configs[0]!.deployments).toBeUndefined();
   });
 
-  /**
-   * `OrkFlightConfig` declares `separations` and `grounded` non-optional, read
-   * from the file the way the deployments are. `LoadedConfig` has to carry them
-   * too: a `.ork` whose configuration says
-   * `<stage number="1" active="false"/>` or carries a
-   * `<separationconfiguration>` would otherwise lose it on open, and `saveOrk`
-   * would write the undefined value back, losing it for good. The round-trip
-   * test cannot see this: it goes importOrk to exportOrk and never through
-   * `loadOrk`.
-   */
   it('carries the separation overrides and the grounded stages too', async () => {
     const res = await loadOrk(new ArrayBuffer(0));
     expect(res.configs[1]!.separations).toEqual({ booster: { separationDelay: 2 } });
     expect(res.configs[1]!.grounded).toEqual(['booster']);
-    // The one that declared neither keeps them absent rather than empty.
     expect(res.configs[0]!.separations).toBeUndefined();
     expect(res.configs[0]!.grounded).toBeUndefined();
   });

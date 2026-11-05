@@ -1,19 +1,5 @@
 import { useId, type KeyboardEvent } from 'react';
 
-/**
- * The ARIA tabs pattern for a row of tab buttons and the one panel they switch.
- *
- * A tablist promises more than `aria-selected`: each tab names the panel it
- * controls, the panel names its tab, and the row is one tab stop that the arrow
- * keys move along (Home and End jump to the ends). Without those, a screen
- * reader announces tabs that lead nowhere and Tab walks every tab in turn.
- *
- * Selection follows focus: an arrow key opens the tab it lands on, which suits
- * panels that are cheap to show.
- *
- * Spread `tab(key)` on each tab button and `panel` on the element holding the
- * open tab's content.
- */
 export function useTabs<K extends string>(keys: readonly K[], active: K, select: (key: K) => void) {
   const base = useId();
   const tabId = (key: K) => `${base}-tab-${key}`;
@@ -34,8 +20,7 @@ export function useTabs<K extends string>(keys: readonly K[], active: K, select:
     if (next === undefined) return;
     e.preventDefault();
     select(next);
-    // Every tab is always rendered, so the target exists now, before the
-    // re-render that marks it selected.
+    // Every tab is always rendered, so the target exists before the re-render.
     document.getElementById(tabId(next))?.focus();
   };
 

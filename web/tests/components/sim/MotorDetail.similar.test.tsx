@@ -4,14 +4,9 @@ import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
-/**
- * Desktop's "Hide very similar thrust curves": the curve dropdown leaves out a
- * motor's other curves the kernel's MotorCorrelation scores at 0.95 or more
- * against the one shown. The kernel call is stubbed with fixed scores.
- */
+// Desktop hides curves MotorCorrelation scores at 0.95 or more; the kernel is stubbed here.
 vi.mock('../../../src/engine/openRocketEngine', async (orig) => ({
   ...(await orig<object>()),
-  // Curve "near" is a near duplicate of the first; "far" is not.
   motorSimilarity: (_a: unknown, b: [number, number][]) => (b[1]![1] === 11 ? 0.99 : 0.5),
 }));
 const { MotorDetail } = await import('../../../src/components/sim/MotorDetail');
@@ -41,7 +36,6 @@ const options = () => [...(screen.getByRole('combobox') as HTMLSelectElement).op
 describe('the curve choice', () => {
   beforeEach(() => {
     localStorage.clear();
-    // The similarity is asked of a ready engine only.
     useEngineStore.setState({ phase: 'ready' });
   });
 

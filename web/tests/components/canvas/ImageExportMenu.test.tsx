@@ -6,17 +6,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { ImageExportMenu } from '../../../src/components/canvas/ImageExportMenu';
 import { IMAGE_WIDTHS } from '../../../src/services/exports/schematicExport.js';
 
-/**
- * The menu-button contract this popover declares.
- *
- * The trigger carries `aria-haspopup="menu"` and the popover `role="menu"`, so
- * its children must be `menuitem`s: a `menu` with plain button children is an
- * invalid structure that screen readers announce as "menu, 0 items", with the
- * width buttons unreachable by menu navigation. Escape and focus-return are the
- * rest of the contract; with only an outside pointerdown to close it, a keyboard
- * user who opened it would be stuck inside.
- */
-
 const open = (onPick = vi.fn(), fitOption = false) => {
   renderWithProviders(<ImageExportMenu label="Image" title="Export image" onPick={onPick} fitOption={fitOption} />);
   const trigger = screen.getByRole('button', { name: 'Image' });
@@ -37,7 +26,6 @@ describe('the popover is a real menu', () => {
   it('exposes every width choice as a menuitem, not "menu, 0 items"', () => {
     open();
     screen.getByRole('menu');
-    // One row per format (PNG, JPG) times the width presets.
     expect(screen.getAllByRole('menuitem')).toHaveLength(2 * IMAGE_WIDTHS.length);
   });
 
@@ -70,7 +58,7 @@ describe('the popover is a real menu', () => {
   it('still picks the format and width it was clicked for', () => {
     const { onPick } = open();
     const items = screen.getAllByRole('menuitem');
-    fireEvent.click(items[0]!); // first PNG width
+    fireEvent.click(items[0]!);
     expect(onPick).toHaveBeenCalledWith('png', IMAGE_WIDTHS[0], { fit: false });
   });
 
@@ -78,7 +66,7 @@ describe('the popover is a real menu', () => {
     const onPick = vi.fn();
     open(onPick, true);
     fireEvent.click(screen.getAllByRole('menuitem')[0]!);
-    expect(onPick).toHaveBeenCalledWith('png', IMAGE_WIDTHS[0], { fit: true }); // defaults on
+    expect(onPick).toHaveBeenCalledWith('png', IMAGE_WIDTHS[0], { fit: true });
   });
 });
 
@@ -90,8 +78,6 @@ describe('a keyboard user can get back out', () => {
   });
 
   it('returns focus to the trigger, rather than dropping it on the body', () => {
-    // Focus left on <body> is the failure mode that makes a popover feel like
-    // a dead end: Tab restarts from the top of the document.
     const { trigger } = open();
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     expect(document.activeElement).toBe(trigger);
@@ -104,10 +90,6 @@ describe('a keyboard user can get back out', () => {
   });
 });
 
-/**
- * Choosing a width closes the menu and unmounts the focused item. Focus goes
- * back to the trigger, or a keyboard export ends on `<body>`.
- */
 describe('focus after a choice', () => {
   it('returns to the trigger', () => {
     const { trigger, onPick } = open();

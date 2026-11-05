@@ -24,10 +24,6 @@ afterEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-/**
- * The time step and the maximum time are seconds in the language the app is
- * shown in: Japanese writes the unit 秒, not the Latin s.
- */
 describe.each([
   ['the Settings simulation tab', () => <SimTab />],
   ['the simulation editor', () => <SimEditor />],

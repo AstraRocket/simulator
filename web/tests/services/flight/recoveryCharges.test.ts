@@ -68,7 +68,6 @@ describe('the charges a design carries', () => {
     const chute = (id: string, extra: Record<string, unknown> = {}) =>
       ({ id, type: 'parachute', ...extra }) as unknown as ComponentNode;
     const stage = (...devices: ComponentNode[]) => rocket(tube('t', 'T', devices));
-    // Single deployment: every device is a main.
     expect([...deviceRoles(stage(chute('a'), chute('b')))]).toEqual([
       ['a', 'main'],
       ['b', 'main'],
@@ -78,7 +77,6 @@ describe('the charges a design carries', () => {
       ['a', 'main'],
       ['d', 'drogue'],
     ]);
-    // ...unless the third is picked as the main.
     expect([
       ...deviceRoles(stage(chute('a'), chute('d', { drogue: true }), chute('c', { [MAIN_DEVICE_KEY]: true }))),
     ]).toEqual([
@@ -108,7 +106,6 @@ describe('saving charges to a design', () => {
     const m1 = findNode(next, 'm1')!;
     expect(m1['mass']).toBe(0.0015);
     expect(m1['massComponentType']).toBe(CHARGE_TYPE);
-    // Changed inside the inner tube it was kept in, not added beside it.
     expect(findNode(next, 'upper')!.children!.map((c) => c.id)).toEqual(['holder']);
   });
 

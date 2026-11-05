@@ -7,19 +7,6 @@ import { wireLoadedOrk } from '../../../src/services/files/wireLoadedOrk';
 import type { LoadedOrk } from '../../../src/services/files/loadOrk';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 
-/**
- * Where our `.rkt` reader has to agree with OpenRocket's own, field by field.
- *
- * Each case below names the desktop handler it is copied from, because the
- * handlers are the specification and several of them do something the file
- * format alone does not hint at: a zero ID means solid, a bulk density on a
- * parachute has to be multiplied by the fabric thickness, a mass object's stated
- * CG has to be thrown away, and a detachable pod is a booster.
- *
- * `rktImport.test.ts` covers the ordinary reading of a whole design. This file
- * is one design per rule, so a failure names the rule.
- */
-
 const doc = (stage3: string, design = ''): string =>
   `<?xml version="1.0" encoding="UTF-8"?>
 <RockSimDocument>
@@ -52,11 +39,6 @@ const read = (stage3: string, design = ''): ComponentNode[] => importRkt(doc(sta
 const parts = (stage3: string, design = ''): ComponentNode[] => read(stage3, design)[0]!.children ?? [];
 
 describe('a zero ID is solid, not missing', () => {
-  /**
-   * `BodyTube.setInnerRadius(r)` is `setThickness(getOuterRadius() - r)`, and
-   * every handler calls it unconditionally, so `<ID>0</ID>` means a solid part.
-   * Treating it as absent would leave the bridge's default 2 mm wall on a solid rod.
-   */
   it('gives a tube with no bore a wall equal to its own radius', () => {
     const tube = find(parts('<BodyTube><Name>Rod</Name><Len>100</Len><OD>20</OD><ID>0</ID></BodyTube>'), 'Rod');
     expect(tube['outerRadius']).toBeCloseTo(0.01, 12);
@@ -80,12 +62,6 @@ describe('a zero ID is solid, not missing', () => {
 });
 
 describe('a ring with a bore and no outer diameter', () => {
-  /**
-   * `RingHandler` builds every ring as a detached CenteringRing, whose
-   * `setInnerRadius` raises a stored outer radius of 0 to the bore and turns
-   * Automatic off; `copyValues` hands that radius on. Desktop 24.12 opens both
-   * of these at a 30 mm outer radius in a 39 mm bore.
-   */
   const ring = (usage: number): ComponentNode =>
     find(
       parts(
@@ -119,36 +95,19 @@ describe('a recovery device fabric', () => {
       'C',
     );
 
-  /**
-   * The direction the kernel converts in. `BaseHandler.computeDensity` is
-   * `raw / type.asOpenRocket()` and the surface constant is 1/10, so inbound is
-   * x10; `BasePartDTO` multiplies by the same 1/10 on the way out. The two are
-   * one factor used in opposite directions, and having them the wrong way round
-   * is a hundredfold error that still reads as a plausible density.
-   */
+  // Reading divides by 1/10; the wrong direction is a hundredfold error that still looks plausible.
   it('converts a SURFACE density by multiplying by ten', () => {
     expect(chute('0.0067', '1')['surfaceDensity']).toBeCloseTo(0.067, 12);
   });
 
-  /**
-   * `RecoveryDeviceHandler.computeDensity`: a bulk density is per volume, so it
-   * only becomes per area once multiplied by the fabric's own thickness. Without
-   * it a kg/m3 number would sit in a kg/m2 field.
-   */
   it('turns a BULK density into a surface one with the fabric thickness', () => {
-    // 1390 kg/m3 of 0.05 mm mylar is 0.0695 kg/m2.
     expect(chute('1390', '0')['surfaceDensity']).toBeCloseTo(0.0695, 12);
   });
 
-  /** RockSim ignores the thickness for LINE and treats it as a surface density. */
   it('treats a LINE density as a surface one', () => {
     expect(chute('0.0067', '2')['surfaceDensity']).toBeCloseTo(0.067, 12);
   });
 
-  /**
-   * A zero density is a RockSim bug on these two parts, and the handler falls
-   * back to its own computed mass over the canopy area.
-   */
   it('falls back to CalcMass over the area when the density is zero', () => {
     const c = find(
       parts(
@@ -158,7 +117,6 @@ describe('a recovery device fabric', () => {
       ),
       'C',
     );
-    // 8.4 g over pi * 0.2^2 m2.
     expect(c['surfaceDensity']).toBeCloseTo(0.0084 / (Math.PI * 0.04), 12);
   });
 
@@ -169,11 +127,6 @@ describe('a recovery device fabric', () => {
     expect(c['surfaceMaterialName']).toBe('Fabric');
   });
 
-  /**
-   * `ParachuteHandler`: RockSim has no packed size, so desktop approximates one
-   * from the tube the chute sits in, for both the radius and the length. The
-   * kernel's own default is 12.5 mm whatever tube it is in.
-   */
   it('packs into nine tenths of its parent body tube', () => {
     const c = chute('0.0067', '1');
     expect(c['radius']).toBeCloseTo(0.012 * 0.9, 12);
@@ -205,7 +158,6 @@ describe('a fin set', () => {
       'F',
     );
 
-  /** `FinSetHandler.convertTipShapeCode`: 0 square, 1 rounded, 2 airfoil. */
   it('reads the cross section from TipShapeCode', () => {
     expect(fin('<TipShapeCode>1</TipShapeCode>')['crossSection']).toBe('rounded');
     expect(fin('<TipShapeCode>2</TipShapeCode>')['crossSection']).toBe('airfoil');
@@ -216,11 +168,6 @@ describe('a fin set', () => {
     expect(fin('')['crossSection']).toBeUndefined();
   });
 
-  /**
-   * `FinSetHandler.endHandler` overrides an airfoil fin's mass and CG with
-   * RockSim's own computed pair even though the file asked for no override,
-   * because RockSim computes one mass per fin whatever the cross section.
-   */
   it('takes RockSim computed mass and CG for an airfoil fin', () => {
     const f = fin('<TipShapeCode>2</TipShapeCode><CalcMass>4.5</CalcMass><CalcCG>28</CalcCG>');
     expect(f['overrideMass']).toBeCloseTo(0.0045, 12);
@@ -239,22 +186,11 @@ describe('a fin set', () => {
     expect(f['overrideMass']).toBeCloseTo(0.009, 12);
   });
 
-  /**
-   * A tab is measured from the front of the fin root, so on a tapering body its
-   * stated depth already contains the radius drop along the tab:
-   * `setTabHeight(tabDepth - max(front - trailing, 0))`, where `front` and
-   * `trailing` are `getParentFrontRadius` / `getParentTrailingRadius`, read
-   * before the fin is attached, so at the tab's own offset and end from the
-   * parent's fore end.
-   */
   it('gives back the taper a tab depth already contains', () => {
     const onTube = fin('<TabLength>40</TabLength><TabDepth>5</TabDepth>');
     expect(onTube['tabHeight']).toBeCloseTo(0.005, 12);
-    // A 30 mm freeform fin standing 40 mm down a 60 mm conical transition,
-    // 24 mm to 18 mm, with a 30 mm tab from the root's front. Desktop 24.12
-    // opens this with a tab height of 3.5 mm: the radius drops from 12 mm at
-    // 0 mm to 10.5 mm at 30 mm. Neither the whole taper (3 mm) nor the drop
-    // under where the fin stands (1 mm) is what it reads.
+    // Desktop 24.12 reads 3.5 mm: the radius drops 12 to 10.5 mm over the tab's
+    // 0 to 30 mm, not the whole 3 mm taper or the 1 mm under the fin.
     const onTransition = find(
       parts(
         `<NoseCone><Name>N</Name><Len>100</Len><BaseDia>24</BaseDia></NoseCone>
@@ -271,11 +207,6 @@ describe('a fin set', () => {
 });
 
 describe('a shoulder', () => {
-  /**
-   * `NoseConeHandler.endHandler` / `TransitionHandler.endHandler`: a filled part
-   * has a solid shoulder, so its thickness is its own radius; a hollow one hands
-   * the shoulder its wall.
-   */
   it('on a hollow part carries that part wall', () => {
     const n = find(
       parts(
@@ -315,11 +246,6 @@ describe('a mass object', () => {
       `<BodyTube><Name>Air</Name><Len>100</Len><OD>24</OD><ID>23</ID><AttachedParts>${body}</AttachedParts></BodyTube>`,
     );
 
-  /**
-   * `MassObjectHandler`: RockSim measures a mass object's CG from the front of
-   * its parent, and that is already carried in the object's position, so keeping
-   * it as a CG override counts it twice. Desktop zeroes it for this reason.
-   */
   it('zeroes the CG override RockSim states, because the position already has it', () => {
     const m = find(
       inTube(
@@ -331,11 +257,6 @@ describe('a mass object', () => {
     expect(m['overrideCGX']).toBe(0);
   });
 
-  /**
-   * `inferAsShockCord`: the type code says so, or the object is at least twice
-   * its parent's length and made of a line material. Its comment says the type
-   * code usually does not say so, because of bugs in RockSim's own databases.
-   */
   it('is a shock cord when it is long and made of line, whatever the type code says', () => {
     const c = find(
       inTube(
@@ -358,7 +279,6 @@ describe('a mass object', () => {
     expect(m.type).toBe('masscomponent');
   });
 
-  /** `MASS_LEN_FUDGE_FACTOR`: RockSim states one length, OpenRocket wants two. */
   it('packs a cord to a hundredth of its real length, inside its parent bore', () => {
     const c = find(
       inTube('<MassObject><Name>Cord</Name><TypeCode>1</TypeCode><Len>1000</Len><KnownMass>6</KnownMass></MassObject>'),
@@ -366,14 +286,11 @@ describe('a mass object', () => {
     );
     expect(c['cordLength']).toBeCloseTo(1, 12);
     expect(c['length']).toBeCloseTo(0.01, 12);
-    // 24 mm across with a 0.5 mm wall leaves an 11.5 mm bore.
     expect(c['radius']).toBeCloseTo(0.0115, 12);
   });
 });
 
 describe('a pod', () => {
-  // On a body tube: a stage's own parts are only nose cones, body tubes and
-  // transitions (StageHandler), so a pod rides in a tube's attached parts.
   const pod = (extra: string): ComponentNode[] =>
     parts(
       `<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID><AttachedParts>
@@ -383,11 +300,6 @@ describe('a pod', () => {
       </BodyTube></AttachedParts></ExternalPod></AttachedParts></BodyTube>`,
     );
 
-  /**
-   * `PodHandler.endHandler`: a detachable or ejected RockSim pod flies its own
-   * branch, so desktop moves its children into a ParallelStage and drops the
-   * podset. A ParallelStage is an AxialStage for us too.
-   */
   it('that separates is a parallel stage, not a fixed pod', () => {
     expect(find(pod('<Detachable>1</Detachable>'), 'P').type).toBe('parallelstage');
     expect(find(pod('<Removed>1</Removed>'), 'P').type).toBe('parallelstage');
@@ -397,13 +309,6 @@ describe('a pod', () => {
     expect(find(pod('<Detachable>0</Detachable>'), 'P').type).toBe('podset');
   });
 
-  /**
-   * `PodHandler.endHandler` marks an ejected pod's stage inactive in the
-   * configuration desktop opens on (`getSelectedConfiguration()
-   * ._setStageActive(stage.getStageNumber(), false)`): the pod stays in the
-   * design and sits out the flight. A detachable pod that has not been ejected
-   * flies.
-   */
   it('that RockSim marks ejected is grounded in the configuration the file opens on', () => {
     const ejected = (pods: string) =>
       doc(
@@ -423,7 +328,6 @@ describe('a pod', () => {
     expect(res.chosenConfigId).toBe(res.configs[0]!.id);
     expect(res.configs[0]!.grounded).toEqual([id('Gone'), id('Also gone')]);
     expect(res.configs[0]!.grounded).not.toContain(id('Kept'));
-    // What the opened simulation flies.
     const wired = wireLoadedOrk(res as unknown as LoadedOrk, {} as LaunchConditions);
     const config = wired.configs.find((c) => c.id === wired.sims.find((s) => s.id === wired.activeId)!.configId)!;
     expect(config.grounded).toEqual([id('Gone'), id('Also gone')]);
@@ -439,11 +343,6 @@ describe('a pod', () => {
     expect(res.chosenConfigId).toBeNull();
   });
 
-  /**
-   * `PodHandler.subtractAngleOffset`: RockSim stores a pod child's angle in
-   * absolute coordinates and OpenRocket stores it relative to the assembly, so
-   * without this every part inside a pod is rotated by the pod's angle twice.
-   */
   it('takes its own roll angle off the parts inside it', () => {
     const p = find(pod(''), 'P');
     expect(p['angleOffset']).toBeCloseTo(Math.PI / 2, 12);
@@ -453,12 +352,6 @@ describe('a pod', () => {
 });
 
 describe('a stage', () => {
-  /**
-   * `RocketDesignHandler.applyStageOverrides` applies the stage figures as
-   * stage-level overrides with "apply to subcomponents" on, and only while
-   * `UseKnownMass` is set: RockSim writes them into every file whether it uses
-   * them or not.
-   */
   it('takes the mass and CG RockSim states for it, over the whole subtree, when RockSim uses them', () => {
     const list = read(
       '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>',
@@ -494,11 +387,7 @@ describe('a stage', () => {
         ),
     ).tree.components;
 
-  /**
-   * RockSim's CGs are those of the stacks it flies (`Stage32CG`, `Stage321CG`),
-   * from the nose tip, so each stage's own CG comes from the mass moments and is
-   * kept from the stage's front, as `setOverrideCGX` takes it.
-   */
+  // RockSim's stack CGs are from the nose tip; `setOverrideCGX` takes each stage's own from its front.
   it("derives each stage's CG from the stack CGs, so the stacks balance where RockSim says", () => {
     const [top, mid, low] = threeStage(
       '<Stage3Mass>185</Stage3Mass><Stage2Mass>210</Stage2Mass><Stage1Mass>330</Stage1Mass>' +
@@ -506,7 +395,6 @@ describe('a stage', () => {
         '<Stage2CGAlone>120</Stage2CGAlone><Stage1CGAlone>50</Stage1CGAlone><UseKnownMass>1</UseKnownMass>',
     );
     const at = (stage: ComponentNode, front: number) => (stage['overrideCGX'] as number) + front;
-    // Masses in kg, stage fronts at 0, 0.3 and 0.5 m.
     const stack = (stages: [ComponentNode, number][]) => {
       const mass = stages.reduce((sum, [s]) => sum + (s['overrideMass'] as number), 0);
       return stages.reduce((sum, [s, front]) => sum + (s['overrideMass'] as number) * at(s, front), 0) / mass;
@@ -558,7 +446,6 @@ describe('a nose cone or transition shape', () => {
       'T',
     );
 
-  /** `RockSimNoseConeCode.PARABOLIC`: r = R * sqrt(x / L) is a power series of 1/2. */
   it("reads RockSim's parabola as a power series of one half, whatever ShapeParameter says", () => {
     for (const read of [
       nose('<ShapeCode>2</ShapeCode><ShapeParameter>0</ShapeParameter>').node,
@@ -573,7 +460,6 @@ describe('a nose cone or transition shape', () => {
     expect(nose('<ShapeCode>3</ShapeCode>').node['shape']).toBe('ellipsoid');
   });
 
-  /** `RockSimNoseConeCode.SECANT_OGIVE`: a tangent ogive, with a warning. */
   it('reads a secant ogive as a tangent ogive and says so', () => {
     const { node, notes } = nose('<ShapeCode>7</ShapeCode><ShapeParameter>300</ShapeParameter>');
     expect(node['shape']).toBe('ogive');
@@ -582,13 +468,12 @@ describe('a nose cone or transition shape', () => {
     expect(transition('<ShapeCode>7</ShapeCode>')['shape']).toBe('ogive');
   });
 
-  /** `fromCode` falls back to PARABOLIC, not to the last code. */
+  // `fromCode` falls back to PARABOLIC, not to the last code.
   it('reads a code RockSim does not define as its default, the parabola', () => {
     expect(nose('<ShapeCode>9</ShapeCode>').node['shape']).toBe('power');
     expect(nose('<ShapeCode>9</ShapeCode>').node['shapeParameter']).toBe(0.5);
   });
 
-  /** `Transition.setShapeParameter` clamps, and the handlers say so. */
   it('clamps a Haack parameter past the LV-Haack and says so', () => {
     const { node, notes } = nose('<ShapeCode>6</ShapeCode><ShapeParameter>0.6</ShapeParameter>');
     expect(node['shape']).toBe('haack');
@@ -610,11 +495,6 @@ describe('a nose cone base extension', () => {
     '<ConstructionType>1</ConstructionType><ShapeCode>1</ShapeCode><ShoulderLen>40</ShoulderLen><ShoulderOD>64</ShoulderOD>' +
     '<Material>Balsa</Material><Density>160</Density><FinishCode>0</FinishCode>';
 
-  /**
-   * `NoseConeHandler.addBaseExtension`: RockSim puts the next part at Len plus
-   * BaseExtensionLen, with the shoulder behind the extension, so it is a
-   * straight transition after the nose that carries the shoulder.
-   */
   it('becomes a straight transition behind the nose that takes over the shoulder', () => {
     const res = importRkt(
       doc(
@@ -642,7 +522,6 @@ describe('a nose cone base extension', () => {
     );
   });
 
-  /** RockSim's known nose mass already covers its extension. */
   it('weighs nothing under a nose mass override', () => {
     const [nose, ext] = parts(
       `${base}<UseKnownCG>1</UseKnownCG><KnownMass>40</KnownMass><KnownCG>60</KnownCG>` +
@@ -657,7 +536,6 @@ describe('a nose cone base extension', () => {
   });
 });
 
-/** `NoseConeHandler`: a drilled core is not modeled, so a solid nose weighs as solid. */
 describe('a drilled solid nose cone', () => {
   const notes = (construction: number) =>
     noteTexts(
@@ -680,7 +558,6 @@ describe('a drilled solid nose cone', () => {
   });
 });
 
-/** `ParachuteHandler.setEquivalentDiameter`: the round canopy with RockSim's drag area. */
 describe("a parachute's drag area", () => {
   const chute = (extra: string) => {
     const res = importRkt(
@@ -697,7 +574,7 @@ describe("a parachute's drag area", () => {
     const { node, notes } = chute('<SideCount>6</SideCount><SpillHoleDia>100</SpillHoleDia><ChuteCount>2</ChuteCount>');
     const hexagon = ((3 * Math.sqrt(3)) / 2) * 0.5 * 0.5;
     expect(area(node)).toBeCloseTo(2 * (hexagon - Math.PI * 0.05 * 0.05), 12);
-    // The hole is in the area: carried as well, it would come out twice.
+    // The hole is already in the area; carrying it too would count it twice.
     expect(node['spillHoleDiameter']).toBeUndefined();
     expect(notes.join(' ')).toMatch(/C: imported as a single round parachute with the same drag area/);
   });
@@ -713,7 +590,6 @@ describe("a parachute's drag area", () => {
   });
 });
 
-/** `RocketDesignHandler.applyFixedCD`: RockSim's fixed Cd, for a single stage. */
 describe("a design's fixed Cd", () => {
   const air = '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>';
 
@@ -744,7 +620,6 @@ describe("a design's fixed Cd", () => {
 describe("a design's own information", () => {
   const air = '<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID></BodyTube>';
 
-  /** `RocketDesignHandler`: `Comments`, `Designer` and `Revisions` are the rocket's. */
   it('keeps the comments, the designer and the revision history', () => {
     const { tree } = importRkt(
       doc(
@@ -758,7 +633,6 @@ describe("a design's own information", () => {
     expect(tree.revision).toBe('2-21-2010: new nose cone');
   });
 
-  /** `RockSimContentHandler`: RockSim 11 writes version 4. */
   it('says when the file is newer than RockSim 11 writes', () => {
     const newer = (v: number) =>
       noteTexts(
@@ -772,7 +646,6 @@ describe("a design's own information", () => {
 });
 
 describe('a negative dimension', () => {
-  /** The handlers wrap most dimensions in `Math.max(0, …)`. */
   it('is floored at zero rather than reaching the tree', () => {
     const tube = find(parts('<BodyTube><Name>Bad</Name><Len>-100</Len><OD>-20</OD></BodyTube>'), 'Bad');
     expect(tube['length']).toBe(0);
@@ -789,13 +662,6 @@ describe('a fin set on a nose cone or transition', () => {
       <Thickness>3</Thickness>${extra}</FinSet></AttachedParts></Transition>`,
     );
 
-  /**
-   * `Transition.isCompatible` admits only an internal component and a
-   * FreeformFinSet, and a NoseCone is a Transition, so a trapezoid there has to
-   * become freeform before it can be attached at all. Desktop reads the outline
-   * off the detached fin, whose root points are a single zero, so the result is
-   * the four plain corners.
-   */
   it('turns a trapezoid into the freeform outline of its four corners', () => {
     const f = find(onTransition(0), 'F');
     expect(f.type).toBe('freeformfinset');
@@ -805,11 +671,8 @@ describe('a fin set on a nose cone or transition', () => {
       [0.055, 0.045],
       [0.06, 0],
     ]);
-    // The trapezoid dimensions are gone: the outline is the shape now, and
-    // leaving both would let the two disagree.
     expect(f['rootChord']).toBeUndefined();
     expect(f['sweep']).toBeUndefined();
-    // Everything that is not the outline survives the conversion.
     expect(f['finCount']).toBe(3);
     expect(f['thickness']).toBeCloseTo(0.003, 12);
   });
@@ -846,7 +709,6 @@ describe('a fin set on a nose cone or transition', () => {
     expect(f['points']).toBeUndefined();
   });
 
-  /** Desktop's answer is the handler's "can not be attached, ignoring component". */
   it('drops an elliptical one and says so', () => {
     const res = importRkt(
       doc(
@@ -870,12 +732,7 @@ describe('a fin set on a nose cone or transition', () => {
   });
 });
 
-/**
- * `FinSetHandler.toCoordinates`: RockSim writes a custom fin from the trailing
- * root point back to `0,0`. Desktop drops a `0,0` that repeats the one before
- * it and reverses a list that ends at `0,0`, so the outline runs leading edge
- * first; read in file order, the fin flies backward.
- */
+// RockSim writes the trailing edge first; read in file order, the fin flies backward.
 describe('a RockSim point list', () => {
   const points = (list: string): unknown =>
     find(
@@ -906,13 +763,6 @@ describe('a RockSim point list', () => {
 });
 
 describe('a shoulder RockSim gives a length to', () => {
-  /**
-   * Neither RockSim nor its handlers have a cap flag, and desktop 24.12's
-   * `Transition.setAftShoulderLength` / `setForeShoulderLength` store the length
-   * and nothing more, so a shoulder desktop reads from a `.rkt` is open. The
-   * node carries no cap key, and `ComponentFactory` then sets the cap off after
-   * the length (`rktShoulderCap.kernel.test.ts` holds the kernel to that).
-   */
   it('is open, as desktop 24.12 reads it', () => {
     const n = find(
       parts(
@@ -940,11 +790,6 @@ describe('a shoulder RockSim gives a length to', () => {
   });
 });
 
-/**
- * `TubeFinSet.setFinCount` clamps to 8, like every fin set, and the engine
- * boundary rejects a count above it. A tube count past 8 that imported as
- * written would open as a design the engine refuses to build.
- */
 describe('a tube fin set', () => {
   const tubes = (count: number): ComponentNode =>
     find(
@@ -961,11 +806,6 @@ describe('a tube fin set', () => {
 });
 
 describe('a part goes where its container puts it', () => {
-  /**
-   * The handler that opens a `BodyTube` decides its type, not `IsInsideTube`:
-   * `StageHandler` builds a BodyTube, and `AttachedPartsHandler` builds an
-   * InnerTube unless its parent is a pod.
-   */
   it('reads a stage-level tube as a body tube whatever IsInsideTube says', () => {
     const tube = find(
       parts('<BodyTube><Name>Air</Name><Len>300</Len><OD>24</OD><ID>23</ID><IsInsideTube>1</IsInsideTube></BodyTube>'),
@@ -983,11 +823,6 @@ describe('a part goes where its container puts it', () => {
     expect(find(list, 'Mount').type).toBe('innertube');
   });
 
-  /**
-   * `BaseHandler.isCompatible`: a part its parent cannot hold is left out with
-   * a warning ("can not be attached to ..., ignoring component") and the rest
-   * of the design opens.
-   */
   it('leaves out a part its parent cannot hold, says so, and opens the rest', () => {
     const res = importRkt(
       doc(`<NoseCone><Name>Nose</Name><Len>100</Len><BaseDia>24</BaseDia><AttachedParts>
@@ -1012,11 +847,6 @@ describe('a part goes where its container puts it', () => {
   });
 });
 
-/**
- * `TransitionHandler` extends `BaseHandler`, not `PositionDependentHandler`, so
- * desktop never reads a transition's `Xb` or `LocationMode`: the transition
- * sits where the body chain puts it, whatever the file says.
- */
 describe('a transition', () => {
   it('takes no placement from the file', () => {
     const t = find(
@@ -1030,7 +860,6 @@ describe('a transition', () => {
     expect(t.position).toBeUndefined();
   });
 
-  /** A new `Transition` is conical and a new `NoseCone` an ogive; neither handler sets a shape the file leaves out. */
   it('with no ShapeCode is conical, where a nose cone with none is an ogive', () => {
     const read2 = parts(
       `<NoseCone><Name>N</Name><Len>100</Len><BaseDia>24</BaseDia></NoseCone>
@@ -1041,7 +870,6 @@ describe('a transition', () => {
   });
 });
 
-/** `RingHandler.endHandler` converts usage codes 1, 2 and 4 and leaves the rest, a sleeve (3) included, the centering ring it started as. */
 it('reads a sleeve ring as a centering ring', () => {
   const ring = find(
     parts(
@@ -1054,7 +882,6 @@ it('reads a sleeve ring as a centering ring', () => {
   expect(ring.type).toBe('centeringring');
 });
 
-/** The same `else`: a usage code past the five RockSim defines is a centering ring too, not the last of them. */
 it('reads a ring with an unknown usage code as a centering ring', () => {
   const ring = find(
     parts(
@@ -1067,7 +894,6 @@ it('reads a ring with an unknown usage code as a centering ring', () => {
   expect(ring.type).toBe('centeringring');
 });
 
-/** `ParachuteHandler` keeps a chute with no shroud lines (`Math.max(0, n)`). */
 it('reads a parachute with no shroud lines as none', () => {
   const chute = find(
     parts(

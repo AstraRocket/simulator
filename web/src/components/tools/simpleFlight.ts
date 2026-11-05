@@ -10,11 +10,6 @@ import {
   type SimpleLaunch,
 } from '../../services/flight/simpleRocket';
 
-/**
- * One simple-rocket flight in the worker pool: the rocket built around this
- * motor, flown in calm air, read for its figures. Shared by the tool's Fly and
- * its motor guide, so a motor flown either way gives the same numbers.
- */
 export async function flySimple(
   inputs: SimpleInputs,
   launch: SimpleLaunch,
@@ -28,7 +23,6 @@ export async function flySimple(
   return simpleFigures(result, inputs.chute != null);
 }
 
-/** What the inputs were, as one comparable string: a result flown from another is stale. */
 export function simpleKey(inputs: SimpleInputs | null, launch: SimpleLaunch, motor?: MotorSpec | null): string {
   return JSON.stringify(motor === undefined ? [inputs, launch] : [inputs, launch, motor]);
 }

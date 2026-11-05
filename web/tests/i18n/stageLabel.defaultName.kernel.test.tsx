@@ -18,13 +18,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A two-stage flight whose stages were never named. The kernel names each
- * branch after its stage, and a stage with a cleared name takes its default,
- * AxialStage.getComponentName (AxialStage.java:41), `trans.get("Stage.Stage")`,
- * which TeaVM returns as the bracketed key. Every view that names a stage has
- * to read that as no name and say "Stage n".
- */
+// TeaVM returns AxialStage.getComponentName (AxialStage.java:41) as the bracketed key.
 
 const fins = (id: string) => ({
   id,
@@ -110,7 +104,6 @@ describe('a flight whose stages the user never named', () => {
     const result = await fly();
     const names = (result.branches ?? []).map((b) => b.name);
     expect(names.length).toBeGreaterThan(1);
-    // The stage's default, as the kernel returns it with no resource bundle.
     for (const name of names) expect(name).toBe(`[${'Stage.Stage'}]`);
   });
 

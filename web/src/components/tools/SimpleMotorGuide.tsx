@@ -53,16 +53,6 @@ import { MAIN_BAND } from '../../services/flight/recoverySizing';
 import { simpleGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 
-/**
- * The motor guide for the simple rocket: the design guide's filters and
- * candidate list, each ticked motor flown once in the simple rocket built
- * around it, and the flights as one sortable table. "Use" puts a row's motor
- * and figures back on the tool.
- *
- * The finished guide belongs to the tool (it is remembered with the tool's
- * inputs), so closing and reopening the dialog shows it again. A run in
- * progress belongs to the dialog: closing it cancels the flights.
- */
 export function SimpleMotorGuide({
   inputs,
   launch,
@@ -74,7 +64,6 @@ export function SimpleMotorGuide({
 }: {
   inputs: SimpleInputs;
   launch: SimpleLaunch;
-  /** What the current inputs are (`simpleKey`), to tell a stale guide. */
   flownKey: string;
   guide: SimpleGuide | null;
   onGuide: (g: SimpleGuide | null) => void;
@@ -94,7 +83,6 @@ export function SimpleMotorGuide({
 
   const [run, setRun] = useState<{ done: number; total: number } | null>(null);
   const abort = useRef<AbortController | null>(null);
-  // Closing the dialog takes its flights with it.
   useEffect(() => () => abort.current?.abort(), []);
 
   const fly = async () => {
@@ -115,11 +103,8 @@ export function SimpleMotorGuide({
           if (ac.signal.aborted) throw new SimCanceledError();
           const first = await flySimple(inputs, launch, spec, ac.signal);
           const nearest = nearestDelay(motor, first.optimumDelay);
-          // Seated at the charge to fly, so "Use" carries the right delay.
           const seated = { ...spec, ejectionDelay: nearest ?? spec.ejectionDelay };
-          // With a parachute the charge decides the deployment speed, so a
-          // motor whose nearest charge is not the one probed flies again at it,
-          // as a design's guide does. Without one, the climb is the same.
+          // With a parachute the charge sets the deployment speed, so fly again at it.
           const again = inputs.chute != null && nearest != null && nearest !== spec.ejectionDelay;
           const figures = again ? await flySimple(inputs, launch, seated, ac.signal) : first;
           rows.push({ key: k, motor, spec: seated, figures, nearest });
@@ -165,8 +150,6 @@ export function SimpleMotorGuide({
       fullBleed="xl"
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        {/* On a phone the filters fill the screen on their own, so with a guide
-            up they give it the room; Clear brings them back. */}
         <div className={`space-y-2 border-b border-line/10 p-3 ${showing && !desktop ? 'hidden' : ''}`}>
           <div className="flex flex-wrap items-center gap-2">
             <MotorSearch value={f.text} onChange={f.setText} className="min-w-[140px] py-1.5" />
@@ -252,7 +235,6 @@ export function SimpleMotorGuide({
 // `?? null`: a guide remembered from before a figure existed has no such field.
 const fig = (k: keyof SimpleFigures) => (r: SimpleGuideRow) => r.figures[k] ?? null;
 
-/** Off the launcher first, the figures drag barely touches; then the estimates. */
 const COLS: GuideCol<SimpleGuideRow>[] = [
   ...motorCols<SimpleGuideRow>(),
   { id: 'railExit', label: 'simpleTool.railExit', quantity: 'velocity', value: fig('railExit') },
@@ -269,10 +251,8 @@ const COLS: GuideCol<SimpleGuideRow>[] = [
   { id: 'landingVelocity', label: 'simpleTool.landingSpeed', quantity: 'velocity', value: fig('landingVelocity') },
 ];
 
-/** Columns a guide has only when it flew them: stability needs a CG, the descent a parachute. */
 const OPTIONAL_COLS: ReadonlySet<string> = new Set(['railStability', 'deployVelocity', 'landingVelocity']);
 
-/** The motor's name runs low to high first; figures high to low. */
 const descFirst = (key: string) => key !== 'motor';
 
 function GuideTable({
@@ -284,7 +264,6 @@ function GuideTable({
 }: {
   guide: SimpleGuide;
   stale: boolean;
-  /** One card per motor rather than a table thirteen columns wide (phones). */
   cards: boolean;
   onClear: () => void;
   onUse: (row: SimpleGuideRow) => void;
@@ -300,10 +279,8 @@ function GuideTable({
     ...((r.figures.deployVelocity ?? 0) > settings.simulation.deploymentSpeedWarn ? [t('guide.issue.deployFast')] : []),
     ...((r.figures.landingVelocity ?? 0) > MAIN_BAND.max ? [t('simpleTool.issueHardLanding')] : []),
   ];
-  // Rather than a column of dashes for what this guide did not fly.
   const cols = COLS.filter((c) => !OPTIONAL_COLS.has(c.id) || guide.rows.some((r) => c.value(r) != null));
 
-  // Highest apogee first, as the design's guide opens.
   const [sort, setSort] = useState<GuideSort>({ key: 'apogee', desc: true });
   const rows = useMemo(() => {
     const val = (r: SimpleGuideRow): number | string =>
@@ -327,7 +304,6 @@ function GuideTable({
       <span className={n.length ? 'text-warn-400' : 'text-ok-400'}>{n.length ? n.join(', ') : t('guide.ok')}</span>
     );
   };
-  // The table as sorted, in the user's units, as the design's guide exports.
   const exportCsv = () => {
     download(
       exportFilename([t('tabs.simple'), 'motor-guide'], 'csv'),

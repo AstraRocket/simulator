@@ -4,7 +4,6 @@ import { fireEvent, screen } from '@testing-library/react';
 import { AppHeader } from '../../../src/components/layout/AppHeader';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/** The header's rocket mark is decoration: the app name beside it is the name. */
 describe('AppHeader mark', () => {
   beforeEach(() => {
     window.matchMedia = ((query: string) => ({

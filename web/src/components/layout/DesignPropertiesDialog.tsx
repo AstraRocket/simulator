@@ -3,17 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Dialog } from '../common/Dialog';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 
-/**
- * Name/rename a saved design. Used by File > Save As... and by Rename in the
- * library, which differ only in title and button label.
- *
- * A dialog rather than `window.prompt`, which cannot be styled, translated
- * reliably, or validated, and which some browsers suppress entirely.
- *
- * Mounted only while open (`{open && <DesignPropertiesDialog />}`), so the
- * name field is seeded once from `initialName` in its initializer; there is no
- * "reseed on open" effect, and every rename gets a fresh instance.
- */
 export function DesignPropertiesDialog({
   title,
   confirmLabel,
@@ -26,9 +15,7 @@ export function DesignPropertiesDialog({
   title: string;
   confirmLabel: string;
   initialName: string;
-  /** Other designs' names, to warn about a duplicate (not to forbid it). */
   takenNames?: string[];
-  /** The duplicate warning, worded for what is being named; a rocket's by default. */
   duplicateText?: string;
   onCancel: () => void;
   onConfirm: (name: string) => void;
@@ -37,9 +24,7 @@ export function DesignPropertiesDialog({
   const [name, setName] = useState(initialName);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Select the seeded name so typing replaces it. A frame later: the focus
-  // trap has just moved focus into the panel, and a select() before that
-  // would be undone by it.
+  // A frame later, or the focus trap's own focus move undoes the select().
   useEffect(() => {
     const id = requestAnimationFrame(() => inputRef.current?.select());
     return () => cancelAnimationFrame(id);
@@ -48,21 +33,12 @@ export function DesignPropertiesDialog({
   const trimmed = name.trim();
   const duplicate = trimmed !== '' && takenNames.some((n) => n.toLowerCase() === trimmed.toLowerCase());
   const submit = () => {
-    if (trimmed === '') return; // the empty name is the one thing we refuse
+    if (trimmed === '') return;
     onConfirm(trimmed);
   };
 
   return (
-    <Dialog
-      id="designProperties"
-      title={title}
-      onClose={onCancel}
-      // It opens over the library and other dialogs, so it needs the top layer.
-      layer="top"
-      layout="pad"
-      // One field and two buttons. Nothing to widen.
-      expandable={false}
-    >
+    <Dialog id="designProperties" title={title} onClose={onCancel} layer="top" layout="pad" expandable={false}>
       <label htmlFor="design-name" className="mt-4 block text-xs font-medium text-ink-muted">
         {t('library.name')}
       </label>
@@ -78,8 +54,6 @@ export function DesignPropertiesDialog({
         className="mt-1 w-full rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500"
       />
 
-      {/* A duplicate name is allowed (designs are keyed by id, not name) but
-            two identical rows in the library are confusing, so say so. */}
       {duplicate && <p className="mt-2 text-xs text-warn-300">{duplicateText ?? t('library.duplicateName')}</p>}
 
       <DialogActions>

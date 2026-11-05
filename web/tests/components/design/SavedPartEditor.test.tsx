@@ -5,12 +5,6 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import type { CustomPart } from '../../../src/services/parts/presetStore';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * Applying a saved part spreads its whole stored node onto the part it fills,
- * shoulders and overrides included, so the Custom Parts editor has to show and
- * edit them like every other field the part carries.
- */
-
 const update = vi.fn((_id: string, meta: object, node: Partial<ComponentNode>) =>
   Promise.resolve({ ...part, ...meta, node }),
 );
@@ -52,8 +46,7 @@ describe('SavedPartEditor', () => {
     expect(mass.disabled).toBe(false);
     expect(Number(mass.value)).toBeGreaterThan(0);
 
-    // Edited in each box's own unit; the saved node holds SI either way, so
-    // the assertion is on the change rather than on a unit's numbers.
+    // Asserted on the change, not the numbers: boxes use display units, the node holds SI.
     fireEvent.focus(shoulderLength);
     fireEvent.change(shoulderLength, { target: { value: String(Number(shoulderLength.value) * 2) } });
     fireEvent.blur(shoulderLength);

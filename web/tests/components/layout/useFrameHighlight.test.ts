@@ -4,10 +4,6 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useFrameHighlight } from '../../../src/components/layout/useFrameHighlight';
 import type { HelpTarget } from '../../../src/services/app/helpDocs';
 
-/**
- * The docs page can re-render its article after the frame has loaded; the
- * words a search found stay marked through that.
- */
 const frame = () => ({ current: { contentDocument: document } as unknown as HTMLIFrameElement });
 const marks = () => document.querySelectorAll('article mark[data-astra-help-mark]').length;
 const target = { src: '/docs/motors', hash: '' } as HelpTarget;
@@ -34,8 +30,6 @@ describe('useFrameHighlight', () => {
 
   it('marks the words when the article arrives after the frame is ready', async () => {
     Element.prototype.scrollIntoView = () => {};
-    // The docs site can render its article after the load event: nothing to
-    // mark yet, and the hook has to wait for it rather than give up.
     document.body.innerHTML = '<main></main>';
     renderHook(() => useFrameHighlight(frame(), true, words, target));
     expect(marks()).toBe(0);

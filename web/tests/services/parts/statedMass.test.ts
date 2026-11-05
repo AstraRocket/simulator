@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { applyStatedMass, statedMassTally } from '../../../scripts/lib/statedMass.mjs';
-
-/**
- * The stated mass sync-preset-digests carries onto a catalog row. A row whose
- * mass the engine gives no volume must come back as such, so the run can refuse
- * the catalog, rather than as a row with nothing to apply.
- */
 type Row = { type: string; mass?: number; materialDensity?: number };
 const apply = (row: Row, mass: number | null, volume: number | null, desktopHasVolume = true): string | null =>
   applyStatedMass(row, mass, () => volume, desktopHasVolume);
@@ -33,8 +27,6 @@ describe('applyStatedMass', () => {
   });
 
   it('gives a rail button the density of its own mass and keeps the override it flies with', () => {
-    // makeRailButton: the preset's MASS (the button alone) over the button's
-    // volume. The row's `mass` is the button, screw and nut, from its file.
     const button: Row = { type: 'railbutton', mass: 0.002865, materialDensity: 1420 };
     expect(apply(button, 0.000445, 4.6e-7)).toBe('applied');
     expect(button.materialDensity).toBeCloseTo(0.000445 / 4.6e-7, 9);
@@ -58,11 +50,6 @@ describe('applyStatedMass', () => {
   });
 });
 
-/**
- * The run's decision over a whole catalog: one row whose stated mass has no
- * volume to spread over refuses the write and names that row, and a catalog
- * without one is written.
- */
 describe('statedMassTally', () => {
   type Part = Row & { mfr: string; partNo: string };
   const tally = (rows: [Part, number | null, number | null, boolean?][]) => {

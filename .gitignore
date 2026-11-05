@@ -59,6 +59,7 @@ web/coverage/
 # Pinned OpenRocket checkout that `extract --check` fetches for itself
 # (sparse + blobless; keyed to the ref in engine-java/extract/UPSTREAM).
 engine-java/.openrocket-src/
+engine-java/.openrocket-build/
 
 docs/rasaero/diffs/
 

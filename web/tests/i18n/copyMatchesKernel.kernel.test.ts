@@ -7,18 +7,11 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Notes that describe what the kernel does say what it does. Each case takes
- * its fact from the kernel through the bridge, then holds the English text to
- * it; the other locales translate the English.
- */
-
 const en = JSON.parse(readFileSync(join(__dirname, '../../src/i18n/locales/en.json'), 'utf8')) as {
   aero: { rollNote: string };
   settings: { materialNoDefault: string };
 };
 
-/** Every part with a material slot, outside parts on the stage and the rest in a tube. */
 const OUTSIDE = new Set(['nosecone', 'bodytube', 'transition']);
 const parts = [...new Set(MATERIAL_SLOTS.map((s) => s.part))];
 const design = {
@@ -41,7 +34,7 @@ const design = {
 };
 
 describe('the roll dynamics note', () => {
-  /** Roll damping of each fin set in a one-Mach sweep at this roll rate (rad/s). */
+  // rollRate in rad/s.
   const damping = async (rollRate: number): Promise<number[]> => {
     const engine = await loadEngine();
     engine.reset();
@@ -75,7 +68,6 @@ describe('the "no default" material choice', () => {
       const fields = JSON.parse(engine.getComponentFields(handle, part)) as Record<string, unknown>;
       const kernel = part === 'parachute' && material === 'line' ? fields.lineMaterialName : fields.materialName;
       expect(kernel, `${part} ${material}`).toEqual(expect.stringMatching(/\S/));
-      // And a new part with nothing chosen in Settings is stamped with it.
       expect(Object.values(defaultMaterialPatch(part, {})), `${part} ${material}`).toContain(kernel);
     }
 

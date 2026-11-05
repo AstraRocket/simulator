@@ -1,17 +1,8 @@
 import type { GroundPoint } from '../../../services/flight/groundTrack';
 import { LINER } from './mapStyle';
 
-/**
- * The marks both plan views draw (the landing estimate and the ground track),
- * so a drift, a landing and a spread look the same wherever they appear. Each
- * takes `mapOn` and lays a dark liner under itself over imagery, where a bare
- * colored line or dot is lost against fields and roads. Strokes do not scale
- * with the view's zoom.
- */
-
 type Project = { X: (east: number) => number; Y: (north: number) => number };
 
-/** A drift path: a colored line, lined over imagery. */
 export function LinedTrack({ points, color, mapOn }: { points: string; color: string; mapOn: boolean }) {
   return (
     <>
@@ -23,11 +14,6 @@ export function LinedTrack({ points, color, mapOn }: { points: string; color: st
   );
 }
 
-/**
- * Where a flight lands: a ring, so it reads as a place rather than another
- * sample on the line. `r` differs by view on purpose: the ground track draws
- * one per stage, and smaller rings keep them apart.
- */
 export function LandingRing({
   at,
   r,
@@ -46,10 +32,6 @@ export function LandingRing({
   );
 }
 
-/**
- * Every dispersion or sweep landing. Small, because the point of them is the
- * density: where the dots crowd is where the rocket lands most often.
- */
 export function SampleDots({
   samples,
   color,
@@ -75,7 +57,6 @@ export function SampleDots({
   );
 }
 
-/** The two-sigma zone around the samples: dashed, with a faint fill so it reads as an area. */
 export function ZoneEllipse({ points, color }: { points: string; color: string }) {
   return (
     <polygon

@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
 
-/**
- * The one `arg()` every build-time script reads its flags with. A flag given
- * with no value stops the script rather than falling back to a default.
- */
 describe('arg', () => {
   const lib = new URL('../../../scripts/lib/args.mjs', import.meta.url).href;
   const run = (...argv: string[]) =>

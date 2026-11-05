@@ -3,20 +3,6 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import { syncAutoShoulders } from '../../../src/services/design/autoShoulder';
 import { defaultNode, updateNode } from '../../../src/services/design/treeEdit';
 
-/**
- * Shoulders that follow the tube they plug into.
- *
- * The thing these have to pin down is not the arithmetic, which is one
- * subtraction, but which number gets subtracted: the bore at the end a shoulder
- * plugs into, on the neighbor it actually meets. A transition's two ends are
- * different sizes, so asking for "the tube's bore" without saying which end
- * gives a boat tail's fore shoulder the aft radius and no test notices, because
- * on a plain body tube the two answers are the same.
- *
- * The other half is what must not happen: absent already means "this part has
- * no shoulder", so nothing may be derived without the explicit flag, or every
- * design ever imported grows a shoulder and changes mass.
- */
 const stage = (children: ComponentNode[]) =>
   ({ name: 'T', components: [{ type: 'stage', name: 'S', children }] }) as unknown as RocketTree;
 
@@ -37,8 +23,6 @@ describe('syncAutoShoulders', () => {
   });
 
   it('reads the END the shoulder plugs into, not the neighbor wholesale', () => {
-    // The next part is a transition: 20 mm at the fore end it presents to the
-    // cone, 10 mm at the other. A shoulder built to the far end fits nothing.
     const t = syncAutoShoulders(
       stage([
         { type: 'nosecone', id: 'n', length: 0.1, aftRadius: 0.02, shoulderAuto: true } as unknown as ComponentNode,
@@ -83,7 +67,6 @@ describe('syncAutoShoulders', () => {
       tube('b', 0.013, 0.001),
     ]);
     const after = syncAutoShoulders(before);
-    // Same object: an edit elsewhere must not invalidate memos either.
     expect(after).toBe(before);
     expect(chainOf(after)[0]!['shoulderRadius']).toBeUndefined();
   });
@@ -111,28 +94,24 @@ describe('syncAutoShoulders', () => {
         tube('b', 0.013, 0.001),
       ]),
     );
-    // Widening the tube's wall narrows the bore, and the cone follows it in the
-    // same edit - `updateNode` is where the resolver runs.
     t = updateNode(t, 'b', { thickness: 0.002 });
     expect(chainOf(t)[0]!['shoulderRadius']).toBeCloseTo(0.011, 9);
 
     t = updateNode(t, 'n', { shoulderAuto: false });
     t = updateNode(t, 'b', { thickness: 0.003 });
-    expect(chainOf(t)[0]!['shoulderRadius']).toBeCloseTo(0.011, 9); // pinned
+    expect(chainOf(t)[0]!['shoulderRadius']).toBeCloseTo(0.011, 9);
   });
 
   it('is on for a part created here and absent from the file reader', () => {
     expect(defaultNode('nosecone')['shoulderAuto']).toBe(true);
     expect(defaultNode('transition')['foreShoulderAuto']).toBe(true);
     expect(defaultNode('transition')['aftShoulderAuto']).toBe(true);
-    // A body tube has no shoulder to follow anything with.
     expect(defaultNode('bodytube')['shoulderAuto']).toBeUndefined();
   });
 });
 
 describe('a tail cone', () => {
   it('plugs its shoulder into the part ahead of it', () => {
-    // A flipped nose cone's base, and its shoulder, face forward.
     const t = syncAutoShoulders(
       stage([
         tube('b', 0.02, 0.001),
@@ -151,12 +130,7 @@ describe('a tail cone', () => {
   });
 });
 
-/**
- * `Transition.setForeShoulderRadius(double)` and `setAftShoulderRadius(double)`
- * clamp the radius to the end the shoulder sits on (`Transition.java`,
- * `MathUtil.min(radius, getForeRadius())`), so an automatic shoulder plugged into
- * a wider tube stops at the transition's own end.
- */
+// Transition.setForeShoulderRadius clamps to its own end: `MathUtil.min(radius, getForeRadius())`.
 describe('an automatic transition shoulder', () => {
   const tree = (foreRadius: number, aftRadius: number): RocketTree =>
     ({

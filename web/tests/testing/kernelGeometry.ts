@@ -1,14 +1,5 @@
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 
-/**
- * The kernel's resolved geometry for every part of a design, read through the
- * bridge's `getComponentGeometry`.
- *
- * The app resolves automatic radii, profiles and bores itself so it can draw,
- * mesh and export without waiting on a kernel call. These are the numbers each
- * of those copies has to match: they come from the Java that flies the design,
- * not from a table that says it mirrors the Java.
- */
 export interface KernelGeometry {
   length: number;
   foreRadius?: number;
@@ -19,44 +10,25 @@ export interface KernelGeometry {
   outerRadius?: number;
   innerRadius?: number;
   maxTabHeight?: number;
-  /**
-   * A fin set's outline (`FinSet.getFinPoints`), its root along the parent
-   * (`getRootPoints`) and its tab (`getTabPoints`, present only when the fin set
-   * has one), each as `[x, y]` in the fin's own frame: x from the fin front, y
-   * from the body surface there.
-   */
+  /** `[x, y]`: x from the fin front, y from the body surface there. */
   finPoints?: [number | null, number | null][];
   rootPoints?: [number | null, number | null][];
   tabPoints?: [number | null, number | null][];
-  /**
-   * A pod set's or booster's distance from its parent's axis
-   * (`RadiusMethod.getRadius`), read in tree order right after its parent.
-   */
   instanceRadius?: number;
-  /** Where each tube of an inner tube's cluster sits across its parent, [y, z] (`getInstanceOffsets`). */
+  /** [y, z] per cluster tube (`getInstanceOffsets`). */
   clusterPoints?: [number, number][];
   radius?: number;
-  /** A rail button's linked dimensions, after the kernel's setters have clamped them. */
   outerDiameter?: number;
   innerDiameter?: number;
   totalHeight?: number;
   baseHeight?: number;
   flangeHeight?: number;
-  /** The front of the part's first copy from the nose tip (`getComponentInfo`). */
+  /** The first copy's front, from the nose tip. */
   positionX?: number;
-  /**
-   * The part's length from `getComponentInfo`, read after every geometry read.
-   * A mass object with an automatic radius moves its length when the radius
-   * settles (`MassObject.getRadius`), and `length` above is read before that.
-   */
+  /** Read after every geometry read: the length moves when an automatic radius settles. */
   settledLength?: number;
-  /** The part's own mass from `getComponentInfo` (`RocketComponent.getMass`, override-aware). */
   mass?: number;
-  /**
-   * Every field the kernel holds for the part (`getComponentFields`), read last
-   * and only when asked for: the angles, counts and spacings a part flies with
-   * after the setters have clamped or wrapped them.
-   */
+  /** Read last. */
   fields?: Record<string, number | string | boolean>;
 }
 
@@ -67,7 +39,7 @@ export const loadEngine = async (): Promise<any> => {
   return import('../../src/engine/vendor/openrocket-engine.mjs' as string);
 };
 
-/** One node of a design, with its id and its parent's ('' for a node without one). */
+/** `parentId` is '' for a top-level node. */
 export interface Visit {
   node: ComponentNode;
   id: string;
@@ -75,7 +47,6 @@ export interface Visit {
   parentId: string;
 }
 
-/** Every node in the tree, depth first, with its parent. */
 export function walkTree(tree: RocketTree): Visit[] {
   const out: Visit[] = [];
   const visit = (node: ComponentNode, parent: ComponentNode | null) => {
@@ -86,7 +57,6 @@ export function walkTree(tree: RocketTree): Visit[] {
   return out;
 }
 
-/** Build the design in the kernel and read back each part's geometry, keyed by id. */
 export function kernelGeometry(
   engine: any,
   tree: RocketTree,
@@ -103,9 +73,7 @@ export function kernelGeometry(
     if (json.error) throw new Error(`${id}: ${json.error}`);
     out.set(id, json);
   }
-  // Read after every geometry read: those reads are what settle an automatic
-  // tube, in tree order, and reading anything else between them would change
-  // the order the kernel evaluates them in.
+  // Reading anything between geometry reads changes the kernel's evaluation order.
   for (const [id, geometry] of out) {
     const info = JSON.parse(engine.getComponentInfo(handle, id) as string) as {
       positionX?: number;

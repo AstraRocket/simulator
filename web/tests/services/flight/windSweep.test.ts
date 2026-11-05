@@ -15,14 +15,6 @@ import type { CompleteLaunch } from '../../../src/services/flight/requiredLaunch
 import type { WindLevel } from '../../../src/services/design/orkTree';
 import { surfaceWind } from '../../../src/services/flight/windLevels';
 
-/**
- * The grid a drift sweep flies, and the conditions each of its cells carries.
- *
- * Everything here is pure: no engine, no store. What is actually being asserted
- * is that a swept flight differs from the typed one in the wind and nothing
- * else, and that the wind it differs by is the wind the grid says it is.
- */
-
 const base: CompleteLaunch = {
   launchRodLengthM: 1,
   launchRodAngleDeg: 5,
@@ -49,12 +41,6 @@ describe('the grid', () => {
     expect(sweepSpeeds(spec({ speedMinMs: 3, speedMaxMs: 9, speedSteps: 1 }))).toEqual([3]);
   });
 
-  /**
-   * The wrap case. Four headings over the whole compass are 90 apart and
-   * neither end is flown twice; treating it like an arc would put a flight at
-   * both 0 and 360 and weight that heading double in the centroid, the hull and
-   * the ellipse alike.
-   */
   it('does not fly the same heading twice on a full compass', () => {
     const all = sweepHeadings(spec({ headingSteps: 4, headingSpanDeg: 360 }), 0);
     expect(all).toEqual([0, 90, 180, 270]);
@@ -77,15 +63,12 @@ describe('the grid', () => {
 });
 
 describe('normalizing a spec', () => {
-  /** The safety code's ceiling. A sweep must not draw ground it refuses to fly to. */
   it('caps the band at the wind the safety codes allow', () => {
     const s = normalizeSweepSpec({ ...spec(), speedMaxMs: 40 });
     expect(s.speedMaxMs).toBe(MAX_WIND_SPEED_MS);
   });
 
   it('flies one speed when the band has no width', () => {
-    // Both ends past the ceiling clamp to it: four steps would fly each heading
-    // four times under one wind.
     const s = normalizeSweepSpec({ ...spec(), speedMinMs: 30, speedMaxMs: 40, speedSteps: 4 });
     expect(s.speedSteps).toBe(1);
     expect(sweepSpeeds(s)).toEqual([MAX_WIND_SPEED_MS]);
@@ -127,7 +110,6 @@ describe('the default grid', () => {
     expect(s.headingSpanDeg).toBe(360);
   });
 
-  /** Still air has no fraction to take, so it gets a plain light-breeze band. */
   it('proposes a real band for a calm day rather than a row of zeros', () => {
     const s = defaultSweepSpec(0);
     expect(s.speedMinMs).toBe(0);
@@ -144,7 +126,6 @@ describe('the surface wind a sweep is built around', () => {
     expect(surfaceWind(base)).toEqual({ speedMs: 4, headingDeg: 90 });
   });
 
-  /** Levels are not kept sorted, so the ground layer is the lowest altitude. */
   it('is the lowest level of a profile, not the first one listed', () => {
     const levels: WindLevel[] = [
       { altitudeM: 900, speed: 12, directionDeg: 200, stddev: 1.2 },
@@ -157,7 +138,6 @@ describe('the surface wind a sweep is built around', () => {
   });
 
   it('is the profile at the field altitude for an MSL sounding', () => {
-    // The 1500 m field is past the top of this sea-level-based sounding.
     const levels: WindLevel[] = [
       { altitudeM: 900, speed: 12, directionDeg: 200, stddev: 1.2 },
       { altitudeM: 0, speed: 5, directionDeg: 180, stddev: 0.5 },
@@ -187,10 +167,6 @@ describe('one cell conditions', () => {
     });
   });
 
-  /**
-   * Gustiness is a fraction of the wind everywhere else in the app, so holding
-   * the deviation absolute across a sweep would fly the slow cells as gales.
-   */
   it('keeps the turbulence intensity rather than the deviation', () => {
     const out = sweepLaunch(base, { speedMs: 8, headingDeg: 90 });
     expect(out.windStdDev).toBeCloseTo(1.6, 10); // still 20%
@@ -216,10 +192,6 @@ describe('one cell conditions', () => {
       expect(pad.headingDeg).toBeCloseTo(30, 9);
     });
 
-    /**
-     * The shear is a fact about the day, not about the surface wind. A sweep
-     * that flew the swept speed at every altitude would quietly delete it.
-     */
     it('scales the whole profile, keeping the shear', () => {
       const out = sweepLaunch(profiled, { speedMs: 2, headingDeg: 180 });
       expect(out.windLevels!.map((l) => l.speed)).toEqual([2, 4]);
@@ -240,7 +212,6 @@ describe('one cell conditions', () => {
       expect(out.windLevels!.map((l) => l.stddev)).toEqual([0.8, 1.6]);
     });
 
-    /** No ratio to take from a still ground layer, so every level flies the cell. */
     it('flies the swept speed at every level when the ground layer is calm', () => {
       const calm = { ...profiled, windLevels: [{ ...levels[0]!, speed: 0, stddev: 0 }, levels[1]!] };
       const out = sweepLaunch(calm, { speedMs: 3, headingDeg: 180 });

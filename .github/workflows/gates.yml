@@ -3,10 +3,11 @@ name: Gates
 # The gate set, called by ci.yml on a PR. A reusable workflow
 # (`workflow_call`), so the jobs live apart from the trigger that runs them.
 #
-# The web jobs (build-and-test, unit, e2e) and the docs site typecheck
-# (website) run in parallel, and the PR is gated on all of them. Each web job is
-# split three ways, each slice on its own runner, so the wait is one slice, not
-# the whole job. The service worker checks (update-flow) run by hand in e2e-full.yml. The engine checks (parity, the reproducible extract,
+# The web jobs (build-and-test, housekeeping, unit, repo, e2e) and the docs site
+# typecheck (website) run in parallel, and the PR is gated on all of them. The test
+# jobs are split three ways, each slice on its own runner, so the wait is one slice,
+# not the whole job. The full e2e suite and the service worker checks (update-flow)
+# run by hand from e2e-full.yml. The engine checks (parity, the reproducible extract,
 # the aero scorecards) are not here: they only move when the engine changes,
 # and are run by hand with `npm run audit` in engine-java.
 #
@@ -58,12 +59,40 @@ jobs:
       #   lint          ESLint, warnings included.
       #   vite build    The production build.
       #
-      # Formatting, spelling, knip and jscpd are housekeeping and run in `npm run audit`.
       - run: ${{ matrix.check }}
 
+  # Each takes seconds, and left to `npm run audit` they could fail unnoticed.
+  housekeeping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [format:check, spell, knip, dupes]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # node_modules from the cache; `npm ci` only when the lockfile changed.
+      - id: web-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: web/node_modules
+          key: web-modules-${{ runner.os }}-node24-${{ hashFiles('web/package-lock.json') }}
+
+      - if: steps.web-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - run: npm run ${{ matrix.check }}
+
   # The unit suite, without coverage, in three slices on three runners.
-  # Coverage and its floors in vitest.config.ts are checked by hand with
-  # `npm run audit`, not here.
+  # Coverage and its floors in vitest.config.ts run by hand: `npm run test:coverage`.
   unit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -95,9 +124,49 @@ jobs:
 
       - run: npx vitest run --shard=${{ matrix.shard }}/3
 
+  # The checks on the project itself (tests/repo), which the unit suite leaves out
+  # unless REPO_CHECKS is set. `npm run audit` runs the same step locally.
+  repo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # node_modules from the cache; `npm ci` only when the lockfile changed.
+      - id: web-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: web/node_modules
+          key: web-modules-${{ runner.os }}-node24-${{ hashFiles('web/package-lock.json') }}
+
+      - if: steps.web-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # `websiteFooter.test.ts` loads the docs site's config, whose tsconfig extends `@docusaurus/tsconfig`.
+      - id: website-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: website/node_modules
+          key: website-modules-${{ runner.os }}-node24-${{ hashFiles('website/package-lock.json') }}
+
+      - if: steps.website-modules.outputs.cache-hit != 'true'
+        working-directory: website
+        run: npm ci
+
+      - run: npx vitest run tests/repo
+        env:
+          REPO_CHECKS: '1'
+
   # The core end-to-end specs: the paths a broken build breaks first (the list is
   # CORE_SPECS in web/playwright.config.ts). Every pull request runs them
-  # (ci.yml). The full suite runs in e2e-full.yml, by hand.
+  # (ci.yml). The full suite runs by hand from e2e-full.yml.
   # Separate job so a Playwright failure is legible on its own and the browser
   # download does not slow the unit gate.
   e2e:
@@ -138,7 +207,7 @@ jobs:
           v=$(node -p "require('@playwright/test/package.json').version")
           [ "$v" = "1.64.1" ] || { echo "::error::@playwright/test is $v; update the container image tag in gates.yml"; exit 1; }
 
-      - run: npm run e2e:core -- --shard=${{ matrix.shard }}/3
+      - run: npm run gate:e2e:core -- --shard=${{ matrix.shard }}/3
 
       # The HTML report, with the trace of every failed attempt in it, uploaded
       # when the job fails. A spec that passes on its retry leaves the job green

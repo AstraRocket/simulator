@@ -4,17 +4,6 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { createRef } from 'react';
 import { PaneSplitter } from '../../../src/components/layout/PaneSplitter';
 
-/**
- * The separator's announced range.
- *
- * `aria-valuemax` must not carry the static `max` prop while `clamp` enforces
- * `min(max, innerWidth - reserve)`: on any window narrow enough for the cap to
- * bite, the separator advertises a range it cannot reach, so a screen reader reads
- * "maximum 2000" and End - which announces itself as going to the maximum - lands
- * at 224 with no explanation. The value a widget reports and the value it can take
- * have to be the same number.
- */
-
 const props = (over: Partial<Parameters<typeof PaneSplitter>[0]> = {}) => ({
   paneRef: createRef<HTMLElement>(),
   width: 300,
@@ -28,7 +17,6 @@ const props = (over: Partial<Parameters<typeof PaneSplitter>[0]> = {}) => ({
   ...over,
 });
 
-/** jsdom's window is 1024 wide unless a test says otherwise. */
 const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true });
 
 beforeEach(() => {
@@ -41,12 +29,12 @@ const sep = () => screen.getByRole('separator', { name: 'Resize tree pane' });
 describe('the announced range is the range it can reach', () => {
   it('announces the window cap, not the static max, on a narrow window', () => {
     render(<PaneSplitter {...props()} />);
-    // 1024 - 800 reserved = 224, well under the 2000 the prop declares.
+    // 1024 - 800 reserved = 224, not the prop's 2000.
     expect(sep().getAttribute('aria-valuemax')).toBe('224');
   });
 
   it('announces the static max when the window is wide enough for it', () => {
-    setWidth(4000); // 4000 - 800 = 3200, so `max` is the binding limit
+    setWidth(4000);
     render(<PaneSplitter {...props()} />);
     expect(sep().getAttribute('aria-valuemax')).toBe('2000');
   });
@@ -54,13 +42,13 @@ describe('the announced range is the range it can reach', () => {
   it('re-announces the maximum after the window is resized', () => {
     render(<PaneSplitter {...props()} />);
     expect(sep().getAttribute('aria-valuemax')).toBe('224');
-    setWidth(1400); // 1400 - 800 = 600
+    setWidth(1400);
     fireEvent(window, new Event('resize'));
     expect(sep().getAttribute('aria-valuemax')).toBe('600');
   });
 
   it('never announces a maximum below the minimum', () => {
-    setWidth(400); // 400 - 800 is negative
+    setWidth(400);
     render(<PaneSplitter {...props()} />);
     expect(Number(sep().getAttribute('aria-valuemax'))).toBe(200);
     expect(Number(sep().getAttribute('aria-valuemin'))).toBe(200);
@@ -76,8 +64,6 @@ describe('the announced range is the range it can reach', () => {
 
 describe('End actually lands on the announced maximum', () => {
   it('commits the same number it advertises', () => {
-    // The pairing is the point: a key that says "go to the maximum" and an
-    // attribute that says what the maximum is must not disagree.
     const p = props();
     render(<PaneSplitter {...p} />);
     fireEvent.keyDown(sep(), { key: 'End' });

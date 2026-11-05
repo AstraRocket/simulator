@@ -12,14 +12,6 @@ import { parseEng } from '../../../src/services/motors/engParser';
 import { customMotorToSpec } from '../../../src/services/motors/motorSpec';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
 
-/**
- * A curve the user imported from an `.eng` file, under exactly the maker and
- * name of a catalog motor, is still the user's curve. Saved as the catalog
- * motor (its digest, no curve) it would reopen as the catalog's curve, here and
- * in desktop, and the user's samples would be gone. It goes out embedded, so
- * the file reopens on the samples that were flown.
- */
-
 const CATALOG = JSON.parse(
   readFileSync(resolve(process.cwd(), 'public/data/motors.generated.json'), 'utf8'),
 ) as CatalogMotor[];
@@ -36,9 +28,6 @@ vi.mock('../../../src/engine/openRocketEngine', async (original) => ({
   },
   resetEngine: () => {},
 }));
-
-// A catalog motor reopened from the catalog would come back with the
-// catalog's own curve; this stands in for that download.
 const catalogMotorSpec = vi.hoisted(() => vi.fn());
 vi.mock('../../../src/services/motors/motorSpec', async (original) => ({
   ...(await original<typeof import('../../../src/services/motors/motorSpec')>()),
@@ -46,8 +35,6 @@ vi.mock('../../../src/services/motors/motorSpec', async (original) => ({
 }));
 
 const catalogC6 = CATALOG.find((m) => m.manufacturer === 'Estes' && m.designation === 'C6')!;
-
-/** An Estes C6 curve of the user's own, unlike the catalog's. */
 const ENG = `; a user's own measurement
 C6 18 70 0-3-5-7 0.0108 0.0231 Estes
 0.05 2.5
@@ -96,7 +83,6 @@ const desktopOrk = `<?xml version='1.0' encoding='utf-8'?>
 
 describe('a user-imported curve under a catalog motor’s maker and name', () => {
   it('reopens from the saved file on its own samples', async () => {
-    // The premise: the catalog has this maker and name, with a curve of its own.
     expect(catalogC6.digests?.length).toBeGreaterThan(0);
     const [custom] = parseEng(ENG);
     const seated = customMotorToSpec(custom!, 5);

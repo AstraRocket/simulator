@@ -4,10 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { useHelpFrame } from '../../../src/components/layout/useHelpFrame';
 import { helpTarget } from '../../../src/services/app/helpDocs';
 
-/**
- * The docs frame takes the app's theme. Docusaurus has light and dark only, so
- * daylight maps to light.
- */
+// Docusaurus has light and dark only, so daylight maps to light.
 describe('useHelpFrame theme', () => {
   afterEach(() => {
     document.documentElement.removeAttribute('data-theme');

@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { ROCKET_MODEL_NAME, rocketSvg } from '../../../src/components/canvas/rocketSvgExport';
 import type { ExportData } from '../../../src/services/exports/schematicExport';
 
-/** A scene shaped like the 3D view's: lights, the named rocket group, and a marker beside it. */
 function scene() {
   const s = new THREE.Scene();
   const ambient = new THREE.AmbientLight(0xffffff, 0.5);
@@ -38,14 +37,12 @@ describe('the 3D view as SVG', () => {
     expect(svg).toMatch(/^<\?xml/);
     expect(svg).toContain('Test rocket');
     expect(svg).toMatch(/<path[^>]*d="M/);
-    // The box's faces, shaded from its red paint.
     expect(svg).toMatch(/fill:rgb\(\d+,0,0\)/);
   });
 
   it('leaves out what is not the rocket, a marker sprite here', () => {
     const { s, marker, camera } = scene();
     const svg = rocketSvg(s, camera, 2, data);
-    // A sprite draws as a filled rect in its own color.
     expect(svg).not.toMatch(/fill:rgb\(0,0,255\)/);
     expect(marker.visible).toBe(true);
   });

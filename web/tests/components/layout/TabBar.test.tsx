@@ -5,10 +5,6 @@ import { TabBar } from '../../../src/components/layout/TabBar';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import { useWorkspaceStore } from '../../../src/state/store';
 
-/**
- * The phone's tab bar: each tab is named by its label alone (the emoji is
- * decoration), and the current tab is marked by more than its color.
- */
 describe('TabBar', () => {
   it('names each tab by its label, without the emoji', () => {
     useWorkspaceStore.setState({ tab: 'design', designPane: 'stats' });

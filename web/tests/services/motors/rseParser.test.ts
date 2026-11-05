@@ -2,21 +2,11 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_RSE_ENGINES, parseRse, removeDelay } from '../../../src/services/motors/rseParser';
 import { MAX_CURVE_SAMPLES } from '../../../src/services/motors/curveFinalize';
-import { parseEng, totalImpulse } from '../../../src/services/motors/engParser';
+import { totalImpulse } from '../../../src/services/motors/motorMath';
+import { parseEng } from '../../../src/services/motors/engParser';
 import { samplesToMotorSpec } from '../../../src/services/motors/motorSpec';
 
-/**
- * `.rse` import, held to `RockSimMotorLoader.java` rather than to itself.
- *
- * The numbers a `.rse` carries become the mass the rocket flies, and nothing
- * downstream reports a mass curve that is plausible but disagrees with the
- * kernel's loader.
- *
- * jsdom, because the parser uses `DOMParser`: `.rse` is XML, unlike RASP's
- * fixed-column text.
- */
-
-/** A minimal single-motor file, with the attributes upstream requires. */
+// Held to `RockSimMotorLoader.java`. jsdom for `DOMParser`.
 const rse = (engineAttrs: string, data: string, extra = '') => `<?xml version="1.0" encoding="UTF-8"?>
 <engine-database><engine-list>
   <engine ${engineAttrs}>
@@ -29,12 +19,9 @@ ${data}
 
 const ATTRS =
   'mfg="Cesaroni" code="J350-14" Type="reloadable" dia="38" len="186" initWt="822" propWt="447" delays="6,8,10"' +
-  // Upstream reads an absent auto-calc attribute as "recompute this column",
-  // so a fixture that wants its own mass and CG used has to say so. See
-  // "recomputes a column when the file does not say either way" below.
+  // Upstream reads an absent auto-calc attribute as "recompute this column".
   ' auto-calc-mass="0" auto-calc-cg="0"';
 
-/** Four points, thrust rising then falling, with a mass column. */
 const DATA = `      <eng-data t="0" f="0" m="447" cg="93"/>
       <eng-data t="0.5" f="400" m="300" cg="90"/>
       <eng-data t="1.0" f="380" m="150" cg="88"/>
@@ -47,7 +34,6 @@ describe('removeDelay', () => {
     expect(removeDelay('J350-P')).toBe('J350');
     expect(removeDelay('J350-p')).toBe('J350');
     expect(removeDelay('J350')).toBe('J350');
-    // Not a delay: the hyphen is part of the name.
     expect(removeDelay('AT-J350W')).toBe('AT-J350W');
     expect(removeDelay('K1750-')).toBe('K1750-');
   });
@@ -55,9 +41,7 @@ describe('removeDelay', () => {
 
 describe('parseRse, the header attributes', () => {
   it('reads the specs in the file’s own units, which are the ones stored', () => {
-    // Upstream divides all four by 1000 for the SI kernel; CustomMotor is mm
-    // and grams, so they are kept as written and converted at the engine
-    // boundary instead.
+    // CustomMotor keeps mm and grams until the engine boundary, unlike upstream.
     const [m] = parseRse(rse(ATTRS, DATA));
     expect(m).toMatchObject({
       designation: 'J350',
@@ -75,7 +59,6 @@ describe('parseRse, the header attributes', () => {
     const typed = (t: string) => parseRse(rse(ATTRS.replace('Type="reloadable"', `Type="${t}"`), DATA))[0]!.type;
     expect(typed('single-use')).toBe('SU');
     expect(typed('reloadable')).toBe('reload');
-    // `.eng` has no field for the motor type.
     expect(typed('hybrid')).toBe('hybrid');
     expect(typed('Hybrid')).toBe('hybrid');
     expect(typed('unknown')).toBeUndefined();
@@ -102,8 +85,6 @@ describe('parseRse, the header attributes', () => {
   });
 
   it('refuses more propellant than total mass, as upstream does', () => {
-    // Otherwise the rocket gains mass as the motor burns, and nothing
-    // downstream would report it.
     expect(() => parseRse(rse(ATTRS.replace('propWt="447"', 'propWt="900"'), DATA))).toThrow(/more propellant/i);
   });
 });
@@ -142,7 +123,6 @@ describe('parseRse, the mass and CG columns', () => {
 
   it('refuses a negative sample mass, as ThrustCurveMotor does', () => {
     expect(() => parseRse(rse(ATTRS, DATA.replace('m="150"', 'm="-5"')))).toThrow(/negative mass/);
-    // A recomputed column is never used, so its values do not matter.
     const auto = ATTRS.replace('auto-calc-mass="0"', 'auto-calc-mass="1"');
     expect(parseRse(rse(auto, DATA.replace('m="150"', 'm="-5"')))[0]!.massesG).toBeUndefined();
   });
@@ -156,15 +136,11 @@ describe('parseRse, the mass and CG columns', () => {
     )[0]!;
     expect(auto.massesG).toBeUndefined();
     expect(auto.cgMm).toBeUndefined();
-    // "false" turns it off as well as "0", as upstream.
     const off = parseRse(rse(ATTRS.replace('auto-calc-mass="0"', 'auto-calc-mass="false"'), DATA))[0]!;
     expect(off.massesG).toEqual([447, 300, 150, 0]);
   });
 
   it('recomputes a column when the file does not say either way', () => {
-    // Upstream's default: `auto-calc-mass` absent means recompute, not "use
-    // what is here". A file carrying an `m` column and no
-    // flag has that column ignored, by OpenRocket and so by this.
     const silent = parseRse(rse(ATTRS.replace(' auto-calc-mass="0"', '').replace(' auto-calc-cg="0"', ''), DATA))[0]!;
     expect(silent.massesG).toBeUndefined();
     expect(silent.cgMm).toBeUndefined();
@@ -174,7 +150,6 @@ describe('parseRse, the mass and CG columns', () => {
     const partial = DATA.replace(' m="150"', '');
     const m = parseRse(rse(ATTRS, partial))[0]!;
     expect(m.massesG).toBeUndefined();
-    // The CG column is untouched and survives on its own.
     expect(m.cgMm).toBe(93);
   });
 });
@@ -200,7 +175,6 @@ describe('parseRse, finalizeThrustCurve', () => {
       ),
     )[0]!;
     expect(m.samples.map((s) => s.time)).toEqual([0, 0.5, 1]);
-    // The mass that belongs with each time, not the file's original order.
     expect(m.massesG).toEqual([447, 300, 150]);
   });
 
@@ -231,7 +205,6 @@ describe('parseRse, finalizeThrustCurve', () => {
       <eng-data t="1.0" f="50" m="0" cg="90"/>`,
       ),
     )[0]!;
-    // Two points at the same time break the interpolation that reads them.
     expect(m.samples.map((s) => s.time)).toEqual([0, 0.5, 1]);
     expect(m.samples[2]!.thrust).toBe(50);
   });
@@ -290,9 +263,7 @@ describe('the mass curve that reaches the kernel', () => {
       m.cgMm === undefined ? undefined : [[0, m.cgMm / 1000]],
       m.massesG!.map((g) => g / 1000),
     );
-    // Grams in the file, kilograms at the boundary.
     expect(spec.masses).toEqual([0.447, 0.3, 0.15, 0]);
-    // And the launch CG is the file's, not half the length (0.093 m).
     expect(spec.cgX).toBeCloseTo(0.093, 9);
   });
 
@@ -301,23 +272,10 @@ describe('the mass curve that reaches the kernel', () => {
     const spec = samplesToMotorSpec(tc, m.samples, 0, undefined, undefined);
     expect(spec.cgX).toBeCloseTo(0.186 / 2, 9);
   });
-
-  /**
-   * The reason `AbstractMotorLoader.calculateMass` is not ported.
-   *
-   * Upstream reconstructs the mass curve from thrust for a `.rse` that asks
-   * for it; `samplesToMotorSpec` already does that for every motor without a
-   * mass column. This holds the two descriptions of the same arithmetic to
-   * each other, so the omission stays correct if either one moves.
-   */
   it('matches upstream’s calculateMass when the file gives no masses', () => {
     const m = parseRse(rse(ATTRS.replace('auto-calc-mass="0"', 'auto-calc-mass="1"'), DATA))[0]!;
     expect(m.massesG).toBeUndefined();
     const spec = samplesToMotorSpec(tc, m.samples, 0);
-
-    // AbstractMotorLoader.calculateMass, transcribed: mass falls from the
-    // loaded mass by each interval's impulse, scaled so the whole burn
-    // consumes exactly the propellant mass.
     const total = 0.822;
     const prop = 0.447;
     const deltas: number[] = [];
@@ -339,8 +297,6 @@ describe('the mass curve that reaches the kernel', () => {
   });
 
   it('ignores a mass column that does not match the samples one for one', () => {
-    // A column that would have to be stretched to fit is not a measurement, so
-    // the reconstruction is used instead.
     const m = parseRse(rse(ATTRS, DATA))[0]!;
     const spec = samplesToMotorSpec(tc, m.samples, 0, undefined, [0.447, 0.3]);
     expect(spec.masses[0]).toBeCloseTo(0.822, 9);
@@ -351,19 +307,11 @@ describe('.eng import still behaves', () => {
   it('reads a RASP file and marks its source', () => {
     const eng = parseEng('; a comment\nC6 18 70 0-3-5-7 0.0108 0.0242 Estes\n0.0 0.0\n0.5 6.0\n1.0 0.0\n')[0]!;
     expect(eng).toMatchObject({ designation: 'C6', manufacturer: 'Estes', source: 'eng' });
-    // The fields only `.rse` can fill stay empty rather than being invented.
     expect(eng.type).toBeUndefined();
     expect(eng.massesG).toBeUndefined();
     expect(eng.cgMm).toBeUndefined();
   });
 });
-
-/**
- * Hostile `.rse`, because this parser is reached with no file picker: `loadOrk`
- * runs it over every `.rse` member an imported `.ork` carried, and that member
- * may be up to the archive's 64 MiB per-entry ceiling. Without caps, opening a
- * shared design could freeze the tab.
- */
 describe('the hostile-input caps fire', () => {
   it('refuses a file declaring more motors than MAX_RSE_ENGINES', () => {
     const one = `<engine mfg="A" code="X" dia="29" len="100" initWt="100" propWt="50"><data>
@@ -386,7 +334,6 @@ describe('the hostile-input caps fire', () => {
     </data></engine>`;
     const xml = `<?xml version="1.0"?><engine-database><engine-list>${one.repeat(200)}</engine-list></engine-database>`;
     expect(parseRse(xml)).toHaveLength(200);
-    // A real curve runs to a few thousand samples; that must still import.
     const rows = Array.from(
       { length: 3000 },
       (_, i) => `<eng-data t="${(i / 1000).toFixed(3)}" f="10" m="${447 - i / 10}" cg="90"/>`,
@@ -416,8 +363,7 @@ describe('parseRse refuses what ThrustCurveMotor.Builder.build() refuses', () =>
   });
 
   it('a negative sample time', () => {
-    // A (0, 0) point goes ahead of a curve that does not start at zero, and the
-    // builder then refuses a time that runs backward.
+    // A (0, 0) point is prepended, so the builder sees time run backward.
     expect(() => parseRse(rse(ATTRS, DATA.replace('t="0" f="0"', 't="-0.1" f="0"')))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.rseNegativeTime', values: { motor: 'J350' } }),
     );
@@ -438,8 +384,7 @@ describe('parseRse refuses what ThrustCurveMotor.Builder.build() refuses', () =>
 });
 
 describe('a blank attribute', () => {
-  // `Number('')` is 0. Upstream's `Double.parseDouble("")` throws: a blank
-  // header value refuses the file, and a blank sample value reads as missing.
+  // `Number('')` is 0, but upstream's `Double.parseDouble("")` throws.
   it('refuses a blank header value rather than reading it as zero', () => {
     expect(() => parseRse(rse(ATTRS.replace('propWt="447"', 'propWt=""'), DATA))).toThrow(/propellant/i);
     expect(() => parseRse(rse(ATTRS.replace('dia="38"', 'dia=" "'), DATA))).toThrow(/diameter/i);

@@ -3,21 +3,6 @@ import * as THREE from 'three';
 import { validateSolid } from '../../../src/services/exports/meshValidate';
 import { discSolid } from '../../../src/services/exports/solidMesh';
 
-/**
- * Which way a closed surface faces.
- *
- * The directed-edge check proves the winding is consistent. It cannot prove the
- * surface faces outward, because flipping every triangle in a closed mesh flips
- * every directed edge too and the counts come out identical. So a solid wound
- * entirely inside out passes every winding and edge check, and a slicer reading
- * that file fills the room and leaves the part hollow.
- *
- * Signed volume is the question that separates them, and it only makes sense once
- * the mesh is closed, which is why it is reported last and only when nothing
- * earlier fired.
- */
-
-/** The same geometry with every triangle's winding reversed. */
 const flipped = (geo: THREE.BufferGeometry): THREE.BufferGeometry => {
   const out = geo.clone();
   const idx = out.getIndex()!;
@@ -47,17 +32,12 @@ describe('a closed solid must face outward', () => {
   });
 
   it('still calls the flipped mesh consistently wound, which is the point', () => {
-    // The inversion does not show up as inconsistent winding, which is why the
-    // signed-volume check is needed at all.
     expect(kinds(flipped(tube()))).not.toContain('inconsistent-winding');
   });
 
   it('names the fault once, not on top of another one', () => {
-    // An open shell has no meaningful signed volume, so the orientation check
-    // stays quiet and the hole is the only thing reported.
     const open = tube();
     const idx = open.getIndex()!;
-    // Drop the last triangle: a hole, and no longer a closed surface.
     open.setIndex(Array.from(idx.array as ArrayLike<number>).slice(0, idx.count - 3));
     const found = kinds(open);
     expect(found).toContain('non-manifold-edge');

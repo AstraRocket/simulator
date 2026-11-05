@@ -22,8 +22,6 @@ const ok = (json: unknown, status = 200) => Promise.resolve(new Response(JSON.st
 beforeEach(() => resetWeatherState());
 
 describe('forecastStart', () => {
-  // The clock moves between reads. One instant, so a call a hair before
-  // midnight cannot pair today's date with the hour after it.
   it('takes the date and the hour from one instant', () => {
     let now = new Date(2026, 9, 24, 22, 59, 59, 999).getTime();
     const spy = vi.spyOn(Date, 'now').mockImplementation(() => now++);

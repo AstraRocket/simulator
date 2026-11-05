@@ -2,14 +2,7 @@ import type { ComponentNode } from '../engine/openRocketEngine';
 import { KERNEL_DEFAULTS } from './kernelDefaults';
 import { num } from './nodeProps';
 
-/**
- * Cluster layouts: an exact mirror of the kernel's ClusterConfiguration
- * (carved info.openrocket.core.rocketcomponent.ClusterConfiguration). Unit
- * points: closest tube centers are distance 1 apart; the physical separation
- * is 2 × tubeOuterRadius × clusterScale. Used for 2D/3D drawing, motor counts
- * and splitting a cluster into single tubes, which writes these positions for
- * the kernel to fly, so they have to match the kernel's exactly.
- */
+// Exact mirror of kernel ClusterConfiguration; separation is 2 × tubeOuterRadius × clusterScale.
 
 const SQRT2 = Math.SQRT2;
 const SQRT3 = Math.sqrt(3);
@@ -22,11 +15,7 @@ const ring = (n: number, r: number, centered: boolean): number[] => {
   return pts;
 };
 
-/**
- * The cluster patterns, by kernel XML name (ClusterConfiguration.java). A
- * closed union rather than `string`: the table below must hold every one, and
- * a node's `cluster` field is checked against it before it is looked up.
- */
+/** Kernel XML names (ClusterConfiguration.java). */
 export type ClusterPattern =
   | 'single'
   | 'double'
@@ -43,7 +32,7 @@ export type ClusterPattern =
   | '9-grid'
   | '9-star';
 
-/** Flat [x0,y0, x1,y1, …] unit points per pattern (kernel XML names). */
+/** Flat [x0,y0, x1,y1, …] unit points. */
 export const CLUSTER_POINTS: Record<ClusterPattern, number[]> = {
   single: [0, 0],
   double: [-0.5, 0, 0.5, 0],
@@ -80,56 +69,22 @@ export const CLUSTER_POINTS: Record<ClusterPattern, number[]> = {
   ],
 };
 
-/**
- * The cluster patterns, in kernel order: the dropdown's option list.
- *
- * Names only: this module is geometry, and the option text is the property
- * panel's business (it localizes it, and builds the motor count from
- * `clusterCount` rather than baking English in here).
- */
+/** Kernel order. */
 export const CLUSTER_OPTIONS: ClusterPattern[] = Object.keys(CLUSTER_POINTS) as ClusterPattern[];
 
-/**
- * Whether a node's `cluster` field names a pattern the table knows. A design
- * can carry anything here (a `.ork` from a newer desktop, a hand edit), so the
- * call sites ask once and fall back to `single` deliberately rather than indexing
- * the open record and reading `undefined`.
- */
 export const isClusterPattern = (v: unknown): v is ClusterPattern =>
   typeof v === 'string' && Object.prototype.hasOwnProperty.call(CLUSTER_POINTS, v);
 
-/** The pattern's unit points, or the single-tube layout for an unknown name. */
 function pointsOf(cluster: string | undefined): number[] {
   return isClusterPattern(cluster) ? CLUSTER_POINTS[cluster] : CLUSTER_POINTS.single;
 }
 
-/** Motors in this cluster pattern (1 for single/unknown). */
 export function clusterCount(cluster: string | undefined): number {
   return pointsOf(cluster).length / 2;
 }
 
-/**
- * Physical tube-center offsets (m) in the cross-section plane, rotation applied.
- *
- * The rotation is ClusterConfiguration.getPoints(rotation) verbatim
- * (ClusterConfiguration.java:108-119):
- *
- *     ret.add( x * cos + y * sin);
- *     ret.add(-x * sin + y * cos);
- *
- * That is R(−θ). Note the signs: `x·cos − y·sin` / `x·sin + y·cos` is R(+θ), which
- * turns the drawing 2θ the wrong way: a 3-ring clocked 30° on 19 mm tubes would
- * put its first tube at (−5.48, −9.50) mm where the kernel flies it at
- * (−10.97, 0). The kernel keeps its own copy, so the physics is unaffected, but
- * the 2D schematic, the 3D model and the aft view would all disagree with what is
- * being flown.
- *
- * Two things InnerTube.getClusterPoints (InnerTube.java:263-273) also does and
- * this does not: it rotates by `clusterRotation − radialDirection`, and it adds
- * the `radialPosition` offset. Anything that places the tubes for real (the
- * views, splitting a cluster, writing one tube per motor) uses
- * {@link clusterPoints}, which does both.
- */
+// Meters, rotated by R(−θ) as ClusterConfiguration.java:108-119; R(+θ) turns it 2θ the wrong way.
+// No radial offset: real placement uses `clusterPoints`.
 export function clusterOffsets(
   cluster: string | undefined,
   tubeOuterRadius: number,
@@ -142,8 +97,7 @@ export function clusterOffsets(
   const sin = Math.sin(clusterRotation);
   const out: { y: number; z: number }[] = [];
   for (let i = 0; i < pts.length; i += 2) {
-    // px/py, not x/y: `y: (x * cos - y * sin)` reads as a self-reference and
-    // hides a sign error.
+    // px/py, not x/y: `y: (x * cos ...)` reads as a self-reference and hides a sign error.
     const px = pts[i]!;
     const py = pts[i + 1]!;
     out.push({
@@ -155,10 +109,8 @@ export function clusterOffsets(
 }
 
 /**
- * Where each tube of a cluster sits, as InnerTube.getClusterPoints places it
- * (InnerTube.java:263-273): the pattern turned by `clusterRotation −
- * radialDirection`, then shifted by the mount's own radial offset. Returned as
- * the distance and direction a single tube at that spot carries.
+ * As InnerTube.getClusterPoints (InnerTube.java:263-273): rotated by
+ * `clusterRotation − radialDirection`, then shifted by the mount's radial offset.
  */
 export function clusterPoints(
   cluster: string | undefined,
@@ -177,12 +129,7 @@ export function clusterPoints(
   });
 }
 
-/**
- * {@link clusterPoints} for an inner tube, read from its own keys. A mount with
- * no `outerRadius` flies at the kernel's inner tube default
- * (`ComponentFactory`), so its tubes are spaced from that, not stacked at the
- * center.
- */
+/** A mount with no `outerRadius` flies at the kernel's inner tube default. */
 export function clusterPlacesOf(node: ComponentNode): { radialPosition: number; radialDirection: number }[] {
   return clusterPoints(
     typeof node['cluster'] === 'string' ? node['cluster'] : undefined,

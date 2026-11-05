@@ -15,18 +15,12 @@ import { weatherErrorText } from '../../services/weather/weatherErrorText';
 import { useOnline } from '../common/useOnline';
 import { baseLanguage } from '../../i18n/language';
 
-/**
- * What choosing a place writes into the site. The elevation is always written,
- * null when the lookup found none: keeping the previous site's elevation under
- * new coordinates would fly the wrong air unannounced.
- */
 export interface PlacePick {
   latitudeDeg: number;
   longitudeDeg: number;
   launchAltitudeM: number | null;
 }
 
-/** A row the dialog offers. Pasted coordinates are one row whose elevation is looked up. */
 interface Row {
   key: string;
   title: string;
@@ -40,11 +34,7 @@ interface Row {
 type State =
   { kind: 'idle' } | { kind: 'searching' } | { kind: 'rows'; rows: Row[] } | { kind: 'message'; text: string };
 
-/**
- * Where a place is, below its name: region and country through one key, so a
- * language orders and punctuates them its own way, or whichever one exists.
- * Not a list format, which would join the two with "and".
- */
+/** One i18n key so each language orders them; not a list format, which would join with "and". */
 const placeDetail = (p: PlaceMatch, t: (k: string, o?: Record<string, unknown>) => string): string | null =>
   p.region && p.country
     ? t('placeSearch.regionCountry', { region: p.region, country: p.country })
@@ -59,18 +49,7 @@ const placeRow = (p: PlaceMatch, i: number, t: (k: string, o?: Record<string, un
   elevationM: p.elevationM,
 });
 
-/**
- * Find the launch site by name, postal code, coordinates or map link.
- *
- * A name or postal code goes to Open-Meteo's geocoding, through the same
- * transport as the weather, so the request names neither this app nor its
- * site. Coordinates and map links are read here and never sent anywhere; only
- * the elevation at them is looked up, the way the weather dialog does.
- *
- * It sets the site, not the weather: the forecast, the map and the flight all
- * read the site, so they stay on one place. Choosing a row writes the three
- * site fields as one undoable edit, through the caller.
- */
+/** Geocoding goes through the weather transport, so the request names neither this app nor its site. */
 export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePick) => void; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const altUnit = useUnits().at(unitScope('launch', SITE_ALTITUDE_FIELD), LAUNCH_SI.distance.q);
@@ -78,7 +57,6 @@ export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePic
   const [state, setState] = useState<State>({ kind: 'idle' });
   const request = useLatest();
   const online = useOnline();
-  // Coordinates and map links are read here; only a name or a postal code is sent.
   const needsNetwork = query.trim() !== '' && parseCoordinateText(query) === null;
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => inputRef.current?.focus(), []);
@@ -175,8 +153,7 @@ export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePic
                       launchAltitudeM: r.elevationM ?? null,
                     })
                   }
-                  // Not before the elevation lookup has answered: picking then
-                  // would write the site with no elevation while one is on its way.
+                  // Not before the elevation lookup answers, or the site is written with none.
                   disabled={r.elevationM === undefined}
                   className="w-full rounded-lg bg-raised/60 px-3 py-2 text-left ring-1 ring-line/10 hover:bg-elevated disabled:cursor-wait disabled:opacity-60"
                 >

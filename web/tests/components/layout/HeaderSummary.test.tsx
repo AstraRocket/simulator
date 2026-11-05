@@ -8,11 +8,6 @@ import type { StaticInfo } from '../../../src/engine/api';
 import { HeaderSummary } from '../../../src/components/layout/HeaderSummary';
 import { NO_VALUE } from '../../../src/i18n/noValue';
 
-/**
- * The header's summary of the active simulation. What it must get right is the
- * apogee's honesty: a figure from a run the design has since moved past says
- * so, rather than passing for the current one.
- */
 const st = () => useWorkspaceStore.getState();
 
 const info = {
@@ -31,7 +26,6 @@ const info = {
   rollInertia: 0.0001,
 } as StaticInfo;
 
-/** The active simulation flown to 275 m, keyed to the current design or not. */
 const flown = (fresh: boolean) => {
   const sim = st().sims[0]!;
   const key = resultKey(st().tree, configOf(st().configs, sim), sim, st().simPrefs);
@@ -86,11 +80,7 @@ describe('HeaderSummary', () => {
     expect(screen.getByRole('button', { name: /Run/ }).textContent).toContain('Run');
   });
 
-  /**
-   * jsdom lays nothing out, so the room is stubbed: 300px for the strip, which
-   * the full strip (600px) overflows and the compact one (200px) fits, unless
-   * the room is narrower still.
-   */
+  // jsdom lays nothing out: the full strip is 600px and the compact one 200px.
   const stubRoom = (room: number) => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(room);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {

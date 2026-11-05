@@ -5,39 +5,8 @@ import { useShowResultsTab } from './useShowResultsTab';
 import { taskTabs } from './tabTable';
 import { useIsXl } from '../common/useMediaQuery';
 
-/**
- * Desktop tab strip, rendered inside the header (hidden below lg, where
- * {@link TabBar}'s bottom bar does the same job with the Design tab split in
- * two).
- *
- * One tab per job: changing geometry, setting up the motors it flies on,
- * managing the runs over it, reading one back, and the tools. Results shows only
- * while useShowResultsTab says so. Each one owns the whole width and picks its
- * own column layout, which leaves the right column free for the property editor
- * (see App.tsx).
- *
- * Inside the header rather than a strip below it, so the tabs cost no height: they
- * sit in the gap between the badges and the far-right controls. `self-stretch` with
- * a negating `-my-3` against the header's `py-3` makes the nav exactly as tall as
- * the header, so the active tab's underline lands on the header's own bottom border
- * and reads as continuous with the pane it labels.
- *
- * Under xl each tab takes the shorter of its name and the phone bar's
- * ("Config" for "Configurations"): six tabs, the identity block, the save
- * status and the controls are one row from 1180 in the wordiest languages
- * only that way. Whichever is shorter, because a phone word is not always the
- * shorter one ("Simuleren" for "Simulaties"). Chosen in script, not with
- * classes, so the tab has one name in the document.
- *
- * The phone keeps its bottom bar: a header this narrow already wraps, and a
- * horizontal tab row in it would wrap to the second row it was meant to save.
- *
- * The nav's own margin shrinks as the header's gap grows (4px and 4px at lg,
- * none and 8px at xl), so the space before the first tab's word is 12px from
- * lg to 2xl. Not a pixel more: Dutch at 1180 and Portuguese at 1280 have only
- * a few to spare, and one more digit in the version badge has wrapped the row
- * before (workbench-header.spec.ts).
- */
+// The phone word is not always shorter ("Simuleren" vs "Simulaties"), so compare lengths.
+// Margins are tuned to the pixel for Dutch and Portuguese (workbench-header.spec.ts).
 export function WorkbenchTabs() {
   const { t } = useTranslation();
   const tab = useWorkspaceStore((s) => s.tab);
@@ -68,12 +37,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      // A bottom border rather than a fill: the tab sits directly above the
-      // panes it labels, so the active one should read as continuous with them.
-      // `-mb-px` pulls it over the header's border rather than stacking on it.
-      // Tighter below 2xl, padding and gaps both: with five tabs spelled out the
-      // header row has no slack left at 1024 in English or 1180 in Portuguese
-      // (workbench-header.spec.ts).
+      // `-mb-px` pulls the border over the header's own.
       className={`-mb-px flex items-center border-b-2 px-1 text-sm font-semibold 2xl:px-3 ${
         active
           ? 'border-accent-500 text-accent-300'

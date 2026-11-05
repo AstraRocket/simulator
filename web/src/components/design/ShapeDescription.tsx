@@ -3,30 +3,11 @@ import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { str } from '../../tree/nodeProps';
 
-/**
- * What the selected nose cone or transition shape is, under the shape picker.
- *
- * The desktop shows this beside its shape selector and it is the only place
- * the app explains what a shape parameter of 0.75 on a parabolic series does,
- * or why an unclipped transition looks the way it does. The strings and their
- * translations are OpenRocket's own (`Shape.<name>.desc1` for a nose cone,
- * `desc2` for a transition, from `core/src/main/resources/l10n/messages*`), so
- * the wording matches the desktop in every language we ship. See
- * `engine-java/ATTRIBUTION.md`. One word differs: the upstream English for the
- * parabolic series misspells "produces", which is corrected here rather than
- * taught to the spell checker.
- *
- * They carry a little markup: `<b>` for the shape names a parameter value
- * produces, `<i>` for the dimensions it is written in terms of, and `<sup>`
- * for the power series exponent. It is rendered by building elements from a
- * three-tag whitelist rather than by handing the string to
- * `dangerouslySetInnerHTML`, which would put vendored text on a path where a
- * future string could carry anything.
- */
+// Strings are OpenRocket's own (see `engine-java/ATTRIBUTION.md`).
+// Markup goes through a three-tag whitelist, not `dangerouslySetInnerHTML`, so vendored text cannot inject.
 
 const TAG = /<(\/?)(b|i|sup)>/gi;
 
-/** OpenRocket's `<b>` / `<i>` / `<sup>` markup as React elements. */
 export function richText(src: string): ReactNode[] {
   const out: ReactNode[] = [];
   const open: { tag: string; kids: ReactNode[] }[] = [];
@@ -50,8 +31,7 @@ export function richText(src: string): ReactNode[] {
   }
   if (last < src.length) push(src.slice(last));
   // An unclosed tag keeps its contents rather than dropping them.
-  while (open.length) {
-    const top = open.pop()!;
+  for (let top = open.pop(); top; top = open.pop()) {
     (open.length ? open[open.length - 1]!.kids : out).push(...top.kids);
   }
   return out;

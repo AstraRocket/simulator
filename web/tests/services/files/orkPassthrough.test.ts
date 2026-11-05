@@ -10,15 +10,8 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import { noteTexts } from '../../testing/importNotes';
 import { MAX_PASSTHROUGH } from '../../../src/services/files/ork/importLimits';
 
-/**
- * What a `.ork` carries that this app has no model for, a newer desktop's new
- * tag being the case that matters: ignoring it would throw it away on every
- * save. It is carried as raw XML instead.
- *
- * jsdom, because the reader uses `XMLSerializer` to keep the elements.
- */
+// jsdom, because the reader uses `XMLSerializer` to keep the elements.
 
-/** A minimal one-tube design, with `extra` spliced into the body tube. */
 const orkWith = (extra: string): string => `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.9" creator="OpenRocket 24.12">
   <rocket>
@@ -55,14 +48,11 @@ const roundTrip = (xml: string): string => {
 
 describe('elements this app has no model for survive a round trip', () => {
   it('keeps an element no version of this app has ever seen', () => {
-    // The point of carrying by exclusion rather than by a list of known extras:
-    // a newer OpenRocket's new tag survives without a code change here.
     const out = roundTrip(orkWith('            <unknown-element>42</unknown-element>'));
     expect(out).toContain('<unknown-element>42</unknown-element>');
   });
 
-  // `<value>` is read only under `<conditions><gravity>`; no component reader
-  // takes it, so on a part it is one more unknown element to carry.
+  // `<value>` is read only under `<conditions><gravity>`.
   it('keeps a <value> child of a part', () => {
     expect(roundTrip(orkWith('            <value>7</value>'))).toContain('<value>7</value>');
   });
@@ -96,9 +86,6 @@ describe('a decal, whose image we do not keep', () => {
             </appearance>`;
 
   it('drops the reference rather than writing one that points at nothing', () => {
-    // The image is a separate member of the `.ork` zip and we keep no members
-    // but the XML, so a preserved <decal name=...> would name a file that is not
-    // in the file we write.
     const out = roundTrip(orkWith(WITH_DECAL));
     expect(out).not.toContain('<decal');
     expect(out).not.toContain('flames.png');
@@ -123,9 +110,6 @@ describe('a decal, whose image we do not keep', () => {
 
 describe('the known-tag set is the whole contract', () => {
   it('claims every tag our own writer puts inside a component', () => {
-    // A tag we emit and treat as unknown would appear twice in the file. This is
-    // the drift guard: add a tag to the writer without adding it to the set and
-    // this fails, rather than the output quietly doubling.
     const xml = exportOrk({
       name: 'Kitchen sink',
       tree: {
@@ -160,13 +144,9 @@ describe('the known-tag set is the whole contract', () => {
       } as unknown as RocketTree,
     });
 
-    // Exactly the contract: the direct children of a component element, which is
-    // the only level `readPassthrough` looks at. Component type names live under
-    // <subcomponents> and a motor mount's fields under <motormount>, so neither
-    // is a component child and neither belongs in the set.
     const doc = new DOMParser().parseFromString(xml.replace(/^\s*<\?xml[^?]*\?>/, ''), 'text/xml');
     const components = Array.from(doc.querySelectorAll('subcomponents > *'));
-    expect(components.length).toBeGreaterThan(8); // the fixture really did export
+    expect(components.length).toBeGreaterThan(8);
     const missing = new Set<string>();
     for (const comp of components) {
       for (const child of Array.from(comp.children)) {
@@ -178,14 +158,6 @@ describe('the known-tag set is the whole contract', () => {
   });
 });
 
-/**
- * A `.ork` from the desktop can carry things we do not model at three levels, and
- * only one of them is a component. `<photostudio>` in particular sits beside
- * `<rocket>`, so the component-level pass can never see it: without the
- * document-level pass a saved Photo Studio shot would be dropped on every save.
- */
-
-/** A design with `rocketExtra` inside <rocket> and `docExtra` beside it. */
 const docWith = (rocketExtra: string, docExtra: string): string => `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.9" creator="OpenRocket 24.12">
   <rocket>
@@ -264,9 +236,6 @@ describe('the levels above a component', () => {
 
 describe('what the stability calibers are measured against', () => {
   it('keeps a custom reference length instead of re-measuring the design', () => {
-    // A writer that emits a hardcoded `maximum` brings a design whose calibers
-    // were set against a fixed length back measured against its widest body tube -
-    // a different stability number for the same rocket.
     const ref = `    <referencetype>custom</referencetype>
     <customreference>0.0331</customreference>`;
     const res = importOrk(docWith(ref, ''));
@@ -278,9 +247,7 @@ describe('what the stability calibers are measured against', () => {
   });
 
   it('writes the element once, not twice, since it is a known tag and not carried', () => {
-    // `nosecone`, `maximum` and `custom` are the whole vocabulary
-    // (ReferenceType.java); this is the one that is neither our default nor the
-    // custom-length case.
+    // ReferenceType.java: nosecone, maximum, custom.
     const out = roundTrip(docWith('    <referencetype>nosecone</referencetype>', ''));
     expect(out.match(/<referencetype>/g)).toHaveLength(1);
     expect(out).toContain('<referencetype>nosecone</referencetype>');
@@ -288,8 +255,6 @@ describe('what the stability calibers are measured against', () => {
 
   it('leaves the default off the tree and still writes it', () => {
     const res = importOrk(docWith('    <referencetype>maximum</referencetype>', ''));
-    // `maximum` is what this app measures against, so recording it would put the
-    // same word on every tree for nothing.
     expect(res.tree.referenceType).toBeUndefined();
     expect(exportOrk({ name: res.name, tree: res.tree })).toContain('<referencetype>maximum</referencetype>');
   });
@@ -316,7 +281,6 @@ describe('the upper known-tag sets', () => {
   });
 });
 
-/** The same design with `extra` spliced into the stage itself. */
 const orkWithStage = (extra: string): string =>
   orkWith('').replace('<name>Sustainer</name>', `<name>Sustainer</name>\n${extra}`);
 
@@ -344,8 +308,6 @@ describe('a stage carries what RocketComponentSaver writes for every component',
 });
 
 describe('the unrecognized elements one element can carry are bounded', () => {
-  // `<x/>` is four bytes, so the byte caps alone let one part carry millions,
-  // each stored, persisted and written back on every save.
   const many = (n: number): string => '<x/>'.repeat(n);
 
   it('keeps every one up to the ceiling', () => {

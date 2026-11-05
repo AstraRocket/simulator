@@ -7,12 +7,6 @@ import type { Simulation } from '../../../src/services/flight/simulations';
 import { unitSymbols } from '../../../src/prefs/units';
 import { DEFAULT_SETTINGS } from '../../../src/services/storage/settings';
 
-/**
- * The decisions a batch run makes, tested as plain data. The store's default
- * workspace is only the fixture: a design with a mount and a seated motor, and
- * one simulation that can fly it.
- */
-
 const st = () => useWorkspaceStore.getState();
 const t = (key: string, vars?: Record<string, unknown>) => `${key}${vars ? JSON.stringify(vars) : ''}`;
 const units = unitSymbols(DEFAULT_SETTINGS.units, DEFAULT_SETTINGS.unitOverrides);
@@ -55,7 +49,6 @@ describe('planRun', () => {
 
   it('judges the launcher angle by the class each row flies', () => {
     const mount = findMounts(st().tree)[0]!.id as string;
-    // An H motor: about 200 N·s over 2 s, past the 160 N·s that starts high power.
     const h = newFlightConfig({
       [mount]: {
         spec: {

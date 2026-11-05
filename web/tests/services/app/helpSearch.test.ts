@@ -14,20 +14,6 @@ import {
   splitHighlight,
 } from '../../../src/services/app/helpSearch';
 
-/**
- * Search over the docs that ship inside the app.
- *
- * jsdom, because all of this is DOM work: the index is read out of the built
- * pages with a TreeWalker, and the highlighter edits the page in the frame.
- *
- * What these hold still is the behavior a reader would notice going wrong: that
- * every word typed has to appear (an OR search is useless on a guide that says
- * "length" on every page), that a hit lands somewhere the dialog can navigate
- * to, that accents and case do not matter in either language, and that
- * highlighting is reversible, because the same document is marked again on the
- * next search.
- */
-
 const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html');
 const appBase = import.meta.env.BASE_URL.replace(/\/*$/, '/');
 
@@ -37,7 +23,6 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-/** A page as Docusaurus builds it, down to the class names that are read. */
 const built = (title: string, body: string) =>
   `<!doctype html><html><body><div id="__docusaurus"><article>
     <div class="theme-doc-markdown markdown">
@@ -46,7 +31,6 @@ const built = (title: string, body: string) =>
     </div>
   </article></div></body></html>`;
 
-/** A heading, with the anchor link Docusaurus puts at the end of every one. */
 const h = (level: 2 | 3, id: string, label: string) =>
   `<h${level} class="anchor" id="${id}">${label}<a href="#${id}" class="hash-link" title="Direct link">#</a></h${level}>`;
 
@@ -63,8 +47,6 @@ describe('readSections', () => {
   const sections = readSections(parse(SAFETY));
 
   it('splits a page at the headings the dialog can navigate to', () => {
-    // h2 and h3 with an id, which are exactly the rows the contents rail
-    // already lists, so every hit has somewhere to land.
     expect(sections.map((s) => s.hash)).toEqual(['', '#the-pad', '#misfires']);
     expect(sections.map((s) => s.heading)).toEqual(['', 'At the pad', 'Misfires']);
   });
@@ -74,13 +56,10 @@ describe('readSections', () => {
   });
 
   it('drops the anchor glyph out of a heading', () => {
-    // Left in, every heading in the results list would end in a stray #.
     expect(sections[1]!.heading).toBe('At the pad');
   });
 
   it('keeps heading text out of the body text', () => {
-    // Held as a heading already: taken twice it would double that section's
-    // score and put the anchor glyph into the snippets.
     expect(sections[1]!.text).toBe('Keep the rod clear and stand back to the flight line.');
     expect(sections[0]!.text).not.toContain('At the pad');
   });
@@ -122,15 +101,11 @@ describe('searchHelp', () => {
   });
 
   it('demands every word, not any of them', () => {
-    // The whole point of typing a second word. "rod" is in the safety page and
-    // "caliber" in the glossary, and no section holds both.
     expect(searchHelp(docs, 'rod caliber')).toEqual([]);
     expect(searchHelp(docs, 'rod clear').map((hit) => hit.page)).toEqual(['safety#the-pad']);
   });
 
   it('counts a word in the page title, so a page can be named', () => {
-    // "glossary" appears in no section's text: it is the page. This is what
-    // lets a reader narrow to one page by naming it.
     expect(searchHelp(docs, 'glossary caliber').map((hit) => hit.page)).toEqual(['glossary#c']);
   });
 
@@ -143,8 +118,6 @@ describe('searchHelp', () => {
   });
 
   it('ignores case and accents', () => {
-    // Nobody types the accents, in either language, and the headings are full of
-    // capitals.
     expect(searchHelp(docs, 'karman line').map((hit) => hit.page)).toEqual(['glossary#k']);
     expect(searchHelp(docs, 'CALIBER').map((hit) => hit.page)).toEqual(['glossary#c']);
   });
@@ -192,8 +165,6 @@ describe('snippetAround', () => {
   });
 
   it('falls back to the opening when the word was in the heading', () => {
-    // A hit can match on the heading or the page title alone, and the section's
-    // first words are then the useful quote.
     expect(snippetAround(long, ['nowhere'])).toMatch(/^word word/);
   });
 });
@@ -208,14 +179,11 @@ describe('splitHighlight', () => {
   });
 
   it('hands back the original characters, accents and case intact', () => {
-    // The folding is position for position (see fold), which is what makes an
-    // index found in folded text usable against the original.
     const segments = splitHighlight('Kármán', ['karman']);
     expect(segments).toEqual([{ text: 'Kármán', hit: true }]);
   });
 
   it('prefers the longest token at a position', () => {
-    // Otherwise "fin" would cut "fins" short and leave a stray "s" unmarked.
     expect(splitHighlight('fins', ['fin', 'fins'])).toEqual([{ text: 'fins', hit: true }]);
   });
 
@@ -224,10 +192,8 @@ describe('splitHighlight', () => {
   });
 
   it('folds to the same length it was given', () => {
-    // The one property everything above depends on.
     for (const s of ['Kármán', 'ANGSTROM', 'plain']) expect(fold(s)).toHaveLength(s.length);
-    // An astral character is two UTF-16 units and stays two, so the indexes
-    // after it still point at the same characters of the original.
+    // An astral character is two UTF-16 units and must stay two.
     const rocket = String.fromCodePoint(0x1f680);
     const text = `Launch ${rocket} Kármán line`;
     expect(fold(text)).toHaveLength(text.length);
@@ -249,15 +215,11 @@ describe('markMatches', () => {
   });
 
   it('puts the page back exactly as it was', () => {
-    // Not a nicety: the next search marks this same document, so a leftover
-    // mark would split the text it has to match across.
     const html = '<p>the rod is clear</p>';
     const root = article(html);
     markMatches(root, ['rod', 'clear']);
     clearMarks(root);
     expect(root.innerHTML).toBe(html);
-    // And the text is one node again, or a later search could not match across
-    // where the last mark was.
     expect(root.querySelector('p')!.childNodes).toHaveLength(1);
   });
 
@@ -283,7 +245,6 @@ describe('helpIndex', () => {
     { page: 'safety', label: 'Safety', level: 2 },
   ];
 
-  /** Every page answers, keyed by the file URL that is the precache key. */
   const serving = (html: string) => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(html) });
     vi.stubGlobal('fetch', fetchMock);
@@ -293,8 +254,6 @@ describe('helpIndex', () => {
   it('indexes every page the rail lists, and nothing else', async () => {
     const fetchMock = serving(SAFETY);
     const docs = await helpIndex(pages, 'en');
-    // The category row is a label pointing at its own first child, so taking it
-    // too would index that page twice.
     expect(docs.map((doc) => doc.slug)).toEqual(['', 'safety']);
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
       `${appBase}docs/index.html`,
@@ -324,8 +283,6 @@ describe('helpIndex', () => {
   });
 
   it('does not keep an empty index', async () => {
-    // What a first search launched with a cold cache and no signal looks like.
-    // Cached, it would leave search quietly broken for the rest of the session.
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     expect(await helpIndex(pages, 'en')).toEqual([]);
     vi.unstubAllGlobals();
@@ -336,9 +293,7 @@ describe('helpIndex', () => {
   });
 
   it('skips a page the build does not have', async () => {
-    // The dev-build case: Vite answers a missing docs path with the app's own
-    // shell and a 200, which is what the marker check in fetchHelpDocument is
-    // for. An unmarked answer must not become an indexed page.
+    // Dev build: Vite answers a missing docs path with the app shell and a 200.
     serving('<div id="root"></div>');
     expect(await helpIndex(pages, 'en')).toEqual([]);
   });

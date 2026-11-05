@@ -1,16 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { outerProfile } from '../../src/tree/shapeProfile';
 
-/**
- * calculateClip()'s bisection exits on `max - min < precision`. With a
- * non-finite length `max - min` is NaN, NaN compares false against everything,
- * and an unguarded loop never returns: a hostile `.ork` with an absurd transition
- * length would hang the tab from the schematic, the 3D view, the report and the
- * mesh exporter. The Java has the same loop; its callers cannot hand it NaN.
- * Ours read a file.
- */
+// calculateClip()'s bisection exit `max - min < precision` is never true for NaN.
 describe('outerProfile on hostile lengths', () => {
-  // Every clippable shape takes the bisection path when the radii differ.
   const shapes = ['ellipsoid', 'power', 'haack'] as const;
 
   it.each(shapes)('%s: returns for a NaN length', (shape) => {
@@ -24,8 +16,6 @@ describe('outerProfile on hostile lengths', () => {
   });
 
   it.each(shapes)('%s: returns for a length whose doubling overflows', (shape) => {
-    // The samples themselves are garbage at this length (x/length overflows);
-    // what matters is that the call returns instead of spinning forever.
     const pts = outerProfile(shape, undefined, 1e308, 0.01, 0.02);
     expect(Array.isArray(pts)).toBe(true);
   });

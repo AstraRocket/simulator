@@ -1,12 +1,5 @@
 import type { ReactNode } from 'react';
 
-/**
- * A button that is on or off: a filter chip, a sub-tab, one segment of a group.
- * The state is in the ARIA (`aria-pressed`, or `aria-current` for a tab-like
- * control) as well as the color, so it is not conveyed by `bg-accent-600` alone.
- * Size, shape and weight are the caller's (`className`); the on and off inks are
- * this component's, the same everywhere.
- */
 export function ToggleButton({
   active,
   onClick,
@@ -19,11 +12,9 @@ export function ToggleButton({
 }: {
   active: boolean;
   onClick: () => void;
-  /** Announce as the current item of a set (`aria-current`) rather than as pressed. */
   current?: boolean;
   disabled?: boolean;
   title?: string;
-  /** Accessible name, for a button whose content is a bare glyph. */
   label?: string;
   className?: string;
   children: ReactNode;

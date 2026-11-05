@@ -6,10 +6,6 @@ import { useWorkspaceStore } from '../../../src/state/store';
 import type { StaticInfo } from '../../../src/engine/api';
 import { RocketOverview } from '../../../src/components/canvas/RocketOverview';
 
-/**
- * The top of the phone's Rocket tab: the drawing, which opens Sketch, and the
- * header's summary stacked, with the configuration as a picker.
- */
 const st = () => useWorkspaceStore.getState();
 
 const info = {

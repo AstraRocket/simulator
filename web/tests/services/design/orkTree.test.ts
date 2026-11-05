@@ -8,11 +8,6 @@ afterEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-/**
- * A flat tree's implicit stage is named by the same rule as every other unnamed
- * stage a file is given: desktop writes its own translated default, so this does
- * too, in the language showing.
- */
 describe('asStageNodes', () => {
   const flat = { name: 'x', components: [{ type: 'nosecone', id: 'n' }] } as unknown as RocketTree;
 

@@ -1,21 +1,8 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Is the dialog wide enough to keep the contents rail beside the page?
- *
- * 768px, the same `md:` breakpoint the rail's own classes switch on. Below it
- * the rail overlays the text, because a 224px rail inside a phone-width dialog
- * would leave the page about a hundred pixels to render in.
- */
+// The rail classes' `md:` breakpoint; below it the rail overlays the text.
 const isWide = () => window.matchMedia('(min-width: 768px)').matches;
 
-/**
- * The Help dialog's contents rail: whether it is open, opening a page from it,
- * and keeping the heading the frame has reached in view.
- *
- * It opens beside the page on a wide dialog and starts closed on a narrow one,
- * where picking a page folds it away again.
- */
 export function useHelpContents(
   navigate: (next: string) => void,
   activeHash: string,
@@ -28,15 +15,12 @@ export function useHelpContents(
   const [contentsOpen, setContentsOpen] = useState(isWide);
   const activeRow = useRef<HTMLButtonElement>(null);
 
-  // Keep the current heading in view in the rail itself: on a long page the row
-  // the frame has reached can be scrolled out of the page list.
   useEffect(() => {
     activeRow.current?.scrollIntoView({ block: 'nearest' });
   }, [activeHash]);
 
   const toggleContents = useCallback(() => setContentsOpen((o) => !o), []);
 
-  /** Open a page from the rail, and on a phone get the rail out of the way. */
   const pick = useCallback(
     (next: string) => {
       navigate(next);

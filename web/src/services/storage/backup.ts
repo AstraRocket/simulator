@@ -1,13 +1,4 @@
-// A backup of everything the user keeps in this browser besides designs: one
-// JSON file to move to another browser or machine, or to keep.
-//
-// Designs are not in it: each one already saves as an `.ork`. Nor are the API
-// keys for third-party services (userKey.ts), which are the user's credentials
-// and do not belong in a file that gets passed around.
-//
-// Every entry read back goes through the same guard its store applies to what
-// it reads, so a hand-edited or damaged file costs the entries that are wrong,
-// counted as refused, and nothing else.
+// Security: API keys (userKey.ts) are never included; credentials do not belong in a shared file.
 import { APP_VERSION } from '../app/appInfo';
 import { KeyedError } from '../../i18n/keyedError';
 import { isMaterial, getMaterialStore, materialId } from '../materials/materialStore';
@@ -20,12 +11,9 @@ import { getMotorStore, isCustomMotor, type CustomMotor } from '../motors/motorS
 import { getTemplateStore, isUserTemplate, type UserTemplate } from '../exports/templateStore';
 import { settingsFrom, type Settings } from './settings';
 
-/** What the file says it is, so another JSON file is refused rather than half-read. */
 const BACKUP_FORMAT = 'astrarocket-backup';
-/** The layout version. A file from a newer layout is refused, not guessed at. */
 const BACKUP_VERSION = 1;
 
-/** Every library a backup can hold, in the order the dialog lists them. */
 export const BACKUP_LIBRARIES = ['materials', 'parts', 'locations', 'motors', 'templates', 'settings'] as const;
 export type BackupLibrary = (typeof BACKUP_LIBRARIES)[number];
 
@@ -37,7 +25,6 @@ interface BackupLists {
   templates: UserTemplate[];
 }
 
-/** A backup file's contents. A library left out of the backup is absent. */
 export type Backup = Partial<BackupLists> & {
   format: typeof BACKUP_FORMAT;
   version: number;
@@ -46,21 +33,19 @@ export type Backup = Partial<BackupLists> & {
   settings?: Settings;
 };
 
-/** A backup file as read: each library present, as the raw entries the file holds. */
+/** Entries are raw and unvalidated. */
 export interface ReadBackup {
   created: string;
   app: string;
   entries: Partial<Record<BackupLibrary, unknown[]>>;
 }
 
-/** What a restore did to one library. */
 export interface RestoreCount {
   added: number;
   replaced: number;
   refused: number;
 }
 
-/** The stored lists, read once for both the counts and the backup. */
 async function storedLists(): Promise<BackupLists> {
   const [materials, parts, locations, motors, templates] = await Promise.all([
     getMaterialStore().list(),
@@ -72,7 +57,6 @@ async function storedLists(): Promise<BackupLists> {
   return { materials, parts, locations, motors, templates };
 }
 
-/** How many entries each library holds now; the settings count as one. */
 export async function libraryCounts(): Promise<Record<BackupLibrary, number>> {
   const lists = await storedLists();
   return {
@@ -85,7 +69,6 @@ export async function libraryCounts(): Promise<Record<BackupLibrary, number>> {
   };
 }
 
-/** The backup file's text for the chosen libraries. */
 export async function makeBackup(
   which: ReadonlySet<BackupLibrary>,
   settings: Settings,
@@ -100,17 +83,12 @@ export async function makeBackup(
   };
   for (const lib of which) {
     if (lib === 'settings') backup.settings = settings;
-    // The `custom` flag is how the store marks what it reads back, not part of the material.
     else if (lib === 'materials') backup.materials = lists.materials.map(({ custom: _custom, ...m }) => m);
     else backup[lib] = lists[lib] as never;
   }
   return JSON.stringify(backup, null, 2);
 }
 
-/**
- * Read a backup file's text. Throws a keyed error for text that is not a
- * backup of this app, or one from a newer layout than this build reads.
- */
 export function readBackup(text: string): ReadBackup {
   let data: unknown;
   try {
@@ -142,7 +120,7 @@ export function readBackup(text: string): ReadBackup {
   };
 }
 
-/** The usable entries of a list, and how many were not. Later entries win over earlier ones of the same identity. */
+// delete then set moves a later duplicate to the end, so the later entry wins.
 function usable<T>(raw: unknown[], isItem: (v: unknown) => v is T, idOf: (item: T) => string) {
   const byId = new Map<string, T>();
   let refused = 0;
@@ -155,18 +133,8 @@ function usable<T>(raw: unknown[], isItem: (v: unknown) => v is T, idOf: (item: 
   return { items: [...byId.values()], refused };
 }
 
-/** A material's identity, as the material store keys it. */
 const materialKey = (m: Material) => materialId(m.name, m.type);
 
-/**
- * Merge the chosen libraries of a backup into this browser.
- *
- * Lists are merged: an entry with the identity of a stored one replaces it (a
- * material by type and name, a saved part by type, maker and part number,
- * anything else by its id) and the rest are added. The settings are replaced
- * as a whole, through `applySettings`, which is the settings provider's own
- * write so the open app follows them at once.
- */
 export async function restoreBackup(
   backup: ReadBackup,
   which: ReadonlySet<BackupLibrary>,
@@ -188,7 +156,6 @@ export async function restoreBackup(
       out.materials = count(items, refused, (m) => ids.has(materialKey(m)));
       await addCustomMaterials(items);
     } else if (lib === 'parts') {
-      // A part the picker could not list is refused, as saving one is.
       const { items, refused } = usable(
         raw,
         (v): v is CustomPart => isCustomPart(v) && customPartToRow(v) !== null,

@@ -17,7 +17,6 @@ import type { FlightResult, FlightSeries } from '../../../src/engine/openRocketE
 
 const series = (time: number[]) => ({ time, altitude: time.map((t) => t) }) as unknown as FlightSeries;
 
-/** One flight, optionally staged: `stages` names its branches. */
 const flight = (id: string, name: string, stages?: string[]): ChartFlight => ({
   id,
   name,
@@ -31,21 +30,12 @@ const flight = (id: string, name: string, stages?: string[]): ChartFlight => ({
 
 const stageLabel = (i: number, name?: string) => name || `Stage ${i + 1}`;
 
-/**
- * The lines drawn for one flight: one per branch.
- *
- * A staged rocket separates, and each stage flies its own trajectory on the same
- * launch clock. The Results tab shows one flight at a time (the picker chooses
- * which), so a trace is a branch rather than a (flight, branch) pair.
- */
 describe('buildTraces', () => {
   it('collapses an unstaged flight to one line', () => {
     const [only, ...rest] = buildTraces(flight('a', 'Simulation 1'), stageLabel);
     expect(rest).toEqual([]);
-    // Named for the stage, not the simulation: the pane heading already says
-    // which simulation this is.
     expect(only!.name).toBe('Stage 1');
-    expect(only!.color).toBe('var(--c-series-1)'); // the first series color
+    expect(only!.color).toBe('var(--c-series-1)');
   });
 
   it('gives each stage its own name and color', () => {
@@ -59,12 +49,6 @@ describe('buildTraces', () => {
     expect(traces.map((x) => x.name)).toEqual(['Stage 1', 'Stage 2']);
   });
 
-  /**
-   * The key carries the simulation id, not just the branch index, so switching
-   * the picker to another flight yields a different set of keys, which is what
-   * makes the chart reset its trace selection instead of carrying one flight's
-   * choice onto another's stages.
-   */
   it('keys a trace by its flight as well as its branch', () => {
     const a = buildTraces(flight('a', 'C6', ['S', 'B']), stageLabel).map((x) => x.key);
     const b = buildTraces(flight('b', 'D12', ['S', 'B']), stageLabel).map((x) => x.key);
@@ -76,14 +60,6 @@ describe('buildTraces', () => {
   });
 });
 
-/**
- * The saved panel choice.
- *
- * Which panels are open is a preference, so it survives a reload, and a
- * preference written by a different build can name a series this one does not
- * have. Dropping the unknown ones costs a panel; trusting them would put an
- * empty panel on screen, or blank the chart entirely.
- */
 describe('visibleSeries', () => {
   it('keeps the keys it knows', () => {
     expect(visibleSeries(['altitude', 'thrust'])).toEqual(['altitude', 'thrust']);
@@ -94,12 +70,10 @@ describe('visibleSeries', () => {
   });
 
   it('returns the panels in chart order, not the order they were saved in', () => {
-    // Otherwise the stack would follow the order the panels were ticked in.
     expect(visibleSeries(['mach', 'altitude'])).toEqual(['altitude', 'mach']);
   });
 
   it('allows an empty choice, which is every panel closed', () => {
-    // Deliberate rather than broken: the chips are how you get one back.
     expect(visibleSeries([])).toEqual([]);
   });
 
@@ -146,10 +120,6 @@ describe('the derived panels', () => {
   });
 });
 
-/**
- * q·α is a pressure times an angle, so its panel reads in the reader's pressure
- * unit times their angle unit rather than a fixed kPa·°.
- */
 describe('a product series', () => {
   it('takes its scale and label from both preferences', () => {
     const qa = SERIES.find((m) => m.key === 'qAlpha')!;
@@ -169,10 +139,6 @@ describe('the stability panel', () => {
   });
 });
 
-/**
- * Every other series a run records can be added as a panel of its own: named
- * and unit-grouped as the flight CSV names it, in the kernel table's order.
- */
 describe('the added panels', () => {
   const lines = (s: Record<string, unknown>) =>
     buildTraces(
@@ -225,10 +191,6 @@ describe('a temperature panel', () => {
   });
 });
 
-/**
- * A pair plots one series against another: saved as `xy:<y>:<x>`, drawn only
- * when the flight can fill both axes.
- */
 describe('the pairs', () => {
   const plain = SERIES.filter((m) => !m.xy);
 

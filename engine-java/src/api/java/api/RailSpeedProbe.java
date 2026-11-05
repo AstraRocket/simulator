@@ -7,30 +7,7 @@ import info.openrocket.core.simulation.exception.SimulationException;
 import info.openrocket.core.simulation.listeners.AbstractSimulationListener;
 import info.openrocket.core.util.CoordinateIF;
 
-/**
- * How long a launch rod or rail has to be for this rocket to leave it at a
- * given speed: the "rail length needed" figure.
- * <p>
- * It rides a probe flight of the same rocket, motors and conditions as the
- * real one, flown on a rod far longer than any real one. While the rocket is
- * held on the rod the probe's motion is the real flight's, step for step, so
- * the distance at which the kernel's speed first reaches the minimum is the
- * answer whether that happens inside the real rod's length or past it. The
- * real flight carries no listener for this; it stays byte-identical to
- * upstream, as {@link GuideClearanceListener} keeps the default flight.
- * <p>
- * The probe ends as soon as it has an answer: the speed reached, between the
- * two steps that straddle it, by straight-line interpolation of distance
- * against speed. It also ends once no motor is thrusting and the speed has
- * started to fall, because on a rod nothing else can push it faster again,
- * and that probe's answer is NaN: no rod is long enough.
- * <p>
- * The answer is a rod length, not a distance traveled. Upstream counts travel
- * against the whole rod, so for the default flight they are the same. With
- * guide-aware clearance the rocket stops being guided before its tail reaches
- * the rod's end, so the distance the guides leave unused is added back: the
- * rod that would let this rocket's guides carry it to the speed.
- */
+/** Runs on a separate probe flight so the real flight stays byte-identical to upstream; result is a rod length, not travel. */
 final class RailSpeedProbe extends AbstractSimulationListener {
 
 	private final double minSpeed;
@@ -44,32 +21,21 @@ final class RailSpeedProbe extends AbstractSimulationListener {
 	private double maxSpeed = 0;
 	private boolean done = false;
 
-	/**
-	 * The answer, in a one-slot holder rather than a field. The simulation
-	 * conditions clone their listeners, and the clone that flies is not this
-	 * object; a shallow clone shares the array, so whichever copy reaches the
-	 * answer writes it where {@link #railLength()} reads it.
-	 */
+	/** One-slot array, not a field: listeners are shallow-cloned and must share it. */
 	private final double[] result = { Double.NaN };
 
-	/**
-	 * @param minSpeed      the speed the rocket must have when it leaves the rod, m/s
-	 * @param guideAware    whether the flight uses guide-aware rod clearance
-	 * @param realRodLength the flight's own rod length, m, to measure the guides' offset on
-	 */
+	/** minSpeed in m/s, realRodLength in m. */
 	RailSpeedProbe(double minSpeed, boolean guideAware, double realRodLength) {
 		this.minSpeed = minSpeed;
 		this.guideAware = guideAware;
 		this.realRodLength = realRodLength;
 	}
 
-	/** A system listener: part of how the probe is run, not a user extension. */
 	@Override
 	public boolean isSystemListener() {
 		return true;
 	}
 
-	/** The rod length needed, m, or NaN when the rocket never reaches the speed on a rod. */
 	double railLength() {
 		return result[0];
 	}
@@ -77,7 +43,7 @@ final class RailSpeedProbe extends AbstractSimulationListener {
 	@Override
 	public void startSimulationBranch(SimulationStatus status) throws SimulationException {
 		if (origin != null) {
-			return; // only the first branch starts on the rod
+			return;
 		}
 		origin = status.getRocketPosition();
 		if (guideAware) {

@@ -13,12 +13,6 @@ import {
   TIP_SHAPE_CODES,
 } from '../../../src/services/files/rocksim/schema';
 
-/**
- * The `.rkt` reader and writer share one schema: each code table is held in
- * the reader's order and the writer's codes are built from it. The writer's
- * codes are pinned here to the ones desktop writes, and every token the writer
- * emits reads back as itself.
- */
 describe('the RockSim schema', () => {
   it('writes the codes desktop writes', () => {
     expect(Object.fromEntries(SHAPE_CODES)).toEqual({
@@ -29,8 +23,6 @@ describe('the RockSim schema', () => {
       parabolic: 5,
       haack: 6,
     });
-    // RockSim's four, and the app's other finishes at the nearest of them
-    // (`RockSimFinishCode.toCode`).
     expect(Object.fromEntries(FINISH_CODES)).toEqual({
       polished: 0,
       smooth: 1,

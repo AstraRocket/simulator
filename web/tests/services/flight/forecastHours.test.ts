@@ -5,7 +5,6 @@ const flown: SimPayload[] = [];
 vi.mock('../../../src/engine/simClient', () => ({
   simulateInWorker: vi.fn(async (payload: SimPayload) => {
     flown.push(payload);
-    // Land farther east the stronger the surface wind that hour, so each hour is told apart.
     const surface = payload.options.windLevels?.[0]?.speed ?? 0;
     return { series: { Px: [0, surface * 10], Py: [0, 5] } };
   }),
@@ -69,9 +68,7 @@ describe('flyForecastHours', () => {
     expect(hours.map((h) => h.offset)).toEqual([...HOUR_OFFSETS]);
     expect(hours.map((h) => h.validMs / 1000 - start)).toEqual([4, 5, 6, 7, 8].map((h) => h * 3600));
     expect(flown).toHaveLength(5);
-    // One seed for every hour, so turbulence does not pass for the wind changing.
     expect(new Set(flown.map((p) => p.options.randomSeed))).toEqual(new Set([42]));
-    // Only the applied groups are replaced: the wind and the atmosphere aloft, not the site temperature.
     for (const p of flown) {
       expect(p.options.windLevels?.length).toBeGreaterThan(1);
       expect(p.options.atmosphereLevels?.length).toBeGreaterThan(0);
@@ -96,8 +93,6 @@ describe('flyForecastHours', () => {
     expect(hours.map((h) => h.offset)).toEqual([-1, 0, 1, 2]);
   });
 
-  // The worker decides airframe-step warnings in this unit; it must arrive with
-  // each flight rather than be whatever the main thread last built with.
   it("sends the user's length unit with each flight", async () => {
     await flyForecastHours(
       {
@@ -162,7 +157,6 @@ describe('flyForecastHours when one hour fails', () => {
       const signal = opts?.signal;
       if (signal) signals.push(signal);
       if (flown.length === 1) return Promise.reject(new Error('hour failed'));
-      // The others hold their worker until canceled.
       return new Promise((_resolve, reject) => {
         signal?.addEventListener('abort', () => reject(new Error('canceled')), { once: true });
       });

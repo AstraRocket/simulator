@@ -15,13 +15,6 @@ import { getWorkspaceStore } from '../../src/services/storage/workspaceStore';
 import { appName } from '../../src/services/app/appInfo';
 import { renderWithProviders } from '../testing/renderWithProviders';
 
-/**
- * A first run in a language whose bundle lands after the app has mounted.
- * The store builds the default design as the app mounts, so its names are the
- * English fallback until the bundle is in; the design the user starts from,
- * and the one the first edit saves, is named in the user's language.
- */
-
 let release: () => void;
 const originalRead = localeBackend.read.bind(localeBackend);
 
@@ -30,8 +23,7 @@ const flush = async () => {
 };
 
 beforeEach(() => {
-  // Dropped from the store directly: `removeResourceBundle` also drops the
-  // namespace, after which nothing loads at all.
+  // Not `removeResourceBundle`: it also drops the namespace, and then nothing loads.
   delete (i18n.store.data as Record<string, unknown>).de;
   let pending: (() => void) | null = null;
   release = () => pending?.();
@@ -39,7 +31,6 @@ beforeEach(() => {
     pending = () => done(null, de);
   };
   void i18n.changeLanguage('de');
-  // The default design as the store builds it before the bundle lands.
   useWorkspaceStore.getState().resetWorkspace();
 });
 
@@ -57,7 +48,6 @@ function Host() {
 
 const s = () => useWorkspaceStore.getState();
 
-/** The German names, from the German bundle. */
 const german = () => ({
   design: de.app.designName.replace('{{name}}', appName()),
   stage: de.stageName.sustainer,

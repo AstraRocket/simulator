@@ -1,34 +1,9 @@
-/**
- * Open-Meteo: the weather for one launch site at one hour, as launch conditions.
- *
- * Requests go from the user's browser straight to Open-Meteo, through a
- * sandboxed frame (`anonymousGet`) so that they carry no `Origin` but `null`
- * and no `Referer`: nothing in them names this app or the site serving it.
- * There is no account, proxy or server of this app's in between. Without a key
- * the free tier answers, which Open-Meteo allows for non-commercial use. With
- * the user's key from a paid plan the same requests go to its `customer-` hosts
- * with `apikey`.
- *
- * The data is CC BY 4.0: the dialog shows the credit wherever it shows values.
- *
- * What is asked for, and why:
- *  - An elevation is always sent. Without one, Open-Meteo answers for its terrain
- *    model's height of the grid cell, and the surface pressure is for that
- *    height, not the pad's. See `requestElevations`.
- *  - `surface_pressure`, the pressure at that elevation, never `pressure_msl`.
- *  - `timeformat=unixtime` with `timezone=auto`; local times are made here with
- *    `Intl`, because the answer's `utc_offset_seconds` is today's offset stamped
- *    on every hour, even across a daylight saving change.
- *  - Units are requested explicitly and every unit in the answer is checked. A
- *    km/h wind read as m/s is 3.6 times the wind and nothing downstream could
- *    tell.
- */
+// Data is CC BY 4.0: the dialog must show the credit. Free tier is non-commercial only.
+// Use `surface_pressure`, never `pressure_msl`; `utc_offset_seconds` ignores DST, so local times come from `Intl`.
 
 import { AnonymousFetchError, anonymousGet } from './anonymousFetch';
 import { isFiniteNumber, roundTo, isRecord } from '../app/numbers';
 import { geometricFromGeopotential } from '../map/geodesy';
-
-// --------------------------------------------------------------- endpoints
 
 const FREE = {
   forecast: 'https://api.open-meteo.com',
@@ -41,34 +16,20 @@ const PAID = {
   geocoding: 'https://customer-geocoding-api.open-meteo.com',
 } as const;
 
-/** Each request's own deadline. Open-Meteo answers in well under a second. */
 const REQUEST_TIMEOUT_MS = 12_000;
 
-/**
- * Least time between two weather requests. One request asks for about a hundred
- * variables, which Open-Meteo counts as several calls, so this keeps a busy
- * user under the free tier's hourly limit. Desktop OpenRocket's client spaces
- * them the same way.
- */
+/** Keeps a busy user under the free tier's hourly limit, as desktop OpenRocket does. */
 const REQUEST_SPACING_MS = 5_000;
 
-/**
- * How long an answer is reused for the same request. The fastest model behind
- * a forecast publishes a new run once an hour, so a fetch within half an hour
- * of the last rarely has anything new to bring; `force` asks anyway.
- */
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
-/** The forecast endpoint's reach either side of today, in days. */
+/** Days. */
 const FORECAST_DAYS_BACK = 92;
 const FORECAST_DAYS_AHEAD = 15;
-/** The archive (ERA5 reanalysis) starts here. */
 const ARCHIVE_FIRST_DATE = '1940-01-01';
 
-/** Site and terrain within this many meters are the same pad (a 90 m terrain model). */
 const ELEVATION_AGREE_M = 30;
 
-/** Surface variables; the archive has these too. */
 export const SURFACE_VARS = [
   'temperature_2m',
   'relative_humidity_2m',
@@ -78,23 +39,17 @@ export const SURFACE_VARS = [
   'wind_gusts_10m',
 ] as const;
 
-/**
- * The sky, shown with the hour and never applied: nothing in a flight reads
- * cloud or visibility. Optional in the answer, so a model without them costs
- * the readout and not the fetch. The archive has cloud cover but no visibility.
- */
 export const SKY_VARS = ['cloud_cover', 'cloud_cover_low'] as const;
 export const FORECAST_SKY_VARS = ['visibility'] as const;
 
-/** Wind heights above ground the forecast reports, in meters. */
+/** Meters above ground. */
 const WIND_HEIGHTS = [80, 120, 180] as const;
 
-/** Open-Meteo's pressure levels, hPa, the same 19 desktop OpenRocket asks for. */
+/** hPa, the same 19 desktop OpenRocket asks for. */
 export const PRESSURE_LEVELS = [
   1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30,
 ] as const;
 
-/** Forecast-only variables: winds aloft and the atmosphere at each pressure level. */
 export const ALOFT_VARS = [
   ...WIND_HEIGHTS.flatMap((h) => [`wind_speed_${h}m`, `wind_direction_${h}m`]),
   ...PRESSURE_LEVELS.flatMap((p) => [
@@ -106,7 +61,6 @@ export const ALOFT_VARS = [
   ]),
 ];
 
-/** The unit every variable must arrive in, by its name. */
 export function unitFor(variable: string): string {
   if (variable === 'time') return 'unixtime';
   if (variable.startsWith('temperature_')) return '°C';
@@ -120,12 +74,6 @@ export function unitFor(variable: string): string {
   throw new Error(`no unit known for ${variable}`);
 }
 
-// ------------------------------------------------------------------- dates
-
-/**
- * An instant's date parts in `timeZone`, or in the browser's own zone when
- * `timeZone` is absent or one Intl does not know.
- */
 function partsInZone(
   ms: number,
   timeZone: string | undefined,
@@ -140,30 +88,22 @@ function partsInZone(
   }
 }
 
-/** "YYYY-MM-DD" of an instant on the calendar of `timeZone` (the browser's own when absent or unknown). */
 export function ymdInZone(ms: number, timeZone: string | undefined): string {
   const parts = partsInZone(ms, timeZone, { year: 'numeric', month: '2-digit', day: '2-digit' });
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
-/** Today on the browser's calendar, as "YYYY-MM-DD". */
 export const todayYmd = (): string => ymdInZone(Date.now(), undefined);
 
-/** An hour from now: the default forecast time, so the hour picked is not already past. */
 const nextHourMs = (): number => Date.now() + 3_600_000;
 
-/** The hour (0 to 23) of an instant on the calendar of `timeZone`. */
 function hourInZone(ms: number, timeZone: string | undefined): number {
   const parts = partsInZone(ms, timeZone, { hour: '2-digit', hourCycle: 'h23' });
   return Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
 }
 
-/**
- * The default forecast date and hour, an hour from now on the browser's
- * calendar. Both come from one instant, so a call just before midnight cannot
- * pair today's date with the hour after it.
- */
+/** One instant for both, so near midnight the date and hour cannot disagree. */
 export function forecastStart(): { date: string; hour: number } {
   const at = nextHourMs();
   return { date: ymdInZone(at, undefined), hour: hourInZone(at, undefined) };
@@ -181,7 +121,6 @@ function parseYmd(ymd: string): { y: number; m: number; d: number } | null {
   return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d ? { y, m: mo, d } : null;
 }
 
-/** `ymd` moved by `days` calendar days. */
 function addDaysYmd(ymd: string, days: number): string {
   const p = parseYmd(ymd);
   if (!p) return ymd;
@@ -196,12 +135,7 @@ type DateRefusalReason = 'tooFarAhead' | 'tooEarly' | 'badDate';
 export type DateWindow =
   { ok: true; endpoint: Endpoint; startDate: string; endDate: string } | { ok: false; reason: DateRefusalReason };
 
-/**
- * Which endpoint answers for `date`, and the dates to ask it for: the day
- * either side as well, clamped to the endpoint's reach, so every hour of the
- * site's calendar day is in the answer whatever the zone. Both dates are on the
- * site's calendar, as is `today`.
- */
+/** Asks for the day either side too, so every hour of the site's day is covered whatever the zone. */
 export function planDateWindow(date: string, today: string): DateWindow {
   if (!parseYmd(date) || !parseYmd(today)) return { ok: false, reason: 'badDate' };
   const last = addDaysYmd(today, FORECAST_DAYS_AHEAD);
@@ -227,20 +161,12 @@ export function planDateWindow(date: string, today: string): DateWindow {
   };
 }
 
-// -------------------------------------------------------------------- URLs
-
-/** Coordinates to 3 decimals (about 100 m), finer than any grid answering. */
 const dp3 = (x: number) => x.toFixed(3);
-/** An elevation to 0.1 m; the answer echoes it and is checked against it. */
 const elev = (m: number) => String(roundTo(m, 1));
 
 const keyParam = (apiKey: string | undefined) => (apiKey ? `&apikey=${encodeURIComponent(apiKey)}` : '');
 
-/**
- * The forecast or archive request: one place at one or two elevations, a
- * three-day window. Two elevations ask for the same point twice, which
- * Open-Meteo answers as an array in request order.
- */
+/** Two elevations repeat the point; Open-Meteo answers an array in request order. */
 export function forecastUrl(q: {
   endpoint: Endpoint;
   latitudeDeg: number;
@@ -268,26 +194,18 @@ export function forecastUrl(q: {
   );
 }
 
-/** The terrain model's ground height at each point, in one request. */
 function elevationUrl(points: readonly { latitudeDeg: number; longitudeDeg: number }[], apiKey?: string): string {
   const latitudes = points.map((p) => dp3(p.latitudeDeg)).join(',');
   const longitudes = points.map((p) => dp3(p.longitudeDeg)).join(',');
   return `${(apiKey ? PAID : FREE).forecast}/v1/elevation?latitude=${latitudes}&longitude=${longitudes}${keyParam(apiKey)}`;
 }
 
-/** A 2xx answer. */
 const ok = (status: number): boolean => status >= 200 && status < 300;
-
-// ------------------------------------------------------------------ errors
 
 export type WeatherErrorKind =
   'offline' | 'timeout' | 'aborted' | 'refused' | 'badKey' | 'quota' | 'http' | 'shape' | 'units' | 'noData';
 
-/**
- * A failed lookup. `detail` is Open-Meteo's own words for `refused` and `http`,
- * which the user is shown; for `shape` and `units` it is an English note on
- * the offending value, for the logs only.
- */
+/** `detail` for `shape` and `units` is an English log note, never shown. */
 export class WeatherError extends Error {
   readonly kind: WeatherErrorKind;
   readonly detail: string | undefined;
@@ -299,21 +217,14 @@ export class WeatherError extends Error {
   }
 }
 
-// ------------------------------------------------------------------ parsing
-
 const geometricOrNull = (z: number | null): number | null => (z === null ? null : geometricFromGeopotential(z));
 
-/** A unit as the answer gave it, for an error message. */
 const unitText = (u: unknown): string => (u === undefined ? 'no unit' : typeof u === 'string' ? u : JSON.stringify(u));
 
-/** One pressure level at one hour. Null means missing, never zero. */
+/** Null means missing, never zero. */
 interface PressureLevelSample {
   pressureHPa: number;
-  /**
-   * Meters above sea level, geometric: the answer's geopotential height
-   * converted, since the kernel's atmosphere reads every altitude as geometric.
-   * Left as geopotential it sat about 22 m low at 200 hPa and 90 m low at 30 hPa.
-   */
+  /** Geometric MSL, not geopotential: the kernel reads every altitude as geometric. */
   altitudeM: number | null;
   temperatureC: number | null;
   humidityPct: number | null;
@@ -321,40 +232,31 @@ interface PressureLevelSample {
   windFromDeg: number | null;
 }
 
-/** One hour of one elevation's answer. Null means missing, never zero. */
+/** Null means missing, never zero. */
 export interface HourSample {
   unix: number;
   temperatureC: number | null;
   humidityPct: number | null;
   pressureHPa: number | null;
   windSpeed: number | null;
-  /** The strongest gust in the hour before `unix`. */
   windGust: number | null;
-  /** The direction the 10 m wind blows from, compass degrees, as the kernel takes it. */
+  /** Compass degrees the wind blows from. */
   windFromDeg: number | null;
-  /** Wind at 80, 120 and 180 m above ground; empty from the archive. */
   heightWinds: { heightM: number; speed: number | null; fromDeg: number | null }[];
-  /** Empty from the archive. */
   levels: PressureLevelSample[];
-  /** Cloud cover, all levels and low, %; shown, never applied. */
   cloudCoverPct: number | null;
   cloudCoverLowPct: number | null;
-  /** Horizontal visibility, m; forecast only. */
   visibilityM: number | null;
 }
 
-/** One elevation's answer. */
 export interface ForecastVariant {
-  /** The elevation asked for, as the answer echoed it (m). */
   elevationM: number;
-  /** The site's IANA zone, from `timezone=auto`. */
   timezone: string | null;
   samples: HourSample[];
 }
 
 const finiteOrNull = (x: unknown): number | null => (isFiniteNumber(x) ? x : null);
 
-/** Open-Meteo's own refusal, `{"error": true, "reason": "..."}`, or null. */
 function refusalReason(body: unknown): string | null {
   const one: unknown = Array.isArray(body) ? body[0] : body;
   return isRecord(one) && one['error'] === true
@@ -364,15 +266,7 @@ function refusalReason(body: unknown): string | null {
     : null;
 }
 
-/**
- * A forecast or archive answer, checked: an array with one element per
- * requested elevation, or a single object for one.
- *
- * Throws `WeatherError`: `refused` for Open-Meteo's error body, `units` for a
- * variable in another unit than asked, `shape` for a wrong element count, a
- * ragged series or an elevation that does not echo the one asked for, and
- * `noData` when nothing at all came back for the surface.
- */
+/** Open-Meteo answers a single object, not an array, for one elevation. */
 export function parseForecast(body: unknown, elevationsM: readonly number[]): ForecastVariant[] {
   const reason = refusalReason(body);
   if (reason !== null) throw new WeatherError('refused', reason);
@@ -398,7 +292,6 @@ export function parseForecast(body: unknown, elevationsM: readonly number[]): Fo
     if (!Array.isArray(time) || time.some((t) => finiteOrNull(t) === null)) {
       throw new WeatherError('shape', 'no usable hours');
     }
-    /** A whole series, checked for length; a variable the answer lacks reads as all missing. */
     const series = (v: string, required: boolean): (number | null)[] => {
       const a = h[v];
       if (a === undefined && !required) return time.map(() => null);
@@ -454,61 +347,39 @@ export function parseForecast(body: unknown, elevationsM: readonly number[]): Fo
   return variants;
 }
 
-/** Most points one elevation request carries; Open-Meteo refuses more. */
+/** Open-Meteo refuses more points per elevation request. */
 const ELEVATION_BATCH = 100;
 
-/** The terrain heights for several points, in request order, as an elevation answer gives them. */
 function parseElevations(body: unknown, count: number): number[] | null {
   if (!isRecord(body) || !Array.isArray(body['elevation']) || body['elevation'].length !== count) return null;
   const out = body['elevation'].map(finiteOrNull);
   return out.every((e): e is number => e !== null) ? out : null;
 }
 
-/** The terrain model's ground height from an elevation answer, to 1 m, or null. */
 function parseElevation(body: unknown): number | null {
   if (!isRecord(body) || !Array.isArray(body['elevation'])) return null;
   const e = finiteOrNull(body['elevation'][0]);
   return e === null ? null : Math.round(e);
 }
 
-/**
- * The elevations to ask the forecast for. The site altitude the flight flies is
- * always one; the terrain model's ground height is the other when the two
- * disagree by more than the model's own noise, so the dialog can offer it.
- */
 export function requestElevations(siteM: number, terrainM: number | null): number[] {
   if (terrainM === null || Math.abs(siteM - terrainM) <= ELEVATION_AGREE_M) return [siteM];
   return [siteM, terrainM];
 }
 
-// ---------------------------------------------------------------- fetching
-
 export interface FetchOpts {
   signal?: AbortSignal;
-  /** Injected in tests; the browser's fetch otherwise. */
   fetchImpl?: typeof fetch;
-  /** Injected in tests; real time otherwise. */
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
-  /** Ask Open-Meteo even when a reusable answer is held, and hold the new one. */
   force?: boolean;
 }
 
-/**
- * No browser cache (a stale forecast served as fresh is the worst failure
- * here), no cookies, no referrer. Used only by an injected `fetchImpl`; the
- * app's own requests go through `anonymousGet`, which also drops the origin.
- */
 const REQUEST: RequestInit = { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' };
 
-/**
- * How a request without an injected `fetchImpl` is made. The sandboxed frame,
- * so that nothing in the request names this app or its site; replaced only by
- * tests, whose DOM does not run the frame's script.
- */
+/** Replaced only by tests: jsdom does not run the frame's script. */
 let transport: ((url: string, signal: AbortSignal) => Promise<{ status: number; text: string }>) | null = null;
 
-/** Route requests through `fetchImpl` instead of the sandboxed frame, or back with null. A test seam. */
 export function setWeatherTransport(fetchImpl: typeof fetch | null): void {
   transport = fetchImpl
     ? async (url, signal) => {
@@ -552,7 +423,6 @@ async function getJson(url: string, o: FetchOpts): Promise<{ status: number; jso
   }
 }
 
-/** A non-2xx answer as a `WeatherError`, in Open-Meteo's words where it gave any. */
 function httpError(status: number, json: unknown): WeatherError {
   const reason =
     refusalReason(json) ?? (isRecord(json) && typeof json['reason'] === 'string' ? json['reason'] : undefined);
@@ -562,11 +432,9 @@ function httpError(status: number, json: unknown): WeatherError {
   return new WeatherError('http', `${status}${reason ? `: ${reason}` : ''}`);
 }
 
-/** Successful answers, by URL, reused for `CACHE_TTL_MS`. */
 const answers = new Map<string, { at: number; value: unknown }>();
 let nextSlot = 0;
 
-/** Forget reused answers and the request spacing. A test seam over this module's state; the app never needs it. */
 export function resetWeatherState(): void {
   answers.clear();
   nextSlot = 0;
@@ -581,7 +449,6 @@ async function cached<T>(url: string, o: FetchOpts, load: () => Promise<T>): Pro
   return value;
 }
 
-/** Wait for this request's turn under `REQUEST_SPACING_MS`. */
 async function spaced(o: FetchOpts): Promise<void> {
   const now = (o.now ?? Date.now)();
   const slot = Math.max(now, nextSlot);
@@ -590,7 +457,6 @@ async function spaced(o: FetchOpts): Promise<void> {
   if (o.signal?.aborted) throw new WeatherError('aborted');
 }
 
-/** The terrain height, or null on any failure but a cancel: it is advice, not data. */
 export async function fetchElevation(
   latitudeDeg: number,
   longitudeDeg: number,
@@ -611,32 +477,18 @@ export async function fetchElevation(
   }
 }
 
-/** One place a name or postal code search found. */
 export interface PlaceMatch {
   name: string;
-  /** State, province or region, where Open-Meteo gives one. */
   region: string | null;
   country: string | null;
   latitudeDeg: number;
   longitudeDeg: number;
-  /** Ground height from Open-Meteo's terrain model; null where it gives none. */
   elevationM: number | null;
 }
 
-/** How many matches a search asks for. */
 const PLACE_MATCHES = 10;
 
-/**
- * Places matching a name or a postal code, from Open-Meteo's geocoding (whose
- * places come from GeoNames, CC BY 4.0). Same transport as the weather, so the
- * request names neither this app nor its site, and the same free or paid host.
- *
- * Not spaced like the weather requests: a search is one small call a person
- * makes by hand, and the geocoding service is counted apart from the forecast.
- * Throws `WeatherError`, as the weather calls do.
- *
- * @param language two-letter code for the place names, e.g. `en`
- */
+/** Geocoding data is GeoNames, CC BY 4.0. */
 export async function searchPlaces(
   query: string,
   language: string,
@@ -653,7 +505,7 @@ export async function searchPlaces(
   });
 }
 
-/** The matches in a geocoding answer. No `results` at all is Open-Meteo's "nothing found". */
+/** A missing `results` is Open-Meteo's "nothing found". */
 function parsePlaces(json: unknown): PlaceMatch[] {
   if (!isRecord(json)) throw new WeatherError('shape', 'not an object');
   const results = json['results'];
@@ -680,11 +532,6 @@ function parsePlaces(json: unknown): PlaceMatch[] {
   });
 }
 
-/**
- * The terrain model's ground height at many points (meters above sea level),
- * in batches of `ELEVATION_BATCH`. Throws `WeatherError` when any batch fails:
- * a ground surface with holes in it is not one to land a rocket on.
- */
 export async function fetchElevations(
   points: readonly { latitudeDeg: number; longitudeDeg: number }[],
   apiKey: string | undefined,
@@ -706,29 +553,17 @@ export async function fetchElevations(
   return out;
 }
 
-/** Everything one Fetch brings back. */
 export interface WeatherAnswer {
   endpoint: Endpoint;
-  /** The site-calendar date asked about. */
   date: string;
-  /** The terrain model's ground height, or null when it could not be had. */
   terrainM: number | null;
-  /** The elevations asked for; `variants` matches it index for index. */
   elevationsM: number[];
   variants: ForecastVariant[];
-  /** The site's zone: the answer's own, else the browser's. */
   timezone: string;
-  /** When Open-Meteo answered (ms since the epoch); a reused answer keeps its own time. */
   fetchedAtMs: number;
-  /** The answer was held from an earlier fetch rather than asked for now. */
   reused: boolean;
 }
 
-/**
- * One Fetch: the date checked first (a refused date costs no request), then the
- * terrain height, then one forecast request at the elevation(s)
- * `requestElevations` picks.
- */
 export async function fetchWeather(
   q: { latitudeDeg: number; longitudeDeg: number; siteM: number; date: string; today: string; apiKey?: string },
   o: FetchOpts = {},
@@ -758,7 +593,6 @@ export async function fetchWeather(
   return { endpoint: w.endpoint, date: q.date, terrainM, elevationsM, variants, timezone, fetchedAtMs, reused: !asked };
 }
 
-/** The sample for `hour` (0 to 23) of `date` on the site's calendar, or null. */
 export function sampleAt(variant: ForecastVariant, timezone: string, date: string, hour: number): HourSample | null {
   return (
     variant.samples.find(
@@ -767,13 +601,9 @@ export function sampleAt(variant: ForecastVariant, timezone: string, date: strin
   );
 }
 
-/**
- * The hours a launch-window spread takes, relative to the chosen forecast hour:
- * two either side of it, the chosen hour included.
- */
 export const HOUR_OFFSETS = [-2, -1, 0, 1, 2] as const;
 
-/** The sample for the hour starting at `unix` (seconds), or null. */
+/** `unix` in seconds. */
 export function sampleAtUnix(variant: ForecastVariant, unix: number): HourSample | null {
   return variant.samples.find((s) => s.unix === unix) ?? null;
 }

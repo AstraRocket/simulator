@@ -2521,7 +2521,8 @@
     "tool_chute": "Parachute dimensioneren",
     "tool_flutter": "Vinflutter",
     "tool_ejection": "Uitwerplading",
-    "tool_exhaust": "Uitlaatbeelden"
+    "tool_exhaust": "Uitlaatbeelden",
+    "tool_motors": "Motoroverzicht"
   },
   "chuteTool": {
     "title": "Parachute dimensioneren",

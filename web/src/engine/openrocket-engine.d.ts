@@ -1,7 +1,6 @@
-/** Ambient types for the vendored TeaVM engine artifact (see engine-java/). */
 declare module '*openrocket-engine.mjs' {
   export function reset(): void;
-  /** Releases one handle; throws for an unknown one. reset() releases them all. */
+  /** Throws for an unknown handle. */
   export function free(handle: number): void;
   export function newRocket(): number;
   export function buildRocket(treeJson: string): number;

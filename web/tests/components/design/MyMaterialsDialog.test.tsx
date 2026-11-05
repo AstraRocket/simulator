@@ -10,13 +10,6 @@ import { useWorkspaceStore } from '../../../src/state/store';
 import { useConfirmStore } from '../../../src/state/confirmStore';
 import { serveData } from '../../testing/serveData';
 
-/**
- * Custom Materials: desktop's Preferences ▸ Custom materials table
- * (`MaterialEditPanel` in 24.12) as a list beside an editor. The rules behind
- * each action are pinned in tests/services/materials/myMaterials.test.ts; this
- * holds the dialog to them.
- */
-
 let library: Material[] = [];
 
 const tube: ComponentNode = {

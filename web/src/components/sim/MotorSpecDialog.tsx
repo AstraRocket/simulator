@@ -12,23 +12,12 @@ import { withFixedUnit } from '../../i18n/format';
 import { motorName } from '../../services/motors/motorName';
 import { NoCurveNote } from './MotorPanelParts';
 
-/**
- * Read-only popup for the simulation's current motor: its (flown) thrust curve
- * and the specs derived from it. Works from the resolved MotorSpec, exactly the
- * curve the engine simulates, including whichever alternate curve was chosen.
- *
- * Mounted only while open (`{open && <MotorSpecDialog />}`), so there is no
- * `open` prop and nothing to reset on close.
- */
 export function MotorSpecDialog({ motor, onClose }: { motor: MotorSpec; onClose: () => void }) {
   const { t } = useTranslation();
   const u = useUnits();
 
   const samples = specSamples(motor);
-  // The burn and average are the kernel's (ThrustCurveMotor.computeStatistics:
-  // between the crossings of 5% of peak), as desktop's motor table shows them,
-  // and unknown until it has loaded rather than worked out another way. The
-  // impulse and peak are the curve's own either way.
+  // Burn and average are the kernel's (ThrustCurveMotor.computeStatistics).
   const engineReady = useEngineReady();
   const { impulse, max } = curveStats(samples);
   const kernel = engineReady ? motorStatistics(samples) : null;
@@ -36,7 +25,7 @@ export function MotorSpecDialog({ motor, onClose }: { motor: MotorSpec; onClose:
   const avg = kernel?.averageThrust ?? null;
   const init = initialThrust(samples);
   const g = withFixedUnit;
-  // MotorSpec is SI; `q` converts to the user's unit and appends its symbol.
+  // MotorSpec is SI.
   const q = (quantity: Parameters<typeof u.fmt>[0], si: number | null, d?: number) => inUserUnit(u, quantity, si, 1, d);
   const delay = ejectionDelayText(motor.ejectionDelay, t);
 
@@ -47,7 +36,6 @@ export function MotorSpecDialog({ motor, onClose }: { motor: MotorSpec; onClose:
       title={motorName(motor)}
       onClose={onClose}
       layout="pad"
-      // A thrust chart and up to ten stats. Worth widening on a big screen.
       size="lg"
     >
       {samples.length >= 2 ? <ThrustChart samples={samples} avg={avg} burn={burn} /> : <NoCurveNote />}

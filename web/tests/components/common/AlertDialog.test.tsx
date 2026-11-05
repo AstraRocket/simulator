@@ -4,21 +4,7 @@ import { fireEvent, within } from '@testing-library/react';
 import { AlertDialog } from '../../../src/components/common/AlertDialog';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * The shell behind the confirmation prompt and the work-in-progress notice.
- *
- * Both share one backdrop and heading scale, name themselves by their visible
- * heading with a generated id, describe their message to a screen reader, and
- * leave Escape to useFocusTrap rather than adding a window-level listener of
- * their own. These are those guarantees.
- */
-
-/**
- * Stock jsdom reports `offsetParent === null` for every element, so
- * useFocusTrap's visibility filter sees no focusable children and the focus
- * behavior under test here is invisible. A browser gives every laid-out element
- * an offsetParent.
- */
+// jsdom reports `offsetParent === null`, so useFocusTrap would see no focusable children.
 let offsetParent: PropertyDescriptor | undefined;
 beforeEach(() => {
   offsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
@@ -55,8 +41,6 @@ const backdrop = (dialog: HTMLElement) => dialog.parentElement!;
 describe('AlertDialog', () => {
   describe('what it announces', () => {
     it('names itself by its visible heading and DESCRIBES itself by its message', () => {
-      // The description is the half an alertdialog needs and a plain dialog does
-      // not: the message is what should be read out on arrival.
       const { dialog } = open();
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       expect(dialog.getAttribute('aria-label')).toBeNull();
@@ -70,8 +54,6 @@ describe('AlertDialog', () => {
     });
 
     it('gives two prompts on screen at once their own ids', () => {
-      // A hardcoded id is only safe while there is exactly one of these on the
-      // page.
       const r = renderWithProviders(
         <>
           <AlertDialog title="First" message="a" confirmLabel="ok" onConfirm={() => {}} />
@@ -83,9 +65,6 @@ describe('AlertDialog', () => {
     });
 
     it('stays a centered card on a phone instead of filling it', () => {
-      // `.dialog-panel` is what opts a surface into the full-bleed rules in
-      // index.css. A screen filled with two lines and a button is empty space,
-      // and one of these opens over a dialog that is full-screen there.
       const { dialog } = open();
       expect(dialog.className).not.toContain('dialog-panel');
       expect(backdrop(dialog).className).not.toContain('dialog-overlay');
@@ -124,8 +103,6 @@ describe('AlertDialog', () => {
     });
 
     it('is absent in every form for a prompt that must be acknowledged', () => {
-      // One prop decides all three, rather than three things the notice has to
-      // remember not to do.
       const { dialog, onConfirm } = open({ onCancel: undefined });
       expect(within(dialog).queryByText('Cancel')).toBeNull();
       fireEvent.keyDown(window, { key: 'Escape' });
@@ -135,8 +112,6 @@ describe('AlertDialog', () => {
     });
 
     it('swallows Escape rather than passing it to what is underneath', () => {
-      // A gate that blocks the app has to block the key too: letting it through
-      // would close the dialog behind it while the gate stayed up.
       const under = vi.fn();
       renderWithProviders(
         <>
@@ -157,9 +132,6 @@ describe('AlertDialog', () => {
 
   describe('the buttons', () => {
     it('focuses confirm, though cancel comes first in reading order', () => {
-      // The focus trap must not move focus to the first focusable child after
-      // React has honored `autoFocus`, or the focus ring sits on Cancel while
-      // Enter runs the destructive action.
       const { dialog } = open();
       const buttons = within(dialog).getAllByRole('button');
       expect(buttons.map((b) => b.textContent)).toEqual(['Cancel', 'Delete']);
@@ -190,7 +162,6 @@ describe('AlertDialog', () => {
     const { dialog } = open({ icon: '🚧' });
     const icon = within(dialog).getByText('🚧');
     expect(icon.getAttribute('aria-hidden')).toBe('true');
-    // Not inside the described message, so a screen reader gets the words only.
     expect(dialog.querySelector(`#${CSS.escape(dialog.getAttribute('aria-describedby')!)}`)!.contains(icon)).toBe(
       false,
     );

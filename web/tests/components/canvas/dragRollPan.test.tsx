@@ -6,13 +6,6 @@ import { AftView } from '../../../src/components/canvas/AftView';
 import { TreeSchematic } from '../../../src/components/canvas/TreeSchematic';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * A drag on the 2D drawings: at the fitted view it rolls the rocket, and once
- * zoomed in it pans, so a part a wheel zoom left off screen can be dragged
- * back. A touch the OS cancels ends the gesture, so the next move without a
- * press neither pans nor rolls.
- */
-
 const tree = {
   name: 'T',
   components: [
@@ -27,8 +20,7 @@ const tree = {
   ],
 } as unknown as RocketTree;
 
-// jsdom lays nothing out; both views read the svg's box to turn pixels into
-// their own units.
+// jsdom lays nothing out; both views read the svg's box to convert pixels.
 beforeEach(() => {
   vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockReturnValue({
     left: 0,
@@ -48,7 +40,6 @@ afterEach(() => {
 });
 
 const zoomIn = () => fireEvent.click(screen.getByLabelText(/^Zoom in/));
-/** The pan/zoom group's transform, which a pan moves. */
 const transform = (svg: Element) => svg.querySelector('g[transform]')!.getAttribute('transform');
 
 const drag = (svg: Element, dx: number) => {

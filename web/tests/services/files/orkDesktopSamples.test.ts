@@ -8,35 +8,7 @@ import { serveData } from '../../testing/serveData';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The `.ork` and `.rkt` files the app saves, through the store's own save
- * paths, for the default design and every bundled example opened and saved
- * again.
- *
- * Each file is checked here for what this side can see. With ORK_SAMPLES_DIR
- * set, the files are also written there, so `npm run check:ork` can open them
- * in the pinned desktop OpenRocket: `npm run audit` in web does that, because only
- * the desktop can say whether it accepts what the writers emit. The desktop's
- * GeneralRocketLoader reads a RockSim file as well as its own.
- *
- * Beside each file goes `<file>.kernel.json`: every part of the saved design as
- * the app's kernel holds it (`getComponentFields`), in tree order. The audit's
- * `fields` step opens the file in desktop and requires each part to come back
- * with the same values (`scripts/check-desktop-fields.mjs`), so a writer that
- * emits a number the app does not fly fails there.
- *
- * Beside each `.ork` goes `<file>.app.json`: its flight configurations and
- * simulations as the app wrote them (see `writeAppView`), which the `fields`
- * step compares with what desktop reads. Each bundled example also goes under
- * `source/` as it ships, beside what the app made of it on import, so desktop's
- * read of the file the app opened is compared too.
- *
- * The bundled examples use few of the fields a part can carry, so one more design
- * holds every part type, with the settings the writers have to spell out rather
- * than leave to a default: automatic sizes, repeated parts, a fin tab, shoulders,
- * a pod and a booster. Another sets what the default launch leaves alone (see
- * `conditionsWorkspace`).
- */
+// With ORK_SAMPLES_DIR set, files are written there for `npm run check:ork` to open in desktop.
 
 const saved = vi.hoisted(() => ({ archives: [] as Uint8Array[], inputs: [] as unknown[], rkt: [] as string[] }));
 vi.mock('../../../src/services/files/saveOrk', async (orig) => {
@@ -90,7 +62,7 @@ const s = () => useWorkspaceStore.getState();
 let engine: any;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/** Every part of a design with its depth, parents before their children, as the desktop iterates a rocket. */
+/** Parents before children, as the desktop iterates a rocket. */
 function inOrder(
   nodes: readonly ComponentNode[],
   depth = 0,
@@ -103,10 +75,6 @@ function inOrder(
   return out;
 }
 
-/**
- * How many parts a RockSim file writes this one as: a cluster's tubes and a pod
- * or booster set's members each become a part of their own (rktExport).
- */
 const rktCopies = (n: ComponentNode): number =>
   n.type === 'innertube'
     ? clusterCount(typeof n['cluster'] === 'string' ? n['cluster'] : undefined)
@@ -114,7 +82,6 @@ const rktCopies = (n: ComponentNode): number =>
       ? Number(n['instanceCount'] ?? 1)
       : 1;
 
-/** What the app's kernel holds for each part of the open design, for the desktop to be compared with. */
 function writeKernelFields(name: string): void {
   if (!OUT) return;
   const tree = s().tree;
@@ -128,19 +95,9 @@ function writeKernelFields(name: string): void {
   writeFileSync(join(OUT, `${name}.kernel.json`), JSON.stringify(parts));
 }
 
-/** What the app wrote for one configuration and one simulation, in the terms desktop reads them in. */
 type AppInput = Pick<OrkTreeExportInput, 'tree' | 'configs' | 'activeConfigId' | 'simulations'>;
 
-/**
- * Beside each `.ork`, `<file>.app.json`: every flight configuration and every
- * simulation as the app holds them, keyed the way `OrkFields` reads them back
- * from desktop (parts by their index in tree order, stages in tree order,
- * angles in radians, kelvin and pascal). The audit's `fields` step requires
- * desktop to read the same motors, recovery, staging and launch conditions
- * from the file. What 24.12 has no setting for (humidity, a forecast, the
- * gravity model, the recovery warning thresholds) is left out: desktop flies
- * its own, and `check:ork` names each warning it raises.
- */
+/** Keyed as `OrkFields` reads desktop: parts by tree index, radians, kelvin, pascal. */
 function writeAppView(name: string, input: AppInput): void {
   if (!OUT) return;
   const parts = inOrder(input.tree.components).map(({ node }) => node);
@@ -157,8 +114,6 @@ function writeAppView(name: string, input: AppInput): void {
         .map(([mount, m]: [string, OrkExportMotor]) => ({
           part: index(mount),
           designation: m.designation,
-          // Only a digest the app has: without one desktop picks by name, and
-          // `check:ork` reports a choice it had to make.
           ...(m.digest ? { digest: m.digest } : {}),
           ...(m.embedded ? { embedded: true } : {}),
           delay: m.delay >= PLUGGED_DELAY ? null : m.delay,
@@ -194,7 +149,6 @@ function writeAppView(name: string, input: AppInput): void {
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
-/** One simulation's launch, as the desktop's SimulationOptions getters state it. */
 function conditionsView(l: LaunchConditions, prefs: Partial<SimPrefs> | undefined): Record<string, unknown> {
   const isa = l.temperatureC === null && l.pressureHPa === null && l.relativeHumidity == null;
   const flown = l.windLevels ?? [];
@@ -218,8 +172,7 @@ function conditionsView(l: LaunchConditions, prefs: Partial<SimPrefs> | undefine
     windStdDev: l.windStdDev ?? 0,
     windDirection: rad(l.windDirectionDeg ?? DEFAULT_HEADING_DEG),
     windAltitudeReference: levels.length ? (l.windAltitudeReference ?? 'msl') : undefined,
-    // Desktop's multilevel model holds a level of its own when the file gives
-    // none, so only a profile the app has is compared.
+    // Desktop's multilevel model invents a level when the file gives none.
     windLevels: levels.length
       ? levels.map((w) => ({
           altitude: w.altitudeM,
@@ -231,7 +184,6 @@ function conditionsView(l: LaunchConditions, prefs: Partial<SimPrefs> | undefine
   };
 }
 
-/** The app's own reading of the open design, for desktop's read of the file it came from. */
 function importView(): AppInput {
   const st = s();
   return {
@@ -251,13 +203,11 @@ function importView(): AppInput {
   };
 }
 
-/** A part as the editor creates it, with the given settings on top. */
 const part = (type: ComponentNode['type'], patch: Partial<ComponentNode> = {}): ComponentNode => ({
   ...defaultNode(type),
   ...patch,
 });
 
-/** One of every part type, wide enough that an automatic size cannot match a default by chance. */
 function everyPart(): RocketTree {
   const body = part('bodytube', { length: 0.5, outerRadius: 0.05, outerRadiusAuto: false, thickness: 0.002 });
   body.children = [
@@ -267,12 +217,9 @@ function everyPart(): RocketTree {
       thickness: 0.0005,
       motorMount: true,
       motorOverhang: 0.005,
-      // The mount's own ignition, written bare in <motormount>, with a delay.
       ignitionEvent: 'burnout',
       ignitionDelay: 1.5,
     }),
-    // Off the axis, and not a mount (the file carries an overhang inside
-    // <motormount> only).
     part('innertube', { radialPosition: 0.01, radialDirection: 0.5, motorMount: false, motorOverhang: 0 }),
     part('centeringring', { instanceCount: 2 }),
     part('bulkhead', { position: { method: 'absolute', offset: 0.3 } }),
@@ -281,13 +228,11 @@ function everyPart(): RocketTree {
     part('launchlug', { instanceCount: 2, angleOffset: 1, instanceSeparation: 0.08 }),
     part('railbutton', { instanceCount: 2 }),
     part('parachute', { deployEvent: 'altitude', deployAltitude: 150, deployDelay: 1, comment: 'Main chute' }),
-    // Fires off the booster below this stage.
     part('streamer', { deployEvent: 'lower_stage_separation' }),
     part('shockcord'),
     part('masscomponent', { overrideCGX: 0.01 }),
     part('masscomponent', { mass: 0.05, massComponentType: 'altimeter' }),
     part('masscomponent', { mass: 0.02, massComponentType: 'battery', radiusAuto: true }),
-    // A pod carrying a body of its own with fins on it.
     {
       ...part('podset'),
       children: [
@@ -298,13 +243,10 @@ function everyPart(): RocketTree {
       ],
     },
   ];
-  // A part with its mass overridden and its CG left to the kernel, and one in
-  // a material of its own.
   body.overrideMass = 0.2;
   body.materialName = 'Fiberglass';
   body.density = 1850;
   const tail = part('bodytube', { length: 0.3, outerRadius: 0.04, outerRadiusAuto: false, thickness: 0.002 });
-  // A drag override, applied to the part alone.
   tail.overrideCD = 0.4;
   tail.children = [
     part('trapezoidfinset', {
@@ -319,12 +261,10 @@ function everyPart(): RocketTree {
     }),
     part('ellipticalfinset', { rotation: 0.4, crossSection: 'airfoil' }),
     part('freeformfinset', { rotation: 0.8 }),
-    // A stated tube fin radius, not the automatic one.
     part('tubefinset', { outerRadius: 0.01, outerRadiusAuto: false }),
     part('parallelstage'),
   ];
-  // A clippable shape with the clip off, placed after the part before it, and
-  // carrying a freeform fin set (Transition.isCompatible allows one).
+  // Transition.isCompatible allows a freeform fin set.
   const transition = part('transition', {
     shape: 'ellipsoid',
     clipped: false,
@@ -357,8 +297,6 @@ function everyPart(): RocketTree {
           }),
         ],
       },
-      // A booster whose mass and CG are stated for the whole stage, separating
-      // at burnout after a delay.
       {
         ...part('stage'),
         separationEvent: 'burnout',
@@ -373,11 +311,10 @@ function everyPart(): RocketTree {
   } as RocketTree);
 }
 
-/** Configuration ids as the app mints them: desktop reads any other string as a different id. */
+/** UUIDs, as the app mints them: desktop reads any other string as a different id. */
 const STAGED = '7d0c2f3e-5b8a-4c1d-9e6f-0a1b2c3d4e5f';
 const SINGLE = '1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9';
 
-/** A motor no catalog has, which the save embeds in the archive under its own digest. */
 const HOMEMADE: MotorSpec = {
   designation: 'X42',
   manufacturer: 'Homemade',
@@ -390,14 +327,6 @@ const HOMEMADE: MotorSpec = {
   masses: [0.026, 0.025, 0.02, 0.015, 0.0125],
 };
 
-/**
- * A two-stage design with two flight configurations and two simulations, each
- * setting what the default launch leaves alone: per-configuration motors with
- * their own ignition, a catalog motor and an embedded one, a deployment and a
- * separation override, a grounded booster, humidity with a custom site, a
- * forecast atmosphere, constant gravity and a multilevel wind measured above
- * the ground.
- */
 function conditionsWorkspace() {
   const st = s();
   const stock = Object.values(st.configs[0]!.motors)[0]!.spec;
@@ -476,12 +405,9 @@ function conditionsWorkspace() {
   return { tree, configs, sims, activeId: sims[0]!.id };
 }
 
-/** Save the open design the way File > Save does, returning the archive. */
 async function save(): Promise<Uint8Array> {
   saved.archives.length = 0;
   saved.inputs.length = 0;
-  // The store's live build, which the app always has by the time a design can
-  // be saved: the writer takes an automatic line or cord length from it.
   useWorkspaceStore.setState({ rocket: buildRocketTree(s().tree) });
   await s().saveOrk();
   expect(s().err).toBeNull();
@@ -489,11 +415,8 @@ async function save(): Promise<Uint8Array> {
   return saved.archives[0]!;
 }
 
-/** Save the open design the way File > Export > RockSim does, returning the XML. */
 async function saveRkt(): Promise<string> {
   saved.rkt.length = 0;
-  // The store's live build, which the app always has by the time a design can
-  // be exported: the writer takes a part's own mass and CG from it.
   useWorkspaceStore.setState({ rocket: buildRocketTree(s().tree) });
   await s().saveRkt();
   expect(saved.rkt).toHaveLength(1);
@@ -511,7 +434,6 @@ function check(name: string, archive: Uint8Array): void {
   const xml = strFromU8(unzipSync(archive)['rocket.ork']!);
   const doc = new DOMParser().parseFromString(xml, 'text/xml');
   expect(doc.querySelector('parsererror'), name).toBeNull();
-  // A motor with no name is one the desktop looks up and reports missing.
   for (const d of doc.querySelectorAll('motormount > motor > designation')) {
     expect(d.textContent, name).not.toBe('');
   }
@@ -519,12 +441,6 @@ function check(name: string, archive: Uint8Array): void {
   writeAppView(name, saved.inputs[0] as AppInput);
 }
 
-/**
- * The bundled example as it ships, under `source/`, beside what the app made
- * of it on import: the kernel's parts and the app's configurations and
- * simulations. The audit opens it in desktop too, so desktop's read of the
- * file and the app's import are compared directly, not only through a save.
- */
 function writeSource(f: string, bytes: Uint8Array): void {
   if (!OUT) return;
   mkdirSync(join(OUT, 'source'), { recursive: true });
@@ -573,8 +489,6 @@ describe('.ork files the app saves', () => {
     writeKernelFields('conditions.ork');
   });
 
-  // A file RockSim wrote, not one the app wrote: desktop's RockSim handlers
-  // read it under `source/`, so `rktImport` is compared with them directly.
   it('for the RockSim fixture, opened and saved', async () => {
     const f = 'rocksim.rkt';
     const bytes = readFileSync(join(EXAMPLES, '../../e2e/fixtures', f));

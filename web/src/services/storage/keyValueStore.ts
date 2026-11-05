@@ -1,53 +1,21 @@
 import { toError } from '../app/errorMessage';
-// The building block for client-side persistence: a small async key-value
-// interface plus a localStorage implementation. The domain stores (motors,
-// materials, parts, templates, launch locations) each hold one of these and can
-// be swapped independently for a different implementation (see motorStore.ts /
-// materialStore.ts).
-//
-// Async by design so a non-localStorage implementation can be dropped in
-// without reshaping callers; idbKeyValueStore.ts is that implementation and
-// the default for every store. This localStorage one serves as its
-// fallback for browsers where IndexedDB is blocked. The synchronous unload
-// journal in workspaceStore.ts calls `localStorage` directly, not through this.
 export interface KeyValueStore {
   get(key: string): Promise<string | null>;
-  /**
-   * As `get`, but rejects when the store could not be read, where `get`
-   * answers null. A caller that would act on "nothing stored" (clear a
-   * journal, seed an empty library) uses this to tell the two apart. Optional:
-   * a store without it reads through `get`.
-   */
+  /** Rejects on a failed read instead of answering null. */
   getChecked?(key: string): Promise<string | null>;
-  /** Persist `value`. Resolves `true` on success, `false` on failure (quota
-   *  exceeded, storage blocked). Best-effort callers ignore it; callers holding
-   *  the only copy of something (the workspace) check it to surface a warning. */
+  /** Resolves false when refused (quota, blocked). */
   set(key: string, value: string): Promise<boolean>;
   remove(key: string): Promise<void>;
-  /**
-   * Read, transform and write one key atomically.
-   *
-   * A plain `get` then `set` is a read-modify-write with an await in the
-   * middle, and this app is an installable PWA whose IndexedDB is shared
-   * across tabs. Two tabs saving a design both read index `[X]`, one writes
-   * `[A,X]`, the other writes `[B,X]`, and the first entry is gone: since
-   * `activeId()` filters against the index, that design becomes unreachable
-   * and its bytes are orphaned.
-   *
-   * `fn` receives the raw stored string (or null) and returns the raw string
-   * to store. Returning `null` removes the key. Resolves false if the write
-   * was refused, exactly like {@link set}.
-   */
+  /** Atomic across tabs; returning null removes the key. */
   update(key: string, fn: (raw: string | null) => string | null): Promise<boolean>;
 }
 
-/** Default implementation: the browser's localStorage (per-browser, per-origin). */
 export class LocalStorageKeyValueStore implements KeyValueStore {
   get(key: string): Promise<string | null> {
     try {
       return Promise.resolve(localStorage.getItem(key));
     } catch {
-      return Promise.resolve(null); // storage unavailable (private mode etc.)
+      return Promise.resolve(null);
     }
   }
 
@@ -64,7 +32,7 @@ export class LocalStorageKeyValueStore implements KeyValueStore {
       localStorage.setItem(key, value);
       return Promise.resolve(true);
     } catch {
-      return Promise.resolve(false); // quota exceeded / storage blocked
+      return Promise.resolve(false);
     }
   }
 
@@ -77,18 +45,13 @@ export class LocalStorageKeyValueStore implements KeyValueStore {
     return Promise.resolve();
   }
 
-  /**
-   * localStorage is synchronous, so the read and the write here cannot be
-   * interleaved by another task in this tab. Across tabs it is not atomic, but
-   * this implementation is only the degraded fallback for browsers where
-   * IndexedDB is blocked; the real store does it in one transaction.
-   */
+  /** Atomic within this tab only. */
   async update(key: string, fn: (raw: string | null) => string | null): Promise<boolean> {
     let current: string | null;
     try {
       current = localStorage.getItem(key);
     } catch {
-      return false; // storage unavailable (private mode etc.)
+      return false;
     }
     const next = fn(current);
     if (next === null) {

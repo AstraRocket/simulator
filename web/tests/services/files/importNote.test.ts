@@ -30,12 +30,6 @@ describe('importNoteText', () => {
   });
 });
 
-/**
- * A note is made when the file is opened and read whenever the banner shows
- * it, in whatever language the app is in by then. So a part's type name, a
- * translated extension name and the join of a list are all done when it is
- * read; made at import, they would stay in the language the file was opened in.
- */
 describe('a keyed note read in another language', () => {
   const inSpanish = async (read: () => string): Promise<string> => {
     await i18n.changeLanguage('es');
@@ -66,11 +60,6 @@ describe('a keyed note read in another language', () => {
   });
 });
 
-/**
- * Repeated parts raise no note: the side and 3D views draw every copy a part's
- * instance count makes (`lineInstances`, which both views map over), so there is
- * nothing the drawing leaves out to warn about.
- */
 describe('a file with repeated parts', () => {
   it('opens with no note about the copies, and every copy is drawn', () => {
     const { tree } = specToTree({

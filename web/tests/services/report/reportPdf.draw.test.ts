@@ -3,12 +3,6 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import type { ReportModel } from '../../../src/services/report/reportModel';
 import type { UnitSelection } from '../../../src/prefs/units';
 
-/**
- * What the PDF report draws, read from the calls it makes against a stand-in
- * jsPDF: every mark inside the page, templates and the ruler at 1:1, the
- * engine's figures printed as given, and each section present when chosen.
- */
-
 const calls: string[] = [];
 class FakeDoc {
   internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
@@ -20,11 +14,6 @@ class FakeDoc {
     calls.push(`splitTextToSize ${JSON.stringify([text, w])}`);
     return [text.slice(0, 40), text.slice(40)];
   }
-  /**
-   * Helvetica Bold capitals average about 0.65 em, so a column title wraps or
-   * shrinks here roughly where it does in the real document. Not logged:
-   * where the text lands is what the pin is for.
-   */
   getTextWidth(text: string): number {
     return text.length * 0.65 * this.fontSize * (25.4 / 72);
   }
@@ -71,9 +60,7 @@ const node = (o: object) => o as unknown as ComponentNode;
 
 const info = (scale: number) => ({
   length: 1.2 * scale,
-  // Shorter than `length`, as it is on any design with a non-aerodynamic part
-  // outside the aerodynamic envelope, so the drawn text distinguishes the
-  // engine's stabilityPercent (13.6) from the wrong (cp - cg) / length (12.5).
+  // Shorter than `length`, so stabilityPercent (13.6) differs from (cp - cg) / length (12.5).
   lengthAerodynamic: 1.1 * scale,
   mass: 1.5 * scale,
   massEmpty: 1.1 * scale,
@@ -327,15 +314,6 @@ const everything = {
   templateStroke: '#123456',
 };
 
-/**
- * The marking guide's own tree, kept apart from the report-wide one so its
- * awkward cases do not change what the other tests in this file draw:
- *
- * - a 98 mm tube, whose 308 mm wrap no page here can hold in one piece
- * - canted fins, which mark on a slant with their own dashed fore/aft lines
- * - a lug and a rail button consolidated onto the same strip as the fins
- * - a tube with a lug but no fins, which gets no strip and a footnote instead
- */
 const markingTree = {
   name: 'Marked',
   components: [
@@ -399,7 +377,6 @@ const markingModel = {
 } as unknown as ReportModel;
 
 type Call = { m: string; args: unknown[] };
-/** The drawing calls, each `method [args]`; the constructor and `output` lines are skipped. */
 const parsed = (): Call[] =>
   calls
     .filter((c) => c.includes(' ['))
@@ -408,7 +385,6 @@ const parsed = (): Call[] =>
       return { m: c.slice(0, i), args: JSON.parse(c.slice(i + 1)) as unknown[] };
     });
 const of = (m: string) => parsed().filter((c) => c.m === m);
-/** Every string `text` draws, a wrapped one joined back up. */
 const texts = () => of('text').map((c) => (Array.isArray(c.args[0]) ? c.args[0].join('') : String(c.args[0])));
 const colors = (m: string) => of(m).map((c) => JSON.stringify(c.args));
 const draw = async (opts: Partial<Parameters<typeof downloadReportPdf>[3]>, m = model, tr = tree, u = units) => {
@@ -417,7 +393,6 @@ const draw = async (opts: Partial<Parameters<typeof downloadReportPdf>[3]>, m = 
   await downloadReportPdf(m, tr, t, { ...everything, ...opts }, u);
 };
 
-/** Every text anchor and line end lies on the 210 x 297 mm page the stand-in reports. */
 function expectOnPage() {
   const inside = (x: unknown, y: unknown) =>
     (x as number) >= 0 && (x as number) <= 210 && (y as number) >= 0 && (y as number) <= 297;
@@ -430,8 +405,6 @@ function expectOnPage() {
 describe('the PDF report', () => {
   it('draws every section by stage, on the page, with the chosen template colors', async () => {
     await draw({});
-    // "-report", the way the design CSV beside it is "-design": a name says
-    // which rocket and which document, not only which rocket.
     expect(saved).toEqual(['Golden_Report_1_-report.pdf']);
     expect(calls[0]).toBe('new jsPDF {"unit":"mm","format":"a4","orientation":"portrait"}');
     expectOnPage();
@@ -445,7 +418,6 @@ describe('the PDF report', () => {
     // The engine's stabilityPercent, not (cp - cg) / length (12.5).
     expect(all).toContain('13.6%');
     expect(all).not.toContain('12.5%');
-    // The 70-row parts table runs onto pages of its own rather than off the bottom.
     expect(all).toContain('Ring 69');
     expect(of('addPage').length).toBeGreaterThan(2);
     expect(colors('setFillColor')).toContain('[255,204,0]');
@@ -466,11 +438,9 @@ describe('the PDF report', () => {
     });
     expect(calls[0]).toBe('new jsPDF {"unit":"mm","format":"letter","orientation":"landscape"}');
     expect(colors('setFillColor')).not.toContain('[255,204,0]');
-    // An unreadable stroke falls back to near-black.
     expect(colors('setDrawColor')).toContain('[17,24,39]');
     const all = texts();
     expect(all).not.toContain('Ring 0');
-    // The booster's 500 x 300 mm fin cannot print 1:1, so it is named, not shrunk.
     expect(all).toContain('report.tooLarge{"w":"500","h":"300"}');
   });
 
@@ -481,7 +451,6 @@ describe('the PDF report', () => {
       markingTree,
     );
     expectOnPage();
-    // The ruler is what a reader checks the print scale against: 100 mm long.
     const ruler = of('line').find(
       (c) => c.args[1] === c.args[3] && (c.args[2] as number) - (c.args[0] as number) === 100,
     );
@@ -489,7 +458,6 @@ describe('the PDF report', () => {
     const all = texts();
     expect(all).toContain('report.markingPart{"k":1,"n":2}');
     expect(all).toContain('report.markingPart{"k":2,"n":2}');
-    // The 3 degree cant prints its fin line on the slant.
     expect(of('text').some((c) => c.args[0] === 'Canted fins' && (c.args[3] as { angle?: number })?.angle === -3)).toBe(
       true,
     );

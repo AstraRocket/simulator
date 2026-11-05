@@ -1,45 +1,20 @@
-// Parser for RASP `.eng` motor files (the common thrust-curve exchange format).
-// A .eng file is one or more motors, each a header line followed by
-// "time thrust" data pairs, with comment lines starting with ';' anywhere.
-// Header fields (whitespace-separated):
-//
-//   designation  diameter(mm)  length(mm)  delays  propWeight(kg)  totalWeight(kg)  manufacturer
-//
-// e.g.  C6  18  70  0-3-5-7  0.0108  0.0242  Estes
-//
-// Every motor in the file is returned, as upstream's RASPMotorLoader returns
-// them; one bad motor refuses the whole file, as it does there.
+// RASP `.eng` header: designation diameter(mm) length(mm) delays propWeight(kg) totalWeight(kg) manufacturer.
+// As upstream's RASPMotorLoader, one bad motor refuses the whole file.
 import type { CustomMotor } from './motorStore';
-// The one impulse classifier, shared with the Motor Dashboard, so a motor gets
-// the same class on every screen (a 0.75 N-s MicroMaxx is a 1/2A, not an A).
 import { impulseClass } from './motorCombine';
-import { trapezoidImpulse } from './motorMath';
+import { totalImpulse } from './motorMath';
 import { removeDelay } from './rseParser';
 import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';
 import { delayList } from './motorPicker';
 import { KeyedError } from '../../i18n/keyedError';
 import { readDecimal } from '../files/numberText';
 
-/** Total impulse (Ns) of a thrust curve by the trapezoid rule. */
-export function totalImpulse(samples: { time: number; thrust: number }[]): number {
-  return trapezoidImpulse(
-    samples.map((s) => s.time),
-    samples.map((s) => s.thrust),
-  );
-}
-
-/** One non-blank, non-comment line and its 1-based line number in the file. */
 interface Line {
   text: string;
+  /** 1-based. */
   no: number;
 }
 
-/**
- * Every motor in a `.eng` file.
- *
- * A list, as `parseRse` returns: a RASP file can carry a manufacturer's range,
- * one header block per motor, and each header names its own motor.
- */
 export function parseEng(text: string): CustomMotor[] {
   const lines: Line[] = text
     .split(/\r?\n/)
@@ -57,32 +32,22 @@ export function parseEng(text: string): CustomMotor[] {
   return motors;
 }
 
-/** The motor whose header is `lines[at]`, and the index of the line after its data. */
 function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; next: number } {
   const header = lines[at]!.text.split(/\s+/);
   if (header.length < 7) {
     throw new KeyedError('errors.motorFile.engHeader');
   }
-  const [rawDesignation, diaS, lenS, delaysS, propS, totalS, ...mfr] = header;
-  // The delay comes off the name, as upstream's RASPMotorLoader and this app's
-  // .rse reader take it: `C6-5` is the C6, and the delay is carried in the
-  // delay field. Kept on, one motor would have two ids by file format and seat
-  // as `C6-5-5`.
-  const designation = removeDelay(rawDesignation!);
-  const diameter = readDecimal(diaS!);
-  const length = readDecimal(lenS!);
-  const propKg = readDecimal(propS!);
-  const totalKg = readDecimal(totalS!);
-  // The weights are checked as the grams they are stored in: 1e306 kg is
-  // finite, but its grams are not, and a stored Infinity fails the custom
-  // motor screen on the next load, so the motor would vanish without a word.
+  const [rawDesignation = '', diaS = '', lenS = '', delaysS, propS = '', totalS = '', ...mfr] = header;
+  // `C6-5` is the C6; kept on, it would seat as `C6-5-5`.
+  const designation = removeDelay(rawDesignation);
+  const diameter = readDecimal(diaS);
+  const length = readDecimal(lenS);
+  const propKg = readDecimal(propS);
+  const totalKg = readDecimal(totalS);
+  // Checked as stored grams: 1e306 kg is finite but its grams are not.
   if (![diameter, length, propKg * 1000, totalKg * 1000].every(Number.isFinite)) {
     throw new KeyedError('errors.motorFile.engHeaderNumbers');
   }
-  // Finite is not enough. `samplesToMotorSpec` rejects a non-positive diameter
-  // or length and a prop mass above the total, but not a negative prop mass:
-  // `masses = total - prop*(impulse/totalImpulse)` then makes the rocket gain
-  // mass as the motor burns.
   if (!(diameter > 0) || !(length > 0)) {
     throw new KeyedError('errors.motorFile.engHeaderSize');
   }
@@ -90,52 +55,32 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
     throw new KeyedError('errors.motorFile.engHeaderMass');
   }
 
-  // Through the shared reader, which is what the catalog's delay column is and
-  // the only form that can say plugged. `customToRow` reads `delayList` and
-  // nothing else, so a field that failed to parse here would reach the picker
-  // with no delays at all.
+  // `customToRow` reads only `delayList`, so the delays must go through it here.
   const delays = delayList(delaysS, 'rasp');
 
-  // A data line is a time and a thrust, and nothing else is tolerated inside
-  // the block. Upstream (`RASPMotorLoader`) refuses the whole file on anything
-  // else, and so does this: stopping at a bad line would import the fragment of
-  // a curve before it, which on a two-pulse motor flies the first pulse as the
-  // whole motor.
-  //
-  // The one line that legitimately ends the block is the next motor's header,
-  // which is why its 7 fields are the only non-data line that stops rather than
-  // throws (comments and blanks are already gone).
+  // Any non-data line refuses the file, as upstream; only a 7-field header ends the block.
   const raw: { time: number; thrust: number }[] = [];
   let i = at + 1;
   for (; i < lines.length; i++) {
     const line = lines[i]!;
     const fields = line.text.split(/\s+/);
-    if (fields.length >= 7) break; // the next motor's header
+    if (fields.length >= 7) break;
     const [t, f] = fields.map(readDecimal);
-    if (fields.length !== 2 || !Number.isFinite(t) || !Number.isFinite(f)) {
+    if (fields.length !== 2 || t === undefined || f === undefined || !Number.isFinite(t) || !Number.isFinite(f)) {
       throw new KeyedError('errors.motorFile.engDataLine', { line: line.no, text: line.text });
     }
-    // ThrustCurveMotor refuses a negative thrust, and a negative time, which
-    // gets a zero point put ahead of it and so runs backward. The bridge
-    // builds every seated motor through it, so the file is refused here as
-    // desktop drops it.
-    if (f! < 0) throw new KeyedError('errors.motorFile.engNegativeThrust', { motor: designation, line: line.no });
-    if (f! > MAX_THRUST_N) throw new KeyedError('errors.motorFile.engThrustTooHigh', { motor: designation, line: line.no });
-    if (t! < 0) throw new KeyedError('errors.motorFile.engNegativeTime', { motor: designation, line: line.no });
-    // The ceiling `.rse` is held to, counted as the lines are read so a huge
-    // file is refused before its samples are all in memory.
+    if (f < 0) throw new KeyedError('errors.motorFile.engNegativeThrust', { motor: designation, line: line.no });
+    if (f > MAX_THRUST_N)
+      throw new KeyedError('errors.motorFile.engThrustTooHigh', { motor: designation, line: line.no });
+    if (t < 0) throw new KeyedError('errors.motorFile.engNegativeTime', { motor: designation, line: line.no });
     if (raw.length >= MAX_CURVE_SAMPLES) {
       throw new KeyedError('errors.motorFile.engTooManyPoints', { motor: designation, max: MAX_CURVE_SAMPLES });
     }
-    raw.push({ time: t!, thrust: f! });
+    raw.push({ time: t, thrust: f });
   }
-  // Finalized before anything is read from it, as desktop's RASPMotorLoader
-  // and the .rse reader do: a curve that opens at (0.05 s, 40 N) gains its
-  // ramp from zero, and the impulse, class and burn time count it.
+  // Finalized first, as desktop, so impulse, class and burn time count the added ramp from zero.
   const samples = finalizeCurve(raw);
   if (samples.length < 2) throw new KeyedError('errors.motorFile.engNoCurve');
-  // A curve that is zero all the way along has no impulse: it would import as a
-  // motor that never leaves the pad, with nothing to say why.
   if (!samples.some((s) => s.thrust > 0)) {
     throw new KeyedError('errors.motorFile.engNoThrust', { motor: designation });
   }

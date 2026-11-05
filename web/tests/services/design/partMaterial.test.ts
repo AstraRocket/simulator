@@ -9,12 +9,7 @@ import {
 } from '../../../src/services/design/materialSlots';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The material a part flies, as every writer names it: the `.ork`, `.rkt` and
- * Onshape writers each decided it on their own, and disagreed on an empty name
- * (`custom`, an empty string, or an empty `<filletmaterial>` that desktop
- * refuses as an "Illegal material specification").
- */
+// Desktop refuses an empty `<filletmaterial>` as an "Illegal material specification".
 const node = (o: Record<string, unknown>) => o as unknown as ComponentNode;
 
 describe('statedMaterial', () => {

@@ -73,7 +73,7 @@ describe('design library', () => {
   it('lists most recently updated first', async () => {
     const a = await lib.create('A', ws('a'));
     await lib.create('B', ws('b'));
-    await lib.write(a.id, 'A', ws('a2')); // touching A floats it to the top
+    await lib.write(a.id, 'A', ws('a2'));
 
     expect((await lib.list()).map((m) => m.name)).toEqual(['A', 'B']);
   });
@@ -95,7 +95,6 @@ describe('design library', () => {
   it('does not leave the active id pointing at a deleted design', async () => {
     const a = await lib.create('A', ws('a'));
     await lib.remove(a.id);
-    // Otherwise the app opens a workspace it cannot save back to.
     expect(await lib.activeId()).toBeNull();
   });
 
@@ -105,14 +104,6 @@ describe('design library', () => {
     expect(await lib.activeId()).toBeNull();
   });
 
-  /**
-   * A create whose pointer write is refused must leave nothing behind.
-   *
-   * The caller (workspaceStore.save) still has no active id after the throw,
-   * so its next autosave creates again. A half-done create that kept its
-   * indexed design would add one identical row to the library per retry, one
-   * every 500 ms for as long as the pointer write kept failing.
-   */
   it('rolls back a create whose active-pointer write is refused', async () => {
     const realSet = kv.set.bind(kv);
     kv.set = async (k: string, v: string) => (k.endsWith(':active') ? false : realSet(k, v));
@@ -127,16 +118,10 @@ describe('design library', () => {
   });
 
   it('reports a refused INDEX write too, not just the design blob', async () => {
-    // The index write is not survivable, even though the design itself is stored:
-    // activeId() filters against the index, so a design missing from it is
-    // unreachable, a new one vanishes, and the next session opens empty over
-    // orphaned bytes. Fail the write so workspaceStore.save() can raise
-    // "storage full".
     const a = await lib.create('A', ws('a'));
     let calls = 0;
     const realSet = kv.set.bind(kv);
     kv.set = async (k: string, v: string) => {
-      // Let the design blob through, refuse only the index that follows it.
       calls += 1;
       return k.endsWith(':index') && calls > 1 ? false : realSet(k, v);
     };
@@ -152,12 +137,6 @@ describe('design library', () => {
 });
 
 describe('creating a design', () => {
-  /**
-   * `create()` must not discard the boolean `write()` returns and fall back to a
-   * fabricated meta, which resolves cleanly for a design that was never stored.
-   * This is the path the first save of a session takes, when there is no other copy
-   * yet.
-   */
   it('throws instead of reporting success for a create the store refused', async () => {
     kv.full = true;
     await expect(lib.create('Doomed', ws('doomed'))).rejects.toThrow(/storage-full/);

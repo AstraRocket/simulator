@@ -8,13 +8,13 @@ import es from '../../../src/i18n/locales/es.json';
 describe('sig4 (4 significant figures, plain decimal)', () => {
   it('rounds and strips trailing zeros', () => {
     expect(sig4(0.425)).toBe('0.425');
-    expect(sig4(17)).toBe('17'); // 17.00 → 17
+    expect(sig4(17)).toBe('17');
     expect(sig4(5.024)).toBe('5.024');
     expect(sig4(29.53)).toBe('29.53');
   });
   it('keeps 4 sig figs for large numbers (no extra precision)', () => {
     expect(sig4(2499)).toBe('2499');
-    expect(sig4(24993)).toBe('24990'); // rounded to 4 sig figs, not 24993
+    expect(sig4(24993)).toBe('24990');
   });
   it('handles tiny values without an exponent', () => {
     expect(sig4(0.0000093)).toBe('0.0000093');
@@ -30,9 +30,6 @@ describe('sig4 (4 significant figures, plain decimal)', () => {
 const info = (o: Partial<StaticInfo>): StaticInfo =>
   ({
     length: 0.425,
-    // Deliberately shorter than `length`, so a percentage computed over the
-    // wrong denominator reads 29.6 rather than 31.5 and the assertion below
-    // tells the two apart.
     lengthAerodynamic: 0.4,
     refDiameter: 0.025,
     mass: 0.0481,
@@ -68,13 +65,12 @@ describe('buildDesignInfo', () => {
     const f = fields(di.groups[0]!.stats);
     expect(f['Length']).toMatchObject({ value: '0.425', unit: 'm' });
     expect(f['Max Diameter']).toMatchObject({ value: '0.025', unit: 'm' });
-    expect(f['Fineness (L/D)']).toMatchObject({ value: '17', unit: '' }); // 0.425 / 0.025
+    expect(f['Fineness (L/D)']).toMatchObject({ value: '17', unit: '' });
     expect(f['Drag Coeff. (Ma 0.3)']).toMatchObject({ value: '0.84', unit: '' });
     expect(f['Normal-Force Slope (CNα)']).toMatchObject({ unit: '1/rad' });
     expect(f['Roll Inertia (Loaded)']).toMatchObject({ unit: 'kg*m^2' });
     expect(f['CP']).toBeDefined();
-    // The kernel's own figure, verbatim, over the aerodynamic length;
-    // (cp - cg) / length would be 29.65.
+    // Over the aerodynamic length; (cp - cg) / length would be 29.65.
     expect(f['Stability (%)']).toMatchObject({ value: '31.5', unit: '%' });
   });
 
@@ -92,7 +88,6 @@ describe('buildDesignInfo', () => {
     expect(di.groups.map((g) => g.scope)).toEqual(['rocket', 'stage', 'stage']);
     expect(di.groups[1]).toMatchObject({ scope: 'stage', stageNumber: 0, name: 'Sustainer' });
     expect(di.groups[2]).toMatchObject({ scope: 'stage', stageNumber: 1, name: 'Booster' });
-    // Per-stage builds carry no drag sweep → no Drag Coeff. row.
     expect(fields(di.groups[1]!.stats)['Drag Coeff. (Ma 0.3)']).toBeUndefined();
   });
 
@@ -105,7 +100,7 @@ describe('buildDesignInfo', () => {
       }),
     );
     const f = fields(di.groups[0]!.stats);
-    expect(f['Length']).toBeDefined(); // still emitted
+    expect(f['Length']).toBeDefined();
     expect(f['CP']).toBeUndefined();
     expect(f['Stability (on pad)']).toBeUndefined();
     expect(f['Stability (%)']).toBeUndefined();
@@ -129,7 +124,7 @@ describe('buildDesignInfo', () => {
         ],
       }),
     );
-    expect(di.finsets.map((f) => f.name)).toEqual(['Fins #1', 'Fins #2', 'Solo']); // unique name kept as-is
+    expect(di.finsets.map((f) => f.name)).toEqual(['Fins #1', 'Fins #2', 'Solo']);
     expect(di.finsets[0]).toMatchObject({ stageNumber: 0, stage: 'Sustainer', topX: 0.35, bottomX: 0.4 });
   });
 

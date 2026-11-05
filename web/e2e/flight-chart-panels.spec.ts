@@ -1,12 +1,5 @@
 import { test, expect, openTab, ready, runFlight } from './base';
 
-/**
- * The flight chart's own controls, in a real browser: the velocity-against-
- * altitude panel, expanding one panel to the pane, and the run table download
- * on the Simulations tab. The series math is unit-tested; what only a browser
- * shows is that the controls reach the panels they are drawn on.
- */
-
 test('a panel expands to the pane and gives the others back', async ({ page }) => {
   await ready(page);
   await runFlight(page);
@@ -36,8 +29,7 @@ test('the run table downloads every simulation as CSV', async ({ page }) => {
   expect(file.suggestedFilename()).toMatch(/run-table\.csv$/);
   const text = await (await file.createReadStream()).toArray();
   const raw = Buffer.concat(text).toString('utf8');
-  // A CSV download starts with a UTF-8 byte-order mark, so Excel on Windows
-  // reads the units and accented headings as UTF-8.
+  // A BOM, so Excel on Windows reads the units and accents as UTF-8.
   expect(raw.startsWith('﻿')).toBe(true);
   const csv = raw.slice(1);
   expect(csv.split('\r\n')[0]).toMatch(/^Simulation,Configuration,Motors,Status,Apogee \(/);
@@ -45,11 +37,6 @@ test('the run table downloads every simulation as CSV', async ({ page }) => {
 });
 
 test('the Results tab does not scroll the page', async ({ page }) => {
-  // The summary column scrolls, and the flight events CSV button in it carries
-  // an absolutely positioned sr-only label. Without a positioned ancestor inside
-  // the scroller that label was laid out against the page at its unscrolled
-  // offset, so the document grew past the viewport and the whole shell scrolled,
-  // header off the top and an empty band under the panes.
   await page.setViewportSize({ width: 1328, height: 600 });
   await ready(page);
   await runFlight(page);

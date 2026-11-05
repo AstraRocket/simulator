@@ -10,18 +10,16 @@ describe('tubeFinRadius', () => {
   });
 
   it('auto-sizes only when outerRadius is absent', () => {
-    // finCount 6: r = R·sin(π/6)/(1−sin(π/6)) = R·0.5/0.5 = R
     expect(tubeFinRadius(node({ finCount: 6 }), 0.024)).toBeCloseTo(0.024);
     // A stored zero is what TubeFinSet.setOuterRadius keeps (finPlanform.kernel.test.ts).
     expect(tubeFinRadius(node({ outerRadius: 0, finCount: 6 }), 0.024)).toBe(0);
   });
 
   it('defaults finCount to 6 when unspecified', () => {
-    expect(tubeFinRadius(node({}), 0.024)).toBeCloseTo(0.024); // 6 tubes ⇒ r = body radius
+    expect(tubeFinRadius(node({}), 0.024)).toBeCloseTo(0.024);
   });
 
   it('auto-sizes larger counts smaller (touching tubes)', () => {
-    // finCount 8: r = R·sin(π/8)/(1−sin(π/8))
     const s = Math.sin(Math.PI / 8);
     expect(tubeFinRadius(node({ finCount: 8 }), 0.05)).toBeCloseTo((0.05 * s) / (1 - s));
   });
@@ -63,10 +61,6 @@ describe('tubeFinMaxCount', () => {
 });
 
 describe('tubeFinRadius numeric guard', () => {
-  // A hand-rolled `typeof x === 'number' && x > 0` lets Infinity through,
-  // which propagates to the schematic's scale and collapses the drawing to
-  // nothing. `numOpt` carries the Number.isFinite guard nodeProps documents as
-  // load-bearing, so a non-finite radius falls back to the auto rule instead.
   it('ignores a non-finite explicit radius and falls back to the auto rule', () => {
     const auto = tubeFinRadius({ type: 'tubefinset', finCount: 6 } as unknown as ComponentNode, 0.012);
     for (const bad of [Number.POSITIVE_INFINITY, Number.NaN]) {
@@ -82,14 +76,7 @@ describe('tubeFinRadius numeric guard', () => {
   });
 });
 
-/**
- * The fin-set predicates.
- *
- * `<tubefinset>` ends in "finset" but `TubeFinSet extends Tube`, not FinSet,
- * so OpenRocket's `instanceof FinSet` excludes it and a string match would not.
- * A string match would draw a cutting template, a fin in the report silhouette
- * and a root span for a part that is a tube.
- */
+// `TubeFinSet extends Tube`, not FinSet, though its name ends in "finset".
 describe('isFinSet / isPlanarFinSet', () => {
   const PLANAR = ['trapezoidfinset', 'ellipticalfinset', 'freeformfinset'];
 

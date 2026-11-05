@@ -9,24 +9,15 @@ import { impulseClass } from '../motors/motorCombine';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
 import type { LaunchConditions } from '../design/orkTree';
 
-/**
- * What the flight card (`FlightCard`, on the Results tab) is filled in from: one simulation, the configuration
- * it flies, and the design. It is for the range table, so everything here is
- * what a flyer flies and is asked about, with the stage each piece is in.
- */
 export interface LaunchMotor {
-  /** The stage's index, top first, and its own name ('' when unnamed). */
   stageIndex: number;
   stageName: string;
-  /** The mount as named in the design ('' when unnamed), and its type. */
   mount: { name: string; type: string };
   spec: MotorSpec;
-  /** Copies flown from this mount: cluster positions, pods. */
   count: number;
-  /** One motor's total impulse (N·s) and class letter. */
+  /** One motor's, N·s. */
   impulseNs: number;
   impulseClass: string;
-  /** The ejection delay (s), or null for a motor flown plugged. */
   delayS: number | null;
 }
 
@@ -35,46 +26,33 @@ export interface LaunchDevice {
   stageName: string;
   node: ComponentNode;
   role: ChargeRole;
-  /** When it opens on this flight: the configuration's override, else the design's. */
   deployEvent: string;
   deployAltitudeM: number;
   deployDelayS: number;
-  /** A parachute's canopy diameter (m); null for a streamer. */
   diameterM: number | null;
 }
 
-/** The certification a flight needs, by the total impulse it puts on the pad. */
 export type CertLevel = 0 | 1 | 2 | 3;
 
 export interface LaunchDocs {
   designName: string;
   simName: string;
   configName: string;
-  /** The flight was flown from inputs other than the current ones. */
   outdated: boolean;
-  /**
-   * The rocket as the live build weighs it, or null when the simulation flies
-   * a configuration other than the one built, whose mass and CG these are not.
-   */
+  /** Null when the simulation flies a configuration other than the one built. */
   info: StaticInfo | null;
   motors: LaunchMotor[];
-  /** Every motor's impulse times its copies (N·s), and the class it adds up to. */
+  /** N·s, counting copies. */
   installedImpulseNs: number;
   installedClass: string;
   certLevel: CertLevel;
-  /** The flight's figures, or null when it has not been flown. */
   flight: FlightSummary | null;
   launch: Pick<LaunchConditions, 'launchRodLengthM' | 'launchRodAngleDeg' | 'windAverage'>;
   devices: LaunchDevice[];
   charges: ChargeRow[];
 }
 
-/**
- * The certification level a flyer needs, from the total impulse on the pad:
- * up to G (160 N·s) none, H and I (to 640 N·s) Level 1, J to L (to 5,120 N·s)
- * Level 2, above that Level 3. NAR and Tripoli both rate a cluster or a staged
- * rocket by the total of its motors.
- */
+// NAR and Tripoli rate clusters and staged rockets by total installed impulse, not per motor.
 export function certLevel(installedNs: number): CertLevel {
   if (installedNs <= 160) return 0;
   if (installedNs <= 640) return 1;
@@ -101,7 +79,7 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
     .map((stage, stageIndex) => ({ stage, stageIndex }))
     .filter(({ stage }) => !grounded.has(stage.id as string));
 
-  // Copies per seated motor, matched by the spec the configuration seats.
+  // Matched by spec object identity.
   const copies = new Map<MotorSpec, number>();
   for (const s of seatedMotors(tree, config)) copies.set(s.spec, (copies.get(s.spec) ?? 0) + s.count);
 

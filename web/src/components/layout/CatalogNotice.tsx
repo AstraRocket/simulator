@@ -3,18 +3,7 @@ import { fmtNum } from '../../i18n/format';
 import { useCatalogNoticeStore } from '../../state/catalogNoticeStore';
 import { Banner } from '../common/Banner';
 
-/**
- * "The motor catalog was updated" after the scheduled sync replaced a catalog
- * this browser had loaded before (services/app/catalogUpdates.ts).
- *
- * A banner under the header like the app-update one (UpdateToast), and for the
- * same reason not a modal: it arrives while the catalog loads in the
- * background, which can be in the middle of an edit. It says how many entries
- * are new and how many are gone, and stays until dismissed.
- *
- * The live region is always mounted; only its contents come and go (see
- * UpdateToast).
- */
+/** The live region stays mounted; only its contents come and go (see UpdateToast). */
 export function CatalogNotice() {
   const { t } = useTranslation();
   const changes = useCatalogNoticeStore((s) => s.changes);

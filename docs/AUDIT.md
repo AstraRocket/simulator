@@ -320,7 +320,7 @@ Not counted in the defects above. Grouped by rule.
 
 - `web/src/components/canvas/aeroTables.ts:57-59`: "A name the user typed is returned as typed" (see F14).
 - `web/tests/components/canvas/aeroHeat.test.ts:128`: titled "passes through a bare name" but asserts a split.
-- `web/src/components/canvas/EnvironmentView.tsx:300`: the jsx-a11y disable reason says the pane "holds nothing focusable", but it renders EnvironmentLanding's button (`EnvironmentLanding.tsx:160-169`).
+- `web/src/components/canvas/EnvironmentView.tsx:300`: the jsx-a11y disable reason says the pane "holds nothing focusable", but it renders EnvironmentLanding's button (`EnvironmentLanding.tsx:160-169`). **Fixed:** the reason now reads "most of what it shows holds nothing focusable".
 - `web/src/components/common/Stat.tsx:1`: "used by the stability, simulation and tool panels"; no tool panel imports it.
 - `web/src/components/design/MaterialPicker.tsx:121-123`: "selecting a different component unmounts this picker" (see F17).
 - `web/src/components/layout/SettingsTabs.tsx:451-455`, `web/src/components/sim/LaunchPanel.tsx:206-208`, `web/src/services/flight/requiredLaunch.ts:66-67`: "keeps what it had" / "fills blanks from the previous default" (see F21).

@@ -1,21 +1,11 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 
-/**
- * Owns the flight chart's hover crosshair time: the state itself, the
- * keyboard stepping (arrows, Shift for coarse, Home/End, Escape) and the
- * focus/blur seeding that makes the crosshair reachable without a mouse.
- * Pointer moves set it through `setHoverT` from FlightChart, after the zoom
- * hook has declined the event as a pan.
- */
 export function useChartCrosshair(t0: number, t1: number) {
   const [hoverT, setHoverT] = useState<number | null>(null);
-  // Where the keyboard last put the crosshair: what the chart's live region
-  // reads out. Pointer moves never set it, so hovering with a screen reader
-  // running does not queue an announcement per mouse sample.
+  // Live region text; pointer moves never set it, or hovering would queue an announcement per sample.
   const [keyT, setKeyT] = useState<number | null>(null);
   const clampT = (v: number) => Math.max(t0, Math.min(t1, v));
 
-  /** Arrow-key crosshair. Time is continuous here, so it steps by span. */
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const span = t1 - t0;
     if (!(span > 0)) return;
@@ -26,14 +16,13 @@ export function useChartCrosshair(t0: number, t1: number) {
     else if (e.key === 'Home') next = t0;
     else if (e.key === 'End') next = t1;
     else if (e.key === 'Escape') {
-      // Spent only when there was a crosshair to drop; a second Escape is left
-      // for the window, where it leaves the maximized layout.
+      // A second Escape is left for the window, which leaves the maximized layout.
       if (hoverT != null) e.preventDefault();
       setHoverT(null);
       setKeyT(null);
       return;
     } else return;
-    e.preventDefault(); // arrows would otherwise scroll the pane
+    e.preventDefault();
     setHoverT(clampT(next));
     setKeyT(clampT(next));
   };

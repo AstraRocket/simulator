@@ -46,7 +46,6 @@ const tree = {
   ],
 } as unknown as RocketTree;
 
-/** Parse the flat "code\nvalue\n" DXF stream into [code, value] pairs. */
 function pairs(dxf: string): Array<[string, string]> {
   const lines = dxf.split('\n');
   const out: Array<[string, string]> = [];
@@ -69,7 +68,7 @@ describe('per-component DXF export', () => {
         if (y) ys.push(Number(y[1]));
       }
     }
-    expect(ys.length).toBeGreaterThanOrEqual(6); // planform + tab corners
+    expect(ys.length).toBeGreaterThanOrEqual(6);
     expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(45, 0); // 40 mm span + 5 mm tab
   });
 
@@ -89,13 +88,7 @@ describe('per-component DXF export', () => {
   });
 
   it('exports a freeform fin with more points than a spread could carry', () => {
-    // The span must not be `Math.max(...outline.map(p => p.y))`: a spread
-    // becomes one argument per element, and past the engine's argument limit it
-    // throws "Maximum call stack size exceeded". The .ork reader stops at
-    // MAX_FIN_POINTS, but componentToDxf takes whatever tree it is handed.
-    // 200 000 points over a 60 mm chord, zig-zagged by 20 µm so that `dedupe`
-    // (which drops consecutive points within EPS) keeps every one of them -
-    // otherwise the outline collapses and never reaches the size in question.
+    // `Math.max(...spread)` throws past the engine's argument limit; the zig-zag keeps `dedupe` from collapsing it.
     const n = 200_000;
     const points = Array.from({ length: n }, (_, i) => {
       const f = i / (n - 1);
@@ -127,18 +120,13 @@ describe('per-component DXF export', () => {
   });
 
   it('returns null for parts that are not flat plate cuts', () => {
-    expect(componentToDxf(tree, 'nose')).toBeNull(); // a nose is not plate-cut
-    expect(componentToDxf(tree, 'coupler')).toBeNull(); // a tube, exports as a 3D solid
-    expect(componentToDxf(tree, 'eb')).toBeNull(); // an engine block is a tube too
+    expect(componentToDxf(tree, 'nose')).toBeNull();
+    expect(componentToDxf(tree, 'coupler')).toBeNull();
+    expect(componentToDxf(tree, 'eb')).toBeNull();
     expect(componentToDxf(tree, 'missing')).toBeNull();
   });
 });
 
-/**
- * The engine-block wall fallback comes from the one shared table that the .ork
- * reader and writer also use (0.005 m, the kernel's), so a block with no
- * <thickness> tag is read and cut at the same bore.
- */
 describe('resolveDisc uses the shared component defaults', () => {
   const bare = {
     components: [
@@ -176,7 +164,6 @@ describe('resolveDisc uses the shared component defaults', () => {
 });
 
 describe('the text layer', () => {
-  /** Every TEXT entity's string, in order. */
   const texts = (dxf: string) =>
     pairs(dxf)
       .map(([c, v], i, a) => (c === '0' && v === 'TEXT' ? a.slice(i, i + 7).find(([cc]) => cc === '1')?.[1] : null))
@@ -199,7 +186,7 @@ describe('the text layer', () => {
     const [name, dims] = texts(componentToDxf(tree, 'fins', i18n.t)!);
     const finName = i18n.t('export.dxf.cutCount', { name: i18n.t('export.dxf.trapezoidfinset'), qty: 4 });
     const finDims = i18n.t('export.dxf.finDims', { root: '60.0', span: '40.0', stock: '3.0' });
-    expect(finName).not.toBe(fold(finName)); // the French has accents to fold
+    expect(finName).not.toBe(fold(finName));
     expect(name).toBe(fold(finName));
     expect(dims).toBe(fold(finDims));
     expect(`${name}${dims}`).toMatch(/^[\x20-\x7e]+$/);
@@ -215,11 +202,6 @@ describe('the text layer', () => {
   });
 });
 
-/**
- * A DXF reader takes every value as a number, so a non-finite one (a bad
- * dimension off a hand-edited file) must never reach the file as "NaN" or
- * "Infinity": the other file writers guard theirs (`plainDecimal`).
- */
 describe('a non-finite dimension', () => {
   it('never writes NaN or Infinity into the file', () => {
     const bad = {
@@ -258,11 +240,6 @@ describe('a non-finite dimension', () => {
   });
 });
 
-/**
- * A ring on Automatic around a cluster or an offset mount is cut with a hole
- * where each tube really passes through it, not one centered bore the size of
- * one tube. A bore typed in by hand stays the centered hole asked for.
- */
 describe('centering ring holes for a cluster or offset mount', () => {
   const withMount = (mount: Record<string, unknown>, ring: Record<string, unknown> = {}) =>
     ({
@@ -287,7 +264,7 @@ describe('centering ring holes for a cluster or offset mount', () => {
       ],
     }) as unknown as RocketTree;
 
-  /** Every CIRCLE as [x, y, r] in mm, sheet offset taken off the outline's center. */
+  // [x, y, r] in mm, relative to the outline's center.
   const circles = (dxf: string): [number, number, number][] => {
     const all = pairs(dxf)
       .map(([c, v], i, a) => {
@@ -304,7 +281,6 @@ describe('centering ring holes for a cluster or offset mount', () => {
     const tree = withMount({ cluster: '3-ring' });
     const holes = circles(componentToDxf(tree, 'cr')!).filter(([, , r]) => r === 10);
     expect(holes).toHaveLength(3);
-    // Touching tubes of radius 10 mm: centers 20 mm apart, 20/√3 mm off the axis.
     for (const [x, y] of holes) expect(Math.hypot(x, y)).toBeCloseTo(20 / Math.sqrt(3), 2);
     expect(resolveDisc(tree, 'cr')!.holes).toHaveLength(3);
   });

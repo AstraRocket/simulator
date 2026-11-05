@@ -8,13 +8,7 @@ import {
   type LaunchLocationStore,
 } from '../../../src/services/storage/launchLocationStore';
 
-/**
- * The hook's ordering guard: a superseded read never overwrites a newer one.
- *
- * Not rendered under StrictMode here, unlike the component tests: the double
- * invoke would issue the mount read twice, and these tests count reads in order
- * to hold one of them open.
- */
+// No StrictMode: its double invoke would issue the mount read twice.
 
 const HOME: LaunchLocation = {
   id: 'home',
@@ -36,19 +30,11 @@ describe('useLocationList', () => {
   });
 
   it('starts as null, so an unread list is not an empty one', () => {
-    // The manage dialog shows "no saved locations yet" on an empty list, and would
-    // flash it at somebody with a dozen if unread read as empty.
     const { result } = renderHook(() => useLocationList());
     expect(result.current.locations).toBeNull();
   });
 
   it('drops a first read that lands after a later one', async () => {
-    // The case this guards: IndexedDB's initial open makes the first list() the
-    // slowest of the session. A location saved in the meantime refreshes and
-    // resolves first; unguarded, the stale answer would then land with the empty
-    // list it read before the save, and the dropdown would go blank over a
-    // database that has the location. Nothing retries, because nothing knows it
-    // is wrong.
     let landFirstRead!: (locations: LaunchLocation[]) => void;
     let reads = 0;
     const store: LaunchLocationStore = {
@@ -64,13 +50,11 @@ describe('useLocationList', () => {
     const { result } = renderHook(() => useLocationList());
     expect(result.current.locations).toBeNull();
 
-    // A save's refresh, issued while the mount read is still open.
     await act(async () => {
       await result.current.refresh();
     });
     expect(result.current.locations).toEqual([HOME]);
 
-    // The mount read lands last, with the list from before the save.
     await act(async () => {
       landFirstRead([]);
     });
@@ -78,8 +62,6 @@ describe('useLocationList', () => {
   });
 
   it('applies the newest read when they land in order', async () => {
-    // The guard drops a superseded answer, not every late one: a refresh after
-    // a delete still has to empty the list.
     let locations = [HOME];
     setLaunchLocationStore({ list: async () => locations, ...noWrites });
     const { result } = renderHook(() => useLocationList());
@@ -100,17 +82,10 @@ describe('useLocationList', () => {
       ...noWrites,
     });
     const { result } = renderHook(() => useLocationList());
-    // Not left at null forever: a blocked IndexedDB would otherwise leave the
-    // manage dialog showing nothing at all rather than "no saved locations yet".
     await waitFor(() => expect(result.current.locations).toEqual([]));
   });
 });
 
-/**
- * A store that cannot be read is not an empty one. Read as an empty list, the
- * dialog would say "no saved locations yet" over a database that has them;
- * the failure is reported instead, as Custom Materials reports its own.
- */
 describe('useLocationList when storage fails', () => {
   it('reports the failure rather than reading it as no locations', async () => {
     setLaunchLocationStore({

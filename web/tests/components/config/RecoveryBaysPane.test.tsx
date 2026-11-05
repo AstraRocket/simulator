@@ -142,7 +142,6 @@ describe('the Bays view', () => {
     t.components.push({ id: 'empty', type: 'stage', name: 'Empty', children: [] } as never);
     useWorkspaceStore.setState({ tree: t });
     renderWithProviders(<RecoveryBaysPane />);
-    // The same tube name in each stage, told apart by the stage card around it.
     const sustainer = screen.getByRole('region', { name: 'Sustainer' });
     const booster = screen.getByRole('region', { name: 'Booster' });
     expect(within(sustainer).getByRole('region', { name: 'Main bay: Upper' }).textContent).toMatch(/Holds Main\./);

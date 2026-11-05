@@ -1,32 +1,15 @@
 import type { GroundPoint } from '../flight/groundTrack';
 import { degToRad, radToDeg } from '../../prefs/units';
 
-/** The kernel's Earth radius (the WorldCoordinate constant), meters. */
+// The WorldCoordinate constant; differs from ISA_EARTH_RADIUS_M on purpose.
 export const KERNEL_EARTH_RADIUS_M = 6371000;
 
-/** The ISA reference Earth radius the kernel's atmosphere converts altitudes with (`ExtendedISAModel`), meters. */
+// `ExtendedISAModel`'s reference Earth radius.
 export const ISA_EARTH_RADIUS_M = 6356766;
 
-/**
- * A geopotential height as the geometric altitude the kernel flies, meters:
- * `ExtendedISAModel`'s own geopotential-to-geometric conversion.
- */
 export const geometricFromGeopotential = (z: number): number => (ISA_EARTH_RADIUS_M * z) / (ISA_EARTH_RADIUS_M - z);
 
-/**
- * A point `east`, `north` meters from a site, as latitude and longitude: a port
- * of the kernel's default SPHERICAL GeodeticComputationStrategy.addCoordinate,
- * the great-circle move along the bearing of the offset.
- *
- * Only for a point the kernel did not place. A simulated flight records its own
- * latitude and longitude (φ, λ) at every step with the Earth model the
- * simulation chose, and a view of that flight reads those (see
- * groundTrack.landingLatLon) rather than projecting the offset again.
- *
- * The result is a WorldCoordinate as the kernel builds one: latitude clamped to
- * [-90, 90] and longitude reduced to [-180, 180], so a move across the date
- * line comes out on the far side rather than past 180.
- */
+// Port of the kernel's SPHERICAL GeodeticComputationStrategy.addCoordinate.
 export function offsetToLatLon(latDeg: number, lonDeg: number, p: GroundPoint): { lat: number; lon: number } {
   const d = Math.hypot(p.east, p.north);
   const site = worldCoordinate(latDeg, lonDeg);
@@ -43,26 +26,18 @@ export function offsetToLatLon(latDeg: number, lonDeg: number, p: GroundPoint): 
   return worldCoordinate(radToDeg(lat), radToDeg(lon));
 }
 
-/**
- * Java's Math.rint: the nearest integer, a tie going to the even one, where
- * Math.round sends every tie up.
- */
+// Java's Math.rint: ties go to even, where Math.round sends them up.
 function rint(x: number): number {
   const r = Math.round(x);
   return r - x === 0.5 && r % 2 !== 0 ? r - 1 : r;
 }
 
-/**
- * Latitude and longitude as the WorldCoordinate constructor stores them: the
- * latitude clamped to [-90, 90] and the longitude reduced by MathUtil.reducePi,
- * which takes off the nearest whole turn. Done in degrees, so a point already
- * in range comes back unchanged.
- */
+// As the WorldCoordinate constructor stores them.
 function worldCoordinate(latDeg: number, lonDeg: number): { lat: number; lon: number } {
   return { lat: Math.min(90, Math.max(-90, latDeg)), lon: reduceLonDeg(lonDeg) };
 }
 
-/** A longitude, degrees, reduced to [-180, 180] as MathUtil.reducePi reduces it. */
+// As MathUtil.reducePi does.
 export function reduceLonDeg(lonDeg: number): number {
   return lonDeg - rint(lonDeg / 360) * 360;
 }

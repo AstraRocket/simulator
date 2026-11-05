@@ -6,14 +6,6 @@ import { TreePanel } from '../../../src/components/design/TreePanel';
 import { useWorkspaceStore } from '../../../src/state/store';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The Edit shortcuts act on the row the keyboard is on.
- *
- * Desktop's component tree is a Swing JTree, whose arrow keys move the
- * selection, so Ctrl+C after an arrow key copies the part the arrow reached.
- * Here the arrows move focus without selecting, so the shortcut has to target
- * the focused row, and selects it, as desktop's would be.
- */
 const TREE = {
   name: 'Test',
   components: [
@@ -33,8 +25,7 @@ const row = (name: RegExp) => screen.getByRole('treeitem', { name });
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = () => {};
-  // jsdom has no matchMedia; each row's export button asks it whether this is
-  // a desktop window (useCapability). Answer "desktop".
+  // jsdom has no matchMedia, which each row's export button queries (useCapability).
   window.matchMedia = ((query: string) => ({
     matches: true,
     media: query,

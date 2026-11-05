@@ -8,10 +8,6 @@ import i18n from '../../../src/i18n';
 
 const MB = 1024 * 1024;
 
-/**
- * The live region names the step, not the byte count. The count changes every
- * tenth of a megabyte, and a polite region re-reads itself on every change.
- */
 describe('EngineNotice', () => {
   const initial = useEngineStore.getState();
   afterEach(() => act(() => useEngineStore.setState(initial)));
@@ -33,7 +29,6 @@ describe('EngineNotice', () => {
       useEngineStore.setState({ status: { phase: 'downloading', loaded: 1.1 * MB, total: 2.3 * MB } as never }),
     );
     expect(screen.getByRole('status').textContent).toBe(said);
-    // The count is still on screen for the eye.
     expect(screen.getByText(/1\.1/)).toBeTruthy();
   });
 
@@ -44,8 +39,6 @@ describe('EngineNotice', () => {
     expect(screen.getByRole('button')).toBeTruthy();
   });
 
-  // Retry cannot recover a load whose only backend is the JS chunk, so the
-  // banner offers the reload that can, rather than a button that does nothing.
   it('offers a reload instead of a retry when a retry cannot recover the load', () => {
     const retry = vi.fn();
     const reload = vi.fn();

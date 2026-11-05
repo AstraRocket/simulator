@@ -13,7 +13,6 @@ describe('polylinePath', () => {
   });
 
   it('starts with M even when the first point is not finite', () => {
-    // A `d` that starts with L is invalid, and the browser drops the whole path.
     expect(
       polylinePath([
         [NaN, 1],
@@ -93,8 +92,6 @@ describe('areaPath', () => {
     ).toBe('M 0.0 9.0 L 1.0 5.0 L 2.0 3.0 L 4.0 9.0 Z');
   });
 
-  // The motor charts' area used to write a NaN point straight into the path,
-  // which drops the whole fill.
   it('leaves a non-finite sample out of a motor chart area', () => {
     const d = baselineArea(
       [

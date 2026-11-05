@@ -9,14 +9,14 @@ describe('chartScales', () => {
   const { X, Y } = chartScales(dims, 10, 20);
 
   it('maps t∈[0,tMax] across the padded plot width', () => {
-    expect(X(0)).toBe(10); // left pad
-    expect(X(10)).toBe(90); // width - padR
-    expect(X(5)).toBe(50); // midpoint
+    expect(X(0)).toBe(10);
+    expect(X(10)).toBe(90);
+    expect(X(5)).toBe(50);
   });
 
   it('maps f∈[0,fMax] up from the baseline (Y grows downward)', () => {
-    expect(Y(0)).toBe(90); // baseline at height - padB
-    expect(Y(20)).toBe(10); // fMax at top pad
+    expect(Y(0)).toBe(90);
+    expect(Y(20)).toBe(10);
     expect(Y(10)).toBe(50);
   });
 });
@@ -40,7 +40,6 @@ describe('baselineArea', () => {
       [0, 0],
       [10, 20],
     ];
-    // opens at baseline, traces the points, drops back to the baseline at tMax, closes
     expect(baselineArea(pts, X, Y, 10)).toBe('M 10.0 90.0 L 10.0 90.0 L 90.0 10.0 L 90.0 90.0 Z');
   });
   it('is empty for no points', () => {
@@ -59,8 +58,6 @@ describe('seriesFor', () => {
     ({ designation, curves: [{ src: 'cert', samples: curve }] }) as unknown as CatalogMotor;
   const without = (designation: string) => ({ designation }) as unknown as CatalogMotor;
 
-  // The combine pane colored by list position, so a curveless motor ahead of
-  // the others shifted every color from the compare pane's.
   it('colors only the motors with a curve, in order among them', () => {
     const lines = seriesFor([without('A1'), withCurve('B2'), withCurve('C3')]);
     expect(lines.map((l) => l.m.designation)).toEqual(['B2', 'C3']);

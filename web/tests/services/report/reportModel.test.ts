@@ -23,7 +23,6 @@ const stage = node({
   ],
 });
 
-// A mock engine handle: mass + positionX keyed by node id; a missing/unknown id throws.
 const rocket = {
   componentInfo: (id: string) => {
     const mass: Record<string, number> = { nose: 0.01, body: 0.02, fins: 0.005 };
@@ -41,7 +40,7 @@ describe('stageParts', () => {
   });
   it('indents nested parts by one depth level', () => {
     expect(rows.find((r) => r.type === 'bodytube')!.depth).toBe(0);
-    expect(rows.find((r) => r.type === 'trapezoidfinset')!.depth).toBe(1); // inside the body tube
+    expect(rows.find((r) => r.type === 'trapezoidfinset')!.depth).toBe(1);
   });
   it('pulls each part mass from the engine handle', () => {
     expect(rows.find((r) => r.name === 'Nose')!.mass).toBeCloseTo(0.01, 9);
@@ -74,7 +73,6 @@ describe('stageParts', () => {
   it('gives a fin set its root chord as its length, and its span', () => {
     const fins = rows.find((r) => r.type === 'trapezoidfinset')!;
     expect(fins.length).toBeCloseTo(0.05, 12);
-    // No height on record: the span is the bridge's 0.03 m default.
     expect(fins.span).toBeCloseTo(0.03, 12);
   });
   it('gives a part with no length the length the bridge builds it with, not 0', () => {
@@ -82,16 +80,12 @@ describe('stageParts', () => {
     expect(stageParts(s, rocket)[0]!.length).toBeCloseTo(KERNEL_DEFAULTS.bodytube.length, 12);
   });
   it('leaves mass 0 for a part the engine cannot weigh (no id / throw)', () => {
-    const s = node({ type: 'stage', children: [node({ type: 'masscomponent', name: 'Ballast' })] }); // no id
+    const s = node({ type: 'stage', children: [node({ type: 'masscomponent', name: 'Ballast' })] });
     expect(stageParts(s, rocket)[0]!.mass).toBe(0);
   });
 });
 
 describe('finSetPositions', () => {
-  // A swept freeform fin whose tip trailing corner overhangs the root: the root
-  // chord is 0.06 (the kernel's last.x - first.x), but the furthest-aft point is
-  // 0.09. `bottomX` from Math.max overstates the root trailing edge by the 30 mm
-  // of overhang.
   it('spans a swept freeform fin by its ROOT chord, not its aftmost point', () => {
     const swept = node({
       type: 'stage',
@@ -127,11 +121,9 @@ describe('finSetPositions', () => {
     expect(sets).toHaveLength(1);
     expect(sets[0]!.name).toBe('Fins');
     expect(sets[0]!.topX).toBeCloseTo(0.25, 9);
-    expect(sets[0]!.bottomX).toBeCloseTo(0.3, 9); // 0.25 + 0.05 rootChord
+    expect(sets[0]!.bottomX).toBeCloseTo(0.3, 9);
   });
-  // The overhanging case: the outline reaches 0.06 aft, but the root runs
-  // first.x -> last.x = 0.04, which is what the kernel flies
-  // (FreeformFinSet.length = last.x - first.x), not `Math.max(...xs)`.
+  // FreeformFinSet.length = last.x - first.x (0.04), not the outline's 0.06.
   it('uses a freeform fin ROOT chord, not the outline max-x, as the root length', () => {
     const s = node({
       type: 'stage',
@@ -149,14 +141,14 @@ describe('finSetPositions', () => {
       ],
     });
     const r = { componentInfo: () => ({ positionX: 0.1 }) };
-    expect(finSetPositions(s, r)[0]!.bottomX).toBeCloseTo(0.14, 9); // 0.1 + 0.04
+    expect(finSetPositions(s, r)[0]!.bottomX).toBeCloseTo(0.14, 9);
   });
   it('skips a fin set with no id, and one the engine cannot locate', () => {
     const s = node({
       type: 'stage',
       children: [
-        node({ type: 'trapezoidfinset', name: 'no-id', rootChord: 0.05 }), // no id → skipped
-        node({ type: 'trapezoidfinset', id: 'ghost', name: 'ghost', rootChord: 0.05 }), // throws → skipped
+        node({ type: 'trapezoidfinset', name: 'no-id', rootChord: 0.05 }),
+        node({ type: 'trapezoidfinset', id: 'ghost', name: 'ghost', rootChord: 0.05 }),
       ],
     });
     expect(finSetPositions(s, rocket)).toHaveLength(0);
@@ -166,15 +158,12 @@ describe('finSetPositions', () => {
 describe('restoringEngine', () => {
   const stages = [node({ type: 'stage', name: 'A' }), node({ type: 'stage', name: 'B' })];
   const info = (mass: number) => ({ mass }) as unknown as StaticInfo;
-  // The rebuilt whole-rocket handle the app should end up holding after the report.
   const whole = { info: info(99), handle: {} as never };
-  /** What the caller is told when the whole-rocket rebuild is the thing that fails. */
   let failures: unknown[] = [];
   const failed = (e: unknown) => failures.push(e);
   beforeEach(() => {
     failures = [];
   });
-  /** Per-stage work that builds, the way the report's stage summaries do. */
   const perStage = (buildStage: (st: ComponentNode) => StaticInfo) => () =>
     stages.map((st) => ({ label: st.name as string, info: buildStage(st) }));
 
@@ -189,7 +178,7 @@ describe('restoringEngine', () => {
     );
     expect(out.map((sm) => sm.label)).toEqual(['A', 'B']);
     expect(out.map((sm) => (sm.info as unknown as { mass: number }).mass)).toEqual([1, 2]);
-    expect(restored).toEqual([whole]); // live handle restored exactly once
+    expect(restored).toEqual([whole]);
   });
 
   it('leaves the live handle alone when the work built nothing', () => {
@@ -224,20 +213,10 @@ describe('restoringEngine', () => {
         failed,
       ),
     ).toThrow(/bad stage/);
-    // Without the finally, a throwing build would leave the app's live handle
-    // stranded on the last rocket built.
     expect(restored).toEqual([whole]);
     expect(failures).toEqual([]);
   });
 
-  /**
-   * The case a `finally` alone does not cover: `buildWhole()` itself throwing.
-   *
-   * If `restore` never runs, the store keeps the last report build (one stage
-   * standing in for the rocket) and nothing re-triggers the rebuild effect,
-   * because its dependencies have not moved. The aero pane stays dead until an
-   * unrelated edit.
-   */
   it('reports a failing whole-rocket rebuild instead of silently not restoring', () => {
     const restored: unknown[] = [];
     const out = restoringEngine(
@@ -249,8 +228,6 @@ describe('restoringEngine', () => {
       (b) => restored.push(b),
       failed,
     );
-    // The report is still returned: the stage summaries came from isolated
-    // builds and the parts tables were gathered before any rebuild.
     expect(out.map((sm) => sm.label)).toEqual(['A', 'B']);
     expect(restored).toEqual([]);
     expect(failures).toHaveLength(1);
@@ -258,8 +235,6 @@ describe('restoringEngine', () => {
   });
 
   it('keeps the build failure when BOTH throw, rather than replacing it', () => {
-    // A rethrow from a `finally` replaces whatever the try block threw. The
-    // stage failure names a part; the rebuild failure does not.
     expect(() =>
       restoringEngine(
         perStage(() => {
@@ -277,13 +252,6 @@ describe('restoringEngine', () => {
   });
 });
 
-/**
- * Tube fins in the fin-position table.
- *
- * They belong here: OpenRocket's FinMarkingGuide collects TubeFinSet right
- * beside FinSet, and where a tube sits along the airframe is exactly as useful
- * to mark. What is not theirs is a root chord: the span is the tube's length.
- */
 describe('finSetPositions: tube fins', () => {
   const rocket = { componentInfo: () => ({ positionX: 0.42 }) };
   const withTubes = (over: Record<string, unknown> = {}) =>
@@ -303,26 +271,16 @@ describe('finSetPositions: tube fins', () => {
     expect(sets).toHaveLength(1);
     expect(sets[0]!.name).toBe('Tube fins');
     expect(sets[0]!.topX).toBeCloseTo(0.42, 9);
-    expect(sets[0]!.bottomX).toBeCloseTo(0.5, 9); // 0.42 + 0.08 length
-    // Reading through `rootChord` would give every tube fin set the 0.05 m default.
+    expect(sets[0]!.bottomX).toBeCloseTo(0.5, 9);
     expect(sets[0]!.bottomX).not.toBeCloseTo(0.47, 6);
   });
 
   it('ignores a rootChord even when one is present on the node', () => {
-    // An imported .ork could carry a stray attribute; the tube's length wins.
     const sets = finSetPositions(withTubes({ rootChord: 0.2 }), rocket);
     expect(sets[0]!.bottomX).toBeCloseTo(0.5, 9);
   });
 });
 
-/**
- * Each stage's summary must be built with the motor in that stage's mount.
- *
- * A per-stage summary is built from a one-stage tree, and a flight configuration
- * keys its motors by mount id, so the motors seated in that tree are exactly the
- * ones that stage's own mounts hold. Nothing pairs a motor with a mount by
- * position, which could put the sustainer's motor in the booster.
- */
 describe('per-stage motors', () => {
   const tree = (id: string) =>
     ({

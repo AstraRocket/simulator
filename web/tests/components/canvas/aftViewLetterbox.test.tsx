@@ -5,15 +5,7 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { AftView } from '../../../src/components/canvas/AftView';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * In a pane wider than it is tall the aft view's square viewBox is
- * letterboxed: SVG's default `preserveAspectRatio="xMidYMid meet"` scales it
- * by the smaller of the two ratios and centers it (SVG 1.1, 7.8). The wheel
- * zooms about the drawing point under the pointer, and a drag pans the drawing
- * by as much as the pointer moved over it. jsdom lays nothing out, so the box
- * and the screen matrix the browser would compute for that box are given
- * here, the matrix from the spec's formula.
- */
+// jsdom lays nothing out, so the `xMidYMid meet` letterboxed box and screen matrix are given.
 
 const tree = {
   name: 'T',
@@ -46,7 +38,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** The view, with the screen matrix `xMidYMid meet` gives its viewBox in BOX. */
 function view() {
   renderWithProviders(<AftView tree={tree} />);
   const svg = screen.getByRole('group', { name: /aft/i }) as unknown as SVGSVGElement;
@@ -55,12 +46,10 @@ function view() {
   const e = BOX.left + (BOX.width - vw * k) / 2 - vx * k;
   const f = BOX.top + (BOX.height - vh * k) / 2 - vy * k;
   Object.defineProperty(svg, 'getScreenCTM', { value: () => ({ a: k, b: 0, c: 0, d: k, e, f }) });
-  /** A client point in viewBox units, through that matrix. */
   const toViewBox = (cx: number, cy: number) => [(cx - e) / k, (cy - f) / k] as const;
   return { svg, k, toViewBox };
 }
 
-/** The pan/zoom group's translate and scale. */
 function zoomOf(svg: Element) {
   const m = /translate\(([-\d.e]+) ([-\d.e]+)\) scale\(([-\d.e]+)\)/.exec(
     svg.querySelector('g[transform]')!.getAttribute('transform')!,
@@ -71,7 +60,6 @@ function zoomOf(svg: Element) {
 describe('the aft view in a wide pane', () => {
   it('zooms about the drawing point under the pointer', () => {
     const { svg, toViewBox } = view();
-    // Right of center, inside the letterboxed square.
     const [cx, cy] = [420, 120];
     const [px, py] = toViewBox(cx, cy);
     const before = zoomOf(svg);

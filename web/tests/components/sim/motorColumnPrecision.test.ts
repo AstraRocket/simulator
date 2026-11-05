@@ -7,14 +7,6 @@ import { fmtNum, ladderDigits } from '../../../src/i18n/format';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 import i18n from '../../../src/i18n';
 
-/**
- * The motor grid reads a catalog motor to the precision the detail pane does:
- * the magnitude ladder of the value as shown. A fixed 0 decimals read every
- * 13 to 38 mm motor as "1 in", and picked the impulse's decimals from the SI
- * figure while showing it in the user's unit.
- */
-
-/** Just enough of `Units` for the column cells: imperial lengths and impulse. */
 const symbols: Partial<Record<Quantity, string>> = { motorDimensions: 'in', impulse: 'lbf·s', mass: 'oz', force: 'N' };
 const u = {
   sym: (q: Quantity) => symbols[q]!,
@@ -34,7 +26,6 @@ describe('motor grid precision', () => {
   });
 
   it('picks the impulse decimals from the value shown, not the SI figure', () => {
-    // 40 N·s is 8.99 lbf·s: under ten in the unit shown.
     expect(col('impulse')).toBe('8.99');
   });
 

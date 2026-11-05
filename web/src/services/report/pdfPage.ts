@@ -1,4 +1,5 @@
 // cspell:ignore cmap -- jsPDF's name for a TrueType font's character map
+import { must } from '../app/must';
 import type { jsPDF } from 'jspdf';
 import type { StaticInfo } from '../../engine/openRocketEngine';
 import type { Pt } from './reportGeometry';
@@ -11,16 +12,7 @@ import { staticInfoRows } from './designInfo';
 import { type StatKey } from './designInfo';
 import { scriptOf, toWinAnsi, type ReportFamilies, type UnicodeScript } from './reportFonts';
 
-/**
- * The page the report sections draw on: the jsPDF document, the frame it is
- * laid out in, the layout cursor (`y`, and whether anything has been drawn
- * yet), and the drawing primitives every section uses (page breaks, headings,
- * key/value grids, tables, filled polygons) plus the unit formatters.
- *
- * Text goes through `setStyle` and `drawText`, never `doc.setFont` and
- * `doc.text`: a run Helvetica cannot write is drawn in the report's Unicode
- * font when the document has one, and is noted in `needs` either way.
- */
+// Use setStyle/drawText, never doc.setFont/doc.text, or non-WinAnsi text bypasses the Unicode font.
 
 export type T = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -37,26 +29,18 @@ export interface PdfPage {
   t: T;
   units: UnitSelection;
   opts: ReportOptions;
-  /** Page width / height (mm). */
+  /** PW through y are mm. */
   PW: number;
   PH: number;
-  /** Margin, content width, and the y past which a block breaks (mm). */
   M: number;
   CW: number;
   BOTTOM: number;
-  /** The layout cursor: the next free y (mm). */
   y: number;
-  /** Has anything been drawn (for page breaks between sections)? */
   started: boolean;
-  /** The style text is set in; a Unicode run takes the same weight. */
   style: FontStyle;
-  /** The Unicode family registered with `doc` for each script, if any. */
   fonts: ReportFamilies;
-  /** Every script the text drawn so far needed beyond Helvetica. */
   needs: Set<UnicodeScript>;
-  /** Some text had a character with no Helvetica stand-in and no font to draw it. */
   lost: boolean;
-  /** Some text had a character the registered Unicode font has no glyph for. */
   uncovered: boolean;
 }
 
@@ -90,16 +74,11 @@ export function createPdfPage(
   };
 }
 
-/** Set the text style. Returns the document, for chaining the size and color. */
 export function setStyle(p: PdfPage, style: FontStyle): jsPDF {
   p.style = style;
   return p.doc.setFont('helvetica', style);
 }
 
-/**
- * The Unicode family a run is drawn in, or null for Helvetica. Records what the
- * run needed, so a document drawn without the font says which one to fetch.
- */
 function unicodeFamily(p: PdfPage, s: string): string | null {
   const script = scriptOf(s);
   if (!script) return null;
@@ -107,30 +86,23 @@ function unicodeFamily(p: PdfPage, s: string): string | null {
   return p.fonts[script] ?? null;
 }
 
-/** A run as Helvetica writes it, noting a character that had no stand-in. */
 function winAnsi(p: PdfPage, s: string): string {
   const out = toWinAnsi(s);
   if (out.lost) p.lost = true;
   return out.text;
 }
 
-/** The character map of the font set on the document, when it is an embedded TTF. */
 function codeMapOf(doc: jsPDF): Record<number, number> | null {
   const font = doc.getFont() as { metadata?: { cmap?: { unicode?: { codeMap?: Record<number, number> } } } };
   return font.metadata?.cmap?.unicode?.codeMap ?? null;
 }
 
-/**
- * A run as the Unicode font set on the document writes it: a character the
- * font has no glyph for (a script neither family carries, or an emoji) becomes
- * `?`, and is noted, instead of printing as an empty box.
- */
 function covered(p: PdfPage, s: string): string {
   const map = codeMapOf(p.doc);
   if (!map) return s;
   let out = '';
   for (const ch of s) {
-    const c = ch.codePointAt(0)!;
+    const c = must(ch.codePointAt(0), 'code point');
     if (c < 0x20 || (c <= 0xffff && map[c])) {
       out += ch;
       continue;
@@ -141,13 +113,7 @@ function covered(p: PdfPage, s: string): string {
   return out;
 }
 
-/**
- * Run `draw` with the font this text needs set on the document, and put
- * Helvetica back after. The Unicode families have no italic, so an italic run
- * takes the upright face. `draw` is handed what to use for each string: the
- * string with each character the Unicode font lacks replaced by `?`, or its
- * Helvetica stand-in.
- */
+// The Unicode families have no italic face, so italic falls back to upright.
 function inFont<R>(p: PdfPage, s: string, draw: (fit: (s: string) => string) => R): R {
   const family = unicodeFamily(p, s);
   if (!family) return draw((x) => winAnsi(p, x));
@@ -159,7 +125,6 @@ function inFont<R>(p: PdfPage, s: string, draw: (fit: (s: string) => string) => 
   }
 }
 
-/** Draw one run, or a list of lines, in the font its characters need. */
 export function drawText(
   p: PdfPage,
   s: string | string[],
@@ -174,12 +139,11 @@ export function drawText(
   });
 }
 
-/** Wrap a run to a width, measured in the font it will be drawn in. */
 function splitText(p: PdfPage, s: string, width: number): string[] {
   return inFont(p, s, (fit) => p.doc.splitTextToSize(fit(s), width) as string[]);
 }
 
-/** Break to a new page unless `h` more millimeters fit below the cursor. */
+/** `h` is mm. */
 export function ensure(p: PdfPage, h: number): void {
   if (p.y + h > p.BOTTOM) {
     p.doc.addPage();
@@ -187,7 +151,6 @@ export function ensure(p: PdfPage, h: number): void {
   }
 }
 
-/** Every section after the first starts on its own page. */
 export function sectionBreak(p: PdfPage): void {
   if (p.started) {
     p.doc.addPage();
@@ -207,7 +170,6 @@ export function heading(p: PdfPage, title: string): void {
   p.y += 12;
 }
 
-/** Small gray body text, wrapped to the content width. */
 export function paragraph(p: PdfPage, body: string, style: 'normal' | 'italic' = 'normal', gray = 90): void {
   const { M, CW } = p;
   setStyle(p, style).setFontSize(8).setTextColor(gray);
@@ -223,7 +185,6 @@ export function sub(p: PdfPage, title: string, size = 10): void {
   p.y += 6;
 }
 
-/** Fill + outline a closed polygon, scaled and offset (for the side view). */
 export function fillScaled(
   p: PdfPage,
   pts: Pt[],
@@ -247,13 +208,11 @@ export function fillScaled(
   }
 }
 
-/** A 1:1 template outline in the dialog's template colors. */
 export function fillPolygon(p: PdfPage, pts: Pt[], ox: number, oy: number): void {
   const { templateFill, templateStroke } = p.opts;
   fillScaled(p, pts, ox, oy, 1, 1, templateFill ? hexToRgbTuple(templateFill) : null, hexToRgbTuple(templateStroke));
 }
 
-/** Two-column label/value grid. */
 export function kvGrid(p: PdfPage, rows: [string, string][]): void {
   const { doc, M, CW } = p;
   const colW = CW / 2;
@@ -280,32 +239,23 @@ export function kvGrid(p: PdfPage, rows: [string, string][]): void {
   p.y += 2;
 }
 
-/** Header text size (pt), the space either side of a cell's text (mm), and the header line pitch (em). */
+/** HEADER_LEADING is em. */
 const HEADER_PT = 6.8;
 const CELL_PAD_MM = 1;
 const HEADER_LEADING = 1.15;
 const PT_TO_MM = 25.4 / 72;
 
-/** A column title as drawn: its lines, and the size they are set in. */
 interface HeaderFit {
   lines: string[];
   size: number;
 }
 
-/** Width of a run in the font it will be drawn in, at the document's current size (mm). */
+/** mm */
 function textWidth(p: PdfPage, s: string): number {
   return inFont(p, s, (fit) => p.doc.getTextWidth(fit(s)));
 }
 
-/**
- * Fit one column title, already uppercased, inside `avail` millimeters. A
- * title that fits on one line at the header size stays there; otherwise it
- * breaks onto two lines at a space, a slash or a colon, at the break that
- * leaves the wider line narrowest. When neither fits, the narrower of the two
- * shapes is set smaller until its widest line fits. A title with no break
- * point (one long word) is only ever shrunk, never split mid-word. Expects
- * the header size and style to be set on the document.
- */
+// Expects the header size and style already set on the document.
 function fitHeader(p: PdfPage, title: string, avail: number): HeaderFit {
   const one = textWidth(p, title);
   if (one <= avail) return { lines: [title], size: HEADER_PT };
@@ -321,16 +271,10 @@ function fitHeader(p: PdfPage, title: string, avail: number): HeaderFit {
   }
   if (best && best.w <= avail) return { lines: best.lines, size: HEADER_PT };
   const shape = best && best.w < one ? best : { lines: [title], w: one };
-  // Floored to a hundredth of a point, so the shrunk line is never wider than the column.
+  // Floored, not rounded, so the shrunk line never exceeds the column.
   return { lines: shape.lines, size: Math.floor(((HEADER_PT * avail) / shape.w) * 100) / 100 };
 }
 
-/**
- * A ruled table; `boldLast` sets the final row (a total) in bold with no rule under it.
- * Each column title is fit to its column by {@link fitHeader}; the titles sit
- * on the rule under them, so a one-line title lines up with the last line of
- * a two-line one.
- */
 export function table(p: PdfPage, cols: Col[], rows: string[][], boldLast = false): void {
   const { doc, M, CW } = p;
   ensure(p, 10);
@@ -381,28 +325,18 @@ export function table(p: PdfPage, cols: Col[], rows: string[][], boldLast = fals
   p.y += 3;
 }
 
-/**
- * Quantities whose decimals follow the size of the number in the unit shown,
- * the ladder the app's own fields use (`ladderDigits`): one decimal is right
- * for a tube in millimeters and wrong in inches, where a BT-50 is 0.976 in and
- * would print as 1.0. Mass and impulse are here for the same reason: a 450 g
- * rocket is 0.45 kg and 0.99 lb, and an A8's 2.5 N·s is 0.56 lbf·s, none of
- * which survive a fixed count of decimals chosen for grams.
- */
+// Fixed one decimal would print a 0.976 in BT-50 as 1.0.
 const LADDERED: ReadonlySet<Quantity> = new Set<Quantity>(['length', 'motorDimensions', 'mass', 'impulse']);
 
-/** `digits` when the caller states it; else the ladder for a {@link LADDERED} quantity, one decimal for the rest. */
 const digitsFor = (quantity: Quantity, ui: number, digits?: number): number =>
   digits ?? (LADDERED.has(quantity) ? ladderDigits(ui) : 1);
 
-/** An SI value in the user's unit, with its symbol. */
 export const q = (p: PdfPage, quantity: Quantity, si: number, digits?: number): string => {
   if (!Number.isFinite(si)) return NO_VALUE;
   const ui = siToUi(quantity, p.units[quantity], si);
   return `${fmtNum(ui, digitsFor(quantity, ui, digits))} ${p.units[quantity]}`;
 };
 
-/** The number only, for a cell that already carries the unit once. */
 export const qv = (p: PdfPage, quantity: Quantity, si: number, digits?: number): string => {
   const ui = siToUi(quantity, p.units[quantity], si);
   return fmtNum(ui, digitsFor(quantity, ui, digits));
@@ -412,7 +346,6 @@ export const len = (p: PdfPage, m: number): string => q(p, 'length', m);
 
 export const g = (p: PdfPage, kg: number): string => q(p, 'mass', kg);
 
-/** The summary grid's rows for one static-info block (the rocket, or one stage). */
 export function summaryRows(p: PdfPage, info: StaticInfo): [string, string][] {
   const { t } = p;
   const label: Record<StatKey, string> = {
@@ -453,17 +386,9 @@ export function summaryRows(p: PdfPage, info: StaticInfo): [string, string][] {
         return len(p, v);
     }
   };
-  // Which rows exist is staticInfoRows' call, shared with the .ork and the CSV.
   return staticInfoRows(info).map(({ key, value }) => [t(label[key]), shown(key, value)]);
 }
 
-/**
- * A 10 cm / 3 in scale bar, so a print can be checked for true scale.
- *
- * Shared by every 1:1 section (the cutting templates and the fin marking
- * guide): each of them is only worth printing if the page came out of the
- * printer unscaled, and this is how the reader checks.
- */
 export function writeRuler(p: PdfPage): void {
   const { doc, t, M } = p;
   sub(p, t('report.ruler'), 9);

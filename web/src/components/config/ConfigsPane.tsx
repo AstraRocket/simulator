@@ -13,13 +13,6 @@ import type { ConfigsTab } from '../../state/tabs';
 import { ToggleButton } from '../common/ToggleButton';
 import { RecoveryBaysPane } from './RecoveryBaysPane';
 
-/**
- * The Configurations tab: a toolbar, a sub-tab per part of a configuration, the
- * table of them, and, below lg, the selected one's editor underneath it.
- *
- * At lg+ the editor is the tab's right column (see App.tsx), so the table gets
- * the full width. One instance either way, never two with one hidden.
- */
 export function ConfigsPane() {
   const { t } = useTranslation();
   const u = useUnits();
@@ -50,9 +43,6 @@ export function ConfigsPane() {
     bays: 'configs.hint',
   }[sub];
 
-  // How many simulations fly each configuration. Counted once for the whole
-  // table rather than per row, and it is also what decides whether deleting one
-  // has to ask first.
   const flights = useMemo(() => {
     const out: Record<string, number> = {};
     for (const s of sims) out[s.configId] = (out[s.configId] ?? 0) + 1;
@@ -60,9 +50,6 @@ export function ConfigsPane() {
   }, [sims]);
 
   const onDelete = async () => {
-    // Asked only when a deletion actually moves something: a configuration
-    // nothing flies is a row the user can put back with one click, and a prompt
-    // for it is a prompt people learn to dismiss without reading.
     if ((flights[selected.id] ?? 0) === 0 || (await confirm({ message: t('configs.deleteConfirm'), danger: true }))) {
       deleteConfig(selected.id);
     }
@@ -73,7 +60,6 @@ export function ConfigsPane() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-line/10 p-3">
-        {/* The configuration buttons are about the table, which Bays does not show. */}
         {!bays && (
           <>
             <ToolBtn onClick={addConfig}>{t('configs.new')}</ToolBtn>
@@ -119,8 +105,6 @@ export function ConfigsPane() {
             flights={flights}
             onSelect={onSelect}
           />
-          {/* Below lg there is no right column, so the editor goes here - which is
-            the only way a phone can change a motor at all. */}
           {!desktop && (
             <div className="border-t border-line/10">
               <ConfigEditor />

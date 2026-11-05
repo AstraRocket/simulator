@@ -1,9 +1,4 @@
-/**
- * `MathUtil.equals` from the kernel: relative to `b`, with a half-epsilon
- * absolute test when `b` is near zero. Desktop's `finalizeThrustCurve` compares
- * with it, and an embedded curve's digest only matches the desktop's when this
- * app drops exactly the points the desktop drops.
- */
+// Kernel `MathUtil.equals`, exactly: digest parity depends on dropping the same points.
 const MATH_EPSILON = 0.00000001;
 
 export function mathEquals(a: number, b: number, epsilon = MATH_EPSILON): boolean {
@@ -12,10 +7,7 @@ export function mathEquals(a: number, b: number, epsilon = MATH_EPSILON): boolea
   return Math.abs(a - b) < epsilon * absb;
 }
 
-/**
- * `MathUtil.equals(x, 0)`: the kernel's near-zero test. Against zero the
- * epsilon halves, so the threshold is 5e-9, not `MathUtil.EPSILON` itself.
- */
+/** Against zero the epsilon halves: the threshold is 5e-9, not `MathUtil.EPSILON`. */
 export function isZero(x: number): boolean {
   return mathEquals(x, 0);
 }

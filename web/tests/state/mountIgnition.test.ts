@@ -8,17 +8,7 @@ vi.mock('../../src/engine/simClient', async (orig) => ({
 import { useWorkspaceStore } from '../../src/state/store';
 import { findMounts, findNode } from '../../src/services/design/treeEdit';
 
-/**
- * The mount's own ignition and the scope of an ignition change, as desktop has
- * them.
- *
- * - A motor new to a mount starts from the mount's ignition: the motor chooser
- *   builds `new MotorConfiguration(mount, fcid, mount.getMotorConfig(fcid))`,
- *   and for a configuration with no motor there that is the mount's default.
- * - IgnitionSelectionDialog's "Change all configurations" (its OK, with the
- *   default option) sets the mount's default and every motor on the mount;
- *   "Override for this configuration" sets the one.
- */
+// Desktop: `new MotorConfiguration(mount, fcid, mount.getMotorConfig(fcid))` starts from the mount's ignition.
 
 const s = () => useWorkspaceStore.getState();
 const mountId = () => findMounts(s().tree)[0]!.id as string;
@@ -36,7 +26,6 @@ describe('mount ignition', () => {
     s().addConfig();
     const made = s().selectedConfigId!;
     expect(motorIn(made)).toMatchObject({ ignitionEvent: 'burnout', ignitionDelay: 2 });
-    // A motor already there and still on the mount's old ignition follows it.
     expect(motorIn(first)).toMatchObject({ ignitionEvent: 'burnout', ignitionDelay: 2 });
   });
 

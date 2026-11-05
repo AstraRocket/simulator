@@ -4,12 +4,6 @@ import { TILE_SIZE, TILE_SOURCES, visibleTiles, type TileSourceId } from '../../
 import { useEsriKey } from '../../../services/map/esriKey';
 import { useHelpStore } from '../../../state/helpStore';
 
-/**
- * The layer buttons over a map. `className` places the group. While a tile
- * layer is picked and the user has entered no Esri key of their own, a note
- * under the buttons says where to add one, with a link to the Help section on
- * getting one.
- */
 export function TileLayerButtons<Id extends string>({
   layers,
   value,
@@ -52,7 +46,6 @@ export function TileLayerButtons<Id extends string>({
   );
 }
 
-/** One map tile. */
 export function TileImg({
   source,
   tile,
@@ -72,23 +65,12 @@ export function TileImg({
       src={TILE_SOURCES[source].url(tile.z, tile.x, tile.y, key)}
       alt=""
       draggable={false}
-      // CORS, to match the 3D ground map (FlightGroundMap.tsx), which loads
-      // these same tiles as WebGL textures and cannot use an opaque response.
-      // Without it the service worker caches this request's opaque copy and
-      // then hands it to the texture loader, which fails. Esri answers
-      // `Access-Control-Allow-Origin: *`.
+      // CORS to match the WebGL textures, or the service worker caches an opaque copy they fail on.
       crossOrigin="anonymous"
-      // No `referrerPolicy="no-referrer"`. Stripping the Referer hides who is
-      // asking, which is the one thing every tile provider's usage policy wants
-      // to be able to see.
+      // No `referrerPolicy="no-referrer"`: tile usage policies want the Referer.
       width={TILE_SIZE}
       height={TILE_SIZE}
-      // Sized in CSS, not just by the attributes, and `max-w-none` to beat the
-      // `img { max-width: 100% }` every CSS reset ships (Tailwind's preflight
-      // here). That cap is relative to the containing block, which in a plan
-      // view is narrower than the box whenever the imagery is magnified: the
-      // tiles would draw shrunk while still spaced a full tile apart, leaving
-      // gaps, and at extreme zoom the map would come up empty.
+      // `max-w-none` beats preflight's `img { max-width: 100% }`, which leaves gaps between tiles.
       className={`absolute max-w-none select-none ${className}`}
       style={{ left: tile.left, top: tile.top, width: TILE_SIZE, height: TILE_SIZE }}
       onLoad={onLoad}
@@ -97,7 +79,6 @@ export function TileImg({
   );
 }
 
-/** The line in a map's corner: the tiles' attribution, or why there are none. */
 export function MapCredit({
   children,
   warn = false,

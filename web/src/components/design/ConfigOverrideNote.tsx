@@ -11,21 +11,6 @@ import { isRecoveryDevice } from '../../services/design/treeEdit';
 import { useWorkspaceStore } from '../../state/store';
 import type { ConfigsTab } from '../../state/tabs';
 
-/**
- * Says when a flight configuration flies this part differently from the fields
- * above it.
- *
- * The deployment fields on a recovery device, and the separation fields on a
- * booster, are the design's default; a configuration may override either, and
- * may leave a whole stage on the ground. Without this line the panel would show
- * an altitude or a delay the flight never used, or a stage some flights do not
- * carry, with nothing on screen to say so: the one hazard of a value that lives
- * in two places.
- *
- * Every configuration is named, not just the one the active simulation flies,
- * because the panel belongs to the design and the question it answers is "does
- * anything fly this part differently". Each name opens the tab on it.
- */
 export function ConfigOverrideNote({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
   const configs = useWorkspaceStore((s) => s.configs);
@@ -48,7 +33,6 @@ export function ConfigOverrideNote({ node }: { node: ComponentNode }) {
   );
 }
 
-/** One line: what happens differently, and in which configurations. */
 function NamedConfigs({ label, configs, sub }: { label: string; configs: FlightConfig[]; sub: ConfigsTab }) {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -66,8 +50,6 @@ function NamedConfigs({ label, configs, sub }: { label: string; configs: FlightC
           <button
             type="button"
             onClick={() => {
-              // Open the tab on that configuration's own table, so the values
-              // this line is warning about are the ones on screen.
               setSelectedConfigId(c.id);
               setConfigsTab(sub);
               setTab('configs');

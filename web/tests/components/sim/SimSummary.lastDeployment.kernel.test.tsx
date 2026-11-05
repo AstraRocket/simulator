@@ -10,11 +10,6 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The deploy-speed tile shows the speed of the last deployment, the kernel's
- * deployment velocity. A chute opened earlier on the same branch, fast enough
- * for the kernel to warn, does not mark that tile.
- */
 const TREE = {
   name: 'R',
   components: [
@@ -82,7 +77,6 @@ describe('SimSummary deploy speed with two deployments', () => {
     const late = fly(engine, 0.01).summary.deploymentVelocity!;
     const warn = late + 1;
     const flown = fly(engine, warn);
-    // The kernel warned, for the early chute only.
     const fast = flown.warnings!.filter((w) => w.key === 'HighSpeedDeployment');
     expect(fast.map((w) => w.sourceIds)).toEqual([['early']]);
     act(() =>

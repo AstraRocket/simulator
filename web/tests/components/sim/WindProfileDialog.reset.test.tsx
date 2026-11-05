@@ -6,12 +6,7 @@ import { WindProfileDialog } from '../../../src/components/sim/WindProfileDialog
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import type { LaunchConditions, WindLevel } from '../../../src/services/design/orkTree';
 
-/**
- * Reset levels leaves what desktop's does. `MultiLevelPinkNoiseWindModel.resetLevels`
- * (MultiLevelPinkNoiseWindModel.java:95-99) clears the levels and calls
- * `addInitialLevel` (:69-72), which adds one level at altitude 0 with the
- * preferences' average wind: its speed, direction and standard deviation.
- */
+// Desktop resetLevels (MultiLevelPinkNoiseWindModel.java:95-99).
 describe('resetting the wind profile', () => {
   it('leaves one level at the pad carrying the preferred average wind', () => {
     seedSettings({ launchDefaults: { windAverage: 3.5, windStdDev: 0.7, windDirectionDeg: 45 } });

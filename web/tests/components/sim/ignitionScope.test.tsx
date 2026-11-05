@@ -6,14 +6,6 @@ import { MotorRow } from '../../../src/components/sim/MotorRow';
 import { C6 } from '../../../src/engine/api';
 import type { IgnitionEvent } from '../../../src/engine/openRocketEngine';
 
-/**
- * The ignition control's scope and reset, as desktop has them.
- *
- * IgnitionSelectionDialog asks which configurations a change reaches, and
- * starts on this one for a mount with a motor. MotorConfigurationPanel's Reset
- * ignition is `MotorConfiguration.useDefaultIgnition`: Automatic, no delay, in
- * this configuration alone.
- */
 afterEach(cleanup);
 
 function row(event: IgnitionEvent, delay: number, everywhere = false) {
@@ -44,7 +36,6 @@ describe('ignition scope and reset', () => {
     expect(onIgnitionChange).toHaveBeenLastCalledWith('launch', 0, 'all');
   });
 
-  // Desktop's OK applies the dialog's values whether or not they were edited.
   it('applies the ignition as it stands to all configurations, unless they already have it', () => {
     const onIgnitionChange = row('launch', 1);
     expect(screen.queryByRole('button', { name: 'Apply to all configurations' })).toBeNull();
@@ -67,7 +58,6 @@ describe('ignition scope and reset', () => {
     expect(onIgnitionChange).toHaveBeenLastCalledWith('automatic', 0, 'config');
   });
 
-  // A zero committed on clear would light an air-start at separation.
   it('commits no delay while the delay box is cleared to retype', () => {
     const onIgnitionChange = row('burnout', 2);
     const box = screen.getByRole('spinbutton', { name: 'Ignition delay (s)' });

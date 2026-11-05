@@ -16,17 +16,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A mass component type or cluster configuration the kernel has no constant
- * for is dropped with a note, and the file opens.
- *
- * The bridge throws on either (`ComponentFactory.massComponentTypeOf`, and the
- * "Unknown cluster configuration" lookup), which would refuse the whole file.
- * Desktop reads the same file with a warning and keeps the default
- * (`DocumentConfig`'s EnumSetter and ClusterConfigurationSetter). The expected
- * value is the kernel's own, read back from the same design with the tag left
- * out, never a constant of the app's.
- */
+// Desktop warns on an unknown value and keeps the default (DocumentConfig EnumSetter); the bridge throws.
 
 const ork = (massType: string, cluster: string): string =>
   `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents>` +
@@ -43,7 +33,6 @@ const ork = (massType: string, cluster: string): string =>
 const partOf = (tree: RocketTree, type: string, name: string): ComponentNode =>
   [...walkNodes(tree.components)].find((n) => n.type === type && n.name === name)!;
 
-/** One field the kernel holds for a part after building the design. */
 function kernelField(tree: RocketTree, id: string, key: string): unknown {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));

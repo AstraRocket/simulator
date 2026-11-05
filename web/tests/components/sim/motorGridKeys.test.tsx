@@ -7,14 +7,6 @@ import { MotorGrid } from '../../../src/components/sim/MotorGrid';
 import { useVisibleColumns } from '../../../src/components/sim/motorColumns';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
-/**
- * The grid's arrow-key stepper is a `window` listener, and `MotorDashboard`
- * keeps the grid mounted while a full-width tool (Compare / Combine) is open:
- * it only hides it with a CSS class. Unguarded, ArrowDown pressed while reading
- * the Compare pane would step the selection, and the dashboard's `onSelect`
- * flips the mode back to the detail rail, closing the comparison that had just
- * been set up. A hidden surface must not own a global key.
- */
 const motor = (designation: string): CatalogMotor =>
   ({
     manufacturer: 'Test',
@@ -54,8 +46,7 @@ function Grid({ active, onSelect }: { active: boolean; onSelect: (m: CatalogMoto
 }
 
 describe('MotorGrid arrow keys', () => {
-  // jsdom does not lay out, so it has no scrollIntoView; the grid scrolls the
-  // selected row into view whenever the selection moves.
+  // jsdom has no scrollIntoView.
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};
   });
@@ -75,7 +66,6 @@ describe('MotorGrid arrow keys', () => {
     renderWithProviders(<Grid active={false} onSelect={onSelect} />);
     await screen.findByText('A');
 
-    // Still mounted, still rendering its rows, and must not answer the key.
     fireEvent.keyDown(window, { key: 'ArrowDown' });
     fireEvent.keyDown(window, { key: 'ArrowUp' });
     expect(onSelect).not.toHaveBeenCalled();
@@ -96,7 +86,6 @@ describe('MotorGrid arrow keys', () => {
   });
 });
 
-/** The sorted column says so to assistive technology, not only with its arrow. */
 describe('MotorGrid sort header', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};
@@ -129,11 +118,6 @@ describe('MotorGrid sort header', () => {
   });
 });
 
-/**
- * Each row has a focusable handle that says which row is selected, focus
- * follows the arrow keys while it is in the grid (so the step is announced),
- * and an imported motor says so in words rather than with a star alone.
- */
 describe('MotorGrid for a screen reader', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};

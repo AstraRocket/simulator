@@ -1,26 +1,13 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 
-/**
- * The material a new fin fillet is made of: West System Six10, a thickened
- * epoxy adhesive made for fillets and widely available. Desktop OpenRocket
- * gives a fillet its default bulk material, Cardboard, which no one fillets
- * with. The material catalog's own entry (`materials.generated.json`); a test
- * holds the two equal.
- */
+/** Must match the `materials.generated.json` entry (a test holds them equal). */
 export const DEFAULT_FILLET_MATERIAL = {
   name: 'Epoxy - West System Six10',
   density: 1180,
   group: 'Adhesives',
 } as const;
 
-/**
- * The patch, plus the default fillet material when it adds a fillet to a part
- * that has none and names no material of its own.
- *
- * Only a fillet created here gets it. A fillet that arrived from a file without
- * a material keeps the file's meaning, Cardboard (see filletXml), and a fillet
- * that already has a material keeps it through any radius change.
- */
+/** Only for a newly created fillet: one from a file without a material means Cardboard (see filletXml). */
 export function withFilletDefault(
   node: ComponentNode | null | undefined,
   patch: Partial<ComponentNode>,

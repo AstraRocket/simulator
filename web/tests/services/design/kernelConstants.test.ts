@@ -5,21 +5,12 @@ import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { DERIVED, MAX_SWEEP_ANGLE } from '../../../src/services/design/derivedFields';
 import { MAX_ANGLE_STEP_RANGE } from '../../../src/services/flight/simulations';
 
-/**
- * Limits the app applies for itself, because the bridge never calls the setter
- * that holds them: the derived rows of the property panel (a fin's sweep
- * angle, a streamer's area and aspect ratio, a mass component's density) and
- * the simulation's maximum angle step. Each is read out of the kernel's Java
- * here, so a change upstream fails this test rather than drifting silently.
- */
+// The bridge never calls the setter that holds these limits, so the app applies them itself.
 
 const JAVA = join(process.cwd(), '../engine-java/src/java/info/openrocket/core');
 const java = (file: string) => readFileSync(join(JAVA, file), 'utf8');
 
-/**
- * A Java constant expression of the kind these limits are written in: numbers
- * and `Math.PI` joined by `*` and `/`, in parentheses or not.
- */
+// Handles only numbers and `Math.PI` joined by `*` and `/`, parentheses ignored.
 function evalJava(expr: string): number {
   const tokens = expr
     .replace(/[()]/g, ' ')
@@ -35,7 +26,6 @@ function evalJava(expr: string): number {
   return out;
 }
 
-/** The first capture of `re` in `source`, evaluated as the Java writes it. */
 function javaNumber(source: string, re: RegExp, what: string): number {
   const m = source.match(re);
   if (!m?.[1]) throw new Error(`${what} not found in the Java`);
@@ -65,7 +55,6 @@ describe('limits held to the kernel Java', () => {
     const node = { type: 'streamer', stripWidth: 0.05, stripLength: 1 } as unknown as ComponentNode;
     const area = DERIVED.stripArea.read(node);
     const written = DERIVED.stripAspect.write(node, 0) as { stripWidth: number; stripLength: number };
-    // Kept at the area it had, at the floor's ratio: width = sqrt(area / ratio).
     expect(written.stripWidth).toBeCloseTo(Math.sqrt(area / floor), 12);
   });
 

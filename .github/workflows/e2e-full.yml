@@ -1,7 +1,7 @@
 name: E2E (full)
 
-# The whole Playwright suite, run by hand from the Actions tab. Pull requests run
-# only the core specs (the `e2e` job in gates.yml, called by ci.yml); this covers
+# The whole Playwright suite, by hand from the Actions tab. Pull requests run only the
+# core specs (the `e2e` job in gates.yml, called by ci.yml); this covers
 # the rest: Help, the aero tables, maps, library, exports, motor import and
 # the other feature specs, and update-flow: the service worker's update path and
 # the app offline. Run it before a release or after a change to one of those
@@ -65,7 +65,7 @@ jobs:
           v=$(node -p "require('@playwright/test/package.json').version")
           [ "$v" = "1.64.1" ] || { echo "::error::@playwright/test is $v; update the container image tag in e2e-full.yml"; exit 1; }
 
-      - run: npm run e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - run: npm run gate:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()

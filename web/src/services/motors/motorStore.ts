@@ -1,10 +1,3 @@
-// Swappable client-side store for the user's imported (custom) motors. Like
-// MaterialStore this is a typed domain store, so an implementer of
-// `MotorStore` can keep them anywhere (a backend, IndexedDB, etc.). The
-// default persists through a KeyValueStore.
-//
-// Replace it on the client, independently of the material store:
-//   setMotorStore(new MyMotorStore())
 import type { MotorType } from '../../engine/openRocketEngine';
 import type { KeyValueStore } from '../storage/keyValueStore';
 import { IndexedDbKeyValueStore } from '../storage/idbKeyValueStore';
@@ -12,23 +5,10 @@ import { JsonListStore } from '../storage/jsonListStore';
 import { MIN_CURVE_SAMPLES } from './motorCurve';
 import { nsKey } from '../storage/storageKeys';
 
-/**
- * A user-imported motor (from a `.eng` or `.rse` file). Unlike a catalog motor
- * (its curve bundled with the catalog), a custom motor
- * carries its own thrust curve, so it resolves to a MotorSpec entirely from
- * local data with no network. It is user content: created by import, listed in
- * the picker, and removable.
- *
- * The `type`, `massesG` and `cgMm` fields are what `.rse` carries and RASP
- * `.eng` cannot. They are optional, so an `.eng` motor without them still
- * validates and resolves.
- */
 export interface CustomMotor {
-  /** Stable local id, e.g. "custom:<manufacturer>:<designation>". */
   id: string;
   designation: string;
   manufacturer: string;
-  /** Impulse class letter (derived from total impulse). */
   class: string;
   /** mm */
   diameter: number;
@@ -37,73 +17,31 @@ export interface CustomMotor {
   totalWeightG: number;
   propWeightG: number;
   samples: { time: number; thrust: number }[];
-  /**
-   * The delays the file lists, as the catalog spells them ("4,6,10,P").
-   *
-   * A string, because it is the only form that can say "plugged" and it is what
-   * `motorPicker.parseDelays` and `offersPlugged` read, and what `customToRow`
-   * puts in the row's delay column. Both importers fill it through
-   * `motorPicker.delayList`; there is no second, numeric form, because a
-   * number array has nowhere to put plugged and nothing ever read one.
-   */
+  /** "4,6,10,P"; a string so it can say plugged. */
   delayList?: string;
-  /** What the file says the motor is. A hybrid is why `.rse` import exists. */
   type?: MotorType;
-  /**
-   * Mass at each sample, in grams, parallel to `samples`.
-   *
-   * The real reason `.rse` is the richer format: with this the kernel flies the
-   * measured mass curve, instead of one reconstructed from total impulse and a
-   * single header number (`motorSpec.samplesToMotorSpec`, which is the path
-   * for every motor without it).
-   */
+  /** Parallel to `samples`. */
   massesG?: number[];
-  /** Launch CG, mm from the motor's forward end. Absent → half the length. */
+  /** Launch CG from the motor's forward end. */
   cgMm?: number;
   source: 'eng' | 'rse';
 }
 
 export interface MotorStore {
-  /** The user's imported (custom) motors. */
   listCustomMotors(): Promise<CustomMotor[]>;
-  /** Add or replace (by id) an imported motor. */
   addCustomMotor(motor: CustomMotor): Promise<void>;
-  /**
-   * Add or replace a whole batch in one write.
-   *
-   * A `.rse` engine database holds a manufacturer's entire range. Importing one
-   * motor at a time would mean one read-modify-write per motor, each parsing and
-   * re-serializing the whole stored array: quadratic in the import, and a failure
-   * part way through would leave some motors stored, some not, and an error that
-   * could not say which. One write is linear and all-or-nothing.
-   */
   addCustomMotors(motors: readonly CustomMotor[]): Promise<void>;
-  /** Remove an imported motor by id. */
   removeCustomMotor(id: string): Promise<void>;
 }
 
 const CUSTOM_MOTORS_KEY = nsKey('motors:custom');
 
-/**
- * A thrust curve of at least {@link MIN_CURVE_SAMPLES} samples, every one a
- * finite `{time, thrust}`.
- *
- * Custom motors are the one store whose payload
- * reaches `simulate()` without a second gate, so each element's shape is checked:
- * `samples: [{}]` out of a corrupted IndexedDB blob would become
- * `times: [undefined]` and NaN masses inside the kernel. `Number.isFinite`, not
- * `typeof === 'number'`: NaN and Infinity are both numbers and neither survives
- * the TeaVM boundary. The sample count is the builder's threshold
- * (motorCurve.ts), so a single sample, which the kernel refuses as "too short",
- * is rejected here.
- */
+/** Reaches `simulate()` with no second gate; NaN and Infinity do not survive the TeaVM boundary. */
 export const isThrustSampleArray = (v: unknown): boolean =>
   Array.isArray(v) &&
   v.length >= MIN_CURVE_SAMPLES &&
   v.every((s) => {
     const p = s as { time?: unknown; thrust?: unknown } | null;
-    // A negative thrust or time is refused by ThrustCurveMotor, which builds
-    // every seated motor, so a stored curve carrying one could never fly.
     return (
       !!p &&
       Number.isFinite(p.time) &&
@@ -119,13 +57,9 @@ export function isCustomMotor(v: unknown): v is CustomMotor {
     !!m &&
     typeof m.id === 'string' &&
     typeof m.designation === 'string' &&
-    // motorDb.ts sorts on `class` and `manufacturer` with localeCompare, so a
-    // row missing either takes down the whole motor picker, not just its own entry.
+    // motorDb.ts localeCompares these; a missing one takes down the whole picker.
     typeof m.manufacturer === 'string' &&
     typeof m.class === 'string' &&
-    // The importers' header rules (engParser, rseParser): a positive size, a
-    // positive loaded mass and a propellant mass from 0 up to it. A restored
-    // row breaking them would fly a motor that gains mass as it burns.
     Number.isFinite(m.diameter) &&
     m.diameter > 0 &&
     Number.isFinite(m.length) &&
@@ -137,10 +71,7 @@ export function isCustomMotor(v: unknown): v is CustomMotor {
     m.propWeightG <= m.totalWeightG &&
     isThrustSampleArray(m.samples) &&
     isMassArray(m.massesG, m.samples.length) &&
-    // The launch CG lies within the motor, as ThrustCurveMotor requires.
     (m.cgMm === undefined || (Number.isFinite(m.cgMm) && m.cgMm >= 0 && m.cgMm <= m.length)) &&
-    // `parseDelays` splits the delay list, and the picker reads the type as one
-    // of three; a stored row with either malformed would take the picker down.
     (m.delayList === undefined || typeof m.delayList === 'string') &&
     (m.type === undefined || MOTOR_TYPES.has(m.type)) &&
     (m.source === undefined || m.source === 'eng' || m.source === 'rse')
@@ -149,35 +80,18 @@ export function isCustomMotor(v: unknown): v is CustomMotor {
 
 const MOTOR_TYPES: ReadonlySet<unknown> = new Set<MotorType>(['SU', 'reload', 'hybrid']);
 
-/** A value that names a motor type, as a catalog row's free-text `type` may. */
 export const isMotorType = (v: unknown): v is MotorType => MOTOR_TYPES.has(v);
 
-/**
- * The per-sample mass column of a `.rse` motor: absent, or one finite
- * non-negative gram figure per sample.
- *
- * Checked as hard as `samples` is, and for the same reason: this array reaches
- * the kernel as the flown mass curve. A short one would leave `masses` and
- * `times` different lengths across the TeaVM boundary, and a NaN in it is the
- * blank-design failure `samplesToMotorSpec` already documents.
- */
 const isMassArray = (v: unknown, samples: number): boolean =>
   v === undefined || (Array.isArray(v) && v.length === samples && v.every((x) => Number.isFinite(x) && x >= 0));
 
-/**
- * Default MotorStore: persists through a KeyValueStore (IndexedDB by
- * default). Pass a different KeyValueStore to move the bytes elsewhere.
- */
 export class KeyValueMotorStore implements MotorStore {
-  /** The imported motors: newest import first, one entry per id. */
   private readonly custom: JsonListStore<CustomMotor>;
 
   constructor(kv: KeyValueStore = new IndexedDbKeyValueStore()) {
     this.custom = new JsonListStore(CUSTOM_MOTORS_KEY, isCustomMotor, (m) => m.id, kv);
   }
 
-  // add/remove propagate write failures (an import must be known to have saved);
-  // see JsonListStore.
   listCustomMotors(): Promise<CustomMotor[]> {
     return this.custom.list();
   }
@@ -188,8 +102,7 @@ export class KeyValueMotorStore implements MotorStore {
 
   async addCustomMotors(motors: readonly CustomMotor[]): Promise<void> {
     if (motors.length === 0) return;
-    // Last-id-wins within the batch, and the batch lands reversed, so the last
-    // motor of an import heads the list the way it would after single adds.
+    // Last id wins; reversed so the order matches single adds.
     const byId = new Map(motors.map((m) => [m.id, m]));
     await this.custom.upsert([...byId.values()].reverse());
   }
@@ -199,8 +112,6 @@ export class KeyValueMotorStore implements MotorStore {
   }
 }
 
-// The active motor store, replaceable through `setMotorStore` the same way the
-// material store is.
 let store: MotorStore = new KeyValueMotorStore();
 
 export function getMotorStore(): MotorStore {

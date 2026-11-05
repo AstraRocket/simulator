@@ -2,16 +2,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, screen } from '@testing-library/react';
 
-/**
- * The workspace effects: hydration gate, debounced autosave, unload journal,
- * engine rebuild, and which edits age the results.
- *
- * These are about the order and the guards around the async edges, not about
- * what the store actions do, so this drives the real hook with the edges
- * stubbed: a workspace store whose load can be made to reject or to resolve
- * late, and a `computeStaticInfo` that just counts.
- */
-
 const load = vi.hoisted(() => vi.fn());
 const save = vi.hoisted(() => vi.fn());
 const saveSync = vi.hoisted(() => vi.fn());
@@ -31,14 +21,11 @@ vi.mock('../../src/engine/simClient', () => ({ warmSimWorker: vi.fn() }));
 vi.mock('../../src/services/storage/persistStorage', () => ({
   requestPersistentStorage: vi.fn(() => Promise.resolve(true)),
 }));
-// A retry starts a real engine load. Here it never settles, so a test can
-// look at the window between the reset and the new engine. The reset itself
-// (resetEngineInit) is the real one.
+// Never settles, so a test can observe the gap between a retry's reset and the new engine.
 vi.mock('../../src/engine/openRocketEngine', async (orig) => ({
   ...(await orig<typeof import('../../src/engine/openRocketEngine')>()),
   initEngine: () => new Promise<never>(() => {}),
 }));
-// The file opened below names no motor, so the catalog is never consulted.
 vi.mock('../../src/services/motors/motorDb', async (orig) => ({
   ...(await orig<typeof import('../../src/services/motors/motorDb')>()),
   loadCatalog: async () => [],
@@ -70,7 +57,6 @@ function Host() {
   return null;
 }
 
-/** A desktop file holding one tube and no motor, as `openOrkFile` receives it. */
 const orkFile = (name: string): Blob => {
   const bytes = new TextEncoder().encode(`<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="OpenRocket 24.12">
@@ -95,7 +81,6 @@ const orkFile = (name: string): Blob => {
 };
 
 const s = () => useWorkspaceStore.getState();
-/** A saved workspace distinguishable from the default design. */
 const saved = () => ({
   version: 3 as const,
   tree: { ...s().tree, name: 'Restored' },
@@ -108,16 +93,12 @@ const saved = () => ({
 beforeEach(() => {
   vi.useFakeTimers();
   s().resetWorkspace();
-  // A standing notice outlives a design swap, so one test's would reach the next.
   s().setStorageWarning(null);
   load.mockReset().mockResolvedValue(null);
   save.mockReset().mockResolvedValue(undefined);
   saveSync.mockReset();
   setActiveId.mockReset();
   computeStaticInfo.mockReset().mockReturnValue({ info: { length: 1 }, rocket: {} });
-  // The rebuild effect waits on the kernel, because the app mounts before it is
-  // loaded. Every test here but the gating one is about what the rebuild does
-  // once there is an engine, so they start with one.
   useEngineStore.setState({ phase: 'ready', backend: 'js', status: null, slow: false, error: null });
 });
 afterEach(() => {
@@ -125,10 +106,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Let the debounced rebuild that an edit after the first build schedules land. */
 const settleRebuild = () => act(() => void vi.advanceTimersByTime(REBUILD_DEBOUNCE_MS));
 
-/** Render and let the load promise settle. */
 const mount = async (ui = <Host />) => {
   const r = renderWithProviders(ui);
   await act(async () => {
@@ -144,18 +123,9 @@ describe('hydration', () => {
     await mount();
     expect(s().tree.name).toBe('Restored');
     expect(computeStaticInfo).toHaveBeenCalledTimes(1);
-    // And it built the restored design, not the default it was mounted with.
     expect((computeStaticInfo.mock.calls[0]![0] as { name: string }).name).toBe('Restored');
   });
 
-  /**
-   * The editor is live while the stored design is read and the language bundle
-   * awaited (up to 3 s on a cold cache), and nothing autosaves until that
-   * resolves, so a part added in those seconds exists only on screen.
-   * Hydrating over it would replace it with the stored design. The edit stays,
-   * detached from the stored design's entry so it is saved as a design of its
-   * own and the stored one keeps its entry unchanged.
-   */
   it('keeps an edit made before the stored design arrived, as a design of its own', async () => {
     let settle!: (v: unknown) => void;
     load.mockReturnValue(new Promise((r) => (settle = r)));
@@ -175,64 +145,41 @@ describe('hydration', () => {
       for (let i = 0; i < 6; i++) await Promise.resolve();
     });
 
-    // The edit survives, and the hydration still completed: the design built once.
     expect(s().tree).toBe(edited);
     expect(s().tree.name).not.toBe('Restored');
     expect(computeStaticInfo).toHaveBeenCalledTimes(1);
     expect(computeStaticInfo.mock.calls[0]![0]).toBe(edited);
-    // Detached before the write, so the write creates an entry rather than
-    // overwriting the stored design's.
     expect(setActiveId).toHaveBeenCalledWith(null);
     expect(save).toHaveBeenCalledTimes(1);
     expect((save.mock.calls[0]![0] as { tree: unknown }).tree).toBe(edited);
     expect(setActiveId.mock.invocationCallOrder[0]!).toBeLessThan(save.mock.invocationCallOrder[0]!);
   });
 
-  /**
-   * A language switch must not touch the workspace.
-   *
-   * The load effect must not depend on `t`, whose identity changes on
-   * `i18n.changeLanguage`: that re-runs `load()` and hydrates the stored
-   * workspace over the one on screen, dropping whatever the store has not
-   * written yet, such as a flight just run. It can also re-hydrate the persisted
-   * design over a freshly imported .ork, because `openOrkFile` clears only the
-   * in-memory activeId.
-   */
   it('does not reload or re-hydrate when the language changes', async () => {
     load.mockResolvedValue(saved());
     await mount();
     expect(load).toHaveBeenCalledTimes(1);
 
-    // Give the user a flight result to lose.
     act(() => useWorkspaceStore.setState({ sims: s().sims.map((x) => ({ ...x, result: { fake: true } })) } as never));
 
     await act(async () => {
       await i18n.changeLanguage('es');
     });
 
-    expect(load).toHaveBeenCalledTimes(1); // no second read
-    expect(s().sims.every((x) => x.result)).toBe(true); // and the flights survive
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(s().sims.every((x) => x.result)).toBe(true);
     await act(async () => void (await i18n.changeLanguage('en')));
   });
 
-  /**
-   * A rejected load must not leave `hydrated` and `ready` false forever: that means
-   * no autosave, no unload flush, no engine rebuild and a null `info`, so the app
-   * sits there with no stats and no stability badge, saving nothing, with nothing on
-   * screen to say why.
-   */
   it('degrades to a working workspace when the load rejects, and says so', async () => {
     load.mockRejectedValue(new Error('idb blocked'));
     await mount();
 
-    // In the warning slot, not `setErr`: opening the gate runs the rebuild
-    // effect, and its success path calls `setErr(null)`; a message written
-    // there is wiped in the same tick and the user never sees it.
+    // Not `setErr`: the rebuild's success path calls `setErr(null)` in the same tick.
     expect(s().storageWarning).toBeTruthy();
     expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
-    expect(computeStaticInfo).toHaveBeenCalledTimes(1); // the engine still built
+    expect(computeStaticInfo).toHaveBeenCalledTimes(1);
 
-    // ...and autosave still runs, so work done after the failure is not lost too.
     act(() => s().addPartToTree('bodytube'));
     await act(async () => {
       vi.advanceTimersByTime(500);
@@ -241,11 +188,6 @@ describe('hydration', () => {
     expect(save).toHaveBeenCalled();
   });
 
-  /**
-   * The same window, with the load rejecting: the edit stays, is not marked
-   * written (so the unload flush and the hidden-tab save store it) and is
-   * detached from whatever the store pointed at.
-   */
   it('keeps an edit made before the load rejected, unwritten and detached', async () => {
     let fail!: (e: unknown) => void;
     load.mockReturnValue(new Promise((_r, reject) => (fail = reject)));
@@ -263,7 +205,6 @@ describe('hydration', () => {
     expect((s().storageNotices.save ?? s().storageNotices.standing)?.kind).toBe('loadFailed');
     expect(setActiveId).toHaveBeenCalledWith(null);
     expect(unchangedSinceWrite(s())).toBe(false);
-    // So the unload flush writes it, where an untouched default is skipped.
     act(() => {
       window.dispatchEvent(new Event('pagehide'));
     });
@@ -271,11 +212,6 @@ describe('hydration', () => {
     expect((saveSync.mock.calls[0]![0] as { tree: unknown }).tree).toBe(edited);
   });
 
-  /**
-   * The same window on a first visit, with nothing stored: the edit is the
-   * user's and stays unwritten, so the unload flush and the hidden-tab save
-   * store it. Only an untouched default is marked written.
-   */
   it('keeps an edit made before an empty load resolved, unwritten', async () => {
     let resolve!: (w: null) => void;
     load.mockReturnValue(new Promise((r) => (resolve = r)));
@@ -298,9 +234,6 @@ describe('hydration', () => {
     expect((saveSync.mock.calls[0]![0] as { tree: unknown }).tree).toBe(edited);
   });
 
-  // The store read the design and holds its claim on it; `hydrate` is what
-  // failed. Left attached, the first edit would autosave the default rocket
-  // over the stored design.
   it('detaches the store when the loaded design fails to hydrate', async () => {
     load.mockResolvedValue({ ...saved(), tree: null });
     await mount();
@@ -342,7 +275,7 @@ describe('autosave', () => {
       vi.advanceTimersByTime(400);
     });
     act(() => s().addPartToTree('bodytube'));
-    expect(save).not.toHaveBeenCalled(); // the second edit restarted the clock
+    expect(save).not.toHaveBeenCalled();
 
     await act(async () => {
       vi.advanceTimersByTime(500);
@@ -351,16 +284,8 @@ describe('autosave', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  /**
-   * The header's save status reads `lastSavedAt`, and it is the only thing
-   * that reports a save, since the File menu has no Save item. So it has to
-   * be set where a write landed, not where one was asked for: a failed save
-   * must not say "Saved".
-   */
   it('records when the write landed, and not when it failed', async () => {
     await mount();
-    // The store is a module singleton shared with the tests above, so start
-    // from a known "nothing has been saved yet".
     act(() => useWorkspaceStore.setState({ lastSavedAt: null }));
 
     act(() => s().addPartToTree('bodytube'));
@@ -378,7 +303,7 @@ describe('autosave', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(s().lastSavedAt).toBe(saved); // still the last one that worked
+    expect(s().lastSavedAt).toBe(saved);
   });
 
   it('does not save before hydration has finished', async () => {
@@ -390,7 +315,6 @@ describe('autosave', () => {
     act(() => {
       vi.advanceTimersByTime(1000);
     });
-    // Saving now would write the default design over the one still being read.
     expect(save).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -417,17 +341,9 @@ describe('autosave', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    // "Full" is transient: the write that just succeeded disproves it.
     expect(s().storageWarning).toBeNull();
   });
 
-  /**
-   * ...but only that one. `markDegraded()` is one-way and never notifies twice
-   * (idbKeyValueStore.ts), so clearing its message on the next successful
-   * write would retire it for the whole session, one keystroke after it
-   * appeared, and the user would meet the 5 MB cap with nothing on screen to
-   * explain it.
-   */
   it.each([
     ['degraded', () => degraded.fire!()],
     ['loadFailed', null],
@@ -445,8 +361,8 @@ describe('autosave', () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(save).toHaveBeenCalled(); // the save really did succeed
-    expect(s().storageWarning).toBe(standing); // and the warning still stands
+    expect(save).toHaveBeenCalled();
+    expect(s().storageWarning).toBe(standing);
   });
 
   it('warns when IndexedDB is unavailable at all', async () => {
@@ -467,7 +383,6 @@ describe('the unload journal', () => {
     expect(saveSync).toHaveBeenCalledTimes(1);
   });
 
-  /** Fire `beforeunload` and report whether the page asked to stay. */
   const leave = (): boolean => {
     const e = new Event('beforeunload', { cancelable: true });
     act(() => void window.dispatchEvent(e));
@@ -485,14 +400,12 @@ describe('the unload journal', () => {
     });
     expect(s().storageWarning).toBeTruthy();
     expect(leave()).toBe(true);
-    // The journal is still tried first.
     expect(saveSync).toHaveBeenCalled();
   });
 
   it('leaves without asking when the last write landed, or no save is failing', async () => {
     await mount();
     act(() => s().addPartToTree('bodytube'));
-    // Edits waiting on the debounce, but nothing has failed: the journal covers them.
     expect(leave()).toBe(false);
     await act(async () => {
       vi.advanceTimersByTime(500);
@@ -503,7 +416,7 @@ describe('the unload journal', () => {
   });
 
   it('does not journal a workspace it never hydrated', () => {
-    load.mockReturnValue(new Promise(() => {})); // never settles
+    load.mockReturnValue(new Promise(() => {}));
     renderWithProviders(<Host />);
     act(() => {
       window.dispatchEvent(new Event('pagehide'));
@@ -522,11 +435,6 @@ describe('the unload journal', () => {
 });
 
 describe('what triggers a rebuild', () => {
-  /**
-   * The rebuild must not key on `tree`, which every store action replaces: typing a
-   * designer name would run a full engine build plus an aero sweep. A result
-   * keyed the same way would read outdated for an edit that moves no number.
-   */
   it('editing the design metadata neither rebuilds nor invalidates', async () => {
     await mount();
     computeStaticInfo.mockClear();
@@ -555,11 +463,6 @@ describe('what triggers a rebuild', () => {
     expect(computeStaticInfo).toHaveBeenCalledTimes(1);
   });
 
-  /**
-   * A typed or dragged dimension changes the design once per input event, and a
-   * build is a full kernel run on the main thread. A burst costs one build, of
-   * the design as it stands after the last event.
-   */
   it('builds once for a burst of edits, after the last one', async () => {
     await mount();
     computeStaticInfo.mockClear();
@@ -578,8 +481,6 @@ describe('what triggers a rebuild', () => {
   });
 
   it('rebuilds the open design when an import that reset the engine did not replace it', async () => {
-    // The reset voided the open design's handle; nothing about the design
-    // itself changed, so only the store's request can bring it back.
     await mount();
     computeStaticInfo.mockClear();
     act(() => useWorkspaceStore.setState((st) => ({ rebuildSeq: st.rebuildSeq + 1 })));
@@ -595,8 +496,7 @@ describe('what triggers a rebuild', () => {
   it('changing a dimension rebuilds and ages the results without destroying them', async () => {
     await mount();
     computeStaticInfo.mockClear();
-    // Seed a result, so this asserts the keep as well as the flag. Without one
-    // an `every(x => !x.result)` check passes vacuously, because no sim has run.
+    // Seeded, or the keep check passes vacuously.
     act(() => {
       useWorkspaceStore.setState((st) => ({
         sims: st.sims.map((x) => asFlown(st, { ...x, result: { summary: { maxAltitude: 271 } } as never })),
@@ -610,23 +510,13 @@ describe('what triggers a rebuild', () => {
     settleRebuild();
 
     expect(computeStaticInfo).toHaveBeenCalledTimes(1);
-    expect(s().sims.every((x) => !!x.result)).toBe(true); // still readable
-    expect(s().sims.every((x) => isStale(x))).toBe(true); // …but flagged
+    expect(s().sims.every((x) => !!x.result)).toBe(true);
+    expect(s().sims.every((x) => isStale(x))).toBe(true);
   });
 
-  /**
-   * Grounding a stage changes the static info (a grounded stage contributes no
-   * mass, no aero and no motor), so the rebuild key has to include it. Otherwise
-   * the worker flies the sustainer alone while `info` still describes the whole
-   * stack, and the stats strip, the stability badge and the RASAero launch mass
-   * all come from a handle for a different rocket. `seatedMotorsKey` cannot
-   * see it: it is mount-and-spec only, and grounding moves neither.
-   */
   it('grounding a stage rebuilds, because a grounded stage is a different rocket', async () => {
     await mount();
-    // Two stages, because the store refuses to ground the only one ("something
-    // has to fly") -- against a single-stage design the call is a no-op and the
-    // test would pass for the wrong reason.
+    // Two stages: grounding the only one is refused, a no-op that would pass.
     act(() => s().addStageToTree());
     await act(async () => void (await Promise.resolve()));
     settleRebuild();
@@ -636,10 +526,9 @@ describe('what triggers a rebuild', () => {
 
     act(() => s().setStageFlies(cfg.id, booster, false));
     settleRebuild();
-    expect(s().configs[0]!.grounded).toContain(booster); // the write landed
+    expect(s().configs[0]!.grounded).toContain(booster);
     expect(computeStaticInfo).toHaveBeenCalledTimes(1);
 
-    // And back: un-grounding is just as much a change of rocket.
     act(() => s().setStageFlies(cfg.id, booster, true));
     settleRebuild();
     expect(computeStaticInfo).toHaveBeenCalledTimes(2);
@@ -655,7 +544,6 @@ describe('what triggers a rebuild', () => {
     settleRebuild();
     computeStaticInfo.mockClear();
 
-    // The key is a sorted set, so a no-op write must not cost a kernel build.
     act(() => s().setStageFlies(cfg.id, booster, false));
     settleRebuild();
     expect(computeStaticInfo).not.toHaveBeenCalled();
@@ -676,14 +564,9 @@ describe('what triggers a rebuild', () => {
   });
 
   it('waits for the kernel, and builds the moment it arrives', async () => {
-    // The app mounts before the engine is loaded, so this is the ordinary first
-    // second of every visit, not an error path.
     useEngineStore.setState({ phase: 'loading', backend: null });
     await mount();
 
-    // No build, and - the point of the gate - no error banner either: blaming
-    // the design for a kernel that has not finished downloading would be a
-    // message about nothing the user can act on.
     expect(computeStaticInfo).not.toHaveBeenCalled();
     expect(s().info).toBeNull();
     expect(s().buildErr).toBeNull();
@@ -698,12 +581,6 @@ describe('what triggers a rebuild', () => {
     expect(s().info).not.toBeNull();
   });
 
-  /**
-   * A file opened in that same first second. The import needs no kernel (the
-   * engine module here is the real one with no engine loaded, so every kernel
-   * call refuses), the design lands on screen with no error, and the engine's
-   * arrival builds it.
-   */
   it('opens a file before the kernel has loaded, and builds it when the kernel arrives', async () => {
     useEngineStore.setState({ phase: 'loading', backend: null });
     await mount();
@@ -732,8 +609,6 @@ describe('what triggers a rebuild', () => {
     expect((computeStaticInfo.mock.calls[0]![0] as { name: string }).name).toBe('Early');
   });
 
-  // The engine can arrive after an import has already failed. Building the
-  // same design must not wipe that message before it is read.
   it('keeps an action error through a build of the same design', async () => {
     useEngineStore.setState({ phase: 'loading', backend: null });
     await mount();
@@ -758,8 +633,6 @@ describe('what triggers a rebuild', () => {
   });
 
   it('builds again after a retry that swaps the engine underneath it', async () => {
-    // `retry()` throws the old engine away, so whatever was built under it is
-    // void. A second 'ready' has to rebuild rather than sit on the stale handle.
     await mount();
     expect(computeStaticInfo).toHaveBeenCalledTimes(1);
 
@@ -775,13 +648,6 @@ describe('what triggers a rebuild', () => {
     expect(computeStaticInfo).toHaveBeenCalledTimes(2);
   });
 
-  /**
-   * `retry()` resets the engine, which voids every handle the old one issued,
-   * and the rebuild waits for the new engine. A handle kept in the store in
-   * that window is dead: the Aero view's Worst button throws on it and an
-   * input change blanks the pane. The store reads as not built instead, which
-   * the Aero view renders as its not-built state.
-   */
   it('clears the built rocket the moment a retry throws the engine away', async () => {
     await mount();
     expect(s().rocket).not.toBeNull();
@@ -797,13 +663,6 @@ describe('what triggers a rebuild', () => {
 });
 
 describe('a hydrate does not re-stamp the design', () => {
-  /**
-   * `hydrate()` replaces tree/sims/configs, which re-runs the autosave
-   * effect and schedules a write of the bytes just read, and
-   * `DesignLibrary.write` stamps `updatedAt: Date.now()`. Unless that write is
-   * skipped, opening the app re-stamps the design, and the library's "most
-   * recently updated" order means "most recently opened".
-   */
   it('writes nothing after loading a saved workspace', async () => {
     load.mockResolvedValue(saved());
     await mount();
@@ -829,8 +688,6 @@ describe('a hydrate does not re-stamp the design', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  // File > Open is the same hydrate, after boot. Its own flush of the design
-  // being left is the one write it makes.
   it('writes nothing after opening a library design', async () => {
     await mount();
     const original = getDesignLibrary();
@@ -856,7 +713,6 @@ describe('a hydrate does not re-stamp the design', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  // The flush ahead of the switch has nothing to store for an untouched New.
   it('does not store an untouched New when a library design is opened', async () => {
     await mount();
     act(() => s().resetWorkspace());
@@ -879,7 +735,6 @@ describe('a hydrate does not re-stamp the design', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  // An untouched blank design is not worth a library entry; the first edit is.
   it('writes nothing after New until the first edit', async () => {
     load.mockResolvedValue(saved());
     await mount();
@@ -899,7 +754,6 @@ describe('a hydrate does not re-stamp the design', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  /** Hide the tab, as switching to another one does, and let any write settle. */
   const hideTab = async () => {
     const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
     try {
@@ -912,8 +766,6 @@ describe('a hydrate does not re-stamp the design', () => {
     }
   };
 
-  // The header's save status reports that saving happens, so a write that
-  // landed when the tab was hidden counts as much as the debounced autosave.
   it('records a save the hidden tab made', async () => {
     load.mockResolvedValue(saved());
     await mount();
@@ -927,9 +779,6 @@ describe('a hydrate does not re-stamp the design', () => {
     expect(s().lastSavedAt).not.toBeNull();
   });
 
-  // A tab switch is not an edit: after New it would create a library entry
-  // for a design nobody touched, and after a load it would re-stamp one only
-  // opened. Neither the async save nor the journal runs.
   it('writes nothing when the tab is hidden after New', async () => {
     load.mockResolvedValue(saved());
     await mount();
@@ -941,11 +790,7 @@ describe('a hydrate does not re-stamp the design', () => {
     expect(saveSync).not.toHaveBeenCalled();
   });
 
-  // A first visit has nothing stored: the default rocket on screen is as
-  // untouched as after New, and storing it would put a library entry ahead of
-  // the first import.
   it('writes nothing when the tab is hidden on a first visit', async () => {
-    // The page's own starting state, which no New or load has marked.
     useWorkspaceStore.setState({ tree: { ...s().tree } });
     load.mockResolvedValue(null);
     await mount();
@@ -979,7 +824,7 @@ describe('a hydrate does not re-stamp the design', () => {
   });
 
   it('saves normally when there was no saved workspace to hydrate from', async () => {
-    load.mockResolvedValue(null); // nothing stored: no hydrate, so nothing to skip
+    load.mockResolvedValue(null);
     await mount();
     save.mockClear();
 
@@ -992,21 +837,8 @@ describe('a hydrate does not re-stamp the design', () => {
   });
 });
 
-/**
- * Restoring a design is not editing it.
- *
- * The boot design and the restored one differ, so anything comparing against
- * the design on screen before the restore would read every restored result as
- * stale, and with `simulation.autoRunOutdated` on and a result view open,
- * CenterView would re-fly flights that are already current. A result is
- * compared against what it was flown from, which a restore does not change.
- *
- * `flightKey` strips `name`, so a fixture differing only by name would prove
- * nothing. These use a structurally different tree. The saved rows carry the
- * `resultKey` of the inputs they were flown from.
- */
+// `flightKey` strips `name`, so the fixture differs structurally.
 describe('restoring a saved design does not invalidate its flights', () => {
-  /** A saved workspace whose geometry differs from the default, with a flight. */
   const savedWithFlight = () => {
     const tree = structuredClone(s().tree) as typeof s extends never ? never : ReturnType<typeof s>['tree'];
     const bumpLength = (n: { type?: string; length?: number; children?: unknown[] }) => {
@@ -1030,8 +862,6 @@ describe('restoring a saved design does not invalidate its flights', () => {
     load.mockResolvedValue(savedWithFlight());
     await mount();
 
-    // The geometry changed on hydrate, so a comparison against the boot design
-    // would read this result as stale.
     expect(s().sims[0]!.result).not.toBeNull();
     expect(isStale(s().sims[0]!)).toBe(false);
   });
@@ -1051,13 +881,8 @@ describe('restoring a saved design does not invalidate its flights', () => {
     expect(isStale(s().sims[0]!)).toBe(true);
   });
 
-  /**
-   * File > Open is a second hydrate, after the boot one. The library design
-   * carries its own current results, and its geometry differs from the design it
-   * replaces; that difference must not age them.
-   */
   it('keeps the results current when a library design is opened over the boot design', async () => {
-    await mount(); // boot on the default design
+    await mount();
     const original = getDesignLibrary();
     const w = savedWithFlight();
     setDesignLibrary({
@@ -1074,11 +899,9 @@ describe('restoring a saved design does not invalidate its flights', () => {
       setDesignLibrary(original);
     }
 
-    // The opened design is structurally different and has a current result.
     expect(s().sims[0]!.result).not.toBeNull();
     expect(isStale(s().sims[0]!)).toBe(false);
 
-    // A real edit after the open still ages it.
     const tube = s().tree.components[0]!.children?.find((c) => c.type === 'bodytube') ?? s().tree.components[0]!;
     await act(async () => {
       s().setSelectedId(tube.id ?? null);

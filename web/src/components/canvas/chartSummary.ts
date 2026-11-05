@@ -1,26 +1,16 @@
 import { fmtList, fmtNum, withUnit } from '../../i18n/format';
 
-/**
- * The written summaries the charts give a screen reader: what a chart shows,
- * as a sentence, so its numbers are reachable without walking the crosshair
- * sample by sample. Each chart's SVG carries its summary as its accessible
- * name (`role="img"`), and sighted readers see the chart itself.
- *
- * Values arrive already in display units (the chart's own scaling), so a
- * summary reads in the units the chart is drawn in.
- */
+// Values arrive already in display units.
 
-/** A translator, narrowed to what these builders call. */
 type T = (key: string, options?: Record<string, unknown>) => string;
 
-/** One stage's samples: x (time or Mach) and the plotted y, in display units. */
 export interface SummaryStage {
   name: string;
   xs: readonly number[];
   ys: readonly number[];
 }
 
-/** The sample of largest magnitude (sign kept) and where it falls, or null for no samples. */
+// Largest magnitude, sign kept.
 export function peakOf(xs: readonly number[], ys: readonly number[]): { value: number; at: number } | null {
   let best = -1;
   for (let i = 0; i < ys.length; i++) {
@@ -29,11 +19,6 @@ export function peakOf(xs: readonly number[], ys: readonly number[]): { value: n
   return best < 0 ? null : { value: ys[best]!, at: xs[best]! };
 }
 
-/**
- * The peak across several lines (every shown stage): the largest magnitude of
- * any, sign kept, or null when none has a sample. What a panel header shows
- * with no crosshair, so the time panels and the velocity-altitude panel agree.
- */
 export function peakAcross(
   lines: readonly { xs: readonly number[]; ys: readonly number[] }[],
 ): { value: number; at: number } | null {
@@ -45,7 +30,6 @@ export function peakAcross(
   return best;
 }
 
-/** The smallest and largest sample, or null for no samples. */
 export function rangeOf(ys: readonly number[]): { min: number; max: number } | null {
   if (!ys.length) return null;
   let min = Infinity;
@@ -57,15 +41,9 @@ export function rangeOf(ys: readonly number[]): { min: number; max: number } | n
   return { min, max };
 }
 
-/** A value in its unit, spaced as everywhere else (`withUnit`); a unitless value stands alone. */
 const valueIn = (v: number, digits: number, unit: string) =>
   unit ? withUnit(fmtNum(v, digits), unit) : fmtNum(v, digits);
 
-/**
- * What a chart's live region says when the keyboard moves its crosshair: where
- * the crosshair is, then each series' value there ("Altitude 312 m, Velocity
- * 48 m/s"). A series with no value at that point is left out.
- */
 export function crosshairReadout(
   at: string,
   items: readonly { label: string; value: number | null; digits: number; unit: string }[],
@@ -76,15 +54,9 @@ export function crosshairReadout(
   return values.length ? `${at}: ${fmtList(values)}` : at;
 }
 
-/** "Booster: …" when there are several stages, the bare part when there is one. */
 const perStage = <S extends { name: string }>(stages: readonly S[], part: (s: S) => string): string =>
   stages.length === 1 ? part(stages[0]!) : fmtList(stages.map((s) => `${s.name}: ${part(s)}`));
 
-/**
- * A flight panel against time. A flow series (altitude, velocity, thrust) is
- * summarized by its peak and when it happened; a level series (mass, CG, CP,
- * stability), which changes slowly rather than peaking, by the span it covers.
- */
 export function timeSeriesSummary(
   t: T,
   label: string,
@@ -108,11 +80,7 @@ export function timeSeriesSummary(
   return `${label}: ${perStage(stages, part)}`;
 }
 
-/**
- * The flight's events in time order, each once. A cluster of stages can carry
- * the same event at the same moment (every booster's burnout at staging), which
- * a reader needs to hear once.
- */
+// Deduplicated: clustered stages can carry the same event at the same moment.
 export function eventsSummary(
   t: T,
   events: readonly { type: string; time: number }[],
@@ -130,7 +98,6 @@ export function eventsSummary(
   return items.length ? t('flight.summaryEvents', { list: fmtList(items) }) : null;
 }
 
-/** A panel of one series against another: the y's peak and the x it was reached at. */
 export function xySummary(
   t: T,
   label: string,
@@ -144,7 +111,6 @@ export function xySummary(
   return `${label}: ${perStage(stages, part)}`;
 }
 
-/** A chart against Mach (drag or CP): each curve's peak and the Mach number it occurs at. */
 export function machSeriesSummary(
   t: T,
   title: string,

@@ -1,42 +1,22 @@
 import { useRef } from 'react';
 import { rememberedSlot, useForecastFields, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
-import { fmtDegrees, fmtGroundDistance, useUnits } from '../../prefs/useUnits';
 import { useSettings } from '../../state/SettingsProvider';
 import { todayYmd } from '../../services/weather/openMeteo';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { runLandingEstimate, type LandingRun } from '../../services/landing/landingEstimate';
 import type { DescentPlan } from '../../services/landing/descentDrift';
-import { QNum } from '../sim/LaunchPanel';
-import { LandingMap } from '../common/map/LandingMap';
 import { SiteFields, type ToolSite } from './SiteFields';
 import { WhenFields } from '../sim/WhenFields';
 import { CardGroup } from '../common/CardGroup';
-import { TermRow } from '../common/TermRow';
-import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
-import { formatCoord } from '../../services/map/slippyMap';
-import { fmtSiteTime } from '../../i18n/format';
 import { useOnline } from '../common/useOnline';
 import { StatusLine } from '../common/StatusLine';
-import { RadioGroup } from '../common/RadioGroup';
 import { useForecastRequest, ForecastState } from '../common/useForecastRequest';
 import { ToolLayout, ToolForm } from './ToolLayout';
-
-/**
- * Where a rocket will come down, for a flight that has not been designed here:
- * a site, a date and hour, how high it goes and how fast it falls, and the
- * forecast wind for that hour does the rest (services/landing). An estimate
- * from typed rates, and it says so; a designed rocket's landing comes from the
- * engine, on its Results tab.
- */
+import { LandingFlightCard, LandingResult } from './LandingParts';
 
 type Recovery = 'single' | 'dual';
 
-/**
- * What an estimate was computed from. A result is drawn over the site it was
- * computed for, not whatever the site fields hold now, and it is marked out of
- * date when any of these no longer match the form.
- */
 interface EstimateInputs {
   latitudeDeg: number;
   longitudeDeg: number;
@@ -74,63 +54,89 @@ interface Remembered {
 }
 const remembered = rememberedSlot<Remembered>();
 
-/** Clears the remembered inputs and result, so each test starts from the defaults. */
 export function forgetLandingEstimator(): void {
   remembered.forget();
 }
 
-/** A duration as m:ss, rounded to the whole second before it is split. */
-export function minutesSeconds(s: number): string {
-  const total = Math.round(s);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+function descentPlan(
+  apogee: number | null,
+  dual: boolean,
+  firstRate: number | null,
+  mainRate: number | null,
+  mainAgl: number | null,
+): DescentPlan | null {
+  return apogee != null && apogee > 0 && firstRate != null && firstRate > 0
+    ? dual
+      ? mainRate != null && mainRate > 0 && mainAgl != null && mainAgl > 0 && mainAgl < apogee
+        ? { apogeeAglM: apogee, firstRateMs: firstRate, main: { rateMs: mainRate, aglM: mainAgl } }
+        : null
+      : { apogeeAglM: apogee, firstRateMs: firstRate }
+    : null;
 }
 
-export function LandingEstimator() {
-  const { t } = useTranslation();
-  const online = useOnline();
-  const u = useUnits();
+function estimateInputs(site: ToolSite, date: string, hour: number, plan: DescentPlan | null): EstimateInputs | null {
+  return site.latitudeDeg != null && site.longitudeDeg != null && plan !== null && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? {
+        latitudeDeg: site.latitudeDeg,
+        longitudeDeg: site.longitudeDeg,
+        padElevationM: site.launchAltitudeM,
+        date,
+        hour,
+        plan,
+      }
+    : null;
+}
+
+function useLandingForm() {
   const { settings } = useSettings();
   const defaults = settings.launchDefaults;
   const { site, setSite, date, setDate, hour, setHour } = useForecastFields(remembered, defaults);
   const [apogee, setApogee] = useRemembered(remembered, 'apogee', 300);
   const [recovery, setRecovery] = useRemembered(remembered, 'recovery', 'single');
-  // A single chute and a drogue fall at very different rates, so each keeps
-  // its own value: switching to dual must not hand the drogue a main's 6 m/s.
+  // Separate values so switching to dual does not hand the drogue a main's 6 m/s.
   const [singleRate, setSingleRate] = useRemembered(remembered, 'singleRate', 6);
   const [drogueRate, setDrogueRate] = useRemembered(remembered, 'drogueRate', 25);
   const [mainRate, setMainRate] = useRemembered(remembered, 'mainRate', 6);
   const [mainAgl, setMainAgl] = useRemembered(remembered, 'mainAgl', 150);
-  // A request still out when the tab closed was aborted, so it comes back idle.
+  const dual = recovery === 'dual';
+  const firstRate = dual ? drogueRate : singleRate;
+  const setFirstRate = dual ? setDrogueRate : setSingleRate;
+  return {
+    site,
+    setSite,
+    date,
+    setDate,
+    hour,
+    setHour,
+    apogee,
+    setApogee,
+    recovery,
+    setRecovery,
+    dual,
+    firstRate,
+    setFirstRate,
+    mainRate,
+    setMainRate,
+    mainAgl,
+    setMainAgl,
+  };
+}
+
+export type LandingForm = ReturnType<typeof useLandingForm>;
+
+export function LandingEstimator() {
+  const { t } = useTranslation();
+  const online = useOnline();
+  const form = useLandingForm();
+  const { site, setSite, date, setDate, hour, setHour, apogee, dual, firstRate, mainRate, mainAgl } = form;
   const [state, setState] = useRemembered(remembered, 'state', { kind: 'idle' }, (s): State =>
     s.kind === 'loading' ? { kind: 'idle' } : s,
   );
   const forecast = useForecastRequest();
-
-  const dual = recovery === 'dual';
-  const firstRate = dual ? drogueRate : singleRate;
-  const setFirstRate = dual ? setDrogueRate : setSingleRate;
   const resultRef = useRef<HTMLDivElement>(null);
-  const plan: DescentPlan | null =
-    apogee != null && apogee > 0 && firstRate != null && firstRate > 0
-      ? dual
-        ? mainRate != null && mainRate > 0 && mainAgl != null && mainAgl > 0 && mainAgl < apogee
-          ? { apogeeAglM: apogee, firstRateMs: firstRate, main: { rateMs: mainRate, aglM: mainAgl } }
-          : null
-        : { apogeeAglM: apogee, firstRateMs: firstRate }
-      : null;
+  const plan = descentPlan(apogee, dual, firstRate, mainRate, mainAgl);
   const hasSite = site.latitudeDeg != null && site.longitudeDeg != null;
-  // The form as an estimate request, or null while anything it needs is missing.
-  const inputs: EstimateInputs | null =
-    site.latitudeDeg != null && site.longitudeDeg != null && plan !== null && /^\d{4}-\d{2}-\d{2}$/.test(date)
-      ? {
-          latitudeDeg: site.latitudeDeg,
-          longitudeDeg: site.longitudeDeg,
-          padElevationM: site.launchAltitudeM,
-          date,
-          hour,
-          plan,
-        }
-      : null;
+  const inputs = estimateInputs(site, date, hour, plan);
   const ready = inputs !== null;
 
   const estimate = async () => {
@@ -141,17 +147,12 @@ export function LandingEstimator() {
       (signal) => runLandingEstimate({ ...asked, today: todayYmd(), apiKey: readWeatherKey() }, { signal }),
       (r) => ({ run: r, inputs: asked }),
     );
-    // On a phone the result is below the form, out of sight of the button.
     if (run) requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest' }));
   };
 
-  const dist = u.plain('distance');
-  const fmtM = (m: number) => fmtGroundDistance(dist, m);
   const ran = state.kind === 'ready' ? state : null;
-  const run = ran?.run ?? null;
-  const e = run?.estimate;
+  const e = ran?.run.estimate;
   const outdated = ran !== null && !sameInputs(ran.inputs, inputs);
-  const validTime = run ? fmtSiteTime(run.validUnix * 1000, run.answer.timezone) : '';
   return (
     <ToolLayout wide>
       <ToolForm title={t('landing.title')} intro={t('landing.intro')}>
@@ -163,72 +164,7 @@ export function LandingEstimator() {
           <WhenFields date={date} hour={hour} onDate={setDate} onHour={setHour} />
         </CardGroup>
 
-        <CardGroup title={t('landing.flight')}>
-          <QNum
-            label={t('landing.apogee')}
-            field="landingApogee"
-            kind="distance"
-            u={u}
-            stepSi={10}
-            minSi={1}
-            maxSi={30_000}
-            required
-            missing={apogee == null}
-            value={apogee}
-            onChange={setApogee}
-          />
-          <RadioGroup
-            legend={t('landing.recovery')}
-            options={['single', 'dual'] as const}
-            value={recovery}
-            onChange={setRecovery}
-            fmt={(r) => t(`landing.recovery_${r}`)}
-          />
-          <QNum
-            label={t(dual ? 'landing.drogueRate' : 'landing.descentRate')}
-            field="landingFirstRate"
-            kind="velocity"
-            u={u}
-            stepSi={0.5}
-            minSi={0.1}
-            maxSi={150}
-            required
-            missing={firstRate == null}
-            value={firstRate}
-            onChange={setFirstRate}
-          />
-          {dual && (
-            <>
-              <QNum
-                label={t('landing.mainRate')}
-                field="landingMainRate"
-                kind="velocity"
-                u={u}
-                stepSi={0.5}
-                minSi={0.1}
-                maxSi={150}
-                required
-                missing={mainRate == null}
-                value={mainRate}
-                onChange={setMainRate}
-              />
-              <QNum
-                label={t('landing.mainAltitude')}
-                field="landingMainAltitude"
-                kind="distance"
-                u={u}
-                stepSi={10}
-                minSi={1}
-                maxSi={30_000}
-                required
-                missing={mainAgl == null}
-                hint={mainAgl != null && apogee != null && mainAgl >= apogee ? t('landing.mainAboveApogee') : undefined}
-                value={mainAgl}
-                onChange={setMainAgl}
-              />
-            </>
-          )}
-        </CardGroup>
+        <LandingFlightCard form={form} />
 
         <button
           className="w-full rounded-md bg-accent-600 px-3 py-2 text-sm font-semibold text-on-accent hover:bg-accent-700 disabled:opacity-50"
@@ -243,42 +179,14 @@ export function LandingEstimator() {
       </ToolForm>
 
       <div ref={resultRef} className="min-w-0 space-y-3">
-        {ran && run && e ? (
-          <>
-            {outdated && <p className="text-xs text-warn-400">{t('landing.outdated')}</p>}
-            <LandingMap
-              latitudeDeg={ran.inputs.latitudeDeg}
-              longitudeDeg={ran.inputs.longitudeDeg}
-              path={e.nominal.path}
-              landing={e.nominal.landing}
-              samples={e.samples}
-              ellipse={e.ellipse}
-              distanceUnit={dist}
-            />
-            <dl className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-2 rounded-xl bg-surface p-3 text-xs ring-1 ring-line/10">
-              <TermRow label={t('landing.lands')}>
-                {formatCoord(e.nominal.landingLatDeg, e.nominal.landingLonDeg, 5)}
-              </TermRow>
-              <TermRow label={t('landing.distance')}>{fmtM(e.nominal.distanceM)}</TermRow>
-              <TermRow label={t('landing.bearing')}>{fmtDegrees(u, e.nominal.bearingDeg)}</TermRow>
-              <TermRow label={t('landing.descentTime')}>{minutesSeconds(e.nominal.timeS)}</TermRow>
-              <TermRow label={t('landing.zone')}>
-                {e.ellipse
-                  ? `${fmtM(2 * e.ellipse.semiMajorM)} × ${fmtM(2 * e.ellipse.semiMinorM)}`
-                  : t('landing.noZone')}
-              </TermRow>
-              <TermRow label={t('landing.groundAtLanding')}>{fmtM(e.nominal.groundElevationM)}</TermRow>
-              <TermRow label={t('env.when')}>{validTime}</TermRow>
-            </dl>
-            <p className="text-xs text-ink-muted">
-              {t('landing.estimateNote', { descents: e.samples.length, hours: e.hours })}
-            </p>
-            {!run.terrain && <p className="text-xs text-warn-400">{t('landing.flatGround')}</p>}
-            {run.answer.endpoint === 'archive' && (
-              <p className="text-xs text-warn-400">{t('landing.surfaceWindOnly')}</p>
-            )}
-            <OpenMeteoCredit />
-          </>
+        {ran && e ? (
+          <LandingResult
+            run={ran.run}
+            estimate={e}
+            latitudeDeg={ran.inputs.latitudeDeg}
+            longitudeDeg={ran.inputs.longitudeDeg}
+            outdated={outdated}
+          />
         ) : (
           <p className="p-4 text-sm text-ink-faint">{t('landing.empty')}</p>
         )}

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { fmtDegrees, type Units } from '../../src/prefs/useUnits';
 import { siToUi } from '../../src/prefs/units';
 
-/** A degree figure in either angle unit, with the extra decimals a radian needs. */
 const units = (sym: string): Pick<Units, 'fmtSym' | 'sym'> => ({
   sym: () => sym,
   fmtSym: (q, si, digits) => `${siToUi(q, sym, si).toFixed(digits)} ${sym}`,

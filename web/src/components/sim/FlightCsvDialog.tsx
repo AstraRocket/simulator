@@ -14,18 +14,6 @@ import { Check } from '../common/Check';
 import { NumberInput } from '../common/NumberInput';
 import { DialogButton } from '../common/DialogButton';
 
-/**
- * What goes in the flight CSV, before it is written: OpenRocket's Export data
- * tab: the variables, the format, the comments and which stage.
- *
- * All of it is the user's choice, as in desktop: the file is read by somebody
- * else's tools, so the columns, the separator, the precision and the comments
- * are theirs to set rather than fixed here.
- *
- * The variable list comes from the result rather than a fixed table, so it shows
- * what this run actually recorded. Series the app has no name for are listed
- * under their kernel symbol, which is what they are called everywhere else.
- */
 export function FlightCsvDialog({
   result,
   simName,
@@ -39,21 +27,16 @@ export function FlightCsvDialog({
   const u = useUnits();
   const designName = useWorkspaceStore(selectDesignName);
   const { settings, update } = useSettings();
-  // A stored two-character backslash-t names the tab character; written
-  // verbatim it would put every value in one spreadsheet column.
+  // A stored two-character backslash-t means the tab character.
   const saved =
     settings.flightCsv.separator === '\\t' ? { ...settings.flightCsv, separator: '\t' } : settings.flightCsv;
 
   const branches = result.branches ?? [];
   const [branchIndex, setBranchIndex] = useState(0);
-  // The comment box while it is being typed in. An empty box is a step on the
-  // way to another character, not a choice, so the "#" fallback waits for the
-  // field to be left; written at once, Backspace then "%" would read "#%".
+  // The "#" fallback waits for blur: written at once, Backspace then "%" would read "#%".
   const [commentDraft, setCommentDraft] = useState<string | null>(null);
   const columns = useMemo(() => flightColumns(result, branchIndex), [result, branchIndex]);
 
-  // Only keys this run can fill: a saved list may name a series an older or
-  // newer build recorded, and the file cannot fill a column for it.
   const available = new Set(columns.map((c) => c.key));
   const chosen = saved.columns.filter((k) => available.has(k));
 
@@ -80,9 +63,6 @@ export function FlightCsvDialog({
       title={t('csv.title')}
       onClose={onClose}
       size="3xl"
-      // The variable list is the point of the dialog and there are a dozen-odd
-      // of them, so the body takes the height and the two columns scroll
-      // themselves rather than the whole dialog scrolling.
       layout="fill"
       footer={
         <div className="flex justify-end gap-2 p-3">
@@ -96,7 +76,6 @@ export function FlightCsvDialog({
       }
     >
       <div className="grid min-h-0 flex-1 gap-3 p-4 md:grid-cols-[1fr_260px]">
-        {/* Variables */}
         <div className={`${box} flex min-h-0 flex-col`}>
           <div className={label}>{t('csv.variables')}</div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -133,7 +112,6 @@ export function FlightCsvDialog({
           </div>
         </div>
 
-        {/* Format, comments, stage */}
         <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
           <div className={box}>
             <div className={label}>{t('csv.format')}</div>
@@ -161,7 +139,6 @@ export function FlightCsvDialog({
                   className={`${field} w-16 text-right`}
                   ariaLabel={t('csv.decimals')}
                   value={saved.decimals}
-                  // Whole places; an emptied box keeps the count it had.
                   onChange={(v) => v !== null && patch({ decimals: Math.floor(v) })}
                 />
               </div>
@@ -211,7 +188,6 @@ export function FlightCsvDialog({
             </div>
           </div>
 
-          {/* Only a staged flight has a stage to choose. */}
           {branches.length > 1 && (
             <div className={box}>
               <div className={label}>{t('csv.stage')}</div>

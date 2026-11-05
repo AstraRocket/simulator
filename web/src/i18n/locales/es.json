@@ -2532,7 +2532,8 @@
     "tool_chute": "Dimensionado de paracaídas",
     "tool_flutter": "Flameo de aletas",
     "tool_ejection": "Carga de eyección",
-    "tool_exhaust": "Aspecto del escape"
+    "tool_exhaust": "Aspecto del escape",
+    "tool_motors": "Panel de motores"
   },
   "chuteTool": {
     "title": "Dimensionado de paracaídas",

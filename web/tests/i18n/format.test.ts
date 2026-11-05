@@ -17,11 +17,6 @@ import { join, resolve } from 'node:path';
 import { siToUi } from '../../src/prefs/units';
 import { DROGUE_BAND, MAIN_BAND } from '../../src/services/flight/recoverySizing';
 
-/**
- * The helpers behind every figure that is authored in one unit and shown in
- * another: the descent bands (ft/s), and the NAR / Tripoli caps (mph, degrees).
- */
-
 describe('ladderDigits', () => {
   it('gives fewer decimals the larger the number', () => {
     expect(ladderDigits(1234)).toBe(0);
@@ -61,8 +56,6 @@ describe('withUnit', () => {
 });
 
 describe('a descent band in the reader unit', () => {
-  // The whole reason these helpers exist: the bands are round in ft/s and in
-  // nothing else, so a fixed decimal count spoils one unit or the other.
   const band = (b: { min: number; max: number }, sym: string) =>
     withUnit(`${fmtUpTo(siToUi('velocity', sym, b.min), 1)}–${fmtUpTo(siToUi('velocity', sym, b.max), 1)}`, sym);
 
@@ -77,12 +70,6 @@ describe('a descent band in the reader unit', () => {
   });
 });
 
-/**
- * An unnamed stage reads the same in every view, through one interpolated key.
- * Gluing a translated word to a number is wrong in a language that puts the
- * number first (ja: "第 2 段"), and a hard-coded "Stage 2" would show English in
- * every language.
- */
 describe('stageLabel', () => {
   it('names a stage by its own name, else by an interpolated number', async () => {
     const t = i18n.getFixedT('ja');
@@ -110,12 +97,6 @@ describe('stageLabel', () => {
   });
 });
 
-/**
- * A part as every view names it: its own name, trimmed, else its translated
- * type, else the raw type for one the locale does not know. An empty name
- * falls through too (not just a missing one), so a cleared Name field never
- * draws a blank title.
- */
 describe('partLabel', () => {
   const t = i18n.getFixedT('en');
   it('falls back to the translated type for an empty or blank name', () => {
@@ -127,11 +108,7 @@ describe('partLabel', () => {
   });
 });
 
-/**
- * Significant figures in the reader's locale, for numbers spanning orders of
- * magnitude (the inertia tiles). toPrecision/toExponential ignore the locale,
- * so they would print "0.001234" beside "0,12" in a German strip.
- */
+// toPrecision/toExponential ignore the locale ("0.001234" beside "0,12" in German).
 describe('fmtSig', () => {
   it('keeps four significant figures in the reader locale', async () => {
     await i18n.changeLanguage('de');
@@ -147,11 +124,6 @@ describe('fmtSig', () => {
   });
 });
 
-/**
- * An instant on the launch site's clock, with its zone named. The zone comes from
- * Open-Meteo or from a saved weather source, so it can be one the browser does
- * not know; that must fall back rather than throw a RangeError mid-render.
- */
 describe('fmtSiteTime', () => {
   const at = Date.UTC(2026, 6, 4, 18, 30);
 
@@ -194,12 +166,6 @@ describe('fmtSiteTime', () => {
   });
 });
 
-/**
- * Decimals a tick label needs to read as itself. The schematic ruler steps
- * 1, 2, 2.5 and 5 at each power of ten, so a 2.5 step needs one decimal its
- * magnitude would not give it (0, 3, 5, 8 for 0, 2.5, 5, 7.5), and the Mach axis
- * starts at the sweep's first sample, 0.05.
- */
 describe('tickDigits', () => {
   it('gives each nice step the decimals it needs', () => {
     expect(tickDigits(2.5)).toBe(1);
@@ -225,11 +191,6 @@ describe('tickDigits', () => {
   });
 });
 
-/**
- * One percent readout everywhere, in the locale's own form: English closes it
- * up ("12%"), French and German set it off with a no-break space. The weather
- * dialog wrote "45 %" and the aero tables "12%", in English, side by side.
- */
 describe('fmtPercent', () => {
   it('writes a percent the way the locale does', async () => {
     expect(fmtPercent(12)).toBe('12%');

@@ -15,26 +15,13 @@ import { loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
-
-/**
- * The report's masses and impulses keep their figures in every selectable
- * unit. The design the app opens with weighs a few tens of grams, which is a
- * fraction of a kilogram or a pound; a C6 delivers a few newton-seconds.
- * Each expected figure is the kernel's own (`getStaticInfo`, `getMotorStatistics`),
- * put in the user's unit by the unit table's factor, and the printed number
- * has to round it to at least two significant figures.
- */
 beforeAll(async () => {
   __setEngineForTests(await loadEngine());
 });
 
 const t = i18n.getFixedT('en') as unknown as T;
-
-/** The unit table's factor for `symbol`, the one definition the whole app converts by. */
 const inUnit = (quantity: Quantity, symbol: string, si: number): number =>
   si / UNITS[quantity].find((u) => u.symbol === symbol)!.toSI;
-
-/** `text` is `exact` rounded to at least two significant figures. */
 function expectTwoFigures(text: string, symbol: string, exact: number): void {
   expect(text.endsWith(` ${symbol}`)).toBe(true);
   const shown = Number(text.slice(0, -symbol.length).replace(/,/g, ''));
@@ -46,7 +33,6 @@ function expectTwoFigures(text: string, symbol: string, exact: number): void {
   });
 }
 
-/** A page over a real document, with its drawn text runs. */
 function page(units: UnitSelection) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const runs: string[] = [];
@@ -83,10 +69,8 @@ describe.each([
     writeMotorsSection(p, { configs: [{ name: 'C6', motors, flight: null }] } as unknown as ReportModel);
     const stats = motorStatistics(C6.times.map((time, i) => [time, C6.thrusts[i]!]))!;
     const impulses = runs.filter((r) => r.endsWith(` ${impulse}`));
-    // The motor's own row and the total: one motor, so the same figure twice.
     expect(impulses).toHaveLength(2);
     for (const cell of impulses) expectTwoFigures(cell, impulse, inUnit('impulse', impulse, stats.totalImpulse));
-    // The seated motor is what the loaded design weighs over the empty one.
     const weights = runs.filter((r) => r.endsWith(` ${mass}`));
     expect(weights).toHaveLength(2);
     for (const cell of weights) expectTwoFigures(cell, mass, inUnit('mass', mass, info.mass - info.massEmpty));

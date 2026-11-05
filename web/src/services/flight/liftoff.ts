@@ -3,7 +3,7 @@ import type { FlightConfig } from './flightConfigs';
 import { seatedMotors } from './powerClass';
 import type { Liftoff } from '../motors/motorPerf';
 
-/** Stands in for an empty mount when counting how many motors it takes; never flown. */
+// Stands in for an empty mount when counting how many motors it takes; never flown.
 const PROBE: MotorSpec = {
   designation: '',
   diameter: 0,
@@ -15,15 +15,7 @@ const PROBE: MotorSpec = {
   ejectionDelay: 0,
 };
 
-/**
- * What a candidate motor in `mountId` lifts besides itself, under `config`:
- * the airframe with no motors (`dryKg`, the kernel's `massEmpty`), every other
- * mount's motor at ignition, and how many of the candidate the mount takes.
- *
- * Counted the way the rocket's class is (`seatedMotors`): a cluster and a mount
- * inside pods multiply, and a stage the configuration leaves on the ground
- * carries nothing.
- */
+// `dryKg` is the kernel's `massEmpty`.
 export function liftoffFor(tree: RocketTree, config: FlightConfig, mountId: string, dryKg: number): Liftoff {
   const { [mountId]: here, ...rest } = config.motors;
   const others = seatedMotors(tree, { ...config, motors: rest });

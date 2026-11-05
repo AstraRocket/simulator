@@ -7,12 +7,6 @@ import { Dialog } from '../../../src/components/common/Dialog';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * Ctrl+Z and Ctrl+Y reach the design only when nothing modal is over it: the
- * design behind an open dialog is not what the user is looking at. The
- * component editor is the exception while it is on top, since it shows the
- * part being edited.
- */
 describe('useUndoShortcuts', () => {
   const undo = vi.fn();
   const redo = vi.fn();
@@ -113,7 +107,6 @@ describe('useUndoShortcuts', () => {
     expect(redo).not.toHaveBeenCalled();
   });
 
-  /** The editor as it is mounted below the widest layout, opened by selecting a part. */
   const openEditor = () => {
     renderWithProviders(<ComponentDialog />);
     const { tree, setSelectedId } = useWorkspaceStore.getState();

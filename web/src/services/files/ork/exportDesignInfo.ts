@@ -3,13 +3,6 @@ import { sig4 } from '../../report/designInfo';
 import type { DesignInfo } from '../orkTypes';
 import type { OrkWriter } from './exportWriter';
 
-/**
- * Optional derived-statistics block (sibling of <rocket>), written only when the
- * caller opts in. OpenRocket does not know the element, neither the 24.12
- * desktop release nor the unstable branch the engine is extracted from, and
- * opens the file with an "unknown element" warning; other software
- * ignores it the same way. Nothing reads it back.
- */
 export function designInfoXml(w: OrkWriter, depth: number, designInfo: DesignInfo | undefined): void {
   if (!designInfo || (designInfo.groups.length === 0 && designInfo.finsets.length === 0)) return;
   const { emit } = w;

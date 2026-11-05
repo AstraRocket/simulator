@@ -17,17 +17,9 @@ import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
 import { MotorGuideDialog } from './MotorGuideDialog';
 
-/**
- * The Simulations tab: a toolbar, the table of runs, and (on a phone) the
- * selected simulation's editor underneath it. At lg+ the editor is the tab's
- * right column instead (see App.tsx), so the table gets the full width.
- */
 export function SimulationsPane() {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  // At lg+ the editor is the tab's right column (App.tsx). Below that there is
-  // no right column, so it goes inline under the table: rendered once either
-  // way, never two copies with one hidden. See useMediaQuery.
   const desktop = useIsDesktop();
   const sims = useWorkspaceStore((s) => s.sims);
   const activeId = useWorkspaceStore((s) => selectActive(s).id);
@@ -48,18 +40,11 @@ export function SimulationsPane() {
   const deleteSim = useWorkspaceStore((s) => s.deleteSim);
   const runOutdated = useWorkspaceStore((s) => s.runOutdated);
   const busy = useWorkspaceStore((s) => s.simBusy);
-  // How many rows are not current: never flown, or flown against a design that
-  // has since changed. Counted in the label so the button says what it will do
-  // rather than leaving you to work it out from the dots.
   const staleCount = useWorkspaceStore((s) => s.sims.filter((x) => !x.result || selectOutdated(s, x)).length);
   const designName = useWorkspaceStore(selectDesignName);
   const u = useUnits();
   const [guideOpen, setGuideOpen] = useState(false);
 
-  /**
-   * Every simulation as a row of the run table, in the units on screen. The
-   * status is the table's own, so an outdated row says so in the file too.
-   */
   const exportRunTable = () => {
     const rows = sims.map((s) => {
       const cfg = configOf(configs, s);
@@ -102,10 +87,7 @@ export function SimulationsPane() {
         >
           {t('sims.delete')}
         </ToolBtn>
-        {/* Independent of the tick boxes on purpose: "bring this workspace up
-            to date" is a different question from "fly these rows", and making it
-            reuse the selection would mean clearing and restoring whatever the
-            user had ticked. */}
+        {/* Independent of the tick boxes on purpose. */}
         <ToolBtn
           onClick={() => runOutdated()}
           disabled={busy || staleCount === 0}
@@ -121,23 +103,13 @@ export function SimulationsPane() {
           <span aria-hidden>⬇ CSV</span>
           <span className="sr-only">{t('sims.exportRunTable')}</span>
         </ToolBtn>
-        {/* For the active simulation, as Duplicate is: a guide flies candidates
-            in that row's own conditions and configuration. */}
         <ToolBtn onClick={() => setGuideOpen(true)} title={t('guide.openHint')}>
           {t('guide.open')}
         </ToolBtn>
-        {/* At lg+ Run heads the right column, beside the simulation it flies.
-            A phone has no right column, so it keeps the button here where it is
-            reachable without scrolling past the table. One instance either way
-            (see useMediaQuery). */}
         {!desktop && <RunButton className="w-full" />}
       </div>
 
-      {/* `relative` makes this scroller the containing block of the rows'
-          `sr-only` warning text. Without it that absolute text is placed
-          against the page, and a row with warnings below the fold makes the
-          document taller than the window, so a wheel at the table's end
-          scrolls the whole app. */}
+      {/* `relative` contains the rows' absolute `sr-only` text, which would otherwise scroll the app. */}
       <div className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-2">
         <SimulationsTable
           sims={sims}
@@ -152,9 +124,7 @@ export function SimulationsPane() {
           onToggle={onToggle}
           onToggleAll={(all) => setSelected(all ? sims.map((x) => x.id) : [])}
           onOpenResults={(id) => {
-            // Point both at it: the editor follows the active simulation, and
-            // the results views follow their own picker. Setting only the first
-            // would open whatever the last run was showing.
+            // Both: the results views follow their own picker, not the active sim.
             onSelect(id);
             setResultSimId(id);
             setTab('results');

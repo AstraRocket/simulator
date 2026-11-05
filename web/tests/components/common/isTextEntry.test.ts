@@ -11,7 +11,7 @@ const input = (type: string) => {
 describe('isTextEntry', () => {
   it('is true for text fields, text areas and editable content', () => {
     for (const type of ['text', 'search', 'number', 'email', 'password']) expect(isTextEntry(input(type))).toBe(true);
-    expect(isTextEntry(document.createElement('input'))).toBe(true); // no type is a text field
+    expect(isTextEntry(document.createElement('input'))).toBe(true);
     expect(isTextEntry(document.createElement('textarea'))).toBe(true);
     const div = document.createElement('div');
     div.setAttribute('contenteditable', 'true');

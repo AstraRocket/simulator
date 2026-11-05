@@ -4,13 +4,6 @@ import { NO_VALUE } from '../../i18n/noValue';
 import { stagePrefixed } from '../../i18n/format';
 import { heading, kvGrid, len, q, qv, sectionBreak, sub, table, type Col, type PdfPage } from './pdfPage';
 
-/**
- * The recovery section: the ejection charges the design carries, one row per
- * bay, drogue bays then main, with the tube it is and the primary and backup
- * powder; then each bay that keeps a record, with its settings and its ground
- * test log. The mass column titles carry the unit, so each cell is the number
- * alone.
- */
 export function writeChargesSection(p: PdfPage, rows: readonly ChargeRow[], bays: readonly DesignBay[] = []): void {
   const { t, CW, units } = p;
   sectionBreak(p);

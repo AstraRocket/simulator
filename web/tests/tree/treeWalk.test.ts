@@ -98,8 +98,8 @@ describe('mapTreePreserving', () => {
     expect(out).not.toBe(tree);
     const a = out[0]!.children![0]!;
     expect(a).not.toBe(tree[0]!.children![0]);
-    expect(a.children![0]).toBe(tree[0]!.children![0]!.children![0]); // a1 untouched
-    expect(out[0]!.children![1]).toBe(tree[0]!.children![1]); // b untouched
+    expect(a.children![0]).toBe(tree[0]!.children![0]!.children![0]);
+    expect(out[0]!.children![1]).toBe(tree[0]!.children![1]);
     expect(a.children![1]!.children![0]!['hit']).toBe(true);
   });
 
@@ -147,10 +147,6 @@ describe('mapTreePreserving', () => {
   });
 });
 
-/**
- * The one "replace the node with this id" walk: the node `findNode` finds, the
- * path to it copied, everything else shared.
- */
 describe('replaceNode', () => {
   const kids = [{ type: 'innertube', id: 'm' }] as ComponentNode[];
   const tree = [

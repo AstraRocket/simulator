@@ -60,13 +60,11 @@ describe('scaleRocket', () => {
     const [fin, freeform, massc] = body!.children!;
     expect(fin!['rootChord']).toBeCloseTo(0.1);
     expect(fin!['height']).toBeCloseTo(0.06);
-    // Freeform planform points both scale.
     expect(freeform!['points']).toEqual([
       [0, 0],
       [0.04, 0.06],
       [0.1, 0],
     ]);
-    // Axial position offset scales too.
     expect(massc!.position!.offset).toBeCloseTo(0.1);
   });
 
@@ -74,8 +72,8 @@ describe('scaleRocket', () => {
     const out = scaleRocket(tree(), 2);
     const body = out.components[0]!.children![1]!;
     const nose = out.components[0]!.children![0]!;
-    expect(body.children![0]!['finCount']).toBe(3); // count unchanged
-    expect(nose['shapeParameter']).toBe(1); // dimensionless, unchanged
+    expect(body.children![0]!['finCount']).toBe(3);
+    expect(nose['shapeParameter']).toBe(1);
   });
 
   it("scales a mass component's mass by the cube, and no other part's `mass`", () => {
@@ -85,15 +83,13 @@ describe('scaleRocket', () => {
     const chute = body.children!.find((c) => c.type === 'parachute')!;
     // MassComponentScaler: getComponentMass() * pow3(2).
     expect(massc['mass']).toBeCloseTo(0.01 * 8, 15);
-    // A parachute has no component mass in desktop, so nothing scales the key.
+    // A parachute has no component mass in desktop.
     expect(chute['mass']).toBe(0.008);
   });
 
   it("follows desktop's ScaleDialog where it leaves a value alone or cubes it", () => {
-    // ScaleDialog registers no scaler for a parachute's spill hole or for the
-    // instance separation of a ring or a lug (only RailButton's), skips a
-    // SymmetricComponent's Thickness while isFilled, and OverrideScaler sets
-    // getOverrideMass() * pow3(k) on every part, recovery gear included.
+    // ScaleDialog has no scaler for a spill hole or a ring's or lug's separation, and skips
+    // Thickness while isFilled; OverrideScaler cubes every override mass.
     const k = 3;
     const t: RocketTree = {
       name: 'desktop rules',
@@ -158,11 +154,7 @@ describe('scaleRocket', () => {
   });
 
   it('scales a recovery device’s packed length, not just its canopy', () => {
-    // `length` on a parachute/streamer is the packed length - orkImport reads
-    // <packedlength> straight into it - so it is the space the device needs in
-    // the airframe. The shared fixture above declares no `length` on its chute,
-    // so this case states one: unscaled, a 2x design would keep its 25 mm packed
-    // length while the tube around it doubles.
+    // `length` is the packed length (orkImport reads <packedlength> into it).
     const t: RocketTree = {
       name: 'recovery',
       components: [
@@ -194,8 +186,7 @@ describe('scaleRocket', () => {
   });
 
   it('scales a launch lug in every dimension, as desktop does', () => {
-    // Desktop's LaunchLug scalers take the outer radius, the wall and the
-    // length, so the bore grows with the lug and a pinned mass goes as k^3.
+    // Desktop's LaunchLug scalers take radius, wall and length, so the bore grows and a pinned mass goes as k^3.
     const t: RocketTree = {
       name: 'lug',
       components: [
@@ -288,7 +279,6 @@ describe('scaleRocket', () => {
     expect(rb['flangeHeight']).toBeCloseTo(0.003, 12);
     // RailButtonScaler leaves the screw out.
     expect(rb['screwHeight']).toBe(0.003);
-    // OverrideScaler takes every override mass by the cube.
     expect(rb['overrideMass']).toBeCloseTo(0.016, 12);
   });
 
@@ -308,8 +298,8 @@ describe('scaleRocket', () => {
 
   it('measures max body diameter and core length', () => {
     const t = tree();
-    expect(maxBodyDiameter(t)).toBeCloseTo(0.024); // 0.012 radius × 2
-    expect(rocketLength(t)).toBeCloseTo(0.4); // 0.1 nose + 0.3 body
+    expect(maxBodyDiameter(t)).toBeCloseTo(0.024);
+    expect(rocketLength(t)).toBeCloseTo(0.4);
   });
 });
 
@@ -333,13 +323,10 @@ describe('scaleRocket reads positions through positionOf', () => {
     } as unknown as RocketTree;
     const out = scaleRocket(t, 2);
     const k = out.components[0]!.children![0]!.children![0]!;
-    // Unknown method and string offset both fall back to the kernel's top / 0
-    // (nodeProps.positionOf), so the scaled tree is one the layout can read.
     expect(k.position).toEqual({ method: 'top', offset: 0 });
   });
 });
 
-/** Desktop's Scale dialog choices: what to scale, and whether masses and positions follow. */
 describe('scale options and scopes', () => {
   const mass = (t: RocketTree) => t.components[0]!.children![1]!.children![2]!;
 
@@ -350,7 +337,7 @@ describe('scale options and scopes', () => {
     expect(out.position).toEqual({ method: 'top', offset: 0.05 });
     expect(out['overrideCGX']).toBe(0.01);
     expect(out['radialPosition']).toBe(0.004);
-    expect(out['length']).toBe(0.04); // the size still scales
+    expect(out['length']).toBe(0.04);
   });
 
   it('leaves typed masses alone with masses off', () => {
@@ -421,17 +408,11 @@ describe('rocketLength with a member that has no length', () => {
         },
       ],
     } as unknown as RocketTree;
-    // The tube with no length counts at KERNEL_DEFAULTS.bodytube.length.
     expect(rocketLength(tree)).toBeCloseTo(0.1 + KERNEL_DEFAULTS.bodytube.length, 12);
   });
 });
 
-/**
- * A key a part leaves to the kernel flies the kernel's default (each row read
- * back from the kernel by kernelDefaults.kernel.test.ts), and desktop's scalers
- * scale the value that flies: RailButtonScaler the spacing, the MassObject
- * scalers a pack's radius and length.
- */
+// Desktop's scalers scale the value that flies, which for an absent key is the kernel default.
 describe('scaling a key the part leaves to the kernel', () => {
   it("scales the kernel's value, as desktop's scalers do", async () => {
     const tree = {
@@ -463,11 +444,6 @@ describe('scaling a key the part leaves to the kernel', () => {
   });
 });
 
-/**
- * Scaling one part copies only the path to it: an untouched subtree keeps its
- * identity, as every other tree edit leaves it (`replaceNode`), so a memo keyed
- * on an untouched part does not rebuild.
- */
 describe('scalePart shares what it does not touch', () => {
   it('keeps an untouched subtree the same object', () => {
     const tree = {

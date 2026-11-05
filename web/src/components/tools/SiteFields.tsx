@@ -1,13 +1,12 @@
 import { useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
-import type { LaunchConditions } from '../../services/design/orkTree';
 import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { LocationPicker } from '../sim/LocationPicker';
 import { loadSettings } from '../../services/storage/settings';
 import { defaultToolSite } from './remembered';
 import { SiteMapDialog } from '../sim/SiteMapDialog';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { LatLonRows } from '../sim/LatLonRows';
 import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { smallButton } from '../common/smallButton';
@@ -20,10 +19,6 @@ export interface ToolSite {
   launchAltitudeM: number | null;
 }
 
-/**
- * A site's elevation as every tool takes it: in the launch panel's unit scope
- * (`SITE_ALTITUDE_FIELD`), held to the site limits, in 10 m steps.
- */
 export function SiteElevationField(
   props: Omit<ComponentProps<typeof QNum>, 'label' | 'field' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
 ) {
@@ -43,7 +38,6 @@ export function SiteElevationField(
   );
 }
 
-/** The air temperature at a tool's site, held to the site limits, in 1 degree steps. */
 export function SiteTemperatureField(
   props: Omit<ComponentProps<typeof QNum>, 'label' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
 ) {
@@ -62,10 +56,7 @@ export function SiteTemperatureField(
   );
 }
 
-/**
- * A tool's launch site: a saved location, latitude and longitude, a pick on the
- * map, and with `elevation`, the site's height (blank for the terrain model's).
- */
+/** With `elevation`, a blank height means the terrain model's. */
 export function SiteFields({
   site,
   onChange,
@@ -80,7 +71,7 @@ export function SiteFields({
   return (
     <>
       <LocationPicker
-        launch={site as unknown as LaunchConditions}
+        launch={site}
         defaultSite={() => defaultToolSite(loadSettings().launchDefaults)}
         onChange={(p) =>
           onChange((s) => ({
@@ -110,8 +101,6 @@ export function SiteFields({
         <SiteMapDialog
           latitudeDeg={site.latitudeDeg}
           longitudeDeg={site.longitudeDeg}
-          // A point on the map has no elevation of its own, and the old
-          // site's is not this one's: blank, the tool takes the terrain's.
           onPick={(la, lo) => onChange((s) => ({ ...s, latitudeDeg: la, longitudeDeg: lo, launchAltitudeM: null }))}
           onClose={() => setMapOpen(false)}
         />

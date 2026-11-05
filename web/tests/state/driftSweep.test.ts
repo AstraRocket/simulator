@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// The sweep flies through the same worker pool a normal batch does; stub it so
-// each cell can be settled by hand and its payload inspected.
 const simulateMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/engine/simClient', async (orig) => ({
   ...(await orig<typeof import('../../src/engine/simClient')>()),
@@ -30,10 +28,8 @@ const PREFS = {
   drogueLowSpeedWarn: 3.048,
 } as SimPrefs;
 
-// The runs fly the globals the store mirrors, so the mirror holds PREFS.
 beforeEach(() => st().setSimPrefs(PREFS));
 
-/** A 2 x 2 grid: four flights, which is enough to have a region and stay readable. */
 const SPEC: WindSweepSpec = normalizeSweepSpec({
   speedMinMs: 2,
   speedMaxMs: 6,
@@ -42,7 +38,6 @@ const SPEC: WindSweepSpec = normalizeSweepSpec({
   headingSpanDeg: 360,
 });
 
-/** A flight that came down at (east, north). */
 const landed = (east: number, north: number) =>
   ({
     summary: {},
@@ -50,13 +45,6 @@ const landed = (east: number, north: number) =>
     series: { time: [0, 1], Px: [0, east], Py: [0, north] },
   }) as unknown as FlightResult;
 
-/**
- * A wind sweep, from the store down to the landings it keeps.
- *
- * The contract the ground track draws from: every cell flies the same rocket
- * under a different wind, the row's own result is never touched, and a
- * part-flown grid is thrown away rather than drawn as if it were whole.
- */
 describe('a drift sweep', () => {
   let calls: { payload: SimPayload; opts: SimCallOptions; settle: (r: FlightResult) => void }[];
 
@@ -76,8 +64,6 @@ describe('a drift sweep', () => {
       driftSweepRun: null,
       err: null,
     });
-    // A usable motor, re-seated per case: a test that points the row at a
-    // curve-less configuration must not leave the next one unflyable.
     seatMotor(st().sims[0]!.name, C6);
   });
 
@@ -97,10 +83,6 @@ describe('a drift sweep', () => {
     expect(st().driftSweepRun).toBeNull();
   });
 
-  /**
-   * The wind is the only thing that moves. Anything else differing per cell
-   * would make the spread impossible to attribute to the wind.
-   */
   it('varies the wind and nothing else', async () => {
     const done = start();
     const winds = calls.map((c) => [c.payload.options.windAverage, c.payload.options.windDirection]);
@@ -112,7 +94,6 @@ describe('a drift sweep', () => {
     await done;
   });
 
-  /** One seed for the grid, so the scatter drawn is the wind's and not the dice's. */
   it('pins one turbulence seed across every cell', async () => {
     const done = start();
     expect(new Set(calls.map((c) => c.payload.options.randomSeed)).size).toBe(1);
@@ -120,7 +101,6 @@ describe('a drift sweep', () => {
     await done;
   });
 
-  /** Only the end of the track is read, and a full series set is ~1.5 MB a flight. */
   it('asks for summary series, not every series the kernel holds', async () => {
     const done = start();
     expect(calls.every((c) => c.payload.options.series === 'summary')).toBe(true);
@@ -147,11 +127,6 @@ describe('a drift sweep', () => {
     }
   });
 
-  /**
-   * A staged flight lands twice, and the two landings belong to different
-   * traces on the plan view: a spent booster comes down nowhere near the
-   * sustainer, so merging them would draw one envelope around both.
-   */
   it('files a staged flight landings under their own branches', async () => {
     const done = start();
     const staged = {
@@ -167,11 +142,6 @@ describe('a drift sweep', () => {
     expect(branches.filter((b) => b === 1)).toHaveLength(4);
   });
 
-  /**
-   * Cells arrive in whatever order the pool frees up, so what survives a cancel
-   * is an arbitrary subset of the conditions. A hull around it would understate
-   * the drift by an unknown amount.
-   */
   it('keeps nothing from a canceled sweep', async () => {
     const done = start();
     calls[0]!.settle(landed(10, 10));
@@ -206,11 +176,6 @@ describe('a drift sweep', () => {
     expect(st().err).toBeTruthy();
   });
 
-  /**
-   * Nothing gates a second sweep on the first draining, so the stragglers of
-   * the one being replaced must not tick the new one's counter, least of all
-   * when it is the same row being swept again.
-   */
   it('does not let a superseded sweep count against its replacement', async () => {
     const first = start();
     const stragglers = calls.slice();
@@ -225,11 +190,6 @@ describe('a drift sweep', () => {
     expect(st().driftSweep!.flown).toBe(4);
   });
 
-  /**
-   * A result ages on its `resultKey`, which holds the global run preferences
-   * (Settings > Simulation) as well as the row's own. A held region ages the
-   * same way, since a different time step or seed lands the rocket elsewhere.
-   */
   it('ages when a global run preference changes', async () => {
     const done = start();
     calls.forEach((c) => c.settle(landed(1, 1)));

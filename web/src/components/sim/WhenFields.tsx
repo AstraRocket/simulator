@@ -3,11 +3,7 @@ import { useTranslation } from 'react-i18next';
 const input =
   'rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
 
-/**
- * A forecast's date and hour, in the site's local time. `rows` puts each on
- * its own labeled row (the tools' forms); `inline` stacks each label over its
- * control, side by side (the weather dialog's toolbar).
- */
+/** A forecast's date and hour, in the site's local time. */
 export function WhenFields({
   date,
   hour,

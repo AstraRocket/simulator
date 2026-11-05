@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { keyPan } from '../../../src/components/canvas/keyPan';
 import { ZOOM_IDENTITY } from '../../../src/tree/schematicGeometry';
 
-/** Arrow keys pan a zoomed schematic the way a drag toward the other side would. */
 describe('keyPan', () => {
   const zoomed = { k: 2, x: 0, y: 0 };
 

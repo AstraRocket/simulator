@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { applyTheme, followSystemTheme, resolveTheme, toggleDaylight } from '../../../src/services/app/theme';
 
-/** A matchMedia stand-in whose OS preference the test can flip. */
 function mockSystem(dark: boolean) {
   const listeners = new Set<() => void>();
   const query = {
@@ -75,10 +74,6 @@ describe('followSystemTheme', () => {
   });
 });
 
-/**
- * Each theme block sets only tokens the dark base defines: a misspelled name
- * there is a color no element reads, and the theme silently keeps the dark one.
- */
 describe('theme blocks', () => {
   it('name only tokens the dark base defines', () => {
     const css = readFileSync(join(__dirname, '../../../src/index.css'), 'utf8');

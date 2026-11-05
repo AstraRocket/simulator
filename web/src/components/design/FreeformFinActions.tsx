@@ -17,15 +17,6 @@ import { useFilePick } from '../common/useFilePick';
 import { StatusLine } from '../common/StatusLine';
 import { PanelButton } from './PanelButton';
 
-/**
- * The three things OpenRocket's freeform editor does besides dragging points:
- * **Scale fin**, **Import from image** and **Export CSV**.
- *
- * Its own component rather than part of `FreeformFinEditor`, which is a pure
- * controlled view over a point list: two of these three need the node and the
- * store, because scaling a fin also scales its wall, tab and fillet, and an
- * import replaces the whole outline as one undo step.
- */
 export function FreeformFinActions({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -36,8 +27,6 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
   const id = node.id as string;
   const ptX = u.at(unitScope('freeform', 'x'), 'length');
 
-  // Cleared after each pick, so picking the same file twice fires again: how
-  // anyone retrying after a threshold tweak expects it to behave.
   const imageFile = useFilePick({
     accept: 'image/*',
     label: t('freeform.importImage'),
@@ -55,11 +44,7 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
   const importImage = async (file: File) => {
     setError(null);
     try {
-      // Resized to the tracing size before it reaches a canvas: a full-size
-      // canvas for a phone photo can pass the browser's canvas area limit and
-      // come back unusable. Nearest-neighbor, for the reason finImage samples
-      // that way: the next step is a luma threshold. Each bitmap is closed as
-      // soon as it is drawn, since a decoded photo is hundreds of megabytes.
+      // Resized before any canvas: a phone photo can pass the browser's canvas area limit.
       const full = await createImageBitmap(file);
       // Read before any close: a closed bitmap reports a size of 0 x 0.
       const { width: fullW, height: fullH } = full;
@@ -76,8 +61,7 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
           full.close();
         }
       }
-      // One traced pixel is this many source pixels, and one source pixel is
-      // one millimeter.
+      // One source pixel is one millimeter.
       const sx = fullW / size.width;
       const sy = fullH / size.height;
       let pixels: ImageData;
@@ -96,8 +80,6 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
       const points = sx === 1 && sy === 1 ? traced : traced.map(([x, y]) => [x * sx, y * sy] as [number, number]);
       apply((tree) => updateNode(tree, id, { points }));
     } catch (e) {
-      // One message for both failures the user can act on: the image has no dark
-      // shape on its bottom edge, or it has one the tracer cannot close.
       setError(e instanceof FinImageError ? t('freeform.badImage') : t('freeform.imageUnreadable'));
     }
   };
@@ -119,8 +101,7 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
         </label>
         <PanelButton
           onClick={() => apply((tree) => scaleComponent(tree, id, factor))}
-          // The bounds the Scale dialog applies: below SCALE_MIN a mistyped
-          // factor shrinks the fin to nothing.
+          // Below SCALE_MIN a mistyped factor shrinks the fin to nothing.
           disabled={!(factor >= SCALE_MIN && factor <= SCALE_MAX) || factor === 1}
           title={t('freeform.scaleFinTip')}
         >
@@ -133,8 +114,7 @@ export function FreeformFinActions({ node }: { node: ComponentNode }) {
         {imageFile.input}
       </div>
       <p className="text-[11px] leading-snug text-ink-faint">{t('freeform.importHint')}</p>
-      {/* Always mounted, empty until there is something to say: a live region
-          created together with its text is not announced (see UpdateToast). */}
+      {/* Always mounted: a live region created with its text is not announced. */}
       <StatusLine tone="warn" size="fine">
         {error}
       </StatusLine>

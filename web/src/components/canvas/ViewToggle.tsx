@@ -3,13 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { DESIGN_VIEWS, RESULT_VIEWS, type ViewMode } from '../../state/tabs';
 import { Segmented } from '../common/Segmented';
 
-/**
- * Center-pane view switch, showing one family: 2D · 3D · Aero on the Design tab,
- * Flight · 3D path · Ground track · Environment on Results.
- *
- * The tab picks the family and this only switches within it. Rendering all seven
- * together would offer "3D path" from the Design tab, which jumps to another tab.
- */
 export function ViewToggle({
   view,
   onChange,

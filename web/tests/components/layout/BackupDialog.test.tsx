@@ -27,8 +27,6 @@ vi.mock('../../../src/services/files/saveFile', async (orig) => ({
 
 const { BackupDialog } = await import('../../../src/components/layout/BackupDialog');
 
-/** Export ▸ Backup and Import ▸ Backup, over the browser's stores (services/storage/backup.ts holds the rules). */
-
 beforeEach(() => {
   localStorage.clear();
   const kv = new LocalStorageKeyValueStore();
@@ -48,12 +46,10 @@ describe('Export ▸ Backup and Import ▸ Backup', () => {
     const { unmount } = renderWithProviders(<BackupDialog mode="backup" onClose={() => {}} />);
     const backup = dialog('Backup');
     await waitFor(() => expect(within(backup).getByText('(1)')).toBeTruthy());
-    // Each half shows only its own controls.
     expect(within(backup).queryByRole('button', { name: 'Open backup file…' })).toBeNull();
     fireEvent.click(within(backup).getByRole('button', { name: 'Save backup file' }));
     await waitFor(() => expect(screen.getByText('Backup saved.')).toBeTruthy());
-    // Named as every other export is, dated on the user's own calendar (not
-    // UTC, which dates an evening backup in the Americas tomorrow).
+    // Local date, not UTC, which dates an evening backup in the Americas tomorrow.
     expect(saved.name).toBe(exportFilename([appName(), 'backup', todayYmd()], 'json'));
     unmount();
 
@@ -89,7 +85,6 @@ describe('Export ▸ Backup and Import ▸ Backup', () => {
 
     renderWithProviders(<BackupDialog mode="restore" onClose={() => {}} />);
     expect(names()).toEqual(order);
-    // Nothing to choose until a file says what it holds.
     expect(screen.getAllByRole('checkbox').every((c) => (c as HTMLInputElement).disabled)).toBe(true);
     const file = JSON.stringify({ format: 'astrarocket-backup', version: 1, app: '1', created: '', parts: [] });
     const input = within(dialog('Restore backup')).getByLabelText('Open backup file…') as HTMLInputElement;

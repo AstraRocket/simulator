@@ -11,7 +11,6 @@ import { Dialog } from '../common/Dialog';
 import { stageLabel } from '../../i18n/format';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 
-/** The three independently colorable things the exporter draws per stage. */
 const COLOR_ROLES = ['path', 'ground', 'pin'] as const;
 type ColorRole = (typeof COLOR_ROLES)[number];
 
@@ -27,22 +26,7 @@ const ROLE_LABEL: Record<ColorRole, string> = {
   pin: 'pathExport.colorRolePin',
 };
 
-/**
- * A grid of swatches: one row per stage, one column per role.
- *
- * A modal rather than inline pickers because the stage count comes from the
- * design, and a variable-length list needs room the panel does not have.
- *
- * Edits a draft per role, so Cancel leaves the prior selection exactly as it
- * was and only Apply commits. Reset clears the drafts back to the palettes
- * rather than writing each palette color in as an override, so a stage nobody
- * chose a color for keeps following its palette.
- *
- * The three columns are deliberately independent. Having ground and pin follow
- * the path swatch until moved would make two swatches showing the same color
- * behave differently depending on history, with nothing on screen saying which
- * are still following. Changing one column here never moves another.
- */
+// Reset clears overrides rather than writing palette colors in, so unchosen stages keep following the palette.
 export function StageColorDialog({
   names,
   colors,
@@ -64,8 +48,6 @@ export function StageColorDialog({
     ground: new Map(groundColors),
     pin: new Map(pinColors),
   }));
-  // Escape is handled by the shell, whose rule covers every dialog: it reaches
-  // the topmost one only.
 
   const setColor = (role: ColorRole, i: number, rgb: number) =>
     setDrafts((d) => {
@@ -79,18 +61,13 @@ export function StageColorDialog({
       id="pathExportColors"
       title={t('pathExport.stageColorsTitle')}
       onClose={onCancel}
-      // Opened from the export dialog, which is itself a base dialog.
       layer="over"
       size="sm"
       layout="pad"
-      // Three swatch columns and a stage name. There is nothing here that more
-      // width would reveal.
       expandable={false}
     >
       <>
         <div className="space-y-1.5">
-          {/* Header row: three columns is past the point where a bare swatch
-              says what it paints. */}
           <div className="flex items-center justify-between gap-2 pb-1">
             <span className="flex-1" />
             {COLOR_ROLES.map((role) => (

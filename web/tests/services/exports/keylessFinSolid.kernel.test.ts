@@ -8,13 +8,6 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A planar fin set with no `rootChord` key flies at the bridge's default root
- * chord, so the printable fin is that fin: every point of the outline the
- * kernel flies (`getComponentGeometry`'s `finPoints`) is a vertex of the
- * solid, on both faces.
- */
-
 const fins: Record<string, Record<string, unknown>> = {
   'a trapezoid with no root chord': { type: 'trapezoidfinset', tipChord: 0.02, sweep: 0.015, height: 0.03 },
   'a trapezoid with no dimensions': { type: 'trapezoidfinset' },

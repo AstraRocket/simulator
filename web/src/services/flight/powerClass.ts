@@ -7,24 +7,10 @@ import { propellantMass } from './recoverySizing';
 import { countOf } from '../../tree/nodeProps';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
-/**
- * Whether a configuration flies as a model rocket or a high power rocket, in
- * the safety codes' terms.
- *
- * The NAR Model Rocket Safety Code and the NAR High Power Rocket Safety Code
- * (with Tripoli's, which follows it) set different flying limits, so which code
- * applies decides what the run gate allows. The class is a property of what is
- * flown: the motors a configuration seats and what the rocket weighs with them,
- * so two configurations of one design can fall on either side.
- */
+// A property of the configuration, not the design: two configurations of one design can fall on either side.
 export type PowerClass = 'model' | 'highPower';
 
-/**
- * Where high power starts, in SI. A rocket is high power when any one of these
- * is exceeded: a single motor over 160 N·s of total impulse (H and up) or over
- * 80 N of average thrust, more than 320 N·s or more than 125 g of propellant
- * installed in all, or more than 1,500 g at liftoff.
- */
+/** SI. Exceeding any one makes a rocket high power; the first two are per motor. */
 const HIGH_POWER = {
   motorImpulseNs: 160,
   motorAvgThrustN: 80,
@@ -33,28 +19,17 @@ const HIGH_POWER = {
   liftoffMassKg: 1.5,
 } as const;
 
-/** One seated motor and how many copies of it fly. */
 export interface SeatedMotor {
   spec: MotorSpec;
-  /** Cluster positions times every clustered tube, pod set or parallel stage around the mount. */
   count: number;
 }
 
-/**
- * Copies of a pod set or parallel stage, read as every other count is
- * (`countOf`). A node with no count flies two, the bridge's default
- * (`ComponentFactory.applyAssembly`), as the drawings show.
- */
+// A node with no count flies two, the bridge's default (`ComponentFactory.applyAssembly`).
 const instancesOf = (n: ComponentNode): number =>
   n.type === 'podset' || n.type === 'parallelstage'
     ? countOf(n, 'instanceCount', KERNEL_DEFAULTS[n.type].instanceCount)
     : 1;
 
-/**
- * Every motor a configuration puts on the pad, with its copy count. A mount in
- * a stage the configuration grounds carries nothing into the air and is left
- * out.
- */
 export function seatedMotors(tree: RocketTree, config: FlightConfig): SeatedMotor[] {
   const grounded = new Set(config.grounded ?? []);
   const out: SeatedMotor[] = [];
@@ -63,9 +38,7 @@ export function seatedMotors(tree: RocketTree, config: FlightConfig): SeatedMoto
       if ((n.type === 'stage' || n.type === 'parallelstage') && typeof n.id === 'string' && grounded.has(n.id)) {
         continue;
       }
-      // A clustered inner tube is one tube per cluster position, and the kernel
-      // places whatever sits inside it once per tube, so a mount nested in a
-      // clustered tube flies that many times over.
+      // The kernel places a clustered tube's contents once per cluster position.
       const here =
         copies * instancesOf(n) * (n.type === 'innertube' ? clusterCount(n['cluster'] as string | undefined) : 1);
       if (n.motorMount === true && typeof n.id === 'string') {
@@ -79,7 +52,6 @@ export function seatedMotors(tree: RocketTree, config: FlightConfig): SeatedMoto
   return out;
 }
 
-/** The kernel's average thrust per motor, kept: the class is asked on every render. */
 const averages = new WeakMap<MotorSpec, number>();
 function kernelAverage(spec: MotorSpec, curve: [number, number][]): number | null {
   const kept = averages.get(spec);
@@ -89,13 +61,7 @@ function kernelAverage(spec: MotorSpec, curve: [number, number][]): number | nul
   return avg;
 }
 
-/**
- * The class those motors put a rocket in.
- *
- * `dryMassKg` is the kernel's mass of the rocket with no motors; the motors'
- * loaded masses are added to it for the liftoff mass. Null when the engine has
- * not answered yet, and the motors alone decide.
- */
+// `dryMassKg` is the kernel's motorless mass; null before the engine answers.
 export function powerClass(motors: readonly SeatedMotor[], dryMassKg: number | null | undefined): PowerClass {
   let installed = 0;
   let loaded = 0;
@@ -103,13 +69,11 @@ export function powerClass(motors: readonly SeatedMotor[], dryMassKg: number | n
   for (const { spec, count } of motors) {
     const curve = specSamples(spec);
     const stats = curveStats(curve);
-    // The average thrust over the burn the kernel measures (between the
-    // crossings of 5% of peak), once it has loaded; the curve's own until then.
+    // The kernel's average (between 5%-of-peak crossings) once loaded; the curve's own until then.
     const avg = kernelAverage(spec, curve) ?? stats.avg;
     if (stats.impulse > HIGH_POWER.motorImpulseNs || avg > HIGH_POWER.motorAvgThrustN) return 'highPower';
     installed += stats.impulse * count;
     loaded += (spec.masses[0] ?? 0) * count;
-    // The propellant is what the motor burns: the kernel's loaded less burnout mass.
     propellant += propellantMass(spec) * count;
   }
   if (installed > HIGH_POWER.installedImpulseNs) return 'highPower';
@@ -118,7 +82,6 @@ export function powerClass(motors: readonly SeatedMotor[], dryMassKg: number | n
   return 'model';
 }
 
-/** The class of the rocket a configuration flies. */
 export function configPowerClass(
   tree: RocketTree,
   config: FlightConfig,

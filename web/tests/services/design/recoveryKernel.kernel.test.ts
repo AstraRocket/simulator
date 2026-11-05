@@ -6,7 +6,6 @@ import { KERNEL_MATERIALS } from '../../../src/tree/kernelDefaults';
 import { loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/** The kernel's reading of one recovery device, built inside a body tube. */
 const info = async (part: ComponentNode): Promise<Record<string, number>> => {
   const engine = await loadEngine();
   engine.reset();
@@ -24,11 +23,7 @@ const info = async (part: ComponentNode): Promise<Record<string, number>> => {
 };
 
 describe('the kernel reports a recovery device as it flies it', () => {
-  /**
-   * `Streamer.getComponentCD`, written out: 0.034 ((rho + 0.025) / 0.105)
-   * (L + 1) / L, capped at 0.4, with rho the strip's surface density and L its
-   * length. A new streamer is a 0.5 m strip of the stock ripstop nylon.
-   */
+  // `Streamer.getComponentCD`: 0.034 ((rho + 0.025) / 0.105) (L + 1) / L, capped at 0.4; rho in kg/m², L in m.
   it(
     "gives a new streamer's automatic drag coefficient",
     async () => {
@@ -49,7 +44,6 @@ describe('the kernel reports a recovery device as it flies it', () => {
     KERNEL_TEST_TIMEOUT_MS,
   );
 
-  /** `Parachute.setLineCount` takes 0, and the desktop spinner starts there. */
   it(
     'builds a parachute with no shroud lines',
     async () => {

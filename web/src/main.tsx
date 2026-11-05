@@ -1,3 +1,4 @@
+import { must } from './services/app/must';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -9,28 +10,13 @@ import { applyTheme } from './services/app/theme';
 import { loadSettings } from './services/storage/settings';
 import { warmCatalogs } from './services/app/warmCatalogs';
 
-// The engine loads behind the app, not in front of it.
-//
-// Gating the mount on initEngine() would make every way a multi-megabyte
-// download can go wrong a way the entire UI can fail to appear. A fetch that
-// stalls rather than fails never settles, so the boot splash would stay up with
-// no app, no message and no way out but a reload. Falling back to the JS engine
-// is no answer either: that is another large chunk fetched over the same
-// connection.
-//
-// Nothing below the kernel is needed to draw a rocket. The component tree, the
-// schematic, the design library and the .ork/.rkt readers and writers are all
-// plain TypeScript, and a file opened before the engine has loaded skips the
-// kernel (loadOrk) and is built when it arrives. Only the static numbers and the
-// simulations need the engine, and they wait for it on their own
-// (state/engineStore.ts, and the rebuild effect in useWorkspaceEffects).
+// Not awaited: a stalled engine fetch must not keep the UI from appearing.
 useEngineStore.getState().start();
 
-// The saved theme, before anything paints: applied from the provider's effect
-// instead, the first frame would flash the dark theme for a light user.
+// Before anything paints, so a light user does not see a dark first frame.
 applyTheme(loadSettings().theme);
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(must(document.getElementById('root'), 'root element')).render(
   <React.StrictMode>
     <SettingsProvider>
       <App />

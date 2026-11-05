@@ -3,13 +3,6 @@ import type { ComponentNode, MotorSpec, RocketTree } from '../../../src/engine/o
 import { configPowerClass, powerClass, seatedMotors } from '../../../src/services/flight/powerClass';
 import { newFlightConfig } from '../../../src/services/flight/flightConfigs';
 
-/**
- * Which safety code a configuration flies under. High power is any one of: a
- * motor over 160 N·s or 80 N average thrust, more than 320 N·s or 125 g of
- * propellant installed, or more than 1,500 g at liftoff.
- */
-
-/** A flat thrust curve: `thrust` newtons for `burn` seconds, `loaded` kg. */
 const motor = (thrust: number, burn: number, loaded = 0.05): MotorSpec => ({
   designation: 'X',
   diameter: 0.029,
@@ -35,7 +28,6 @@ const tree = (...children: ComponentNode[]): RocketTree =>
 
 describe('powerClass', () => {
   it('calls a G motor in a light rocket a model rocket', () => {
-    // 150 N·s at 50 N average.
     expect(powerClass([{ spec: motor(50, 3), count: 1 }], 0.5)).toBe('model');
   });
 
@@ -59,16 +51,13 @@ describe('powerClass', () => {
   });
 
   it('calls more than 125 g of propellant installed high power', () => {
-    // A low impulse motor that burns half its mass: 120 g of propellant, then 150 g.
     expect(powerClass([{ spec: motor(10, 1, 0.24), count: 1 }], 0.1)).toBe('model');
     expect(powerClass([{ spec: motor(10, 1, 0.3), count: 1 }], 0.1)).toBe('highPower');
-    // Two 70 g loads: each under the limit, together over it.
     expect(powerClass([{ spec: motor(10, 1, 0.14), count: 2 }], 0.1)).toBe('highPower');
   });
 
   it('weighs the propellant as the kernel does: loaded less the last mass sample', () => {
-    // ThrustCurveMotor.getPropellantMass is launch less burnout mass, and the
-    // burnout mass is the last sample, not the lightest one.
+    // ThrustCurveMotor.getPropellantMass: burnout mass is the last sample, not the lightest.
     const dips = { ...motor(10, 1, 0.2), times: [0, 0.5, 1], thrusts: [10, 10, 10], masses: [0.2, 0.05, 0.1] };
     expect(powerClass([{ spec: dips, count: 1 }], 0.1)).toBe('model');
   });
@@ -92,12 +81,15 @@ describe('seatedMotors', () => {
   });
 
   it('multiplies a mount by every clustered inner tube it sits in', () => {
-    // A 3-ring of plain tubes, each holding a single mount: the kernel places
-    // the mount once per tube, so three motors fly.
-    const holder: ComponentNode = { type: 'innertube', id: 'holder', cluster: '3-ring', children: [mountTube('inner')] };
+    // The kernel places the mount once per clustered holder tube.
+    const holder: ComponentNode = {
+      type: 'innertube',
+      id: 'holder',
+      cluster: '3-ring',
+      children: [mountTube('inner')],
+    };
     const config = newFlightConfig({ inner: { spec: motor(10, 1) } });
     expect(seatedMotors(tree(holder), config).map((m) => m.count)).toEqual([3]);
-    // And a clustered mount inside it multiplies again.
     const both: ComponentNode = { ...holder, children: [mountTube('inner', 'double')] };
     expect(seatedMotors(tree(both), config).map((m) => m.count)).toEqual([6]);
   });

@@ -4,26 +4,12 @@ import { zipSync, strToU8 } from 'fflate';
 import { importOrk } from '../../../src/services/files/orkFile';
 import { MAX_MOTOR_CONFIGS, MAX_NESTING_DEPTH, MAX_SIMULATIONS } from '../../../src/services/files/ork/importLimits';
 
-/**
- * The untrusted-input parser, exercised with untrusted input.
- *
- * `orkImport` is the only thing in the app that parses a file a stranger can
- * hand you. Round-trip and shape tests through `orkFile` never reach the guards
- * that exist specifically for hostile input (the zip-bomb caps, the nesting-depth
- * limit, the count caps), so they are exercised here.
- */
-
-/** A .ork is a zip whose `rocket.ork` entry is the XML. */
 const ork = (xml: string): ArrayBuffer => {
   const zipped = zipSync({ 'rocket.ork': strToU8(xml) });
   return zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
 };
 
-/**
- * The same archive, with its central-directory entry claiming to inflate to
- * `bytes` (offset 24 of the central directory record). The reader does not
- * consult it: its caps count what each member inflates to.
- */
+/** Rewrites the central-directory uncompressed size (record offset 24) to `bytes`. */
 const declaringSize = (zip: ArrayBuffer, bytes: number): ArrayBuffer => {
   const out = new Uint8Array(zip.slice(0));
   for (let i = 0; i + 28 <= out.length; i++) {
@@ -68,37 +54,20 @@ describe('malformed input fails cleanly rather than crashing', () => {
 });
 
 describe('the hostile-input caps actually fire', () => {
-  /**
-   * Deep `<subcomponents>` nesting is the stack-overflow vector: the parser
-   * recurses per level, so without a depth cap a crafted file exhausts the JS
-   * stack with an opaque RangeError. The cap is the kernel's: 30 component
-   * levels (MAX_NESTING_DEPTH 29), past which its JSON reader refuses the design.
-   */
   it('refuses nesting past MAX_NESTING_DEPTH with a clear error', () => {
-    const depth = 150; // far over the cap, and cheap for the XML parser
+    const depth = 150;
     const open = '<subcomponents><bodytube><name>b</name><length>0.1</length><radius>0.01</radius>'.repeat(depth);
     const close = '</bodytube></subcomponents>'.repeat(depth);
     const xml = `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents><stage><name>S</name>${open}${close}</stage></subcomponents></rocket></openrocket>`;
     expect(() => importOrk(ork(xml))).toThrow(/nest|deep/i);
   });
 
-  /**
-   * The element-count vector, which the byte caps do not bound. A
-   * `<bodytube/>` is ~13 bytes, so the 64 MiB per-entry ceiling admits
-   * millions of them from a small zip, and every one is then re-scanned per
-   * declared configuration. Flat and wide, so the nesting cap never sees it.
-   *
-   * Its own timeout, like the freeform outline below: parsing ten thousand
-   * parts takes a second or two alone and has run ten times slower on a
-   * loaded CI runner.
-   */
+  // Own timeout: parsing ten thousand parts can run ten times slower on a loaded CI runner.
   it('refuses more components than MAX_COMPONENTS with a clear error', () => {
     const many = '<bodytube><name>b</name><length>0.1</length><radius>0.01</radius></bodytube>'.repeat(10_050);
     expect(() => importOrk(ork(wrap(many)))).toThrow(/too many components/i);
   }, 60_000);
 
-  // A <simulation/> is 13 bytes, so the byte caps admit millions of them, and
-  // each one becomes a workspace row.
   const withSims = (n: number) =>
     ork(
       `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name><subcomponents><stage><name>S</name><subcomponents>` +
@@ -120,8 +89,7 @@ describe('the hostile-input caps actually fire', () => {
     expect(res.tree.components[0]?.children?.length).toBe(200);
   });
 
-  // Exactly at the cap: the stage plus 29 levels of parts is 30 levels, the most
-  // the kernel always builds. One more is refused here rather than by the engine.
+  // The stage plus 29 levels of parts is 30 levels, the most the kernel builds.
   const nested = (depth: number) => {
     const open = '<subcomponents><bodytube><name>b</name><length>0.1</length><radius>0.01</radius>'.repeat(depth);
     const close = '</bodytube></subcomponents>'.repeat(depth);
@@ -142,24 +110,11 @@ describe('the hostile-input caps actually fire', () => {
     expect(() => importOrk(ork(xml))).not.toThrow();
   });
 
-  /**
-   * The sizes an archive declares are not trusted either way: the caps count
-   * what each member inflates to (archiveBombs.test.ts), so a member that
-   * declares more than the cap but holds a small document opens.
-   */
   it('opens a member whose declared size is larger than what it holds', () => {
     const small = ork(wrap('<bodytube><name>b</name><length>0.1</length><radius>0.01</radius></bodytube>'));
     expect(importOrk(declaringSize(small, 65 * 1024 * 1024)).tree.components[0]?.children).toHaveLength(1);
   });
 
-  /**
-   * The declared-configuration cap. `captureDeployments` and `configScoped`
-   * each re-scan a component's children once per config, so the import is
-   * O(configs x components) on the main thread. A ~500 KB file declaring tens
-   * of thousands of configurations against a few thousand components freezes
-   * the tab: no crash, no error, just a dead UI. A file past the cap is refused
-   * rather than cut short, since a save would write it back without the rest.
-   */
   const withConfigs = (n: number) => {
     const configs = Array.from(
       { length: n },
@@ -186,7 +141,7 @@ describe('the hostile-input caps actually fire', () => {
 
   it('keeps every configuration of a file that stays under the cap', () => {
     const configs = Array.from(
-      { length: 12 }, // what a real multi-motor design looks like
+      { length: 12 },
       (_, i) => `<motorconfiguration configid="c${i}"><name>C${i}</name></motorconfiguration>`,
     ).join('');
     const xml =
@@ -209,8 +164,7 @@ describe('the hostile-input caps actually fire', () => {
       `</subcomponents></stage></subcomponents></rocket></openrocket>`;
     const res = importOrk(ork(xml));
     expect(res.configs.map((c) => c.id)).toEqual(['a', 'b']);
-    // createFlightConfiguration hands back the existing one: the later name
-    // and default flag land on it.
+    // createFlightConfiguration returns the existing one, so the later name lands on it.
     expect(res.configs[0]!.name).toBe('Renamed');
     expect(res.chosenConfigId).toBe('a');
   });
@@ -220,18 +174,11 @@ describe('the hostile-input caps actually fire', () => {
     for (let i = 0; i < 300; i++) entries[`f${i}.txt`] = strToU8('x'); // cap is 256
     const zipped = zipSync(entries);
     const buf = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
-    // The archive holds no rocket document, so a bare `.toThrow()` would pass
-    // with the cap removed too ("Empty .ork archive"). It has to be the cap's error.
+    // A bare `.toThrow()` would also pass on "Empty .ork archive" with no cap.
     expect(() => importOrk(buf as ArrayBuffer)).toThrow('.ork archive has too many entries');
   });
 });
 
-/**
- * File-sourced counts are bounded to what the domain can mean. Every consumer
- * loops on these (a mesh per fin, a shape per instance, a vertex per point,
- * a line's mass per line), so an unbounded count out of a crafted file is a
- * frozen tab rather than a large rocket, so they are clamped on the way in.
- */
 describe('file-sourced counts are clamped to domain ceilings', () => {
   const inTube = (inner: string) =>
     wrap(
@@ -250,8 +197,7 @@ describe('file-sourced counts are clamped to domain ceilings', () => {
   };
   const first = (xml: string, type: string) => findType(importOrk(ork(xml)).tree.components, type);
 
-  // 8 is the kernel's limit, which desktop OpenRocket applies on load as well:
-  // anything above it is a fin set the engine will not build.
+  // 8 is the kernel's limit, which desktop also applies on load.
   it('caps a fin count at 8 and floors it at 1', () => {
     const fins = (n: string) =>
       `<trapezoidfinset><name>F</name><fincount>${n}</fincount><rootchord>0.05</rootchord><height>0.03</height></trapezoidfinset>`;
@@ -259,14 +205,13 @@ describe('file-sourced counts are clamped to domain ceilings', () => {
     expect(first(inTube(fins('9')), 'trapezoidfinset').finCount).toBe(8);
     expect(first(inTube(fins('0')), 'trapezoidfinset').finCount).toBe(1);
     expect(first(inTube(fins('-7')), 'trapezoidfinset').finCount).toBe(1);
-    expect(first(inTube(fins('Infinity')), 'trapezoidfinset').finCount).toBe(3); // non-finite: the default
+    expect(first(inTube(fins('Infinity')), 'trapezoidfinset').finCount).toBe(3);
     expect(first(inTube(fins('4')), 'trapezoidfinset').finCount).toBe(4);
     const tubes = `<tubefinset><name>T</name><fincount>9999</fincount><length>0.1</length></tubefinset>`;
     expect(first(inTube(tubes), 'tubefinset').finCount).toBe(8);
   });
 
-  // 64 is the kernel's instance ceiling (ComponentFactory.MAX_INSTANCE_COUNT): a
-  // count past it would import and then fail every build.
+  // ComponentFactory.MAX_INSTANCE_COUNT; past it every build fails.
   it('caps an instance count at 64 on rings, lugs and assemblies', () => {
     const ring = `<centeringring><name>R</name><instancecount>1000000</instancecount><length>0.002</length></centeringring>`;
     expect(first(inTube(ring), 'centeringring').instanceCount).toBe(64);
@@ -278,19 +223,7 @@ describe('file-sourced counts are clamped to domain ceilings', () => {
     expect(first(inTube(pod), 'podset').instanceCount).toBe(64);
   });
 
-  /**
-   * Twice the cap, which is about a megabyte of XML, and the 5 s default does
-   * not fit it on a loaded machine.
-   *
-   * The time is jsdom's DOMParser, not the cap: measured idle, the import runs
-   * 133 / 279 / 430 / 698 / 1508 ms at 5k / 10k / 20k / 40k / 80k points -
-   * linear, so the sibling walk in `ork/importReaders.ts` stops at
-   * MAX_FIN_POINTS. 430 ms idle has been seen past 5 s with the rest of the
-   * suite running beside it.
-   *
-   * Scoped to this one case rather than the file or the config: most of the
-   * others here take milliseconds.
-   */
+  // Own timeout: jsdom's DOMParser on a megabyte of XML can pass 5 s under suite load.
   it('caps a freeform outline at 10000 points', () => {
     const n = 20_000;
     const pts = Array.from({ length: n }, (_, i) => `<point x="${(i / n) * 0.06}" y="${i % 2 ? 0.03 : 0.0}"/>`).join(
@@ -299,7 +232,6 @@ describe('file-sourced counts are clamped to domain ceilings', () => {
     const fin = `<freeformfinset><name>F</name><fincount>3</fincount><finpoints>${pts}</finpoints></freeformfinset>`;
     const res = importOrk(ork(inTube(fin)));
     expect(findType(res.tree.components, 'freeformfinset').points).toHaveLength(10_000);
-    // The dropped vertices are named, as the .rkt reader names them.
     expect(res.notes).toContainEqual({ key: 'importNote.finPointsCapped', values: { max: 10_000 } });
   }, 60_000);
 
@@ -310,10 +242,7 @@ describe('file-sourced counts are clamped to domain ceilings', () => {
     expect(res.notes).not.toContainEqual(expect.objectContaining({ key: 'importNote.finPointsCapped' }));
   }, 60_000);
 
-  // A chute with no lines is kept: `Parachute.setLineCount` takes 0, and the
-  // desktop reads a file's 0 through its IntSetter unchanged.
-  // The cap is the bridge's (ComponentFactory.MAX_LINE_COUNT), so a capped
-  // count still builds.
+  // Desktop keeps a 0 (`Parachute.setLineCount`); the cap is ComponentFactory.MAX_LINE_COUNT.
   it('caps a parachute line count at 1024, and keeps a 0', () => {
     const chute = `<parachute><name>C</name><diameter>0.3</diameter><linecount>100000</linecount></parachute>`;
     expect(first(inTube(chute), 'parachute').lineCount).toBe(1024);
