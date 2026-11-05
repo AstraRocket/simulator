@@ -1412,3 +1412,50 @@ database stays on the 24.12 release's commit (`web/scripts/data/openrocket-relea
   opens 21 ms later. Re-recorded.
 - **Parity:** JS and WASM agree with the JVM on all 368 lines.
 - **Validation:** classic 9/135 and supersonic 61/135, both at their floors.
+
+## Repinned to upstream `2d76b9733` - 2026-11-05
+
+From `b047c95d7` (2026-11-01) to `2d76b9733` (2026-11-04), the head of canonical
+`unstable` on the day and the 26.11 beta preparation. 12 commits, not counting
+merges. Three extracted files moved, and the rest of the range is release notes,
+translator credits, desktop rendering and build tooling:
+
+- **`aerodynamics/barrowman/SymmetricComponentCalc.java`** (patched, `9b974b5cf`,
+  issue #3391). Ogive transonic and supersonic pressure drag uses the half-angle
+  of a cone with the same length and base diameter instead of the joint angle at
+  the nose base. The joint angle is about zero on a tangent ogive, so its wave
+  drag nearly vanished. Carried into the classic path of the patch. The opt-in
+  supersonic branches are otherwise unchanged. Divergence stays 404, re-blessed.
+- **`simulation/AbstractSimulationStepper.java`** and
+  **`simulation/AbstractRKSimulationStepper.java`** (`56f6c45ed`, `d7d1f9656`). Jet
+  damping acts on pitch and yaw while a motor burns: mass expulsion rate times the
+  squared distance from nozzle exit to CG, summed over the thrusting motor
+  instances. `Cdm_prop` reads the same coefficient, with the nozzle at the mount's
+  absolute position plus its length and overhang, and the rate from each motor's
+  mass curve. Taken unpatched.
+
+No shim or example file changed upstream in this range, so `SHIMS.txt` needs no
+re-bless. The `.ork` bytes differ only in the zip timestamps `sync:examples` writes.
+The dependencies block of `core/build.gradle`, which the reference harness reads,
+is unchanged.
+
+Our wrapper went from Gradle 9.7.1 to 9.8.2 alongside upstream's. The wrapper jar
+is the same bytes as upstream's. `retries=3` stays in `gradle-wrapper.properties`;
+the wrapper task resets it to 0.
+
+- **Reference:** the 3 fixtures agree with pristine upstream at this pin (apogee
+  within 0.00001 relative, event sequences exact).
+- **Golden:** 95 of 368 lines moved and one is gone, so `audit.mjs` now expects
+  367. The nominal flight records 700 rows instead of 702, which removes
+  `flight.sample.700`. Drag on the ogive test rocket: Cd 1.189 to 1.262 at Mach
+  0.9, 1.117 to 1.252 at Mach 1.5, 1.0016 before and after at Mach 0.3. Flights in
+  the scenarios barely move: apogee 330.680 to 330.676 m, apogee time 6.918 to
+  6.931 s, the parachute flight 335.14 to 335.21 m, RK4 324.39 to 324.44 m, RK6
+  324.41 to 324.45 m, the timed staging booster 567.98 to 567.95 m. The nominal
+  flight peaks near Mach 0.33, where the drag barely changes.
+- **Parity:** JS and WASM agree with the JVM on all 367 lines.
+- **Validation:** classic 9/135 to 13/135, floor raised to 13; supersonic 61/135,
+  unchanged. On the classic model the ARCAS transonic drag now passes at Mach
+  1.1 to 1.2, and it fits worse higher up: ARCAS Short at Mach 1.49 no longer
+  passes, and its error at Mach 2.95 goes from +0.170 to +0.212. Fixture
+  `_expect.aero` re-recorded for `arcas-short` and `arcas-long`.
