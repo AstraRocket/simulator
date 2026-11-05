@@ -155,7 +155,7 @@ The function, assertion and cast figures come from `npm run metrics`, counted as
 
 ### Weaknesses
 
-- The coverage floors sat 8 to 10 points below actual coverage, so coverage could fall a long way before the gate noticed. **Resolved 2026-11-04:** they now sit about 2 points below it. That job still runs only on a pull request into master.
+- The coverage floors sat 8 to 10 points below actual coverage, so coverage could fall a long way before the gate noticed. **Resolved 2026-11-04:** they now sit about 2 points below it. No CI job checks them: `npm run test:coverage` does, by hand, while the work can still change.
 - The type-safety figures are less absolute than "one `any`" suggests:
   - All 537 non-null assertions were classified, and about 40 that outside data could plausibly reach (imported files, saved workspaces, weather responses) were traced to their checks. None was a real bug. **Resolved 2026-11-05:** the 127 that were not on an index are gone, narrowed or moved to `must` in `services/app/must.ts`, which fails with a named error. ESLint now rejects any new one in `web/src`, and `lintScope.test.ts` holds the rule to every config block.
   - **Left on purpose:** the 408 `arr[i]!` that remain, in numeric loops and mesh code where `noUncheckedIndexedAccess` has no way to know the bound. A mistake in one crashes or produces `NaN`. All were checked on 2026-11-05, and none was a real bug: a script proved 115 from a bound on the same array, the other 293 were read with the lines before them, and about 25 of those were traced to the code that feeds them. The options below were considered and are not being done:

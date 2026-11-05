@@ -280,8 +280,6 @@ What CI gates on the PR itself (`.github/workflows/gates.yml`):
 | `repo`           | the checks on the project itself (`tests/repo`, with `REPO_CHECKS=1`), also a step of `npm run audit`      |
 | `e2e`            | `npm run gate:e2e:core`, the core Playwright specs (`CORE_SPECS` in `playwright.config.ts`), split three ways  |
 | `website`        | `npm run typecheck` in `website/` (Docusaurus builds through Babel, which checks no types)                |
-| `coverage`       | a PR into `master` only: the unit suite with coverage and the floors in `vitest.config.ts`                |
-| `e2e-full`       | a PR into `master` only: all of `e2e-full.yml`, the whole Playwright suite and the service worker checks  |
 
 The engine checks are not CI gates. After a change under `engine-java/` or to the vendored engine, run `npm run audit` in `engine-java/` (needs a JDK): parity, a rebuild that fails if the committed engine binaries differ, the extraction check, the pinned upstream date, and the aero scorecards. It stops at the first failure and names the step.
 
@@ -289,11 +287,11 @@ The checks against desktop OpenRocket are not CI gates either, since they need a
 
 Every change goes through the change audit in [`docs/AUDIT_PROMPT_CHANGES.md`](./AUDIT_PROMPT_CHANGES.md) before it is called done, and every fix for an audit finding ships with a test whose expected value comes from the kernel, the Java or desktop and that fails without the fix ("Fixes" in [`docs/AUDIT_PROMPT.md`](./AUDIT_PROMPT.md)).
 
-The full Playwright suite is a gate only on a PR into `master`. On any branch it also runs by hand from `.github/workflows/e2e-full.yml` (**Run workflow**), sharded two ways.
+The full Playwright suite is not a PR gate. It runs in `npm run check`, and by hand from `.github/workflows/e2e-full.yml` (**Run workflow**), sharded two ways. A check belongs where its result can still change the work, not at the last step before a deploy.
 
 A push to a branch with no pull request open runs no gate in CI. Run `npm run check` in `web`.
 
-`npm run check` does not measure coverage. Run `npm run test:coverage` in `web` before opening a pull request into `master`, whose `coverage` job in `gates.yml` is the only CI run that holds the code to the floors in `vitest.config.ts`. Also run it after adding or moving a lot of code, or after changing the floors, so a miss turns up while the change is still small. `npm run audit` runs it too. It repeats the whole unit suite, so it is not needed on every push.
+`npm run check` does not measure coverage, and no CI job does. Run `npm run test:coverage` in `web` while the work can still change: after adding or moving a lot of code, or after changing the floors. `npm run audit` runs it too. It repeats the whole unit suite, so it is not needed on every push.
 
 A pull request runs every `gates.yml` job on the merge result (`ci.yml`), then its own `verify` job, `CI / verify`: one check that stands for every gate on the merge result, and the one a pull request from a fork also gets. `web/tests/repo/ciTriggers.test.ts` fails if the `verify` job stops running after a failed gate or stops failing with it.
 
@@ -305,7 +303,7 @@ Each `gates.yml` job restores `node_modules` from a cache keyed on the lockfile 
 
 `gates.yml` is a reusable workflow, which `ci.yml` calls on a PR. Add a gate to `gates.yml`, not to `ci.yml`.
 
-A PR into `dev`, `beta`, `hotfix` or `master` runs the same gates, and a PR into `master` also runs `coverage` and `e2e-full`. A merge into `dev`, `beta` or `hotfix` publishes nothing by itself (see [Channel sites](#channel-sites)). On a merge into `master`, `deploy.yml` builds the docs and the app and publishes to Pages. It runs no gate set of its own: the PR's run of `ci.yml` tested the merge result. Its `npm run build` is `typecheck`, `lint` and `vite build`, so a type or lint error still stops the publish. A direct push to `master`, or a PR merged after `master` moved, publishes without the rest of the gates.
+A PR into `dev`, `beta`, `hotfix` or `master` runs the same gates. A merge into `dev`, `beta` or `hotfix` publishes nothing by itself (see [Channel sites](#channel-sites)). On a merge into `master`, `deploy.yml` builds the docs and the app and publishes to Pages. It runs no gate set of its own: the PR's run of `ci.yml` tested the merge result. Its `npm run build` is `typecheck`, `lint` and `vite build`, so a type or lint error still stops the publish. A direct push to `master`, or a PR merged after `master` moved, publishes without the rest of the gates.
 
 ## Which kind of test
 

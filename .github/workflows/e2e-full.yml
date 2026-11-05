@@ -1,7 +1,6 @@
 name: E2E (full)
 
-# The whole Playwright suite: on a pull request into master (the `e2e-full` job in
-# gates.yml), or by hand from the Actions tab. Other pull requests run only the
+# The whole Playwright suite, by hand from the Actions tab. Pull requests run only the
 # core specs (the `e2e` job in gates.yml, called by ci.yml); this covers
 # the rest: Help, the aero tables, maps, library, exports, motor import and
 # the other feature specs, and update-flow: the service worker's update path and
@@ -9,7 +8,6 @@ name: E2E (full)
 # features.
 
 on:
-  workflow_call:
   workflow_dispatch:
 
 permissions:

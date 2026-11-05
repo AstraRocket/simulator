@@ -31,14 +31,10 @@ describe('CI trigger coverage', () => {
     expect(wf('gates.yml')).toContain('check: [format:check, spell, knip, dupes]');
   });
 
-  it('runs coverage and the full e2e suite only on a pull request into master', () => {
-    const job = (name: string) => wf('gates.yml').split(new RegExp(`^ {2}${name}:\\s*$`, 'm'))[1];
-    expect(job('coverage')).toMatch(/^\s*if: github\.base_ref == 'master'/);
-    expect(job('coverage')).toContain('- run: npx vitest run --coverage');
-    expect(job('e2e-full')).toMatch(
-      /^\s*if: github\.base_ref == 'master'\s+uses: \.\/\.github\/workflows\/e2e-full\.yml/,
-    );
-    expect(wf('e2e-full.yml')).toMatch(/^on:\s*\n\s*workflow_call:/m);
+  it('leaves coverage and the full e2e suite out of pull requests, and the suite runnable by hand', () => {
+    expect(wf('gates.yml')).not.toContain('--coverage');
+    expect(wf('gates.yml')).not.toContain('uses: ./.github/workflows/e2e-full.yml');
+    expect(wf('e2e-full.yml')).toMatch(/^on:\s*\n\s*workflow_dispatch:/m);
   });
 
   it('typechecks the docs site in the gate set', () => {

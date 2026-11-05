@@ -25,8 +25,13 @@ test('editing the design metadata keeps the flight results', async ({ page }) =>
   await runFlight(page);
   const flight = page.getByRole('button', { name: 'Flight', exact: true });
 
-  const apogeeTile = page.locator('text=Apogee').first().locator('..');
-  const apogee = (await apogeeTile.textContent())?.trim();
+  // Scoped and exact: the chart summaries also say "Apogee", and they mount in their own time.
+  await openTab(page, 'Results');
+  const apogeeValue = page
+    .getByRole('region', { name: 'Results' })
+    .getByText('Apogee', { exact: true })
+    .locator('xpath=following-sibling::div[1]');
+  const apogee = (await apogeeValue.textContent())?.trim();
   expect(apogee).toBeTruthy();
 
   await openTab(page, 'Design');
@@ -40,5 +45,5 @@ test('editing the design metadata keeps the flight results', async ({ page }) =>
 
   await openTab(page, 'Results');
   await expect(flight).toBeVisible();
-  expect((await apogeeTile.textContent())?.trim()).toBe(apogee);
+  await expect(apogeeValue).toHaveText(apogee!);
 });
