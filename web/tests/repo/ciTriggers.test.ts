@@ -19,6 +19,14 @@ describe('CI trigger coverage', () => {
     expect(job).toMatch(/- run: npx vitest run tests\/repo\n\s+env:\n\s+REPO_CHECKS: '1'/);
   });
 
+  it('installs the docs site for the repo checks, whose footer test loads its config', () => {
+    const job = wf('gates.yml')
+      .split(/^ {2}repo:\s*$/m)[1]
+      ?.split(/^ {2}\w[\w-]*:\s*$/m)[0];
+    expect(job).toMatch(/working-directory: website\n\s+run: npm ci/);
+    expect(job).toContain('path: website/node_modules');
+  });
+
   it('blocks a pull request on the housekeeping checks', () => {
     expect(wf('gates.yml')).toContain('check: [format:check, spell, knip, dupes]');
   });

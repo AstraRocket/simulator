@@ -181,6 +181,17 @@ jobs:
       - if: steps.web-modules.outputs.cache-hit != 'true'
         run: npm ci
 
+      # `websiteFooter.test.ts` loads the docs site's config, whose tsconfig extends `@docusaurus/tsconfig`.
+      - id: website-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: website/node_modules
+          key: website-modules-${{ runner.os }}-node24-${{ hashFiles('website/package-lock.json') }}
+
+      - if: steps.website-modules.outputs.cache-hit != 'true'
+        working-directory: website
+        run: npm ci
+
       - run: npx vitest run tests/repo
         env:
           REPO_CHECKS: '1'
