@@ -243,7 +243,7 @@ gate's scope covers what it says it covers.
 - **`validation/` is a ratchet in CI.** The `validate` job in `gates.yml` runs
   `score.mjs --check-floors` on both models, which reads
   `validation/floors.json`: the gated set must be exactly 135 points with the
-  recorded `gateHash`, and the score must not drop below 9/135 (classic) or
+  recorded `gateHash`, and the score must not drop below 13/135 (classic) or
   61/135 (supersonic). Check that the floors and the gated-set hash still hold
   and that the job still runs both models.
 - `validation/anchors.json` and the fixtures: does `score.mjs` validate their

@@ -55,7 +55,7 @@ function datesMatch() {
 }
 
 const STEPS = [
-  ['parity', () => node('test/parity/parity.mjs', '--expect-lines', '368')],
+  ['parity', () => node('test/parity/parity.mjs', '--expect-lines', '367')],
   ['committed', rebuildMatches],
   ['extract', () => node('extract/extract.mjs', '--check')],
   ['date', datesMatch],

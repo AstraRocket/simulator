@@ -6372,6 +6372,42 @@ iocs_AbstractSimulationStepper_landedValues = ($this, $status, $store) => {
     $status.$setRocketPosition(iocu_Coordinate__init_(($status.$getRocketPosition()).$getX(), ($status.$getRocketPosition()).$getY(), 0.0));
     $status.$setRocketVelocity(iocu_Coordinate_ZERO);
 },
+iocs_AbstractSimulationStepper_computeJetDampingCoefficient = ($status, $cgX) => {
+    let $config, $simulationTime, $coefficient, var$6, $motorState, var$8, var$9, $massExpulsionRate, $mount, $contexts, $context, $nozzleX;
+    iocs_AbstractSimulationStepper_$callClinit();
+    $config = $status.$getConfiguration();
+    $simulationTime = $status.$getSimulationTime();
+    $coefficient = 0.0;
+    var$6 = ($status.$getActiveMotors()).$iterator();
+    while (var$6.$hasNext()) {
+        $motorState = var$6.$next();
+        if (!$motorState.$isThrusting())
+            continue;
+        var$8 = $motorState.$getMotor();
+        var$9 = $motorState.$getMotorTime($simulationTime);
+        $massExpulsionRate = iocs_AbstractSimulationStepper_computeMassExpulsionRate(var$8, var$9);
+        if (!($massExpulsionRate > 0.0))
+            continue;
+        $mount = $motorState.$getMount();
+        $contexts = ($config.$getActiveInstances()).$getInstanceContexts($mount);
+        if ($contexts === null)
+            continue;
+        var$8 = $contexts.$iterator();
+        while (var$8.$hasNext()) {
+            $context = var$8.$next();
+            $nozzleX = ($context.$getLocation()).$getX() + $mount.$getLength() + $mount.$getMotorOverhang();
+            $coefficient = $coefficient + $massExpulsionRate * iocu_MathUtil_pow2($nozzleX - $cgX);
+        }
+    }
+    return $coefficient;
+},
+iocs_AbstractSimulationStepper_computeMassExpulsionRate = ($motor, $motorTime) => {
+    let $t0, $t1;
+    iocs_AbstractSimulationStepper_$callClinit();
+    $t0 = jl_Math_max($motorTime - 1.0E-4, 0.0);
+    $t1 = $motorTime + 1.0E-4;
+    return ($motor.$getTotalMass($t0) - $motor.$getTotalMass($t1)) / ($t1 - $t0);
+},
 iocs_AbstractSimulationStepper__clinit_ = () => {
     iocs_AbstractSimulationStepper_log = os_LoggerFactory_getLogger($rt_cls(iocs_AbstractSimulationStepper));
 };
@@ -6515,7 +6551,7 @@ iocs_AbstractRKSimulationStepper_calculateThrust = ($this, $status) => {
     return var$9;
 },
 iocs_AbstractRKSimulationStepper_computeAcceleration = ($this, $status, $store) => {
-    let $structureMassData, var$4, var$5, $dynP, $refArea, $refLength, $fN, $fSide, $forceZ, $linearAcceleration, var$13, $angularAcceleration, $projection, $rodDirection, var$17, $Cm, $Cyaw, $momX, $momY, $momZ;
+    let $structureMassData, var$4, var$5, $dynP, $refArea, $refLength, $fN, $fSide, $forceZ, $linearAcceleration, var$13, $angularAcceleration, $projection, $rodDirection, var$17, $Cm, $Cyaw, $momX, $momY, $momZ, $jetDamping, $rotationVelocity, $inertia;
     $structureMassData = $this.$calculateStructureMass($status);
     $store.$motorMass = $this.$calculateMotorMass($status);
     $store.$rocketMass = $structureMassData.$add5($store.$motorMass);
@@ -6573,6 +6609,16 @@ iocs_AbstractRKSimulationStepper_computeAcceleration = ($this, $status, $store) 
         var$5 = $store.$rocketMass;
         iocu_MutableCoordinate__init_2($angularAcceleration, var$4, var$13, $momZ / var$5.$getRotationalInertia());
         $store.$thetaRotation.$rotateZInPlace($angularAcceleration);
+        $jetDamping = iocs_AbstractSimulationStepper_computeJetDampingCoefficient($status, ($store.$rocketMass.$getCM()).$getX());
+        if ($jetDamping > 0.0) {
+            $rotationVelocity = iocu_MutableCoordinate__init_();
+            iocu_MutableCoordinate_set($rotationVelocity, $status.$getRocketRotationVelocity());
+            ($status.$getRocketOrientationQuaternion()).$invRotateInPlace($rotationVelocity);
+            $inertia = $store.$rocketMass.$getLongitudinalInertia();
+            var$4 = $jetDamping * iocu_MutableCoordinate_getX($rotationVelocity) / $inertia;
+            var$13 = $jetDamping * iocu_MutableCoordinate_getY($rotationVelocity) / $inertia;
+            iocu_MutableCoordinate_sub($angularAcceleration, var$4, var$13, 0.0);
+        }
         ($status.$getRocketOrientationQuaternion()).$rotateInPlace($angularAcceleration);
     }
     return iocs_AccelerationData__init_0(null, null, $linearAcceleration, $angularAcceleration, $status.$getRocketOrientationQuaternion());
@@ -18714,7 +18760,7 @@ iocab_SymmetricComponentCalc_interpolatorMaxMach = $this => {
     return var$2[var$2.length - 1 | 0];
 },
 iocab_SymmetricComponentCalc_calculateNoseInterpolator = $this => {
-    let $int1, $int2, $p, var$4, var$5, var$6, $int3, var$8, var$9, var$10, $m, $tableShape, $log4, $stag, $min, $minValue, $cdMach0, $minDeriv, var$19, var$20, $b, $a;
+    let $int1, $int2, $p, var$4, var$5, var$6, var$7, var$8, var$9, $int3, var$11, var$12, var$13, $m, $tableShape, $log4, $stag, $min, $minValue, $cdMach0, $minDeriv, var$22, $b, $a;
     a: {
         $int1 = null;
         $int2 = null;
@@ -18732,7 +18778,10 @@ iocab_SymmetricComponentCalc_calculateNoseInterpolator = $this => {
                     $this.$interpolator0 = iocab_SymmetricComponentCalc_calculateFleemanNoseInterpolator($this);
                     break a;
                 }
-                $this.$interpolator0 = iocab_SymmetricComponentCalc_calculateOgiveNoseInterpolator($this.$param, $this.$sinphi);
+                var$4 = $this.$param;
+                var$5 = $this.$fineness;
+                var$6 = 1.0 / iocu_MathUtil_safeSqrt(1.0 + 4.0 * iocu_MathUtil_pow2(var$5));
+                $this.$interpolator0 = iocab_SymmetricComponentCalc_calculateOgiveNoseInterpolator(var$4, var$6);
                 $this.$analyticNose = 1;
                 $this.$analyticMul = 0.72 * iocu_MathUtil_pow2($this.$param - 0.5) + 0.82;
                 break a;
@@ -18794,50 +18843,50 @@ iocab_SymmetricComponentCalc_calculateNoseInterpolator = $this => {
                 break a;
             default:
         }
-        var$4 = new jl_UnsupportedOperationException;
-        var$5 = jl_String_valueOf($this.$shape);
-        var$6 = jl_StringBuilder__init_();
-        jl_StringBuilder_append(jl_StringBuilder_append(var$6, $rt_s(800)), var$5);
-        jl_UnsupportedOperationException__init_0(var$4, jl_StringBuilder_toString(var$6));
-        $rt_throw(var$4);
+        var$7 = new jl_UnsupportedOperationException;
+        var$8 = jl_String_valueOf($this.$shape);
+        var$9 = jl_StringBuilder__init_();
+        jl_StringBuilder_append(jl_StringBuilder_append(var$9, $rt_s(800)), var$8);
+        jl_UnsupportedOperationException__init_0(var$7, jl_StringBuilder_toString(var$9));
+        $rt_throw(var$7);
     }
     if (!($p < 0.0) && !($p > 1.00001)) {
         if ($int2 === null)
             $int3 = $int1;
         else {
             $int3 = iocu_LinearInterpolator__init_0();
-            var$8 = ($int1.$getXPoints()).data;
-            var$9 = var$8.length;
-            var$10 = 0;
-            while (var$10 < var$9) {
-                $m = var$8[var$10];
+            var$11 = ($int1.$getXPoints()).data;
+            var$12 = var$11.length;
+            var$13 = 0;
+            while (var$13 < var$12) {
+                $m = var$11[var$13];
                 $int3.$addPoint0($m, $p * $int2.$getValue1($m) + (1.0 - $p) * $int1.$getValue1($m));
-                var$10 = var$10 + 1 | 0;
+                var$13 = var$13 + 1 | 0;
             }
-            var$8 = ($int2.$getXPoints()).data;
-            var$9 = var$8.length;
-            var$10 = 0;
-            while (var$10 < var$9) {
-                $m = var$8[var$10];
+            var$11 = ($int2.$getXPoints()).data;
+            var$12 = var$11.length;
+            var$13 = 0;
+            while (var$13 < var$12) {
+                $m = var$11[var$13];
                 $int3.$addPoint0($m, $p * $int2.$getValue1($m) + (1.0 - $p) * $int1.$getValue1($m));
-                var$10 = var$10 + 1 | 0;
+                var$13 = var$13 + 1 | 0;
             }
         }
         $tableShape = $int3 === null ? 0 : 1;
         b: {
             if ($int3 !== null) {
                 $log4 = jl_Math_log($this.$fineness + 1.0) / jl_Math_log(4.0);
-                var$8 = ($int3.$getXPoints()).data;
-                var$9 = var$8.length;
-                var$10 = 0;
+                var$11 = ($int3.$getXPoints()).data;
+                var$12 = var$11.length;
+                var$13 = 0;
                 while (true) {
-                    if (var$10 >= var$9)
+                    if (var$13 >= var$12)
                         break b;
-                    $m = var$8[var$10];
+                    $m = var$11[var$13];
                     iocab_SymmetricComponentCalc_$callClinit();
                     $stag = iocab_SymmetricComponentCalc_bluntInterpolator.$getValue1($m);
                     $this.$interpolator0.$addPoint0($m, $stag * jl_Math_pow($int3.$getValue1($m) / $stag, $log4));
-                    var$10 = var$10 + 1 | 0;
+                    var$13 = var$13 + 1 | 0;
                 }
             }
         }
@@ -18847,10 +18896,10 @@ iocab_SymmetricComponentCalc_calculateNoseInterpolator = $this => {
             $cdMach0 = 0.8 * iocu_MathUtil_pow2($this.$sinphi);
             $minDeriv = ($this.$interpolator0.$getValue1($min + 0.01) - $minValue) / 0.01;
             if ($minValue >= 0.001 && $cdMach0 < $minValue - 0.01 && $minDeriv > 0.01) {
-                var$19 = $min * $minDeriv;
-                var$20 = $minValue - $cdMach0;
-                $b = var$19 / var$20;
-                $a = var$20 / jl_Math_pow($min, $b);
+                var$6 = $min * $minDeriv;
+                var$22 = $minValue - $cdMach0;
+                $b = var$6 / var$22;
+                $a = var$22 / jl_Math_pow($min, $b);
                 $m = 0.0;
                 while (true) {
                     if (!($m < $min))
@@ -18863,12 +18912,12 @@ iocab_SymmetricComponentCalc_calculateNoseInterpolator = $this => {
         iocab_SymmetricComponentCalc_applyStubbyNoseFloor($this, $this.$interpolator0, $min, $tableShape);
         return;
     }
-    var$4 = new iocu_BugException;
-    var$5 = jl_String_valueOf($this.$shape);
-    var$6 = jl_StringBuilder__init_();
-    jl_StringBuilder_append(jl_StringBuilder_append(jl_StringBuilder_append1(jl_StringBuilder_append(var$6, $rt_s(801)), $p), $rt_s(802)), var$5);
-    iocu_BugException__init_(var$4, jl_StringBuilder_toString(var$6));
-    $rt_throw(var$4);
+    var$7 = new iocu_BugException;
+    var$8 = jl_String_valueOf($this.$shape);
+    var$9 = jl_StringBuilder__init_();
+    jl_StringBuilder_append(jl_StringBuilder_append(jl_StringBuilder_append1(jl_StringBuilder_append(var$9, $rt_s(801)), $p), $rt_s(802)), var$8);
+    iocu_BugException__init_(var$7, jl_StringBuilder_toString(var$9));
+    $rt_throw(var$7);
 },
 iocab_SymmetricComponentCalc_applyStubbyNoseFloor = ($this, $interpolator, $min, $tableShape) => {
     let $cone, $taper, $floor, $m;
@@ -33771,7 +33820,7 @@ iocs_AbstractSimulationStepper$DataStore_computeDampingMomentCoefficientComponen
         if (isNaN($this.$flightConditions.$getAOA()) ? 1 : 0)
             return iocs_AbstractSimulationStepper$DataStore$DampingMomentComponents_nan();
         $aerodynamic = iocs_AbstractSimulationStepper$DataStore_computeAerodynamicDampingMomentCoefficient($this, $status, $dataBranch);
-        $propulsive = iocs_AbstractSimulationStepper$DataStore_computePropulsiveDampingMomentCoefficient($this, $status, $dataBranch);
+        $propulsive = iocs_AbstractSimulationStepper$DataStore_computePropulsiveDampingMomentCoefficient($this, $status);
         return iocs_AbstractSimulationStepper$DataStore$DampingMomentComponents__init_($aerodynamic + $propulsive, $aerodynamic, $propulsive);
     }
     return iocs_AbstractSimulationStepper$DataStore$DampingMomentComponents_nan();
@@ -33805,42 +33854,8 @@ iocs_AbstractSimulationStepper$DataStore_computeAerodynamicDampingMomentCoeffici
     var$16 = 0.5 * $rho * $v * $ar * $aerodynamicPart;
     return var$16;
 },
-iocs_AbstractSimulationStepper$DataStore_computePropulsiveDampingMomentCoefficient = ($this, $status, $dataBranch) => {
-    let $motorMassDerivative, $massExpulsionRate, $cg, $nozzleDistance, $config, var$8, $inst, $x;
-    $motorMassDerivative = iocs_AbstractSimulationStepper$DataStore_computeMotorMassDerivative($dataBranch);
-    if (isNaN($motorMassDerivative) ? 1 : 0)
-        return 0.0;
-    $massExpulsionRate =  -$motorMassDerivative;
-    $cg = ($this.$rocketMass.$getCM()).$getX();
-    $nozzleDistance = 0.0;
-    $config = $status.$getConfiguration();
-    var$8 = ($config.$getActiveMotors()).$iterator();
-    while (var$8.$hasNext()) {
-        $inst = var$8.$next();
-        $x = $inst.$getX() + ($inst.$getMotor()).$getLaunchCGx();
-        if ($x > $nozzleDistance)
-            $nozzleDistance = $x;
-    }
-    return $massExpulsionRate * iocu_MathUtil_pow2($nozzleDistance - $cg);
-},
-iocs_AbstractSimulationStepper$DataStore_computeMotorMassDerivative = $dataBranch => {
-    let $motorMass, $time, $n, var$5, var$6, var$7, $dt;
-    iocs_FlightDataType_$callClinit();
-    $motorMass = $dataBranch.$getView(iocs_FlightDataType_TYPE_MOTOR_MASS);
-    $time = $dataBranch.$getView(iocs_FlightDataType_TYPE_TIME);
-    if ($motorMass !== null && $time !== null) {
-        $n = jl_Math_min0($motorMass.$size(), $time.$size());
-        if ($n < 2)
-            return NaN;
-        var$5 = $n - 1 | 0;
-        var$6 = ($time.$get0(var$5)).$doubleValue();
-        var$7 = $n - 2 | 0;
-        $dt = var$6 - ($time.$get0(var$7)).$doubleValue();
-        if (!($dt > 0.0))
-            return NaN;
-        return (($motorMass.$get0(var$5)).$doubleValue() - ($motorMass.$get0(var$7)).$doubleValue()) / $dt;
-    }
-    return NaN;
+iocs_AbstractSimulationStepper$DataStore_computePropulsiveDampingMomentCoefficient = ($this, $status) => {
+    return iocs_AbstractSimulationStepper_computeJetDampingCoefficient($status, ($this.$rocketMass.$getCM()).$getX());
 },
 iocs_AbstractSimulationStepper$DataStore_computeCorrectiveMomentCoefficient = ($this, $status) => {
     let $rho, $v, $ar, $cna, $cp, $cg;
@@ -39220,9 +39235,6 @@ iocm_ThrustCurveMotor_getDiameter = $this => {
 },
 iocm_ThrustCurveMotor_getLength = $this => {
     return $this.$length7;
-},
-iocm_ThrustCurveMotor_getLaunchCGx = $this => {
-    return $this.$cg0.data[0].$getX();
 },
 iocm_ThrustCurveMotor_getBurnoutCGx = $this => {
     return $this.$cg0.data[$this.$cg0.data.length - 1 | 0].$getX();
@@ -63715,9 +63727,9 @@ ioca_StabilityForceBreakdown, "StabilityForceBreakdown", 35, jl_Object, [], 1, [
 iocs_SimulationEngine, 0, jl_Object, [], 1537, 0, 0, 0,
 iocu_DegreeUnit, "DegreeUnit", 43, iocu_GeneralUnit, [], 1, [0,0,0], 0, ["$_init_0", $rt_wrapFunction0(iocu_DegreeUnit__init_), "$hasSpace", $rt_wrapFunction0(iocu_DegreeUnit_hasSpace), "$toString2", $rt_wrapFunction1(iocu_DegreeUnit_toString)],
 iocm_ThrustCurveMotor, "ThrustCurveMotor", 33, jl_Object, [iocm_Motor, jl_Comparable, ji_Serializable], 1, [0,0,0], () => iocm_ThrustCurveMotor_$callClinit(), ["$_init_0", $rt_wrapFunction0(iocm_ThrustCurveMotor__init_), "$getTimePoints", $rt_wrapFunction0(iocm_ThrustCurveMotor_getTimePoints), "$getPseudoIndex", $rt_wrapFunction1(iocm_ThrustCurveMotor_getPseudoIndex), "$getThrust", $rt_wrapFunction1(iocm_ThrustCurveMotor_getThrust), "$getCMx", $rt_wrapFunction1(iocm_ThrustCurveMotor_getCMx), "$getDesignation",
-$rt_wrapFunction0(iocm_ThrustCurveMotor_getDesignation), "$getDiameter", $rt_wrapFunction0(iocm_ThrustCurveMotor_getDiameter), "$getLength", $rt_wrapFunction0(iocm_ThrustCurveMotor_getLength), "$getLaunchCGx", $rt_wrapFunction0(iocm_ThrustCurveMotor_getLaunchCGx), "$getBurnoutCGx", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnoutCGx), "$getBurnoutMass", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnoutMass), "$getBurnTime", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnTime), "$getTotalMass", $rt_wrapFunction1(iocm_ThrustCurveMotor_getTotalMass),
-"$interpolateCenterOfMassAtIndex", $rt_wrapFunction1(iocm_ThrustCurveMotor_interpolateCenterOfMassAtIndex), "$getBurnTimeEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnTimeEstimate), "$getAverageThrustEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getAverageThrustEstimate), "$getMaxThrustEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getMaxThrustEstimate), "$getTotalImpulseEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getTotalImpulseEstimate), "$compareTo6", $rt_wrapFunction1(iocm_ThrustCurveMotor_compareTo),
-"$compareTo0", $rt_wrapFunction1(iocm_ThrustCurveMotor_compareTo0)],
+$rt_wrapFunction0(iocm_ThrustCurveMotor_getDesignation), "$getDiameter", $rt_wrapFunction0(iocm_ThrustCurveMotor_getDiameter), "$getLength", $rt_wrapFunction0(iocm_ThrustCurveMotor_getLength), "$getBurnoutCGx", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnoutCGx), "$getBurnoutMass", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnoutMass), "$getBurnTime", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnTime), "$getTotalMass", $rt_wrapFunction1(iocm_ThrustCurveMotor_getTotalMass), "$interpolateCenterOfMassAtIndex",
+$rt_wrapFunction1(iocm_ThrustCurveMotor_interpolateCenterOfMassAtIndex), "$getBurnTimeEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getBurnTimeEstimate), "$getAverageThrustEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getAverageThrustEstimate), "$getMaxThrustEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getMaxThrustEstimate), "$getTotalImpulseEstimate", $rt_wrapFunction0(iocm_ThrustCurveMotor_getTotalImpulseEstimate), "$compareTo6", $rt_wrapFunction1(iocm_ThrustCurveMotor_compareTo), "$compareTo0",
+$rt_wrapFunction1(iocm_ThrustCurveMotor_compareTo0)],
 ju_Objects, 0, jl_Object, [], 17, 0, 0, 0,
 iocm_Material$Line, "Material$Line", 44, iocm_Material, [], 1, [iocm_Material,0,"Line"], 0, ["$_init_133", function(var_1, var_2, var_3, var_4, var_5, var_6) { iocm_Material$Line__init_(this, var_1, var_2, var_3, var_4, var_5, var_6); }, "$getType0", $rt_wrapFunction0(iocm_Material$Line_getType), "$compareTo0", $rt_wrapFunction1(iocm_Material$Line_compareTo)],
 jur_SequenceSet, "SequenceSet", 2, jur_LeafSet, [], 0, [0,0,0], 0, ["$_init_159", $rt_wrapFunction1(jur_SequenceSet__init_), "$accepts", $rt_wrapFunction2(jur_SequenceSet_accepts), "$find", $rt_wrapFunction3(jur_SequenceSet_find), "$findBack", $rt_wrapFunction4(jur_SequenceSet_findBack), "$getName", $rt_wrapFunction0(jur_SequenceSet_getName), "$first", $rt_wrapFunction1(jur_SequenceSet_first), "$indexOf3", $rt_wrapFunction3(jur_SequenceSet_indexOf), "$lastIndexOf1", $rt_wrapFunction3(jur_SequenceSet_lastIndexOf),

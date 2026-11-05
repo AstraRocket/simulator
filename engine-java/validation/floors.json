@@ -6,7 +6,7 @@
   "gates": 135,
   "gateHash": "1189f0ff05b29cb92230bb20c833af4aac4f8d5259540f161f6031884b4913be",
   "min": {
-    "classic": 9,
+    "classic": 13,
     "supersonic": 61
   }
 }

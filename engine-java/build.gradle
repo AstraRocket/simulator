@@ -24,7 +24,7 @@ plugins {
 // no fix is merely waiting on a release.
 //
 // The consequence worth remembering: DO NOT bump the wrapper in
-// gradle/wrapper/gradle-wrapper.properties (currently 9.7.1) to Gradle 10 until
+// gradle/wrapper/gradle-wrapper.properties (currently 9.8.2) to Gradle 10 until
 // TeaVM ships a fix, because there this warning becomes a hard error and the
 // engine stops building. Leave the warning visible rather than setting
 // org.gradle.warning.mode=none, which would also hide deprecations that ARE
