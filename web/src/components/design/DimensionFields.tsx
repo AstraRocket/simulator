@@ -11,13 +11,7 @@ import { shapeSelect } from '../../tree/shapeProfile';
 import type { Field } from '../../services/design/componentFields';
 import { DERIVED } from '../../services/design/derivedFields';
 import { clampToBounds, type DimensionBounds } from '../../services/design/linkedDimensions';
-import {
-  isKernelAutoKey,
-  fieldOptions,
-  fieldRange,
-  fieldValue,
-  liveBounds,
-} from '../../services/design/fieldRange';
+import { isKernelAutoKey, fieldOptions, fieldRange, fieldValue, liveBounds } from '../../services/design/fieldRange';
 import { parentRadiusOf } from '../../tree/finPlanform';
 import { PropSection } from './PropSection';
 import { rebaseTabOffset } from '../../tree/finPlanform';

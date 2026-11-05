@@ -102,12 +102,12 @@ const testOnlyExports = (): string[] => {
 
 const BASELINE = [
   'src/engine/openRocketEngine.ts#__setEngineForTests',
-  'src/components/tools/EjectionTool.tsx#forgetEjectionTool',
-  'src/components/tools/FlutterTool.tsx#forgetFlutterTool',
-  'src/components/tools/LandingEstimator.tsx#forgetLandingEstimator',
-  'src/components/tools/MotorsTool.tsx#forgetMotorsTool',
-  'src/components/tools/ParachuteTool.tsx#forgetParachuteTool',
-  'src/components/tools/ToolsPane.tsx#forgetToolsPane',
+  'src/components/tools/ejectionToolMemory.ts#forgetEjectionTool',
+  'src/components/tools/flutterToolMemory.ts#forgetFlutterTool',
+  'src/components/tools/landingEstimatorMemory.ts#forgetLandingEstimator',
+  'src/components/tools/motorsToolMemory.ts#forgetMotorsTool',
+  'src/components/tools/parachuteToolMemory.ts#forgetParachuteTool',
+  'src/components/tools/toolsPaneMemory.ts#forgetToolsPane',
   'src/services/app/helpSearch.ts#resetHelpIndex',
   'src/services/weather/openMeteo.ts#resetWeatherState',
   'src/services/weather/openMeteo.ts#setWeatherTransport',
