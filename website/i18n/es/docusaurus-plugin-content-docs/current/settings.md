@@ -104,7 +104,7 @@ Estos valores están en la pestaña **Simulación** e inicializan cada nueva sim
 - **Ejecutar automáticamente las simulaciones desactualizadas**: cuando la pestaña Resultados muestra una simulación que nunca se ha ejecutado o cuyo resultado está desactualizado, la ejecuta. Desactivado por defecto.
 
 - **Paso de tiempo**: el tamaño de paso del integrador. Más pequeño es más preciso pero más lento.
-- **Tiempo máx. de sim.**: un límite de seguridad sobre el tiempo de vuelo simulado, que corta una ejecución que nunca aterriza.
+- **Tiempo máx. de sim.**: un límite de seguridad sobre el tiempo de vuelo simulado, que corta una ejecución que nunca aterriza. 1200 s (20 minutos) por defecto, como en OpenRocket de escritorio, y como máximo 2400 s (40 minutos).
 - **Paso angular máximo**: lo máximo que el cohete puede girar en un paso de integración. Más pequeño es más preciso en un cabeceo rápido, y más lento.
 - **Semilla aleatoria**: fija la aleatoriedad del viento y la turbulencia para que una simulación sea reproducible; déjala sin definir para obtener resultados variados.
 - **Método de simulación**: el integrador con el que avanza el vuelo, **Runge-Kutta 4 de 6 DOF** (el predeterminado, como en OpenRocket de escritorio) o **Runge-Kutta 6 de 6 DOF**. RK6 da un paso de orden mayor y es algo más lento; los dos suelen coincidir de cerca. El descenso con paracaídas y el vuelo en tumbo usan sus propios integradores en ambos casos. Se guarda en el `.ork`; un OpenRocket de escritorio sin RK6 vuela RK4.

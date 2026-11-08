@@ -218,6 +218,6 @@
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 58bdcc58cfb4ed76953a13d034b052e7cf4a3592
-version = 0.196
-dated   = 2026-10-28
+ref     = 7fe1cf9ffe78cf2d12885377def4f95779d45a10
+version = 0.197
+dated   = 2026-11-03

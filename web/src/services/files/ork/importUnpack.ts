@@ -227,7 +227,8 @@ export function unpackOrk(data: ArrayBuffer | string, gunzipped = false): OrkArc
   if (isZip(bytes)) {
     const entries = unzipCapped(bytes);
     const names = [...entries.keys()];
-    const entryName = names.find((n) => n.endsWith('.ork')) ?? names[0];
+    const named = (ext: string) => names.find((n) => n.toLowerCase().endsWith(ext));
+    const entryName = named('.ork') ?? named('.rkt') ?? names[0];
     const entry = entryName ? entries.get(entryName) : undefined;
     if (!entry) throw new KeyedError('errors.file.archiveEmpty');
     const motorFiles: string[] = [];

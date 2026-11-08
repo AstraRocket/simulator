@@ -104,7 +104,7 @@ These are on the **Simulation** tab, and seed each new simulation's run (you can
 - **Run outdated simulations automatically**: when the Results tab shows a simulation that has never run or whose result is outdated, run it. Off by default.
 
 - **Time step**: the integrator step size. Smaller is more accurate but slower.
-- **Max sim time**: a safety cap on simulated flight time, which ends a run that never lands.
+- **Max sim time**: a safety cap on simulated flight time, which ends a run that never lands. 1,200 s (20 minutes) by default, as in desktop OpenRocket, and at most 2,400 s (40 minutes).
 - **Max angle step**: the most the rocket may rotate in one integration step. Smaller is more accurate through a fast pitch-over, and slower.
 - **Random seed**: fixes the wind/turbulence randomness so a run is reproducible; leave it unset for varied runs.
 - **Simulation method**: the integrator the flight steps with, **6-DOF Runge-Kutta 4** (the default, as in desktop OpenRocket) or **6-DOF Runge-Kutta 6**. RK6 is a higher-order step and slightly slower; the two usually agree closely. Descent under a parachute and tumbling use their own steppers either way. Saved in the `.ork`; a desktop OpenRocket without RK6 flies RK4.

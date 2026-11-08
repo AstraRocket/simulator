@@ -8,7 +8,7 @@ import UpstreamPin from '@site/src/components/UpstreamPin';
 
 :::info About this snapshot
 
-Checked **2026-10-19**, comparing **AstraRocket <AppVersion />** (engine built from OpenRocket <UpstreamPin />) against **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** at v0.192 (2026-10-18), read from its user guide.
+Checked **2026-11-05**, comparing **AstraRocket <AppVersion />** (engine built from OpenRocket <UpstreamPin />) against **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** at v0.197 (2026-11-03), read from its user guide and API README.
 
 :::
 
@@ -34,6 +34,8 @@ Both are browser apps from independent authors, with no install, an installable 
 | **Batch simulation across the motor catalog** | Available as the **[motor guide](./motors.md#motor-guide)**: up to 8 filtered motors in one mount at a time, one motor choice for a whole cluster. |
 | **Fly screen for phones** | Not available. The phone layout uses the same tabs as the rest of the app. |
 | **Sharing a design by link** | Not available. Share a design by sending the `.ork`. |
+| **Motor links from thrustcurve.org** (once that site offers them) | Not available. A link there opens a design with no motors, loads the linked motor in the launch mount and flies it. Here, pick the motor in the app. |
+| **A hosted API** (needs a key) | Not available. Theirs opens and flies an `.ork`, `.rkt` or `.CDX1` sent to it, with no browser. This app runs only in the browser. |
 | **Fin alignment jigs** | Not available. |
 | **Splitting tall parts to a 3D printer's build volume** | Not available. |
 | **Custom X-Y plots** | Not available. |

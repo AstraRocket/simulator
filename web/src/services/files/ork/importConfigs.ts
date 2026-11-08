@@ -42,6 +42,12 @@ export function readFlightConfigs(rocketEl: Element): {
     }
     byId.set(id, defaultOrkConfig({ id, name, isDefault }));
   }
+  // A motor's id creates its configuration if none declared it (`MotorMountHandler`).
+  for (const motor of Array.from(rocketEl.querySelectorAll('motormount > motor[configid]'))) {
+    const id = motor.getAttribute('configid') ?? '';
+    if (id !== '' && !byId.has(id)) byId.set(id, defaultOrkConfig({ id, isDefault: false }));
+  }
+  if (byId.size > MAX_MOTOR_CONFIGS) throw new KeyedError('errors.file.tooManyConfigs');
   const configs = [...byId.values()];
   const chosenConfigId = configs.find((c) => c.isDefault)?.id ?? configs[0]?.id ?? null;
   return { configEls, configs, chosenConfigId };
@@ -50,7 +56,7 @@ export function readFlightConfigs(rocketEl: Element): {
 const configChild = (el: Element, tag: string, id: string): Element | null =>
   Array.from(el.children).find((x) => x.tagName === tag && x.getAttribute('configid') === id) ?? null;
 
-// Hand-rolled files may key <motor configid>s without declarations.
+// No configuration at all means no <motor> names one.
 export function configScoped(ctx: OrkImportContext, el: Element, tag: string): Element | null {
   return ctx.chosenConfigId === null ? el.querySelector(`:scope > ${tag}`) : configChild(el, tag, ctx.chosenConfigId);
 }

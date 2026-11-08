@@ -33,9 +33,27 @@ describe('sniffDesignFormat', () => {
     expect(sniffDesignFormat(bytes(ORK))).toBe('ork');
   });
 
-  it('treats any zip as a .ork, because RockSim does not archive its files', () => {
+  it('goes by what a zip holds', () => {
     const zip = zipSync({ 'rocket.ork': strToU8(ORK) });
     expect(sniffDesignFormat(zip.buffer.slice(0) as ArrayBuffer)).toBe('ork');
+  });
+
+  it('leaves a corrupt archive to the .ork reader, which words the refusal', () => {
+    expect(sniffDesignFormat(new Uint8Array([0x50, 0x4b, 1, 2, 3]).buffer)).toBe('ork');
+    expect(sniffDesignFormat(new Uint8Array([0x1f, 0x8b, 1, 2, 3]).buffer)).toBe('ork');
+  });
+
+  it.each([
+    ['zipped', () => zipSync({ 'ROCKET.RKT': strToU8(RKT) })],
+    ['gzipped', () => gzipSync(strToU8(RKT))],
+    ['zipped behind another file', () => zipSync({ 'preview.png': strToU8('x'), 'rocket.rkt': strToU8(RKT) })],
+  ])('opens a %s RockSim file, as GeneralRocketLoader does', (_, pack) => {
+    const packed = pack();
+    const data = packed.buffer.slice(packed.byteOffset, packed.byteOffset + packed.byteLength) as ArrayBuffer;
+    expect(sniffDesignFormat(data)).toBe('rkt');
+    const res = parseDesignFile(data);
+    expect(res.format).toBe('rkt');
+    expect(res.name).toBe('Sniffed');
   });
 
   it('is not fooled by the word RockSim inside a .ork', () => {

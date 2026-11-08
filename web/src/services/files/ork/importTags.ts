@@ -16,6 +16,11 @@ import { CLUSTER_POINTS } from '../../../tree/cluster';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
 import { PROFILE_SHAPES } from '../../../tree/shapeProfile';
 
+/** `BooleanSetter` ignores case. */
+export function isTrueTag(el: Element, tag: string): boolean {
+  return text(el, `:scope > ${tag}`)?.toLowerCase() === 'true';
+}
+
 export function numTag(el: Element, tag: string, fallback: number): number {
   const t = text(el, `:scope > ${tag}`);
   // Values like "auto 0.012" carry an automatic flag + last value.
@@ -73,37 +78,34 @@ export function readAutoValue(el: Element, node: ComponentNode, tag: string, fla
   return false;
 }
 
-function readMaterialGroup(el: Element, node: ComponentNode): void {
-  const m = el.querySelector(':scope > material');
-  if (!m || m.getAttribute('type') !== 'bulk') return;
-  const group = m.getAttribute('group');
-  if (group) node['materialGroup'] = group;
-}
-
 const positiveAttr = (el: Element, name: string): number | undefined => {
   const v = finiteNum(el.getAttribute(name));
   return v !== undefined && v > 0 ? v : undefined;
 };
 
-/** Absent stays absent: `MaterialSetter` treats its presence as user-set. */
-function readShearModulus(el: Element, node: ComponentNode): void {
-  const m = el.querySelector(':scope > material');
-  if (!m || m.getAttribute('type') !== 'bulk') return;
-  const v = finiteNum(m.getAttribute('shearModulus'));
-  if (v !== undefined && v >= 0) node['shearModulus'] = v;
-}
-
-function matDensity(el: Element): number | undefined {
-  const m = el.querySelector(':scope > material');
-  if (!m || m.getAttribute('type') !== 'bulk') return undefined;
-  return positiveAttr(m, 'density');
-}
-
-function matName(el: Element, type: string, selector = ':scope > material'): string | undefined {
-  const m = el.querySelector(selector);
-  if (!m || m.getAttribute('type') !== type) return undefined;
+function matName(m: Element): string | undefined {
   const name = m.textContent?.trim();
   return name && name.toLowerCase() !== 'custom' ? name : undefined;
+}
+
+// Their `<material>` is surface or line, or a mass object has none (`DocumentConfig`).
+const NOT_BULK_TYPES: ReadonlySet<string> = new Set(['parachute', 'streamer', 'shockcord', 'masscomponent']);
+
+/** `MaterialSetter` checks a type only when one is stated; otherwise the part decides the kind. */
+function readBulkMaterial(el: Element, node: ComponentNode): void {
+  const m = el.querySelector(':scope > material');
+  if (!m) return;
+  const type = m.getAttribute('type');
+  if (type !== 'bulk' && (type !== null || NOT_BULK_TYPES.has(node.type))) return;
+  const density = positiveAttr(m, 'density');
+  if (density !== undefined) node.density = density;
+  const name = matName(m);
+  if (name) node['materialName'] = name;
+  const group = m.getAttribute('group');
+  if (group) node['materialGroup'] = group;
+  // Absent stays absent: `MaterialSetter` treats its presence as user-set.
+  const shear = finiteNum(m.getAttribute('shearModulus'));
+  if (shear !== undefined && shear >= 0) node['shearModulus'] = shear;
 }
 
 export function readSoftMaterial(
@@ -115,11 +117,13 @@ export function readSoftMaterial(
   selector = ':scope > material',
 ): void {
   const m = el.querySelector(selector);
-  if (!m || m.getAttribute('type') !== kind) return;
+  if (!m) return;
+  const type = m.getAttribute('type');
+  if (type !== null && type !== kind) return;
   // 0 is legal, as desktop's `MaterialSetter` takes it: a massless canopy stays massless.
   const d = finiteNum(m.getAttribute('density'));
   if (d !== undefined && d >= 0) node[densityKey] = d;
-  const name = matName(el, kind, selector);
+  const name = matName(m);
   if (name) node[nameKey] = name;
 }
 
@@ -345,12 +349,7 @@ export function readCommon(el: Element, node: ComponentNode, withPosition: boole
       };
     }
   }
-  const density = matDensity(el);
-  if (density !== undefined) node.density = density;
-  const bulkName = matName(el, 'bulk');
-  if (bulkName) node['materialName'] = bulkName;
-  readMaterialGroup(el, node);
-  readShearModulus(el, node);
+  readBulkMaterial(el, node);
   const fin = enumTag(el, 'finish', FINISHES, 'importNote.finishUnknown', node, notes);
   if (fin && fin !== 'normal') node['finish'] = fin;
   const col = orColor(el.querySelector(':scope > color'));
@@ -415,14 +414,14 @@ function readOverrides(el: Element, node: ComponentNode): void {
   // A negative Cd is valid (`setOverrideCD`): it offsets the rest of the design's drag.
   const ocd = numTag(el, 'overridecd', NaN);
   if (Number.isFinite(ocd)) node['overrideCD'] = ocd;
-  const legacyAll = text(el, ':scope > overridesubcomponents') === 'true';
-  if (legacyAll || text(el, ':scope > overridesubcomponentsmass') === 'true') {
+  const legacyAll = isTrueTag(el, 'overridesubcomponents');
+  if (legacyAll || isTrueTag(el, 'overridesubcomponentsmass')) {
     node['overrideSubcomponentsMass'] = true;
   }
-  if (legacyAll || text(el, ':scope > overridesubcomponentscg') === 'true') {
+  if (legacyAll || isTrueTag(el, 'overridesubcomponentscg')) {
     node['overrideSubcomponentsCG'] = true;
   }
-  if (legacyAll || text(el, ':scope > overridesubcomponentscd') === 'true') {
+  if (legacyAll || isTrueTag(el, 'overridesubcomponentscd')) {
     node['overrideSubcomponentsCD'] = true;
   }
 }

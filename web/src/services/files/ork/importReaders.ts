@@ -17,6 +17,7 @@ import {
   nonNegTag,
   numTag,
   readAirfoil,
+  isTrueTag,
   readAngleAroundBody,
   readAutoPackedRadius,
   readCommon,
@@ -50,7 +51,8 @@ const base = (ctx: OrkImportContext, el: Element, type: ComponentType, withPosit
 };
 
 const readThicknessOrFilled = (el: Element, n: ComponentNode, fallback: number) => {
-  if (text(el, ':scope > thickness') === 'filled') {
+  // `DoubleSetter` compares its special word ignoring case.
+  if (text(el, ':scope > thickness')?.toLowerCase() === 'filled') {
     n['filled'] = true;
   } else {
     n['thickness'] = nonNegTag(el, 'thickness', fallback);
@@ -67,7 +69,7 @@ const readCant = (ctx: OrkImportContext, el: Element, n: ComponentNode) => {
 
 const readCd = (el: Element, n: ComponentNode) => {
   const cdText = text(el, ':scope > cd');
-  if (cdText === 'auto') {
+  if (cdText?.toLowerCase() === 'auto') {
     n['cdAuto'] = true;
     return;
   }
@@ -95,7 +97,7 @@ const readNosecone: NodeReader = (ctx, el) => {
   n['shape'] = shapeTag(el, n, ctx.notes, 'ogive');
   n['shapeParameter'] = nonNegTag(el, 'shapeparameter', shapeParamDefault(String(n['shape'])));
   readShoulder(el, n, 'aft', 'shoulder');
-  if (text(el, ':scope > isflipped') === 'true') n['flipped'] = true;
+  if (isTrueTag(el, 'isflipped')) n['flipped'] = true;
   return n;
 };
 
@@ -106,7 +108,7 @@ function readShoulder(el: Element, n: ComponentNode, side: 'fore' | 'aft', key: 
   if (l > 0) n[`${key}Length`] = l;
   const th = numTag(el, `${side}shoulderthickness`, 0);
   if (th > 0) n[`${key}Thickness`] = th;
-  if (text(el, `:scope > ${side}shouldercapped`) === 'true') n[`${key}Capped`] = true;
+  if (isTrueTag(el, `${side}shouldercapped`)) n[`${key}Capped`] = true;
 }
 
 const readTransition: NodeReader = (ctx, el) => {
@@ -122,7 +124,7 @@ const readTransition: NodeReader = (ctx, el) => {
   n['shape'] = shapeTag(el, n, ctx.notes, 'conical');
   n['shapeParameter'] = nonNegTag(el, 'shapeparameter', shapeParamDefault(String(n['shape'])));
   // Absent keeps the kernel default (clipped, matching the desktop).
-  const clip = text(el, ':scope > shapeclipped');
+  const clip = text(el, ':scope > shapeclipped')?.toLowerCase();
   if (clip === 'true' || clip === 'false') n['clipped'] = clip === 'true';
   readShoulder(el, n, 'fore', 'foreShoulder');
   readShoulder(el, n, 'aft', 'aftShoulder');

@@ -3,7 +3,7 @@ import { importOrk } from './orkFile';
 import { importRkt } from './rktImport';
 import { assertImportSize, decodeFileText } from './decodeText';
 import { KeyedError } from '../../i18n/keyedError';
-import { isGzip, isZip } from './ork/importUnpack';
+import { isGzip, isZip, unpackOrk } from './ork/importUnpack';
 
 const SNIFF_BYTES = 512;
 
@@ -13,9 +13,14 @@ export type DesignFormat = 'ork' | 'rkt';
 export function sniffDesignFormat(data: ArrayBuffer | string): DesignFormat | null {
   if (typeof data !== 'string') {
     const bytes = new Uint8Array(data);
-    if (isZip(bytes)) return 'ork';
-    // Older OpenRocket gzipped `.ork`; RockSim never compresses.
-    if (isGzip(bytes)) return 'ork';
+    if (isZip(bytes) || isGzip(bytes)) {
+      // `GeneralRocketLoader` goes by what is inside. `importOrk` words the refusal of a bad archive.
+      try {
+        return /<RockSimDocument[\s>]/.test(unpackOrk(data).xml.slice(0, SNIFF_BYTES)) ? 'rkt' : 'ork';
+      } catch {
+        return 'ork';
+      }
+    }
     data = decodeFileText(bytes.subarray(0, SNIFF_BYTES));
   }
   const head = data.slice(0, SNIFF_BYTES);
