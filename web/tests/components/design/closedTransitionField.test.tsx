@@ -8,12 +8,6 @@ import { badDimensions, REQUIRED_COMPONENT_FIELDS } from '../../../src/services/
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The panel flags a field as missing exactly when the run refuses it. Which
- * values the run refuses is the kernel's answer (requiredComponent.kernel.test.ts
- * flies each one); this holds the panel to the same list.
- */
-
 afterEach(cleanup);
 
 const flagged = (node: Record<string, unknown>, field: Field): boolean => {

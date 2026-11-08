@@ -1,20 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DESIGN_TYPES } from '../../engine/openRocketEngine';
 import { useWorkspaceStore } from '../../state/store';
 import { Dialog } from '../common/Dialog';
 import { DialogButton } from '../common/DialogButton';
+import { DesignTypeOptions } from './DesignTypeOptions';
 
-/**
- * The design-level "Rocket configuration" editor (OpenRocket's dialog of the
- * same name): design name, designer, kit name, design type, comments and
- * revision history. These live on the RocketTree and round-trip through .ork
- * import/export. Applied as one undoable step via
- * {@link useWorkspaceStore.updateDesignMeta}.
- *
- * Mounted only while open (`{open && <RocketConfigDialog />}`): the fields are
- * seeded from the live design once, in their initializers.
- */
+// Mount only while open: the fields seed from the design once, in their initializers.
 export function RocketConfigDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -26,12 +17,6 @@ export function RocketConfigDialog({ onClose }: { onClose: () => void }) {
   const [designType, setDesignType] = useState<string>(() => tree.designType ?? 'original');
   const [comment, setComment] = useState(() => tree.comment ?? '');
   const [revision, setRevision] = useState(() => tree.revision ?? '');
-
-  // Keep an unrecognized imported design-type token selectable so OK can't drop it.
-  const typeOptions = (DESIGN_TYPES as readonly string[]).includes(designType)
-    ? DESIGN_TYPES
-    : [designType, ...DESIGN_TYPES];
-  const typeLabel = (tk: string) => ((DESIGN_TYPES as readonly string[]).includes(tk) ? t(`config.type_${tk}`) : tk);
 
   const clean = (s: string) => (s.trim() ? s.trim() : undefined);
   const save = () => {
@@ -92,11 +77,7 @@ export function RocketConfigDialog({ onClose }: { onClose: () => void }) {
             {t('config.designType')}
           </label>
           <select id="cfg-type" value={designType} onChange={(e) => setDesignType(e.target.value)} className={field}>
-            {typeOptions.map((tk) => (
-              <option key={tk} value={tk}>
-                {typeLabel(tk)}
-              </option>
-            ))}
+            <DesignTypeOptions current={designType} />
           </select>
         </div>
         <div className="flex gap-3">

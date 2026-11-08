@@ -1,11 +1,5 @@
 import type { ReactNode } from 'react';
 
-/**
- * A checkbox with its label, the one form every dialog uses: the whole row is
- * the click target, a disabled row fades as a whole, and an optional hint sits
- * under it. `className` carries the row's text size and color; `align="start"`
- * keeps the box on the first line of a label that wraps.
- */
 export function Check({
   checked,
   onChange,
@@ -20,9 +14,7 @@ export function Check({
   onChange: (v: boolean) => void;
   label: ReactNode;
   disabled?: boolean;
-  /** Rendered under the row: for a setting that needs a sentence of why. */
   hint?: string;
-  /** A tooltip on the row, for a setting whose label says what but not why. */
   title?: string;
   className?: string;
   align?: 'center' | 'start';

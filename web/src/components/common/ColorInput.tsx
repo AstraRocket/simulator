@@ -1,15 +1,7 @@
 import { useId, useLayoutEffect, useRef } from 'react';
 import { useNativeChange } from './useNativeChange';
 
-/**
- * A color input that commits once, when the picker closes, rather than on every
- * drag tick. React's `onChange` on a color input maps to the native `input`
- * event, which fires continuously while the OS picker is dragged; bound to a
- * saved setting, every tick would write the whole settings object to storage,
- * dozens of writes per gesture. This listens to the NATIVE `change` (once, on close)
- * and to blur, since closing the picker with its own OK does not always move
- * focus. The swatch still previews while dragging: it shows its own value.
- */
+/** React's `onChange` fires on every drag tick; this uses native `change` plus blur (the picker's OK may not move focus). */
 export function ColorInput({
   value,
   onCommit,
@@ -30,9 +22,7 @@ export function ColorInput({
   style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  // Uncontrolled, re-seeded when the stored value changes from elsewhere. The
-  // same element is kept, not remounted, so the native listener below stays
-  // attached for every later pick.
+  // Uncontrolled and re-seeded rather than remounted, so the native listener stays attached.
   useLayoutEffect(() => {
     const el = ref.current;
     if (el && el.value !== value) el.value = value;
@@ -58,13 +48,6 @@ export function ColorInput({
   );
 }
 
-/**
- * A labeled color row: the label, then the swatch picker, then `children` (a
- * hex box, a reset button). A row rather than one big <label>, since the
- * children are controls of their own and a label binds to one. Only the
- * controls dim when disabled: a faded label would fall below the text contrast
- * floor, and the inputs' own state already says so.
- */
 export function ColorField({
   label,
   value,

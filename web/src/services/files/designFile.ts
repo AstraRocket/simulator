@@ -3,41 +3,24 @@ import { importOrk } from './orkFile';
 import { importRkt } from './rktImport';
 import { assertImportSize, decodeFileText } from './decodeText';
 import { KeyedError } from '../../i18n/keyedError';
-import { isGzip, isZip } from './ork/importUnpack';
+import { isGzip, isZip, unpackOrk } from './ork/importUnpack';
 
-/**
- * Which design format a file is, decided from its bytes rather than its name.
- *
- * The app reads two: OpenRocket `.ork` (a zip, or bare XML) and RockSim
- * `.rkt` (XML). Sniffing rather than trusting the extension means a `.rkt`
- * chosen in the OpenRocket picker still opens, and a file renamed on the way
- * out of somebody's email does too, and it keeps the loader to one path, so
- * everything downstream (`loadOrk`, the notes banner, the safety-limit check)
- * is shared instead of duplicated per format.
- */
-
-/** The number of leading bytes to look at. A root element is well inside this. */
 const SNIFF_BYTES = 512;
 
 export type DesignFormat = 'ork' | 'rkt';
 
-/**
- * The format of a design file, or null when it is neither.
- *
- * A zip is always a `.ork`: RockSim writes plain XML. Otherwise the root
- * element decides, which is why this looks for the tag and not merely the word:
- * "RockSim" appears in plenty of `.ork` files as a material or a comment.
- */
+// Matches the root tag, not the word: "RockSim" appears in many `.ork` files.
 export function sniffDesignFormat(data: ArrayBuffer | string): DesignFormat | null {
   if (typeof data !== 'string') {
     const bytes = new Uint8Array(data);
-    if (isZip(bytes)) return 'ork';
-    // Gzipped XML is how older OpenRocket builds saved a `.ork`; RockSim never
-    // compresses its files.
-    if (isGzip(bytes)) return 'ork';
-    // Through the shared decoder: a UTF-16 file sniffed as UTF-8 is a NUL
-    // between every character, matches neither root element, and is turned away
-    // as not a design file at all.
+    if (isZip(bytes) || isGzip(bytes)) {
+      // `GeneralRocketLoader` goes by what is inside. `importOrk` words the refusal of a bad archive.
+      try {
+        return /<RockSimDocument[\s>]/.test(unpackOrk(data).xml.slice(0, SNIFF_BYTES)) ? 'rkt' : 'ork';
+      } catch {
+        return 'ork';
+      }
+    }
     data = decodeFileText(bytes.subarray(0, SNIFF_BYTES));
   }
   const head = data.slice(0, SNIFF_BYTES);
@@ -46,15 +29,8 @@ export function sniffDesignFormat(data: ArrayBuffer | string): DesignFormat | nu
   return null;
 }
 
-/**
- * Parse a design file of either format into the one import result shape.
- *
- * Throws with the formats it does know when handed something else, because
- * "Not a .ork file (missing <rocket>)" is a confusing thing to be told after
- * picking a `.rkt`.
- */
 export function parseDesignFile(data: ArrayBuffer | string): OrkImportResult {
-  // Bytes are held to the cap as they are decoded; text arrives already decoded.
+  // Bytes are capped as they are decoded.
   if (typeof data === 'string') assertImportSize(data.length);
   const format = sniffDesignFormat(data);
   if (format === 'rkt') return { ...importRkt(data), format };

@@ -13,54 +13,36 @@ import { motorName } from '../../services/motors/motorName';
 import { CATALOG_TO_SI } from '../../services/motors/catalogUnits';
 import { usePersistedState } from '../common/usePersistedState';
 
-/**
- * The motor dashboard's column table: every column the grid can show, how each
- * one formats and sorts, the persisted choice of visible columns, and the
- * header/alignment helpers the grid and the compare table share.
- */
-
-/** Format a numeric cell to `d` decimals, or a dash when absent / non-finite. */
 const fmtCell = (v: number | undefined, d: number) => (v != null && Number.isFinite(v) ? fmtNum(v, d) : NO_VALUE);
 
 export interface Col {
   id: string;
-  label: string; // i18n suffix under `dash.*`
+  label: string;
   align: 'left' | 'center' | 'right';
   always?: boolean;
   cell: (m: CatalogMotor, u: Units, t: TFunction) => string;
-  /** Sort key; omit for a column that does not sort. NaN or '' means unknown, which sorts last. */
+  /** NaN or '' means unknown, which sorts last. */
   sortVal?: (m: CatalogMotor) => number | string;
-  /**
-   * Preference group for the column's unit. The header appends its symbol, so
-   * the labels stay unitless; a column with a fixed unit (seconds, a percent)
-   * keeps it in the label instead. Each `cell` lifts the catalog's own units
-   * (mm / g, see CatalogMotor) to SI first.
-   */
+  /** Each `cell` lifts the catalog's mm / g to SI first. */
   quantity?: Quantity;
 }
 
-/** Column heading: the unitless label, plus the unit the column is shown in. */
 export const heading = (c: Col, t: TFunction, u: Units): string =>
   c.quantity ? `${t(`dash.${c.label}`)} ${u.sym(c.quantity)}` : t(`dash.${c.label}`);
 
-/**
- * A catalog value in the user's unit, the catalog's mm/g lifted to SI first.
- * `d` fixes the decimals; absent, the magnitude ladder of the value as shown
- * picks them, as the detail pane does, so a 29 mm motor reads 1.14 in rather
- * than 1 in beside every 13 to 38 mm one.
- */
+/** `siScale` lifts the catalog's mm/g to SI. */
 const cell = (u: Units, q: Quantity, v: number | undefined, siScale: number, d?: number): string =>
   v != null && Number.isFinite(v) ? u.fmt(q, v * siScale, d) : NO_VALUE;
 
-// Every column the grid can show. `always` = the anchor (Motor), never hidden.
 export const COLUMNS: Col[] = [
   {
     id: 'designation',
     label: 'colMotor',
     align: 'left',
     always: true,
-    cell: (m) => m.designation,
-    sortVal: (m) => m.designation,
+    // Full designation (`H128W`): the common name cannot tell propellants apart.
+    cell: (m) => motorName(m),
+    sortVal: (m) => motorName(m),
   },
   { id: 'manufacturer', label: 'colMfr', align: 'left', cell: (m) => m.manufacturer, sortVal: (m) => m.manufacturer },
   { id: 'class', label: 'colClass', align: 'center', cell: (m) => m.class, sortVal: (m) => m.class },
@@ -130,11 +112,19 @@ export const COLUMNS: Col[] = [
     sortVal: (m) => m.type ?? '',
   },
   {
+    // The id `code` must stay stable for saved column choices.
     id: 'code',
     label: 'colCode',
     align: 'left',
-    cell: (m) => motorName(m),
-    sortVal: (m) => motorName(m),
+    cell: (m) => m.designation,
+    sortVal: (m) => m.designation,
+  },
+  {
+    id: 'propellant',
+    label: 'colPropellant',
+    align: 'left',
+    cell: (m) => m.propInfo ?? NO_VALUE,
+    sortVal: (m) => m.propInfo ?? '',
   },
   { id: 'isp', label: 'colIsp', align: 'right', cell: (m) => fmtCell(ispOf(m), 0), sortVal: (m) => ispOf(m) },
   {
@@ -162,18 +152,15 @@ export const COLUMNS: Col[] = [
 const DEFAULT_COLS = ['designation', 'manufacturer', 'class', 'diameter', 'impulse', 'avg', 'burn'];
 export const ALIGN = { left: 'text-left', center: 'text-center', right: 'text-right' } as const;
 
-// The chosen columns persist across sessions.
 const COLS_KEY = nsKey('motorDash:cols');
 const isColumnList = (v: unknown): v is string[] =>
   Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string');
 const loadCols = (): string[] => readLocalJson(COLS_KEY, isColumnList, DEFAULT_COLS);
 const saveCols = (ids: string[]): void => void writeLocalJson(COLS_KEY, ids);
 
-/** The user's column choice (persisted) and the columns to render from it. */
 export function useVisibleColumns() {
   const [visCols, setVisCols] = usePersistedState<string[]>(loadCols, saveCols);
 
-  // Columns to render, in canonical COLUMNS order regardless of toggle order.
   const cols = useMemo(() => COLUMNS.filter((c) => c.always || visCols.includes(c.id)), [visCols]);
   const toggleCol = (id: string) =>
     setVisCols((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

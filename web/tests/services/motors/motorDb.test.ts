@@ -3,16 +3,16 @@ import {
   filterMotors,
   allClasses,
   allManufacturers,
-  findCatalogMotor,
   matchCatalogMotor,
   hasCurve,
   loadCatalog,
   type CatalogMotor,
   type MotorFilter,
 } from '../../../src/services/motors/motorDb';
-import { fetchCatalog } from '../../../src/services/app/remoteData';
 
-// `loadCatalog` is the only thing here that touches the network or storage.
+const findCatalogMotor = (list: CatalogMotor[], designation: string, manufacturer?: string) =>
+  matchCatalogMotor(list, designation, manufacturer)?.motor;
+import { fetchCatalog } from '../../../src/services/app/remoteData';
 vi.mock('../../../src/services/app/remoteData', () => ({ fetchCatalog: vi.fn() }));
 vi.mock('../../../src/services/motors/motorStore', () => ({
   getMotorStore: () => ({ listCustomMotors: async () => [] }),
@@ -44,7 +44,7 @@ describe('hasCurve', () => {
         ]),
       ),
     ).toBe(true);
-    expect(hasCurve(m([{ src: 'x', samples: [[0, 0]] }]))).toBe(false); // one point
+    expect(hasCurve(m([{ src: 'x', samples: [[0, 0]] }]))).toBe(false);
     expect(hasCurve(m([]))).toBe(false);
     expect(hasCurve(m(undefined))).toBe(false);
   });
@@ -62,6 +62,44 @@ const filter = (over: Partial<MotorFilter> = {}): MotorFilter => ({
   manufacturers: new Set(),
   text: '',
   ...over,
+});
+
+describe('filterMotors, by sparks and by full name', () => {
+  const aero: CatalogMotor[] = [
+    {
+      designation: 'H128',
+      code: 'H128W',
+      manufacturer: 'AeroTech',
+      class: 'H',
+      diameter: 29,
+      impulse: 220,
+      burn: 1.8,
+      mass: 200,
+    },
+    {
+      designation: 'H125',
+      code: 'H125SM',
+      manufacturer: 'AeroTech',
+      class: 'H',
+      diameter: 29,
+      impulse: 200,
+      burn: 1.6,
+      mass: 200,
+      sparky: true,
+    },
+  ];
+  const names = (over: Partial<MotorFilter>) => filterMotors(aero, filter(over)).map((m) => m.designation);
+
+  it('finds a motor by its full designation, propellant letter and all', () => {
+    expect(names({ text: 'h128w' })).toEqual(['H128']);
+    expect(names({ text: 'SM' })).toEqual(['H125']);
+  });
+
+  it('keeps only sparky motors, none of them, or all', () => {
+    expect(names({ sparky: 'only' })).toEqual(['H125']);
+    expect(names({ sparky: 'none' })).toEqual(['H128']);
+    expect(names({ sparky: 'any' })).toEqual(['H128', 'H125']);
+  });
 });
 
 describe('filterMotors', () => {
@@ -85,15 +123,13 @@ describe('filterMotors', () => {
 
   it('filters by a diameter range (mm), inclusive', () => {
     expect(filterMotors(catalog, filter({ maxDiameter: 18 })).map((m) => m.designation)).toEqual(['C6', 'C6', 'B6']);
-    expect(filterMotors(catalog, filter({ maxDiameter: 24 }))).toHaveLength(4); // open min
+    expect(filterMotors(catalog, filter({ maxDiameter: 24 }))).toHaveLength(4);
     expect(filterMotors(catalog, filter({ minDiameter: 24 })).map((m) => m.designation)).toEqual(['D12']);
-    expect(filterMotors(catalog, filter({ minDiameter: 18, maxDiameter: 18 }))).toHaveLength(3); // just 18 mm
-    expect(filterMotors(catalog, filter({ minDiameter: 24, maxDiameter: 18 }))).toEqual([]); // empty range
+    expect(filterMotors(catalog, filter({ minDiameter: 18, maxDiameter: 18 }))).toHaveLength(3);
+    expect(filterMotors(catalog, filter({ minDiameter: 24, maxDiameter: 18 }))).toEqual([]);
   });
 
   it('filters by a total impulse range (N·s), inclusive', () => {
-    // The question a class cannot answer: a class is a doubling bucket, and a
-    // number out of a design lands between two letters.
     expect(filterMotors(catalog, filter({ minImpulse: 9 })).map((m) => m.designation)).toEqual(['C6', 'D12']);
     expect(filterMotors(catalog, filter({ maxImpulse: 8.8 })).map((m) => m.designation)).toEqual(['C6', 'B6']);
     expect(filterMotors(catalog, filter({ minImpulse: 8.8, maxImpulse: 9 }))).toHaveLength(2);
@@ -101,8 +137,6 @@ describe('filterMotors', () => {
   });
 
   it('filters by what goes in the mount, on both bore and length', () => {
-    // Its own rows, because this is the one facet that reads a field the shared
-    // fixture has no reason to carry.
     const row = (designation: string, diameter: number, length?: number): CatalogMotor => ({
       designation,
       manufacturer: 'Estes',
@@ -171,15 +205,6 @@ describe('findCatalogMotor', () => {
     expect(findCatalogMotor(catalog, 'X9')).toBeUndefined();
   });
 });
-
-/**
- * A name with the motor's total impulse written in front of it.
- *
- * RockSim names a Cesaroni motor that way - `206J530-IM` for a J530 - where the
- * catalog holds the name on its own and its own `code` carries a different
- * impulse figure. Without reading past the number, such a motor matches
- * nothing at all and the mount opens empty.
- */
 describe('findCatalogMotor: a leading impulse number', () => {
   const cat: CatalogMotor[] = [
     {
@@ -200,26 +225,13 @@ describe('findCatalogMotor: a leading impulse number', () => {
   });
 
   it('leaves a designation that really starts with digits alone', () => {
-    // The number is only read past when a letter follows it, so "1/2A6" is not
-    // quietly turned into an A6.
     expect(findCatalogMotor(cat, '1/2A6', 'Estes')!.designation).toBe('1/2A6');
   });
 
   it('still matches nothing when the motor is not in the catalog', () => {
-    // The point of reading past the impulse is to find the right motor, not to
-    // find any motor: no tier may shorten a name into a different one.
     expect(findCatalogMotor(cat, '206K530-IM', 'Cesaroni')).toBeUndefined();
   });
 });
-
-/**
- * A name carrying its impulse, its propellant and its delay as separate parts.
- *
- * RockSim writes a Cesaroni motor as `26-E31-WH-15A` - impulse, designation,
- * propellant, delay - where the catalog holds `E31` and its own code is
- * `26E31-15A`. Dropping only one trailing segment leaves `26-E31-WH`, which is
- * neither, so the motor would match nothing and the mount would open empty.
- */
 describe('findCatalogMotor: a name in several hyphenated parts', () => {
   const cat: CatalogMotor[] = [
     {
@@ -260,15 +272,11 @@ describe('findCatalogMotor: a name in several hyphenated parts', () => {
   });
 
   it('keeps letting the maker in the file break the tie', () => {
-    // Two makers publish an H135, and the file says which one wrote this design.
     expect(findCatalogMotor(cat, '217-H135-WH-12A', 'AeroTech')!.manufacturer).toBe('AeroTech');
     expect(findCatalogMotor(cat, '217-H135-WH-12A', 'Cesaroni')!.manufacturer).toBe('Cesaroni');
   });
 
   it('never wears a name down to a bare number', () => {
-    // Every candidate has to keep a letter. Without that, `26-E31-WH-15A`
-    // shortens to `26`, which is a figure that could match another motor by its
-    // digits rather than by being that motor.
     expect(findCatalogMotor(cat, '26-ZZ9-WH-15A', 'Cesaroni')).toBeUndefined();
   });
 
@@ -278,8 +286,6 @@ describe('findCatalogMotor: a name in several hyphenated parts', () => {
 });
 
 describe('findCatalogMotor: full .ork designations vs short catalog names', () => {
-  // Catalog keys the short designation; the full name lives in `code`, exactly
-  // as the bundled motors.generated.json does.
   const cat: CatalogMotor[] = [
     {
       designation: 'H128',
@@ -368,13 +374,6 @@ describe('findCatalogMotor: full .ork designations vs short catalog names', () =
     expect(findCatalogMotor(cat, 'K1100T', 'AeroTech')).toBeUndefined();
   });
 });
-
-/**
- * One malformed row must cost that row, not the catalog.
- *
- * remoteData rejects a body its predicate refuses, so a predicate that needs
- * every row usable would let one bad row on the data host empty the picker.
- */
 describe('loadCatalog with a malformed row', () => {
   const good = (designation: string): CatalogMotor => ({
     designation,
@@ -389,9 +388,6 @@ describe('loadCatalog with a malformed row', () => {
   beforeEach(() => {
     vi.mocked(fetchCatalog).mockReset();
   });
-
-  // The real fetchCatalog rejects a body its `valid` predicate refuses; the
-  // stub keeps that contract so the gate is exercised, not bypassed.
   const serve = (body: unknown) =>
     vi
       .mocked(fetchCatalog)
@@ -430,17 +426,6 @@ describe('loadCatalog with a malformed row', () => {
     await expect(loadCatalog()).rejects.toThrow(/Could not load the motors catalog/);
   });
 });
-
-/**
- * How the motor was found, not just which one.
- *
- * The tiers run from "this is the name" down to "this is what the name looks
- * like with its impulse and propellant taken off", and the file's manufacturer
- * is a preference rather than a filter. Every one of those is a match worth
- * making and none is the file confirming the motor, so the caller is told
- * which: otherwise an `I170-P` filed under Kosdon loads Cesaroni's I170 in
- * silence.
- */
 describe('matchCatalogMotor: how sure the match is', () => {
   const cat: CatalogMotor[] = [
     { designation: 'C6', manufacturer: 'Estes', class: 'C', diameter: 18, impulse: 1, burn: 1, mass: 1 },
@@ -463,8 +448,6 @@ describe('matchCatalogMotor: how sure the match is', () => {
   });
 
   it('reports the MAKER when the file named one we carry nothing for', () => {
-    // The tie-break never empties a non-empty set, which is right - some motor
-    // is better than none - but it is not the motor the file named.
     const m = matchCatalogMotor(cat, 'I170', 'Kosdon');
     expect(m!.motor.manufacturer).toBe('Cesaroni');
     expect(m!.doubt).toBe('maker');
@@ -482,21 +465,14 @@ describe('matchCatalogMotor: how sure the match is', () => {
   });
 
   it('puts the maker first, as the most surprising of the three', () => {
-    // `206-I170-WH-14A` under Kosdon is shortened and another maker's and one
-    // of two. Which one it is told about should be the one that moves a flight.
     expect(matchCatalogMotor(cat, '206-I170-WH-14A', 'Kosdon')!.doubt).toBe('maker');
   });
 
   it('finds nothing rather than doubting something', () => {
     expect(matchCatalogMotor(cat, 'ZZ9', 'Estes')).toBeUndefined();
   });
-
-  it('is what findCatalogMotor returns, without the doubt', () => {
-    expect(findCatalogMotor(cat, 'I170', 'Kosdon')).toBe(matchCatalogMotor(cat, 'I170', 'Kosdon')!.motor);
-  });
 });
 
-/** Desktop's chooser filters: out of regular production, and already used in the mount. */
 describe('filterMotors, desktop filters', () => {
   const withOop: CatalogMotor[] = [...catalog, { ...catalog[0]!, designation: 'C5', oop: true }];
 

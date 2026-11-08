@@ -6,14 +6,6 @@ import { renderWithProviders, seedSettings } from '../../testing/renderWithProvi
 import * as saveFile from '../../../src/services/files/saveFile';
 import type { FlightResult, FlightSeries } from '../../../src/engine/openRocketEngine';
 
-/**
- * The timeline as it is actually read. The row join is proved in
- * services/flight/flightEvents.test.ts; what this covers is what that join is for:
- * that an event's own numbers land on its own row, that the extras a type is
- * read for appear only on that type, and that a stage is named only when there
- * is more than one.
- */
-
 function series(over: Partial<FlightSeries> = {}): FlightSeries {
   return {
     time: [0, 1, 2, 3],
@@ -35,14 +27,7 @@ function series(over: Partial<FlightSeries> = {}): FlightSeries {
 const result = (over: Partial<FlightResult>): FlightResult =>
   ({ summary: {}, events: [], series: series(), ...over }) as FlightResult;
 
-/**
- * The <tr> an event's name sits in, so a value is asserted on its row.
- *
- * Matched on text rather than on the accessible name: dom-accessibility-api
- * trims each node's text before joining, so the spaces this table really does
- * render between an event, its source and its stage are absent from the
- * computed name and present in what a user sees and copies.
- */
+// Matched on text: dom-accessibility-api trims each node, dropping the spaces a user sees.
 function rowFor(name: string): HTMLElement {
   const heads = screen.getAllByRole('rowheader');
   const head = heads.find((h) => h.textContent?.replace(/\s+/g, ' ').trim() === name);
@@ -73,7 +58,6 @@ describe('FlightEventsTable', () => {
         })}
       />,
     );
-    // One phrase when copied out, not "Recovery deploymentDrogue".
     expect(rowFor('Recovery deployment Drogue')).toBeTruthy();
     expect(rowFor('Recovery deployment Main')).toBeTruthy();
   });
@@ -90,10 +74,7 @@ describe('FlightEventsTable', () => {
         })}
       />,
     );
-    // Stability, thrust-to-weight and angle of attack: the three numbers that
-    // say whether it left the rail flying.
     expect(screen.getByText('1.80 cal · TWR 12.0 · Angle of attack 0.0°')).toBeTruthy();
-    // Apogee is read for none of them, so it carries no extras line.
     expect(screen.queryByText(/TWR/)).toBe(screen.getByText(/1\.80 cal/));
   });
 
@@ -121,8 +102,7 @@ describe('FlightEventsTable', () => {
         })}
       />,
     );
-    // Airspeed is mach * Vs = 0.2 * 340 = 68 m/s, so q = 0.5 * 0.6 * 68^2 =
-    // 1387.2 Pa, shown in the metric default of hPa.
+    // Airspeed is mach * Vs = 0.2 * 340 = 68 m/s, so q = 0.5 * 0.6 * 68^2 = 1387.2 Pa.
     expect(within(rowFor('Max-Q')).getAllByRole('cell')[0]!.textContent).toBe('2.00');
     expect(screen.getByText('13.9 hPa · Mach 0.20')).toBeTruthy();
   });
@@ -143,8 +123,6 @@ describe('FlightEventsTable', () => {
         })}
       />,
     );
-    // Earliest first, so the booster's landing reads above the sustainer's
-    // apogee: they really did happen in that order.
     const names = screen.getAllByRole('rowheader').map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
     expect(names).toEqual(['Landing Booster', 'Apogee Sustainer']);
   });
@@ -166,15 +144,10 @@ describe('FlightEventsTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Download flight events (.csv)' }));
     expect(spy).toHaveBeenCalledOnce();
     const [file, body] = spy.mock.calls[0]!;
-    // Rocket, then run, then what it is, so a downloads folder stays sortable
-    // and a second design cannot overwrite the first.
     expect(file).toBe('Big_Bertha-C6_flight-flight-events.csv');
     const text = body as string;
     expect(text).toContain('# Simulation: C6 flight');
-    // The extras the table hides on a sub-line are real columns in the file.
     expect(text).toContain('Stability (cal),Thrust/weight');
-    // The default design rides a launch lug, so it leaves a rod
-    // (services/design/launcher).
     expect(text).toContain('"Rod departure"');
     spy.mockRestore();
   });

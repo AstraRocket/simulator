@@ -2,11 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { importCustomMotors, loadCatalog } from '../../../src/services/motors/motorDb';
 import type { CustomMotor } from '../../../src/services/motors/motorStore';
 
-/**
- * Several motor files in one import, the way desktop loads a folder of thrust
- * curves: one store write, and a file that cannot be read is named rather than
- * stopping the rest.
- */
 const added: unknown[][] = [];
 let stored: CustomMotor[] = [];
 vi.mock('../../../src/services/app/remoteData', () => ({ fetchCatalog: vi.fn(async () => []) }));
@@ -47,7 +42,6 @@ describe('importCustomMotors with several files', () => {
   it('names a picked file too large to read and imports the rest', async () => {
     added.length = 0;
     const fits = new Blob([eng('A1')]);
-    // Only the size is read before the refusal, so no bytes need to exist.
     const huge = { size: 1024 * 1024 * 1024, arrayBuffer: () => Promise.reject(new Error('unread')) } as Blob;
     const out = await importCustomMotors([
       { name: 'a.eng', blob: fits },
@@ -63,8 +57,6 @@ describe('importCustomMotors with several files', () => {
 });
 
 describe('importCustomMotors with one motor under several delays', () => {
-  // The id drops the delay, so the three blocks are one motor; it must offer
-  // all three delays, and the count must be what the store holds.
   const block = (delay: number) => `C6-${delay} 18 70 ${delay} 0.0108 0.0242 Estes\n0 0\n0.2 14\n1.7 0\n`;
 
   it('stores one motor carrying every delay and reports one', async () => {
@@ -87,9 +79,7 @@ describe('importCustomMotors with one motor under several delays', () => {
 
 describe('a stored custom motor in the catalog', () => {
   it('takes impulse, class and burn from the finalized curve', async () => {
-    // Raw samples with no t = 0 point, and out of order. Finalized, the curve
-    // is (0, 0), (1, 36), (1.5, 0): impulse 0.5*1*36 + 0.5*0.5*36 = 27 Ns, an
-    // E. The raw tail alone is 9 Ns, a C.
+    // No t = 0 point and out of order. Finalized: 27 Ns, an E; raw: 9 Ns, a C.
     stored = [
       {
         id: 'custom:T:X1',

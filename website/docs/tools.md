@@ -2,9 +2,36 @@
 title: "Tools"
 sidebar_position: 12.5
 ---
-The **Tools** tab holds quick answers that need no design: where a rocket lands, and what size parachute it needs. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
+The **Tools** tab holds quick answers that need no design: how much black powder an ejection charge needs, how fast a rocket's fins can fly, where it lands, how the motors in the catalog compare, and what size parachute it needs. They suit a rocket you have not modeled, or a quick check at the field. On a phone it is **🧰 Tools** on the bottom bar. Pick a tool from the row of tabs at the top. Each one keeps its inputs and its last result while you switch tools or tabs, until the page is reloaded.
 
 Every tool here is an estimate, and says so. A rocket designed here gets better answers from its own simulation.
+
+## Ejection charge {#ejection-charge}
+
+The black powder that pressurizes a recovery bay enough to separate it.
+
+- **Recovery bay.** The airframe's inside diameter, the bay's free length (bulkhead to bulkhead, less the coupler), and the target pressure above the outside air. It starts at 15 psi, where hobby practice usually starts.
+- **Shear pins** (optional). The number of pins and the shear strength of one, from the pin's maker or your own test. Nylon pins vary by size, brand and batch, so there is no built-in figure.
+
+The result gives the **black powder** for the target pressure. With pins, it also gives the **pressure to shear the pins** (their total strength spread over the bore) and the powder that reaches it, and warns when the target pressure is below that, since the bay would not separate.
+
+The charge is the ideal gas law for FFFFg powder's combustion gas, which works out close to the familiar rule of 0.006 × D² × L grams at 15 psi, with D and L in inches. It does not count heat lost to the airframe, gas escaping past the coupler, powder that burns late, or the volume the recovery gear takes up. **Ground test every charge before it flies**, and add whatever margin the test shows you need.
+
+## Fin flutter {#fin-flutter}
+
+The speed at which a fin starts to flutter: a twisting oscillation that grows until the fin breaks. Compare it with how fast the flight goes.
+
+- **Fin.** The root chord, the tip chord (blank or 0 for a pointed fin), the height from root to tip, and the thickness.
+- **Material.** Pick the fin stock for a typical shear modulus, or type a measured or published one; typing a value switches the stock to **Custom**. The stock values are starting points: real fin stock varies by maker, layup and grain, and a printed fin by infill and print direction.
+- **Fastest point of the flight.** The top speed, usually at burnout (a simulation's maximum velocity), and the altitude above the pad where it happens, with the site's elevation. Thinner air raises the flutter speed, so leaving the altitude blank gives the cautious answer.
+
+The result gives the **flutter speed** and its Mach number there. With a top speed entered, it also gives the **margin**, the flutter speed divided by the top speed:
+
+- **Below 1**: the flight goes faster than the fins' flutter speed.
+- **1 to 1.25**: under it, but too close for an estimate this rough.
+- **1.25 or more**: under it with room to spare.
+
+The speed comes from NACA Technical Note 4197, the estimate hobby flutter calculators use. It treats the fin as a flat plate of even thickness clamped at the root, so edges shaped to an airfoil, fillets, tip-to-tip layups and through-the-wall tabs, all of which stiffen a real fin, are not counted. Treat the margin as one to keep, not a line to fly up to.
 
 ## Landing estimator {#landing-estimator}
 
@@ -52,8 +79,27 @@ Under the map:
 
 Open-Meteo's CC BY 4.0 attribution is shown below them.
 
+## Motor Dashboard {#motor-dashboard}
+
+The same table as **Motor Dashboard** on the menu: every motor in the catalog, to sort and filter, with **Compare** and **Combine** for two or more selected motors. [Motors](./motors.md) covers its filters. Here it keeps its filters and selection while you switch tools or tabs; the one on the menu starts fresh each time it opens.
+
+### Exhaust styles {#exhaust-styles}
+
+**Exhaust styles** on the dashboard's title bar, here and on the menu, shows how the [3D flight path](./features.md) draws each motor's flame and smoke, one tile per style: an animated preview, what the style stands for, and every propellant in the motor catalog that uses it. **Back to list** returns to the table. The style is picked from the propellant's name as the catalog gives it:
+
+- **Dark smoke**: Blackjack, Black Max, Dark Matter, Smoky Sam and their kin.
+- **White smoke**: White Lightning and the other white propellants.
+- **Blue flame**, **Red flame** and **Green flame**: Blue Thunder, Redline, Mojave Green and the other blues, reds and greens.
+- **Fast and clean**: Warp 9, Vmax, Imax and other fast propellants.
+- **Sparky**: metal-salt propellants such as Skidmark and Metalstorm, which throw sparks.
+- **Black powder**: black powder motors, with a thick trail and a few sparks.
+- **Hybrid**: a pale flame and almost no smoke.
+- **Classic composite**: the orange flame for every other propellant, and for a motor whose propellant the catalog does not name.
+
+A motor the catalog calls sparky adds sparks to whatever style it uses. Each motor's detail shows the same preview and names its style, and on the dashboard that name opens this view. It is a picture, not a measurement: real exhaust varies with the motor, the weather and the light.
+
 ## Parachute sizing {#parachute-sizing}
 
 The canopy that lands a rocket at a chosen descent rate. Enter what comes down under the canopy (the rocket after its propellant has burned), the canopy's drag coefficient, and the site's elevation and temperature for the air density. Leave the temperature blank for the standard atmosphere at that elevation. Add a canopy diameter to see how fast that canopy comes down.
 
-The result gives the diameter for the **main** band (15 to 20 ft/s) and the **drogue** band (50 to 75 ft/s), and for **your own descent rate** if you enter one. These come from the descent equation, the same one the parachute editor uses; see [sizing a parachute](./designing-a-rocket.md#sizing-a-parachute).
+The result gives the diameter for the **main** band (15 to 20 ft/s) and the **drogue** band (50 to 75 ft/s), and for **your own descent rate** if you enter one. Each is rounded up to a whole centimeter or inch, whichever unit it is shown in, so it is a size you can buy or cut and lands a little slower than the rate, never faster. These come from the descent equation, the same one the parachute editor uses; see [sizing a parachute](./designing-a-rocket.md#sizing-a-parachute).

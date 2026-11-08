@@ -4,14 +4,11 @@ import { mathEquals } from '../../../src/services/motors/mathEquals';
 import { parseRse } from '../../../src/services/motors/rseParser';
 import { rowsDigest } from '../../../src/services/files/ork/embeddedMotors';
 
-/**
- * MathUtil.equals, which desktop's finalizeThrustCurve compares with: relative
- * to `b`, with a half-epsilon test near zero.
- */
+// MathUtil.equals: relative to `b`, with a half-epsilon test near zero.
 describe('mathEquals', () => {
   it('is relative to b away from zero', () => {
-    expect(mathEquals(100, 100 + 5e-7)).toBe(true); // 5e-9 relative
-    expect(mathEquals(1, 1 + 5e-6)).toBe(false); // 5e-6 relative
+    expect(mathEquals(100, 100 + 5e-7)).toBe(true);
+    expect(mathEquals(1, 1 + 5e-6)).toBe(false);
   });
 
   it('tests against half an epsilon near zero', () => {

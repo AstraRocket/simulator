@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
-import { LegendSwatch, SeriesPath, highestSample } from '../../../src/components/sim/chartAxes';
+import { LegendSwatch, SeriesPath } from '../../../src/components/sim/chartAxes';
+import { highestSample } from '../../../src/components/sim/chartScales';
 import { CATEGORICAL, seriesColor } from '../../../src/components/common/chartPalette';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
@@ -73,10 +74,6 @@ describe('seriesColor', () => {
   });
 });
 
-/**
- * `url(#id)` resolves to the first match in the document, so two thrust charts
- * on screen at once must not share a gradient id.
- */
 describe('ThrustChart', () => {
   it('gives each instance its own fill gradient', async () => {
     const { ThrustChart } = await import('../../../src/components/sim/MotorDetail');

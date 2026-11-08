@@ -1,35 +1,14 @@
-import { rememberedSlot, useRemembered } from './remembered';
+import { useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
 import { siteAirDensity } from '../../services/flight/recoverySizing';
-import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
-import { QNum } from '../sim/LaunchPanel';
+import { QNum } from '../sim/QNum';
 import { SizingFigures } from './SizingFigures';
 import { CardGroup } from '../common/CardGroup';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
-import { SiteElevationField } from './SiteFields';
+import { SiteElevationField, SiteTemperatureField } from './SiteFields';
 import { NumberRow } from '../common/NumberRow';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
-
-/**
- * Parachute sizing with no design: a descent mass, a canopy's Cd and the site's
- * air give the canopy for the main and drogue bands, or for a rate of your own.
- * The same figures the parachute editor's sizing dialog shows, from typed inputs.
- */
-
-interface Remembered {
-  massKg: number | null;
-  cd: number | null;
-  diameterM: number | null;
-  siteM: number | null;
-  temperatureC: number | null;
-}
-const remembered = rememberedSlot<Remembered>();
-
-/** Clears the remembered inputs, so each test starts from the defaults. */
-export function forgetParachuteTool(): void {
-  remembered.forget();
-}
+import { remembered } from './parachuteToolMemory';
 
 export function ParachuteTool() {
   const { t } = useTranslation();
@@ -86,14 +65,8 @@ export function ParachuteTool() {
         </CardGroup>
         <CardGroup title={t('chuteTool.air')}>
           <SiteElevationField required missing={siteM == null} value={siteM} onChange={setSiteM} />
-          <QNum
-            label={t('launch.temperature')}
+          <SiteTemperatureField
             field="chuteTemperature"
-            kind="degC"
-            u={u}
-            stepSi={1}
-            minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
-            maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
             placeholder={t('chuteTool.standard')}
             value={temperatureC}
             onChange={setTemperatureC}

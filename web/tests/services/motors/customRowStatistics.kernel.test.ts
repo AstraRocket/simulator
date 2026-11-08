@@ -9,8 +9,6 @@ import { loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
-
-/** The bundled Apogee C6's curve, imported as a custom motor. */
 const c6Samples = (): { time: number; thrust: number }[] => {
   const rows = JSON.parse(readFileSync(join(__dirname, '../../../public/data/motors.generated.json'), 'utf8')) as {
     manufacturer: string;
@@ -31,12 +29,7 @@ beforeAll(async () => {
   __setEngineForTests(await loadEngine());
 });
 
-/**
- * A custom motor's picker row shows the burn and average the kernel states for
- * it (ThrustCurveMotor.computeStatistics: between the crossings of 5% of peak),
- * as the spec dialog and the report do, not the last sample's time and the
- * impulse over it.
- */
+// ThrustCurveMotor.computeStatistics times the burn between the 5%-of-peak crossings.
 describe("a custom motor's picker row", () => {
   it("shows the kernel's burn time and average thrust", async () => {
     stored = [

@@ -1,12 +1,5 @@
 import { EVENT_LABEL } from '../../services/flight/simReport';
-import { EVENT_ROW_H, PAD_L, PAD_R } from './flightChartAxis';
-
-/**
- * Owns the event-label strip above the panels: the pure row packing that
- * keeps labels from overlapping, the strip height rule, and the sticky SVG
- * that draws them. The clustering of near-coincident events is the shared
- * `clusterEventLabels` in services/flight/simReport; this starts from its output.
- */
+import { EVENT_ROW_H } from './flightChartAxis';
 
 export interface EventLabel {
   x: number;
@@ -14,37 +7,6 @@ export interface EventLabel {
   row: number;
 }
 
-/**
- * Drop clusters outside the visible plot, then greedily row-pack so labels
- * never overlap: each takes the lowest row whose last label has cleared.
- *
- * @param labelW pixel width of a label for an event type (translated text).
- */
-export function packEventLabels(
-  clusters: { x: number; type: string }[],
-  w: number,
-  labelW: (type: string) => number,
-): EventLabel[] {
-  const rowRight: number[] = [];
-  return clusters
-    .filter((g) => g.x >= PAD_L - 2 && g.x <= w - PAD_R + 2)
-    .map((g) => {
-      const half = labelW(g.type) / 2;
-      let row = 0;
-      while (row < rowRight.length && rowRight[row]! > g.x - half) row++;
-      rowRight[row] = g.x + half;
-      return { x: g.x, type: g.type, row };
-    });
-}
-
-/** Strip height for a packed label set: rows plus a hair of padding, 0 when
- *  there is nothing to show (so the strip does not render at all). */
-export function eventStripHeight(labels: EventLabel[]): number {
-  const rows = labels.reduce((m, l) => Math.max(m, l.row + 1), 0);
-  return rows ? rows * EVENT_ROW_H + 4 : 0;
-}
-
-/** The sticky strip itself; `t` translates the event type's label key. */
 export function EventLabelStrip({
   labels,
   w,

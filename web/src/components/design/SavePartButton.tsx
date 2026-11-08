@@ -9,15 +9,6 @@ import { errorText } from '../../i18n/keyedError';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { StatusLine } from '../common/StatusLine';
 
-/**
- * Saves the selected component to the user's own parts library, so it can be
- * picked again from the component picker on any design (customParts.ts).
- *
- * It sits under the picker because it is the other half of the same idea: that
- * one offers thousands of parts somebody else made, this one adds the part you made.
- * The whole node is saved, not the dimensions the picker lists it by, so the
- * cone's shoulder and the chute's lines come back with it.
- */
 export function SavePartButton({ node, type }: { node: ComponentNode; type: PickerType }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -29,8 +20,7 @@ export function SavePartButton({ node, type }: { node: ComponentNode; type: Pick
       >
         {t('picker.save')}
       </button>
-      {/* Mounted only while open, so the form seeds its fields once in their
-          initializers rather than resetting them from an effect. */}
+      {/* Mounted only while open, so fields seed in their initializers. */}
       {open && <SavePartDialog node={node} type={type} onClose={() => setOpen(false)} />}
     </>
   );
@@ -38,13 +28,8 @@ export function SavePartButton({ node, type }: { node: ComponentNode; type: Pick
 
 function SavePartDialog({ node, type, onClose }: { node: ComponentNode; type: PickerType; onClose: () => void }) {
   const { t } = useTranslation();
-  // Seeded from what the part is already called, which is the name the user
-  // will look for in the picker. A part they never renamed falls back to its
-  // type, which at least reads as something rather than as an empty box.
-  //
-  // The translated seeds are worded at render until the user types (null
-  // means untouched): worded once in the initializer, a dialog opened before
-  // the locale's bundle lands would keep the English fallback and save it.
+  // Seeds are worded at render until the user types (null means untouched): worded in the
+  // initializer, a dialog opened before the locale bundle lands would save the English fallback.
   const named = typeof node.name === 'string' && node.name.trim() ? node.name.trim() : null;
   const [typedPartNo, setPartNo] = useState<string | null>(named);
   const [typedMfr, setMfr] = useState<string | null>(null);
@@ -67,8 +52,6 @@ function SavePartDialog({ node, type, onClose }: { node: ComponentNode; type: Pi
       await saveCustomPart(node, type, { mfr, partNo, desc });
       onClose();
     } catch (e) {
-      // A refused write, or a node the picker could not list. Either way the
-      // dialog stays open: closing it would say the part was saved.
       setErr(errorText(e, t));
       setSaving(false);
     }
@@ -85,14 +68,10 @@ function SavePartDialog({ node, type, onClose }: { node: ComponentNode; type: Pi
       />
 
       <p className="mt-4 text-xs leading-snug text-ink-faint">{t('picker.saveHint')}</p>
-      {/* Said before the save, not after: a body tube saved with its fins
-          attached comes back without them, and finding that out by applying
-          it to another design is too late. */}
       {node.children && node.children.length > 0 && (
         <p className="mt-2 text-xs leading-snug text-warn-300">{t('picker.saveNoChildren')}</p>
       )}
-      {/* Always mounted, empty until there is something to say: a live region
-          created together with its text is not announced (see UpdateToast). */}
+      {/* Always mounted: a live region created with its text is not announced. */}
       <StatusLine tone="danger" className="mt-2">
         {err}
       </StatusLine>

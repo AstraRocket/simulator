@@ -9,38 +9,23 @@ import { confirm } from '../../state/confirmStore';
 import { errorText } from '../../i18n/keyedError';
 import i18n from '../../i18n';
 
-/** Prefixes a user template's id in the format select, so it cannot collide with a built-in's. */
 export const USER_PREFIX = 'user:';
 
-/**
- * Owns the flight-path export dialog's format choice: the user templates in the
- * template store (the browser equivalent of OpenRocket's desktop
- * `ExportTemplates` folder), the current selection resolved to a built-in
- * format or a user template, and the import, delete and download-template
- * handlers. Also owns the dialog's error line, which these handlers and the
- * dialog's own download both report into.
- */
 export function useExportTemplates() {
   const { t } = useTranslation();
   const store = useMemo(() => getTemplateStore(), []);
   const [selected, setSelected] = useState<string>(EXPORT_FORMATS[0]!.id);
   const [templates, setTemplates] = useState<UserTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Which template-store write is current: a file read plus an IndexedDB write,
-  // and this dialog can close under either.
   const storeWrite = useLatest();
 
-  // The opening listing takes a token like the writes do: an import that lands
-  // first sets a list with the new template in it, and a slower opening
-  // listing must not overwrite that with one that lacks it.
+  // The opening listing takes a token too, so a slow one cannot overwrite an import's list.
   const claimWrite = storeWrite.claim;
   useEffect(() => {
     const mine = claimWrite();
     store
       .list()
       .then((listed) => mine() && setTemplates(listed))
-      // A store that cannot be read is not an empty one: said in the error
-      // line, as the saved-part and location lists say it.
       .catch((e: unknown) => {
         if (!mine()) return;
         setTemplates([]);
@@ -48,7 +33,6 @@ export function useExportTemplates() {
       });
   }, [store, claimWrite]);
 
-  // Resolve the current selection to either a built-in format or a user template.
   const resolved = useMemo(() => {
     if (selected.startsWith(USER_PREFIX)) {
       const id = selected.slice(USER_PREFIX.length);
@@ -79,16 +63,11 @@ export function useExportTemplates() {
       const { id, name, ext } = parseTemplateFilename(file.name);
       await store.add({ id, name, ext, source });
       const listed = await store.list();
-      // The store write is deliberately not undone on a stale token - the
-      // template is stored and should stay stored. What must not happen is
-      // selecting it in a dialog that has moved on, or reporting the outcome of
-      // one import over another's.
       if (!mine()) return;
       setTemplates(listed);
       setSelected(`${USER_PREFIX}${id}`);
       setError(null);
     } catch {
-      // The file was read; the template store refused the write.
       if (!mine()) return;
       setError(t('pathExport.importSaveError'));
     }
@@ -96,7 +75,6 @@ export function useExportTemplates() {
 
   const deleteSelected = async () => {
     if (!selectedUser) return;
-    // The template store may hold the only copy of the template.
     const ok = await confirm({
       message: t('pathExport.deleteConfirm', { name: selectedUser.name }),
       confirmLabel: t('common.delete'),
@@ -106,16 +84,11 @@ export function useExportTemplates() {
     const mine = storeWrite.claim();
     try {
       await store.remove(selectedUser.id);
-      // Inside the try as well: a listing that fails after the delete would
-      // otherwise reject out of the handler, leaving the row gone from the store,
-      // still shown in the dialog, and no error reported.
       const listed = await store.list();
       if (!mine()) return;
       setTemplates(listed);
     } catch {
       if (!mine()) return;
-      // The template store reports a refused write rather than resolving cleanly
-      // on one, so this can throw.
       setError(t('pathExport.deleteError'));
       return;
     }
@@ -123,8 +96,6 @@ export function useExportTemplates() {
     setError(null);
   };
 
-  // Download the selected template's Mustache source - a built-in as a starting
-  // point for a custom template, or a user template to edit and re-import.
   const downloadTemplate = () => {
     if (resolved.kind === 'user') {
       const tp = resolved.template;

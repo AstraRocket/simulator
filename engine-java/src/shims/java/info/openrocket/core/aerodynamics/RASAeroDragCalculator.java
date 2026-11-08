@@ -9,27 +9,8 @@ import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.util.MathUtil;
 
 /**
- * RASAero opt-in supersonic-aerodynamics drag strategy (original work of the
- * mmrocket-sim project; see engine-java/ATTRIBUTION.md). The pluggable
- * {@link DragCalculator} carrying the opt-in drag extensions on top of the stock
- * extended-Barrowman drag calculator:
- *
- * <ul>
- *   <li>fin thickness, boat-tail and nose supersonic wave drag and the x1.8 fin
- *       friction drag factor (in {@link FinSetCalc} / {@link SymmetricComponentCalc},
- *       activated by binding the flags below);</li>
- *   <li>the high-Mach base-CD cap ({@link #effectiveBaseCD}) and the
- *       Van&nbsp;Driest&nbsp;II friction fade ({@link #turbulentCompressibility}); and</li>
- *   <li>fin airfoil cross-section thickness-wave drag (gated in {@link FinSetCalc}
- *       on the same flags).</li>
- * </ul>
- *
- * With every flag off it is bit-identical to {@link BarrowmanDragCalculator}.
- *
- * <p>Partial-laminar friction stays gated on a bare {@code isPerfectFinish()}.
- * Gating it as {@code (rogersKbf || supersonicAero) && isPerfectFinish()} would
- * change only the flag-off result (with a flag on the two are identical), and the
- * flag-off path must stay bit-identical to the stock calculator.</p>
+ * Original work of the mmrocket-sim project; see engine-java/ATTRIBUTION.md.
+ * With every flag off it must stay bit-identical to {@link BarrowmanDragCalculator}.
  */
 public class RASAeroDragCalculator extends BarrowmanDragCalculator {
 
@@ -53,7 +34,6 @@ public class RASAeroDragCalculator extends BarrowmanDragCalculator {
 		return rogersKbf;
 	}
 
-	/** The stubby-nose subsonic pressure-drag floor, its own opt-in. */
 	public void setStubbyNoseFloor(boolean enabled) {
 		this.stubbyNoseFloor = enabled;
 	}
@@ -75,18 +55,12 @@ public class RASAeroDragCalculator extends BarrowmanDragCalculator {
 			((FinSetCalc) calc).setSupersonicAero(supersonicAero);
 		} else if (calc instanceof SymmetricComponentCalc) {
 			((SymmetricComponentCalc) calc).setSupersonicAero(supersonicAero);
-			// The stubby-nose floor is its own switch, independent of
-			// the supersonic / Rogers models.
 			((SymmetricComponentCalc) calc).setStubbyNoseFloor(stubbyNoseFloor);
 		}
 		return calc;
 	}
 
-	/**
-	 * Above M1 with supersonicAero on, cap the base CD at the
-	 * base-pressure vacuum trend {@code 1.2/M^2} (≈0.85 of 2/(γM²); crossover
-	 * ≈ M4.8, matching the HB-2 base-drag trend). Flag off ⇒ the stock value.
-	 */
+	/** Above M1, cap base CD at 1.2/M^2 (HB-2 base-drag trend). */
 	@Override
 	protected double effectiveBaseCD(double mach) {
 		double cd = super.effectiveBaseCD(mach);
@@ -96,12 +70,7 @@ public class RASAeroDragCalculator extends BarrowmanDragCalculator {
 		return cd;
 	}
 
-	/**
-	 * The stock {@code (1+0.15 M^2)^-0.58} turbulent fit tracks Van Driest II
-	 * only to M≈4. With supersonicAero on, above M3.5, fade to the
-	 * adiabatic-wall VD-II engineering fit {@code (1+0.144 M^2)^-0.65} (Hopkins
-	 * & Inouye, NASA TN D-6945), fully in by M4.5.
-	 */
+	/** Fades M3.5 to M4.5 into Van Driest II (Hopkins & Inouye, NASA TN D-6945). */
 	@Override
 	protected double turbulentCompressibility(double mach) {
 		double c2 = super.turbulentCompressibility(mach);

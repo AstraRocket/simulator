@@ -6,27 +6,12 @@ import { addPart } from '../../../src/services/design/treeEdit';
 import { loadSettings, saveSettings, DEFAULT_SETTINGS } from '../../../src/services/storage/settings';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * Settings ▸ Materials: what a newly added part is made of.
- *
- * The preference is spent at creation: the part carries the material outright,
- * so it shows in the panel and is written to the `.ork`, as desktop's
- * constructors stamp its default-material preference onto a new part
- * (`ExternalComponent()`, `StructuralComponent()`). The round-trip test in
- * `files/ork/materialRoundTrip.test.ts` checks that the material survives the
- * file.
- */
-
 const PLY = { name: 'Plywood (birch)', density: 630 };
 const KEVLAR = { name: 'Kevlar 12-strand (3.2 mm, 1/8 in)', density: 0.00967306 };
 
 describe('defaultMaterialPatch', () => {
   it('falls back to the material the kernel would weigh the part with', () => {
-    // Not empty. An unset part is not a lighter part: `ComponentFactory` only
-    // calls `setMaterial` for a positive density, so the part keeps its Java
-    // constructor's material and flies as cardboard regardless. A bare node would
-    // only make the panel say "Not specified", a state desktop OpenRocket has no
-    // equivalent of, since every component there is constructed with one of these.
+    // Not empty: `ComponentFactory` keeps the constructor's material, so an unset part flies as cardboard.
     expect(defaultMaterialPatch('bodytube', {})).toEqual({
       materialName: KERNEL_MATERIALS.bulk.name,
       density: KERNEL_MATERIALS.bulk.density,
@@ -44,29 +29,22 @@ describe('defaultMaterialPatch', () => {
   });
 
   it('gives a part with no material slot nothing at all', () => {
-    // A stage, a pod set and a mass component carry a mass outright rather than
-    // a density and a volume, so there is no slot to fill.
     for (const type of ['stage', 'podset', 'parallelstage', 'masscomponent']) {
       expect(defaultMaterialPatch(type, {}), type).toEqual({});
     }
   });
 
   it('maps a bulk default onto the keys a part carries its material in', () => {
-    // And it beats the kernel's. A choice stored without a group sets none,
-    // rather than the kernel material's.
     const patch = defaultMaterialPatch('trapezoidfinset', { 'trapezoidfinset:bulk': PLY });
     expect(patch).toEqual({ materialName: 'Plywood (birch)', density: 630 });
   });
 
   it('carries the catalog group stored with a bulk default', () => {
-    // As a material picked in the property panel carries one, so the `.ork`
-    // writer files it under its own category.
     const patch = defaultMaterialPatch('trapezoidfinset', { 'trapezoidfinset:bulk': { ...PLY, group: 'Woods' } });
     expect(patch).toEqual({ materialName: 'Plywood (birch)', density: 630, materialGroup: 'Woods' });
   });
 
   it('maps surface and line onto their own keys, on one part', () => {
-    // A parachute has a canopy and shroud lines, in different units.
     const patch = defaultMaterialPatch('parachute', {
       'parachute:surface': { name: 'Silk', density: 0.06 },
       'parachute:line': KEVLAR,
@@ -105,10 +83,6 @@ describe('a new part is seeded with it', () => {
   });
 
   it('carries the kernel material when there is no preference', () => {
-    // `addPart` takes the seed from its caller, so this is what the store hands
-    // it (store.addPartToTree). With no preference set that is the kernel's own
-    // material rather than nothing, so a new part does not open on
-    // "Not specified" while flying as cardboard.
     const seed = defaultMaterialPatch('bodytube', {});
     const { tree: next, id } = addPart(tree, 'bodytube', null, seed as Partial<ComponentNode>);
     const added = next.components[0]!.children!.find((n) => n.id === id) as unknown as Record<string, unknown>;
@@ -117,8 +91,6 @@ describe('a new part is seeded with it', () => {
   });
 
   it('does not overwrite the dimensions a part is created with', () => {
-    // The seed is merged onto the default node, so it must add a material and
-    // nothing else: a body tube comes out the same size with or without it.
     const bare = addPart(tree, 'bodytube', null);
     const seeded = addPart(tree, 'bodytube', null, {
       materialName: 'Blue tube',
@@ -160,8 +132,6 @@ describe('the stored preference', () => {
   });
 
   it('drops anything that would reach the kernel as a bad mass', () => {
-    // A density out of this map is stamped onto a part and flown, so a string,
-    // a NaN, a negative or a malformed key has to be refused on the way in.
     saveSettings({
       ...DEFAULT_SETTINGS,
       defaultMaterials: {

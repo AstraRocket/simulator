@@ -6,8 +6,7 @@ vi.mock('../../src/engine/simClient', () => ({ warmSimWorker: vi.fn() }));
 vi.mock('../../src/services/storage/persistStorage', () => ({
   requestPersistentStorage: vi.fn(() => Promise.resolve(true)),
 }));
-// The drawing needs a layout jsdom does not have; the banner above it is what
-// these tests click.
+// The drawing needs a layout jsdom does not have, so these tests click the banner.
 vi.mock('../../src/components/canvas/CenterCanvas', () => ({ CenterCanvas: () => null }));
 
 import { useWorkspaceEffects } from '../../src/state/useWorkspaceEffects';
@@ -20,25 +19,13 @@ import { renderWithProviders } from '../testing/renderWithProviders';
 import { useConfirmStore } from '../../src/state/confirmStore';
 import { CenterView } from '../../src/components/canvas/CenterView';
 
-/**
- * Switching designs, or deleting the open one, while the open design still has
- * a debounced autosave pending.
- *
- * Everything below the store is real: the library on an in-memory key-value
- * store, the workspace store, and the hook that arms the autosave. One storage
- * read or delete is held open so the timer can fire in the middle of the
- * switch, as it does when IndexedDB is slower than the 500 ms debounce.
- */
-
 type Op = 'get' | 'remove';
 
-/** In-memory storage whose `update` is atomic, like the IndexedDB transaction behind it. */
 class HeldKv implements KeyValueStore {
   map = new Map<string, string>();
   private held: { op: Op; key: string; skip: number; release?: () => void; reached: () => void }[] = [];
   private lock: Promise<unknown> = Promise.resolve();
 
-  /** Hold the `skip`+1-th `op` on `key` until `release` is called. */
   hold(op: Op, key: string, skip = 0): { reached: Promise<void>; release: () => void } {
     let reached!: () => void;
     const whenReached = new Promise<void>((r) => (reached = r));
@@ -59,7 +46,6 @@ class HeldKv implements KeyValueStore {
   }
 
   async get(k: string) {
-    // The value as of the call, the way a read transaction sees it.
     const v = this.map.has(k) ? this.map.get(k)! : null;
     const g = this.gate('get', k);
     if (g) await g;
@@ -121,11 +107,9 @@ beforeEach(async () => {
   const lib = getDesignLibrary();
   b = (await lib.create('B', lean({ ...base, tree: { ...base.tree, name: 'Rocket B' } }))).id;
   a = (await lib.create('A', lean({ ...base, tree: { ...base.tree, name: 'Rocket A' } }))).id;
-  // Boot opens A.
   renderWithProviders(<Host />);
   await act(flush);
   expect(s().tree.name).toBe('Rocket A');
-  // What opening the library dialog does first.
   await act(() => s().refreshDesigns());
 });
 
@@ -135,7 +119,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Let the debounce run out while the held storage call is still open. */
 const fireAutosave = () =>
   act(async () => {
     vi.advanceTimersByTime(600);
@@ -146,7 +129,6 @@ describe('opening another design with an autosave pending', () => {
   it('leaves the incoming design as stored when an edit made before the switch is saved during it', async () => {
     const before = kv.map.get(designKey(b));
     act(() => s().updateDesignMeta({ designer: 'Edited in A' }));
-    // The first read of B is openDesign's own check; the second is the open.
     const held = kv.hold('get', designKey(b), 1);
     const opening = s().openDesign(b);
     await held.reached;
@@ -202,8 +184,6 @@ describe('a second open claiming the workspace while the first is still reading'
     const held = kv.hold('get', designKey(b), 1);
     const opening = s().openDesign(b);
     await held.reached;
-    // A design the library no longer has: the second open claims the
-    // workspace, then stops with the first design still on screen.
     await act(async () => {
       await s().openDesign('missing-design');
       await flush();
@@ -219,7 +199,6 @@ describe('a second open claiming the workspace while the first is still reading'
 
     expect(kv.map.get(designKey(b))).toBe(before);
     expect((await getDesignLibrary().read(a))?.tree.designer).toBe('Edited in A');
-    // The next boot opens what is on screen.
     expect(await getDesignLibrary().activeId()).toBe(a);
   });
 
@@ -233,8 +212,6 @@ describe('a second open claiming the workspace while the first is still reading'
     await heldB.reached;
     const openingC = s().openDesign(c);
     await heldC.reached;
-    // Made after the first open's flush, so the second open's flush is the
-    // write that carries it.
     act(() => s().updateDesignMeta({ designer: 'Edited in A' }));
     heldB.release();
     await act(async () => {

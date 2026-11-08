@@ -18,15 +18,6 @@ import { importNoteText } from '../../../src/services/files/importNote';
 import en from '../../../src/i18n/locales/en.json';
 import fr from '../../../src/i18n/locales/fr.json';
 
-/**
- * Every simulation, with its result summary, through a .ork and back.
- *
- * The file is the desktop's: one <simulation> each, the summary as attributes
- * of <flightdata>, and the status the desktop's loader reads (any summary loads
- * as LOADED unless the status says outdated). `npm run check:ork` opens a file
- * like this in a real OpenRocket; these pin the shape on this side.
- */
-
 const tree = defaultRocketTree();
 const configs = [
   { id: 'cfg-c6', name: 'C6', motors: {} },
@@ -75,7 +66,6 @@ describe('writing every simulation', () => {
     expect(fd.getAttribute('maxaltitude')).toBe('333.5');
     expect(fd.getAttribute('launchrodvelocity')).toBe('18.1');
     expect(fd.hasAttribute('optimumdelay')).toBe(false);
-    // A simulation that never ran carries no summary at all.
     expect(last!.querySelector(':scope > flightdata')).toBeNull();
   });
 
@@ -152,9 +142,7 @@ describe('opening a file with simulations', () => {
     const status = (s: typeof calm) => simStatus(s!, {}, w.tree, isOutdated(s!, w.tree, cfg(s!.configId), prefs));
     expect(calm!.fileSummary?.summary.maxAltitude).toBe(333.5);
     expect(status(calm)).toBe('fromFile');
-    // The file itself said this one was out of date.
     expect(status(windy)).toBe('outdated');
-    // Any edit to what it flies makes the file's figures stale.
     expect(status({ ...calm!, launch: { ...calm!.launch, windAverage: 9 } })).toBe('outdated');
   });
 
@@ -165,12 +153,6 @@ describe('opening a file with simulations', () => {
   });
 });
 
-/**
- * Desktop simulation extensions (air-start, roll control, scripts) cannot run
- * here, but a design opened and saved here must not lose them: the file goes
- * back to desktop with them intact, and the import says they were not run.
- * Read from desktop's own example file.
- */
 describe('desktop simulation extensions', () => {
   const example = readFileSync(resolve(__dirname, '../../../public/examples/simulation-extensions.ork'));
   const res = importOrk(example.buffer.slice(example.byteOffset, example.byteOffset + example.byteLength));
@@ -185,7 +167,7 @@ describe('desktop simulation extensions', () => {
     const note = noteTexts(res.notes).find((n) => /Simulation extensions do not run in this app/.test(n))!;
     expect(note).toContain('Air-start');
     expect(note).not.toMatch(/AirStart|RollControl/);
-    // An id from the file that names an Object.prototype member reads as itself.
+    // An Object.prototype member name as the id reads as itself.
     const odd = importOrk(
       new TextDecoder()
         .decode(Object.values(unzipSync(new Uint8Array(example)))[0])
@@ -202,7 +184,6 @@ describe('desktop simulation extensions', () => {
         /<extension extensionid="[^"]*RollControl">[\s\S]*?<\/extension>/,
         '<extension extensionid="info.openrocket.core.simulation.extension.impl.ScriptingExtension"><entry key="language" type="string">Python</entry></extension>',
       );
-    // Opened in English, read in French: the note follows the language shown.
     const notes = importOrk(xml).notes;
     await i18n.changeLanguage('fr');
     try {
@@ -234,21 +215,15 @@ describe('desktop simulation extensions', () => {
     const at = xml.indexOf(carried[0]!);
     expect(at).toBeGreaterThan(xml.indexOf('</conditions>'));
     expect(at).toBeLessThan(xml.indexOf('<flightdata'));
-    // And they read back the same, so a second round trip keeps them too.
     expect(importOrk(xml).simulations![0]!.xmlExtra).toEqual(carried);
   });
 });
 
-/**
- * The conditions a saved result was flown under. The desktop re-flies a
- * simulation from its `<conditions>`, so a result written up to date has to
- * carry the step, limit and warning thresholds the run used, and a desktop
- * file's own conditions this app does not model have to survive a save.
- */
 describe('simulation options in the conditions', () => {
   const prefs = {
     timeStep: 0.01,
     maxTime: 600,
+    stepper: 'rk6' as const,
     randomSeed: 42,
     deploymentSpeedWarn: 18,
     mainHighSpeedWarn: 25,
@@ -271,6 +246,7 @@ describe('simulation options in the conditions', () => {
     });
     expect(cond(xml, 'timestep')).toBe('0.01');
     expect(cond(xml, 'maxtime')).toBe('600');
+    expect(cond(xml, 'simulationsteppermethod')).toBe('rk6');
     expect(cond(xml, 'randomseed')).toBe('42');
     expect(cond(xml, 'recoveryspeedwarning')).toBe('18');
     expect(cond(xml, 'drogueLowspeedwarning')).toBe('2.5');
@@ -280,7 +256,7 @@ describe('simulation options in the conditions', () => {
 
   const desktopFile = write([{ name: 'Calm day', configId: 'cfg-c6', launch, summary, status: 'uptodate' }]).replace(
     '<timestep>',
-    '<simulationsteppermethod>rk6</simulationsteppermethod><randomseed>1234</randomseed><timestep>',
+    '<draglookupcsv>drag.csv</draglookupcsv><randomseed>1234</randomseed><timestep>',
   );
 
   it('carries the conditions children it does not model back inside the conditions', () => {
@@ -295,8 +271,7 @@ describe('simulation options in the conditions', () => {
         { name: sim.name, configId: 'cfg-c6', launch, summary, status: 'uptodate', xmlExtra: sim.xmlExtra },
       ],
     });
-    expect(cond(xml, 'simulationsteppermethod')).toBe('rk6');
-    // No seed of its own, so the file's stands.
+    expect(cond(xml, 'draglookupcsv')).toBe('drag.csv');
     expect(cond(xml, 'randomseed')).toBe('1234');
     expect(xml.match(/<timestep>/g)).toHaveLength(1);
     expect(xml).not.toMatch(/<\/conditions>\s*<conditions>/);
@@ -318,24 +293,49 @@ describe('simulation options in the conditions', () => {
     expect(xml.match(/<randomseed>/g)).toHaveLength(1);
     expect(cond(xml, 'randomseed')).toBe('42');
   });
+
+  it("reads the stepper as the simulation's own, not as a carried child", () => {
+    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>RK6<');
+    const sim = importOrk(file).simulations![0]!;
+    expect(sim.prefs?.stepper).toBe('rk6');
+    expect(sim.xmlExtra?.join('') ?? '').not.toMatch(/simulationsteppermethod/);
+  });
+
+  it('leaves a stepper this kernel does not have to the global', () => {
+    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>euler<');
+    expect(importOrk(file).simulations![0]!.prefs?.stepper).toBeUndefined();
+  });
+
+  it('writes the stepper once, the one the run used', () => {
+    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>rk6<');
+    const sim = importOrk(file).simulations![0]!;
+    const xml = exportOrk({
+      name: 'Sims',
+      tree,
+      configs,
+      activeConfigId: 'cfg-c6',
+      launch,
+      simulations: [
+        { name: sim.name, configId: 'cfg-c6', launch, summary, status: 'uptodate', xmlExtra: sim.xmlExtra },
+      ],
+      simPrefs: { ...prefs, stepper: 'rk4' },
+    });
+    expect(xml.match(/<simulationsteppermethod>/g)).toHaveLength(1);
+    expect(cond(xml, 'simulationsteppermethod')).toBe('rk4');
+  });
 });
 
-/**
- * Desktop keeps a time step, a maximum time and the recovery warnings per
- * simulation (`SimulationConditionsHandler` reads them into that simulation's
- * options), so each simulation's own go out in its conditions and come back as
- * its own overrides, where they differ from the app's globals.
- */
 describe("each simulation's own run settings", () => {
   const globals = {
     timeStep: 0.05,
     maxTime: 1200,
+    stepper: 'rk4',
     deploymentSpeedWarn: 20,
     mainHighSpeedWarn: 30.48,
     mainLowSpeedWarn: 15.24,
     drogueLowSpeedWarn: 3.048,
   } as SimPrefs;
-  const fine = { ...globals, timeStep: 0.01 };
+  const fine = { ...globals, timeStep: 0.01, stepper: 'rk6' as const };
   const xml = write([
     { name: 'Fine', configId: 'cfg-c6', launch, status: 'notsimulated', prefs: fine },
     { name: 'Plain', configId: 'cfg-d12', launch, status: 'notsimulated', prefs: globals },
@@ -361,7 +361,7 @@ describe("each simulation's own run settings", () => {
       launch,
       globals,
     );
-    expect(w.sims[0]!.prefs).toEqual({ timeStep: 0.01 });
+    expect(w.sims[0]!.prefs).toEqual({ timeStep: 0.01, stepper: 'rk6' });
     expect(w.sims[1]!.prefs).toBeUndefined();
   });
 

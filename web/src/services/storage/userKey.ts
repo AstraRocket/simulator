@@ -1,19 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { nsKey } from './storageKeys';
 
-/**
- * A key the user enters for a third-party service: their own Esri map key,
- * their own Open-Meteo key. The app ships none.
- *
- * Each is kept in its own entry in this browser, outside the settings object,
- * so no settings copy, saved design, `.ork` or crash file can carry it.
- * Unreadable storage (a private window, blocked site data) reads as no key.
- */
+/** Kept outside settings so no settings copy, saved design or crash file can carry the key. */
 export interface UserKeyStore {
   read: () => string | undefined;
-  /** Store `key`, or forget it when blank. Returns false when storage refused. */
   write: (key: string) => boolean;
-  /** The current key, re-read whenever it is saved here or in another tab. */
   use: () => string | undefined;
 }
 

@@ -2,23 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildPieces, piecesBounds } from '../../../src/components/canvas/rocketPieces';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 import { axialChain } from '../../../src/tree/position';
 import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, type KernelGeometry } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/**
- * Internal parts nested in an inner tube, a coupler or a mass component, as the
- * kernel places them: a child sits once per instance of its parent
- * (`RocketComponent.getComponentLocations`), so an engine block in a clustered
- * mount is in every tube of the cluster. Every expected station, radius and
- * cluster place below is read from the kernel through the bridge
- * (`getComponentInfo` for the station, `getComponentGeometry` for the radius,
- * the length and `InnerTube.getInstanceOffsets`). The designs are synced as
- * the app holds every design, so automatic radii are filled in.
- */
+// A child sits once per parent instance (`RocketComponent.getComponentLocations`).
 
 const tree: RocketTree = syncDerived({
   name: 'nested',
@@ -93,11 +84,8 @@ const geo = async (id: string): Promise<KernelGeometry> => {
   return kernel.get(id)!;
 };
 
-/** The cluster places of the mount, [y, z], as the kernel puts them. */
 const clusterOf = async (): Promise<[number, number][]> => {
   const points = (await geo('mm')).clusterPoints!;
-  // Two places off the axis, both out of the y = 0 and z = 0 planes, so a part
-  // drawn on the centerline or in only one view's plane cannot pass.
   expect(points).toHaveLength(2);
   for (const [y, z] of points) {
     expect(Math.abs(y)).toBeGreaterThan(1e-3);
@@ -191,8 +179,7 @@ describe('the aft view draws parts nested in internal parts', () => {
       expect(circles).toHaveLength(points.length);
       expect(new Set(circles.map((c) => c.key)).size).toBe(circles.length);
       for (const c of circles) expect(c.r).toBeCloseTo(eb.outerRadius!, 9);
-      // The aft view turns the kernel's frame a quarter turn so 0 degrees is
-      // up, the reference its fins and clusters share: (y, z) is drawn at (-z, y).
+      // The aft view turns a quarter turn so 0 degrees is up: (y, z) draws at (-z, y).
       for (const [y, z] of points) {
         expect(circles.some((c) => Math.abs(c.y + z) < 1e-9 && Math.abs(c.z - y) < 1e-9)).toBe(true);
       }
@@ -238,8 +225,6 @@ describe('the aft view draws parts nested in internal parts', () => {
 
 describe('the aft view keys every copy of a repeated part apart', () => {
   const t = ((k: string) => k) as never;
-  // A two-instance pod set whose pod carries a loaded motor mount: the pod's
-  // tube, the mount and the motor are each drawn once per instance.
   const podded: ComponentNode[] = [
     { id: 'nose', type: 'nosecone', length: 0.1, aftRadius: 0.02 } as ComponentNode,
     {
@@ -269,7 +254,6 @@ describe('the aft view keys every copy of a repeated part apart', () => {
   it('gives each pod instance, and the motor in each, a key of its own', () => {
     const scene = buildAftScene(podded, { mm: { diameter: 0.018, length: 0.07 } } as never, t);
     const keys = [...scene.hulls, ...scene.inner, ...scene.outer].map((s) => s.key);
-    // React reconciles each layer by key; a repeated key drops or reuses a shape.
     expect(keys.filter((k, i) => keys.indexOf(k) !== i)).toEqual([]);
     expect(keys.filter((k) => k.startsWith('pod-tube:'))).toHaveLength(2);
     expect(keys.filter((k) => k.startsWith('mm:motor:'))).toHaveLength(2);

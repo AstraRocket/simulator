@@ -8,7 +8,7 @@ import UpstreamPin from '@site/src/components/UpstreamPin';
 
 :::info Sobre esta instantánea
 
-Revisado el **2026-10-19**, comparando **AstraRocket <AppVersion />** (motor compilado a partir de OpenRocket <UpstreamPin />) con **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** en v0.192 (2026-10-18), a partir de su guía de usuario.
+Revisado el **2026-11-05**, comparando **AstraRocket <AppVersion />** (motor compilado a partir de OpenRocket <UpstreamPin />) con **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** en v0.197 (2026-11-03), a partir de su guía de usuario y del README de su API.
 
 :::
 
@@ -34,6 +34,8 @@ Ambos son aplicaciones de navegador de autores independientes, sin instalación,
 | **Simulación por lotes sobre el catálogo de motores** | Disponible como la **[guía de motores](./motors.md#motor-guide)**: hasta 8 motores filtrados en un soporte a la vez, con una sola elección de motor para todo un racimo. |
 | **Pantalla de vuelo para el móvil** | No disponible. La disposición del móvil usa las mismas pestañas que el resto de la aplicación. |
 | **Compartir un diseño por enlace** | No disponible. Un diseño se comparte enviando el `.ork`. |
+| **Enlaces de motores desde thrustcurve.org** (cuando ese sitio los ofrezca) | No disponible. Un enlace de ese sitio abre un diseño sin motores, carga el motor enlazado en el soporte de lanzamiento y lo vuela. Aquí, el motor se elige en la aplicación. |
+| **Una API alojada** (requiere una clave) | No disponible. La suya abre y vuela un `.ork`, `.rkt` o `.CDX1` que se le envía, sin navegador. Esta aplicación solo funciona en el navegador. |
 | **Plantillas de alineación de aletas** | No disponible. |
 | **Dividir piezas altas al volumen de una impresora 3D** | No disponible. |
 | **Gráficas X-Y personalizadas** | No disponible. |

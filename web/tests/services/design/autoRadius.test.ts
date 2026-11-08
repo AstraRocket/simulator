@@ -13,16 +13,6 @@ import {
 } from '../../../src/services/design/treeEdit';
 import { importOrk, exportOrk } from '../../../src/services/files/orkFile';
 
-/**
- * Automatic diameters: OpenRocket's Automatic checkbox, where a part takes the
- * diameter of the one next door.
- *
- * The rule under test is the kernel's, from `BodyTube.getAutoOuterRadius`:
- * behind first, then ahead, skipping a neighbor whose own facing end is itself
- * automatic, which is what stops two parts pointing at each other. Getting the
- * side wrong is the failure that hides, because on a plain body tube both
- * answers are the same and only a transition tells them apart.
- */
 const stage = (children: ComponentNode[]) =>
   ({ name: 'T', components: [{ type: 'stage', name: 'S', children }] }) as unknown as RocketTree;
 
@@ -53,9 +43,6 @@ describe('syncAutoRadii', () => {
   });
 
   it('reads the END that faces it, which only a transition can prove', () => {
-    // The transition is 30 mm at the end it shows the tube behind it and 10 mm
-    // at the other. A rule that grabbed "the neighbor's radius" without saying
-    // which end would take 0.01 and no plain-tube test would notice.
     const t = syncAutoRadii(
       stage([
         {
@@ -91,10 +78,7 @@ describe('syncAutoRadii', () => {
   });
 
   it('falls back to the kernel default radius when two automatic tubes only have each other', () => {
-    // BodyTube.getAutoOuterRadius skips a neighbor that is sizing from this
-    // tube, and with nothing left takes SymmetricComponent.DEFAULT_RADIUS.
-    // 0.025 for both is the kernel's answer for this design, built through the
-    // bridge.
+    // BodyTube.getAutoOuterRadius falls back to SymmetricComponent.DEFAULT_RADIUS.
     const t = syncAutoRadii(
       stage([
         { type: 'bodytube', id: 'a', length: 0.3, outerRadiusAuto: true } as unknown as ComponentNode,
@@ -102,12 +86,10 @@ describe('syncAutoRadii', () => {
       ]),
     );
     for (const n of chainOf(t)) expect(n['outerRadius']).toBeCloseTo(0.025, 12);
-    // SymmetricComponent.DEFAULT_RADIUS.
     expect(KERNEL_AUTO_RADIUS).toBe(0.025);
   });
 
   it('chains through an automatic tube to the part beyond it', () => {
-    // BodyTube.getFrontAutoRadius passes the question on when the tube is automatic.
     const t = syncAutoRadii(
       stage([
         { type: 'nosecone', id: 'n', length: 0.1, aftRadius: 0.031 } as unknown as ComponentNode,
@@ -120,7 +102,6 @@ describe('syncAutoRadii', () => {
   });
 
   it('treats a transition end with no radius as automatic, as the bridge builds it', () => {
-    // ComponentFactory sets an absent transition radius automatic.
     const t = syncAutoRadii(
       stage([
         tube('a', 0.02),
@@ -136,7 +117,6 @@ describe('syncAutoRadii', () => {
   });
 
   it('follows the part across a stage boundary', () => {
-    // getNextSymmetricComponent walks into the next stage.
     const t = {
       name: 'T',
       components: [
@@ -185,7 +165,6 @@ describe('syncAutoRadii', () => {
   });
 
   it('sizes a body tube or transition added from the menu to the part ahead of it', () => {
-    // Desktop's BodyTube() and Transition() constructors start automatic.
     const nose = { type: 'nosecone', id: 'n', length: 0.15, aftRadius: 0.027 } as unknown as ComponentNode;
     const design = {
       name: 'T',
@@ -209,25 +188,6 @@ describe('syncAutoRadii', () => {
   });
 });
 
-/**
- * The neighbor an automatic tube remembers.
- *
- * `BodyTube.getAutoOuterRadius` stores the neighbor it took its radius from in
- * `refComp`, and `usesPreviousCompAutomatic` / `usesNextCompAutomatic` compare
- * a neighbor against it, so a tube skips a neighbor that last took its radius
- * from this tube. A tube evaluated while the bridge is still attaching parts
- * (an automatic coupler clamping its wall, a tabbed fin set clamping its tab)
- * remembers the part ahead of it, because nothing behind it exists yet. The
- * bridge then reads every automatic radius against the finished rocket, front
- * to back and twice (`settleAutoRadii`), so that memory is the finished
- * airframe's and no tube falls back to DEFAULT_RADIUS for a neighbor it no
- * longer uses, as desktop flies them.
- *
- * Every expected radius here is the kernel's answer for the same design, built
- * through the bridge and read back with `getComponentGeometry` in tree order;
- * geometryParity.kernel.test.ts checks the same designs against the kernel
- * live.
- */
 describe('the neighbor an automatic tube remembers', () => {
   type Part = Record<string, unknown>;
   const stages = (...rows: Part[][]) =>
@@ -276,7 +236,6 @@ describe('the neighbor an automatic tube remembers', () => {
   });
   const lug: Part = { type: 'launchlug', id: 'lug', length: 0.05, outerRadius: 0.003, thickness: 0.0003, position: at };
 
-  /** Every airframe part's resolved radius, by id: a tube's outside, a cone's base. */
   const radii = (t: RocketTree): Record<string, number> => {
     const out: Record<string, number> = {};
     for (const s of t.components) {
@@ -288,19 +247,11 @@ describe('the neighbor an automatic tube remembers', () => {
   };
 
   it('takes the fixed tube even where a neighbor remembered the tube from the build', () => {
-    // The coupler evaluates b while it is the last part attached, so b
-    // remembers a. The settle pass reads b again with c attached, and a then
-    // reaches the 23.7 mm tube in the next stage through it.
+    // The coupler evaluates b mid-build, so b remembers a until the settle pass.
     const t = syncAutoRadii(stages([autoNose, auto('a'), auto('b', [coupler('cp')])], [fixed('c', 0.0237)]));
     expect(radii(t)).toEqual({ n: 0.0237, a: 0.0237, b: 0.0237, c: 0.0237 });
   });
 
-  /**
-   * The bundled dual-parachute-deployment airframe, whose first tube's file
-   * radius is 25 mm and whose second holds an automatic coupler: desktop flies
-   * every tube at 28.3 mm (the fields step of npm run audit reads it back from
-   * desktop).
-   */
   it('flies the dual-parachute-deployment airframe at the radius desktop flies', () => {
     const t = syncAutoRadii(
       stages([
@@ -314,11 +265,6 @@ describe('the neighbor an automatic tube remembers', () => {
     expect(radii(t)).toEqual({ n: 0.028321, t1: 0.028321, t2: 0.028321, t3: 0.028321, t4: 0.028321 });
   });
 
-  /**
-   * A front-to-back pass corrects one more tube of such a run, counted from its
-   * fixed end, so the settle pass runs once per symmetric part and once more.
-   * Desktop flies every tube of this run at 23.7 mm.
-   */
   it('settles a run of eight automatic tubes, each with an automatic coupler', () => {
     const run = Array.from({ length: 8 }, (_, i) => auto(`r${i}`, [coupler(`rc${i}`)]));
     const r = radii(syncAutoRadii(stages([autoNose, ...run, fixed('end', 0.0237)])));
@@ -331,15 +277,11 @@ describe('the neighbor an automatic tube remembers', () => {
   });
 
   it('takes the fixed tube when a fin set re-evaluates the tube after the build', () => {
-    // FinSet.getInstanceOffsets reads the body radius on every pass of the
-    // active-instance walk, with the whole airframe attached, so b ends up
-    // remembering c and a may use b.
     const t = syncAutoRadii(stages([autoNose, auto('a'), auto('b', [fins('f', true)])], [fixed('c', 0.0237)]));
     expect(radii(t)).toEqual({ n: 0.0237, a: 0.0237, b: 0.0237, c: 0.0237 });
   });
 
   it('takes the fixed tube when a launch lug re-evaluates the tube after the build', () => {
-    // LaunchLug.componentChanged reads its tube once events are enabled.
     const t = syncAutoRadii(stages([autoNose, auto('a'), auto('b', [coupler('cp'), lug])], [fixed('c', 0.0237)]));
     expect(radii(t)).toEqual({ n: 0.0237, a: 0.0237, b: 0.0237, c: 0.0237 });
   });
@@ -358,8 +300,6 @@ describe('the neighbor an automatic tube remembers', () => {
   });
 
   it('settles a long run of tubes with couplers and fin sets to its fixed end', () => {
-    // Each pass of the active-instance walk, and each settle pass, lets one more
-    // tube, counted from the fixed end, see its neighbor behind it.
     const run = Array.from({ length: 12 }, (_, i) => auto(`t${i}`, [coupler(`c${i}`), fins(`f${i}`, false)]));
     const r = radii(syncAutoRadii(stages([autoNose, ...run, fixed('end', 0.0237)])));
     expect([r['t0'], r['t1'], r['t2'], r['t11']]).toEqual([0.0237, 0.0237, 0.0237, 0.0237]);
@@ -392,7 +332,6 @@ describe('the neighbor an automatic tube remembers', () => {
   });
 
   it('takes the base of a flipped nose cone behind', () => {
-    // The tail cone's base is its fore end, 15 mm and fixed.
     const t = syncAutoRadii(
       stages([
         autoNose,
@@ -405,18 +344,6 @@ describe('the neighbor an automatic tube remembers', () => {
   });
 });
 
-/**
- * Neighbors across pod sets and boosters. Each expected radius was recorded
- * from the kernel, built through the bridge (`getComponentGeometry`, the first
- * read of a freshly built rocket), and geometryParity.kernel.test.ts builds the
- * same airframes in the kernel on every run.
- *
- * The kernel's neighbor search (`getPreviousSymmetricComponent`,
- * `getNextSymmetricComponent`) crosses an assembly wherever it counts the
- * assembly's parts as in line with the airframe, which is when the pod sits at
- * zero radius: coaxial, free at no offset, or placed against its tube at minus
- * the tube's radius.
- */
 describe('neighbors across pod sets and boosters', () => {
   type Part = Record<string, unknown>;
   const stages = (...rows: Part[][]) =>
@@ -454,7 +381,6 @@ describe('neighbors across pod sets and boosters', () => {
     position: { method, offset: 0 },
     children,
   });
-  /** Every body tube's resolved radius, and the nose cone's base, by id, wherever it sits. */
   const radii = (t: RocketTree): Record<string, number> => {
     const out: Record<string, number> = {};
     const walk = (nodes: ComponentNode[]) => {
@@ -471,7 +397,6 @@ describe('neighbors across pod sets and boosters', () => {
     radii(syncAutoRadii(stages([nose(0.03), fixed('a', 0.02, [pod(method, offset, at, [auto('p', [], 0.1)])])])))['p'];
 
   it('lets the first tube of a coaxial pod follow the tube it hangs on', () => {
-    // Placed at the bottom, the pod starts behind the tube's fore end.
     expect(podTube('coaxial', 0, 'bottom')).toBe(0.02);
   });
 
@@ -483,8 +408,7 @@ describe('neighbors across pod sets and boosters', () => {
     expect(podTube('relative', -0.02, 'bottom')).toBe(0.02);
   });
 
-  // ComponentFactory builds a tube with no radius at 0.025 m, and the kernel
-  // places the pod against that.
+  // ComponentFactory builds a tube with no radius at 0.025 m.
   it('places a pod against a tube with no radius at the bridge default', () => {
     const inLine = pod('relative', -KERNEL_BODYTUBE_OUTER_RADIUS, 'bottom', [auto('p', [], 0.1)]);
     const keyless = { ...fixed('a', 0, [inLine]), outerRadius: undefined };
@@ -523,11 +447,6 @@ describe('neighbors across pod sets and boosters', () => {
   });
 
   it('reaches the fixed tube past a pod set, wherever the pod is placed', () => {
-    // The tube first remembers the tube ahead, from the build, when nothing
-    // behind it is attached yet. A pod against its surface reads its radius on
-    // each pass of the active-instance walk; a pod placed free does not. The
-    // settle pass reads it again either way, and the tube ahead follows it to
-    // the fixed tube behind.
     const build = (method: string, offset: number) =>
       stages(
         [auto('a')],
@@ -539,10 +458,6 @@ describe('neighbors across pod sets and boosters', () => {
   });
 
   it("settles a pod's run of tubes whatever its copy count", () => {
-    // Off the axis and free, so the walk evaluates the pod's tubes once per copy
-    // on each pass: with one copy it settles the run only as far as the third
-    // tube from the back. The settle pass reads the pod's parts too, so every
-    // tube reaches the fixed end with one copy or three.
     const coupler = (id: string): Part => ({
       type: 'tubecoupler',
       id,
@@ -605,10 +520,6 @@ describe('the automatic state through a file', () => {
   });
 
   it('reads it back as automatic AND resolved', () => {
-    // Resolved at import, not at the first edit: everything downstream reads a
-    // plain radius, and an unresolved one draws at a default nobody chose: the
-    // kernel would fly the neighbor's diameter while the schematic and the 3D
-    // view drew the fallback.
     const back = importOrk(xml).tree;
     const bt = chainOf(back).find((n) => n.type === 'bodytube')!;
     expect(bt['outerRadiusAuto']).toBe(true);
@@ -616,13 +527,6 @@ describe('the automatic state through a file', () => {
   });
 });
 
-/**
- * The automatic values that are not diameters: a ring filling its tube, a tube
- * fin sized from the body, a packed radius taking the room its parent gives it,
- * and the three the kernel works out for itself. Each is `auto` in the file and
- * a checkbox on the desktop, and each must resolve rather than arrive as a
- * silent default.
- */
 describe('automatic values other than the neighbor rule', () => {
   const inTube = (child: ComponentNode) =>
     ({
@@ -645,7 +549,7 @@ describe('automatic values other than the neighbor rule', () => {
     const t = syncAutoRadii(
       inTube({ type: 'centeringring', id: 'cr', length: 0.003, outerRadiusAuto: true } as unknown as ComponentNode),
     );
-    expect(kid(t)['outerRadius']).toBeCloseTo(0.025, 9); // 26 mm tube, 1 mm wall
+    expect(kid(t)['outerRadius']).toBeCloseTo(0.025, 9);
   });
 
   it('gives a mass object the room its parent has', () => {
@@ -661,15 +565,6 @@ describe('automatic values other than the neighbor rule', () => {
     expect(kid(t)['radius']).toBeCloseTo(0.025, 9);
   });
 
-  /**
-   * A disc inside an automatic-radius coupler, which is every coupler the Add
-   * menu makes.
-   *
-   * The parent must resolve before the child: resolving inside-out gives the
-   * child its parent's bare default rather than the bore the parent takes from
-   * the airframe. That number is what the schematic draws, what the DXF cuts and
-   * what the 1:1 template measures.
-   */
   it('fills a ring to the bore of an automatic coupler, not the coupler default', () => {
     const t = syncAutoRadii(
       inTube({
@@ -677,15 +572,15 @@ describe('automatic values other than the neighbor rule', () => {
         id: 'cp',
         length: 0.03,
         thickness: 0.0005,
-        outerRadius: 0.0125, // the Add menu's default, pending resolution
+        outerRadius: 0.0125,
         outerRadiusAuto: true,
         children: [{ type: 'bulkhead', id: 'bh', length: 0.003, outerRadius: 0.0125, outerRadiusAuto: true }],
       } as unknown as ComponentNode),
     );
     const coupler = kid(t);
     const bulkhead = (coupler.children as ComponentNode[])[0]!;
-    expect(coupler['outerRadius']).toBeCloseTo(0.025, 9); // the 26 mm tube's bore
-    expect(bulkhead['outerRadius']).toBeCloseTo(0.0245, 9); // the coupler's bore
+    expect(coupler['outerRadius']).toBeCloseTo(0.025, 9);
+    expect(bulkhead['outerRadius']).toBeCloseTo(0.0245, 9);
   });
 
   it('sizes a tube fin set from the body and the fin count', () => {
@@ -698,8 +593,7 @@ describe('automatic values other than the neighbor rule', () => {
         outerRadiusAuto: true,
       } as unknown as ComponentNode),
     );
-    // TubeFinSet.getTouchingRadius: R·sin(π/n) / (1 − sin(π/n)). For six
-    // tubes sin(π/6) is 1/2, so each tube is exactly the body's radius.
+    // TubeFinSet.getTouchingRadius: for six tubes sin(π/6) is 1/2, so each is the body's radius.
     expect(kid(t)['outerRadius']).toBeCloseTo(0.026, 12);
   });
 
@@ -712,7 +606,6 @@ describe('automatic values other than the neighbor rule', () => {
       outerRadiusAuto: true,
     } as unknown as ComponentNode;
     const first = syncAutoRadii(inTube(fins));
-    // The resolved radius is now stored on the node, as it is after any edit.
     const stored = kid(first);
     expect(stored['outerRadius']).toBeCloseTo(0.026, 12);
     const wider = inTube(stored);
@@ -761,11 +654,7 @@ describe('the values the kernel works out, through a file', () => {
     expect(find(importOrk(xml).tree, 'parachute')['cdAuto']).toBe(true);
   });
 
-  /**
-   * Desktop 24.12 has no automatic line length and reads `auto` as its 0.3 m
-   * default, so the tag carries the length the kernel flies and an app-only
-   * `<linelengthauto>` keeps the setting for the app.
-   */
+  // Desktop 24.12 reads `<linelength>auto` as its 0.3 m default, so the tag carries the flown length.
   it('keeps an automatic shroud-line length, writing the length that flies', () => {
     const tree = chute({ lineLengthAuto: true, lineLength: 0.3 });
     const id = find(tree, 'parachute').id as string;
@@ -781,8 +670,6 @@ describe('the values the kernel works out, through a file', () => {
   });
 
   it('writes a packed radius the way the desktop does, marker and value', () => {
-    // `auto 0.025`, not a bare marker: MassObjectSaver writes both so a reader
-    // that does not understand the flag still gets a usable size.
     const xml = exportOrk({ name: 'R', tree: chute({ radiusAuto: true, radius: 0.025 }) });
     expect(xml).toMatch(/<packedradius>auto 0\.025<\/packedradius>/);
     const back = find(importOrk(xml).tree, 'parachute');
@@ -791,16 +678,6 @@ describe('the values the kernel works out, through a file', () => {
   });
 });
 
-/**
- * A new bore-filling part starts automatic, because that is what its kernel
- * constructor does.
- *
- * `TubeCoupler()`, `Bulkhead()` and `EngineBlock()` each call
- * `setOuterRadiusAutomatic(true)`; `CenteringRing()` turns on both its outer
- * radius and its inner one. With the flags off, a ring dropped into a 54 mm
- * airframe would keep its default size and simulate quietly at it until someone
- * ticked the checkbox.
- */
 describe('what a new part starts as', () => {
   it.each([
     ['centeringring', ['outerRadiusAuto', 'innerRadiusAuto']],
@@ -813,21 +690,15 @@ describe('what a new part starts as', () => {
   });
 
   it('leaves an inner tube pinned, since the kernel sizes one to a motor', () => {
-    // `InnerTube()` sets an explicit A-C motor size and no automatic flag: a
-    // motor mount is sized by the motor, not by the tube around it.
     expect(defaultNode('innertube')['outerRadiusAuto']).toBeUndefined();
   });
 
   it('resolves the new part against the tube it lands in, in the same edit', () => {
-    // `tube` takes a radius: 26 mm of it, with a 1 mm wall, so the bore radius
-    // is 25 mm. The ring fills it rather than keeping its 12.5 mm default radius.
     const host = tube('b', 0.026);
     const { tree, id } = addPart(stage([host]), 'centeringring', 'b');
     const ring = (chainOf(tree)[0]!.children as ComponentNode[])[0]!;
     expect(ring.id).toBe(id);
     expect(ring['outerRadius']).toBeCloseTo(0.025, 9);
-    // No motor mount beside it, so the bore is 0 - a solid disc, which is what
-    // `CenteringRing.getInnerRadius` gives with no InnerTube sibling too.
     expect(ring['innerRadius']).toBe(0);
   });
 
@@ -840,7 +711,6 @@ describe('what a new part starts as', () => {
         length: 0.07,
         outerRadius: 0.0095,
         motorMount: true,
-        // Where the Add menu puts a mount: flush with the tube's aft end.
         position: { method: 'bottom', offset: 0 },
       } as unknown as ComponentNode,
     ];
@@ -851,7 +721,6 @@ describe('what a new part starts as', () => {
   });
 
   it('is a solid disc where no mount runs through it, and takes the widest mount that does', () => {
-    // CenteringRing.getInnerRadius: the widest InnerTube whose span overlaps the ring, else 0.
     const mount = (id: string, r: number, at: number) =>
       ({
         type: 'innertube',
@@ -878,9 +747,6 @@ describe('what a new part starts as', () => {
     expect(kids.find((n) => n.id === 'both')!['innerRadius']).toBeCloseTo(0.0095, 12);
   });
 
-  // The bridge builds a ring with no bore through `new CenteringRing()`, whose
-  // inner radius is automatic, so the kernel flies it at the widest mount that
-  // overlaps it, not at the first inner tube in the parent.
   it('resolves a ring with no bore of its own as an automatic one', () => {
     const mount = (id: string, r: number, at: number) =>
       ({
@@ -906,18 +772,8 @@ describe('what a new part starts as', () => {
   });
 });
 
-/**
- * A dimension a picked part states pins itself.
- *
- * The kernel's setters do this - `RadiusRingComponent.setOuterRadius` clears
- * `outerRadiusAutomatic` - and here it is load-bearing: applied to a ring whose
- * diameter is automatic, an unpinned patch is overwritten by `syncAutoRadii` on
- * its next pass, so the picker would read as doing nothing at all.
- */
 describe('applying a catalog part', () => {
-  // 40 mm outside, deliberately not the 50 mm bore of the tube it lands in: a part
-  // whose diameter happened to equal the resolved one would pass this whether
-  // it was pinned or overwritten.
+  // 40 mm, not the 50 mm bore, so pinned and overwritten give different answers.
   const row = (over: Record<string, unknown>) =>
     ({ type: 'centeringring', outerDiameter: 0.04, innerDiameter: 0.029, length: 0.003, ...over }) as never;
 
@@ -928,23 +784,14 @@ describe('applying a catalog part', () => {
   });
 
   it('survives the resolver it would otherwise lose to', () => {
-    // Automatic would give the ring the 25 mm bore radius of the tube; the
-    // picked part is 40 mm across, so 20 mm.
     const { tree, id } = addPart(stage([tube('b', 0.026)]), 'centeringring', 'b');
     const picked = updateNode(tree, id, catalogPatch(row({})));
     const ring = (chainOf(syncAutoRadii(picked))[0]!.children as ComponentNode[])[0]!;
-    expect(ring['outerRadius']).toBeCloseTo(0.02, 9); // the part, not the bore
+    expect(ring['outerRadius']).toBeCloseTo(0.02, 9);
     expect(ring['innerRadius']).toBeCloseTo(0.0145, 9);
   });
 });
 
-/**
- * A tube fin set states no wall until it is attached: the TubeFinSet
- * constructor leaves it unset, and attached to a tube the part reports that
- * tube's wall, which it keeps when the tube's wall changes later. Desktop 24.12
- * does the same (a TubeFinSet added to a 0.5 mm tube reads 0.5 mm, and still
- * 0.5 mm after the tube goes to 2 mm).
- */
 describe("a tube fin set's wall", () => {
   const tree = {
     name: 'T',

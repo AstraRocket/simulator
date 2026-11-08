@@ -26,11 +26,7 @@ class FakeKv implements KeyValueStore {
     return await this.set(k, next);
   }
 }
-
-// The built-in catalog is a runtime file; serve the real one off disk.
 beforeAll(serveData);
-
-// Fresh in-memory material store per test (avoids cross-test bleed via the singleton).
 beforeEach(() => setMaterialStore(new KeyValueMaterialStore(nsKey('materials:custom'), new FakeKv())));
 
 describe('builtinsForType', () => {
@@ -60,10 +56,6 @@ describe('addCustom validation', () => {
 
 describe('materialsForType', () => {
   it('lists a custom material inside a real group, not above everything', async () => {
-    // Not `[...custom, ...builtins]`, which puts every custom material at the top
-    // under a `Custom` group of its own. The provenance is the star the picker
-    // draws, not the material's place in the list. See `materialsMerge.test.ts`
-    // for the rule itself.
     await addCustom('ZZZ Custom', 'bulk', 999, 'Woods');
     const list = await materialsForType('bulk');
     const added = list.find((m) => m.name === 'ZZZ Custom');

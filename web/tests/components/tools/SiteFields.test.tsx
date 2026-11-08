@@ -15,8 +15,6 @@ const HOME: LaunchLocation = {
 };
 
 describe('SiteFields', () => {
-  // A tool's starting site and its map pick leave the elevation to the terrain
-  // model; Custom location is a third way back to the defaults and has to agree.
   it('returns to the launch defaults with the elevation left to the terrain model', async () => {
     setLaunchLocationStore({ list: async () => [HOME], save: async () => {}, remove: async () => {} });
     let site: ToolSite = { latitudeDeg: 39.05, longitudeDeg: -104.8, launchAltitudeM: 1830 };
@@ -36,9 +34,6 @@ describe('SiteFields', () => {
     });
   });
 
-  // One site, one elevation unit: the launch panel and the location dialogs
-  // share a scope so a user working in feet sees feet in both, and the tools
-  // read the same elevation of the same place.
   it('shows the elevation in the unit the launch panel set for it', () => {
     setLaunchLocationStore({ list: async () => [], save: async () => {}, remove: async () => {} });
     seedSettings({ unitOverrides: { 'launch.altitude': 'ft' } });

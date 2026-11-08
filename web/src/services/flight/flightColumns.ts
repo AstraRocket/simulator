@@ -2,44 +2,16 @@ import type { FlightBranch, FlightResult, FlightSeries } from '../../engine/open
 import type { Quantity } from '../../prefs/units';
 import i18n from '../../i18n';
 
-/**
- * What a flight CSV can carry: one entry per series the run actually recorded.
- *
- * The list is built from the result rather than hard-coded, because which series
- * are present depends on how the simulation was run (`SimulationOptions.series`:
- * `full` for a simulation row, the smaller `summary` set for a wind sweep's or
- * forecast hour's flights). A column the file cannot fill is not offered.
- *
- * The friendly dozen come first and in a fixed order, because that is the order
- * anyone reading a flight expects; the rest follow in the kernel table's order,
- * then any unnamed series. A column's unit comes from the user's preference
- * where the quantity has one, and is fixed where it does not (Mach, calibers).
- */
 export interface FlightColumn {
-  /** Key into `FlightSeries`: `altitude`, `Px`, `Cd`… */
   key: string;
-  /** i18n key for the human name, or null when only the symbol is known. */
   labelKey: string | null;
-  /** Preference group supplying both the scale and the unit symbol. */
   quantity?: Quantity;
-  /** Fixed unit symbol, for series with no user-selectable unit. */
   unit?: string;
-  /**
-   * i18n key for a fixed unit that is a word in the reader's language rather
-   * than a symbol (calibers). `flightColumns` fills `unit` from it.
-   */
   unitKey?: string;
-  /** SI → display multiplier for a fixed-unit series (kg→g, m→cm, rad→deg). */
+  /** SI to display multiplier for a fixed-unit series (kg to g, m to cm, rad to deg). */
   scale?: number;
 }
 
-/**
- * The series the app names, in reading order.
- *
- * Everything else a run records is still exportable; it just carries its
- * kernel symbol as its name, which is what the symbol means to anyone who asked
- * for the full set in the first place.
- */
 const KNOWN: FlightColumn[] = [
   { key: 'time', labelKey: 'flight.time', unit: 's' },
   { key: 'altitude', labelKey: 'flight.altitude', quantity: 'distance' },
@@ -55,24 +27,9 @@ const KNOWN: FlightColumn[] = [
   { key: 'aoa', labelKey: 'flight.aoa', quantity: 'angle' },
 ];
 
-/**
- * The horizontal track: where the rocket was over the ground.
- *
- * Named by the kernel table below, but singled out here because it belongs in
- * the default export: it is the only thing in the file that answers "where
- * does it land".
- */
 const TRACK_KEYS = ['Px', 'Py', 'Pl', 'θl'];
 
-/**
- * Everything else the kernel records, named as OpenRocket names it.
- *
- * Generated from `FlightDataType.java` and its `messages.properties` (symbol,
- * translated name and unit group), so a variable reads the same here as in the
- * desktop app rather than appearing as a bare "Abx". The app's own dozen are
- * excluded: the bridge sends them under the names above (thrust, not Ft; aoa,
- * not α), and never sends the computation time (tc).
- */
+// From `FlightDataType.java`. Excludes the app's dozen (the bridge renames them: thrust, not Ft) and tc, never sent.
 const KERNEL: FlightColumn[] = [
   { key: 'ha', labelKey: 'flightVar.ha', quantity: 'distance' },
   { key: 'Vz', labelKey: 'flightVar.Vz', quantity: 'velocity' },
@@ -135,35 +92,27 @@ const KERNEL: FlightColumn[] = [
   { key: 'dt', labelKey: 'flightVar.dt', unit: 's' },
 ];
 
-/** Every column, ours first so a flight reads in the order people expect. */
 const ALL: FlightColumn[] = [...KNOWN, ...KERNEL];
 
 const KNOWN_KEYS = new Set(ALL.map((c) => c.key));
 
-/**
- * Every branch a result carries, as one list. `branches` is present only once a
- * staged rocket separates, and then its [0] is the sustainer, the same data the
- * top-level events and series carry; a single flight is wrapped as one branch
- * named `fallbackName`. So one or the other, never both.
- */
+const BY_KEY = new Map(ALL.map((c, order) => [c.key, { ...c, order }]));
+
+export function seriesColumn(key: string): (FlightColumn & { order: number }) | undefined {
+  return BY_KEY.get(key);
+}
+
+// `branches[0]` duplicates the top-level data, so use one or the other, never both.
 export function flightBranches(result: FlightResult, fallbackName = ''): FlightBranch[] {
   if (result.branches?.length) return result.branches;
   return [{ name: fallbackName, events: result.events ?? [], series: result.series }];
 }
 
-/** The series of one branch: the numbered one, or the top-level trajectory. */
 export function branchSeries(result: FlightResult, branchIndex: number): FlightSeries | undefined {
   return result.branches?.length ? result.branches[branchIndex]?.series : result.series;
 }
 
-/**
- * Every column this result can fill, for the given branch.
- *
- * A key counts as present when it holds an array, an empty one included, since
- * an empty series is a recorded series with nothing in it rather than a missing
- * one, and hiding it would make the offer depend on the flight rather than on
- * the run settings.
- */
+// An empty array still counts as present, so the offer depends on the run settings rather than the flight.
 export function flightColumns(result: FlightResult, branchIndex = 0): FlightColumn[] {
   const series = branchSeries(result, branchIndex);
   if (!series) return [];
@@ -176,38 +125,20 @@ export function flightColumns(result: FlightResult, branchIndex = 0): FlightColu
   return out;
 }
 
-/** The columns a fresh export starts from: the friendly dozen plus the track. */
 export const DEFAULT_CSV_COLUMNS: readonly string[] = [...KNOWN.map((c) => c.key), ...TRACK_KEYS];
 
-/** How a flight CSV is written: what the settings remember and the exporter reads. */
 export interface CsvFormat {
-  /** Series keys to write, in `flightColumns` order. */
   columns: string[];
-  /** Between fields. A tab or a space is as legitimate as a comma. */
   separator: string;
-  /** Decimal places for every value. */
   decimals: number;
-  /** 1.5e-4 rather than 0.00015, for series that span many magnitudes. */
   exponential: boolean;
-  /** A comment naming the simulation and the design it flew. */
   simDescription: boolean;
-  /**
-   * The column names with their units, as one commented line above the data:
-   * the file's only header, as on desktop.
-   */
+  /** One commented line of names and units: the file's only header, as on desktop. */
   fieldDescriptions: boolean;
-  /** A comment per flight event, placed among the data rows at its time. */
   flightEvents: boolean;
-  /** What marks a comment line. */
   commentChar: string;
 }
 
-/**
- * The flight CSV's starting format: the default columns, comma separated, three
- * decimals, every comment block on. The settings default and the exporter's
- * fallback both start here. A fresh object each call, so a caller can edit the
- * column list.
- */
 export function defaultCsvFormat(): CsvFormat {
   return {
     columns: [...DEFAULT_CSV_COLUMNS],
@@ -221,7 +152,6 @@ export function defaultCsvFormat(): CsvFormat {
   };
 }
 
-/** Keep only the keys this result can actually fill, in column order. */
 export function usableColumns(all: readonly FlightColumn[], wanted: readonly string[]): FlightColumn[] {
   const want = new Set(wanted);
   return all.filter((c) => want.has(c.key));

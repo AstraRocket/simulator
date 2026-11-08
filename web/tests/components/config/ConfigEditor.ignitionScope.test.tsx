@@ -10,13 +10,6 @@ const st = () => useWorkspaceStore.getState();
 const mountId = () => findMounts(st().tree)[0]!.id as string;
 const radio = (name: string) => screen.getByRole('radio', { name }) as HTMLInputElement;
 
-/**
- * The ignition scope belongs to the configuration it was picked in.
- *
- * Desktop asks it afresh each time the ignition dialog opens, starting on this
- * configuration for a mount with a motor (IgnitionSelectionDialog), so a scope
- * picked in one configuration must not carry into the next one edited.
- */
 describe('ConfigEditor ignition scope', () => {
   beforeEach(() => {
     st().resetWorkspace();

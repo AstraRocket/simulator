@@ -3,19 +3,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { retryUrl } from '../../src/engine/openRocketEngine';
 
-/**
- * The engine Retry asks for a new url, and the service worker's precache has to
- * answer it anyway.
- *
- * Workbox strips every query parameter matching `ignoreURLParametersMatching`
- * before it looks a request up in the precache, and the engine is precached under
- * its bare path. A retry url that keeps a parameter the list does not cover is a
- * precache miss, which offline is a failed engine load.
- */
+// Workbox strips params matching `ignoreURLParametersMatching` before a precache lookup.
 
 const config = readFileSync(fileURLToPath(new URL('../../vite.config.ts', import.meta.url)), 'utf8');
 
-/** The regex literals in vite.config.ts's `ignoreURLParametersMatching` array. */
 const ignored = (): RegExp[] => {
   const m = /ignoreURLParametersMatching:\s*\[([^\]]*)\]/.exec(config);
   if (!m) throw new Error('ignoreURLParametersMatching not found in vite.config.ts');
@@ -30,7 +21,6 @@ const ignored = (): RegExp[] => {
     });
 };
 
-/** The url Workbox's precache route looks up for a request url. */
 const precacheLookup = (href: string): string => {
   const url = new URL(href);
   const patterns = ignored();
@@ -62,7 +52,6 @@ describe('engine retry url', () => {
   });
 
   it('reads the real list, so a parsing slip cannot pass as a match', () => {
-    // Every parameter the app adds on purpose, and one it does not.
     const patterns = ignored();
     expect(patterns.some((p) => p.test('v'))).toBe(true);
     expect(patterns.some((p) => p.test('retry'))).toBe(true);

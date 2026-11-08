@@ -1,11 +1,6 @@
 import type { FlightResult } from '../../src/engine/openRocketEngine';
 import { loadEngine } from './kernelGeometry';
 
-/**
- * The two-stage flight through the bridge: the booster separates at its
- * burnout and its chute opens there, fast; the sustainer lights a second later
- * and its chute opens near apogee.
- */
 export async function flyTwoStage(): Promise<FlightResult> {
   const engine = await loadEngine();
   engine.reset();
@@ -21,7 +16,7 @@ export async function flyTwoStage(): Promise<FlightResult> {
   ) as FlightResult;
 }
 
-/** The deployment-speed threshold for the two-stage flight (m/s). */
+/** Deployment-speed threshold, m/s. */
 export const WARN = 20;
 
 export const TWO_STAGE = {

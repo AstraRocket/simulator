@@ -1,15 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-/*
- * jsdom makes the iframe and its window but never runs a srcdoc script, so the
- * page side is driven by posting messages as the frame would. The frame's own
- * program is read out of the srcdoc and run against a stand-in `parent`.
- */
+// jsdom never runs a srcdoc script, so the frame's program is run against a stand-in `parent`.
 
 type Module = typeof import('../../../src/services/weather/anonymousFetch');
 
-/** A fresh copy of the module, with no frame made yet. */
 async function load(): Promise<Module> {
   vi.resetModules();
   return import('../../../src/services/weather/anonymousFetch');
@@ -17,7 +12,6 @@ async function load(): Promise<Module> {
 
 const iframes = () => [...document.querySelectorAll('iframe')];
 
-/** The one frame on the page, its window, and a spy on what the page posts to it. */
 function theFrame(): { el: HTMLIFrameElement; win: Window; posted: Mock } {
   const all = iframes();
   expect(all).toHaveLength(1);
@@ -27,15 +21,12 @@ function theFrame(): { el: HTMLIFrameElement; win: Window; posted: Mock } {
   return { el, win, posted };
 }
 
-/** A message arriving at the page from `source`. */
 function arrive(source: Window, data: unknown): void {
   window.dispatchEvent(new MessageEvent('message', { source, data }));
 }
 
-/** Let queued promise callbacks run. */
 const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
-/** A promise's outcome without awaiting forever: 'pending' when it has not settled. */
 async function outcome<T>(p: Promise<T>): Promise<{ value: T } | { error: unknown } | 'pending'> {
   let out: { value: T } | { error: unknown } | 'pending' = 'pending';
   p.then(
@@ -117,7 +108,6 @@ describe('anonymousGet, page side', () => {
     ctl.abort();
     await expect(p).rejects.toMatchObject({ kind: 'aborted' });
     expect(posted).toHaveBeenLastCalledWith({ id, cancel: true }, '*');
-    // A late answer for the canceled request is dropped.
     arrive(win, { id, status: 200, text: 'late' });
   });
 
@@ -234,16 +224,12 @@ describe('Open-Meteo requests through the frame', () => {
   });
 });
 
-// ------------------------------------------------------------ frame program
-
 interface FrameRun {
   parent: { postMessage: Mock };
   fetch: Mock;
-  /** Deliver a message to the frame's listener and wait for its answer. */
   send: (source: unknown, data: unknown) => Promise<void>;
 }
 
-/** The program the page puts in the frame, run against a stand-in parent and fetch. */
 async function runFrameScript(fetchImpl: (url: string, init: RequestInit) => Promise<Response>): Promise<FrameRun> {
   const m = await load();
   void m.anonymousGet(URL_OK).catch(() => {});
@@ -268,7 +254,6 @@ async function runFrameScript(fetchImpl: (url: string, init: RequestInit) => Pro
   };
 }
 
-/** A response whose body arrives in `chunks`, with an optional declared length. */
 function streamed(chunks: Uint8Array[], contentLength?: number): Response {
   const body = new ReadableStream<Uint8Array>({
     start(c) {
@@ -291,7 +276,7 @@ describe('the frame program', () => {
     await f.send({ postMessage: vi.fn() }, { id: 1, url: URL_OK });
     await f.send(null, { id: 2, url: URL_OK });
     expect(f.fetch).not.toHaveBeenCalled();
-    expect(f.parent.postMessage).toHaveBeenCalledTimes(1); // the ready alone
+    expect(f.parent.postMessage).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a URL that is not https', async () => {

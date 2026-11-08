@@ -18,7 +18,7 @@ node validation/score.mjs --supersonic       # the opt-in supersonic aero model
 node validation/score.mjs --strict           # exit 1 unless every gate point passes
 ```
 
-`--strict` (also `npm run validate:strict`) is the goal, not a gate: with 9 of 135
+`--strict` (also `npm run validate:strict`) is the goal, not a gate: with 13 of 135
 points passing on the classic model and 61 on the supersonic one, it fails today
 by design. CI gates on the ratchet in `floors.json` instead.
 
@@ -26,13 +26,13 @@ by design. CI gates on the ratchet in `floors.json` instead.
 
 The current anchors have 135 gate points.
 
-The two scorecards were regenerated on 2026-10-04 from the committed
+The two scorecards were regenerated on 2026-11-05 from the committed
 engine and match a live run row for row. Regenerate them after any engine
 rebuild (see below).
 
 | Model | Gate points | Scorecard |
 |---|---|---|
-| Classic Extended Barrowman | **9/135 (6.7%)** | `scorecard-classic.md` |
+| Classic Extended Barrowman | **13/135 (9.6%)** | `scorecard-classic.md` |
 | Supersonic model | **61/135 (45.2%)** | `scorecard-supersonic.md` |
 
 Scoring conditions: Basic Finner scores at α = 2° (its free-flight fits ride
@@ -62,7 +62,7 @@ node validation/score.mjs --supersonic > validation/scorecard-supersonic.md
 - `score.mjs`: builds each fixture, runs `aeroSweep` (which emits CD
   power-off/on + CP + CNα per Mach), interpolates at anchor Machs, grades
 - `scorecard-classic.md`: the current classic Extended Barrowman scorecard
-  (flag off): **9/135 gate points**
+  (flag off): **13/135 gate points**
 - `scorecard-supersonic.md`: the current supersonic-model scorecard: **61/135**
 
 ## Baseline reading (why almost everything fails, and why that's fine)
@@ -72,13 +72,13 @@ The harness scores both models against measured anchors; CI gates on the floors.
 1. **CP travel is wildly overpredicted, not just frozen.** Body CP never reads
    Mach (frozen at its M1 value near the nose) while fin CNα falls off with
    the Busemann 4/β trend, so the *combined* CP races forward far faster than
-   any tunnel shows (ARCAS: model 27 %L vs measured 57 %L at M4.63). The
+   any tunnel shows (ARCAS: model 30 %L vs measured 57 %L at M4.63). The
    supersonic model's body CNα/CP corrections address this from both ends.
 2. **Supersonic CD is high by ~2×** at M3–4.6 (wave-drag extrapolation + the
    0.25/M base model + no per-shape fin thickness treatment).
 3. **The transonic rise starts too early and peaks too low** vs the ARCAS
    tunnel (kernel rises from M0.8; tunnel peaks ≈0.685 at M1.05, kernel
-   ≈0.61 at M1.1).
+   ≈0.64 at M1.1).
 4. **Subsonic CD runs high** on the tunnel fixtures. For ARCAS this is now
    Re-matched (the fixtures carry RASAero's `machAlt` table); Finner and HB-2
    still sweep at ISA sea level; see `anchors.json` `_readme`.

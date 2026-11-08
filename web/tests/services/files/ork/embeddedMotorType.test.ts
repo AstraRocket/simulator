@@ -8,14 +8,7 @@ import { orkArchive } from '../../../../src/services/files/saveOrk';
 import { parseRse } from '../../../../src/services/motors/rseParser';
 import { customMotorToSpec } from '../../../../src/services/motors/motorSpec';
 
-/**
- * A motor's type survives from the `.rse` it came in on to the `.rse` a save
- * embeds, in the words desktop's `RockSimMotorLoader` reads: `single-use`,
- * `reloadable`, `hybrid`. Written as single-use, a reload reopens in desktop
- * typed as something it is not. With no type known the attribute is left out,
- * since the loader then takes the type from the manufacturer, which a stated
- * value would override.
- */
+// Desktop's `RockSimMotorLoader` infers an omitted type from the manufacturer.
 
 const rse = (type: string) =>
   `<engine-database><engine-list>` +
@@ -46,7 +39,6 @@ const tree = {
   ],
 } as RocketTree;
 
-/** The `Type` attribute of the one `.rse` in a saved archive, or null when it carries none. */
 function savedType(xmlType: string): string | null {
   const [custom] = parseRse(rse(xmlType));
   const spec = customMotorToSpec(custom!, 6);
@@ -75,7 +67,6 @@ function savedType(xmlType: string): string | null {
   const members = unzipSync(bytes);
   const text = strFromU8(members[embedded.path]!);
   const attr = /<engine [^>]*?\sType="([^"]*)"/.exec(text);
-  // The same text the import reads back, typed the same way.
   const reopened = importOrk(bytes.slice().buffer as ArrayBuffer);
   expect(parseRse(reopened.embeddedMotors![0]!)[0]!.type).toBe(spec.type);
   return attr ? attr[1]! : null;

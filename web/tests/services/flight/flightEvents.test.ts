@@ -11,13 +11,6 @@ import {
   qAlpha,
 } from '../../../src/services/flight/flightEvents';
 
-/**
- * The timeline join and the dynamic-pressure peak. The two hazards are sampling
- * the wrong series at an event time and computing q from ground speed instead
- * of airspeed.
- */
-
-/** A branch whose series are flat enough to assert exact sampled values. */
 function series(over: Partial<FlightSeries> = {}): FlightSeries {
   return {
     time: [0, 1, 2, 3],
@@ -49,11 +42,9 @@ describe('dynamicPressure', () => {
   });
 
   it('computes 0.5 * rho * v^2 from the AIRSPEED, not the ground-frame velocity', () => {
-    // velocity (over the ground) is 20 m/s at t=2, but mach * Vs makes the
-    // airspeed 0.2 * 340 = 68 m/s: the wind-relative number q is a property of.
+    // Ground velocity is 20 m/s at t=2; airspeed is mach * Vs = 0.2 * 340 = 68 m/s.
     const qs = dynamicPressure(series({ ρ: [1.2, 1.2, 1.2, 1.2], Vs: [340, 340, 340, 340] }))!;
     expect(qs[2]).toBeCloseTo(0.5 * 1.2 * 68 * 68, 6);
-    // Using `velocity` would have given 240, which is what this guards against.
     expect(qs[2]).not.toBeCloseTo(0.5 * 1.2 * 20 * 20, 6);
   });
 
@@ -66,8 +57,6 @@ describe('dynamicPressure', () => {
 
 describe('maxQ', () => {
   it('returns the peak sample and the state at it', () => {
-    // Density falls as it climbs while airspeed rises, so q peaks in the
-    // middle of the branch rather than at either end.
     const s = series({ ρ: [1.2, 1.2, 0.6, 0.1], Vs: [340, 340, 340, 340] });
     const peak = maxQ(s)!;
     expect(peak.time).toBe(2);
@@ -106,7 +95,6 @@ describe('eventRows', () => {
   });
 
   it('leaves an unrecorded series null rather than zero', () => {
-    // Twr is a `full`-only series; this branch has none.
     expect(eventRows(result({ events: [{ type: 'LAUNCHROD', time: 1 }] }))[0]!.twr).toBeNull();
   });
 
@@ -152,9 +140,6 @@ describe('eventRows', () => {
   });
 
   it('keeps two same-instant burnouts apart, as a cluster of separate mounts gives', () => {
-    // The kernel queues one BURNOUT per motor at the same time when a stage's
-    // motors are in separate mounts, so branch, type and time do not identify
-    // a row and a key built from those alone would collide.
     const rows = eventRows(
       result({
         events: [
@@ -187,7 +172,6 @@ describe('q·α and roll rate', () => {
   });
 
   it('peaks only while the rocket flies forward', () => {
-    // The biggest product is at t=3, after the window closes at t=2.
     const s = series({ ...air, aoa: [0, 0.1, 0.1, 1.5] });
     const peak = maxQAlpha(s, 2)!;
     expect(peak.time).toBe(2);
@@ -219,8 +203,7 @@ describe('q·α and roll rate', () => {
   });
 
   it('does not end forward flight at a booster charge before the sustainer burns', () => {
-    // A two-stage flight: the booster's 0 s charge lands in the sustainer
-    // branch at booster burnout, long before the sustainer's apogee.
+    // The booster's 0 s charge lands in the sustainer branch at booster burnout.
     const staged = {
       events: [
         { type: 'BURNOUT', time: 1.6 },

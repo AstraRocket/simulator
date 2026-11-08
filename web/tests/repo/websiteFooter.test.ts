@@ -2,27 +2,14 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { globSync, readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-/**
- * The docs footer names the app version in every locale.
- *
- * The line lives in `website/docusaurus.config.ts`, which Docusaurus loads once
- * per locale with DOCUSAURUS_CURRENT_LOCALE set. A `copyright` entry in a
- * locale's `docusaurus-theme-classic/footer.json` replaces the config's line,
- * and a translation file cannot carry the version, so none may have one.
- */
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
 const { version } = JSON.parse(readFileSync(`${repo}web/package.json`, 'utf8')) as { version: string };
 
 type FooterConfig = { default: { themeConfig: { footer: { copyright: string } } } };
 
-/**
- * By URL, not a literal path: tsc would follow a literal into the config's
- * Docusaurus types, which resolve only where website/ has its own
- * node_modules, and the CI job that typechecks web/ installs web/ alone.
- */
+// By URL, not a literal path: tsc would follow a literal into uninstalled Docusaurus types.
 const configUrl = pathToFileURL(`${repo}website/docusaurus.config.ts`).href;
 
-/** The footer line the config builds with DOCUSAURUS_CURRENT_LOCALE set to `locale`, or unset. */
 const footerFor = async (locale: string | undefined): Promise<string> => {
   if (locale === undefined) vi.stubEnv('DOCUSAURUS_CURRENT_LOCALE', undefined);
   else vi.stubEnv('DOCUSAURUS_CURRENT_LOCALE', locale);

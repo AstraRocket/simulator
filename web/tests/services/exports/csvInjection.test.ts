@@ -15,28 +15,12 @@ import { localeTranslator } from '../../testing/localeTranslator';
 
 const tEn = localeTranslator(en);
 
-/**
- * Spreadsheet formula injection, checked the way a spreadsheet reads the file
- * rather than the way the writer meant it.
- *
- * Excel opens a `.csv` with its locale's list separator, `,` in some locales
- * and `;` in others, whatever separator the file used, and a tab splits too.
- * It strips the quoting from a cell before deciding whether the cell is a
- * formula. So every line of every CSV writer is split naively on each of those
- * characters, quotes ignored, and no piece may lead with a trigger unless it is
- * a whole number. A piece that leads with spaces is checked after them. A
- * piece that opens with a quoted field is judged by that field, so a line that
- * stays whole because it holds no `;` and starts with the writer's own quoted
- * negative figure is not flagged.
- *
- * Every text slot a writer has is filled with a hostile name, as a shared .ork
- * can supply.
- */
+// Excel splits on its locale's separator (`,` or `;`) and on tabs whatever the file used, and strips quoting before
+// deciding a cell is a formula, so each line is split naively on each.
 
 const TRIGGER = /^[=+\-@\t\r]/;
 const NUMBER = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 
-/** The pieces of `csv` that a spreadsheet splitting on `split` would evaluate. */
 function liveCells(csv: string, split: string): string[] {
   return csv
     .split('\r\n')
@@ -65,10 +49,8 @@ const PAYLOADS = [
 
 const READER_SPLITS = [',', ';', '\t'];
 
-/** Every split a reader might make, for a file written with `sep`. */
 const splitsFor = (sep: string) => (READER_SPLITS.includes(sep) ? READER_SPLITS : [...READER_SPLITS, sep]);
 
-/** The live cells for each split that has any, keyed by the split character. */
 function liveCellsBySplit(csv: string, splits: readonly string[]): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const split of splits) {
@@ -78,7 +60,6 @@ function liveCellsBySplit(csv: string, splits: readonly string[]): Record<string
   return out;
 }
 
-/** Split one RFC-4180 line on `sep`, honoring quotes, as a conforming reader does. */
 function fields(line: string, sep = ','): string[] {
   const out: string[] = [];
   let cur = '';
@@ -375,7 +356,6 @@ describe('waypoint CSV and user CSV templates', () => {
   });
 
   it.each(PAYLOADS)('leaves no live cell in a user template for the name %j', (bad) => {
-    // A template cell holding only the name: the case the escaper exists for.
     expect(
       liveCellsBySplit(renderUserTemplate('"{{rocketName}}",{{title}}\r\n', 'csv', model(bad)), READER_SPLITS),
     ).toEqual({});

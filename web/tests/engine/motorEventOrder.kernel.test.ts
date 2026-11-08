@@ -5,18 +5,8 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Motor events from mounts in one stage that fire at the same time come out in
- * the same order on every build of the design.
- *
- * `FlightEvent.compareTo` ties two events of one type, time and stage, so the
- * order they are queued in decides the order they are recorded in. That order
- * is `FlightConfiguration.motors.values()`, and the map's key hashes the
- * mount's id, a `UUID.randomUUID()` per component: a hashed map gives a
- * different order on every build. The order is not tree order: the event queue
- * is a binary heap, which does not keep ties in the order they were added. With
- * eight mounts, two builds of a hashed map agree by chance 1 in 40,320.
- */
+// Same-time events keep queue order from `FlightConfiguration.motors`, a UUID-keyed map.
+// Eight mounts agree by chance 1 in 40,320.
 
 const MOUNT_IDS = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8'];
 
@@ -78,9 +68,7 @@ describe('same-time motor events', () => {
     const first = fly();
     const second = fly();
     const third = fly();
-    // EJECTION_CHARGE names the stage, not the mount, so its order cannot show.
     for (const type of ['IGNITION', 'BURNOUT']) {
-      // Every mount fires once, at one time.
       expect([...order(first, type)].sort(), type).toEqual(MOUNT_IDS);
       expect(new Set(first.events.filter((e) => e.type === type).map((e) => e.time)).size, type).toBe(1);
       expect(order(second, type), type).toEqual(order(first, type));

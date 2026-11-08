@@ -7,13 +7,6 @@ import { createPdfPage, type T } from '../../../src/services/report/pdfPage';
 import { writeTemplatesSection } from '../../../src/services/report/templatesSection';
 import { METRIC_UNITS } from '../../../src/prefs/units';
 
-/**
- * A template's label prints on the same page as the outline it names.
- *
- * Fin sets of every span from 20 mm to 120 mm, six to a design, so the page
- * breaks fall at every position relative to a label. Each label is followed by
- * its outline (`doc.lines`), and both are recorded with the page they land on.
- */
 function labelAndOutlinePages(spanM: number): { label: string; labelPage: number; outlinePage: number }[] {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const page = () => doc.getCurrentPageInfo().pageNumber;
@@ -76,7 +69,6 @@ describe('fin templates across a page break', () => {
         if (r.labelPage > 1) broke = true;
       }
     }
-    // The sweep did reach a second page, so a break was exercised.
     expect(broke).toBe(true);
   });
 });

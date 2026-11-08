@@ -12,16 +12,8 @@ import { newFlightConfig, type FlightConfig } from '../../../src/services/flight
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import type { FieldUnit } from '../../../src/prefs/useUnits';
 
-/**
- * Every delay in the configuration editor and table is printed with the
- * reader's own seconds symbol. The expected symbol is the one each locale's
- * own flight summary prose already uses after a time (`flight.summaryEventAt`),
- * so the check holds for every language the app ships.
- */
-
 const LANGS = ['de', 'en', 'es', 'fr', 'ja', 'nl', 'pl', 'pt-BR', 'pt-PT', 'ru'];
 
-/** The first character after `{{time}}` in the locale's own "event at time" line. */
 const secondsIn = (lang: string): string => {
   const file = join(__dirname, '../../../src/i18n/locales', `${lang}.json`);
   const line = (JSON.parse(readFileSync(file, 'utf8')) as { flight: { summaryEventAt: string } }).flight.summaryEventAt;
@@ -57,8 +49,6 @@ const alt = () => ({ fmtSym: (v: number) => `${v} m` }) as unknown as FieldUnit;
 
 describe('the seconds symbol in the configuration editor', () => {
   it('is in the reader’s locale in every shipped language', () => {
-    // The symbols differ between at least two locales, so the check is not
-    // satisfied by one fixed letter.
     expect(new Set(LANGS.map(secondsIn)).size).toBeGreaterThan(1);
   });
 
@@ -103,7 +93,6 @@ describe('the seconds symbol in the configuration editor', () => {
 
 describe('the seconds symbol, by key', () => {
   it('is whatever the locale says, not a fixed letter', async () => {
-    // A sentinel, so a hard-coded "s" cannot pass.
     const own = i18n.t('units.second');
     i18n.addResource('en', 'translation', 'units.second', 'sec');
     try {

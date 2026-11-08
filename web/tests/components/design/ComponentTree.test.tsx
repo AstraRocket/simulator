@@ -22,8 +22,7 @@ const TREE = {
   ],
 } as unknown as RocketTree;
 
-// jsdom has no matchMedia; each row's export button asks it whether this is a
-// desktop window (useCapability). Answer "desktop".
+// jsdom has no matchMedia, which each row's export button queries (useCapability).
 beforeAll(() => {
   window.matchMedia = ((query: string) => ({
     matches: true,
@@ -35,15 +34,8 @@ beforeAll(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-/**
- * Rows are tree items, not `role="button"`: a button may not contain interactive
- * content such as the fold toggle and the export button, and a button says
- * nothing about depth, folding or selection. A real tree carries all three, with
- * the same keyboard model.
- */
 describe('ComponentTree semantics', () => {
-  // jsdom does not lay out, so it has no scrollIntoView; the selected row
-  // calls it on mount.
+  // jsdom has no scrollIntoView, which the selected row calls on mount.
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};
   });
@@ -58,7 +50,7 @@ describe('ComponentTree semantics', () => {
     expect(body.getAttribute('aria-level')).toBe('2');
     expect(screen.getByRole('treeitem', { name: /Launch lug/ }).getAttribute('aria-level')).toBe('3');
     expect(stage.getAttribute('aria-expanded')).toBe('true');
-    expect(nose.getAttribute('aria-expanded')).toBeNull(); // a leaf folds nothing
+    expect(nose.getAttribute('aria-expanded')).toBeNull();
     expect(body.getAttribute('aria-selected')).toBe('true');
     expect(nose.getAttribute('aria-selected')).toBe('false');
   });
@@ -75,17 +67,11 @@ describe('ComponentTree semantics', () => {
   });
 });
 
-/**
- * ＋ Add offers every part the selected part may hold, as desktop OpenRocket's
- * component panel does. A type the tree accepts but the list leaves out can only
- * arrive by import, so the list is checked against every type a body tube holds.
- */
 describe('ComponentTree add list', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};
   });
 
-  /** Accepted under a body tube but not offered, each with the reason. */
   const NOT_OFFERED: Record<string, string> = {
     fairing: 'not an OpenRocket component: a file-only part the kernel builds as a mass component',
   };
@@ -111,12 +97,6 @@ describe('ComponentTree add list', () => {
   });
 });
 
-/**
- * The per-row export button and its menu take their own keys. Enter on the
- * button opens the menu instead of selecting the row, arrows inside the menu
- * stay there, and only the tree's tab stop row puts its export button in the
- * tab order.
- */
 describe('ComponentTree row export button', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};
@@ -129,7 +109,6 @@ describe('ComponentTree row export button', () => {
     const exportBtn = nose.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')!;
     exportBtn.focus();
     const enter = fireEvent.keyDown(exportBtn, { key: 'Enter' });
-    // Not canceled, so the browser still turns the key into the button's click.
     expect(enter).toBe(true);
     expect(onSelect).not.toHaveBeenCalled();
     fireEvent.keyDown(exportBtn, { key: 'ArrowDown' });
@@ -152,11 +131,6 @@ describe('ComponentTree row export button', () => {
   });
 });
 
-/**
- * Keyboard focus stays in the tree across an edit that rebuilds it. Cut removes
- * the focused row and undo or redo replaces the rows; focus that falls to the
- * page leaves the arrow keys dead until the user tabs back in.
- */
 describe('ComponentTree focus across an edit', () => {
   beforeAll(() => {
     Element.prototype.scrollIntoView = () => {};
@@ -167,7 +141,6 @@ describe('ComponentTree focus across an edit', () => {
   } as RocketTree;
   const row = (name: RegExp) => screen.getByRole('treeitem', { name });
   const tick = () => new Promise((r) => setTimeout(r, 0));
-  // rerender replaces the whole element, so each one carries the provider.
   const view = (ui: React.ReactElement) => <SettingsProvider>{ui}</SettingsProvider>;
 
   it('keeps focus on a row when the focused row is cut, and follows the selection undo restores', () => {

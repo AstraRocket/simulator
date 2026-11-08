@@ -9,15 +9,10 @@ import { useWorkspaceStore } from '../../../src/state/store';
 const st = () => useWorkspaceStore.getState();
 const box = () => screen.getByRole('textbox', { name: /rename/i }) as HTMLInputElement;
 
-/** One key at a time, each appended to whatever the controlled box now shows. */
 function typeKeys(text: string) {
   for (const ch of text) fireEvent.change(box(), { target: { value: box().value + ch } });
 }
 
-/**
- * The name box is controlled by the store, so what the store keeps between
- * keystrokes is what the next keystroke is appended to.
- */
 describe('ConfigEditor name', () => {
   beforeEach(() => {
     st().resetWorkspace();

@@ -7,12 +7,10 @@ describe('componentFormats', () => {
     expect(componentFormats('freeformfinset')).toEqual(['stl', 'obj', 'glb', '3mf', 'dxf']);
   });
 
-  // 3MF sits after STL, OBJ and GLB, so their positions stay fixed, and before
-  // DXF, which is a different kind of output (a cut sheet, not a solid).
   it('offers only mesh for a solid body of revolution', () => {
     expect(componentFormats('nosecone')).toEqual(['stl', 'obj', 'glb', '3mf']);
     expect(componentFormats('bodytube')).toEqual(['stl', 'obj', 'glb', '3mf']);
-    expect(componentFormats('tubecoupler')).toEqual(['stl', 'obj', 'glb', '3mf']); // a tube, not plate → no DXF
+    expect(componentFormats('tubecoupler')).toEqual(['stl', 'obj', 'glb', '3mf']);
   });
 
   it('offers mesh + DXF for a centering ring (disc: a solid AND plate-cut)', () => {

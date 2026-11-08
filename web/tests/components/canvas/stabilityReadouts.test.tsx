@@ -5,15 +5,9 @@ import type { StaticInfo } from '../../../src/engine/api';
 import { StabilityBadge } from '../../../src/components/canvas/StabilityBadge';
 import { InfoOverlay } from '../../../src/components/canvas/InfoOverlay';
 import { StabilityOverlay } from '../../../src/components/canvas/SchematicOverlay';
-import { renderWithProviders } from '../../testing/renderWithProviders';
+import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { NO_VALUE } from '../../../src/i18n/noValue';
 
-/**
- * A figure the kernel could not compute is shown as missing, never as a
- * verdict or a mark at NaN: the badge does not call the design "Unstable" in
- * red, the info card gives no warning glyph, and the drawing places no CG or CP
- * marker it has no station for.
- */
 afterEach(cleanup);
 
 const info = (over: Partial<StaticInfo> = {}): StaticInfo =>
@@ -72,7 +66,6 @@ describe('an uncomputable CG or CP on the drawing', () => {
   });
 });
 
-/** The collapsed strip's margin carries its band in a glyph and in words, not in color alone. */
 describe('the collapsed stability margin', () => {
   it('shows the band glyph and names the verdict for a screen reader', () => {
     renderWithProviders(
@@ -90,6 +83,25 @@ describe('the collapsed stability margin', () => {
     const toggle = screen.getByRole('button');
     expect(toggle.querySelector('.sr-only')).toBeNull();
     expect(toggle.textContent).not.toMatch(/[⚠△✓]/);
+  });
+});
+
+describe('the static statistics layout', () => {
+  afterEach(() => localStorage.clear());
+
+  it('is the two-line tiles by default, with the verdict beside the label', () => {
+    renderWithProviders(<StabilityBadge info={info()} expanded onToggle={() => {}} />);
+    const tile = screen.getByText('L/D').parentElement!.parentElement!;
+    expect(tile.className).toContain('text-left');
+    expect(screen.getByText('Stable').parentElement!.textContent).toMatch(/^Stability \(on pad\)/);
+  });
+
+  it('is the three-line cards when set to standard, with the verdict after the unit', () => {
+    seedSettings({ statsLayout: 'standard' });
+    renderWithProviders(<StabilityBadge info={info()} expanded onToggle={() => {}} />);
+    const tile = screen.getByText('L/D').parentElement!;
+    expect(tile.className).toContain('text-center');
+    expect(screen.getByText('Stable').parentElement!.textContent).toBe('cal / % · Stable');
   });
 });
 

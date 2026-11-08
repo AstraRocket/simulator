@@ -10,14 +10,12 @@ describe('neutralizeFormula', () => {
   });
 
   it('neutralizes a leading tab and the trigger that follows it', () => {
-    // The tab is itself a separator, so what comes after it is a cell too.
     expect(neutralizeFormula('\tx')).toBe("'\tx");
     expect(neutralizeFormula('\t=x')).toBe("'\t'=x");
   });
 
   it('neutralizes a trigger after an embedded comma, semicolon or tab', () => {
-    // Excel splits on its locale's list separator, not the file's, so each of
-    // these opens a cell that no quoting protects.
+    // Excel splits on its locale's list separator, not the file's, so quoting does not protect these.
     expect(neutralizeFormula('x,=HYPERLINK("e")')).toBe('x,\'=HYPERLINK("e")');
     expect(neutralizeFormula('x;=1')).toBe("x;'=1");
     expect(neutralizeFormula('x\t@SUM(A1)')).toBe("x\t'@SUM(A1)");

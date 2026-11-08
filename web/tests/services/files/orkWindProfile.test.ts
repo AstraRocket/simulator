@@ -41,12 +41,9 @@ describe('multilevel wind profile round-trips through .ork', () => {
 
   it('writes a multilevel wind element and selects it', () => {
     const xml = exportOrk({ name: 'Wind', tree, launch: profile });
-    // The altitude reference rides on the element as an attribute, the only
-    // place the desktop reads it (OpenRocketSaver.java:367, WindHandler.java:25).
     expect(xml).toContain('<wind model="multilevel" altituderef="agl">');
     expect(xml).not.toContain('<altitudereference>');
     expect(xml).toContain('<windmodeltype>Multilevel</windmodeltype>');
-    // The average block stays as the fallback for a reader without multilevel.
     expect(xml).toContain('<wind model="average">');
   });
 
@@ -58,8 +55,7 @@ describe('multilevel wind profile round-trips through .ork', () => {
       expect(l.altitudeM).toBe(want.altitudeM);
       expect(l.speed).toBe(want.speed);
       expect(l.stddev).toBe(want.stddev);
-      // Degrees only in memory: the file stores radians, as the desktop's
-      // <direction> does, so a heading comes back a float epsilon off itself.
+      // The file stores radians, so a heading comes back a float epsilon off.
       expect(l.directionDeg).toBeCloseTo(want.directionDeg, 10);
     });
   });
@@ -71,24 +67,14 @@ describe('multilevel wind profile round-trips through .ork', () => {
 
   it('writes MSL for a profile that never set a reference', () => {
     const { windAltitudeReference: _drop, ...noRef } = profile;
-    // The desktop always writes the element, so the default is made explicit on
-    // the way out rather than left for the reader to assume.
     expect(roundTrip(noRef)?.windAltitudeReference).toBe('msl');
   });
 
   it('reads a file that omits the attribute as MSL', () => {
     const xml = exportOrk({ name: 'Wind', tree, launch: profile }).replace(/ altituderef="agl"/, '');
-    // Absent means MSL to the kernel, and an absent value reaches the bridge
-    // and the editor as exactly that.
     expect(importOrk(xml).launch?.windAltitudeReference).toBeUndefined();
   });
 
-  /**
-   * A hand-written fragment in the desktop's exact form. Read from a child
-   * <altitudereference> element or an attribute of another name, every AGL profile
-   * the desktop saves comes in as MSL, which at a 1500 m site is a different wind
-   * entirely.
-   */
   it('reads the altitude reference from the attribute the desktop writes', () => {
     const desktop = (ref: string) =>
       `<openrocket version="1.10" creator="OpenRocket 24.12"><rocket><name>W</name><subcomponents><stage><name>S</name>` +
@@ -100,7 +86,6 @@ describe('multilevel wind profile round-trips through .ork', () => {
       `<windlevel altitude="0.0" speed="2.0" direction="1.5707963267948966" standarddeviation="0.2"/>` +
       `<windlevel altitude="500.0" speed="6.0" direction="2.0943951023931953" standarddeviation="1.2"/>` +
       `</wind><windmodeltype>MultiLevel</windmodeltype><atmosphere model="isa"/></conditions></simulation></simulations></openrocket>`;
-    // The desktop writes the lower-case enum name (OpenRocketSaver.enumToXMLName).
     expect(importOrk(desktop('agl')).launch?.windAltitudeReference).toBe('agl');
     expect(importOrk(desktop('msl')).launch?.windAltitudeReference).toBe('msl');
     expect(importOrk(desktop('agl')).launch?.windLevels).toHaveLength(2);
@@ -114,13 +99,6 @@ describe('multilevel wind profile round-trips through .ork', () => {
     expect(importOrk(xml).launch?.windAltitudeReference).toBe('agl');
   });
 
-  /**
-   * The altitude is the level's identity to the kernel, not a quantity with a
-   * harmless zero. Defaulting it to 0 would not mean "assume ground level": it
-   * would put a second level on the pad, where it would either displace the real
-   * surface wind or collide with it and fail every run with the kernel's
-   * `Wind level already exists for altitude: 0.0`.
-   */
   it('drops a level whose altitude the file does not give, rather than landing it on the pad', () => {
     const withBadLevels = (levels: string) =>
       `<openrocket version="1.10" creator="OpenRocket 24.12"><rocket><name>W</name><subcomponents><stage><name>S</name>` +
@@ -139,8 +117,6 @@ describe('multilevel wind profile round-trips through .ork', () => {
       ),
     ).launch?.windLevels;
     expect(missing?.map((l) => l.altitudeM)).toEqual([0, 500]);
-
-    // A file that repeats an altitude is refused the same way, first row wins.
     const repeated = importOrk(
       withBadLevels(
         `<windlevel altitude="0.0" speed="2.0" direction="1.57"/>` +
@@ -175,24 +151,15 @@ describe('a negative wind speed in a file', () => {
         { altitudeM: 500, speed: 6, directionDeg: 45, stddev: 0 },
       ],
     } as LaunchConditions);
-    // The average flies at its magnitude from the stated heading.
     expect(back?.windAverage).toBeCloseTo(3, 9);
-    // A level flies from the opposite heading (MultiLevelPinkNoiseWindModel.addWindLevel).
+    // The average keeps its stated heading; a level flips it
+    // (MultiLevelPinkNoiseWindModel.addWindLevel).
     expect(back?.windLevels?.[0]?.speed).toBeCloseTo(4, 9);
     expect(back?.windLevels?.[0]?.directionDeg).toBeCloseTo(270, 9);
     expect(back?.windLevels?.[1]?.speed).toBeCloseTo(6, 9);
   });
 });
 
-/**
- * The desktop keeps its multilevel model beside the average one, and
- * `<windmodeltype>` only picks which flies (SimulationOptions.getWindModel,
- * SimulationOptions.java:212-220). WindHandler fills the multilevel model from
- * its element whatever the type (WindHandler.java:20-31, 68-75), and
- * OpenRocketSaver writes it whenever it has levels, then the type
- * (OpenRocketSaver.java:364-378). So a design whose profile was built and then
- * switched to Average carries the profile in its file, and saves it again.
- */
 describe('a profile kept under the Average model', () => {
   const desktopAverage =
     `<openrocket version="1.10" creator="OpenRocket 24.12"><rocket><name>W</name><subcomponents><stage><name>S</name>` +
@@ -206,7 +173,6 @@ describe('a profile kept under the Average model', () => {
     `<windlevel altitude="500.0" speed="6.0" direction="2.0943951023931953" standarddeviation="1.2"/>` +
     `</wind><windmodeltype>Average</windmodeltype><atmosphere model="isa"/></conditions></simulation></simulations></openrocket>`;
 
-  // The levels as written in the fixture, direction radians to degrees.
   const fileLevels = [
     { altitudeM: 0, speed: 3, directionDeg: 90, stddev: 0.3 },
     { altitudeM: 500, speed: 6, directionDeg: 120, stddev: 1.2 },
@@ -241,12 +207,6 @@ describe('a profile kept under the Average model', () => {
     expect(back?.windAltitudeReference).toBe('agl');
   });
 
-  /**
-   * With no `<windmodeltype>`, the model is the one the last `<wind>` selected
-   * as it closed (WindHandler.storeSettings, WindHandler.java:79-84, called at
-   * SimulationConditionsHandler.java:122). A `<windmodeltype>` read later
-   * overrides it (SimulationConditionsHandler.java:123-125).
-   */
   it('takes the model from the last <wind> when the file has no <windmodeltype>', () => {
     const untyped = desktopAverage.replace('<windmodeltype>Average</windmodeltype>', '');
     const multi = importOrk(untyped).launch;
@@ -264,7 +224,7 @@ describe('a profile kept under the Average model', () => {
     const typedFirst = desktopAverage
       .replace('<windmodeltype>Average</windmodeltype>', '')
       .replace('<wind model="average">', '<windmodeltype>Average</windmodeltype><wind model="average">');
-    // Average, then the average <wind>, then the multilevel <wind>: the last says multilevel.
+    // The multilevel <wind> closes last, so it wins.
     const launch = importOrk(typedFirst).launch;
     expect(launch?.keptWindLevels).toBeUndefined();
     expectLevels(launch?.windLevels);

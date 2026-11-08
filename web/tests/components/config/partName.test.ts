@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { partName } from '../../../src/components/config/ConfigsTable';
+import { partName } from '../../../src/components/config/partName';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
-/** A stand-in translator that shows which key and values it was asked for. */
 const t = (key: string, opts?: Record<string, unknown>) =>
   key === 'configs.partNumbered' ? `#${String(opts?.['n'])} ${String(opts?.['part'])}` : `[${key}]`;
 

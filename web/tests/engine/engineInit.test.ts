@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// A stub stands in for the JS build: the tests are about which backend the load
-// settles on, not about the kernel.
 const jsEngine = vi.hoisted(() => ({ setLengthUnit: () => {}, buildRocket: () => 0 }));
 vi.mock('../../src/engine/vendor/openrocket-engine.mjs', () => jsEngine);
 
@@ -10,13 +8,11 @@ type Wasm = { load: (bytes: ArrayBuffer, options?: unknown) => Promise<{ exports
 
 const g = globalThis as unknown as { TeaVM?: { wasmGC?: Wasm } };
 
-/** A fresh copy of the module, so the memoized load and the backend flags start over. */
 async function freshEngine(): Promise<EngineModule> {
   vi.resetModules();
   return await import('../../src/engine/openRocketEngine');
 }
 
-/** A fetch that never answers until its signal aborts, as a proxy that holds the request does. */
 function stalledFetch(): typeof fetch {
   return ((_url: string, init?: RequestInit) =>
     new Promise<Response>((_resolve, reject) => {
@@ -28,7 +24,6 @@ describe('engine load', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    // The runtime is already installed, so the load goes straight to the .wasm fetch.
     g.TeaVM = {
       wasmGC: { load: () => Promise.resolve({ exports: { buildRocket: () => 0, setLengthUnit: () => {} } }) },
     };

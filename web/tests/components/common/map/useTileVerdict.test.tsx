@@ -39,8 +39,7 @@ describe('useTileVerdict', () => {
     act(() => result.current.onTileLoad());
     const after = renders;
     for (let i = 0; i < 10; i++) act(() => result.current.onTileLoad());
-    // React may render once more before it bails out on an unchanged state;
-    // what matters is that ten tiles are not ten renders.
+    // React may render once more before it bails out on an unchanged state.
     expect(renders - after).toBeLessThanOrEqual(1);
   });
 
@@ -49,7 +48,6 @@ describe('useTileVerdict', () => {
     fail(result);
     act(() => result.current.retry());
     expect(result.current.imagery).toBe('unknown');
-    // The count started over too: one more failure is not an outage.
     fail(result, 1);
     expect(result.current.imagery).toBe('unknown');
   });

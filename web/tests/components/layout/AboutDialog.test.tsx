@@ -5,8 +5,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { UPSTREAM } from '../../../src/services/app/appInfo';
 import { AboutDialog } from '../../../src/components/layout/AboutDialog';
 
-// The contributors file stands in for the served catalog; fetchCatalog's shape
-// check runs against it exactly as the real loader does.
 let contributorsFile: unknown = { contributors: [] };
 vi.mock('../../../src/services/app/remoteData', () => ({
   fetchCatalog: (_name: string, valid?: (v: unknown) => boolean) =>
@@ -16,17 +14,6 @@ beforeEach(() => {
   contributorsFile = { contributors: [] };
 });
 
-/**
- * About's answer to "which OpenRocket is this?".
- *
- * The dialog is where a reader who wants to compare a number against the
- * desktop app, or to ask whether a feature from some release is in here, finds
- * the commit. The value is injected from engine-java/extract/UPSTREAM at build
- * time (a stand-in under Vitest, see vitest.config.ts), so what is worth
- * holding still is that it reaches the dialog: the line is an i18n string with
- * an interpolated link in it, and a mistyped placeholder or a renamed component
- * key renders the sentence with the commit missing and nothing else wrong.
- */
 describe('AboutDialog', () => {
   it('names the pinned OpenRocket commit and links to it', () => {
     renderWithProviders(<AboutDialog onClose={() => {}} />);

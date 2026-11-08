@@ -6,15 +6,6 @@ import { Dialog } from '../../../src/components/common/Dialog';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import { readExpanded, sizeClasses, writeExpanded } from '../../../src/components/common/dialogSize';
 
-/**
- * The shell every dialog in the app shares: the overlay, the panel, the focus trap,
- * the stop-propagation and the close button. A hand-rolled copy drifts off
- * `.dialog-panel` and so out of the full-bleed phone treatment, past the bottom of
- * a short window with no maximum height, or onto an `aria-label` duplicating the
- * visible heading rather than pointing at it.
- */
-
-/** A press that starts and ends on the element, as a backdrop click is. */
 const press = (el: Element) => {
   fireEvent.pointerDown(el);
   fireEvent.click(el);
@@ -40,7 +31,6 @@ describe('Dialog', () => {
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       const id = dialog.getAttribute('aria-labelledby')!;
       expect(id).toBeTruthy();
-      // The id points at the heading the user can actually see.
       const heading = dialog.querySelector(`#${CSS.escape(id)}`)!;
       expect(heading.tagName).toBe('H2');
       expect(heading.textContent).toBe('A Title');
@@ -48,8 +38,6 @@ describe('Dialog', () => {
     });
 
     it('keeps the classes that make a dialog full-bleed on a phone', () => {
-      // `.dialog-panel` and `.dialog-overlay` carry the below-lg full-screen rules
-      // in index.css, so a dialog missing them gets no phone treatment at all.
       const { container, dialog } = open();
       expect(dialog.className).toContain('dialog-panel');
       expect(container.querySelector('.dialog-overlay')).not.toBeNull();
@@ -69,8 +57,7 @@ describe('Dialog', () => {
     });
 
     it('stays open when a press that started in the panel ends on the backdrop', () => {
-      // A text selection dragged out of the panel fires its click on the
-      // backdrop, the nearest common ancestor.
+      // A selection dragged out of the panel fires its click on the backdrop.
       const { container, dialog, onClose } = open();
       fireEvent.pointerDown(within(dialog).getByText('body'));
       fireEvent.click(container.querySelector('.dialog-overlay')!);
@@ -89,8 +76,6 @@ describe('Dialog', () => {
     });
 
     it('does not dismiss the dialog it is nested inside', () => {
-      // A nested dialog renders inside its parent's overlay, so a backdrop click
-      // that bubbles closes both. The shell stops it for every dialog.
       const outer = vi.fn();
       const r = renderWithProviders(
         <div onClick={outer}>
@@ -104,7 +89,6 @@ describe('Dialog', () => {
     });
 
     it('stacks a dialog that opens over another above it', () => {
-      // The layer names the z-index rather than each dialog picking one by hand.
       const base = open({ layer: 'base' });
       expect(base.container.querySelector('.dialog-overlay')!.className).toContain('z-50');
       base.unmount();
@@ -131,8 +115,7 @@ describe('Dialog', () => {
     });
 
     it('is hidden below lg, where the panel is already full-bleed', () => {
-      // index.css gives `.dialog-panel` width/height 100% under lg, so there is
-      // nothing left to expand into and the control would be a no-op.
+      // index.css makes `.dialog-panel` 100% under lg, so expanding is a no-op there.
       const { dialog } = open();
       expect(within(dialog).getByLabelText('Make this dialog wider').className).toContain('lg:block');
       expect(within(dialog).getByLabelText('Make this dialog wider').className).toContain('hidden');
@@ -159,7 +142,6 @@ describe('Dialog', () => {
     it('offers nothing to expand where widening would not help', () => {
       const { dialog } = open({ expandable: false });
       expect(within(dialog).queryByLabelText('Make this dialog wider')).toBeNull();
-      // The close button is still there.
       expect(within(dialog).getByLabelText('Close')).toBeTruthy();
     });
   });
@@ -176,28 +158,21 @@ describe('Dialog', () => {
     it('keeps a toolbar from scrolling away with the rows it filters', () => {
       const { dialog } = open({ toolbar: <input aria-label="search" /> });
       const scroller = dialog.querySelector('.overflow-auto')!;
-      // The filter bar is a sibling of the scrolling region, not inside it.
       expect(scroller.contains(within(dialog).getByLabelText('search'))).toBe(false);
       expect(scroller.textContent).toContain('body');
     });
 
     it('pads a prose dialog instead of ruling it into sections', () => {
       const { dialog } = open({ layout: 'pad', footer: <span>ignored</span> });
-      // The pad layout puts its own buttons in the flow, so a footer prop is not
-      // silently rendered somewhere unexpected.
       expect(within(dialog).queryByText('ignored')).toBeNull();
     });
 
     it('pins a footer under a body that fills the dialog too', () => {
-      // A Save row under a list is the same pinned row whether the body
-      // scrolls or takes the height itself.
       const { dialog } = open({ layout: 'fill', footer: <span>save</span> });
       expect(within(dialog).getByText('save')).toBeTruthy();
     });
 
     it('leaves a filling body to do its own padding', () => {
-      // Two panes side by side reach the panel's edges; a map does not. The
-      // shell cannot know which, so it pads neither.
       const { dialog } = open({ layout: 'fill' });
       const body = within(dialog).getByText('body').parentElement!;
       expect(body.className).not.toMatch(/\bp-4\b/);
@@ -212,24 +187,15 @@ describe('Dialog', () => {
     });
 
     it('takes a fixed height for a dialog that must not resize under you', () => {
-      // Eight tabs holding between two rows and thirty: without this the panel
-      // would resize and re-center every time you switched between them.
       const { dialog } = open({ height: 560 });
       expect(dialog.style.getPropertyValue('--dialog-height')).toBe('560px');
       expect(dialog.className).toContain('h-[var(--dialog-height)]');
-      // Still capped: 560px is taller than a short window.
       expect(dialog.className).toContain('max-h-[85vh]');
-      // Not an inline height: an inline style beats the full-bleed phone rule in
-      // index.css, and a class loses to it. Tailwind compiles arbitrary values at
-      // build time, so an `h-[560px]` assembled at runtime would name a class that
-      // was never generated, hence the variable.
+      // Inline height would beat the phone rule; Tailwind never generates a runtime `h-[560px]`.
       expect(dialog.style.height).toBe('');
     });
 
     it('keeps the full-bleed classes unless a dialog opts out of them', () => {
-      // The report's print settings opens on top of a dialog that is itself
-      // full-screen on a phone, and filling the screen reads as that dialog
-      // being replaced rather than as something opening over it.
       expect(open({ fullBleed: false }).dialog.className).not.toContain('dialog-panel');
     });
 
@@ -252,11 +218,6 @@ describe('Dialog', () => {
   });
 
   describe('a dialog that is busy', () => {
-    /**
-     * Writing a PDF is the case: unmounting mid-export drops the run's result
-     * and the "Loading" state with it, and both accidental exits are one
-     * keypress or one stray click away.
-     */
     it('ignores the backdrop and Escape, but never its own close button', () => {
       const { container, dialog, onClose } = open({ dismissible: false });
       fireEvent.click(container.querySelector('.dialog-overlay')!);
@@ -269,7 +230,6 @@ describe('Dialog', () => {
   });
 
   it('scales the heading by the content, not by which dialog it is', () => {
-    // A dense list wants a quiet heading; a page of prose wants a real one.
     const list = open({ layout: 'scroll' });
     const heading = (d: HTMLElement) => d.querySelector(`#${CSS.escape(d.getAttribute('aria-labelledby')!)}`)!;
     expect(heading(list.dialog).className).toContain('text-sm');
@@ -282,9 +242,6 @@ describe('Dialog', () => {
   });
 
   it('closes only the dialog on top when two are open', () => {
-    // A nested dialog is rendered beside the one it opened from, and Escape is a
-    // window listener, so both would answer it: dismissing the rename prompt
-    // inside the design library would shut the library too.
     const under = vi.fn();
     const over = vi.fn();
     const r = renderWithProviders(
@@ -301,7 +258,6 @@ describe('Dialog', () => {
     expect(over).toHaveBeenCalledTimes(1);
     expect(under).not.toHaveBeenCalled();
 
-    // And a click on the top one's backdrop does not reach the one behind it.
     const overlays = r.container.querySelectorAll('.dialog-overlay');
     press(overlays[overlays.length - 1]!);
     expect(under).not.toHaveBeenCalled();
@@ -331,14 +287,12 @@ describe('dialogSize', () => {
     expect(readExpanded('a')).toBe(true);
     expect(readExpanded('b')).toBe(false);
     expect(JSON.parse(localStorage.getItem(nsKey('dialogExpanded'))!)).toEqual({ a: true });
-    // Collapsing removes the entry rather than storing a false.
     writeExpanded('a', false);
     expect(JSON.parse(localStorage.getItem(nsKey('dialogExpanded'))!)).toEqual({});
   });
 
   it('survives storage that is unavailable or holds junk', () => {
-    // Private browsing with site data blocked throws on access, and a dialog
-    // still has to open.
+    // Private browsing with site data blocked throws on access.
     localStorage.setItem(nsKey('dialogExpanded'), 'not json');
     expect(readExpanded('a')).toBe(false);
     expect(() => writeExpanded('a', true)).not.toThrow();

@@ -7,12 +7,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A stored cant past the panel's limit, as a file can carry it, is drawn as
- * the kernel flies it: `FinSet.setCantAngle` clamps it to 15 degrees
- * (FinSet.java:244), so the root and outline points match the kernel's
- * `getComponentGeometry` for that fin set, not for the stored angle.
- */
+// `FinSet.setCantAngle` clamps to 15 degrees (FinSet.java:244).
 const design = (cantDeg: number): RocketTree =>
   syncDerived({
     name: 'x',

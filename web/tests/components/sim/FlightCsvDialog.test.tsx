@@ -12,7 +12,6 @@ const flight = {
   series: { time: [0, 1], altitude: [0, 10] },
 } as unknown as FlightResult;
 
-/** The data rows of the exported file: every line that is not a comment. */
 function exportedRows(): string[] {
   const spy = vi.spyOn(saveFile, 'download').mockImplementation(() => {});
   fireEvent.click(screen.getByRole('button', { name: 'Export' }));
@@ -20,11 +19,7 @@ function exportedRows(): string[] {
   return csv.split('\n').filter((l) => l && !l.startsWith('#'));
 }
 
-/**
- * The Tab separator writes a real tab character. A JSX attribute string does not
- * process escapes, so `value="\t"` is a backslash and a `t`, and a spreadsheet
- * opens such a file as a single column.
- */
+// A JSX attribute string does not process escapes: `value="\t"` is a backslash and a `t`.
 describe('FlightCsvDialog separator', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -62,10 +57,6 @@ describe('FlightCsvDialog separator', () => {
   });
 });
 
-/**
- * Emptying the comment box is a step on the way to another character. The "#"
- * fallback waits until the field is left, or Backspace then "%" reads "#%".
- */
 describe('FlightCsvDialog comment character', () => {
   afterEach(() => localStorage.clear());
 

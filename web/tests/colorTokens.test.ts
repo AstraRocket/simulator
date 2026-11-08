@@ -2,14 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
-/**
- * Components color through the semantic tokens in src/index.css (`bg-surface`,
- * `text-ink-muted`, `ring-line/10`, `text-accent-300`), never a Tailwind
- * palette color. A palette class is a color the theme cannot reach: it stays
- * slate or sky whatever the tokens say, so one added back is one more part of
- * the screen a theme gets wrong.
- */
-
 const SRC = join(__dirname, '../src');
 const PALETTE = [
   'slate',
@@ -37,8 +29,6 @@ const PALETTE = [
 ].join('|');
 const UTILS =
   'bg|text|ring-offset|ring|border|fill|stroke|from|to|via|accent|divide|outline|placeholder|decoration|shadow|caret';
-// A class, with or without a variant, starting a string or after whitespace,
-// a quote, a backtick, a colon or an opening bracket.
 const RE = new RegExp(`(?:^|[\\s'"\`:{(\\[])((?:${UTILS})-(?:(?:${PALETTE})-\\d{2,3}|white|black))(?![\\w-])`, 'g');
 
 function sources(dir: string): string[] {
@@ -57,11 +47,6 @@ describe('color tokens', () => {
     expect(found).toEqual([]);
   });
 
-  /**
-   * A hex color in code is allowed only where it is not the interface's color,
-   * each with the reason. Anything else draws through `token()`
-   * (components/common/colorTokens), so a theme reaches it.
-   */
   it('keeps hex colors in code to the files whose colors are not the interface', () => {
     const ALLOWED: Record<string, string> = {
       'services/design/partColors.ts': 'default paint of each kind of part: the rocket, not the UI',
@@ -69,9 +54,11 @@ describe('color tokens', () => {
       'services/files/rktImport.ts': "RockSim's color names, as its file format defines them",
       'services/exports/schematicExport.ts': 'the print colors a downloaded schematic is written in',
       'services/storage/settings.ts': 'defaults for user-chosen colors (flight phases, print templates)',
-      'components/report/ExportDialog.tsx': "the print template fill's default, a user-chosen color",
-      'components/canvas/FlightPath3D.tsx': "the motor flame and the parachute's lines: the rocket's own colors",
+      'components/report/ReportPrintSettings.tsx': "the print template fill's default, a user-chosen color",
+      'components/canvas/FlightPathScene.tsx': "the parachute's lines: the rocket's own colors",
+      'components/canvas/FlightExhaust.tsx': "the motor flame's embers: the rocket's own colors",
       'components/canvas/RocketModel.tsx': 'black emission, which is no glow at all',
+      'services/motors/exhaust.ts': "each propellant's flame and smoke: the motor's own colors",
       'components/canvas/sceneColors.ts': 'what a scene token reads as where no stylesheet is loaded',
       'components/canvas/aeroTables.ts': 'text on a cell whose shade is computed from its value',
       'services/app/helpSearch.ts': 'a search highlight inside the docs frame, which has its own stylesheet',
@@ -84,12 +71,7 @@ describe('color tokens', () => {
     expect(offenders).toEqual([]);
   });
 
-  /**
-   * Every `token('name')` drawn in code is defined in a `:root` block of
-   * index.css. A `--c-*` written inside `@theme` is a theme variable, which
-   * Tailwind emits only when a class uses it; a color used only from code then
-   * resolves to nothing and the element falls back to the inherited color.
-   */
+  // Tailwind emits an `@theme` variable only when a class uses it.
   it('defines every color token used in code on :root', () => {
     const css = readFileSync(join(SRC, 'index.css'), 'utf8');
     const rootBlocks = [...css.matchAll(/:root\s*\{([^}]*)\}/g)].map((m) => m[1]!).join('\n');

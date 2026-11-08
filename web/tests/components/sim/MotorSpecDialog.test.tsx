@@ -7,12 +7,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
 import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
-/**
- * Initial thrust is the app's own figure from the curve, not a kernel or
- * catalog statistic, and the motor's spec dialog marks it as calculated the way
- * the picker's detail pane does.
- */
-
 const samples: [number, number][] = [
   [0, 0],
   [0.1, 12],
@@ -42,7 +36,6 @@ const catalog = {
   curves: [{ src: 'Certified · RASP', samples }],
 } as CatalogMotor;
 
-/** The term that names initial thrust, whatever mark follows it. */
 const initialLabel = () => screen.getByText(/^Initial thrust/).textContent;
 
 describe('initial thrust in the motor spec dialog', () => {

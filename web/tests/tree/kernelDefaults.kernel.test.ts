@@ -4,28 +4,7 @@ import { defaultNode } from '../../src/services/design/treeEdit';
 import type { ComponentNode, ComponentType } from '../../src/engine/openRocketEngine';
 import { loadEngine } from '../testing/kernelGeometry';
 
-/** The TeaVM bundle, which is untyped. */
 type Engine = Awaited<ReturnType<typeof loadEngine>>;
-
-/**
- * Lock `KERNEL_DEFAULTS` to what the kernel actually does.
- *
- * The method is deliberately behavioral rather than declarative. There is no
- * way to ask `ComponentFactory` "what default did you use for bodytube
- * thickness", and a table that merely *claims* to mirror the Java is a
- * hand-maintained artifact that can drift unnoticed.
- *
- * Each case builds the same component twice through the real engine - once
- * with the field absent, once with the value from the table - and requires the
- * observable to be identical.
- *
- * **Every case also asserts its own sensitivity**, because "identical" proves
- * nothing if the observable cannot see the field at all. Component length/mass
- * would pass a deliberately wrong mass-component radius: a mass component's
- * mass is an override, so its radius moves neither. Fields like that use a
- * whole-rocket observable instead: the radius shows up in roll inertia, a pod's
- * instance count in total mass.
- */
 
 const NOSE = {
   type: 'nosecone',
@@ -44,11 +23,6 @@ const TUBE = {
   thickness: 0.0005,
 } as unknown as ComponentNode;
 
-/**
- * Where the effect of the field shows up. `field` reads the key itself back
- * from the kernel (getComponentFields), for a field that moves nothing in the
- * part's or the rocket's figures (an angle, a spacing with one copy).
- */
 type Scope = 'component' | 'rocket' | 'field';
 
 const build = (engine: Engine, node: ComponentNode, parent: ComponentNode | null) => {
@@ -74,7 +48,6 @@ const observe = (
   if (scope === 'component') {
     const i = JSON.parse(engine.getComponentInfo(handle, 'probe'));
     if (i.error) throw new Error(`probe failed: ${i.error}`);
-    // cd, which componentInfo carries for a recovery device, is what flies.
     return `${i.length}|${i.mass}|${i.sectionMass}|${i.cd ?? ''}`;
   }
   const s = JSON.parse(engine.getStaticInfo(handle));
@@ -89,7 +62,6 @@ type Case = [
   field: string,
   expected: number,
   scope: Scope,
-  /** A different value, used only to prove the observable can see the field. */
   probeOther: number,
 ];
 
@@ -273,9 +245,6 @@ const CASES: Case[] = [
     'component',
     0.006,
   ],
-  // ---- The per-type lengths and the fin planform defaults ------------------
-  // Every one is read from KERNEL_DEFAULTS and pinned here against the engine, so
-  // no consumer carries a fallback number of its own.
   [
     'nosecone.length',
     n({ type: 'nosecone', shape: 'ogive', aftRadius: 0.013 }),
@@ -321,8 +290,7 @@ const CASES: Case[] = [
     'component',
     0.01,
   ],
-  // Sweep moves the fin's CG, not its area, so only a whole-rocket observable
-  // (cg, pitch inertia) can see it.
+  // Sweep moves the fin's CG, not its area, so only a whole-rocket observable sees it.
   [
     'trapezoidfinset.sweep',
     n({ type: 'trapezoidfinset', rootChord: 0.05, tipChord: 0.03, height: 0.03, thickness: 0.003 }),
@@ -477,8 +445,7 @@ const CASES: Case[] = [
   ],
   ['fairing.length', n({ type: 'fairing' }), TUBE, 'length', KERNEL_DEFAULTS.fairing.length, 'component', 0.12],
   ['fairing.mass', n({ type: 'fairing' }), TUBE, 'mass', KERNEL_DEFAULTS.fairing.mass, 'component', 0.05],
-  // The fairing's radius is max(width, height) / 2, so each is probed with the
-  // other set small enough that it decides the radius, and seen in roll inertia.
+  // Radius is max(width, height) / 2, so each is probed with the other set small.
   ['fairing.width', n({ type: 'fairing', height: 0.01 }), TUBE, 'width', KERNEL_DEFAULTS.fairing.width, 'rocket', 0.05],
   [
     'fairing.height',
@@ -622,8 +589,6 @@ describe('KERNEL_DEFAULTS matches the kernel', () => {
     const engine = await loadEngine();
     const absent = observe(engine, base, parent, scope, field);
 
-    // The observable must be able to see this field, or the assertion below is
-    // vacuous: an observable that looks reasonable can be blind to the field.
     const other = observe(engine, n({ ...base, [field]: probeOther }), parent, scope, field);
     expect(other, 'probe cannot observe this field, so the check below proves nothing').not.toBe(absent);
 
@@ -632,10 +597,6 @@ describe('KERNEL_DEFAULTS matches the kernel', () => {
   });
 });
 
-/**
- * KERNEL_SHAPES, the same way: a keyless nose cone or transition builds exactly
- * as the declared shape, and a different shape builds differently.
- */
 describe('KERNEL_SHAPES matches the kernel', () => {
   const SHAPE_CASES: [type: keyof typeof KERNEL_SHAPES, base: ComponentNode, other: string][] = [
     ['nosecone', n({ type: 'nosecone', length: 0.1, aftRadius: 0.013, thickness: 0.001 }), 'conical'],
@@ -656,9 +617,6 @@ describe('KERNEL_SHAPES matches the kernel', () => {
 });
 
 describe('defaultNode does not leave a divergent field unset', () => {
-  // With either field omitted, the editor would produce a node whose drawing and
-  // simulation describe different hardware. Setting them explicitly makes the
-  // two agree for a newly created component.
   it('a mass component carries an explicit radius', () => {
     expect(defaultNode('masscomponent')['radius']).toBe(KERNEL_DEFAULTS.masscomponent.radius);
   });
@@ -669,9 +627,6 @@ describe('defaultNode does not leave a divergent field unset', () => {
 });
 
 describe('every KERNEL_DEFAULTS entry has a behavioral case above', () => {
-  // The table is only as trustworthy as its coverage: a value added to
-  // KERNEL_DEFAULTS without a case here is exactly the hand-asserted number the
-  // file header says this test exists to prevent.
   it('covers each type.field', () => {
     const labels = new Set(CASES.map(([label]) => label));
     const missing: string[] = [];

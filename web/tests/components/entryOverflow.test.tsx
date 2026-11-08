@@ -10,25 +10,7 @@ import type { Material } from '../../src/services/materials/materialTypes';
 
 beforeAll(serveData);
 
-/**
- * A finite entry is not a finite stored value, at a box outside the property
- * panel as well as inside it.
- *
- * It can only happen where a display unit is larger than the SI one, because
- * that is the only direction the conversion multiplies in. The first test pins
- * which quantities those are, because the answer decides which fields are
- * exposed at all and it changes the moment a unit is added: a length is safe
- * today only because every length unit is a meter or less.
- *
- * The custom-material density is the clearest of them (`g/cm³` multiplies by a
- * thousand), and it is also the one quantity with a physical ceiling, so both
- * halves of the rule are visible in one form.
- *
- * `1e306`, not `1e999`: jsdom refuses to deliver text that is not a finite
- * number to a `type="number"` input at all, so the literal-overflow case can
- * only be exercised against `parseEntry` (tests/prefs/entryValue.test.ts). A
- * real browser does deliver it, and `parseFloat` returns Infinity.
- */
+// `1e306`, not `1e999`: jsdom will not deliver a non-finite number to a `type="number"` input.
 describe('which quantities a unit conversion can overflow', () => {
   it('is every quantity with a display unit larger than its SI unit', () => {
     const exposed = Object.entries(UNITS)
@@ -43,15 +25,12 @@ describe('which quantities a unit conversion can overflow', () => {
       'impulse',
       'lineDensity',
       'pressure',
-      // r/s and Hz are 2π rad/s. Shown, never typed, so no entry box is exposed
-      // yet; one that takes a roll rate needs the same guard as the rest.
       'rollRate',
       'surfaceDensity',
     ]);
   });
 });
 
-/** An in-memory material store, so the test never touches IndexedDB. */
 function memoryStore(): MaterialStore {
   let items: Material[] = [];
   return {
@@ -68,7 +47,6 @@ function memoryStore(): MaterialStore {
 describe('a custom material density', () => {
   beforeEach(() => setMaterialStore(memoryStore()));
 
-  /** Open the add form and fill in a name, leaving the density to the caller. */
   const addForm = () => {
     const onChange = vi.fn();
     renderWithProviders(<MaterialPicker onChange={onChange} />);
@@ -79,13 +57,10 @@ describe('a custom material density', () => {
 
   it('is refused when the conversion to SI overflows', async () => {
     const { onChange, box } = addForm();
-    // 1e306 g/cm³ is 1e309 kg/m³, which is Infinity. Unguarded, that would go
-    // into the material store and then into every part made of it.
+    // 1e306 g/cm³ is 1e309 kg/m³, which is Infinity.
     fireEvent.change(box(), { target: { value: '1e306' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    // `addCustom` rejects a non-finite density in its own words, and the form
-    // shows that instead of saving the material.
     await waitFor(() => expect(screen.getByText(/Density must be a positive number/)).toBeTruthy());
     expect(onChange).not.toHaveBeenCalled();
   });

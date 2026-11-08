@@ -3,20 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { exportOrk, importOrk } from '../../../src/services/files/orkFile';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * A `.ork` in the desktop's own layout, not this app's.
- *
- * A round trip through `exportOrk` checks that the reader understands the
- * writer and nothing more: a writer and reader that agree with each other while
- * both disagree with OpenRocket (the wind altitude reference on the wrong
- * carrier, the packed size or the rail button geometry replaced by constants)
- * pass every round trip. This fixture is written element for element from the
- * desktop savers:
- * OpenRocketSaver.saveSimulation (conditions order and carriers),
- * RocketComponentSaver (name, id, instances, angle, axial position, then the
- * type-specific tail), ExternalComponentSaver (finish, material),
- * RailButtonSaver, MassObjectSaver + RecoveryDeviceSaver + ParachuteSaver.
- */
+// Follows the desktop savers element for element (OpenRocketSaver.saveSimulation, RocketComponentSaver,
+// ExternalComponentSaver, RailButtonSaver, MassObjectSaver, RecoveryDeviceSaver, ParachuteSaver).
 const DESKTOP_ORK = `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.10" creator="OpenRocket 24.12">
   <rocket>
@@ -209,6 +197,16 @@ describe('a desktop-authored .ork', () => {
     expect(res.launch?.windLevels?.[1]?.directionDeg).toBeCloseTo(90, 10);
   });
 
+  it('keeps a canopy and line density of 0, as desktop’s MaterialSetter takes them', () => {
+    const doc = DESKTOP_ORK.replace('type="surface" density="0.067"', 'type="surface" density="0.0"').replace(
+      'type="line" density="0.0018"',
+      'type="line" density="0"',
+    );
+    const t = importOrk(doc).tree;
+    expect(findByType(t, 'parachute')?.['surfaceDensity']).toBe(0);
+    expect(findByType(t, 'parachute')?.['lineDensity']).toBe(0);
+  });
+
   it('reads an upper-case reference too', () => {
     const old = importOrk(DESKTOP_ORK.replace('altituderef="agl"', 'altituderef="AGL"'));
     expect(old.launch?.windAltitudeReference).toBe('agl');
@@ -277,7 +275,6 @@ describe('a desktop-authored .ork', () => {
     expect(xml).toContain('<flangeheight>0.0025</flangeheight>');
     expect(xml).toContain('<screwheight>0.001</screwheight>');
     expect(xml).toContain('<material type="bulk" density="2700" group="Metals">Aluminum</material>');
-    // And the desktop can read it back the same way.
     const again = importOrk(xml);
     expect(again.launch?.windAltitudeReference).toBe('agl');
     expect(findByType(again.tree, 'parachute')!['radius']).toBe(0.02);

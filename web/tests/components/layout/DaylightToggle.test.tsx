@@ -5,7 +5,6 @@ import { renderWithProviders, seedSettings } from '../../testing/renderWithProvi
 import { DaylightToggle } from '../../../src/components/layout/DaylightToggle';
 import { loadSettings } from '../../../src/services/storage/settings';
 
-/** One tap into daylight and one back to the theme the reader had. */
 describe('DaylightToggle', () => {
   beforeEach(() => {
     localStorage.clear();

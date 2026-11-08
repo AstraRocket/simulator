@@ -2,7 +2,7 @@ import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { asStageNodes } from '../design/orkTree';
 import { finMountOf } from '../../tree/finPlanform';
 import { findNode } from '../../tree/treeWalk';
-import { discSolidForNode, makeWatertight, solidForNode } from './solidMesh';
+import { discSolidForNode, makeWatertight, ringSolid, solidForNode } from './solidMesh';
 import { resolveDisc } from '../design/discGeometry';
 import { DISC_TYPES } from '../files/componentFormats';
 import { printableParts } from './printableParts';
@@ -13,68 +13,31 @@ import { KeyedError } from '../../i18n/keyedError';
 import { partLabel } from '../../i18n/format';
 import i18n from '../../i18n';
 
-/**
- * Whole-rocket 3MF export.
- *
- * The per-component ⬇ button writes one part at a time, which is fine for
- * reprinting a fin and tedious for printing a rocket. This walks the design
- * once, builds every printable solid, and writes them either as one 3MF holding
- * a named object per part (the thing 3MF is for) or as a zip of one file per
- * part, for a workflow that wants them separate.
- *
- * Only parts with a printable body are offered (a parachute, a shock cord, a
- * mass component and a rail button have none). A printable part whose geometry
- * fails `solidForNode`'s manifold check would produce a file no slicer accepts,
- * so it is left out and named, for the caller to report.
- *
- * The heavy half: this pulls in the three.js meshers and the 3MF writer, so it
- * is reached only through the dynamic import in the store's `exportPrint`.
- * Which parts a design can print is `printableParts.ts`, which the export
- * dialog imports instead; a static import of this module from a dialog the
- * header mounts eagerly would put the meshers in the main bundle.
- */
+// Import only dynamically: a static import puts the three.js meshers in the main bundle.
 
 export interface PrintExportOptions {
-  /** Node ids to include. Absent = everything printable. */
+  /** Absent = everything printable. */
   include?: ReadonlySet<string>;
-  /** One file of named objects (default), or a zip of one file per part. */
   separateFiles?: boolean;
-  /** Translate each part onto the build plate (see `threeMf.ts`). */
   placeOnPlate?: boolean;
-  /**
-   * Display labels by node id, for parts that carry no name of their own.
-   *
-   * The object name is most of why 3MF beats STL, so "Nose cone" is worth
-   * having in the file rather than the raw type slug. The translation belongs
-   * to the UI, not to a service, so the caller passes what it is already
-   * showing in its own list.
-   */
   labels?: Readonly<Record<string, string>>;
 }
 
 export interface PrintExportResult {
-  /** How many parts were written. */
   written: number;
-  /** Names of parts that were asked for but have no printable solid. */
   skipped: string[];
 }
 
-/**
- * The solid for one node. A disc, ring or tube part needs its parent tube's
- * bore resolved to size it. Anything else is sized from the body radius it is
- * mounted on: a tube fin set takes the kernel auto-radius from it, and any fin
- * clamps a through-the-wall tab to the depth the kernel allows.
- */
 export function solidFor(tree: RocketTree, node: ComponentNode): ReturnType<typeof solidForNode> {
   const id = node.id as string;
   if (DISC_TYPES.has(node.type)) {
     const d = resolveDisc(tree, id);
-    return d ? discSolidForNode(d.outerR, d.innerR, d.length) : null;
+    if (!d) return null;
+    return d.holes ? ringSolid(d.outerR, d.holes, d.length) : discSolidForNode(d.outerR, d.innerR, d.length);
   }
   return solidForNode(node, finMountOf(tree, id));
 }
 
-/** A part by id, searched below the stages (a stage itself is never a part). */
 function nodeById(tree: RocketTree, id: string): ComponentNode | null {
   return findNode(
     asStageNodes(tree).flatMap((stage) => stage.children ?? []),
@@ -82,21 +45,12 @@ function nodeById(tree: RocketTree, id: string): ComponentNode | null {
   );
 }
 
-/**
- * Build and download the design's printable parts as 3MF.
- *
- * Returns what was written and what could not be, rather than throwing on the
- * first bad part: one fin with degenerate geometry should not cost you the
- * other twenty parts.
- */
 export async function downloadRocket3mf(
   name: string,
   tree: RocketTree,
   opts: PrintExportOptions = {},
 ): Promise<PrintExportResult> {
   const { include, separateFiles = false, placeOnPlate = true, labels } = opts;
-  // Its own name, trimmed, then the caller's label, then the translated type
-  // (`partLabel`), never the raw type key.
   const nameOf = (e: { id: string; name?: string; type: string }): string =>
     (typeof e.name === 'string' && e.name.trim()) || labels?.[e.id] || partLabel(i18n.t, e);
 
@@ -131,16 +85,11 @@ export async function downloadRocket3mf(
     return { written: built.length, skipped };
   }
 
-  // A zip of one file per part. `fflate` is already a dependency (it is how a
-  // `.ork` is read and written), so this costs nothing extra.
   const { zipSync } = await import('fflate');
   const files: Record<string, Uint8Array> = {};
   const used = new Set<string>();
   for (const b of built) {
-    // Two parts can legitimately share a name ("Centering ring" twice), and a
-    // zip entry cannot: the second would silently replace the first.
-    // The fallback is fixed text: `safeFilename` returns it as is, and a part
-    // name with no letter or digit (`../..`) must not become an entry name.
+    // Security: the fallback is fixed text so a name like `../..` never becomes an entry name.
     let entry = safeFilename(b.part.name, 'part');
     let n = 2;
     while (used.has(entry)) entry = `${safeFilename(b.part.name, 'part')}-${n++}`;

@@ -2,12 +2,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { holdAnchor } from '../../../src/components/layout/useHelpFrame';
 
-/**
- * A search result opens a page at its section and then moves on to the first
- * matching word below it. The hold that keeps the section heading in view while
- * the page settles must not pull the page back to the heading once the words
- * are marked.
- */
 describe('the anchor hold', () => {
   const page = () => {
     document.body.innerHTML = '<article><h2 id="g">G</h2><p>glide ratio</p></article>';

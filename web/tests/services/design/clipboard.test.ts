@@ -3,7 +3,6 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import { canRemove, duplicateNode, pasteNode, pastePlace } from '../../../src/services/design/clipboard';
 import { findNode, findParent } from '../../../src/services/design/treeEdit';
 
-/** Desktop's Edit menu rules (RocketActions): inside if it fits, else after, else nowhere. */
 const makeTree = (): RocketTree =>
   ({
     components: [
@@ -37,12 +36,10 @@ describe('pastePlace', () => {
   });
 
   it('goes after the selection, in its parent, when only the parent fits', () => {
-    // A fin set holds nothing; a bulkhead beside it goes in the body tube.
     expect(pastePlace(makeTree(), part('bulkhead'), 'f1')).toEqual({ parentId: 'b1', index: 2 });
   });
 
   it('has nowhere to go when neither fits', () => {
-    // Fins may not sit in a nose cone, nor in the stage beside one.
     expect(pastePlace(makeTree(), part('trapezoidfinset'), 'n1')).toBeNull();
   });
 

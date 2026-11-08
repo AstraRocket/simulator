@@ -4,11 +4,6 @@ import { useConfirmStore, confirm } from '../../src/state/confirmStore';
 import { usePromptStore, prompt } from '../../src/state/promptStore';
 import { workInProgress } from '../../src/state/workInProgress';
 
-/**
- * What holds back the hidden-tab update reload. A reload under any of these
- * throws away work: a sweep is lost, an import waiting on its name-clash
- * dialog is abandoned with nothing said.
- */
 describe('workInProgress', () => {
   beforeEach(() => {
     useWorkspaceStore.setState({ simBusy: false, driftSweepRun: null });

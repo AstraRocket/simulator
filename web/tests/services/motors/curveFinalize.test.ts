@@ -3,10 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { finalizeCurve, finalizeSamples } from '../../../src/services/motors/curveFinalize';
 
-/**
- * Desktop's AbstractMotorLoader.finalizeThrustCurve, plus the later-value rule
- * for a step at one instant: the shape ThrustCurveMotor.Builder.build() takes.
- */
+// Desktop's AbstractMotorLoader.finalizeThrustCurve; at a repeated instant the later value wins.
 describe('finalizeSamples', () => {
   it('adds a zero point at t = 0 when the curve starts later', () => {
     expect(

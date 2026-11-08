@@ -10,24 +10,32 @@ On a phone the design views live on the **Sketch** tab and the flight views on *
 
 A to-scale side view of the rocket with **CG** (▲) and **CP** (●) markers and the stability margin called out.
 
-- **Calipers**: drag-to-measure tools. The horizontal caliper measures the distance between two vertical lines (lengths); the vertical caliper measures across (diameters / spans). Lines **snap** to component edges.
-- **Rulers**: a measurement frame around the drawing, with a **toggle per side** (top / bottom / left / right) next to the CG/CP and Info buttons.
-- **Zoom / pan**: the +/− buttons or scroll to zoom. Once zoomed in, drag to pan.
+- **Calipers**: **↔ Length** and **↕ Diameter** in the toolbar are drag-to-measure tools. **Length** measures the distance between two vertical lines; **Diameter** measures across (diameters / spans). Lines **snap** to component edges. Zoomed in, each caliper's readout stays in view, and Diameter's grips move to the view's left edge once the nose is off screen.
+- **Rulers**: a measurement frame around the drawing, with a **toggle per side** (top / bottom / left / right) next to the CG/CP and Info buttons. The rulers stay through a zoom or pan: their marks follow the drawing and get finer as you zoom in, so a zoomed-in part can still be read off them.
+- **Grid**: draws lines at the ruler's marks behind the side view, and follows a zoom or pan. Image and SVG exports leave it out.
+- **Zoom / pan**: **+**, **−** and **Fit** in the drawing's bottom-right corner, or scroll, to zoom. Once zoomed in, drag to pan; **Fit** brings the whole rocket back. The CG / CP markers, their labels and the calipers keep their size as you zoom. The aft view has the same zoom block.
 - **Roll**: at the fitted view, a sideways drag on the drawing spins the rocket about its long axis, so you can see fin sets edge-on or broadside. The slider along the left edge does the same at any zoom.
 - **Side / Aft**: switch between the side profile and an aft (head-on) view; **Reset** restores the default framing.
+
+## Hiding parts (2D and 3D)
+
+The eye button on a row of the component tree hides that part and everything inside it from the side view, the aft view and the 3D model, so you can get at what is behind it. The parts behind it stay where they are. **Show all** under the tree brings every part back.
+
+Hiding changes only the picture: hidden parts still count in mass, CG, aerodynamics and every flight number, and the 3D flight path still draws them. Hiding is not saved with the design, and opening another design clears it.
 
 ## View toggles (2D and 3D)
 
 Two toolbar buttons control what's overlaid on the **2D** and **3D** views:
 
 - **CG / CP**: show or hide the **CG / CP / stability** markers and their callouts.
-- **Info**: show or hide the quick-glance **length · mass · CG · CP · stability** card in the upper-left corner (the same summary as the [stats strip](#reading-the-stats-strip), handy on a phone, where the strip is on the other tab).
+- **Info**: show or hide the quick-glance **length · mass · CG · CP · stability** card in the upper-left corner. It starts off, since the [Information strip](#reading-the-stats-strip) under the drawing shows the same figures; it is handy on a phone, where the strip is on the other tab.
 
 ## 3D model
 
-An interactive 3D model of the rocket: orbit to inspect the geometry from any angle.
+An interactive 3D model of the rocket: orbit to inspect the geometry from any angle. Drag to turn it, scroll to zoom, and Shift-drag or Ctrl-drag (two fingers on a touch screen) to pan.
 
-- **⟲ Reset** re-fits the current view.
+- **Right-drag** swings the light around the model, as in desktop OpenRocket: across moves it left and right as you see it, up and down raises and lowers it. The lighting turns with your view, so whichever side faces you is lit the same way as you orbit. While you drag, a small ball in the bottom right corner is lit the same way, its bright side pointing at the light; a light from behind the rocket leaves it dark with a lit rim. Lighting from low and to the side shows the joints and the fin edges; lighting along a glossy part shows its shine.
+- **⟲ Reset** re-fits the current view and puts the light back.
 - **Side** and **Aft** move the camera to the side profile or behind the rocket, where clusters and the fin count show as they sit.
 - **Cutaway** opens the airframe along the centerline to show the internal parts.
 - **Figure** and **Finished** are two of desktop OpenRocket's 3D view types. **Figure**, the one the view opens on, draws each part in its figure color with the airframe see-through, so the parts inside show. **Finished** draws each part in its [3D appearance](./designing-a-rocket.md#appearance), solid unless you lowered its opacity. The 3D flight path always shows the finished rocket.
@@ -65,7 +73,7 @@ You can export these as **CSV** (see [Files & Exports](./files-and-exports.md)).
 
 ## Flight (after a simulation)
 
-A panel of **flight charts** over time: altitude, velocity, acceleration, Mach, thrust, drag, mass, stability, CP, CG and angle of attack, plus **dynamic pressure**, **q·α** (dynamic pressure times the angle of attack, which the side load on fins and couplers follows) and **roll rate**. Flight events (burnout, apogee, deployment, landing) are marked, which answers *when*; the **[Flight events](./running-a-simulation.md#flight-events)** table on the Results pane reads the same events down a list, each with the state of the rocket at that instant. Toggle which measures show from the chip bar, hover for a synchronized crosshair and value readout across every chart, and zoom / pan the time axis (the +/− buttons, drag, or Ctrl / pinch-scroll). **The measures you pick are remembered**: open thrust and mass once and they are still open next time, in this design and any other. **Velocity vs altitude** plots the climb and the descent against altitude instead of time; it does not zoom with the time axis, and the crosshair's moment shows as a dot on the curve. The **⤢** in a chart's corner shows that chart alone at the full height of the pane, and **⤡** brings the others back.
+A panel of **flight charts** over time: altitude, velocity, acceleration, Mach, thrust, drag, mass, stability, CP, CG and angle of attack, plus **dynamic pressure**, **q·α** (dynamic pressure times the angle of attack, which the side load on fins and couplers follows) and **roll rate**. Flight events (burnout, apogee, deployment, landing) are marked, which answers *when*; the **[Flight events](./running-a-simulation.md#flight-events)** table on the Results pane reads the same events down a list, each with the state of the rocket at that instant. Toggle which measures show from the chip bar. **Add a series…** at the end of the bar adds a chart for anything else the simulation recorded, named as desktop OpenRocket names it: position east and north, lateral distance, latitude and longitude, pitch and yaw rates, the Reynolds number, the drag coefficients and their friction / pressure / base split, the moment coefficients, wind, the air's temperature, pressure and density, motor mass, the time step and more. An added chart gets a chip of its own, which closes it. **Y against X…** in the same list plots one series against another instead of against time: pick the Y and X axes and **Add chart**, for drag coefficient against Mach, north against east, or any other pair. Two distances (north against east) are drawn to one scale, so the curve keeps its shape over the ground, and an aerodynamic series (CP, stability, q·α) stops at the end of forward flight, as on its own chart. Hover for a synchronized crosshair and value readout across every chart, and zoom / pan the time axis (the +/− buttons, drag, or Ctrl / pinch-scroll). **The measures you pick are remembered**: open thrust and mass once and they are still open next time, in this design and any other. **Velocity vs altitude** plots the climb and the descent against altitude instead of time. It and every pair you add do not zoom with the time axis, and the crosshair's moment shows as a dot on the curve. The **⤢** in a chart's corner shows that chart alone at the full height of the pane, and **⤡** brings the others back.
 
 **Choosing which flight**: run one simulation and the pane's title is simply its name. Run several at once and the title becomes a **picker** listing exactly those: click it and choose the flight to read. One flight shows at a time, and the choice applies to all four results views (the charts, the [ground track](#ground-track-after-a-simulation), the 3D path and the [environment](#environment-after-a-simulation)), so switching shows you the same flight whichever way you are looking at it.
 
@@ -155,9 +163,23 @@ An hour whose wind or launch angle is over the safety limit is not flown, the sa
 
 Without a forecast, the section says how to get one. For a rocket not designed here, the [landing estimator](./tools.md#landing-estimator) on the Tools tab gives an estimate from typed descent rates.
 
-## Reading the stats strip
+## Flight card (after a simulation) {#flight-card}
 
-The bottom strip summarizes the current design as a grid of tiles (collapse it with the chevron on its header):
+A card for the range table, filled in from the flight being shown and the configuration it flies:
+
+- **Flyer**: your name and each membership, with its number and the highest certification you hold there, from [Settings ▸ Flyer](./settings.md#flyer). Whatever is not saved there is a line to write on, and so are the **Date**, and at the bottom the **Pad** and the **RSO**.
+- **Rocket**: length, diameter, liftoff mass, CG, CP and stability, and the **certification needed**. That comes from the total impulse of every motor on the pad, as NAR and Tripoli both rate a cluster or a staged rocket: none up to G, Level 1 for H and I, Level 2 for J to L, Level 3 above. When the highest certification saved under Settings ▸ Flyer is below it, the card says so.
+- **Motors**: each with its stage, mount, full name, count, class and delay, or **Plugged**.
+- **Predicted flight**: apogee, time to apogee, top speed and Mach, the speed off the rail with the rail's length and angle, the wind, the best delay, and the deployment and landing speeds.
+- **Recovery**: each device, its role, and when it opens on this flight, the configuration's own setting where it has one; then the saved [recovery charges](./designing-a-rocket.md#saving-charges).
+
+The mass, CG and stability are the live build's, which weighs the configuration being edited. A simulation flying another one leaves them out and says so; make it the active simulation to fill them in.
+
+**Print**, or Ctrl+P while the card is open, prints the card alone, black on white, onto as many sheets as it needs. It ends with the same **Before you fly** notes as the Results tab: what to check on the rocket you built, what the model never had, your safety code, and who is responsible.
+
+## Reading the Information strip {#reading-the-stats-strip}
+
+The **Information** strip under the drawing summarizes the current design as a grid of tiles (collapse it with the chevron on its header):
 
 - **Length**, **Max diameter**, **Fineness** (length / diameter).
 - **Mass** and **CG**, each shown **empty / loaded** (dry, and with the motor) in one tile.

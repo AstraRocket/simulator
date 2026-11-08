@@ -5,7 +5,7 @@ import { offsetToLatLon, KERNEL_EARTH_RADIUS_M } from '../../../src/services/map
 
 const DEG = 180 / Math.PI;
 
-/** WorldCoordinate.REARTH as the kernel source declares it, meters. */
+// WorldCoordinate.REARTH read from the kernel source, meters.
 const JAVA_REARTH = (() => {
   const file = fileURLToPath(
     new URL('../../../../engine-java/src/java/info/openrocket/core/util/WorldCoordinate.java', import.meta.url),
@@ -15,7 +15,7 @@ const JAVA_REARTH = (() => {
   return Number(m[1]);
 })();
 
-/** Great-circle distance between two points on a sphere of radius `r` (haversine), meters. */
+/** Haversine, meters. */
 function distance(lat1: number, lon1: number, lat2: number, lon2: number, r: number): number {
   const [p1, p2] = [lat1 / DEG, lat2 / DEG];
   const dp = p2 - p1;
@@ -24,7 +24,7 @@ function distance(lat1: number, lon1: number, lat2: number, lon2: number, r: num
   return 2 * r * Math.asin(Math.sqrt(h));
 }
 
-/** Initial great-circle bearing from the first point to the second, radians clockwise from north. */
+/** Initial great-circle bearing, radians clockwise from north. */
 function bearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const [p1, p2] = [lat1 / DEG, lat2 / DEG];
   const dl = (lon2 - lon1) / DEG;
@@ -34,12 +34,7 @@ function bearing(lat1: number, lon1: number, lat2: number, lon2: number): number
   );
 }
 
-/**
- * A port of the kernel's default SPHERICAL GeodeticComputationStrategy
- * .addCoordinate (GeodeticComputationStrategy.java), checked against closed
- * forms at interior points rather than against another copy in web/: a move due
- * north travels the meridian, so the latitude grows by exactly d / R.
- */
+// Ports SPHERICAL GeodeticComputationStrategy.addCoordinate.
 describe('offsetToLatLon (kernel spherical)', () => {
   it('uses the kernel Earth radius', () => {
     expect(KERNEL_EARTH_RADIUS_M).toBe(JAVA_REARTH);
@@ -58,16 +53,9 @@ describe('offsetToLatLon (kernel spherical)', () => {
   });
 
   it('follows the great circle off the equator, which bends toward the pole', () => {
-    // Due east at 60 N: the great circle starts east and curves south of the
-    // parallel, so the latitude drops slightly. A flat projection keeps it.
     const ll = offsetToLatLon(60, 0, { east: 100_000, north: 0 });
     expect(ll.lat).toBeLessThan(60);
   });
-
-  // The inverse problem, solved independently: the point lies the offset's
-  // length away along a great circle that leaves the site on the offset's
-  // bearing. Both latitude and longitude terms have to be right for either to
-  // hold at a bearing that is not a cardinal direction.
   it.each([
     { lat: 39.7, lon: -104.9, east: 3_000, north: 4_000 },
     { lat: 52.1, lon: 4.3, east: -12_000, north: 7_500 },

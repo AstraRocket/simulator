@@ -25,19 +25,12 @@ describe('parseWindProfileCsv', () => {
     expect(parseWindProfileCsv(csv('altitude,speed,direction,stddev', '0,4,90,'))[0]!.stddev).toBe(0);
   });
 
-  /**
-   * The kernel floors a negative deviation at 0:
-   * `this.standardDeviation = Math.max(standardDeviation, 0)`
-   * (engine-java/src/java/info/openrocket/core/models/wind/PinkNoiseWindModel.java:157),
-   * which every level goes through (MultiLevelPinkNoiseWindModel.java:52).
-   */
   it('floors a negative deviation at 0, as the kernel does', () => {
     const kernelFloor = (sd: number) => Math.max(sd, 0);
     for (const sd of [-0.0001, -0.5, -3, -1e6, 0, 0.25, 7]) {
       const [level] = parseWindProfileCsv(csv('altitude,speed,direction,stddev', `0,4,90,${sd}`));
       expect(level!.stddev, String(sd)).toBe(kernelFloor(sd));
     }
-    // A decimal comma in a semicolon file, and a negative speed's flipped heading, too.
     const [level] = parseWindProfileCsv(csv('altitude;speed;direction;stddev', '0;-4;90;-1,5'));
     expect(level).toEqual({ altitudeM: 0, speed: 4, directionDeg: 270, stddev: 0 });
   });
@@ -108,14 +101,7 @@ describe('parseWindProfileCsv', () => {
   });
 });
 
-/**
- * A blank required cell is not a zero.
- *
- * `Number('')` is 0 and 0 passes `Number.isFinite`, so without a check an empty
- * altitude or speed would import as a genuine 0 m/s reading at that level. The module's own
- * contract is that every failure throws rather than returning a short list,
- * and `stddev` is the only column where blank legitimately means "none".
- */
+// `Number('')` is 0, so a blank required cell would otherwise import as a real 0.
 describe('a blank cell in a required column', () => {
   it('fails the row rather than reading as 0 m/s', () => {
     expect(() => parseWindProfileCsv('altitude,speed,direction\n100,,90\n')).toThrow();
@@ -130,12 +116,6 @@ describe('a blank cell in a required column', () => {
   });
 });
 
-/**
- * `altitudeagl` is not a plain alias for the altitude column: read as MSL, the
- * levels at a 1500 m site would be a different wind. The result says what the
- * header said, as a property on the array so the callers that only iterate it
- * are unaffected.
- */
 describe('the altitude reference the header names', () => {
   it('is agl for an AGL header and msl for an MSL one', () => {
     expect(parseWindProfileCsv(csv('altitude AGL,speed,direction', '0,4,90')).reference).toBe('agl');
@@ -150,11 +130,6 @@ describe('the altitude reference the header names', () => {
   });
 });
 
-/**
- * A spreadsheet quotes any header carrying a comma, space or parenthesis, so
- * `"altitude (m)"` arrives with its quotes on and has to be unquoted before it
- * can match an alias.
- */
 describe('quoted headers and cells', () => {
   it('reads a header a spreadsheet quoted', () => {
     const levels = parseWindProfileCsv(

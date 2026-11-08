@@ -1,11 +1,6 @@
 import { PAD_L, PAD_R } from './flightChartAxis';
 import { PanelExpandButton } from './PanelExpandButton';
 
-/**
- * A flight chart panel's frame: the title and the reading in a header row, the
- * expand toggle beside the reading, and the plot as an SVG `w` by `height`
- * that describes itself to a screen reader with `summary`.
- */
 export function ChartPanelFrame({
   title,
   reading,
@@ -19,7 +14,6 @@ export function ChartPanelFrame({
   title: string;
   reading: React.ReactNode;
   expanded: boolean;
-  /** Absent hides the toggle. */
   onToggleExpand?: () => void;
   w: number;
   height: number;
@@ -50,11 +44,7 @@ export function ChartPanelFrame({
   );
 }
 
-/**
- * The clip that keeps a panel's time- or distance-mapped marks inside the plot
- * area, so a point zoomed out of the window does not spill over the y labels.
- * Goes in the panel's `<defs>`, with the marks in a group clipped to `id`.
- */
+/** Goes in `<defs>`. */
 export function PanelClip({ id, w, height }: { id: string; w: number; height: number }) {
   return (
     <clipPath id={id}>
@@ -63,7 +53,6 @@ export function PanelClip({ id, w, height }: { id: string; w: number; height: nu
   );
 }
 
-/** One stroked path per line, in its stage's color; a line with no path draws nothing. */
 export function PanelLines({ paths, colors }: { paths: readonly string[]; colors: readonly string[] }) {
   return (
     <>
@@ -76,7 +65,6 @@ export function PanelLines({ paths, colors }: { paths: readonly string[]; colors
   );
 }
 
-/** The y axis's two end labels, already formatted: the top of the plot and its bottom. */
 export function YEnds({
   top,
   bottom,

@@ -7,18 +7,7 @@ import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngin
 import { kernelGeometry, loadEngine, walkTree, type KernelGeometry } from '../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
-/**
- * Where the kernel puts a body part inside a pod set that is not positioned
- * AFTER (D58).
- *
- * The source points both ways: `SymmetricComponent.isAfter()` is always true,
- * so a pod's body parts would stack, but `ComponentAssembly.updateChildSequence`
- * calls `setAfter()` only for a part whose method is AFTER, so one stated TOP,
- * MIDDLE or BOTTOM would sit by its offset. The kernel's `getComponentInfo`
- * station (the front of the first copy, from the nose tip) says they stack, so
- * the layout walk (`layStages`, `stacksInParent`) and the AFTER resolution on
- * load both stack them.
- */
+// The Java source is ambiguous; the kernel's stations say a pod's body parts stack whatever their method.
 
 const tube = (id: string, length: number, position?: ComponentNode['position']): ComponentNode => ({
   type: 'bodytube',
@@ -92,9 +81,7 @@ describe('a pod set body part not positioned AFTER (D58)', () => {
   it(
     'resolves an AFTER part behind a TOP-offset one where the kernel puts it',
     async () => {
-      // As a file loads it: the AFTER tube follows a tube stated at TOP + 0.05.
-      // The kernel stacks the first tube, so the second starts at its aft end,
-      // not 0.05 further back.
+      // The kernel stacks the first tube, so the AFTER one starts at its aft end, not 0.05 further back.
       const filed: RocketTree = {
         name: 'pod after',
         components: [

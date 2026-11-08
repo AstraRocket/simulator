@@ -26,8 +26,8 @@ const tree = (over: Record<string, unknown> = {}): RocketTree =>
                 name: 'Fins',
                 finCount: 3,
                 rootChord: 0.06,
-                tipChord: 0, // a delta fin: legitimately zero
-                sweep: 0, // unswept: legitimately zero
+                tipChord: 0,
+                sweep: 0,
                 height: 0.05,
                 thickness: 0.003,
                 ...(over.fins ?? {}),
@@ -60,7 +60,7 @@ const t = (key: string, vars?: Record<string, unknown>) =>
 describe('isDimension', () => {
   it('accepts only a real positive number', () => {
     expect(isDimension(0.05)).toBe(true);
-    expect(isDimension(0)).toBe(false); // the whole point
+    expect(isDimension(0)).toBe(false);
     expect(isDimension(-1)).toBe(false);
     expect(isDimension(null)).toBe(false);
     expect(isDimension(undefined)).toBe(false);
@@ -82,8 +82,7 @@ describe('badDimensions', () => {
   });
 
   it('does NOT flag the legitimately-zero fin dimensions', () => {
-    // tipChord 0 is a delta fin and sweep 0 is an unswept one; flagging either
-    // would put a red box on a perfectly ordinary design.
+    // tipChord 0 is a delta fin and sweep 0 an unswept one: both legitimate.
     expect(badDimensions(tree()).map((d) => d.field)).not.toContain('tipChord');
     expect(badDimensions(tree()).map((d) => d.field)).not.toContain('sweep');
   });
@@ -130,29 +129,22 @@ describe('designBlocker', () => {
   });
 
   it('translates the part TYPE when the part has no name of its own', () => {
-    // The fallback is a bare token like "bodytube"; printing that at the user
-    // would leak an internal name into the message.
     const b = designBlocker(tree({ fins: { name: undefined, finCount: 0 } }))!;
     expect(designBlockerText(b, t)).toContain('part.trapezoidfinset');
   });
 
   it("keeps a part's own name even when it reads like a type", () => {
-    // An unnamed part arrives with no name, not one copied from its type, so the
-    // message can tell it from a part someone called "bodytube" and translate
-    // only the first.
     const b = designBlocker(tree({ fins: { name: 'bodytube', finCount: 0 } }))!;
     expect(designBlockerText(b, t)).toContain('name=bodytube,');
   });
 
   it('names each part once, listing all of its bad dimensions together', () => {
-    // One thing to go and fix, not two.
     const b = designBlocker(tree({ button: { outerDiameter: 0, height: 0 } }))!;
     const msg = designBlockerText(b, t);
     expect(msg).toContain('sim.badGeometry');
     expect(msg).toContain('sim.badGeometryPart(name=Button,');
     expect(msg).toContain('part.field.outerDiameter');
     expect(msg).toContain('part.field.height');
-    // The part is named once, not repeated per field.
     expect(msg.match(/Button/g)).toHaveLength(1);
   });
 });

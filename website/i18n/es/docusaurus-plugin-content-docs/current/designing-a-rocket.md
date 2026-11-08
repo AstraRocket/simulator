@@ -4,6 +4,12 @@ sidebar_position: 8
 ---
 El panel de **Componentes** (a la izquierda en escritorio) contiene el árbol de componentes de tu cohete. A medida que añades y editas piezas, la vista 2D y las **estadísticas de estabilidad** (la franja inferior) se actualizan en vivo, así que siempre ves el efecto de un cambio sobre el CG, el CP y la estabilidad.
 
+## Notas del diseño {#design-notes}
+
+La sección plegable **Notas del diseño**, sobre el árbol, reúne el diseñador, el nombre del kit, el fabricante del kit, la referencia del kit, el tipo de diseño, los comentarios y el historial de revisiones, además de un registro de revisiones con fecha: elige una fecha, escribe una nota y pulsa **Añadir revisión**. Cada cambio es un paso de deshacer.
+
+Un `.ork` guardado aquí lo conserva todo. El fabricante del kit, la referencia del kit y las revisiones con fecha son propios de esta aplicación, así que OpenRocket de escritorio los descarta si guarda el archivo. Un `.rkt` no guarda esos tres ni el nombre del kit.
+
 ## El árbol de componentes {#the-component-tree}
 
 Un cohete es un árbol de componentes, de la ojiva a la cola, agrupados en etapas. Selecciona cualquier pieza (en el árbol **o** haciendo clic en ella en la vista 2D) para editar sus propiedades.
@@ -264,4 +270,4 @@ Los soportes y los motores se mantienen sincronizados automáticamente: añade u
 
 ## Estabilidad de un vistazo {#stability-at-a-glance}
 
-La franja **Estadísticas estáticas** inferior muestra la longitud del diseño actual, su diámetro máximo, la relación de finura, la masa y el CG vacío/cargado, el CP, el peso de recuperación (masa de descenso), la estabilidad (en calibres en la rampa y como % de la longitud), el coeficiente de resistencia y la pendiente de fuerza normal a Mach 0,3, y los momentos de inercia de balanceo y cabeceo con el cohete cargado. Haz clic en su título para plegarla a la longitud y la estabilidad en la rampa, y otra vez para desplegarla. Hay más detalle en **[Vistas y análisis](./views-and-analysis.md)**.
+La franja **Información** inferior muestra la longitud del diseño actual, su diámetro máximo, la relación de finura, la masa y el CG vacío/cargado, el CP, el peso de recuperación (masa de descenso), la estabilidad (en calibres en la rampa y como % de la longitud), el coeficiente de resistencia y la pendiente de fuerza normal a Mach 0,3, y los momentos de inercia de balanceo y cabeceo con el cohete cargado. Haz clic en su título para plegarla a la longitud y la estabilidad en la rampa, y otra vez para desplegarla. Hay más detalle en **[Vistas y análisis](./views-and-analysis.md)**.

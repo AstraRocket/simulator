@@ -3,7 +3,6 @@ import i18n from '../../../src/i18n';
 import { launcherKind, withLauncher } from '../../../src/services/design/launcher';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
-/** A one-tube design carrying the given guides. */
 const design = (...guides: string[]): RocketTree =>
   ({
     components: [

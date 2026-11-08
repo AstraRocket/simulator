@@ -4,7 +4,6 @@ import { hasThrustCurve, unflyable, unflyableSims, unflyableText } from '../../.
 import { MAX_ROD_ANGLE_DEG, MAX_WIND_SPEED_MS } from '../../../src/services/flight/safetyLimits';
 import { METRIC_UNITS, unitSymbols } from '../../../src/prefs/units';
 
-/** The reader's units, which every limit sentence is rendered in. */
 const units = unitSymbols(METRIC_UNITS, {});
 import type { Simulation } from '../../../src/services/flight/simulations';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
@@ -23,7 +22,6 @@ const launch: LaunchConditions = {
   pressureHPa: null,
 };
 
-// A whole motor: the dimensions cross into the kernel with the curve.
 const CURVE = {
   designation: 'C6',
   diameter: 0.018,
@@ -34,13 +32,6 @@ const CURVE = {
   masses: [0.02, 0.01],
 };
 
-/**
- * A row, with the motor it is judged by hanging off it.
- *
- * The gate takes the motor as an argument because it lives in the row's
- * flight configuration rather than on the row; carrying it here keeps each case
- * readable as one object.
- */
 type Row = Simulation & { motor?: MotorSpec };
 
 const sim = (name: string, over: Partial<Row> = {}): Row =>
@@ -81,13 +72,6 @@ describe('unflyable', () => {
     expect(gate(sim('x', { motor: { designation: 'M' } as never }))?.kind).toBe('noMotor');
   });
 
-  /**
-   * The kernel keys its wind levels on altitude and throws on the second one at a
-   * given height, so left to `simulate()` this comes back as `engine simulate
-   * failed: Wind level already exists for altitude: 0.0` -- after the design is
-   * built, in the kernel's words, for something the profile editor let the user
-   * type. The gate names it before the run starts.
-   */
   it('refuses a wind profile with two levels at one altitude', () => {
     const doubled = sim('x', {
       launch: {
@@ -125,15 +109,12 @@ describe('unflyable', () => {
   });
 
   it('refuses a simulation with a blank required field', () => {
-    // A field that coerces a cleared box to 0 cannot reach this state, and an
-    // empty rod length flies as a zero-length rod.
     const r = gate(sim('x', { launch: { ...launch, launchRodLengthM: null } }));
     expect(r?.kind).toBe('incomplete');
     expect(r && r.kind === 'incomplete' && r.missing).toEqual(['launchRodLengthM']);
   });
 
   it('does NOT refuse a legitimate zero', () => {
-    // Still air, no gusts, sea level, the equator, rod straight up.
     const zeros = sim('x', {
       launch: { ...launch, windAverage: 0, windStdDev: 0, launchAltitudeM: 0, latitudeDeg: 0, launchRodAngleDeg: 0 },
     });
@@ -150,8 +131,6 @@ describe('unflyable', () => {
   });
 
   it('checks completeness BEFORE the safety codes', () => {
-    // A blank rod angle is not "within so many degrees of vertical"; it is nothing
-    // to judge, so the missing field is the useful thing to report.
     const r = gate(sim('x', { launch: { ...launch, launchRodAngleDeg: null, windAverage: 99 } }));
     expect(r?.kind).toBe('incomplete');
   });

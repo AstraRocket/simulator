@@ -12,12 +12,6 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Each stage's landing row names the stage as the ground track and the flight
- * chart name its branch: the name the kernel gives the branch, which is the
- * stage's own name. The flight is the kernel's, through the bridge.
- */
-
 const stage = (id: string, name: string, extra: Record<string, unknown>, children: unknown[]) => ({
   id,
   type: 'stage',
@@ -91,7 +85,6 @@ describe('the landing rows of a staged flight', () => {
   it('name each stage as the ground track names its branch', async () => {
     const result = await fly();
     const names = (result.branches ?? []).map((b) => b.name);
-    // The kernel's branch names are the stages' own.
     expect(result.branches?.map((b) => b.name)).toContain('Kick');
     const flight = {
       id: 's1',

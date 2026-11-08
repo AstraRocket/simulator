@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   buildFlightScene,
+  burnAt,
+  delayWindows,
+  smokePuffs,
   indexForProgress,
   modelPoseAt,
   newModelPose,
@@ -12,13 +15,10 @@ import { boostWindows, findRecovery } from '../../../src/components/canvas/fligh
 import { mergePalette } from '../../../src/services/design/partColors';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 
-// Three distinct primaries, so a point's phase is readable straight off its
-// vertex color.
 const phase: PhaseColors = { boost: '#ff0000', coast: '#00ff00', descent: '#0000ff' };
 const RED = 0,
   GREEN = 1,
   BLUE = 2;
-/** Which channel is lit, i.e. which phase this point was colored for. */
 const chan = (c: [number, number, number]) => c.indexOf(Math.max(...c));
 
 const result = (over: {
@@ -39,7 +39,6 @@ const result = (over: {
     },
   }) as unknown as FlightResult;
 
-/** A 0..10 s arc peaking at 300 m at t=5. */
 const arc = () => {
   const time = Array.from({ length: 11 }, (_, i) => i);
   const altitude = time.map((t) => 300 - 12 * (t - 5) ** 2);
@@ -49,20 +48,13 @@ const arc = () => {
 describe('apogee time fallback', () => {
   it('uses the APOGEE event when there is one', () => {
     const s = buildFlightScene(result({ ...arc(), events: [{ type: 'APOGEE', time: 5 }] }), phase);
-    expect(chan(s.colors[4]!)).toBe(GREEN); // before apogee: coast
-    expect(chan(s.colors[6]!)).toBe(BLUE); // after: descent
+    expect(chan(s.colors[4]!)).toBe(GREEN);
+    expect(chan(s.colors[6]!)).toBe(BLUE);
   });
 
-  /**
-   * With no APOGEE event the fallback is a time, never the peak altitude. Read
-   * as seconds, this flight's 300 m peak would put apogee at t = 300, past the
-   * end of the flight, so the descent color would never appear and, because the
-   * deployment time defaults to it, the recovery device would never come out
-   * during playback either.
-   */
   it('falls back to the last sample time, not the peak altitude', () => {
     const s = buildFlightScene(result({ ...arc() }), phase);
-    expect(s.deployT).toBe(10); // the flight's last sample, not its 300 m peak
+    expect(s.deployT).toBe(10);
     expect(s.callouts.find((c) => c.type === 'APOGEE')!.time).toBe(10);
   });
 
@@ -88,13 +80,6 @@ describe('apogee time fallback', () => {
 });
 
 describe('the empty-path guard', () => {
-  /**
-   * A kernel failure can still hand back a result object whose samples are all
-   * non-finite. Every row is then filtered out and `sp` is empty, so the callout
-   * loop must not index into it: a throw inside the memo happens before the
-   * component's own empty-state guard can render "no path", and takes the whole
-   * app down.
-   */
   it('returns an empty scene instead of throwing when every sample is non-finite', () => {
     const s = buildFlightScene(
       result({
@@ -142,7 +127,6 @@ describe('callouts', () => {
   });
 
   it('drops a label that would sit on top of another', () => {
-    // Deployment right at apogee: one marker, not two stacked in the same spot.
     const s = buildFlightScene(
       result({
         ...arc(),
@@ -154,18 +138,10 @@ describe('callouts', () => {
       phase,
     );
     expect(s.callouts.filter((c) => c.time === 5)).toHaveLength(1);
-    // The deployment time is still reported; only its duplicate label is gone.
     expect(s.deployT).toBe(5);
   });
 });
 
-/**
- * An ejection charge is not a deployment. The kernel records a booster's charge
- * in the sustainer's flight at booster burnout, and a charge with nothing to
- * open leaves the rocket flying forward, so the model turns over at apogee when
- * no deployment is recorded, as the flight chart's aero window ends there
- * (`forwardFlightEnd`).
- */
 describe('an ejection charge with no deployment', () => {
   const s = buildFlightScene(
     result({
@@ -203,7 +179,6 @@ describe('scaling', () => {
 });
 
 describe('indexForProgress', () => {
-  /** A linear scan: the reference the binary search has to agree with. */
   const linear = (times: number[], progress: number) => {
     const n = times.length;
     const totalT = times[n - 1] || 1;
@@ -220,7 +195,6 @@ describe('indexForProgress', () => {
   });
 
   it('maps by time, not by sample count', () => {
-    // Half the flight in time is t = 4.5: index 5 (t = 4), not index 3.
     const times = [0, 0.1, 0.3, 0.7, 1.5, 4, 9];
     expect(indexForProgress(times, 0.5)).toBe(5);
   });
@@ -256,11 +230,9 @@ describe('modelPoseAt', () => {
 
   it('sits on the pad at launch: lifted by half the model length along its up component', () => {
     const out = modelPoseAt(pts, 0, false, 2, newModelPose());
-    // Tangent from pts[0] to pts[1] is (1,3)/|..|; dir.y = 3/sqrt(10).
     const dirY = 3 / Math.sqrt(10);
     expect(out.position.x).toBe(0);
     expect(out.position.y).toBeCloseTo(1 * dirY, 9);
-    // The nose is half a model length along the flight direction.
     expect(out.nose.x).toBeCloseTo(1 / Math.sqrt(10), 9);
   });
 
@@ -289,11 +261,6 @@ describe('modelPoseAt', () => {
   });
 });
 
-/**
- * The recovery device the 3D flight shows is the first one in tree order, at
- * the size the kernel flies: a streamer with no strip length has the kernel's
- * 0.5 m strip (ComponentFactory, case "streamer").
- */
 describe('findRecovery', () => {
   const tree = (kids: object[]) =>
     ({ components: [{ type: 'stage', id: 's', children: kids }] }) as unknown as RocketTree;
@@ -315,11 +282,6 @@ describe('findRecovery', () => {
   });
 });
 
-/**
- * A staged flight's main branch carries the booster's burnout first and the
- * sustainer's after it. The boost color and the flame follow each burn, with
- * the coast between them colored as coast.
- */
 describe('boost windows', () => {
   it('pairs each ignition with the burnout that ends it', () => {
     expect(
@@ -365,9 +327,90 @@ describe('boost windows', () => {
       }),
       phase,
     );
-    expect(chan(s.colors[1]!)).toBe(RED); // booster burn
-    expect(chan(s.colors[3]!)).toBe(GREEN); // coast between the stages
-    expect(chan(s.colors[5]!)).toBe(RED); // sustainer burn
-    expect(chan(s.colors[8]!)).toBe(GREEN); // coast to apogee
+    expect(chan(s.colors[1]!)).toBe(RED);
+    expect(chan(s.colors[3]!)).toBe(GREEN);
+    expect(chan(s.colors[5]!)).toBe(RED);
+    expect(chan(s.colors[8]!)).toBe(GREEN);
+  });
+});
+
+describe('the smoke trail', () => {
+  const pts = [0, 1, 2, 3, 4, 5].map((y) => new THREE.Vector3(0, y, 0));
+  const scene = {
+    scenePts: pts,
+    times: [0, 1, 2, 3, 4, 5],
+    boostWindows: [
+      [0, 2],
+      [3, 4],
+    ] as [number, number][],
+  };
+
+  it('says which burn a time is in', () => {
+    expect([0, 1.5, 2, 3.5, 4.5].map((t) => burnAt(t, scene.boostWindows))).toEqual([0, 0, -1, 1, -1]);
+  });
+
+  it('leaves a puff per burning sample, by its burn, behind the model and never under the ground', () => {
+    const puffs = smokePuffs(scene, 100, 0.5);
+    expect(puffs.map((p) => [p.time, p.burn, p.pos.y])).toEqual([
+      [0, 0, 0],
+      [1, 0, 0.5],
+      [3, 1, 2.5],
+    ]);
+  });
+
+  it('thins a long burn to the most it draws', () => {
+    const time = Array.from({ length: 1000 }, (_, i) => i / 100);
+    const long = {
+      scenePts: time.map((t) => new THREE.Vector3(0, t, 0)),
+      times: time,
+      boostWindows: [[0, 10]] as [number, number][],
+    };
+    const puffs = smokePuffs(long, 50);
+    expect(puffs).toHaveLength(50);
+    expect(puffs[49]!.time).toBeGreaterThan(9.5);
+  });
+});
+
+describe('the smoke trail off the pad', () => {
+  it('leaves out puffs closer than the gap, so a slow start does not stack them', () => {
+    const ys = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 1, 2, 3];
+    const scene = {
+      scenePts: ys.map((y) => new THREE.Vector3(0, y, 0)),
+      times: ys.map((_, i) => i * 0.01),
+      boostWindows: [[0, 1]] as [number, number][],
+    };
+    expect(smokePuffs(scene, 100, 0, 0.5).map((p) => p.pos.y)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("the delay grain's smoke", () => {
+  it('runs from each burnout to the ejection charge after it, and not for a plugged burn', () => {
+    const burns: [number, number][] = [
+      [0, 1],
+      [3, 4],
+    ];
+    const events = [
+      { type: 'EJECTION_CHARGE', time: 1 },
+      { type: 'EJECTION_CHARGE', time: 9 },
+    ];
+    expect(delayWindows(events, burns)).toEqual([[4, 9]]);
+    expect(delayWindows([], burns)).toEqual([]);
+  });
+
+  it('leaves delay puffs, by the burn before them, between burnout and the charge', () => {
+    const ys = [0, 1, 2, 3, 4, 5, 6];
+    const scene = {
+      scenePts: ys.map((y) => new THREE.Vector3(0, y, 0)),
+      times: ys,
+      boostWindows: [[0, 2]] as [number, number][],
+      delayWindows: [[2, 5]] as [number, number][],
+    };
+    expect(smokePuffs(scene, 100).map((p) => [p.time, p.burn, p.delay])).toEqual([
+      [0, 0, false],
+      [1, 0, false],
+      [2, 0, true],
+      [3, 0, true],
+      [4, 0, true],
+    ]);
   });
 });

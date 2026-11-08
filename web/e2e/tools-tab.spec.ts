@@ -1,10 +1,5 @@
 import { test, expect, ready } from './base';
 
-/**
- * The Tools tab's parachute sizing, and the parachute editor's sizing dialog,
- * end to end. Nothing here leaves the machine: no forecast is asked for.
- */
-
 test('Parachute sizing works from typed inputs', async ({ page }) => {
   await ready(page);
   await page.getByRole('navigation', { name: 'Workbench' }).getByRole('button', { name: 'Tools', exact: true }).click();
@@ -22,6 +17,5 @@ test('the parachute editor opens its sizing in a dialog, and applies a size', as
   const dialog = page.getByRole('dialog', { name: 'Descent sizing' });
   await expect(dialog.getByText(/^Estimated for a descent mass/)).toBeVisible();
   await dialog.getByRole('button', { name: 'Use the main diameter' }).click();
-  // The canopy now lands in the main band.
   await expect(dialog.getByText('(main range)')).toBeVisible();
 });

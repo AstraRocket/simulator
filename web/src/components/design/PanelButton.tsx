@@ -1,10 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-/**
- * An action button in the property panel (move, auto fin tab, apply the
- * scale). A disabled one dims its text and keeps its fill, so a row of them
- * keeps its shape while one is unavailable. `className` is layout only.
- */
 export function PanelButton({ className = '', type = 'button', ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button

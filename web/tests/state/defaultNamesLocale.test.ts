@@ -14,11 +14,6 @@ import { importRkt } from '../../src/services/files/rktImport';
 import { exportRkt } from '../../src/services/files/rktExport';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 
-/**
- * A name the app gives a part, a simulation or a rocket the user never named is
- * in the UI language on every path that makes one, as Add Simulation's is.
- */
-
 const simName = (n: number) => es.sims.untitled.replace('{{n}}', String(n));
 
 beforeEach(async () => {

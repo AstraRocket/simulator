@@ -12,7 +12,6 @@ describe('the weather key field', () => {
     localStorage.clear();
   });
 
-  /** Settings closing with Escape removes the field with no blur. */
   it('saves the key when the field goes away before it loses focus', () => {
     const { unmount } = render(<WeatherKeyField />);
     fireEvent.change(screen.getByLabelText(i18n.t('weather.keyLabel')), { target: { value: 'test-key' } });

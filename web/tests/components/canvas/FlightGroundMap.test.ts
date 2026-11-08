@@ -1,24 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { GROUND_ROTATION, configureTileTexture, groundMapLayout } from '../../../src/components/canvas/FlightGroundMap';
+import { GROUND_ROTATION, configureTileTexture, groundMapLayout } from '../../../src/components/canvas/groundMapLayout';
 import { buildFlightScene, sceneFromEnu } from '../../../src/components/canvas/flightScene';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import { TILE_SIZE } from '../../../src/services/map/slippyMap';
 import { MIN_EXTENT_M } from '../../../src/services/flight/groundTrack';
 
-/**
- * Where the ground map's tiles land in the 3D scene.
- *
- * A screenshot cannot check this: a map laid down mirrored, or rotated a
- * quarter turn, is still a convincing photograph of a field. The arc is placed through `sceneFromEnu`
- * (flightScene.ts), so the ground under it has to agree, and tile rows count
- * southward while the scene counts north.
- */
+// Tile rows count southward while the scene counts north.
 
 const HOME = { lat: 39.05, lon: -104.8 };
-/** A 271 m flight: peak altitude is pinned to 24 scene units. */
 const UNITS_PER_METER = 24 / 271;
-/** The ground to cover, in meters from the pad: a flight's reach plus a margin. */
+/** Meters from the pad. */
 const RADIUS = 360;
 
 const layout = () => groundMapLayout(HOME.lat, HOME.lon, RADIUS, UNITS_PER_METER, 'satellite');
@@ -28,13 +20,7 @@ describe('groundMapLayout', () => {
     const { quad, refs } = layout();
     expect(refs.length).toBeGreaterThan(1);
 
-    // The quads together have to reach the edge of the ground they stand in
-    // for, which is measured in scene units like everything else in the scene.
-    //
-    // To within one tile pixel: `visibleTiles` covers a viewport's pixels 0 to
-    // width-1, so the very last column can fall a pixel short of the width it
-    // was given. At these scales that is a few centimeters of ground at the
-    // outer edge, under the grid.
+    // `visibleTiles` covers pixels 0 to width-1, so the last column can fall a pixel short.
     const reach = RADIUS * UNITS_PER_METER - quad / TILE_SIZE;
     const east = refs.map((r) => r.east);
     const north = refs.map((r) => r.north);
@@ -43,17 +29,11 @@ describe('groundMapLayout', () => {
     expect(Math.max(...north) + quad / 2).toBeGreaterThanOrEqual(reach);
     expect(Math.min(...north) - quad / 2).toBeLessThanOrEqual(-reach);
 
-    // Square, and the same scale as everything else in the scene: a tile is
-    // TILE_SIZE pixels of ground, so its quad is that many pixels of meters.
     expect(quad).toBeGreaterThan(0);
     expect(refs.every((r) => Number.isFinite(r.east) && Number.isFinite(r.north))).toBe(true);
   });
 
-  /**
-   * The flip that would be invisible. Tile row numbers grow southward, so the
-   * northernmost tiles are the ones with the smallest `y`, and they have to
-   * end up at the greatest +z.
-   */
+  // Tile rows grow southward: the smallest `y` must land at the greatest +z.
   it('puts northern tiles north, not south', () => {
     const { refs } = layout();
     const rows = [...new Set(refs.map((r) => r.y))].sort((a, b) => a - b);
@@ -63,7 +43,6 @@ describe('groundMapLayout', () => {
     expect(northOf(rows[0]!)).toBeGreaterThan(northOf(rows[rows.length - 1]!));
   });
 
-  /** And the same for east, which is the axis that is easy to get right. */
   it('puts eastern tiles east', () => {
     const { refs } = layout();
     const cols = [...new Set(refs.map((r) => r.x))].sort((a, b) => a - b);
@@ -73,21 +52,14 @@ describe('groundMapLayout', () => {
     expect(eastOf(cols[0]!)).toBeLessThan(eastOf(cols[cols.length - 1]!));
   });
 
-  /**
-   * The pad is the scene's origin and the tile viewport's center, so whichever
-   * tile covers the origin must straddle it rather than sit beside it.
-   */
   it('centers the ground on the pad', () => {
     const { quad, refs } = layout();
     const over = refs.filter((r) => Math.abs(r.east) <= quad / 2 && Math.abs(r.north) <= quad / 2);
     expect(over.length).toBeGreaterThan(0);
   });
 
-  /** Neighboring quads meet exactly: a gap would show as a seam of bare grid. */
   it('lays the quads edge to edge', () => {
     const { quad, refs } = layout();
-    // Rounded before de-duplicating, because the same column arrives from
-    // several rows and float noise would otherwise make each one its own value.
     const cols = [...new Set(refs.map((r) => r.east.toFixed(6)))].map(Number).sort((a, b) => a - b);
     for (let i = 1; i < cols.length; i++) {
       expect(cols[i]! - cols[i - 1]!).toBeCloseTo(quad, 4);
@@ -109,11 +81,6 @@ describe('groundMapLayout', () => {
     expect(keyed.refs.every((r) => r.url.endsWith('?token=test-key'))).toBe(true);
   });
 
-  /**
-   * A bigger flight covers more ground at a coarser zoom rather than fetching
-   * more tiles: the ground is covered in about the same number of texture
-   * pixels however many meters wide it is.
-   */
   it('zooms out for a wider flight rather than fetching more tiles', () => {
     const club = groundMapLayout(HOME.lat, HOME.lon, 200, UNITS_PER_METER, 'satellite');
     const big = groundMapLayout(HOME.lat, HOME.lon, 8_000, UNITS_PER_METER, 'satellite');
@@ -122,12 +89,6 @@ describe('groundMapLayout', () => {
     expect(TILE_SIZE).toBe(256);
   });
 
-  /**
-   * The budget this exists to keep. Imagery is fetched from someone else's
-   * servers and kept in a capped offline cache shared with the app's other maps,
-   * so a single flight must not cost a screenful of tiles per view. Covering the
-   * whole ground plane rather than the flight costs 36.
-   */
   it('costs a modest number of tiles at any scale', () => {
     for (const radius of [MIN_EXTENT_M, 120, 360, 1_500, 20_000]) {
       const { refs } = groundMapLayout(HOME.lat, HOME.lon, radius, UNITS_PER_METER, 'satellite');
@@ -137,14 +98,8 @@ describe('groundMapLayout', () => {
   });
 });
 
-/**
- * The scene's handedness, which neither the arc nor the tiles can check against
- * each other: a mirrored arc over a mirrored map agrees with itself. three.js is
- * right-handed with +y up, so east x north has to come out up; a basis with
- * north on +z gives down, and the whole scene is drawn as its mirror image.
- */
+// three.js is right-handed with +y up, so east x north must come out up.
 describe('scene basis', () => {
-  /** The arc's scene direction for a flight that drifts along one ground axis. */
   const drift = (px: number[], py: number[]) => {
     const r = {
       summary: {},

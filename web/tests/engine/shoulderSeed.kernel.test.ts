@@ -7,19 +7,9 @@ import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngin
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A shoulder typed in from length 0 carries what desktop's setter gives it
- * (`Transition.setForeShoulderLength`, `setAftShoulderLength`): the neighbor's
- * wall, a radius of the neighbor's radius less that wall, and a cap.
- *
- * The kernel is the oracle: the bridge's setShoulderLength runs the same setter
- * on the part in a built rocket and reads back what it seeded. (buildRocket
- * cannot show it: it sets the length before the part is attached, when there
- * is no neighbor to take from.)
- */
+// Desktop `Transition.setForeShoulderLength` seeds the neighbor's wall, radius less that wall, and a cap.
 const stage = (children: ComponentNode[]): RocketTree =>
   ({ components: [{ id: 'st', type: 'stage', children }] }) as unknown as RocketTree;
-/** A rocket of several stages, front to back. */
 const stages = (...rows: ComponentNode[][]): RocketTree =>
   ({
     components: rows.map((children, i) => ({ id: `st${i}`, type: 'stage', children })),
@@ -45,7 +35,6 @@ const transition = (): ComponentNode =>
     thickness: 0.0012,
     shape: 'conical',
   }) as ComponentNode;
-/** A pod set holding a transition and a tube, at the bottom of the tube it hangs on less 50 mm. */
 const pod = (radiusMethod: string, instanceCount: number, radiusOffset: number): ComponentNode =>
   ({
     id: 'pod',
@@ -136,14 +125,12 @@ describe('a shoulder grown from length 0', () => {
     const engine = await loadEngine();
     const length = 0.04;
 
-    // The kernel's seed, on the part in place.
     engine.reset();
     const h = engine.buildRocket(JSON.stringify(tree));
     const kernel = JSON.parse(engine.setShoulderLength(h, id, side, length)) as Record<string, unknown>;
     expect(kernel['error']).toBeUndefined();
     expect(kernel[key(side, 'Thickness')]).toBeGreaterThan(0);
 
-    // The app's edit.
     const edited = findNode(updateNode(tree, id, { [key(side, 'Length')]: length }), id)!;
     expect(edited[key(side, 'Radius')]).toBeCloseTo(kernel[key(side, 'Radius')] as number, 9);
     expect(edited[key(side, 'Thickness')]).toBeCloseTo(kernel[key(side, 'Thickness')] as number, 9);
@@ -176,11 +163,7 @@ describe('a shoulder grown from length 0', () => {
   });
 });
 
-/**
- * An automatic shoulder fits the bore of the part it plugs into, found the way
- * the kernel finds it (`getPreviousSymmetricComponent`, which walks into the
- * stage ahead), with the bore read back from the kernel's geometry.
- */
+// The plugged-into part is found as `getPreviousSymmetricComponent` does, into the stage ahead.
 describe('an automatic shoulder', () => {
   it("fits the sustainer's tube from the top of the booster", async () => {
     const tree = stages(

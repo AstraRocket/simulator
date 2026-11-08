@@ -3,10 +3,6 @@ import en from '../../../src/i18n/locales/en.json';
 import { simStatusLabel, type SimStatus } from '../../../src/services/flight/simulations';
 import { localeTranslator } from '../../testing/localeTranslator';
 
-/**
- * The simulations table and the run-table CSV both name a row's status through
- * `simStatusLabel`, so the two cannot drift apart.
- */
 describe('simStatusLabel', () => {
   const t = localeTranslator(en);
   const all: SimStatus[] = ['upToDate', 'outdated', 'queued', 'running', 'failed', 'notRun', 'fromFile'];

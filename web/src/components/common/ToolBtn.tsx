@@ -1,11 +1,3 @@
-/**
- * A pane toolbar button: New, Duplicate, Delete and their neighbors.
- *
- * Shared by the toolbars that sit at the top of a workbench pane (the
- * simulations table, the flight configurations), because two toolbars doing the
- * same job in two shapes read as two different kinds of control. `danger` is for
- * the one that destroys something.
- */
 export function ToolBtn({
   children,
   onClick,

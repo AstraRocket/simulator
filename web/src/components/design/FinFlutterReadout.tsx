@@ -1,0 +1,111 @@
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { ComponentNode } from '../../engine/openRocketEngine';
+import { useUnits } from '../../prefs/useUnits';
+import { unitScope } from '../../prefs/units';
+import { fmtNum } from '../../i18n/format';
+import { useWorkspaceStore, selectActive, selectOutdated } from '../../state/store';
+import { finMountOf } from '../../tree/finPlanform';
+import {
+  finStockFor,
+  flutterFin,
+  flutterSpeed,
+  flutterSpeedIn,
+  flutterVerdict,
+  worstFlutterPoint,
+} from '../../services/flight/finFlutter';
+import { chooseFinStock, finStockChoice, useFinStockChoices, type FinStock } from '../../state/finFlutterChoices';
+import { Dialog } from '../common/Dialog';
+import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from '../tools/FlutterFields';
+import { ReadoutOpener } from './ReadoutOpener';
+
+// Checked at every sample, not just top speed: air thins on the way up, so a slower point can be closer.
+export function FinFlutterReadout({ node }: { node: ComponentNode }) {
+  const { t } = useTranslation();
+  return (
+    <ReadoutOpener
+      label={t('finFlutter.open')}
+      dialog={(close) => (
+        <Dialog id="fin-flutter" title={t('finFlutter.title')} onClose={close} layer="over" layout="pad" size="md">
+          <FlutterBody node={node} />
+        </Dialog>
+      )}
+    />
+  );
+}
+
+function FlutterBody({ node }: { node: ComponentNode }) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  const lengthUnit = u.at(unitScope('flutter', 'tip'), 'length');
+  const speedUnit = u.at(unitScope('flutter', 'speed'), 'velocity');
+  const tree = useWorkspaceStore((s) => s.tree);
+  const siteM = useWorkspaceStore((s) => selectActive(s).launch.launchAltitudeM) ?? 0;
+  const outdated = useWorkspaceStore(selectOutdated);
+  const result = useWorkspaceStore((s) => selectActive(s).result);
+
+  const materialName = typeof node.materialName === 'string' ? node.materialName : '';
+  const matched = finStockFor(materialName);
+  const choice = finStockChoice(node, useFinStockChoices());
+  const choose = (stock: FinStock, shearPa: number | null) => {
+    if (node.id) chooseFinStock(node.id, { stock, shearPa });
+  };
+
+  const fin = useMemo(() => flutterFin(node, node.id ? finMountOf(tree, node.id) : null), [node, tree]);
+  const current = result && !outdated ? result : null;
+  const padP = current?.series['P']?.[0];
+  const padA = current?.series['Vs']?.[0];
+  const atPad =
+    fin && choice.shearPa != null
+      ? padP != null && padA != null
+        ? flutterSpeedIn(fin, choice.shearPa, padP, padA)
+        : flutterSpeed(fin, choice.shearPa, siteM)
+      : null;
+  const worst = useMemo(
+    () =>
+      fin && choice.shearPa != null && current ? worstFlutterPoint(fin, choice.shearPa, current.series, siteM) : null,
+    [fin, choice.shearPa, current, siteM],
+  );
+
+  const material = materialName || t('finFlutter.unnamedMaterial');
+  const hint = matched ? t('finFlutter.fromMaterial', { material }) : t('finFlutter.noStock', { material });
+
+  return (
+    <div className="mt-3 space-y-3">
+      <p className="text-xs text-ink-muted">{t('finFlutter.intro')}</p>
+      {fin ? (
+        node.type !== 'trapezoidfinset' && (
+          <p className="text-xs text-ink-muted">
+            {t('finFlutter.equivalent', { tip: lengthUnit.fmtSym(fin.tipChordM) })}
+          </p>
+        )
+      ) : (
+        <p className="text-xs text-warn-400">{t('finFlutter.noFin')}</p>
+      )}
+      <FinStockFields stock={choice.stock} shearPa={choice.shearPa} onChange={choose} hint={hint} />
+      {atPad && (
+        <div className="space-y-2 border-t border-line/5 pt-3">
+          <FlutterSpeedRow label={t('finFlutter.atPad')} speedMs={atPad.speedMs} mach={atPad.mach} />
+          {worst ? (
+            <>
+              <FlutterMarginRows ratio={worst.ratio} verdict={flutterVerdict(worst.ratio)} />
+              <p className="text-xs text-ink-muted">
+                {t('finFlutter.worstAt', {
+                  time: fmtNum(worst.time, 2),
+                  speed: speedUnit.fmtSym(worst.speedMs, 0),
+                  altitude: u.fmtSym('distance', worst.altitudeM),
+                  flutter: speedUnit.fmtSym(worst.flutterMs, 0),
+                })}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-ink-muted">
+              {t(outdated && result ? 'finFlutter.outdated' : 'finFlutter.needsRun')}
+            </p>
+          )}
+          <p className="text-[10px] text-ink-faint">{t('flutterTool.estimate')}</p>
+        </div>
+      )}
+    </div>
+  );
+}

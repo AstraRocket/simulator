@@ -1,34 +1,18 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { FieldLabel, markRing } from './FieldMark';
+import { FieldLabel } from './FieldMark';
+import { markRing } from './markRing';
 import { NumberInput } from './NumberInput';
 
-/** The row's placeholder, its notes and markers, and its change handler: what a
- *  wrapper around {@link NumberRow} passes through unchanged. */
 export interface NumberRowMarks {
   placeholder?: string;
-  /** Why the field stops where it does. Rendered under the row. */
   hint?: string;
-  /** A value that is allowed but probably wrong. Rendered under the row, in amber. */
   caution?: string;
-  /**
-   * The simulations being edited together do not agree on this field. The box
-   * shows the active one's value, so without the marker a bulk edit would
-   * flatten the others' values with nothing on screen to say so.
-   */
   mixed?: boolean;
-  /** A launch field a flight cannot be computed without. Marked always. */
   required?: boolean;
-  /** ...and it is currently empty, which blocks the run. */
   missing?: boolean;
   onChange: (v: number | null) => void;
 }
 
-/**
- * A labeled number field: label (with the required, missing and mixed markers),
- * the input, its unit, and an optional hint under the row. The one row the
- * launch panel, the tools, the simulation editor's overrides and Settings all
- * use.
- */
 export function NumberRow({
   label,
   unit,
@@ -52,13 +36,9 @@ export function NumberRow({
   value: number | null;
   step?: number;
   min?: number;
-  /** NumberInput clamps against this; without it a field is unbounded above. */
   max?: number;
-  /** Blur: closes the undo entry a run of live edits opened. */
   onCommit?: () => void;
-  /** `onChange` fires once, on blur, instead of per keystroke (`NumberInput`). */
   commitOnBlur?: boolean;
-  /** The label's typography, for a row set among larger text. */
   labelClassName?: string;
 } & NumberRowMarks) {
   if (hint || caution) {
@@ -94,13 +74,7 @@ export function NumberRow({
         mixed={mixed}
         ariaLabel={label}
         value={value}
-        /* An empty required box writes nothing, so the field simply keeps what
-             it had. Not a focus trap -- tabbing away still works, which a trap
-             would forbid (WCAG 2.1.2) and which would fight anyone clearing a
-             field to retype it. NumberInput holds its own draft string while
-             focused, so the box still looks empty as you type; only the commit
-             is withheld. An imported .ork that omits the field still arrives
-             blank, which is what the marker and the run gate are for. */
+        /* No focus trap on an empty required box: that would break WCAG 2.1.2. */
         onChange={(v) => (v === null && required ? undefined : onChange(v))}
         onCommit={onCommit}
         commitOnBlur={commitOnBlur}
@@ -113,11 +87,6 @@ export function NumberRow({
   );
 }
 
-/**
- * The number box and its unit, as every labeled number row draws them. `fill`
- * is the box's background and text (a muted one for an automatic value, a
- * `disabled:` dimming); `missing` and `mixed` ring it as `markRing` does.
- */
 export function NumberWithUnit({
   unit,
   className = '',
@@ -126,7 +95,6 @@ export function NumberWithUnit({
   mixed,
   ...input
 }: Omit<ComponentProps<typeof NumberInput>, 'className'> & {
-  /** A symbol, or a unit chip. */
   unit?: ReactNode;
   className?: string;
   fill?: string;

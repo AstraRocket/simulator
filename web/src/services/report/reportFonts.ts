@@ -1,42 +1,19 @@
+import { must } from '../app/must';
 import type { jsPDF } from 'jspdf';
 
-/**
- * The report's Unicode fonts.
- *
- * jsPDF's built-in Helvetica writes WinAnsi only: Latin-1 plus the Windows-1252
- * punctuation (dashes, curly quotes, the ellipsis, the euro sign), and only
- * when that punctuation is handed over as its single WinAnsi byte. Any other
- * character turns the whole string into bytes the font cannot show. Text
- * outside WinAnsi is drawn in a Noto font instead, fetched from
- * `public/fonts/` the first time a report needs it, so the app bundle does not
- * carry fonts that most reports never use.
- *
- * Two families, chosen per text run:
- *
- * - `latin`: Noto Sans, Latin, Greek and Cyrillic plus the arrows and math
- *   operators from Noto Sans Math (Polish, Russian, "CNα", "Ø a → b").
- * - `jp`: Noto Sans JP, kana and the level 1 kanji, plus every glyph of the
- *   Latin family, so a run that mixes Japanese with anything else needs one
- *   font. When a report needs it, it serves the `latin` runs too.
- *
- * The service worker stores the files on first use (vite.config.ts), so a
- * report that worked once works offline. A file that cannot be fetched leaves
- * its runs in Helvetica, with ASCII stand-ins where there are obvious ones.
- */
+// jsPDF Helvetica: Windows-1252 punctuation must be passed as its single byte, and any non-WinAnsi char garbles the whole string.
 
 export type UnicodeScript = 'latin' | 'jp';
 
-/** The family name each script's runs are drawn in, for the scripts registered. */
 export type ReportFamilies = Partial<Record<UnicodeScript, string>>;
 
-/** One family's two weights, as base64 TTF data for jsPDF's virtual file system. */
+/** `data` is base64 TTF. */
 interface FamilyFiles {
   family: string;
   regular: { file: string; data: string };
   bold: { file: string; data: string };
 }
 
-/** The font data a report was given: the family each script is drawn in. */
 export type ReportFontFiles = Partial<Record<UnicodeScript, FamilyFiles>>;
 
 const FAMILIES: Record<UnicodeScript, { family: string; regular: string; bold: string }> = {
@@ -44,7 +21,6 @@ const FAMILIES: Record<UnicodeScript, { family: string; regular: string; bold: s
   jp: { family: 'NotoSansJP', regular: 'NotoSansJP-Regular.ttf', bold: 'NotoSansJP-Bold.ttf' },
 };
 
-/** The characters above Latin-1 that Helvetica writes, by code point, as their WinAnsi byte. */
 const WIN_ANSI = new Map<number, number>([
   [0x20ac, 0x80],
   [0x201a, 0x82],
@@ -73,15 +49,12 @@ const WIN_ANSI = new Map<number, number>([
   [0x0153, 0x9c],
   [0x017e, 0x9e],
   [0x0178, 0x9f],
-  // The narrow, thin and figure spaces that locales group thousands with
-  // (French writes 1 234 with U+202F): the no-break space, so a number never
-  // needs a Unicode font.
+  // Thousands-grouping spaces map to no-break space so a number never needs a Unicode font.
   [0x202f, 0xa0],
   [0x2009, 0xa0],
   [0x2007, 0xa0],
 ]);
 
-/** Has a character Helvetica cannot write. */
 function beyondWinAnsi(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
@@ -90,17 +63,13 @@ function beyondWinAnsi(text: string): boolean {
   return false;
 }
 
-// CJK punctuation, kana, the CJK ideograph blocks and the halfwidth and
-// fullwidth forms: the characters only the JP family carries.
 const CJK = /[\u2e80-\u2fdf\u3000-\u30ff\u31f0-\u31ff\u3200-\u9fff\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef]/;
 
-/** Which Unicode family a run needs, or null when Helvetica can write it. */
 export function scriptOf(text: string): UnicodeScript | null {
   if (!beyondWinAnsi(text)) return null;
   return CJK.test(text) ? 'jp' : 'latin';
 }
 
-/** ASCII stand-ins for symbols the report writes outside WinAnsi. */
 const STAND_INS: Record<string, string> = {
   '→': '->',
   '←': '<-',
@@ -113,12 +82,6 @@ const STAND_INS: Record<string, string> = {
   Ł: 'L',
 };
 
-/**
- * The run as Helvetica writes it: Latin-1 kept, the Windows-1252 punctuation
- * turned into its WinAnsi byte, a known symbol or an accented letter replaced
- * by its ASCII stand-in, and anything else by `?`. `lost` says whether
- * anything had no stand-in.
- */
 export function toWinAnsi(text: string): { text: string; lost: boolean } {
   let wide = false;
   for (let i = 0; i < text.length && !wide; i++) wide = text.charCodeAt(i) > 0xff;
@@ -126,7 +89,7 @@ export function toWinAnsi(text: string): { text: string; lost: boolean } {
   let lost = false;
   let out = '';
   for (const ch of text) {
-    const c = ch.codePointAt(0)!;
+    const c = must(ch.codePointAt(0), 'code point');
     if (c <= 0xff) {
       out += ch;
       continue;
@@ -141,7 +104,6 @@ export function toWinAnsi(text: string): { text: string; lost: boolean } {
       out += stand;
       continue;
     }
-    // A letter with a diacritic Latin-1 does not have: its base letter.
     const base = ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (base && !beyondWinAnsi(base) && base.charCodeAt(0) <= 0xff) {
       out += base;
@@ -153,7 +115,7 @@ export function toWinAnsi(text: string): { text: string; lost: boolean } {
   return { text: out, lost };
 }
 
-/** Bytes to the base64 jsPDF's `addFileToVFS` takes, in chunks small enough to spread. */
+// Chunked so the spread stays within the engine's argument limit.
 function toBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let bin = '';
@@ -165,8 +127,6 @@ function toBase64(buf: ArrayBuffer): string {
 
 type Fetch = (url: string) => Promise<Response>;
 
-// One fetch per file per session. A failure is forgotten, so the next report
-// tries again (the network may be back).
 const memo = new Map<string, Promise<string>>();
 
 function fetchFont(file: string, fetcher: Fetch): Promise<string> {
@@ -182,7 +142,6 @@ function fetchFont(file: string, fetcher: Fetch): Promise<string> {
   return got;
 }
 
-/** Both weights of one family, or null when either cannot be fetched. */
 async function loadFamily(script: UnicodeScript, fetcher: Fetch): Promise<FamilyFiles | null> {
   const f = FAMILIES[script];
   try {
@@ -197,12 +156,7 @@ async function loadFamily(script: UnicodeScript, fetcher: Fetch): Promise<Family
   }
 }
 
-/**
- * The fonts for the scripts a report's text needs. The JP family carries the
- * Latin family's glyphs, so a report that needs it fetches only it; the Latin
- * family is fetched for a report without Japanese, or when the JP family
- * cannot be had and some runs could still use the smaller one.
- */
+// The JP family also carries every Latin glyph, so it serves both scripts.
 export async function loadReportFonts(
   needs: ReadonlySet<UnicodeScript>,
   fetcher: Fetch = (url) => fetch(url),
@@ -218,7 +172,6 @@ export async function loadReportFonts(
   return {};
 }
 
-/** Register the fetched fonts with one document; returns the family per script. */
 export function registerReportFonts(doc: jsPDF, files: ReportFontFiles): ReportFamilies {
   const out: ReportFamilies = {};
   const done = new Set<string>();
@@ -238,7 +191,6 @@ export function registerReportFonts(doc: jsPDF, files: ReportFontFiles): ReportF
   return out;
 }
 
-/** Forget fetched fonts, so a test starts from an empty session. */
 export function resetReportFontsForTests(): void {
   memo.clear();
 }

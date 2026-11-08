@@ -16,13 +16,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * A pod set's `<radiusoffset method>` is one of the four `RadiusMethod`
- * constants, and the kernel places the pods by it (RadiusMethod.java: COAXIAL
- * on the axis, SURFACE touching the parent, FREE and RELATIVE by the offset).
- * Desktop reads the method as written, so the app has to keep it through an
- * open and a save, or a coaxial pod opens at the parent's surface.
- */
+// The kernel places pods by `<radiusoffset method>` (RadiusMethod.java).
 
 const ork = (method: string) =>
   `<?xml version='1.0' encoding='utf-8'?>
@@ -37,7 +31,6 @@ const ork = (method: string) =>
 
 const pods = (tree: RocketTree): ComponentNode => [...walkNodes(tree.components)].find((n) => n.type === 'podset')!;
 
-/** The radius method the kernel holds for the pods, as `ComponentFields` reports it. */
 function kernelMethod(tree: RocketTree): string {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));

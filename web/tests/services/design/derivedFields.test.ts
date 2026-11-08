@@ -2,12 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { DERIVED, MAX_SWEEP_ANGLE } from '../../../src/services/design/derivedFields';
 
-/**
- * Derived fields are views onto stored numbers. Each pair is checked for the round trip
- * (read what write put there) and for the edge the kernel handles specially,
- * because all of those edges are reachable by typing.
- */
-
 const node = (o: Record<string, unknown>): ComponentNode => o as unknown as ComponentNode;
 const deg = (d: number) => (d * Math.PI) / 180;
 
@@ -38,8 +32,7 @@ describe('a trapezoid fin sweep, as an angle', () => {
   });
 
   it('reads a right angle off a fin with no height, and writing one is a no-op', () => {
-    // atan2(x, 0) would be the answer anyway; what matters is that a zero
-    // sweep on a zero-height fin reads 0 and not a right angle.
+    // A zero sweep on a zero-height fin must read 0, not a right angle.
     expect(DERIVED.sweepAngle.read(fin(0.02, 0))).toBeCloseTo(Math.PI / 2, 9);
     expect(DERIVED.sweepAngle.read(fin(-0.02, 0))).toBeCloseTo(-Math.PI / 2, 9);
     expect(DERIVED.sweepAngle.read(fin(0, 0))).toBe(0);
@@ -69,7 +62,7 @@ describe('a streamer, by area and aspect ratio', () => {
 
   it('floors the ratio instead of dividing by something near zero', () => {
     const patch = DERIVED.stripAspect.write(strip(0.5, 0.05), 0);
-    // 0.01, upstream's floor: a strip a hundred times wider than it is long.
+    // 0.01 is upstream's floor.
     expect(DERIVED.stripAspect.read(node({ ...patch }))).toBeCloseTo(0.01, 9);
     expect(Number.isFinite(patch['stripWidth'] as number)).toBe(true);
   });
@@ -80,8 +73,6 @@ describe('a streamer, by area and aspect ratio', () => {
   });
 
   it('refuses a negative area rather than writing a NaN width', () => {
-    // Math.sqrt of a negative is NaN, and a NaN width would reach the mass, the
-    // mesh and the .ork, none of which check for one. Clamped to zero here.
     expect(DERIVED.stripArea.write(strip(0.5, 0.05), -1)).toEqual({ stripWidth: 0, stripLength: 0 });
   });
 });
@@ -105,7 +96,6 @@ describe('a mass component, by density', () => {
   });
 
   it('writes a zero mass for a part with no packed volume', () => {
-    // Density times nothing is nothing, which is what the kernel computes too.
     expect(DERIVED.massDensity.write(lump(0.02, 0, 0.02), 1200)).toEqual({ mass: 0 });
   });
 
@@ -116,7 +106,6 @@ describe('a mass component, by density', () => {
 });
 
 describe('a motor cluster, by the gap between its tubes', () => {
-  // 19 mm tubes, the kernel's own default inner tube.
   const cluster = (clusterScale: number) =>
     node({ type: 'innertube', cluster: 'double', outerRadius: 0.0095, clusterScale });
 
@@ -125,7 +114,7 @@ describe('a motor cluster, by the gap between its tubes', () => {
   });
 
   it('reads the gap as a multiple of the tube diameter', () => {
-    // 1.5 is half a diameter of air between neighbors: 9.5 mm.
+    // 1.5 is half a diameter of gap: 9.5 mm.
     expect(DERIVED.clusterSeparation.read(cluster(1.5))).toBeCloseTo(0.0095, 12);
     expect(DERIVED.clusterSeparation.read(cluster(0.5))).toBeCloseTo(-0.0095, 12);
   });
@@ -138,7 +127,6 @@ describe('a motor cluster, by the gap between its tubes', () => {
   });
 
   it('stops at tubes exactly concentric rather than turning the scale negative', () => {
-    // One whole diameter in is scale 0, which is where the kernel clamps.
     expect(DERIVED.clusterSeparation.write(cluster(1), -0.05)).toEqual({ clusterScale: 0 });
   });
 

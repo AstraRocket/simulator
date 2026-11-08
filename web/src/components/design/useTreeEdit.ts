@@ -5,15 +5,12 @@ import { partLabel } from '../../i18n/format';
 import { useWorkspaceStore } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
 
-/** One Edit command for the tree: whether it can run now, why not, and the run. */
 export interface TreeCommand {
   enabled: boolean;
-  /** The button's tooltip: its name and shortcut, or why it is off. */
   title: string;
   run: () => void;
 }
 
-/** The four Edit commands, on one part. */
 export interface TreeCommands {
   cut: TreeCommand;
   copy: TreeCommand;
@@ -21,17 +18,7 @@ export interface TreeCommands {
   duplicate: TreeCommand;
 }
 
-/**
- * Cut, Copy, Paste and Duplicate for the parts tree, with desktop's shortcuts
- * (Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+D). A command that cannot run says why in its
- * tooltip rather than disappearing.
- *
- * The four commands act on the selected part, for the header buttons. `at(id)`
- * gives the same commands on one row, for a shortcut pressed on a focused row:
- * the arrow keys move focus without selecting, and desktop's tree, where the
- * selection follows the arrows, acts on the row the keys reached. Running one
- * selects that row first, so the editor shows the part the command touched.
- */
+/** `at(id)` targets a focused, unselected row, as desktop acts on the row reached. */
 export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands } {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -48,8 +35,7 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
 
   const commandsFor = (id: string | null): TreeCommands => {
     const node = id ? findNode(tree, id) : null;
-    // The store's actions read the selection, so a row other than the selected
-    // one becomes the selection before the action runs.
+    // The store's actions read the selection.
     const target = () => {
       if (id !== selectedId) setSelectedId(id);
     };
@@ -61,8 +47,6 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
       run: () => {
         if (!cutOk) return;
         target();
-        // Cutting is undoable and keeps the part on the clipboard, so it does not
-        // ask, except for the last motor mount, which delete warns about too.
         const onlyMount = node.motorMount === true && findMounts(tree).length === 1;
         if (!onlyMount) return cutSelected();
         void confirm({ message: t('warn.lastMountCut'), confirmLabel: t('tree.cut'), danger: true }).then(

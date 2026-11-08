@@ -1,16 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { KeyedError } from '../../../src/i18n/keyedError';
 
-/**
- * A file opens before the engine has loaded.
- *
- * The app mounts before the kernel is downloaded, and the kernel's share of an
- * open (freeing the previous handles, probing the tree) is nothing the file
- * needs: the tree, the drawing and the exports read no kernel, and the rebuild
- * effect builds the design when the engine arrives. The engine module here has
- * the real one's shape with no engine behind it: every call in refuses with
- * `errors.engine.notReady`, as `eng()` does.
- */
 const resetEngine = vi.hoisted(() => vi.fn());
 const buildTree = vi.hoisted(() => vi.fn());
 vi.mock('../../../src/engine/openRocketEngine', () => ({

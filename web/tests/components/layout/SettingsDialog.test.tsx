@@ -10,7 +10,6 @@ beforeEach(() => {
   useConfirmStore.setState({ request: null });
 });
 
-/** Reset all wipes every tab at once, with no undo, so it asks first. */
 describe('Settings reset all', () => {
   it('asks before resetting, and resets nothing when declined', async () => {
     seedSettings({ playbackSpeed: 4 });
@@ -31,11 +30,6 @@ describe('Settings reset all', () => {
   });
 });
 
-/**
- * The Launch tab holds the home site the user typed, and Materials what they
- * chose per part type. A tab reset there has no undo, so it asks; the tabs of
- * picked preferences reset at once.
- */
 describe('Settings tab reset', () => {
   const openTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
@@ -58,7 +52,6 @@ describe('Settings tab reset', () => {
     expect((readSettings()['launchDefaults'] as { latitudeDeg: number }).latitudeDeg).not.toBe(39.05);
   });
 
-  // The Colors tab edits the aero heat palette too, so its reset has to cover it.
   it('resets the aero heat palette with the Colors tab', async () => {
     seedSettings({ aeroHeat: 'openrocket' });
     renderWithProviders(<SettingsDialog onClose={() => {}} />);
@@ -78,7 +71,6 @@ describe('Settings tab reset', () => {
   });
 });
 
-/** Each part color's reset button says which part it resets. */
 describe('Settings part color reset', () => {
   it('names the part on its reset button', () => {
     seedSettings({ partColors: { fins: '#123456' } });
@@ -88,11 +80,6 @@ describe('Settings part color reset', () => {
   });
 });
 
-/**
- * Launch defaults are written when a field is left, not per keystroke: a
- * settings write hits storage, and each prefix typed would otherwise become
- * the default for new simulations.
- */
 describe('Settings launch defaults', () => {
   it('writes a typed altitude on blur, not on each key', () => {
     renderWithProviders(<SettingsDialog onClose={() => {}} />);
@@ -110,8 +97,6 @@ describe('Settings launch defaults', () => {
   });
 
   it('keeps the latitude a cleared box had, not the shipped site', () => {
-    // The user's own site: a cleared latitude must not become the shipped
-    // default's beside the user's longitude.
     seedSettings({ launchDefaults: { latitudeDeg: 39.05, longitudeDeg: -104.8 } as never });
     renderWithProviders(<SettingsDialog onClose={() => {}} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Launch' }));

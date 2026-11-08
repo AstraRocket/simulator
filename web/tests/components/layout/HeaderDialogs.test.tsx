@@ -1,27 +1,23 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { useHeaderDialogs } from '../../../src/components/layout/HeaderDialogs';
+import { HeaderDialogs } from '../../../src/components/layout/HeaderDialogs';
+import { useHeaderDialogs } from '../../../src/components/layout/useHeaderDialogs';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
 function Harness() {
-  const { open, dialogs } = useHeaderDialogs();
+  const { flags, open, close } = useHeaderDialogs();
   return (
     <>
       <button type="button" onClick={() => open('saveAs')}>
         open save as
       </button>
-      {dialogs}
+      <HeaderDialogs flags={flags} onClose={close} />
     </>
   );
 }
 
-/**
- * Save As finishes by refreshing the library list, which can reject. A
- * rejection nobody handles is a save that looks as though it worked; it lands
- * in the error banner instead.
- */
 describe('Save As', () => {
   const real = useWorkspaceStore.getState().saveDesignAs;
   afterEach(() => act(() => useWorkspaceStore.setState({ saveDesignAs: real, err: null })));
@@ -40,10 +36,6 @@ describe('Save As', () => {
   });
 });
 
-/**
- * A rocket renamed in Rocket configuration is offered under that name, the
- * one its exports carry, not the name of the file it was imported from.
- */
 describe('Save As name', () => {
   const before = useWorkspaceStore.getState();
   afterEach(() => act(() => useWorkspaceStore.setState({ tree: before.tree, loadedMeta: before.loadedMeta })));

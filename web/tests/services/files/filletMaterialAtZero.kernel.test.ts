@@ -16,12 +16,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * Desktop's FinSetSaver writes a fin set's fillet material whatever its fillet
- * radius, and the loader keeps it at a 0 radius (a fillet turned back on is in
- * that material). A bundled example ships that way: `npm run check:fields`
- * compares the same part with desktop, and this holds the kernel to it.
- */
+// Desktop's FinSetSaver writes the fillet material at any radius, and the loader keeps it at 0.
 
 const ORK =
   `<openrocket><rocket><name>N</name><subcomponents><stage><name>S</name><subcomponents>` +

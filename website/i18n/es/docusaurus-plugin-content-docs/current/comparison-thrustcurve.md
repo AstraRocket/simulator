@@ -56,6 +56,7 @@ La sincronización semanal del catálogo pide a ThrustCurve.org todos los motore
 | Función | Notas |
 | --- | --- |
 | **Tu diseño real, volado** | La guía de motores vuela las piezas, la recuperación y las condiciones de lanzamiento del diseño, no un diámetro y un coeficiente de arrastre. |
+| **Sin diseño, y aun así sin coeficiente de arrastre** | El **[Banco](./benchtop.md)** pide lo mismo que Match a Rocket, sin el coeficiente de arrastre y con el CG y las aletas, y lo vuela con el motor de simulación completo, con su propia guía de motores. |
 | **Resultados después del apogeo** | Velocidad de despliegue, velocidad de aterrizaje y dónde cayó, con los avisos del motor de simulación para cada motor. |
 | **Cada motor con un retardo que ofrece** | Se vuela otra vez con la carga más cercana a su mejor retardo, así que la velocidad de despliegue es la que da esa carga. |
 | **Conservar un motor** | **Usar** crea una configuración y una simulación a partir de una fila de la guía, en un solo paso de deshacer. |

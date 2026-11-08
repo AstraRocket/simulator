@@ -1,74 +1,10 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { confirm } from '../../state/confirmStore';
 import { fireAction } from '../../state/fireAction';
 import { Dialog } from './Dialog';
 import { DialogButton } from './DialogButton';
 import { StatusLine } from './StatusLine';
 
-/**
- * The selection of a library dialog whose detail pane is an editor.
- *
- * The editor reports whether it holds unsaved edits (`onDirtyChange`), since
- * only the editor owns the draft, and `select` asks before a move would throw
- * them away. It resolves false when the user keeps editing.
- *
- * `err` is the dialog's footer line (a refused write). Moving the selection
- * clears it, since it was about what was selected before.
- */
-export function useGuardedSelection(discardMessage: string) {
-  const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  // Stable, because the editor passes it to an effect: a new function every
-  // render would re-run that effect on every keystroke.
-  const onDirtyChange = useCallback((d: boolean) => setDirty(d), []);
-
-  const select = async (id: string | null): Promise<boolean> => {
-    if (dirty && id !== selectedId) {
-      const ok = await confirm({ message: discardMessage, confirmLabel: t('common.discard'), danger: true });
-      if (!ok) return false;
-      setDirty(false);
-    }
-    setSelectedId(id);
-    setErr(null);
-    return true;
-  };
-
-  /**
-   * Closes the dialog, asking first when the editor holds unsaved edits.
-   * Closing throws the draft away as surely as moving the selection does.
-   */
-  const close = async (onClose: () => void): Promise<void> => {
-    if (dirty && !(await confirm({ message: discardMessage, confirmLabel: t('common.discard'), danger: true }))) return;
-    onClose();
-  };
-
-  /** Moves the selection after a save or a delete, which leaves nothing to discard. */
-  const settle = (id: string | null) => {
-    setDirty(false);
-    setSelectedId(id);
-  };
-
-  return { selectedId, dirty, select, settle, close, onDirtyChange, err, setErr };
-}
-
-/** The editor's half of the guard: report whether the draft differs from what is stored. */
-export function useReportDirty(dirty: boolean, onDirtyChange: (dirty: boolean) => void) {
-  useEffect(() => {
-    onDirtyChange(dirty);
-  }, [dirty, onDirtyChange]);
-}
-
-/**
- * The shell of a library dialog: list beside detail, each scrolling itself and
- * reaching the panel's edges, so the body takes the height and does its own
- * padding. The height is fixed rather than the viewport's, the way the motor
- * picker's is: the list is the working surface and should not become a
- * screen-tall column on a large monitor. Closing asks first when the editor
- * holds unsaved edits (`close` from `useGuardedSelection`).
- */
 export function MasterDetailDialog({
   id,
   title,
@@ -84,9 +20,7 @@ export function MasterDetailDialog({
   onClose: () => void;
   close: (onClose: () => void) => Promise<void>;
   actions?: ReactNode;
-  /** The footer line: a refused write, or the list failing to load. */
   err: string | null;
-  /** Before the list has loaded for the first time. */
   loading: boolean;
   children: ReactNode;
 }) {
@@ -111,10 +45,6 @@ export function MasterDetailDialog({
   );
 }
 
-/**
- * The phone's way back to the list. At `md` and up the list is beside the
- * editor, so there is nothing to go back to and it hides.
- */
 export function EditorBack({
   onBack,
   label,
@@ -135,7 +65,6 @@ export function EditorBack({
   );
 }
 
-/** The editor's title, pinned over its scrolling fields with the back control. */
 export function EditorHeading({ onBack, backLabel, title }: { onBack: () => void; backLabel: string; title: string }) {
   return (
     <div className="sticky top-0 -mx-4 mb-1 flex items-center gap-2 bg-surface px-4 py-2">
@@ -145,11 +74,6 @@ export function EditorHeading({ onBack, backLabel, title }: { onBack: () => void
   );
 }
 
-/**
- * The list beside the detail, each scrolling itself. On a phone the two panes
- * share the width, so only one shows at a time and the detail carries a back
- * control.
- */
 export function MasterDetail({
   showsDetail,
   list,
@@ -159,7 +83,6 @@ export function MasterDetail({
   showsDetail: boolean;
   list: ReactNode;
   detail: ReactNode;
-  /** What the detail pane says with nothing selected. */
   hint: string;
 }) {
   return (
@@ -182,7 +105,6 @@ export function MasterDetail({
   );
 }
 
-/** One row of the list: a name line and a detail line under it. */
 export function MasterRow({
   selected,
   onClick,
@@ -205,13 +127,7 @@ export function MasterRow({
   );
 }
 
-/**
- * The dialog footer line that reports a failed write.
- *
- * Always mounted, empty until there is something to say: a live region created
- * together with its text is not announced by most screen readers (see
- * UpdateToast), and this line is the dialog's only word on a refused write.
- */
+/** Always mounted: most screen readers skip a live region created with its text. */
 export function MasterStatus({ err }: { err: string | null }) {
   return (
     <StatusLine tone="danger" className="px-4 py-2">
@@ -220,16 +136,7 @@ export function MasterStatus({ err }: { err: string | null }) {
   );
 }
 
-/**
- * The editor's action row, pinned under its scrolling fields. Delete sits
- * apart from Save, at the other end of the row, because they are not two
- * grades of the same action. `children` goes between them.
- *
- * `err` is the editor's own refused save, beside the buttons it is about. Pass
- * it (null while there is nothing to say) and the line is always mounted, so
- * it is announced when the text arrives (see UpdateToast); leave it out when
- * the dialog's footer reports the editor's writes.
- */
+/** Pass `err` as null rather than omitting it to keep its live region mounted. */
 export function EditorFooter({
   onDelete,
   dirty,
@@ -244,7 +151,6 @@ export function EditorFooter({
   dirty: boolean;
   onRevert: () => void;
   onSave: () => void;
-  /** Beyond "nothing changed", which always disables Save. */
   saveDisabled?: boolean;
   saveTitle?: string;
   err?: string | null;

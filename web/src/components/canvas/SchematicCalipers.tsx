@@ -3,47 +3,46 @@ import { useUnits } from '../../prefs/useUnits';
 import type { Ctx } from '../../tree/schematicGeometry';
 import { token } from '../common/colorTokens';
 
-/**
- * The TreeSchematic measure tool: the two caliper overlays (length and
- * diameter), each a pair of draggable, keyboard-nudgeable slider handles with
- * the measured span tagged between them. The schematic owns the caliper
- * positions and the drag/key handlers; this file owns how a caliper looks.
- */
+// Lands on `lo` when hi < lo.
+const clampX = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 
-/** What both calipers take from the schematic: the two ends, the drawing's
- *  frame, and the handlers that move an end. */
 interface CaliperProps {
   cal: { a: number; b: number };
   ctx: Ctx;
   scale: number;
   totalLen: number;
+  // viewBox px
+  viewX0: number;
+  viewX1: number;
   onDragStart: (end: 'a' | 'b') => (e: React.PointerEvent) => void;
   onKey: (end: 'a' | 'b') => (e: React.KeyboardEvent) => void;
 }
 
-/**
- * Length calipers: two draggable vertical lines spanning the drawing height,
- * with the measured distance in a tag between them. A component of its own so
- * the handles can be read, and reasoned about, apart from the view they sit in.
- */
 export function HorizontalCaliper({
   cal,
   ctx,
   scale,
   h,
   rBot,
+  rTop = 0,
   totalLen,
+  viewX0,
+  viewX1,
   onDragStart,
   onKey,
-}: CaliperProps & { h: number; rBot: number }) {
+}: CaliperProps & {
+  h: number;
+  rBot: number;
+  rTop?: number; // viewBox px
+}) {
   const { t } = useTranslation();
   const u = useUnits();
   const ax = ctx.x0 + cal.a * scale,
     bx = ctx.x0 + cal.b * scale;
-  const top = 4,
+  const top = rTop + 4,
     bot = h - rBot - 2,
-    dimY = 14,
-    mid = (ax + bx) / 2;
+    dimY = rTop + 14,
+    mid = clampX((ax + bx) / 2, viewX0 + 28, viewX1 - 28);
   return (
     <g>
       {(['a', 'b'] as const).map((k) => {
@@ -92,9 +91,7 @@ export function HorizontalCaliper({
           strokeWidth="1"
           vectorEffect="non-scaling-stroke"
         />
-        {/* The theme's surface under the accent text, not a fixed dark box: the
-            accent is dark in the light themes, and the readout must hold
-            4.5:1 in every theme (e2e/schematic-interaction.spec.ts). */}
+        {/* Theme surface, not a fixed dark box: the readout must hold 4.5:1 in every theme. */}
         <rect
           x={mid - 28}
           y={dimY - 9}
@@ -113,14 +110,13 @@ export function HorizontalCaliper({
   );
 }
 
-/** Diameter calipers: two draggable horizontal lines across the airframe, the
- *  span between them tagged at the left. Same shape as HorizontalCaliper. */
 export function VerticalCaliper({
   cal,
   ctx,
   scale,
   totalLen,
   vHalf,
+  viewX0,
   onDragStart,
   onKey,
 }: CaliperProps & { vHalf: number }) {
@@ -130,7 +126,8 @@ export function VerticalCaliper({
     by = ctx.cy - cal.b * scale;
   const left = ctx.x0,
     right = ctx.x0 + totalLen * scale;
-  const dimX = ctx.x0 + 20,
+  const grip = Math.min(right, Math.max(left, viewX0));
+  const dimX = grip + 20,
     mid = (ay + by) / 2;
   const vMin = -vHalf;
   return (
@@ -150,7 +147,7 @@ export function VerticalCaliper({
               vectorEffect="non-scaling-stroke"
             />
             <rect
-              x={left - 4}
+              x={grip - 4}
               y={y - 8}
               width={34}
               height={16}
@@ -167,7 +164,7 @@ export function VerticalCaliper({
               aria-valuetext={`${u.fmtSym('length', cal[k])}`}
               onKeyDown={onKey(k)}
             />
-            <circle cx={left + 4} cy={y} r={3.5} fill="var(--accent)" pointerEvents="none" />
+            <circle cx={grip + 4} cy={y} r={3.5} fill="var(--accent)" pointerEvents="none" />
           </g>
         );
       })}
@@ -181,9 +178,6 @@ export function VerticalCaliper({
           strokeWidth="1"
           vectorEffect="non-scaling-stroke"
         />
-        {/* Wider than the horizontal caliper's 56, because this box also
-            carries the unit symbol, matching the length readout ("48.2 mm")
-            and the `aria-valuetext` screen readers hear. */}
         <rect
           x={dimX - 30}
           y={mid - 7}

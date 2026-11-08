@@ -4,18 +4,6 @@ import { exportRkt } from '../../../src/services/files/rktExport';
 import { importRkt } from '../../../src/services/files/rktImport';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The writer, checked two ways.
- *
- * A round trip proves the pair agree with each other, which is necessary and
- * not sufficient: reader and writer can share a wrong unit factor and still
- * round-trip perfectly. `rktImport.test.ts` is the other half: it reads a
- * fixture written from RockSim's own schema, so between them a factor can only
- * be wrong in one place at a time. The literal-output checks below pin the few
- * fields where the two sides are not symmetric (diameters, shock-cord mass,
- * stage order), because those are the ones a shared mistake could hide.
- */
-
 const design: RocketTree = {
   name: 'Round Trip',
   components: [
@@ -31,9 +19,7 @@ const design: RocketTree = {
           length: 0.1,
           aftRadius: 0.0124,
           thickness: 0.0015,
-          // Power, not ogive: a shape parameter only round-trips on a shape
-          // that uses one, because the reader drops it on the others exactly as
-          // `NoseConeHandler` does.
+          // Power, not ogive: the reader drops the shape parameter on shapes that do not use it.
           shape: 'power',
           shapeParameter: 0.75,
           materialName: 'Polystyrene',
@@ -149,12 +135,7 @@ const find = (nodes: ComponentNode[] | undefined, name: string): ComponentNode =
 
 describe('exportRkt', () => {
   it('writes a RockSim document a reader can find the design in', () => {
-    // Starts with the root element, nothing in front of it. Desktop
-    // OpenRocket identifies a RockSim file by its first eleven bytes being
-    // `<RockSimDoc` exactly (`GeneralRocketLoader.ROCKSIM_SIGNATURE`), unlike
-    // the OpenRocket check beside it, which scans the buffer. An XML
-    // declaration in front would make the desktop open the `.rkt` as
-    // "Unsupported or corrupt file". The desktop's own saver writes none.
+    // No XML declaration: desktop detects RockSim by `<RockSimDoc` as the first bytes.
     expect(xml.startsWith('<RockSimDocument>')).toBe(true);
     expect(xml).not.toContain('<?xml');
     expect(xml).toContain('<FileVersion>4</FileVersion>');
@@ -163,36 +144,29 @@ describe('exportRkt', () => {
   });
 
   it('always writes all three stage blocks, as RockSim does', () => {
-    // Its reader keys off StageCount, not presence, and its own files carry
-    // the unused blocks empty.
     expect(xml).toContain('<Stage3Parts>');
     expect(xml).toContain('<Stage2Parts/>');
     expect(xml).toContain('<Stage1Parts/>');
   });
 
   it('writes diameters in millimeters, not radii in meters', () => {
-    // The single easiest thing to get wrong, and a round trip cannot catch it.
-    expect(xml).toContain('<BaseDia>24.8</BaseDia>'); // 0.0124 m radius
+    expect(xml).toContain('<BaseDia>24.8</BaseDia>');
     expect(xml).toContain('<OD>24.8</OD>');
     expect(xml).toContain('<ID>24</ID>'); // 0.0124 - 0.0004, doubled
     expect(xml).toContain('<Len>300</Len>');
-    // …but a parachute's `Dia` is a diameter on both sides and is not doubled.
+    // A parachute's `Dia` is a diameter on both sides, so it is not doubled.
     expect(xml).toContain('<Dia>400</Dia>');
   });
 
   it('writes masses in grams, angles in degrees and the fin cant in radians', () => {
-    expect(xml).toContain('<KnownMass>9.5</KnownMass>'); // 0.0095 kg
-    // `FinSetDTO` writes the cant as it holds it, radians, and `FinSetHandler`
-    // reads it back the same way: 1.5 degrees.
+    expect(xml).toContain('<KnownMass>9.5</KnownMass>');
+    // `FinSetDTO` and `FinSetHandler` both use radians: 1.5 degrees.
     expect(xml).toContain('<CantAngle>0.026179939</CantAngle>');
     expect(xml).toContain('<RadialAngle>30</RadialAngle>');
-    // A shock cord states its mass in RockSim: 0.006 kg/m over 1 m.
     expect(xml).toContain('<KnownMass>6</KnownMass>');
   });
 
   it('sets UseKnownCG only on the part that actually overrides', () => {
-    // Turning it on makes RockSim stop computing mass and CG from geometry, so it
-    // must not appear on a part with no measured figures.
     expect(xml.match(/<UseKnownCG>1<\/UseKnownCG>/g)).toHaveLength(1);
   });
 
@@ -203,7 +177,6 @@ describe('exportRkt', () => {
         { type: 'stage', id: 's', children: [{ type: 'railbutton', id: 'rb' } as ComponentNode] },
       ] as ComponentNode[],
     });
-    // Structured, so the banner renders it with the tree's own type label.
     expect(s).toEqual([{ key: 'part.railbutton' }]);
   });
 
@@ -252,9 +225,6 @@ describe('exportRkt → importRkt round trip', () => {
     expect(find(stage.children, 'Lug').position).toEqual({ method: 'top', offset: 0.1 });
   });
 
-  // LaunchLugHandler sets the outside from OD and then the inside from ID, and
-  // LaunchLug.setInnerRadius keeps the wall (the constructor's 1 mm) rather than
-  // the outside, so the lug desktop reads is ID/2 + 1 mm across with a 1 mm wall.
   it('reads a lug back as desktop does: the inner radius plus a 1 mm wall', () => {
     const before = find(design.components, 'Lug');
     const after = find(stage.children, 'Lug');
@@ -269,19 +239,12 @@ describe('exportRkt → importRkt round trip', () => {
   });
 
   it('preserves a shock cord through its mass', () => {
-    // The one field the two sides express differently: we keep a line density,
-    // RockSim keeps the total mass, so the trip is density → mass → density.
     const cord = find(stage.children, 'Shock cord');
     expect(cord['cordLength']).toBeCloseTo(1, 9);
     expect(cord['lineDensity']).toBeCloseTo(0.006, 9);
   });
 });
 
-/**
- * RockSim has no middle placement. Desktop's BasePartDTO writes a middle part
- * as a top offset: the gap from the parent's top to the part's top when
- * centered, plus its own offset. A fin set's extent is its root chord.
- */
 describe('exportRkt, a middle-placed part', () => {
   const xbOf = (xml: string, name: string): number => {
     const block = xml.slice(xml.indexOf(`<Name>${name}</Name>`));
@@ -331,9 +294,7 @@ describe('exportRkt, a middle-placed part', () => {
 
   it('writes a top offset measured from the parent top', () => {
     const { xml } = exportRkt('Middle', tree);
-    // (0.3 - 0.03) / 2 + 0.01 = 0.145 m
     expect(xbOf(xml, 'Lug')).toBeCloseTo(145, 6);
-    // (0.3 - 0.06) / 2 = 0.12 m
     expect(xbOf(xml, 'Fins')).toBeCloseTo(120, 6);
   });
 
@@ -367,20 +328,7 @@ describe('exportRkt, multi-stage', () => {
   });
 });
 
-/**
- * RockSim has no cluster: it knows one tube per motor.
- *
- * OpenRocket keeps one inner tube carrying a cluster pattern, and the desktop
- * splits it on the way out (`InnerBodyTubeDTO.handleCluster`). So does this
- * writer: saved as a single tube, a three-motor cluster would name one motor
- * where the design flies three. Everything mounted inside the mount is copied
- * into each member.
- *
- * Checked against the desktop's own output for the same design: three members
- * at 10.9697 mm from the axis, 120 degrees apart, each carrying the engine
- * block. The angles are written in degrees here, which is this writer's one
- * deliberate departure from the format; the places are the same ones.
- */
+// Angles are degrees, the writer's one deliberate departure from desktop.
 describe('exportRkt: a clustered motor mount', () => {
   const mount = (cluster: string): ComponentNode =>
     ({
@@ -429,7 +377,6 @@ describe('exportRkt: a clustered motor mount', () => {
       ],
     } as unknown as RocketTree).xml;
 
-  // A cleared Name field writes `name: ''`, and a member still needs a name.
   it('names the members of an unnamed mount by its type', () => {
     const xml = exportRkt('Cluster', {
       name: 'Cluster',
@@ -459,32 +406,25 @@ describe('exportRkt: a clustered motor mount', () => {
   it('writes one tube per motor, named as the desktop names them', () => {
     const xml = clustered('3-ring');
     for (const n of [1, 2, 3]) expect(xml).toContain(`<Name>Mount #${n}</Name>`);
-    // The airframe plus the three members, and no un-split mount left behind.
     expect(xml.match(/<BodyTube>/g)).toHaveLength(4);
     expect(xml).not.toContain('<Name>Mount</Name>');
   });
 
   it('puts everything inside the mount into EVERY tube, not just the first', () => {
-    // An engine block is what the motor pushes against, so a cluster missing
-    // two of them is a file describing a different rocket.
     expect(clustered('3-ring').match(/<Name>Block<\/Name>/g)).toHaveLength(3);
   });
 
   it('places the members where the desktop places them', () => {
     const xml = clustered('3-ring');
-    // 10.9697 mm from the axis for a 19 mm tube in a 3-ring, which is the
-    // figure OpenRocket 24.12 writes for the same design.
+    // The figure OpenRocket 24.12 writes for a 19 mm tube in a 3-ring.
     expect(xml.match(/<RadialLoc>10\.9696/g)).toHaveLength(3);
-    // 120 degrees apart, in this writer's own angle unit.
     for (const a of ['-150', '-30', '90']) {
       expect(xml).toContain(`<RadialAngle>${a}</RadialAngle>`);
     }
   });
 
   it('turns the pattern by the clock angle less the radial direction, as the kernel does', () => {
-    // InnerTube.getClusterPoints rotates by `clusterRotation - radialDirection`.
-    // With the mount's direction at 90 degrees and no offset, the 3-ring's
-    // (-0.5, -0.289), (0.5, -0.289), (0, 0.577) turn to -60, 60 and 180 degrees.
+    // getClusterPoints rotates by `clusterRotation - radialDirection`: at 90 degrees, -60, 60 and 180.
     const xml = exportRkt('Cluster', {
       name: 'Cluster',
       components: [
@@ -519,10 +459,7 @@ describe('exportRkt: a clustered motor mount', () => {
 });
 
 describe('exportRkt: off-axis placement, as desktop writes it', () => {
-  // BasePartDTO writes RadialLoc/RadialAngle for a RingComponent and
-  // MassObjectDTO for a mass component or shock cord. ParachuteDTO and
-  // StreamerDTO write neither. RadialAngle is degrees, our one deliberate
-  // divergence from desktop's radians.
+  // RadialAngle is degrees, not radians.
   const PLACED = ['tubecoupler', 'centeringring', 'bulkhead', 'engineblock', 'masscomponent', 'shockcord'];
   const NOT_PLACED = ['parachute', 'streamer'];
 
@@ -550,7 +487,6 @@ describe('exportRkt: off-axis placement, as desktop writes it', () => {
         },
       ],
     } as unknown as RocketTree);
-    // The part's own element: from its name to the next part's name or the end.
     const at = xml.indexOf('<Name>Part</Name>');
     const next = xml.indexOf('<Name>', at + 1);
     return xml.slice(at, next === -1 ? undefined : next);
@@ -603,8 +539,6 @@ describe('exportRkt: off-axis placement, as desktop writes it', () => {
   });
 });
 
-// The bridge takes a surface density as given, zero included, so the file
-// carries the canopy the app flies rather than the kernel's default fabric.
 describe('a canopy with no weight', () => {
   it('goes out at the density the app flies', () => {
     const { xml: out } = exportRkt('x', {
@@ -633,7 +567,6 @@ describe('a canopy with no weight', () => {
 });
 
 describe('mass and CG overrides through the one UseKnownCG switch', () => {
-  /** A one-stage design holding just `part`. */
   const only = (part: ComponentNode, figures?: Parameters<typeof exportRkt>[2]) =>
     exportRkt(
       'x',
@@ -644,12 +577,7 @@ describe('mass and CG overrides through the one UseKnownCG switch', () => {
       figures,
     );
 
-  /**
-   * The switch overrides mass and CG together, so a mass-only override needs the
-   * part's own CG in KnownCG. Desktop's BasePartDTO writes getOverrideCGX(),
-   * which is the part's own CG while the CG is not overridden; a CG of 0 would
-   * open with the part's CG moved to its front.
-   */
+  // RockSim's switch overrides mass and CG together; a KnownCG of 0 would move the CG to the front.
   it('writes the kernel CG of the part for a mass-only override', () => {
     const figures = (id: string) => (id === 'b' ? { mass: 0.02, cgX: 0.15 } : undefined);
     const { xml: out, skipped: s } = only(
@@ -690,12 +618,9 @@ describe('mass and CG overrides through the one UseKnownCG switch', () => {
     } as ComponentNode);
     expect(out).not.toContain('<UseKnownCG>1</UseKnownCG>');
     expect(importRkt(out).tree.components[0]!.children![0]!['overrideMass']).toBeUndefined();
-    // The CG override is reported as not exported rather than lost quietly.
     expect(s).toEqual([{ key: 'errors.rktSkip.cgOverride', values: { name: 'Airframe' } }]);
   });
 
-  // BasePartDTO writes getMass() beside the CG, and the kernel's figure for the
-  // part is that mass, so with figures in hand the override goes out whole.
   it("pairs a CG-only override with the kernel's mass for the part", () => {
     const { xml: out, skipped: s } = exportRkt(
       'x',
@@ -722,7 +647,6 @@ describe('mass and CG overrides through the one UseKnownCG switch', () => {
   });
 
   it('writes KnownMass once on a mass component that also overrides its mass', () => {
-    // Inside a body tube, the only place a stage holds a mass object.
     const figures = (id: string) => (id === 'm' ? { mass: 0.02, cgX: 0.015 } : undefined);
     const { xml: out } = only(
       {
@@ -748,7 +672,6 @@ describe('mass and CG overrides through the one UseKnownCG switch', () => {
     );
     const block = out.slice(out.indexOf('<MassObject>'), out.indexOf('</MassObject>'));
     expect(block.match(/<KnownMass>/g)).toHaveLength(1);
-    // BasePartDTO writes getMass(), which is the override when there is one.
     expect(block).toContain('<KnownMass>50</KnownMass>');
     const mass = importRkt(out).tree.components[0]!.children![0]!.children![0]!;
     expect(mass['overrideMass']).toBeCloseTo(0.05, 12);
@@ -769,10 +692,7 @@ describe('mass and CG overrides through the one UseKnownCG switch', () => {
 });
 
 describe('stage mass and CG overrides', () => {
-  // `RockSimSaver.setStageOverrides`: with any stage overridden, the kernel's
-  // structure mass of every stage in grams as StageNMass, and the CG of every
-  // stack in millimeters from the nose tip as Stage3CG, Stage32CG and
-  // Stage321CG, with UseKnownMass=1. The figures here stand in for the kernel's.
+  // Every stage's mass (g) and every stack's CG (mm from the nose tip).
   const figures = [
     { mass: 0.1425, stackCg: 0.21 },
     { mass: 0.08, stackCg: 0.3 },
@@ -820,13 +740,10 @@ describe('stage mass and CG overrides', () => {
     expect(sustainer!['overrideMass']).toBeCloseTo(0.1425, 12);
     expect(sustainer!['overrideCGX']).toBeCloseTo(0.21, 12);
     expect(booster!['overrideMass']).toBeCloseTo(0.08, 12);
-    // The booster starts 0.3 m back, behind the sustainer's tube, and the two
-    // together balance at 0.3 m.
     const boosterCg = (booster!['overrideCGX'] as number) + 0.3;
     expect((0.1425 * 0.21 + 0.08 * boosterCg) / (0.1425 + 0.08)).toBeCloseTo(0.3, 12);
   });
 
-  /** All or nothing: one stage overridden writes the figures of every stage. */
   it('writes every stage when only one is overridden', () => {
     const one = exportRkt(
       'Two stage',
@@ -856,10 +773,6 @@ describe('stage mass and CG overrides', () => {
     expect(plain).not.toMatch(/Stage\dMass|Stage3CG|UseKnownMass/);
   });
 
-  /**
-   * The figures are the kernel's for the stage as it flies, its parts
-   * included, so an override of the stage alone survives the trip too.
-   */
   it('names nothing for an override of the stage alone', () => {
     const alone = exportRkt(
       'One',
@@ -884,7 +797,6 @@ describe('stage mass and CG overrides', () => {
   });
 });
 
-/** `RockSimSaver`: a single stage's Cd override that covers its parts is RockSim's fixed Cd. */
 describe('a stage Cd override', () => {
   const tube = { type: 'bodytube', id: 'u', name: 'Upper', length: 0.3, outerRadius: 0.0124, thickness: 0.0004 };
   const stage = (extra: Record<string, unknown>) =>
@@ -940,7 +852,6 @@ describe("a design's own information and RockSim's CP method", () => {
       ],
     }).xml;
 
-  /** `RocketDesignDTO`: `Comments`, `Designer` and `Revisions`, read back by `RockSimHandler`. */
   it('writes the comments, the designer and the revision history, and reads them back', () => {
     const out = write(3, { comment: 'A comment', designer: 'A designer', revision: 'A revision' });
     expect(out).toContain('<Comments>A comment</Comments>');
@@ -951,7 +862,6 @@ describe("a design's own information and RockSim's CP method", () => {
     expect(write(3)).not.toMatch(/Comments|Designer|Revisions/);
   });
 
-  /** `RockSimSaver.supportsBarrowmanEquations`: fin sets of 3, 4 or 6 fins only. */
   it.each([
     [3, 1],
     [4, 1],
@@ -965,11 +875,6 @@ describe("a design's own information and RockSim's CP method", () => {
   });
 });
 
-/**
- * RockSim has no repeat count: `LaunchLugDTO` and `CenteringRingDTO` write one
- * part, and `LaunchLugHandler` and `RingHandler` read one, so a line of copies
- * opens in desktop as its first.
- */
 describe('a part repeated along its parent', () => {
   const write = (part: ComponentNode) =>
     exportRkt('x', {
@@ -1021,12 +926,7 @@ describe('a part repeated along its parent', () => {
   });
 });
 
-/**
- * Fields desktop OpenRocket reads differently from how the app's own reader
- * does, each checked against the RockSim handler that reads it.
- */
 describe('exportRkt, read by the desktop handlers', () => {
-  /** A one-stage design holding `parts`. */
   const write = (parts: ComponentNode[], figures?: Parameters<typeof exportRkt>[2]) =>
     exportRkt(
       'x',
@@ -1042,15 +942,9 @@ describe('exportRkt, read by the desktop handlers', () => {
     thickness: 0.0005,
     children,
   });
-  /** The text of `name` inside the first `<tag>` block. */
   const field = (out: string, tag: string, name: string): string | undefined =>
     new RegExp(`<${tag}>[\\s\\S]*?<${name}>([^<]*)</${name}>[\\s\\S]*?</${tag}>`).exec(out)?.[1];
 
-  /**
-   * `MassObjectHandler.mapMassObjectAsShockCord` drops `KnownMass` unless
-   * `UseKnownCG` is set and weighs the cord by the line material built from
-   * `Material` and `Density`, so the cord's own line material has to be there.
-   */
   it('gives a shock cord its line material and density', () => {
     const { xml: out } = write([
       tube([
@@ -1078,14 +972,6 @@ describe('exportRkt, read by the desktop handlers', () => {
     expect(Number(field(out, 'MassObject', 'Density'))).toBeCloseTo(0.006, 9);
   });
 
-  /**
-   * `BaseHandler.endHandler` builds a part's material from `Material` and
-   * `Density` alone, so a part written without either opens weighing nothing.
-   * The kernel takes a material only from a positive density
-   * (`ComponentFactory`), and a part without one flies the stock material
-   * `ApplicationPreferences.getDefaultComponentMaterial` gives it: cardboard at
-   * 680 kg/m3, ripstop nylon at 0.067 kg/m2, elastic cord at 0.0018 kg/m.
-   */
   describe('a part with no material of its own', () => {
     it('goes out as the stock bulk material the kernel weighs it with', () => {
       const { xml: out } = write([tube([])]);
@@ -1133,11 +1019,6 @@ describe('exportRkt, read by the desktop handlers', () => {
     });
   });
 
-  /**
-   * `FinSetHandler.endHandler` overrides an airfoil fin set that has no
-   * override of its own with `CalcMass` and `CalcCG`, so both have to carry
-   * the kernel's figures or the set weighs 0 g.
-   */
   describe('an airfoil fin set', () => {
     const fins = (extra: Partial<ComponentNode> = {}): ComponentNode =>
       ({
@@ -1175,12 +1056,7 @@ describe('exportRkt, read by the desktop handlers', () => {
     });
   });
 
-  /**
-   * `PodHandler` reads `RadialLoc` as `RadiusMethod.FREE`, a distance from the
-   * parent's centerline. `RadiusMethod.RELATIVE` places a pod at the body
-   * tube's radius plus the pod's bounding radius plus its offset: 25 mm, plus
-   * the 12 mm pod tube, plus 3 mm, is 40 mm.
-   */
+  // RadialLoc is from the centerline: tube radius + pod radius + offset, 25 + 12 + 3 = 40 mm.
   describe('a pod', () => {
     const pod = (radiusMethod: string): ComponentNode =>
       ({
@@ -1203,10 +1079,6 @@ describe('exportRkt, read by the desktop handlers', () => {
     });
   });
 
-  /**
-   * RockSim has no flipped flag, and desktop's `StageDTO.toNoseConeDTO` writes a
-   * flipped nose cone as a transition: base at the front, a point at the rear.
-   */
   it('writes a tail cone as a transition, base first', () => {
     const { xml: out } = write([
       tube([]),
@@ -1233,7 +1105,6 @@ describe('exportRkt, read by the desktop handlers', () => {
   });
 });
 
-/** The rest of what desktop's RockSim handlers read differently. */
 describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () => {
   const write = (parts: ComponentNode[], figures?: Parameters<typeof exportRkt>[2]) =>
     exportRkt(
@@ -1250,10 +1121,8 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     thickness: 0.0005,
     children,
   });
-  /** Every `<tag>` block in order, as its text. */
   const blocks = (out: string, tag: string): string[] =>
     [...out.matchAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'))].map((m) => m[0]);
-  /** The text of `name` directly in a block, or undefined. */
   const value = (block: string, name: string): string | undefined =>
     new RegExp(`<${name}>([^<]*)</${name}>`).exec(block)?.[1];
   const fins = (extra: Partial<ComponentNode> = {}): ComponentNode =>
@@ -1270,10 +1139,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
       ...extra,
     }) as ComponentNode;
 
-  /**
-   * `ParachuteHandler` builds the line material when `ShroudLineMaterial`
-   * closes, from the density read by then, so the density has to come first.
-   */
   it("writes a parachute's line density before its line material", () => {
     const { xml: out } = write([
       tube([
@@ -1292,11 +1157,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(chute.indexOf('<ShroudLineMassPerMM>')).toBeLessThan(chute.indexOf('<ShroudLineMaterial>'));
   });
 
-  /**
-   * `FinSetDTO` writes `getTabOffset(AxialMethod.TOP)` and `FinSetHandler` reads
-   * it as top: a 40 mm tab centered on a 60 mm root starts 10 mm back, and one
-   * against the trailing edge 20 mm back.
-   */
   it.each([
     ['middle', 10],
     ['bottom', 20],
@@ -1308,11 +1168,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(Number(value(blocks(out, 'FinSet')[0]!, 'TabOffset'))).toBeCloseTo(expected, 9);
   });
 
-  /**
-   * `RockSimFinishCode.toCode`: RockSim's four finishes as their own codes, the
-   * rough ones as unfinished (3, its roughest), the ones smoother than regular
-   * paint as polished (0, its smoothest), and anything else as matt (2).
-   */
   it.each([
     ['rough', '3'],
     ['roughunfinished', '3'],
@@ -1329,11 +1184,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(value(blocks(out, 'BodyTube')[0]!, 'FinishCode')).toBe(code);
   });
 
-  /**
-   * `ParachuteDTO`: RockSim reads a chute with no `SideCount` as a hexagon, so a
-   * round one says it is round, and one canopy. No spill hole: the kernel flies
-   * none, and RockSim would take it out of the area.
-   */
   it('writes a parachute as one round canopy with no spill hole', () => {
     const { xml: out } = write([
       tube([{ type: 'parachute', id: 'p', name: 'Chute', diameter: 0.4, spillHoleDiameter: 0.04 } as ComponentNode]),
@@ -1345,7 +1195,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(find(importRkt(out).tree.components, 'Chute')['diameter']).toBeCloseTo(0.4, 12);
   });
 
-  /** A fin set's and a tube fin set's roll is their `rotation`, as the bridge reads it. */
   it('writes a fin set and a tube fin set rotated by their rotation', () => {
     const { xml: out } = write([
       tube([
@@ -1381,11 +1230,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
       ...extra,
     }) as ComponentNode;
 
-  /**
-   * `PodSetDTO.generatePodSetDTOs` writes one pod per instance, as
-   * `RocketComponent.splitInstances` makes them: each turned by its share of
-   * the circle, named `<name> #<n>`, with the mass override shared.
-   */
   it('writes a set of three pods as three pods', () => {
     const podFigures = (id: string) => (id === 'p' ? { mass: 0.01, cgX: 0.05 } : undefined);
     const { xml: out } = write([tube([pod({ instanceCount: 3, overrideMass: 0.03 })])], podFigures);
@@ -1398,12 +1242,7 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     for (const p of pods) expect(Number(value(p, 'KnownMass'))).toBeCloseTo(10, 9);
   });
 
-  /**
-   * Desktop's LaunchLugHandler applies OD and ID in file order, and
-   * LaunchLug.setInnerRadius rebuilds the outer radius as the bore plus the
-   * current wall (1 mm on a new lug), so an ID read after the OD would give the
-   * lug the bore plus that wall as its outside rather than the stated OD.
-   */
+  // The reader's setInnerRadius rebuilds the outside from the current wall, so ID must come first.
   it('writes a launch lug bore before its outside', () => {
     const lug = {
       type: 'launchlug',
@@ -1420,12 +1259,7 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(Number(value(block, 'ID'))).toBeCloseTo(3.4, 9);
   });
 
-  /**
-   * RockSim keeps a pod child's angle about the airframe: desktop adds the pod's
-   * angle on the way out (`PodSetDTO.addAngleOffsetToChildren`) and takes it off
-   * on the way in. A lug with no angle of its own flies at pi, the bridge's
-   * default, so it goes out at pi plus the pod's angle.
-   */
+  // A pod child's angle is about the airframe; a lug with no angle flies at pi, the bridge default.
   it("adds the pod's angle to the angles of the parts inside it, and reads them back", () => {
     const lug = { type: 'launchlug', id: 'l', name: 'Pod lug', length: 0.03, outerRadius: 0.002 } as ComponentNode;
     const turned = pod({ angleOffset: Math.PI / 2 });
@@ -1438,11 +1272,6 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
     expect(find(back, 'Pod lug')['angleOffset']).toBeCloseTo(Math.PI, 9);
   });
 
-  /**
-   * `ParallelStageDTO` writes a strap-on booster as a pod that separates
-   * (`Detachable` 1), one per instance, and `PodHandler` reads it back as a
-   * parallel stage.
-   */
   it('writes a strap-on booster as a pod that separates', () => {
     const { xml: out, skipped: s } = write([tube([pod({ type: 'parallelstage', name: 'Booster' })])]);
     expect(s).toEqual([]);
@@ -1451,9 +1280,7 @@ describe('exportRkt, read by the desktop handlers: fins, pods and finishes', () 
   });
 });
 
-/** What RockSim has no element for, named in the result rather than lost quietly. */
 describe('exportRkt, overrides RockSim cannot hold', () => {
-  // The kernel's figures, as the app passes them, so a mass-only override is written.
   const only = (part: ComponentNode) =>
     exportRkt(
       'x',
@@ -1463,11 +1290,6 @@ describe('exportRkt, overrides RockSim cannot hold', () => {
   const nose = (extra: Partial<ComponentNode>): ComponentNode =>
     ({ type: 'nosecone', id: 'n', name: 'Nose', length: 0.1, aftRadius: 0.0124, ...extra }) as ComponentNode;
 
-  /**
-   * RockSim's one switch covers the part alone (`BaseHandler.setOverride` clears
-   * the flags for the parts inside), so an override of everything inside opens as an
-   * override of the part, with its children's mass added on top.
-   */
   it('names an override that applies to the parts inside', () => {
     const { skipped: s } = only(nose({ overrideMass: 0.05, overrideSubcomponentsMass: true }));
     expect(s).toEqual([{ key: 'errors.rktSkip.subtreeOverride', values: { name: 'Nose' } }]);
@@ -1493,11 +1315,6 @@ describe('exportRkt, overrides RockSim cannot hold', () => {
   });
 });
 
-/**
- * `BasePartDTO`: RockSim's known mass of a part leaves its attached parts out,
- * so the parts inside a mass override that covers them go out weighing nothing
- * rather than being counted twice.
- */
 describe('exportRkt, the parts inside a mass override that covers them', () => {
   const blocks = (out: string, tag: string): string[] =>
     [...out.matchAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'))].map((m) => m[0]);
@@ -1561,12 +1378,7 @@ describe('exportRkt, the parts inside a mass override that covers them', () => {
   });
 });
 
-/**
- * Desktop's `CustomFinSetDTO.convertFreeFormPoints` writes RockSim's order: the
- * trailing root point first, back to `0,0`, each pair closed by `|`. Desktop's
- * reader and the app's reverse a list that ends at `0,0`, so the outline comes
- * back leading edge first.
- */
+// The trailing root point is written first; readers reverse a list that ends at `0,0`.
 describe('exportRkt, a freeform fin outline', () => {
   const freeform = (points: [number, number][]): RocketTree =>
     ({
@@ -1625,12 +1437,7 @@ describe('exportRkt, a freeform fin outline', () => {
   });
 });
 
-/**
- * RockSim has no automatic values, so a cord length, line length or Cd the
- * kernel works out is written as the number it flies (the kernel's figures, as
- * the app passes them), not the stored one, which is whatever it was when the
- * flag went on. The cord here stores 0.3 m and flies three rocket lengths.
- */
+// The cord stores 0.3 m but flies three rocket lengths; the flown figure is written.
 describe('exportRkt, values the kernel works out', () => {
   const blocks = (out: string, tag: string): string[] =>
     [...out.matchAll(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'))].map((m) => m[0]);
@@ -1683,11 +1490,6 @@ describe('exportRkt, values the kernel works out', () => {
   });
 });
 
-/**
- * A part with no position is written where it flies: a fin set's constructor
- * places it at the bottom of its parent (`FinSet`, `AxialMethod.BOTTOM`), so
- * the file says what an explicit bottom, 0 says.
- */
 describe('a fin set with no position', () => {
   const withFins = (position?: { method: string; offset: number }): string =>
     exportRkt('Keyless', {
@@ -1728,11 +1530,6 @@ describe('a fin set with no position', () => {
   });
 });
 
-/**
- * A fin count is a whole number of fins, read as every other reader of the key
- * reads it (`countOf`): a stored 4.4, which only a hand-edited file carries,
- * goes out as the 4 fins the kernel flies, not as "4.4".
- */
 describe('exportRkt: a fin count', () => {
   it('writes the whole number of fins the kernel flies', () => {
     const xml = exportRkt('Fins', {

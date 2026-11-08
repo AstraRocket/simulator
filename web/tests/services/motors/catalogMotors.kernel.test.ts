@@ -10,14 +10,7 @@ import { loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Every thrust curve in the shipped catalog, seated in a mount by the real
- * engine. The kernel's motor builder refuses a curve that does not start at
- * t = 0 or that holds two thrusts at one time, and the catalog has both, so a
- * motor the picker offers could fail to fly. Motors the app refuses on purpose
- * (no published weights, more propellant than mass) are not the kernel's
- * business and are skipped.
- */
+// The kernel refuses a curve not starting at t = 0 or with two thrusts at one time.
 
 const catalog = JSON.parse(
   readFileSync(join(__dirname, '../../../public/data/motors.generated.json'), 'utf8'),
@@ -63,7 +56,7 @@ describe('the shipped motor catalog', () => {
             6,
           );
         } catch {
-          continue; // refused by the app on purpose, with its own message
+          continue;
         }
         engine.reset();
         const h = engine.buildRocket(TREE);

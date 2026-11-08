@@ -1,33 +1,14 @@
-// How many catalog rows carry the digest desktop OpenRocket uses to find the
-// same part or motor, and the floors a catalog has to meet before it is
-// written or published.
-//
-// A parts catalog without digests makes every saved .ork drop its part links,
-// and a motor catalog without them leaves desktop to choose among motors that
-// share a name. Neither looks wrong in the app, and a refresh whose dumper
-// returned nothing, or a workflow that skipped the digest step, would otherwise
-// publish one with a green run. A relative check alone is not enough: its
-// baseline is the copy on the data branch, which can itself have none.
-//
-// The floors sit under what a healthy refresh gives (every part, motors about
-// 89%: thrustcurve.org lists motors that desktop's library does not), and far
-// above what a broken one gives (0%).
-// A type with fewer than MIN_ROWS rows is reported but not held to a floor:
-// rail buttons are eight rows, and one part more or less moves them by 12%.
+// Healthy refreshes give every part and about 89% of motors; broken ones give 0%.
 
-/** Share of all parts that must carry a digest. */
 const PART_FLOOR = 0.9;
-/** Share of each part type with at least MIN_ROWS rows that must carry one. */
 const PART_TYPE_FLOOR = 0.8;
-/** Share of motors that must carry at least one digest. */
 const MOTOR_FLOOR = 0.8;
-/** Below this many rows a part type is reported but not held to a floor. */
+// Smaller part types are not held to a floor: one part moves 8 rows by 12%.
 export const MIN_ROWS = 50;
 
 const share = (n, of) => (of ? n / of : 0);
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
 
-/** Rows and digested rows per part type, and in total. */
 function partCoverage(components) {
   const byType = new Map();
   for (const row of components) {
@@ -40,20 +21,10 @@ function partCoverage(components) {
   return { rows: components.length, digests, byType };
 }
 
-/** Motors and motors with at least one digest. */
 function motorCoverage(motors) {
   return { rows: motors.length, digests: motors.filter((m) => m.digests?.length).length };
 }
 
-/**
- * Every digest carried by more than one row, with the rows that carry it.
- *
- * A digest names one desktop preset. Two rows of different sizes under one
- * digest make a saved .ork link the second part to the first preset, and
- * desktop then loads that preset's dimensions over the part. The digest step
- * can produce this when its matcher keys two rows to one preset, so it is
- * refused here rather than published.
- */
 function sharedDigests(components) {
   const rows = new Map();
   for (const row of components) {
@@ -66,7 +37,6 @@ function sharedDigests(components) {
 
 const rowName = (row) => [row.type, row.mfr, row.partNo ?? row.desc].filter(Boolean).join(' ');
 
-/** Why a parts catalog fails its floors; empty when it passes. */
 export function partProblems(components) {
   const c = partCoverage(components);
   const problems = [];
@@ -85,7 +55,6 @@ export function partProblems(components) {
   return problems;
 }
 
-/** Why a motor catalog fails its floor; empty when it passes. */
 export function motorProblems(motors) {
   const c = motorCoverage(motors);
   return share(c.digests, c.rows) < MOTOR_FLOOR
@@ -93,7 +62,6 @@ export function motorProblems(motors) {
     : [];
 }
 
-/** A Markdown table of the coverage, for the console and the workflow summary. */
 export function coverageTable(components, motors) {
   const lines = ['| Catalog | Rows | With digest | Share |', '|---|---:|---:|---:|'];
   if (components) {
@@ -110,23 +78,7 @@ export function coverageTable(components, motors) {
 }
 
 /**
- * How this run's digests compare with the previous catalog's, row by row.
- *
- * The catalogs follow sources we do not control: thrustcurve.org deletes and
- * merges motors, and a database release drops parts. A row that is gone took its
- * digest with it, and that is not a broken run, so only rows present in both
- * catalogs are compared: one that had a digest and still exists must still have
- * one. The floors above stay the absolute protection.
- *
- * Each catalog is given as its rows' keys and whether each row carries a
- * digest, taken before the run edits the rows. A key can be carried by more than
- * one row (parts that share a part number and differ in size), so rows are
- * counted per key: a key keeps as many digests as it had, up to the rows it
- * still has.
- *
- * `lost` names each surviving key that has fewer digests than before, and is
- * what a sync refuses. `gone` names each key whose digested rows went away with
- * the rows themselves, and is reported, not refused.
+ * Keys can repeat (same part number, different sizes), so digests are counted per key.
  *
  * @param {{ key: string, digested: boolean }[]} previous the catalog this run is held to
  * @param {{ key: string, digested: boolean }[]} current the catalog this run would write
@@ -159,14 +111,6 @@ export function digestChanges(previous, current) {
 }
 
 /**
- * The presets of the release that no catalog row carries the digest of.
- *
- * Desktop's library holds every preset, duplicates included, each under its
- * own digest, and a saved `.ork` names its part by that digest. A preset no
- * row carries is a part desktop users have and the app cannot name, so a sync
- * refuses it: two `.orc` elements that the row reader cannot tell apart would
- * otherwise collapse into one row, and the floors would still read 100%.
- *
  * @param {{ digest: string, label: string }[]} presets every preset the release holds
  * @param {{ digest?: string }[]} components the catalog this run would write
  * @returns {string[]} the labels of the presets no row carries, sorted
@@ -180,9 +124,6 @@ export function presetsWithoutRow(presets, components) {
 }
 
 /**
- * A Markdown section listing the digested rows that went away upstream, for the
- * console and the workflow summary; empty when none did.
- *
  * @param {string} title what the rows are ("Motors", "Parts")
  * @param {string[]} gone row keys, as `digestChanges` returns them
  */

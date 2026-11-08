@@ -5,7 +5,6 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { RangeSlider } from '../../../src/components/sim/RangeSlider';
 import i18n from '../../../src/i18n';
 
-/** Each thumb is named through one key, so the word order follows the language. */
 describe('RangeSlider thumb names', () => {
   const render = () =>
     renderWithProviders(<RangeSlider count={5} low={0} high={4} onChange={() => {}} label="Diameter" />);
@@ -28,7 +27,6 @@ describe('RangeSlider thumb names', () => {
   });
 });
 
-/** A screen reader hears the stop's label, not the thumb's index among the stops. */
 describe('RangeSlider thumb values', () => {
   const stops = ['6 mm', '10.5 mm', '13 mm', '18 mm', '24 mm'];
 
@@ -46,7 +44,6 @@ describe('RangeSlider thumb values', () => {
   });
 });
 
-/** Where the thumbs meet, only the thumb on top can be grabbed by a pointer. */
 describe('RangeSlider stacked thumbs', () => {
   const z = (name: string) => Number((screen.getByLabelText(name) as HTMLElement).style.zIndex);
   const render = (low: number, high: number) =>

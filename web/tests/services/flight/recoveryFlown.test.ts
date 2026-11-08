@@ -2,16 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { deviceDescent, sustainerDescentMass } from '../../../src/services/flight/recoveryFlown';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 
-/**
- * Reading a run's own figures for a recovery device.
- *
- * The point of this module is that nothing in it computes: the mass and the
- * descent speed are read out of the kernel's series at the time of the kernel's
- * events. So the cases below are about which sample gets read, which is the only
- * decision there is to get wrong.
- */
-
-/** A branch descending under a drogue, then a main, then landing. */
 const branch = (name: string, mass: number) => ({
   name,
   events: [
@@ -22,10 +12,8 @@ const branch = (name: string, mass: number) => ({
     { type: 'GROUND_HIT', time: 25 },
   ],
   series: {
-    // Mass steps down at apogee so a wrong sample shows as a wrong number.
     time: [0, 5, 10, 15, 20, 25],
     mass: [mass + 0.02, mass, mass, mass, mass, mass],
-    // Still slowing right after each opening; settled by the end of each phase.
     velocity: [0, -2, -20, -19, -6, -5.5],
   },
 });
@@ -36,7 +24,6 @@ const single = (): FlightResult =>
     ...branch('', 0.4),
   }) as unknown as FlightResult;
 
-/** A staged flight: the sustainer, plus a booster with its own lighter branch. */
 const staged = (): FlightResult =>
   ({
     summary: {},
@@ -44,7 +31,6 @@ const staged = (): FlightResult =>
     branches: [branch('Sustainer', 0.4), { ...branch('Booster', 0.15), events: boosterEvents() }],
   }) as unknown as FlightResult;
 
-/** A device the design names uniquely, so a result without ids may match it by name. */
 const dev = (name: string) => ({ id: `id-${name}`, name, nameShared: false });
 
 const boosterEvents = () => [
@@ -59,11 +45,6 @@ describe('deviceDescent', () => {
     expect(d?.mass).toBeCloseTo(0.4, 12);
   });
 
-  /**
-   * The settled rate, at the end of the device's own phase. Sampled at the
-   * opening instead it would report the speed the rocket was still slowing from:
-   * -2 m/s at apogee under the drogue, which is not a descent rate.
-   */
   it('reads the settled rate at the end of the phase, not at the opening', () => {
     expect(deviceDescent(single(), dev('Drogue'))?.rate).toBeCloseTo(19, 12);
     expect(deviceDescent(single(), dev('Main'))?.rate).toBeCloseTo(5.5, 12);
@@ -81,10 +62,6 @@ describe('deviceDescent', () => {
     expect(deviceDescent(single(), dev('Drogue'))?.branch).toBe('');
   });
 
-  /**
-   * The case the design-side estimate cannot get right: a separated booster
-   * descends on its own branch, so its mass is its own rather than the stack's.
-   */
   it('reads a booster from its own branch', () => {
     const b = deviceDescent(staged(), dev('Booster chute'));
     expect(b?.branch).toBe('Booster');
@@ -103,10 +80,6 @@ describe('deviceDescent', () => {
     expect(deviceDescent(single(), dev(''))).toBeNull();
   });
 
-  /**
-   * Two unnamed chutes fly under the same kernel default name. The bridge puts
-   * each part's node id on its events, and the id is what picks the device.
-   */
   it('matches a device by node id when the events carry ids', () => {
     const r = single() as unknown as { events: { type: string; time: number; source?: string; sourceId?: string }[] };
     r.events = [
@@ -118,26 +91,19 @@ describe('deviceDescent', () => {
     const main = { id: 'main', name: '[Parachute.Parachute]', nameShared: true };
     expect(deviceDescent(r as unknown as FlightResult, main)?.time).toBe(15);
     expect(deviceDescent(r as unknown as FlightResult, main)?.rate).toBeCloseTo(5.5, 12);
-    // Ids present: the name is not consulted, so another id finds nothing.
     expect(deviceDescent(r as unknown as FlightResult, { ...main, id: 'other' })).toBeNull();
   });
 
-  /**
-   * A result without ids can only be matched by name, and a name two devices
-   * share could be either: the estimate stands rather than another device's run.
-   */
   it('answers nothing for a shared name in a result without ids', () => {
     expect(deviceDescent(single(), { ...dev('Main'), nameShared: true })).toBeNull();
   });
 
-  /** A run that recorded no mass series has nothing to report rather than a zero. */
   it('answers nothing when the run carries no mass series', () => {
     const r = single() as unknown as { series: Record<string, unknown> };
     delete r.series.mass;
     expect(deviceDescent(r as unknown as FlightResult, dev('Drogue'))).toBeNull();
   });
 
-  /** Two chutes on one charge open at the same instant; neither ends the other's phase. */
   it('reads the settled rate for devices that open together', () => {
     const r = single() as unknown as { events: { type: string; time: number; source?: string }[] };
     r.events = [
@@ -150,10 +116,7 @@ describe('deviceDescent', () => {
     expect(deviceDescent(r as unknown as FlightResult, dev('Main'))?.rate).toBeCloseTo(5.5, 12);
   });
 
-  /**
-   * A main set a tenth of a second behind the drogue opens with it: reading the
-   * drogue's rate when the main came out would be reading free fall.
-   */
+  // A main 0.1 s behind the drogue opens with it; the drogue's rate then is free fall.
   it('takes devices that open within a fifth of a second as one step', () => {
     const r = single() as unknown as { events: { type: string; time: number; source?: string }[] };
     r.events = [
@@ -166,7 +129,6 @@ describe('deviceDescent', () => {
     expect(deviceDescent(r as unknown as FlightResult, dev('Main'))?.rate).toBeCloseTo(5.5, 12);
   });
 
-  /** A charge on the ground raises its event, but nothing descends under it. */
   it('reads nothing for a device that opened after landing', () => {
     const r = single() as unknown as { events: { type: string; time: number; source?: string }[] };
     r.events = [
@@ -178,14 +140,12 @@ describe('deviceDescent', () => {
     expect(sustainerDescentMass(r as unknown as FlightResult)).toBeNull();
   });
 
-  /** In a wind the total speed carries the drift; the descent is the vertical part. */
   it('reads the vertical speed when the run recorded it', () => {
     const r = single() as unknown as { series: Record<string, number[]> };
     r.series = { ...r.series, Vz: [0, -2, -18, -17, -5.2, -5] };
     expect(deviceDescent(r as unknown as FlightResult, dev('Main'))?.rate).toBeCloseTo(5, 12);
   });
 
-  /** Falls back to the last sample when the flight recorded no end to the phase. */
   it('uses the last sample when nothing ends the phase', () => {
     const r = single() as unknown as { events: { type: string; time: number; source?: string }[] };
     r.events = [{ type: 'RECOVERY_DEVICE_DEPLOYMENT', time: 5, source: 'Main' }];
@@ -196,7 +156,6 @@ describe('deviceDescent', () => {
 describe('sustainerDescentMass', () => {
   it('reads the first deployment on the first branch', () => {
     expect(sustainerDescentMass(single())).toBeCloseTo(0.4, 12);
-    // The booster's own branch is lighter; the tile is about the sustainer.
     expect(sustainerDescentMass(staged())).toBeCloseTo(0.4, 12);
   });
 

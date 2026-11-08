@@ -8,14 +8,7 @@ import {
 } from 'react';
 import { useLatestRef } from './useLatestRef';
 
-/**
- * While `open`, a pointer press outside `wrapRef` closes the popover, and Escape
- * closes it and returns focus to `returnRef`: focus left on the body makes a
- * popover a dead end, since Tab restarts from the top of the document. Escape
- * is taken in the capture phase and marked handled (`defaultPrevented`), so a
- * window listener that also answers Escape can tell the key was spent. The
- * menu button popover and the checkbox dropdown both close this way.
- */
+// Escape is taken in capture and marked `defaultPrevented` so other window listeners know it was spent.
 export function usePopoverDismiss(
   open: boolean,
   close: () => void,
@@ -43,38 +36,12 @@ export function usePopoverDismiss(
   }, [open, wrapRef, returnRef, closeRef]);
 }
 
-/** Every menu item role: plain, radio and checkbox items all take part in the roving focus. */
 const MENU_ITEMS = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
 
-/**
- * The open state of a menu button and its popover, and the ARIA menu keyboard
- * model for the popover.
- *
- * While open, a pointer press outside `wrapRef` closes it, and Escape closes it
- * and returns focus to `triggerRef`: focus left on the body makes a popover a
- * dead end, since Tab restarts from the top of the document. A menu item that
- * closes the menu uses `closeAndRestore` for the same reason: closing unmounts
- * the focused item.
- *
- * Escape is taken in the capture phase and marked handled (`defaultPrevented`),
- * so a window listener that also answers Escape, such as leaving the maximized
- * canvas, can tell the key was spent closing the menu.
- *
- * A `role="menu"` promises the menu keyboard model, so the popover element takes
- * `menuRef` and `onMenuKeyDown`: opening moves focus to the first item, the
- * up and down arrows move between items (wrapping), Home and End jump to the
- * ends, and Tab closes the menu and lets focus move on. Items carry
- * `tabIndex={-1}` so the arrows, not Tab, move between them. The keys the menu
- * handles stop at the menu, so a host that answers arrows itself (a tree row)
- * does not act on them too.
- */
+// An item that closes the menu uses `closeAndRestore`, since closing unmounts the focused item.
 export function useMenuPopover<T extends HTMLElement = HTMLButtonElement>({
   shown,
 }: {
-  /**
-   * Which items the arrows can reach, for a menu that keeps some of its items
-   * mounted but not displayed. Every item, by default.
-   */
   shown?: (item: HTMLElement) => boolean;
 } = {}) {
   const [open, setOpen] = useState(false);
@@ -84,7 +51,6 @@ export function useMenuPopover<T extends HTMLElement = HTMLButtonElement>({
 
   usePopoverDismiss(open, () => setOpen(false), wrapRef, triggerRef);
 
-  // On open, focus goes to the first item, unless it is already inside.
   useEffect(() => {
     const menu = menuRef.current;
     if (!open || !menu || menu.contains(document.activeElement)) return;

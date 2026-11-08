@@ -11,12 +11,7 @@ import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The cluster's burn time and average thrust are the kernel's, by the rule a
- * single motor's are (`ThrustCurveMotor.computeStatistics`: between the
- * crossings of 5% of peak). Two identical motors sum to the same curve at twice
- * the thrust, so the expected figures come from the bridge on that curve.
- */
+// Burn time and average thrust follow `ThrustCurveMotor.computeStatistics` (5%-of-peak crossings).
 
 const TIMES = [0, 0.1, 0.5, 1.5, 1.6, 2.5];
 const THRUST = [0, 20, 10, 8, 0.5, 0];
@@ -41,7 +36,6 @@ afterAll(() => {
   useEngineStore.setState(initial);
 });
 
-/** The number in the value cell under a spec label. */
 const figure = (label: string) =>
   Number(/[\d.]+/.exec(screen.getByText(label).nextElementSibling?.textContent ?? '')?.[0]);
 

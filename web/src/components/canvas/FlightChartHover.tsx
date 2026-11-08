@@ -1,26 +1,14 @@
 import { fmtNum } from '../../i18n/format';
-import { lerpAt } from '../../services/flight/interpolate';
+import { hoverValue } from './flightChartHoverValue';
 
-/**
- * Owns the per-panel hover readout: the crosshair line (the e2e suite
- * selects on its `data-crosshair`), one dot per stage at the hovered time,
- * and the inline value label when several stages share a panel. `hoverValue`
- * is the one rule for whether a stage reports a value at a time.
- */
+// The e2e suite selects on the crosshair's `data-crosshair`.
 
-/** What the readout needs of a drawn stage: its samples and its flight span. */
 export interface HoverSeries {
   color: string;
   xs: number[];
   ys: number[];
   t0?: number;
   t1?: number;
-}
-
-/** A stage only reports a hovered value while its own flight is under way: a
- *  spent booster already on the ground must not show a flat clamped dot. */
-export function hoverValue(s: Pick<HoverSeries, 'xs' | 'ys' | 't0' | 't1'>, hoverT: number): number | null {
-  return s.t0 != null && s.t1 != null && hoverT >= s.t0 && hoverT <= s.t1 ? lerpAt(s.xs, s.ys, hoverT) : null;
 }
 
 export function PanelHover({
@@ -37,10 +25,8 @@ export function PanelHover({
   list: HoverSeries[];
   X: (t: number) => number;
   Y: (v: number) => number;
-  /** Plot-area y extent of the crosshair line. */
   top: number;
   bottom: number;
-  /** One stage on this panel: the dot alone reads, so no inline value. */
   single: boolean;
   digits: number;
 }) {

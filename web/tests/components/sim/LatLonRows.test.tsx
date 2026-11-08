@@ -4,7 +4,6 @@ import { screen } from '@testing-library/react';
 import { LatLonRows } from '../../../src/components/sim/LatLonRows';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/** The text beside a field: its unit, which carries the hemisphere. */
 const unitOf = (label: string) => screen.getByLabelText(label).closest('label')!.textContent;
 
 describe('LatLonRows', () => {

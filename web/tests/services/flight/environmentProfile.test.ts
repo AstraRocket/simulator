@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { FlightSeries } from '../../../src/engine/openRocketEngine';
 import { environmentProfile, MAX_POINTS_PER_LEG } from '../../../src/services/flight/environmentProfile';
 
-/** A flight up to 300 m and back down, `n` samples, with the six air series. */
 function series(n = 101, over: Record<string, number[]> = {}): FlightSeries {
   const altitude = Array.from({ length: n }, (_, i) => 300 * Math.sin((Math.PI * i) / (n - 1)));
   const col = (f: (alt: number, i: number) => number) => altitude.map(f);

@@ -1,14 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useWorkspaceStore, selectActive } from '../../src/state/store';
 
-/**
- * A write that leaves the state saying what it already says is not an edit:
- * it records no undo step, keeps the redo stack, and keeps the same simulation
- * and configuration objects, so a run in flight is not dropped as outdated.
- */
 const s = () => useWorkspaceStore.getState();
 
-/** One real edit, committed and undone, so there is something on the redo stack. */
 const withRedo = (edit: () => void) => {
   edit();
   s().commitEdit();

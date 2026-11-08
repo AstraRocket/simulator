@@ -1,27 +1,6 @@
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
-/**
- * Fallback values the file services share.
- *
- * The `.ork` reader (what a missing tag becomes), the `.ork` writer (what an absent
- * node key is written as) and `dxfExport` (what an absent key is cut as), along with
- * the other readers, writers and views that need a fallback, read the same field from
- * here rather than each holding its own literal. A literal in one of them is a
- * defect: separate copies drift, and a part that loses a tag on the way in then
- * comes out a different size on the way out with nothing reporting it, or is flown
- * at one size by the kernel and written at another for the desktop.
- *
- * Where the kernel has a default for the field (`kernelDefaults.ts`, verified
- * against the real engine) it is the authority and is re-exported here rather
- * than copied. The rest are fields `kernelDefaults.ts` does not carry (a rail
- * button's flange, a chute's packed radius), taken from the desktop's own constructors
- * and cited at each entry, so a file the desktop wrote without the tag reads
- * as the desktop would have built it.
- *
- * Scope: only fields those consumers share. It is not a catalog of every
- * component default; `treeEdit.defaultNode` decides what the editor creates
- * and is a different question.
- */
+// File services must read fallbacks from here, never a local literal, or parts drift in size.
 export const COMPONENT_DEFAULTS = {
   nosecone: {
     length: KERNEL_DEFAULTS.nosecone.length,
@@ -29,18 +8,12 @@ export const COMPONENT_DEFAULTS = {
     aftRadius: KERNEL_DEFAULTS.nosecone.aftRadius,
   },
   transition: {
-    // The kernel's length (ComponentFactory.java), so a transition that lost
-    // its tag is not flown at one length and drawn at another.
     length: KERNEL_DEFAULTS.transition.length,
     thickness: KERNEL_DEFAULTS.transition.thickness,
   },
-  // BodyTube() (rocketcomponent/BodyTube.java:41) is 8 x DEFAULT_RADIUS by
-  // DEFAULT_RADIUS, the same numbers the kernel row holds.
   bodytube: {
     length: KERNEL_DEFAULTS.bodytube.length,
     outerRadius: KERNEL_DEFAULTS.bodytube.outerRadius,
-    // The kernel is the authority for the wall (verified by
-    // kernelDefaults.kernel.test.ts).
     thickness: KERNEL_DEFAULTS.bodytube.thickness,
   },
   innertube: {
@@ -54,8 +27,6 @@ export const COMPONENT_DEFAULTS = {
   },
   engineblock: {
     length: KERNEL_DEFAULTS.engineblock.length,
-    // The kernel's wall, which is also what the DXF cuts at, so a block that
-    // lost its tag is not drawn and cut at two different bores.
     thickness: KERNEL_DEFAULTS.engineblock.thickness,
   },
   centeringring: {
@@ -66,12 +37,8 @@ export const COMPONENT_DEFAULTS = {
   },
   finset: {
     finCount: KERNEL_DEFAULTS.trapezoidfinset.finCount,
-    // The kernel's default for every planar fin type (ComponentFactory).
     thickness: KERNEL_DEFAULTS.trapezoidfinset.thickness,
   },
-  // TrapezoidFinSet() (rocketcomponent/TrapezoidFinSet.java:43) and
-  // EllipticalFinSet() (EllipticalFinSet.java:30, :32-34) build the same planform
-  // the kernel rows hold.
   trapezoidfinset: {
     rootChord: KERNEL_DEFAULTS.trapezoidfinset.rootChord,
     tipChord: KERNEL_DEFAULTS.trapezoidfinset.tipChord,
@@ -82,14 +49,11 @@ export const COMPONENT_DEFAULTS = {
     rootChord: KERNEL_DEFAULTS.ellipticalfinset.rootChord,
     height: KERNEL_DEFAULTS.ellipticalfinset.height,
   },
-  // No wall: a tube fin set with no thickness of its own takes its parent
-  // tube's (ComponentFactory.applyWallThickness), so neither the reader nor
-  // the writer has a number to fall back to.
+  // No wall: it inherits the parent tube's (ComponentFactory.applyWallThickness).
   tubefinset: {
     finCount: KERNEL_DEFAULTS.tubefinset.finCount,
     length: KERNEL_DEFAULTS.tubefinset.length,
   },
-  // LaunchLug() (rocketcomponent/LaunchLug.java:35-37).
   launchlug: {
     length: KERNEL_DEFAULTS.launchlug.length,
     outerRadius: KERNEL_DEFAULTS.launchlug.outerRadius,
@@ -97,20 +61,16 @@ export const COMPONENT_DEFAULTS = {
   },
   railbutton: {
     outerDiameter: KERNEL_DEFAULTS.railbutton.outerDiameter,
-    // RailButton() (rocketcomponent/RailButton.java:60-66): total height
-    // 0.0097, inner diameter 0.008, flange 0.002, base 0.002, screw 0.
+    // RailButton() (rocketcomponent/RailButton.java:60-66).
     innerDiameter: 0.008,
     height: 0.0097,
     baseHeight: 0.002,
     flangeHeight: 0.002,
     screwHeight: 0,
-    // The desktop's default rail-button material (RailButton.java:67).
     materialName: 'Delrin',
     materialDensity: 1420,
     materialGroup: 'Plastics',
   },
-  // Parachute() (rocketcomponent/Parachute.java:27-30) and Streamer()
-  // (Streamer.java:20-22) hold the kernel rows' numbers.
   parachute: {
     diameter: KERNEL_DEFAULTS.parachute.diameter,
     lineCount: KERNEL_DEFAULTS.parachute.lineCount,
@@ -120,27 +80,20 @@ export const COMPONENT_DEFAULTS = {
     stripLength: KERNEL_DEFAULTS.streamer.stripLength,
     stripWidth: KERNEL_DEFAULTS.streamer.stripWidth,
   },
-  // ShockCord() (rocketcomponent/ShockCord.java:22).
   shockcord: {
     cordLength: KERNEL_DEFAULTS.shockcord.cordLength,
   },
-  // MassComponent(): 0 kg (MassComponent.java:17), with MassObject()'s
-  // 0.025 by 0.0125 (MassObject.java:38).
   masscomponent: {
     mass: KERNEL_DEFAULTS.masscomponent.mass,
     length: KERNEL_DEFAULTS.masscomponent.length,
     radius: KERNEL_DEFAULTS.masscomponent.radius,
   },
-  // The camera shroud is this app's own element; the kernel row is its only source.
   fairing: {
     length: KERNEL_DEFAULTS.fairing.length,
     width: KERNEL_DEFAULTS.fairing.width,
     height: KERNEL_DEFAULTS.fairing.height,
     mass: KERNEL_DEFAULTS.fairing.mass,
   },
-  // A recovery device's packed size. The length is the kernel's; the radius
-  // is MassObject()'s 0.0125 (rocketcomponent/MassObject.java:38), which the
-  // desktop draws and the kernel keeps the packed volume from.
   recovery: {
     packedLength: KERNEL_DEFAULTS.parachute.length,
     packedRadius: KERNEL_DEFAULTS.parachute.radius,

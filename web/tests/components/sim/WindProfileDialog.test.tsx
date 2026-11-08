@@ -13,19 +13,12 @@ const LEVELS: WindLevel[] = [
   { altitudeM: 600, speed: 6, directionDeg: 90, stddev: 0 },
 ];
 
-/** The dialog over a live profile, the way LaunchPanel wires it. */
 function Host() {
   const [launch, setLaunch] = useState<LaunchConditions>({ windLevels: LEVELS } as LaunchConditions);
   return <WindProfileDialog launch={launch} onChange={(p) => setLaunch((l) => ({ ...l, ...p }))} onClose={() => {}} />;
 }
 
 describe('WindProfileDialog rows', () => {
-  /**
-   * A row keeps its identity across a removal. Keyed on the index, removing the
-   * first level would not remove its row: React would reuse the row for whatever
-   * level slid into index 0 and drop the last row instead, so the input a user
-   * was editing would suddenly hold a different level's numbers.
-   */
   it('keeps each remaining row on its own level when an earlier one is removed', () => {
     renderWithProviders(<Host />);
     const secondSpeed = screen.getByLabelText('Speed 2') as HTMLInputElement;
@@ -34,7 +27,6 @@ describe('WindProfileDialog rows', () => {
 
     fireEvent.click(screen.getByLabelText('Remove level 1'));
 
-    // The same DOM elements, now labeled 1 and 2, still carrying 4 and 6.
     expect(document.body.contains(secondSpeed)).toBe(true);
     expect(document.body.contains(thirdSpeed)).toBe(true);
     expect(secondSpeed.getAttribute('aria-label')).toBe('Speed 1');
@@ -42,12 +34,6 @@ describe('WindProfileDialog rows', () => {
     expect(thirdSpeed.value).toBe('6');
   });
 
-  /**
-   * Two levels at one altitude is not a profile the kernel will build: it keys
-   * its levels on altitude and throws on the second one. Unflagged here it surfaces
-   * half way into a run, in the kernel's own words (`Wind level already exists for
-   * altitude: 0.0`), for something this editor let the user type.
-   */
   it('flags a row repeating an earlier altitude, and says why', () => {
     renderWithProviders(<Host />);
     const second = screen.getByLabelText('Altitude 2') as HTMLInputElement;
@@ -57,7 +43,6 @@ describe('WindProfileDialog rows', () => {
     fireEvent.change(second, { target: { value: '0' } });
 
     expect(second.getAttribute('aria-invalid')).toBe('true');
-    // The first row at that altitude is the one that gets in, so it stays clean.
     expect((screen.getByLabelText('Altitude 1') as HTMLInputElement).getAttribute('aria-invalid')).toBeNull();
     expect(screen.getByRole('alert').textContent).toContain('Two levels share an altitude');
   });
@@ -73,11 +58,6 @@ describe('WindProfileDialog rows', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  /**
-   * An altitude is the level's identity to the kernel, not a quantity with a
-   * harmless zero. Clearing the box on the way to retyping it must not move the
-   * layer down onto the pad, where it would displace the surface wind.
-   */
   it('writes nothing when an altitude box is emptied', () => {
     renderWithProviders(<Host />);
     const second = screen.getByLabelText('Altitude 2') as HTMLInputElement;
@@ -85,17 +65,11 @@ describe('WindProfileDialog rows', () => {
     fireEvent.change(second, { target: { value: '' } });
     fireEvent.blur(second);
 
-    // Still the level it was, not a second level at 0 m.
     expect(second.value).toBe('300');
   });
 
-  /**
-   * `NumberInput` refuses a non-finite entry, but the unit conversion can
-   * overflow on its own: the box is in display units and the level is in SI.
-   */
   it('writes nothing when the unit conversion overflows', () => {
-    // Kilometers, which is what makes this possible: in meters (the default)
-    // the conversion is a multiply by one.
+    // Kilometers: in meters the conversion cannot overflow.
     seedSettings({ units: { distance: 'km' } });
     const onChange = vi.fn();
     renderWithProviders(
@@ -108,11 +82,6 @@ describe('WindProfileDialog rows', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  /**
-   * A new level lands 300 m above the highest one, not above the last row. The
-   * list is not sorted, so on a 0/600/300 profile the last row's +300 would land
-   * on 600 and collide with a level that is already there.
-   */
   it('adds a level that cannot collide with an existing one', () => {
     const onChange = vi.fn();
     renderWithProviders(
@@ -146,7 +115,6 @@ describe('WindProfileDialog rows', () => {
   });
 });
 
-/** One gusty level: 5 m/s with a 0.75 m/s deviation, 15% turbulence. */
 function GustyHost({ onLevels }: { onLevels?: (l: WindLevel[]) => void }) {
   const [launch, setLaunch] = useState<LaunchConditions>({
     windLevels: [{ altitudeM: 0, speed: 5, directionDeg: 90, stddev: 0.75 }],
@@ -166,11 +134,6 @@ function GustyHost({ onLevels }: { onLevels?: (l: WindLevel[]) => void }) {
   );
 }
 
-/**
- * The speed box reports every keystroke, and the turbulence follows the speed as
- * a fraction. Typing "0.5" passes through "0", where a ratio carried from the
- * previous keystroke would become 0 and stay there.
- */
 describe('WindProfileDialog speed edits keep the turbulence', () => {
   it('keeps 15% when "0.5" is typed over a 5 m/s, 15% layer', () => {
     let last: WindLevel[] = [];
@@ -202,7 +165,6 @@ describe('WindProfileDialog speed edits keep the turbulence', () => {
     fireEvent.focus(speed);
     fireEvent.change(speed, { target: { value: '10' } });
     fireEvent.blur(speed);
-    // A second visit starts from 10 m/s and 1.5 m/s, still 15%.
     fireEvent.focus(speed);
     fireEvent.change(speed, { target: { value: '2' } });
     fireEvent.blur(speed);
@@ -222,7 +184,6 @@ describe('WindProfileDialog direction header', () => {
 });
 
 describe('WindProfileDialog row labels', () => {
-  /** A language that names the level after the field, not with a bare number. */
   it('builds each row label from one key, so the order follows the language', async () => {
     const i18n = (await import('../../../src/i18n')).default;
     await i18n.changeLanguage('de');
@@ -237,12 +198,6 @@ describe('WindProfileDialog row labels', () => {
   });
 });
 
-/**
- * The safety codes' wind ceiling is the pad's, so only the ground layer's
- * deviation box carries it, as only its speed box does. Aloft, the turbulence
- * box beside it sets up to its full percentage of the level's speed, and the
- * deviation box has to hold what that writes.
- */
 describe('WindProfileDialog deviation ceiling', () => {
   const FAST: WindLevel[] = [
     { altitudeM: 0, speed: 4, directionDeg: 90, stddev: 0 },
@@ -274,7 +229,6 @@ describe('WindProfileDialog deviation ceiling', () => {
       fireEvent.change(turbulence, { target: { value: '100' } });
       fireEvent.blur(turbulence);
       const level = FAST[n - 1]!;
-      // 100% of the level's own speed.
       expect(last()[n - 1]!.stddev).toBeCloseTo(level.speed, 9);
 
       const deviation = screen.getByLabelText(`Deviation ${n}`) as HTMLInputElement;
@@ -293,11 +247,6 @@ describe('WindProfileDialog deviation ceiling', () => {
   });
 });
 
-/**
- * Reading the CSV resolves after the fact, and the import writes to whatever
- * simulations are the current edit targets. Closing the dialog before the read
- * finishes must not let it land on them.
- */
 describe('WindProfileDialog CSV import', () => {
   it('drops a file whose read finishes after the dialog was closed', async () => {
     const csv = ['altitude,speed,direction,stddev', '0,4,90,0', '500,8,110,1'].join('\n');

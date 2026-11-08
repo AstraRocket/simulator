@@ -10,11 +10,6 @@ import {
   withFigureDefaults,
 } from '../../../src/services/design/figureStyle';
 
-/**
- * A part's figure style: desktop's figure color and line style, with the
- * per-type defaults "Save as default style" keeps.
- */
-
 const node = (extra: Record<string, unknown>) => ({ type: 'bodytube', ...extra }) as unknown as ComponentNode;
 
 describe('line styles', () => {
@@ -30,7 +25,6 @@ describe('line styles', () => {
     expect(desktop.map((d) => d.name)).toEqual([...LINE_STYLES]);
     for (const { name, dashes } of desktop) {
       const dash = dashOf(node({ lineStyle: name }));
-      // Solid is {10, 0}: no gap, drawn as no dash at all.
       expect(dash).toBe(dashes[1] === 0 ? 'none' : dashes.join(' '));
     }
   });

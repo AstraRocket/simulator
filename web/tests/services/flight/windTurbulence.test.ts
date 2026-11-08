@@ -14,9 +14,6 @@ describe('turbulenceIntensity', () => {
   });
 
   it('answers 0 or 1 at zero wind, as the kernel does', () => {
-    // PinkNoiseWindModel.getTurbulenceIntensity: no ratio exists, so no scatter
-    // reads as none and any scatter reads as total. Export leans on this to
-    // write <windturbulence> a pre-24 desktop can read back.
     expect(turbulenceIntensity(0, 0)).toBe(0);
     expect(turbulenceIntensity(0, 3)).toBe(1);
   });

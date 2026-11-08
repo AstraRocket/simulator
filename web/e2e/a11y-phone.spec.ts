@@ -4,40 +4,25 @@ import { eachEditor } from './editors';
 import { DESIGN_VIEWS, RESULT_VIEWS, TOOLS, type ConfigsTab, type Tab, type ViewMode } from '../src/state/tabs';
 import { taskTabs } from '../src/components/layout/tabTable';
 
-/**
- * The phone layout through axe, in every theme: each button of the bottom tab
- * bar, each view, sub-tab and tool behind it, and the editor of every part
- * type. The phone shows one pane at a time and moves the editors under the
- * tables, so its screens are not the desktop's screens rearranged, and its
- * contrast and names are scanned here.
- *
- * Runs under the Pixel 7 project only (MOBILE_SPECS, and the desktop project's
- * testIgnore, in playwright.config.ts): the desktop project scans the same
- * views at desktop width in a11y.spec.ts.
- */
-
-/** The phone bar's labels, keyed by tab: the bar uses the short ones. */
 const BAR: Record<Exclude<Tab, 'design'>, string> = {
   configs: 'Config',
   sim: 'Simulate',
   results: 'Results',
+  simple: 'Benchtop',
   tools: 'Tools',
 };
 
-/** Tap a button of the bottom bar. */
 async function tap(page: Page, label: string): Promise<void> {
   const button = page.getByRole('navigation', { name: 'Workbench' }).getByRole('button', { name: label, exact: true });
   await button.click();
   await expect(button).toHaveAttribute('aria-current', 'page');
 }
 
-/** The panes inside a view that has a switch of its own: the 2D sides and the Aero panes. */
 const PANES: Partial<Record<ViewMode, Record<string, string>>> = {
   '2d': TWO_D,
   drag: AERO_PANE,
 };
 
-/** Each view of a view switch, and each pane inside one, scanned in turn. */
 async function scanViews(page: Page, where: string, views: readonly ViewMode[]): Promise<string[]> {
   const found: string[] = [];
   for (const view of views) {
@@ -57,7 +42,6 @@ async function scanViews(page: Page, where: string, views: readonly ViewMode[]):
   return found;
 }
 
-/** What each bar button opens onto, scanned once per view, sub-tab or tool it offers. */
 const SCREENS: { name: string; scan: (page: Page) => Promise<string[]>; timeout?: number }[] = [
   {
     name: 'Rocket',
@@ -101,10 +85,7 @@ const SCREENS: { name: string; scan: (page: Page) => Promise<string[]>; timeout?
     },
   })),
   {
-    // The editor of every part type. On a phone it is a full-screen dialog over
-    // the drawing. The phone has no tree, and the drawing does not reach every
-    // part, so each part is chosen at a width that shows the tree, which also
-    // opens the editor as a dialog, and the dialog is scanned at the phone's.
+    // The phone has no tree, so each part is chosen at laptop width.
     name: 'Part editors',
     timeout: 300_000,
     scan: async (page) => {
@@ -126,8 +107,6 @@ const SCREENS: { name: string; scan: (page: Page) => Promise<string[]>; timeout?
     },
   },
   {
-    // Two ticked and not flown: running them switches to Results, so the
-    // editor's multi-edit banner is on screen only before a run.
     name: 'Simulate / two ticked',
     scan: async (page) => {
       await tap(page, BAR.sim);
@@ -138,9 +117,6 @@ const SCREENS: { name: string; scan: (page: Page) => Promise<string[]>; timeout?
     },
   },
   {
-    // An edit after the flight: the header carries the Outdated marker. The
-    // launch angle is a flight input on the Simulate tab, which the phone
-    // reaches without the component tree.
     name: 'Results / outdated',
     scan: async (page) => {
       await tap(page, BAR.sim);
@@ -171,7 +147,6 @@ for (const theme of THEMES) {
       test(`finds nothing on ${screen.name}`, async ({ page }) => {
         test.setTimeout(screen.timeout ?? 120_000);
         await ready(page);
-        // A run first: Results shows on the bar only once there is a flight to read.
         await page.getByRole('navigation', { name: 'Workbench' }).getByRole('button', { name: 'Simulate' }).click();
         await page.getByRole('button', { name: /Run flight simulation/ }).click();
         await expect(page.getByRole('button', { name: 'Results', exact: true })).toBeVisible({ timeout: 30_000 });

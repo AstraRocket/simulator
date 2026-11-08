@@ -8,13 +8,6 @@ import {
   STAGED_MOTORS,
   // @ts-expect-error - a plain .mjs build script helper, no types
 } from '../../../scripts/lib/catalogStaging.mjs';
-
-/**
- * A catalog staged between its two sync steps sits in the OS temp directory,
- * which every checkout on the machine shares. A digest step must read only the
- * catalog its own checkout staged, or it writes another checkout's catalog over
- * this one's public/data.
- */
 describe('staged catalog names', () => {
   const web = fileURLToPath(new URL('../../..', import.meta.url));
 

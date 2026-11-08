@@ -17,12 +17,6 @@ beforeAll(async () => {
   __setEngineForTests(await import('../../src/engine/vendor/openrocket-engine.mjs'));
 });
 
-/**
- * A forecast atmosphere reaches the kernel (bridge AtmosphereProfile) and moves
- * the flight the way air density says it should. The parity golden holds the
- * exact numbers on JVM, JS and WASM; this holds the direction of each effect.
- */
-
 const TREE = {
   components: [
     {
@@ -72,7 +66,6 @@ const apogee = (options: SimulationOptions): number => {
   return d.simulate({ launchRodLength: 1, randomSeed: 7, ...options }).summary.maxAltitude;
 };
 
-/** A column in degrees C and hPa, as the app stores it. */
 const column = (tC: number, pHPa: number): AtmosphereLevel[] => [
   { altitudeM: 0, temperatureC: tC, pressureHPa: pHPa, relativeHumidity: 0 },
   { altitudeM: 500, temperatureC: tC - 3, pressureHPa: pHPa * 0.94, relativeHumidity: 0 },
@@ -95,27 +88,18 @@ describe('a forecast atmosphere', () => {
   });
 
   it('is anchored by the site values, which win near the ground', () => {
-    // The same pressure at the pad, 45 degrees warmer: thinner air, a higher flight.
     const cold = levelsOf(column(-10, 1040));
     const hotSite = apogee({ atmosphereLevels: cold, temperature: 308.15, pressure: 104_000 });
     expect(hotSite).toBeGreaterThan(apogee({ atmosphereLevels: cold }));
   });
 
   it('drops a level whose pressure is not below the pad, as it drops one below the pad', () => {
-    // 950 hPa at the pad under 977.6 hPa at 500 m: that level is ground the pad
-    // stands on, not air above it. The flight goes ahead on the levels above.
     const levels = levelsOf(column(-10, 1040));
     const withLow = apogee({ atmosphereLevels: levels, temperature: 308.15, pressure: 95_000 });
     const without = apogee({ atmosphereLevels: [levels[2]!], temperature: 308.15, pressure: 95_000 });
     expect(withLow).toBeCloseTo(without, 9);
   });
 
-  /**
-   * The parachute sizing estimate reads the air at the pad from the same
-   * levels the flight flies, so its density matches the engine's at liftoff:
-   * between two levels, below the lowest one, and with no forecast at all (the
-   * standard atmosphere, which the kernel tabulates every 500 m).
-   */
   it('gives the air density the sizing estimate uses at the pad', () => {
     const rhoAtLiftoff = (launchAltitudeM: number, levels?: AtmosphereLevel[]): number => {
       const d = OpenRocketDesign.buildTree(TREE);
@@ -139,16 +123,7 @@ describe('a forecast atmosphere', () => {
     expect(rhoAtLiftoff(2682)).toBeCloseTo(airDensity({ launchAltitudeM: 2682 }), 6);
   });
 
-  /**
-   * The site values away from sea level, where a blank is filled with the
-   * sea-level standard constant rather than the ISA value for the altitude,
-   * and where site temperature and pressure together anchor a forecast.
-   *
-   * The custom model is read through the kernel's 500 m table, so between grid
-   * points the pad value sits about 0.03 % off the anchor the estimate uses.
-   * Three places still separate the branches: filling a blank from the site
-   * altitude instead moves the density by tens of percent.
-   */
+  // The kernel's 500 m table puts the pad about 0.03 % off the anchor, hence three places.
   it('gives the air density the sizing estimate uses with site values set', () => {
     const rhoAtLiftoff = (launchAltitudeM: number, site: SimulationOptions, levels?: AtmosphereLevel[]): number => {
       const d = OpenRocketDesign.buildTree(TREE);
@@ -171,8 +146,6 @@ describe('a forecast atmosphere', () => {
       airDensity({ launchAltitudeM: 2682, pressureHPa: 740 }),
       3,
     );
-    // Dry air, so the kernel's humidity term leaves the gas constant alone and
-    // only the branch changes.
     expect(rhoAtLiftoff(2682, { relativeHumidity: 0 })).toBeCloseTo(
       airDensity({ launchAltitudeM: 2682, relativeHumidity: 0 }),
       3,
@@ -199,7 +172,6 @@ describe('a forecast atmosphere', () => {
     };
     const opts = simConditions(launch as never, { randomSeed: 7 } as never);
     expect(opts.atmosphereLevels).toEqual(levelsOf(column(35, 950)));
-    // Against the same conditions without the profile: thin hot air, a higher flight.
     const withProfile = apogee(opts as SimulationOptions);
     expect(withProfile).toBeGreaterThan(apogee({ ...(opts as SimulationOptions), atmosphereLevels: undefined }));
   });

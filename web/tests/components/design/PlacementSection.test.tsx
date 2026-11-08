@@ -28,11 +28,6 @@ const TREE = {
   ],
 } as unknown as RocketTree;
 
-/**
- * Changing "Position from" keeps the part where it is, as the kernel's
- * setAxialMethod does. Keeping the number would move a ring at top 20 mm to
- * 20 mm past the end of its tube when switched to bottom.
- */
 describe('PlacementSection, position from', () => {
   const before = useWorkspaceStore.getState().tree;
   afterEach(() => act(() => useWorkspaceStore.setState({ tree: before })));
@@ -73,12 +68,11 @@ describe('fin tab reference and offset', () => {
     expect(patch.tabOffset).toBeCloseTo(0.02, 12);
   });
 
-  /** The kernel takes any tab offset; from the middle, a tab ahead of center is negative. */
   it('accepts a negative offset', () => {
     const onChange = vi.fn();
     renderWithProviders(<FieldRow node={FIN} field={field('tabOffset')} onChange={onChange} />);
     const input = screen.getByLabelText('Fin tab offset') as HTMLInputElement;
-    // Centimeters, the field's metric unit: 1 cm ahead of the root's middle.
+    // Centimeters, the field's metric unit.
     fireEvent.change(input, { target: { value: '-1' } });
     fireEvent.blur(input);
     const last = onChange.mock.calls.at(-1)![0] as { tabOffset: number };

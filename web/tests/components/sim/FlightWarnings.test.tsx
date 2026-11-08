@@ -5,7 +5,6 @@ import { FlightWarnings } from '../../../src/components/sim/FlightWarnings';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { FlightResult } from '../../../src/engine/api';
 
-/** A HIGH kernel warning says so in words; the danger color is not the only difference. */
 describe('FlightWarnings priority', () => {
   const sim = (priority: string) =>
     ({ warnings: [{ key: 'w', message: 'Something happened', priority }] }) as unknown as FlightResult;

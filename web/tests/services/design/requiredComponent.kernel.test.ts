@@ -15,19 +15,10 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The run refuses a design for its geometry only where the kernel cannot fly
- * it. Each number the editor edits on each part type is set to 0 in turn, the design is built
- * and flown through the bridge, and the pre-run check has to refuse exactly the
- * ones the kernel fails on: refusing more turns away a design desktop flies,
- * refusing less sends the user an engine error in place of the field to fix.
- */
-
 beforeAll(async () => {
   __setEngineForTests(await loadEngine());
 });
 
-/** The kernel's verdict: null when it builds and flies to a finite apogee, else why not. */
 function kernelFails(tree: RocketTree): string | null {
   try {
     const d = OpenRocketDesign.buildTree(tree);
@@ -41,7 +32,6 @@ function kernelFails(tree: RocketTree): string | null {
 
 const part = (type: string, id: string, extra: Record<string, unknown>) => ({ type, id, ...extra });
 
-/** Every part type the editor makes, each with every number it is sized by. */
 const design = (): RocketTree =>
   ({
     name: 'every part',
@@ -141,7 +131,6 @@ const design = (): RocketTree =>
 
 const NUMERIC: ReadonlySet<string> = new Set(['angle', 'bore', 'count', 'distance', 'length', 'mass', 'number']);
 
-/** Every number the editor edits on each part, by part id: what a user can type a 0 into. */
 const SIZED = [...walkNodes(design().components)].flatMap((n) =>
   (FIELDS[n.type] ?? [])
     .filter((f) => NUMERIC.has(f.kind))
@@ -152,7 +141,6 @@ const withZero = (id: string, fields: string[], flag?: string): RocketTree => {
   const tree = design();
   const node = [...walkNodes(tree.components)].find((n) => n.id === id)!;
   for (const f of fields) node[f] = 0;
-  // A typed number turns the field's Auto off, as the panel does.
   if (flag) node[flag] = false;
   return tree;
 };

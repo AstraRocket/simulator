@@ -13,30 +13,19 @@ describe('finPlanformMm', () => {
     expect(p).not.toBeNull();
     expect(p!.count).toBe(4);
     expect(p!.pts).toHaveLength(4);
-    // Root runs 0..60mm; the outline spans the full 40mm height.
     const ys = p!.pts.map(([, y]) => y);
-    expect(Math.min(...ys)).toBeCloseTo(0, 6); // apex (top)
-    expect(Math.max(...ys)).toBeCloseTo(40, 6); // root line at height
+    expect(Math.min(...ys)).toBeCloseTo(0, 6);
+    expect(Math.max(...ys)).toBeCloseTo(40, 6);
   });
 
   it('draws an elliptical fin as a true sampled half-ellipse, not a trapezoid', () => {
     const p = finPlanformMm(node({ type: 'ellipticalfinset', rootChord: 0.05, height: 0.03, finCount: 3 }));
     expect(p).not.toBeNull();
-    expect(p!.pts.length).toBeGreaterThan(10); // 31-point curve (EllipticalFinSet.POINTS), not a 4-point trapezoid
-    // The apex reaches the full height (y = 0 at the top of the mm frame).
+    expect(p!.pts.length).toBeGreaterThan(10);
+    // y = 0 is the top of the mm frame.
     expect(Math.min(...p!.pts.map(([, y]) => y))).toBeCloseTo(0, 3);
   });
 });
-
-/**
- * The freeform outline and its through-the-wall tab have to share one origin.
- *
- * The tab is placed in root-relative coordinates (`finTabSpan`, measured from the
- * root chord rather than from the first point). An outline drawn in raw point
- * coordinates would agree with it only when points[0].x === 0. `FreeformFinEditor`
- * lets the first vertex be dragged off the origin, and the kernel normalizes on
- * `setPoints`, so the tab would be cut somewhere the engine does not put it.
- */
 describe('a freeform fin whose outline does not start at the origin', () => {
   const ff = (points: [number, number][]) =>
     node({
@@ -59,16 +48,12 @@ describe('a freeform fin whose outline does not start at the origin', () => {
     [0.04, 0.03],
     [0.08, 0],
   ];
-
-  /** The tab is the four points appended after the outline. */
   const tabSpan = (n: ReturnType<typeof ff>): [number, number] => {
     const tab = finPlanformMm(n)!
       .pts.slice(-4)
       .map(([x]) => x);
     return [Math.min(...tab), Math.max(...tab)];
   };
-
-  /** The outline's own x-range: the frame the tab has to live in. */
   const outlineSpan = (n: ReturnType<typeof ff>): [number, number] => {
     const xs = finPlanformMm(n)!
       .pts.slice(0, 3)
@@ -77,21 +62,16 @@ describe('a freeform fin whose outline does not start at the origin', () => {
   };
 
   it('centers the tab on the OUTLINE, not 20 mm forward of it', () => {
-    // Comparing tab to tab proves nothing: the tab is placed off the root chord,
-    // which is translation-invariant, so it lands at 20..40 either way. What
-    // matters is the outline around it: drawn from the raw points it would span
-    // 20..80, putting the "centered" tab hard against the leading edge.
     const [lo, hi] = tabSpan(ff(SHIFTED));
     const [oLo, oHi] = outlineSpan(ff(SHIFTED));
     expect((lo + hi) / 2).toBeCloseTo((oLo + oHi) / 2, 6);
-    expect(lo).toBeGreaterThan(oLo + 1); // genuinely inboard of the leading edge
+    expect(lo).toBeGreaterThan(oLo + 1);
     expect(hi).toBeLessThan(oHi - 1);
   });
 
   it('cuts the tab exactly where the identical fin drawn at the origin does', () => {
     const shifted = finPlanformMm(ff(SHIFTED))!.pts;
     const atOrigin = finPlanformMm(ff(AT_ORIGIN))!.pts;
-    // Same fin, same 60 mm root, same 20 mm centered tab, so the same part.
     expect(shifted.map(([x, y]) => [Math.round(x * 1e6), Math.round(y * 1e6)])).toEqual(
       atOrigin.map(([x, y]) => [Math.round(x * 1e6), Math.round(y * 1e6)]),
     );
@@ -132,8 +112,8 @@ describe('profileMm', () => {
       0.02,
     );
     expect(r).not.toBeNull();
-    expect(r!.w).toBeCloseTo(40, 6); // 0.04 m
-    expect(r!.h).toBeCloseTo(40, 6); // 2 * max radius (0.02 m)
+    expect(r!.w).toBeCloseTo(40, 6);
+    expect(r!.h).toBeCloseTo(40, 6);
     expect(r!.pts.length).toBeGreaterThan(4);
   });
 });
@@ -169,30 +149,18 @@ describe('rocketSideView', () => {
 
   it('produces a closed body silhouette and a top+mirror polygon per fin set', () => {
     const v = rocketSideView(tree);
-    expect(v.w).toBeCloseTo(300, 6); // 0.3 m nose + body
+    expect(v.w).toBeCloseTo(300, 6);
     expect(v.body.length).toBeGreaterThan(2);
-    expect(v.fins).toHaveLength(4); // 2 fin sets × (top + mirrored bottom)
+    expect(v.fins).toHaveLength(4);
   });
 
   it('draws the elliptical fin as a curve and the trapezoid as 4 points', () => {
     const v = rocketSideView(tree);
-    expect(v.fins.some((f) => f.length > 10)).toBe(true); // elliptical half-ellipse
-    expect(v.fins.some((f) => f.length === 4)).toBe(true); // trapezoid
+    expect(v.fins.some((f) => f.length > 10)).toBe(true);
+    expect(v.fins.some((f) => f.length === 4)).toBe(true);
   });
 });
-
-/**
- * The root chord positions a freeform fin; the outline draws it. Those are two
- * different measures whenever the tip trailing corner overhangs the root, and
- * this guards against conflating them:
- *
- *   - use the aftmost point to position, and the fin moves forward of where the
- *     engine flies it;
- *   - use the root chord to draw, and the overhang gets clipped off the shape.
- *
- */
 describe('freeform fin: root positions, outline draws', () => {
-  // Root chord 0.06 (first -> last x); furthest-aft point 0.09.
   const overhang: [number, number][] = [
     [0, 0],
     [0.04, 0.05],
@@ -203,8 +171,6 @@ describe('freeform fin: root positions, outline draws', () => {
   it('draws the whole outline, overhang included', () => {
     const fin = { type: 'freeformfinset', points: overhang } as unknown as ComponentNode;
     const out = finPlanformMm(fin)!;
-    // 0.09 m -> 90 mm. Clipping to the 60 mm root would cut the fin's corner off
-    // the 1:1 cutting template.
     expect(Math.max(...out.pts.map((p) => p[0]))).toBeCloseTo(90, 6);
   });
 
@@ -219,15 +185,11 @@ describe('freeform fin: root positions, outline draws', () => {
     const out = finPlanformMm(fin)!;
     const tabXs = out.pts.slice(overhang.length).map((p) => p[0]);
     expect(tabXs.length).toBeGreaterThan(0);
-    // Centered on the 60 mm root, 20 to 40 mm. Measured on the 90 mm overhang
-    // it would run 35 to 55 mm, off the slot cut for it.
     expect(Math.min(...tabXs)).toBeCloseTo(20, 6);
     expect(Math.max(...tabXs)).toBeCloseTo(40, 6);
   });
 
   it('places a tab longer than the root where the kernel does, not clamped into it', () => {
-    // `FinSet.getTabPoints` reads `getTabFrontEdge()`, `tabPosition`, as it
-    // stands: a 200 mm tab centered on the 60 mm root runs from -70 to 130 mm.
     const fin = {
       type: 'freeformfinset',
       points: overhang,
@@ -257,23 +219,12 @@ describe('freeform fin: root positions, outline draws', () => {
     expect(view.fins.length).toBeGreaterThan(0);
     const xs = view.fins[0]!.map((p) => p[0]);
     const start = Math.min(...xs);
-    // Bottom-anchored: the root trailing edge sits at the tube's aft end
-    // (200 mm), so the fin starts at 140 mm - not 110 mm, where an
-    // aftmost-point measure puts it.
     expect(start).toBeCloseTo(140, 3);
-    // …and the drawn polygon still reaches the full 90 mm of outline.
     expect(Math.max(...xs) - start).toBeCloseTo(90, 3);
   });
 });
 
 describe('rocketSideView: fins on a transition', () => {
-  /**
-   * `treeEdit.canHost` allows a freeform fin set on a transition (a boat tail)
-   * and the kernel simulates it, so the transition branch has to look at its
-   * children too. Otherwise the PDF's whole-rocket side view shows a finless
-   * rocket, with no warning that anything is missing. The trapezoid fixtures
-   * below go through the same branch.
-   */
   const withBoatTailFins = {
     components: [
       {
@@ -307,37 +258,17 @@ describe('rocketSideView: fins on a transition', () => {
   it('places them on the transition, not back on the tube', () => {
     const view = rocketSideView(withBoatTailFins);
     const xs = view.fins[0]!.map((p) => p[0]);
-    // The transition starts 200 mm aft (after the tube), so the fin root has to
-    // begin at or past that, not at the start of the rocket.
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(200 - 1e-6);
   });
 
-  /**
-   * A fin sits at the radius under its own front, not at the parent's aft end:
-   * `FinSet.getBodyRadius()` is `getFinFront().getY()`, i.e.
-   * `symmetricParent.getRadius(xFinFront)`.
-   *
-   * This boat tail runs 12 mm → 8 mm over 50 mm, and the fin starts at its
-   * front. Handing `addFins` the aft radius would draw the root at +8 mm while
-   * the silhouette there is +12 mm, putting the fin root 4 mm inside the
-   * airframe. On a 26 → 13 mm boat tail it would be 13 mm inside.
-   */
+  // `FinSet.getBodyRadius()` is `symmetricParent.getRadius(xFinFront)`, not the aft radius.
   it('seats the fin root on the body surface under the fin front, not the aft radius', () => {
     const view = rocketSideView(withBoatTailFins);
     const fin = view.fins[0]!;
-    const rootY = fin[0]![1]; // the leading root corner
-    // Conical 12 → 8 mm: at the transition's front the body is 12 mm.
+    const rootY = fin[0]![1];
     expect(rootY).toBeCloseTo(12, 6);
     expect(rootY).not.toBeCloseTo(8, 3);
   });
-
-  /**
-   * The root closes along the parent (`FinSet.getRootPoints`), so at the
-   * trailing edge it sits on the taper: 12 - 4 * 30 / 50 = 9.6 mm, not at the
-   * 12 mm under the fin front. Along a cone the kernel draws the root as one
-   * straight segment, so the outline ends on the taper and closes straight to
-   * the leading corner.
-   */
   it('runs the root along the taper to the trailing edge', () => {
     const fin = rocketSideView(withBoatTailFins).fins[0]!;
     const atTrail = fin.filter(([x, y]) => Math.abs(x - 230) < 1e-6 && y < 11);
@@ -349,8 +280,6 @@ describe('rocketSideView: fins on a transition', () => {
   });
 
   it('runs the root along a curved taper station by station', () => {
-    // An ogive boat tail: the kernel samples the root every 2.5 mm, and each
-    // sample sits on the profile drawn for the transition itself.
     const ogive = {
       components: [
         { type: 'bodytube', length: 0.2, outerRadius: 0.012 },
@@ -379,7 +308,6 @@ describe('rocketSideView: fins on a transition', () => {
     expect(root.length).toBeGreaterThan(5);
     const profile = view.body.filter(([x, y]) => x >= 200 && x <= 250 && y > 0);
     for (const [x, y] of root) {
-      // Between the two profile samples either side of x, as the curve passes.
       const ahead = profile.filter(([px]) => px <= x).at(-1)!;
       const behind = profile.find(([px]) => px >= x)!;
       expect(y).toBeLessThanOrEqual(Math.max(ahead[1], behind[1]) + 1e-6);
@@ -412,7 +340,6 @@ describe('rocketSideView: fins on a transition', () => {
       ],
     } as unknown as RocketTree;
     const fin = rocketSideView(freeform).fins[0]!;
-    // Third outline point: x = 240 mm, on the cone at 12 - 4 * 40 / 50.
     expect(fin[2]![0]).toBeCloseTo(240, 6);
     expect(fin[2]![1]).toBeCloseTo(12 - (4 * 40) / 50, 6);
   });
@@ -442,19 +369,9 @@ describe('rocketSideView: fins on a transition', () => {
     } as unknown as RocketTree;
     const fin = rocketSideView(halfway).fins[0]!;
     const rootY = fin[0]![1];
-    // Halfway down a linear 12 → 8 mm taper is 10 mm.
     expect(rootY).toBeCloseTo(10, 6);
   });
 });
-
-/**
- * Tube fins in the whole-rocket side view.
- *
- * A tube fin is a tube: 2·rt tall, standing on the body, running its own
- * length. Drawn through the planar-fin path, a `<tubefinset>` would be a swept
- * fin built from the rootChord/height defaults: a fin the rocket does not have,
- * on the design report's own silhouette.
- */
 describe('rocketSideView: tube fins draw as tubes', () => {
   const tubeRocket = (over: Record<string, unknown> = {}) =>
     ({
@@ -482,27 +399,25 @@ describe('rocketSideView: tube fins draw as tubes', () => {
 
   it('spans the tube diameter above the body, not an invented fin height', () => {
     const sv = rocketSideView(tubeRocket());
-    expect(sv.fins).toHaveLength(2); // the shape and its mirror
+    expect(sv.fins).toHaveLength(2);
 
     const top = sv.fins[0]!;
     const ys = top.map(([, y]) => y);
-    // Body radius 12 mm, tube radius 10 mm: the silhouette runs 12 → 32 mm.
     expect(Math.min(...ys)).toBeCloseTo(12, 6);
     expect(Math.max(...ys)).toBeCloseTo(32, 6);
-    // A default-built fin reaches 12 + 30 = 42 mm and is not flat-topped.
     expect(Math.max(...ys)).not.toBeCloseTo(42, 3);
   });
 
   it('runs the tube’s own length, not a 50 mm root chord', () => {
     const top = rocketSideView(tubeRocket()).fins[0]!;
     const xs = top.map(([x]) => x);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(80, 6); // length 0.08 m
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(80, 6);
   });
 
   it('is a rectangle: four corners, two of them flat on the body', () => {
     const top = rocketSideView(tubeRocket()).fins[0]!;
     expect(top).toHaveLength(4);
-    expect(top.filter(([, y]) => Math.abs(y - 12) < 1e-6)).toHaveLength(2); // seated on the airframe
+    expect(top.filter(([, y]) => Math.abs(y - 12) < 1e-6)).toHaveLength(2);
   });
 
   it('auto-sizes the tube when the set carries no radius, and counts it in the height', () => {
@@ -512,17 +427,9 @@ describe('rocketSideView: tube fins draw as tubes', () => {
     const rt = (0.012 * s) / (1 - s);
     const top = Math.max(...sv.fins[0]!.map(([, y]) => y));
     expect(top).toBeCloseTo((0.012 + 2 * rt) * 1000, 6);
-    // ...and the drawing is tall enough to contain it.
     expect(sv.h / 2).toBeGreaterThanOrEqual(top - 1e-6);
   });
 });
-
-/**
- * Kernel-exactness of the elliptical planform, asserted at an interior station.
- *
- * Point count and apex height are properties a sine arch shares with a
- * half-ellipse, so the curve is pinned between its endpoints.
- */
 describe('elliptical planform matches the kernel at interior stations', () => {
   it('is a half-ellipse, not a sine arch', () => {
     const root = 0.05,
@@ -531,28 +438,14 @@ describe('elliptical planform matches the kernel at interior stations', () => {
     // finPlanformMm flips y: the root sits at height*1000 and the span rises toward 0.
     const span = p.pts.map(([x, y]) => [x / 1000, height - y / 1000] as const);
     for (const [x, y] of span) {
-      // Closed form of the kernel's ellipse: y = height * sqrt(1 - (2x/root - 1)^2).
       const exact = height * Math.sqrt(Math.max(0, 1 - Math.pow((2 * x) / root - 1, 2)));
       expect(y).toBeCloseTo(exact, 9);
     }
-    // And is measurably not a sine arch: near the leading edge the two differ
-    // by most of the span.
     const near = span.reduce((a, b) => (Math.abs(b[0] - 0.005) < Math.abs(a[0] - 0.005) ? b : a));
     const arch = height * Math.sin((Math.PI * near[0]) / root);
     expect(Math.abs(near[1] - arch)).toBeGreaterThan(0.005);
   });
 });
-
-/**
- * The PDF side view has to show what the 2D schematic shows.
- *
- * Walking only the core chain prints a strap-on booster cluster as a single plain
- * tube while the screen draws the boosters, and the report figure is the one handed
- * to someone checking the design. Both use the same `resolveAssemblyRadius` +
- * `ringInstanceOffsets` from tree/assembly.ts, so the expected offsets below are
- * derived from the kernel's ring convention rather than copied from the
- * implementation.
- */
 describe('rocketSideView: off-axis assemblies', () => {
   const CORE_R = 0.012;
   const POD_R = 0.008;
@@ -583,8 +476,7 @@ describe('rocketSideView: off-axis assemblies', () => {
       ],
     }) as unknown as RocketTree;
 
-  // Relative radius: gap + parent outer radius + the pod's own bounding radius,
-  // so offset 0 means the booster just touches the airframe.
+  // Relative radius: offset 0 means the booster just touches the airframe.
   const expectedOffsetMm = (0 + CORE_R + POD_R) * 1000;
 
   it('draws one silhouette per booster instance', () => {
@@ -594,7 +486,6 @@ describe('rocketSideView: off-axis assemblies', () => {
 
   it('puts each booster on its own centerline, both sides of the airframe', () => {
     const sv = rocketSideView(boosters());
-    // Each pod polygon spans center +/- its own radius.
     const centers = sv.pods.map((p) => {
       const ys = p.map(([, y]) => y);
       return (Math.max(...ys) + Math.min(...ys)) / 2;
@@ -602,7 +493,6 @@ describe('rocketSideView: off-axis assemblies', () => {
     centers.sort((a, b) => a - b);
     expect(centers[0]).toBeCloseTo(-expectedOffsetMm, 6);
     expect(centers[1]).toBeCloseTo(expectedOffsetMm, 6);
-    // ...and each is as thick as the booster, not the core.
     for (const p of sv.pods) {
       const ys = p.map(([, y]) => y);
       expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(POD_R * 2 * 1000, 6);
@@ -620,8 +510,6 @@ describe('rocketSideView: off-axis assemblies', () => {
         }),
       ],
     } as unknown as RocketTree);
-    // The frame must reach the far edge of the outermost booster, or the PDF
-    // clips it off the page.
     expect(withPods.h).toBeGreaterThan(bare.h);
     expect(withPods.h / 2).toBeGreaterThanOrEqual(expectedOffsetMm + POD_R * 1000 - 1e-6);
   });
@@ -633,7 +521,6 @@ describe('rocketSideView: off-axis assemblies', () => {
       const ys = p.map(([, y]) => y);
       return (Math.max(...ys) + Math.min(...ys)) / 2;
     });
-    // y = r*cos(theta) for theta = 0, 120, 240 degrees: one up, two half-down.
     centers.sort((a, b) => a - b);
     expect(centers[0]).toBeCloseTo(-expectedOffsetMm / 2, 6);
     expect(centers[1]).toBeCloseTo(-expectedOffsetMm / 2, 6);
@@ -653,9 +540,7 @@ describe('rocketSideView: off-axis assemblies', () => {
         ],
       }),
     );
-    expect(sv.fins.length).toBe(4); // 2 instances x (top + mirror)
-    // A fin's top and its mirror straddle the booster's centerline, so their
-    // midpoint is the booster offset rather than 0.
+    expect(sv.fins.length).toBe(4);
     const mids = sv.fins.map((f) => {
       const ys = f.map(([, y]) => y);
       return (Math.max(...ys) + Math.min(...ys)) / 2;
@@ -666,13 +551,7 @@ describe('rocketSideView: off-axis assemblies', () => {
   });
 });
 
-/**
- * A nose cone, body tube or transition with no `length` key is laid out at the
- * kernel's length for its type (ComponentFactory: nose 150 mm, body 200 mm,
- * transition 75 mm), not at zero. Zero would draw the part as nothing while the
- * engine flies it full length. An explicit 0 (the phantom tube a T-tail hangs
- * from) is still 0.
- */
+// A missing `length` is the kernel default, not zero; an explicit 0 (a T-tail's phantom tube) stays 0.
 describe('a chain part with no length key', () => {
   it('counts toward the side view at the kernel length', () => {
     const tree = {

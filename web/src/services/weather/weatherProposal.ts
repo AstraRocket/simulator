@@ -5,27 +5,11 @@ import type { HourSample } from './openMeteo';
 import { roundTo } from '../app/numbers';
 import { stdDevForIntensity } from '../flight/windTurbulence';
 
-/**
- * One forecast hour as launch conditions, split into the groups the Weather
- * dialog offers one checkbox each. A group is absent when the hour has nothing
- * usable for it, so the dialog never offers to write a hole.
- *
- * The mapping follows desktop OpenRocket's current-conditions client:
- * the surface wind at 10 m above the site, the 80, 120 and 180 m winds above the
- * site, then each pressure level at its geopotential height, all as MSL wind
- * levels; turbulence estimated from the gust spread at the surface and a fixed
- * intensity above it.
- */
+// Mirrors desktop OpenRocket's current-conditions client: all winds become MSL wind levels.
 
-/** Turbulence intensity above the surface, where there is no gust figure. */
 export const UPPER_AIR_TURBULENCE = 0.1;
 
-/**
- * Surface turbulence intensity from the hourly gust: the spread between gust
- * and mean wind, over three standard deviations of the mean, held to 0.05..0.35.
- * 0.10 when the wind is near calm or the gust is not above it. Desktop
- * OpenRocket's `estimateTurbulenceIntensity`.
- */
+/** Desktop OpenRocket's `estimateTurbulenceIntensity`. */
 export function turbulenceFromGust(speed: number, gust: number | null): number {
   if (speed <= 0.1 || gust === null || gust <= speed) return 0.1;
   return Math.max(0.05, Math.min(0.35, (gust - speed) / (3 * speed)));
@@ -36,7 +20,6 @@ export interface WeatherProposal {
   pressureHPa?: number;
   /** A fraction, 0..1. */
   relativeHumidity?: number;
-  /** The surface wind and the profile above it. */
   wind?: {
     surfaceSpeed: number;
     surfaceFromDeg: number;
@@ -44,16 +27,13 @@ export interface WeatherProposal {
     gust: number | null;
     levels: WindLevel[];
   };
-  /** The atmosphere above the site, one level per pressure level. */
   atmosphere?: AtmosphereLevel[];
 }
 
 export type ProposalGroup = 'temperature' | 'pressure' | 'humidity' | 'wind' | 'atmosphere';
 
-/** The groups a proposal can fill, in the order the dialog lists them. */
 export const PROPOSAL_GROUPS: readonly ProposalGroup[] = ['temperature', 'pressure', 'humidity', 'wind', 'atmosphere'];
 
-/** Whether proposal `p` has anything for `group`. */
 export function hasGroup(p: WeatherProposal, group: ProposalGroup): boolean {
   switch (group) {
     case 'temperature':
@@ -69,13 +49,9 @@ export function hasGroup(p: WeatherProposal, group: ProposalGroup): boolean {
   }
 }
 
-/** A forecast humidity percent as the 0..1 fraction the launch conditions take. */
 const humidityFraction = (pct: number): number => Math.min(1, Math.max(0, pct / 100));
 
-/**
- * The proposal for one hour, answered for a pad at `elevationM` (meters above
- * sea level, the elevation the forecast was asked for).
- */
+/** `elevationM` is meters MSL. */
 export function proposalFor(s: HourSample, elevationM: number): WeatherProposal {
   const p: WeatherProposal = {};
   if (s.temperatureC !== null) p.temperatureC = s.temperatureC;
@@ -102,8 +78,7 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
         });
       }
     }
-    // Pressure levels only above the highest height wind: below it they are
-    // the model's extrapolation into the ground layer the height winds cover.
+    // Pressure levels below the highest height wind are extrapolation into the ground layer.
     const top = Math.max(...raw.map((l) => l.altitudeM));
     for (const l of s.levels) {
       if (
@@ -131,8 +106,7 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
     };
   }
 
-  // The atmosphere above the pad. A level below or at the pad, by height or by
-  // pressure, is the model's extrapolation into the ground and is left out.
+  // A level at or below the pad, by height or pressure, is extrapolation into the ground.
   const surfaceHPa = p.pressureHPa;
   const atmosphere = usableAtmosphereLevels(
     s.levels
@@ -149,11 +123,6 @@ export function proposalFor(s: HourSample, elevationM: number): WeatherProposal 
   return p;
 }
 
-/**
- * The launch-condition change for the ticked groups. Wind writes the profile
- * (MSL) and the single-wind fields from the surface, so switching back to one
- * wind later starts from the forecast rather than from stale numbers.
- */
 export function proposalPatch(
   p: WeatherProposal,
   ticked: ReadonlySet<ProposalGroup>,

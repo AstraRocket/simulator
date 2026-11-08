@@ -3,13 +3,6 @@ import { useWorkspaceStore } from '../../src/state/store';
 import { DesignLibrary, setDesignLibrary } from '../../src/services/storage/designLibrary';
 import type { KeyValueStore } from '../../src/services/storage/keyValueStore';
 
-/**
- * The store actions that produce files or mutate the design library.
- *
- * These are the actions whose failures are silent: the user gets a wrong file,
- * or a lost design, with no exception anywhere.
- */
-
 class FakeKv implements KeyValueStore {
   readonly map = new Map<string, string>();
   full = false;
@@ -70,7 +63,7 @@ describe('scaleDesign', () => {
     const tree = s().tree;
     for (const f of [1, 0, -2, NaN]) {
       s().scaleDesign(f);
-      expect(s().tree).toBe(tree); // same object: nothing was rewritten
+      expect(s().tree).toBe(tree);
     }
   });
 
@@ -81,8 +74,6 @@ describe('scaleDesign', () => {
     expect(s().selectedId).toBeNull();
   });
 
-  // Scaling one part changes the radius its automatic neighbors follow, so the
-  // stored figures must be re-resolved, as every other tree edit does.
   it('re-resolves an automatic neighbor after scaling one part', () => {
     useWorkspaceStore.setState({
       tree: {
@@ -111,7 +102,6 @@ describe('saveDesignAs when storage refuses the write', () => {
     kv.full = true;
     await s().saveDesignAs('Doomed');
     expect(s().storageWarning).toBeTruthy();
-    // ...and no phantom entry is left behind in the library.
     expect(await new DesignLibrary(kv).list()).toEqual([]);
   });
 
@@ -122,17 +112,13 @@ describe('saveDesignAs when storage refuses the write', () => {
     expect(s().storageWarning).toBeNull();
   });
 
-  // The flights live under their own key, as every autosave writes them. In the
-  // design blob they would be rewritten on every keystroke, and on the
-  // localStorage fallback they can refuse the whole write.
   it('writes the flights under the results key, not into the design blob', async () => {
     const result = { summary: { maxAltitude: 321 }, events: [], series: {} };
     useWorkspaceStore.setState({ sims: s().sims.map((x) => ({ ...x, result: result as never })) });
     await s().saveDesignAs('With flights');
     const [meta] = await new DesignLibrary(kv).list();
     const blob = [...kv.map.entries()].find(([k]) => k.endsWith(`designs:${meta!.id}`))![1];
-    // The field, not the bare digits: the sim and config ids are random UUIDs,
-    // and one that happens to contain "321" would fail a digits-only check.
+    // The field, not the bare digits: a random UUID could contain "321".
     expect(blob).not.toContain('"maxAltitude"');
     const stored = [...kv.map.entries()].find(([k]) => k.endsWith(`designs:${meta!.id}:results`));
     expect(stored?.[1]).toContain('"maxAltitude":321');
@@ -151,7 +137,6 @@ describe('deleteDesign', () => {
 
     expect(await new DesignLibrary(kv).list()).toEqual([]);
     expect(s().activeDesignId).toBeNull();
-    // A fresh workspace, not the one that was just deleted.
     expect(s().tree).not.toBe(treeBefore);
   });
 
@@ -167,7 +152,7 @@ describe('deleteDesign', () => {
     await s().deleteDesign(other);
 
     expect(s().activeDesignId).toBe(openId);
-    expect(s().tree).toBe(treeBefore); // untouched
+    expect(s().tree).toBe(treeBefore);
   });
 });
 
@@ -180,14 +165,13 @@ describe('newWorkspace', () => {
 
     const { useConfirmStore } = await import('../../src/state/confirmStore');
     const run = s().newWorkspace();
-    // The confirm modal is imperative; answer it.
     await Promise.resolve();
     useConfirmStore.getState().settle(true);
     await run;
 
     expect(s().sims).toHaveLength(1);
     expect(simsBefore).toBeGreaterThan(1);
-    expect(s().activeDesignId).toBeNull(); // detached, so autosave creates a new entry
+    expect(s().activeDesignId).toBeNull();
   });
 
   it('changes nothing when the user declines', async () => {
@@ -206,7 +190,6 @@ describe('newWorkspace', () => {
 
 describe('exportComponent', () => {
   it('reports a format the component cannot produce, rather than failing mutely', async () => {
-    // A stage has no printable solid, so the export declines.
     const stageId = s().tree.components[0]!.id!;
     await s().exportComponent(stageId, 'stl');
     expect(s().err).toBeTruthy();

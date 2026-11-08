@@ -638,6 +638,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
         <launchlatitude>39.5</launchlatitude>
         <launchlongitude>-104.7</launchlongitude>
         <geodeticmethod>wgs84</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
         <atmosphere model="isa"/>
         <timestep>0.05</timestep>
         <maxtime>1200</maxtime>
@@ -1848,6 +1849,7 @@ exports[`golden .ork export > pins every configuration, block and component type
         <launchlatitude>39.5</launchlatitude>
         <launchlongitude>-104.7</launchlongitude>
         <geodeticmethod>wgs84</geodeticmethod>
+        <simulationsteppermethod>rk4</simulationsteppermethod>
         <atmosphere model="extendedisa">
           <basetemperature>298.15</basetemperature>
           <basepressure>101325</basepressure>
@@ -2648,6 +2650,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
         "mainHighSpeedWarn": 30.48,
         "mainLowSpeedWarn": 15.24,
         "maxTime": 1200,
+        "stepper": "rk4",
         "timeStep": 0.05,
       },
     },

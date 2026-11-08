@@ -1,15 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { MaterialPicker } from './MaterialPicker';
-import { FieldRow, sectionFields, type CommitEditProps } from './DimensionFields';
+import { FieldRow, type CommitEditProps } from './DimensionFields';
+import { sectionFields } from './fieldHelpers';
 
-/**
- * The property panel's material sections: the bulk material a structural part
- * is made of, with the surface finish of an external part under it, and the
- * surface (fabric) + line (cord) materials of a recovery device. Each picker
- * commits its choice in one shot.
- */
-
-/** The bulk material of a structural part, and the finish of an external one. */
 export function MaterialSection({ node, onCommitChange }: CommitEditProps) {
   return (
     <div className="space-y-2 border-t border-line/5 pt-3">
@@ -20,14 +13,11 @@ export function MaterialSection({ node, onCommitChange }: CommitEditProps) {
           onCommitChange({
             materialName: name,
             density: d || undefined,
-            // The catalog group rides along, as the fillet picker's does, so
-            // the .ork writer files the material under its own category rather
-            // than the one the part's previous material belonged to.
+            // Without the group the .ork writer files it under the previous material's.
             materialGroup: (name && group) || undefined,
           })
         }
       />
-      {/* The finish is a select, so it closes its own undo entry as it changes. */}
       {sectionFields(node, 'material').map((f) => (
         <FieldRow key={f.key} node={node} field={f} onChange={onCommitChange} />
       ))}
@@ -35,7 +25,6 @@ export function MaterialSection({ node, onCommitChange }: CommitEditProps) {
   );
 }
 
-/** The line material a parachute's shroud lines or a shock cord is weighed by. */
 function LineMaterialPicker({ label, node, onCommitChange }: CommitEditProps & { label: string }) {
   return (
     <MaterialPicker
@@ -48,8 +37,6 @@ function LineMaterialPicker({ label, node, onCommitChange }: CommitEditProps & {
   );
 }
 
-/** Recovery devices use surface (fabric) + line (cord) materials, not the
- *  bulk material above; each feeds the device's mass. */
 export function RecoveryMaterialSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
   return (
@@ -68,8 +55,6 @@ export function RecoveryMaterialSection({ node, onCommitChange }: CommitEditProp
   );
 }
 
-/** A shock cord's line material, which the kernel weighs the cord by, as the
- *  desktop shock cord dialog offers it. */
 export function CordMaterialSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
   return (

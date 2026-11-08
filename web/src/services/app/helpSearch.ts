@@ -1,80 +1,35 @@
 import { type HelpEntry, fetchHelpDocument, headingLabel, helpTarget, pageTitle, splitPage } from './helpDocs';
 
-/**
- * Search across the docs that ship inside the app, for the Help dialog.
- *
- * The published site has its own search (a Docusaurus plugin), and the dialog
- * cannot use it: the embed stylesheet hides the site's navbar, which is where
- * that plugin puts its search box, and its index is a file deliberately kept
- * out of the app's precache for its size. So the dialog searches the same thing
- * it already renders, the built pages under `docs/<slug>/index.html`.
- *
- * That makes it work offline by construction. Those files are the exact keys the
- * service worker precaches each page under, so an index built from them is
- * built from cache hits, with no index file to ship and nothing that can go
- * stale against the pages it describes. Nothing here is generated at build
- * time, so there is no second source to drift from the docs.
- *
- * It is built lazily, on the first search, because it costs one fetch per page
- * and most Help visits are a read rather than a hunt, and kept for the session.
- */
-
-/** One searchable slice of a page: the text under one heading. */
 export interface HelpSection {
-  /** `#anchor`, or '' for the text above the first heading. */
   hash: string;
-  /** The heading's own words, or '' for that lead text. */
   heading: string;
-  /** The section's visible text, whitespace collapsed. */
   text: string;
 }
 
-/** One indexed page. */
 export interface HelpDoc {
-  /** The docs slug, which is what the dialog navigates by. */
   slug: string;
-  /** The sidebar's label for the page, already in the reader's language. */
   label: string;
-  /** The page's own h1. */
   title: string;
   sections: HelpSection[];
 }
 
-/** One result row. */
 export interface HelpHit {
-  /** `slug` or `slug#anchor`: the page to open. */
   page: string;
-  /** The page it is in. */
   label: string;
-  /** The section it is in, '' for the lead. */
   heading: string;
-  /** A window of the section's text around the first match. */
   snippet: string;
   score: number;
 }
 
-/** How many rows the rail will show. */
 const HIT_LIMIT = 60;
 
-/** How much of a section to quote around the match. */
 const SNIPPET_CHARS = 170;
 
-/**
- * Case- and accent-insensitive text, position for position with its input.
- *
- * A plain `normalize('NFD')` would do the folding, but it changes the string's
- * length, and the snippet and the highlighter both need an index found in the
- * folded text to point at the same character of the original. So each character
- * is folded on its own, and anything that would not fold to exactly one
- * character is left alone: `ñ` becomes `n`, and the handful of characters whose
- * lowercase is longer than themselves stay as they are rather than shifting
- * every index after them.
- */
+/** Must stay index-for-index with its input: match indices are reused on the original. */
 export function fold(s: string): string {
   let out = '';
   for (const ch of s) {
-    // A character outside the Basic Multilingual Plane (any emoji) is two
-    // UTF-16 units; folding it to one would shift every later index.
+    // Astral characters are two UTF-16 units; folding to one would shift indices.
     if (ch.length !== 1) {
       out += ch;
       continue;
@@ -86,28 +41,14 @@ export function fold(s: string): string {
   return out;
 }
 
-/** The words of a query, folded. Punctuation is a separator, not a term. */
 export function searchTokens(query: string): string[] {
   return fold(query)
     .split(/[^\p{L}\p{N}]+/u)
     .filter((t) => t.length > 0);
 }
 
-/** Runs of whitespace in extracted text are not meaningful. */
 const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-/**
- * A rendered page split into the sections its headings define.
- *
- * Split at h2 and h3 with an id, which are exactly the headings the rail
- * already lists and the only ones the dialog can navigate to, so every hit has
- * somewhere to land. Text under an h4 or deeper is searchable as part of the
- * section it sits in.
- *
- * Fed the document parsed from the served HTML, like everything else the dialog
- * reads: see the note on loadHelpPage. Here it also means the whole page is
- * indexed whether or not it has ever been rendered.
- */
 export function readSections(doc: Document): HelpSection[] {
   const root = doc.querySelector('.theme-doc-markdown');
   if (!root) return [];
@@ -118,17 +59,12 @@ export function readSections(doc: Document): HelpSection[] {
     const node = walker.currentNode;
     if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as Element;
-      // A heading opens a section rather than joining one. The h1 is the page
-      // title, which is indexed separately, and a heading with no id cannot be
-      // linked to, so its text stays with the section it sits in.
       if ((el.tagName === 'H2' || el.tagName === 'H3') && el.id) {
         sections.push({ hash: `#${el.id}`, heading: headingLabel(el), text: '' });
       }
       continue;
     }
-    // Heading text is already held as a heading; taking it again would double
-    // every heading's score and would put Docusaurus's own anchor glyph into
-    // the snippets.
+    // Heading text is already held as the heading; taking it again doubles its score.
     if (node.parentElement?.closest('h1, h2, h3')) continue;
     const at = sections[sections.length - 1]!;
     at.text += node.nodeValue ?? '';
@@ -138,24 +74,14 @@ export function readSections(doc: Document): HelpSection[] {
   return sections.filter((section) => section.heading !== '' || section.text !== '');
 }
 
-/**
- * Every page in the docs, read for searching, cached per language.
- *
- * Keyed on the language alone: the pages within a build do not change, and two
- * locales are two different sets of files.
- */
 const INDEXES = new Map<string, Promise<HelpDoc[]>>();
 
-/** Forget the built indexes. For tests; nothing in the app needs it. */
 export function resetHelpIndex(): void {
   INDEXES.clear();
 }
 
 async function buildIndex(pages: HelpEntry[], language: string): Promise<HelpDoc[]> {
-  // The rail's own list is the page list, so the index covers exactly what the
-  // dialog can open, labeled in the reader's language, with no second list to
-  // maintain. A category row is a label pointing at its first child, so taking
-  // it too would index that page twice.
+  // Category rows point at their first child; taking them would index it twice.
   const slugs = new Map<string, string>();
   for (const entry of pages) {
     if (entry.page === null) continue;
@@ -175,14 +101,7 @@ async function buildIndex(pages: HelpEntry[], language: string): Promise<HelpDoc
   return docs.filter((doc): doc is HelpDoc => doc !== null);
 }
 
-/**
- * The index for a language, built on first use.
- *
- * A build that came back with nothing is not kept: every page fetch answers
- * null rather than throwing (see fetchHelpDocument), so the empty result is
- * also what a first search launched with a cold cache and no signal looks like,
- * and caching that would leave search quietly broken for the session.
- */
+/** An empty build is not kept: a cold-cache offline search looks the same. */
 export function helpIndex(pages: HelpEntry[], language: string): Promise<HelpDoc[]> {
   const cached = INDEXES.get(language);
   if (cached) return cached;
@@ -194,7 +113,6 @@ export function helpIndex(pages: HelpEntry[], language: string): Promise<HelpDoc
   return built;
 }
 
-/** Where the first of any token appears in already-folded text, or -1. */
 function firstMatch(folded: string, tokens: string[]): number {
   let at = -1;
   for (const token of tokens) {
@@ -204,18 +122,14 @@ function firstMatch(folded: string, tokens: string[]): number {
   return at;
 }
 
-/** A word boundary at or before `i`, so a snippet does not start mid-word. */
 function backToWord(text: string, i: number): number {
   const space = text.lastIndexOf(' ', i);
   return space < 0 ? 0 : space + 1;
 }
 
-/** A window of `text` around the first match, with an ellipsis where it was cut. */
 export function snippetAround(text: string, tokens: string[]): string {
   if (text.length <= SNIPPET_CHARS) return text;
   const at = firstMatch(fold(text), tokens);
-  // No token in the body means the match was in the heading or the page title;
-  // the opening of the section is then the useful quote.
   if (at < 0) return `${text.slice(0, backToWord(text, SNIPPET_CHARS)).trimEnd()}…`;
 
   const start = backToWord(text, Math.max(0, at - Math.floor(SNIPPET_CHARS / 3)));
@@ -224,17 +138,6 @@ export function snippetAround(text: string, tokens: string[]): string {
   return `${start > 0 ? '…' : ''}${text.slice(start, cut).trim()}${cut < text.length ? '…' : ''}`;
 }
 
-/**
- * Rank every section that holds all of the query's words.
- *
- * All of them, not any: two words typed together are a narrowing, and a search
- * where "rod length" returns every page that says "length" is useless on a
- * guide whose vocabulary repeats on every page.
- *
- * A word counts wherever it is: the heading, the body, or the page's own title
- * and sidebar label, which is what lets "glossary caliber" find one entry and
- * "safety wind" find the wind limits inside the safety page.
- */
 export function searchHelp(docs: HelpDoc[], query: string, limit = HIT_LIMIT): HelpHit[] {
   const tokens = searchTokens(query);
   if (!tokens.length) return [];
@@ -256,13 +159,9 @@ export function searchHelp(docs: HelpDoc[], query: string, limit = HIT_LIMIT): H
           all = false;
           break;
         }
-        // A word in a heading is what the section is about; a word in the page
-        // title is true of every section on that page, so it ranks lowest.
         score += (inHead ? 4 : 0) + (inBody ? 2 : 0) + (inTitle ? 1 : 0);
       }
       if (!all) continue;
-      // The words in the order they were typed, which is usually the thing
-      // being looked for rather than the same words scattered about.
       if (tokens.length > 1) {
         if (headHay.includes(phrase)) score += 8;
         else if (bodyHay.includes(phrase)) score += 4;
@@ -277,8 +176,6 @@ export function searchHelp(docs: HelpDoc[], query: string, limit = HIT_LIMIT): H
     }
   }
 
-  // By score, and within a score by the order the pages were indexed, which is
-  // sidebar order: the guide's own idea of what comes first.
   return hits
     .map((hit, i) => ({ hit, i }))
     .sort((a, b) => b.hit.score - a.hit.score || a.i - b.i)
@@ -286,18 +183,11 @@ export function searchHelp(docs: HelpDoc[], query: string, limit = HIT_LIMIT): H
     .map(({ hit }) => hit);
 }
 
-/** A run of text, and whether it is one of the words searched for. */
 export interface HelpSegment {
   text: string;
   hit: boolean;
 }
 
-/**
- * Split text into plain runs and matched runs, for showing where the match is.
- *
- * Folded indices line up with the original by construction (see fold), so what
- * comes back is the original's own characters, accents and case intact.
- */
 export function splitHighlight(text: string, tokens: string[]): HelpSegment[] {
   if (!tokens.length) return [{ text, hit: false }];
   const folded = fold(text);
@@ -305,8 +195,7 @@ export function splitHighlight(text: string, tokens: string[]): HelpSegment[] {
   let at = 0;
   let plain = 0;
   while (at < text.length) {
-    // The longest token matching here, so a query of "fin fins" does not cut
-    // the longer match short.
+    // Longest token here, so "fin fins" does not cut the longer match short.
     let len = 0;
     for (const token of tokens) {
       if (token.length > len && folded.startsWith(token, at)) len = token.length;
@@ -324,26 +213,13 @@ export function splitHighlight(text: string, tokens: string[]): HelpSegment[] {
   return out;
 }
 
-/** The attribute that says a mark is the dialog's, not the page's own. */
 const MARK_ATTR = 'data-astra-help-mark';
 
-/**
- * Highlight the words searched for inside the rendered page, in document order.
- *
- * Why the app does this to the docs document rather than the docs doing it for
- * themselves: the frame is same-origin and the dialog is the thing that knows
- * what was typed. The marks are styled inline, so nothing is injected into the
- * page's stylesheets and the docs build does not have to know the dialog exists.
- *
- * Reversible on purpose: the marks handed back are what the dialog scrolls to,
- * and {@link clearMarks} puts the text back before the next search.
- */
 export function markMatches(root: Element, tokens: string[]): HTMLElement[] {
   if (!tokens.length) return [];
   const doc = root.ownerDocument;
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  // Collected first, because marking replaces the node the walker is standing
-  // on and a live walk would then step into the text it had just inserted.
+  // Collected first: a live walk would step into the inserted marks.
   const texts: Text[] = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text;
@@ -374,14 +250,11 @@ export function markMatches(root: Element, tokens: string[]): HTMLElement[] {
   return marks;
 }
 
-/** Undo {@link markMatches}, leaving the page as it was served. */
 export function clearMarks(root: Element): void {
   for (const mark of [...root.querySelectorAll(`mark[${MARK_ATTR}]`)]) {
     const parent = mark.parentNode;
     mark.replaceWith(mark.textContent ?? '');
-    // Re-join the text nodes the replacement leaves either side, so the next
-    // search sees the one node the served page had and can match across where
-    // the last mark was.
+    // Re-join split text nodes so the next search can match across the old mark.
     parent?.normalize();
   }
 }

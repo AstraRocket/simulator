@@ -11,10 +11,10 @@ import {
 
 describe('fitIdx', () => {
   it('picks the largest standard diameter that fits the bore (+1mm tolerance)', () => {
-    expect(STD_DIAMS[fitIdx(17.6)]).toBe(18); // default 18mm mount bore → 18
+    expect(STD_DIAMS[fitIdx(17.6)]).toBe(18);
     expect(STD_DIAMS[fitIdx(24)]).toBe(24);
-    expect(STD_DIAMS[fitIdx(5)]).toBe(6); // never below the smallest
-    expect(STD_DIAMS[fitIdx(999)]).toBe(150); // clamps to the largest
+    expect(STD_DIAMS[fitIdx(5)]).toBe(6);
+    expect(STD_DIAMS[fitIdx(999)]).toBe(150);
   });
 });
 
@@ -29,15 +29,11 @@ describe('motorFitsMount', () => {
   });
 
   it('allows a motor to reach into the overhang, which is what the overhang is', () => {
-    // 75 mm of motor in 70 mm of tube hangs 5 mm out of the aft end, where the
-    // app seats it, and the rocket flies it.
     expect(motorFitsMount({ diameter: 24, length: 75 }, mount)).toBe(true);
     expect(motorFitsMount({ diameter: 24, length: 90 }, mount)).toBe(false);
   });
 
   it('judges a motor of unknown length on its bore alone', () => {
-    // Every bundled row carries a length; one imported from an .eng need not,
-    // and dropping it would be a guess dressed up as a measurement.
     expect(motorFitsMount({ diameter: 24 }, mount)).toBe(true);
     expect(motorFitsMount({ diameter: 38 }, mount)).toBe(false);
   });
@@ -47,8 +43,6 @@ describe('motorFitsMount', () => {
   });
 
   it('carries the rounding slack on both bounds', () => {
-    // The catalog rounds to whole millimeters, so an exact fit must not be lost
-    // to the last unit of it.
     expect(motorFitsMount({ diameter: 25, length: 70 }, mount)).toBe(true);
     expect(motorFitsMount({ diameter: 26, length: 70 }, mount)).toBe(false);
     expect(motorFitsMount({ diameter: 24, length: 77 }, mount)).toBe(true);
@@ -75,13 +69,9 @@ describe('parseDelays', () => {
 
 describe('offersPlugged', () => {
   it('is what the manufacturer LISTS, not what is possible', () => {
-    // About half the bundled rows carry a P, and nearly all of those have no
-    // numeric delay at all: most reloads, every hybrid.
     expect(offersPlugged({ delays: 'P' })).toBe(true);
     expect(offersPlugged({ delays: '0,3,5,7,P' })).toBe(true);
     expect(offersPlugged({ delays: '4,6,8' })).toBe(false);
-    // Any motor can still be flown plugged from the delay control; a motor with
-    // no delay data is simply not one the maker lists that way.
     expect(offersPlugged({})).toBe(false);
   });
 });
@@ -98,7 +88,6 @@ describe('initialThrust', () => {
   });
 
   it('clips the window when a sample spans past it', () => {
-    // ramp 0→20 N over 1 s; the 0–0.5 s slice averages 5 N.
     expect(
       initialThrust([
         [0, 0],
@@ -113,12 +102,7 @@ describe('initialThrust', () => {
   });
 });
 
-/**
- * The bore a mount offers is its outer radius less its own wall, as the kernel
- * builds it: a missing thickness is the type's own default (0.5 mm for an inner
- * tube), not zero, and a NaN is not let through. A NaN bore fails every
- * comparison in motorFitsMount, so every motor would "fit".
- */
+// A missing wall is the kernel default (0.5 mm for an inner tube), not zero.
 describe('mountFit', () => {
   it('takes the kernel wall when the mount states none', () => {
     expect(mountFit({ type: 'innertube', outerRadius: 0.0095, length: 0.07 })!.bore).toBeCloseTo(18, 9);
@@ -129,8 +113,6 @@ describe('mountFit', () => {
     expect(fit.bore).toBeCloseTo(18, 9);
     expect(motorFitsMount({ diameter: 29, length: 70 }, fit)).toBe(false);
   });
-
-  // The bore as the 2D and aft views read it (discGeometry.tubeRadii).
   it('gives a filled body tube no bore', () => {
     expect(mountFit({ type: 'bodytube', outerRadius: 0.02, thickness: 0.001, filled: true })!.bore).toBe(0);
   });

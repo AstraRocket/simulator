@@ -4,14 +4,6 @@ import { exportCdx1 } from '../../../src/services/files/rasaeroExport';
 import { RASAERO_SURFACE_WARNING } from '../../../src/services/files/rasaero/surface';
 import type { Keyed } from '../../../src/i18n/keyedError';
 
-/**
- * Golden output of the .CDX1 writer, covering the sustainer, booster, recovery,
- * launch-site and simulation writers. A three stage design exercises every
- * branch: each nose shape, a shoulder on the first booster and a boat tail on
- * the last, fins on a transition, rail buttons and lugs, two chutes, a Mach-Alt
- * table, custom launch conditions, per-stage engines and per-stage launch cells.
- */
-
 const node = (o: object) => o as unknown as ComponentNode;
 
 const fins = (id: string, extra: object = {}) =>
@@ -82,10 +74,7 @@ const threeStage = (): RocketTree =>
                 finLeRadius: 0.001,
                 position: { method: 'top', offset: 0.01 },
               }),
-              // In a transition, which desktop's exporter reads too
-              // (RecoveryDTO.getParachutesFromRocket takes the whole stage):
-              // its ejection-charge event is written as apogee, and with the
-              // drogue already there it is left out, each with a warning.
+              // RecoveryDTO reads the whole stage: with a drogue already there, this one is left out.
               node({ type: 'parachute', id: 'third', name: 'Third', diameter: 0.5 }),
             ],
           }),
@@ -180,7 +169,6 @@ describe('golden .CDX1 export', () => {
     expect(xml).toMatchSnapshot();
     expect(warnings).toEqual([
       { key: 'errors.exportRasaeroFinShape', values: { name: { key: 'part.freeformfinset' } } },
-      // The nose is unfinished, everything else the kernel's NORMAL.
       { key: 'errors.exportRasaeroSurfaceMixed', values: { finish: { key: 'finish.normal' } } },
       { key: 'errors.exportRasaeroChuteEjection', values: { name: 'Third' } },
       { key: 'errors.exportRasaeroChuteExtra', values: { name: 'Third' } },

@@ -8,6 +8,8 @@ AstraRocket runs in your web browser: **there's nothing to install**. Open **[ht
 
 After that first visit it keeps working **offline**, so you can design and simulate at a launch site with no signal, and your browser will offer to **install** it alongside your other apps: see **[Offline & Installing](./offline-and-installing.md)**.
 
+> **Your work stays on this device.** The app has no accounts and does not sync. To work on another computer or your phone, and to keep a backup, save your designs into a Google Drive, OneDrive, Dropbox or iCloud Drive folder: see **[Syncing your work](./syncing-your-work.md)**.
+
 When you open it, you'll see a brief splash screen while the physics engine loads, then a starter rocket. The header shows a small **`WASM`** or **`JS`** badge indicating which engine backend loaded (WebAssembly is the fast default; JavaScript is the fallback).
 
 ## The layout
@@ -20,17 +22,17 @@ On a desktop the workbench is five **tabs**, in the top bar beside the app name.
 - **Results.** The flight charts, ground track and 3D path in the center, the run's numbers on the right. It appears once a simulation has produced a result, and a finished run takes you straight to it.
 - **Tools.** [Quick answers that need no design](./tools.md): a landing estimate, a rail exit check and parachute sizing.
 
-The **rocket view** in the center has a toolbar to switch views (2D · 3D · Aero on the Design tab; Flight · 3D path · Ground track · Environment on the Results tab), toggles for the **CG / CP** markers and the quick-glance **info** card, and, in 2D, presets, calipers and zoom. A **static statistics** strip along the bottom shows length, mass, CG, CP, stability and more.
+The **rocket view** in the center has a toolbar to switch views (2D · 3D · Aero on the Design tab; Flight · 3D path · Ground track · Environment on the Results tab), toggles for the **CG / CP** markers and the quick-glance **info** card, and, in 2D, presets and calipers, with zoom in the drawing's corner. An **Information** strip along the bottom shows length, mass, CG, CP, stability and more.
 
 ### Sizing the panes {#sizing-the-panes}
 
 You can resize the side columns. Drag the divider between a column and the rocket view, or give it keyboard focus and use the arrow keys (Shift for bigger steps, Home and End for the extremes). Double-click a divider to put it back where it started. The three right-hand columns share one width, so setting it on any tab sets it on all of them, and both widths are remembered between visits.
 
-The **⤢** button at the right end of the rocket view's toolbar gives the drawing the whole window: both side columns and the statistics strip are hidden, which roughly doubles the room a drawing has. An airframe is 15-25x longer than it is wide, so horizontal space is what runs out first. Press **Escape**, or the same button, to bring the panels back.
+The **⤢** button at the right end of the rocket view's toolbar gives the drawing the whole window: both side columns and the Information strip are hidden, which roughly doubles the room a drawing has. An airframe is 15-25x longer than it is wide, so horizontal space is what runs out first. Press **Escape**, or the same button, to bring the panels back.
 
 On a **phone** the same areas become tabs along the bottom, because there is no room to show them side by side:
 
-- **Rocket**: the loaded-design banner and the stats strip.
+- **Rocket**: the loaded-design banner and the Information strip.
 - **Sketch**: the rocket view and its toolbar (2D · 3D · Aero). The 2D and 3D views are turned a quarter turn when you hold the phone upright, so the rocket runs down the long edge of the screen instead of being squeezed into its width; turn the phone sideways and they turn back. Dialogs fill the screen there too.
 - **Config**: the flight configurations.
 - **Simulate**: configuration, launch setup, **Run**, and the result summary.

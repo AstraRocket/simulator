@@ -7,14 +7,7 @@ import { positionOf } from '../../../src/tree/nodeProps';
 import { isChainType } from '../../../src/tree/componentKinds';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * A tube coupler's own parts in a RockSim file.
- *
- * Desktop's RingHandler reads nothing nested in a `<Ring>`, so the writer puts
- * a coupler's parts beside it in its parent, each at its station from the nose
- * tip, as desktop's TubeCouplerDTO does. Our own reader keeps nested parts, so
- * a plain round trip cannot show the loss; these checks read the XML itself.
- */
+// Our reader keeps parts nested in a `<Ring>` and desktop drops them, so these read the XML, not a round trip.
 
 const design: RocketTree = {
   name: 'E-bay',
@@ -88,7 +81,7 @@ const design: RocketTree = {
   ],
 } as unknown as RocketTree;
 
-/** Every named part's front station (m from the nose tip), laid out as the app lays it out. */
+/** Front station of each named part, m from the nose tip. */
 function stations(tree: RocketTree): Map<string, number> {
   const out = new Map<string, number>();
   const walk = (parent: ComponentNode, start: number, chained: boolean): void => {
@@ -120,7 +113,6 @@ const nameOf = (el: Element): string | undefined =>
 const field = (el: Element, tag: string): string | undefined =>
   Array.from(el.children).find((c) => c.tagName === tag)?.textContent ?? undefined;
 
-/** The parts directly in the airframe's attached parts, in file order. */
 function airframeParts(): Element[] {
   const tube = Array.from(doc.getElementsByTagName('BodyTube')).find((e) => nameOf(e) === 'Airframe')!;
   const attached = Array.from(tube.children).find((c) => c.tagName === 'AttachedParts')!;
@@ -148,7 +140,6 @@ describe('exportRkt, a tube coupler with parts inside it', () => {
       expect(field(el, 'LocationMode'), name).toBe('1');
       expect(Number(field(el, 'Xb')), name).toBeCloseTo(want.get(name)! * 1000, 6);
     }
-    // Spot values, so the shared layout helper cannot hide a frame error.
     expect(want.get('Aft plate')).toBeCloseTo(0.1 + 0.2 + 0.15 - 0.005, 9);
     expect(want.get('Altimeter')).toBeCloseTo(0.1 + 0.2 + (0.15 - 0.03) / 2 + 0.01, 9);
   });

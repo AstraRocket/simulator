@@ -6,15 +6,7 @@ import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The parts table names the material the kernel holds for each part.
- *
- * A parachute's and a streamer's `getMaterial()` is the canopy's surface
- * material (`RecoveryDevice`), and a shock cord's is its line material
- * (`ShockCord`), the materials desktop's dialogs show for them. The bridge reads
- * it back as `materialName` and `density`. Materials other than the kernel's
- * defaults, so a fallback cannot pass by coincidence.
- */
+// `getMaterial()` is the surface material for `RecoveryDevice`, the line material for `ShockCord`.
 const SOFT: ComponentNode[] = [
   {
     type: 'parachute',

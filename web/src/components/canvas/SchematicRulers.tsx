@@ -1,20 +1,159 @@
-import { useUnits } from '../../prefs/useUnits';
+import { useMemo } from 'react';
+import { useUnits, type Units } from '../../prefs/useUnits';
+import { tickDigits } from '../../i18n/format';
+import {
+  isZoomIdentity,
+  niceRulerStep,
+  rulerGraduations,
+  RULER_H,
+  RULER_W,
+  type ZoomState,
+} from '../../tree/schematicGeometry';
+import { token } from '../common/colorTokens';
+import { rulerSpan, CORNER_GAP } from './rulerSpan';
+
+export interface RulerSides {
+  top: boolean;
+  bottom: boolean;
+  left: boolean;
+  right: boolean;
+}
+
+interface RulerFrameProps {
+  rulers: RulerSides;
+  w: number;
+  h: number;
+  zoom: ZoomState;
+  ctxX0: number;
+  // Screen px per meter.
+  viewScale: number;
+  rTop: number;
+  rBot: number;
+}
+
+/** Where the marks fall, shared so the grid's lines land on the ruler's. */
+function rulerFrame({ rulers, w, h, zoom, ctxX0, viewScale, rTop, rBot }: RulerFrameProps, u: Units) {
+  const rulerStepUi = niceRulerStep(u.toUi('length', (8 * 22) / viewScale));
+  const vTop = rTop + 4;
+  const vBot = h - rBot - 4;
+  return {
+    ...rulerSpan(rulers, w),
+    rulerStepUi,
+    rulerStep: u.fromUi('length', rulerStepUi),
+    frameTopY: rulers.top ? RULER_H - 4 + CORNER_GAP : 2,
+    frameBotY: rulers.bottom ? h - RULER_H + 4 - CORNER_GAP : h - 2,
+    vTop,
+    vSpanM: (vBot - vTop) / viewScale,
+    x0: zoom.x + zoom.k * ctxX0,
+    vy0: zoom.y + zoom.k * vTop,
+  };
+}
 
 /**
- * The TreeSchematic measuring frame: length (horizontal) rulers on the top
- * and bottom edges and radial (vertical) rulers on the left and right, each
- * side drawn when it is toggled on.
- * The graduations they draw come from `rulerGraduations` in
- * schematicGeometry.ts (memoized by the schematic); this file is the markup.
- * Both are `pointerEvents="none"` so they never take a click from the drawing.
+ * A `path`, not a `g`: `schematicSvg` takes the svg's first `g` as the zoom group.
+ * Drawn at the current zoom, so that export leaves it out.
  */
+export function SchematicGrid(props: RulerFrameProps) {
+  const u = useUnits();
+  const { rulerX0, rulerX1, rulerStep, frameTopY, frameBotY, vTop, vSpanM, x0, vy0 } = rulerFrame(props, u);
+  const scale = props.viewScale;
+  const { rulerMarks, vTicks } = rulerGraduations({
+    showLen: true,
+    showRad: true,
+    rulerStep,
+    rulerX0,
+    rulerX1,
+    x0,
+    scale,
+    vSpanM,
+    vTop,
+    vy0,
+  });
+  const d = [
+    ...rulerMarks.map((m) => `M${x0 + m * scale} ${frameTopY}V${frameBotY}`),
+    ...vTicks.map((tk) => `M${rulerX0} ${tk.y}H${rulerX1}`),
+  ].join('');
+  return <path data-schematic-grid d={d} fill="none" pointerEvents="none" className="stroke-line/20" />;
+}
 
-/**
- * One length (horizontal) ruler: faint minor subdivisions + bold labeled
- * majors. `dir` points the ticks away from the drawing (down at the bottom
- * edge, up at the top). Drawn on both edges for a full measuring frame.
- */
-export function LengthRuler({
+export function SchematicRulerLayer(props: RulerFrameProps) {
+  const { rulers, w, h, zoom, viewScale } = props;
+  const u = useUnits();
+  const { rulerX0, rulerX1, rulerStepUi, rulerStep, frameTopY, frameBotY, vTop, vSpanM, x0, vy0 } = rulerFrame(
+    props,
+    u,
+  );
+  const showLen = rulers.top || rulers.bottom;
+  const showRad = rulers.left || rulers.right;
+  const zoomed = !isZoomIdentity(zoom);
+  // The step's own decimals, so a 2.5 step labels 2.5 and 7.5 rather than 3 and 8.
+  const rulerDigits = tickDigits(rulerStepUi, 0, 3);
+  const { rulerMarks, vTicks, rulerMinorMarks, vMinorTicks } = useMemo(
+    () => rulerGraduations({ showLen, showRad, rulerStep, rulerX0, rulerX1, x0, scale: viewScale, vSpanM, vTop, vy0 }),
+    [showLen, showRad, rulerStep, rulerX0, rulerX1, x0, viewScale, vSpanM, vTop, vy0],
+  );
+  const lengthRulerProps = { x0: rulerX0, x1: rulerX1, ctxX0: x0, scale: viewScale, rulerStep, rulerDigits };
+  const radialRulerProps = { frameTopY, frameBotY, vTop, originY: vy0, scale: viewScale, rulerStep, rulerDigits };
+
+  return (
+    <>
+      {zoomed && (
+        <g pointerEvents="none" fill={token('surface')} opacity={0.9}>
+          {rulers.top && <rect x={0} y={0} width={w} height={RULER_H} />}
+          {rulers.bottom && <rect x={0} y={h - RULER_H} width={w} height={RULER_H} />}
+          {rulers.left && <rect x={0} y={0} width={RULER_W} height={h} />}
+          {rulers.right && <rect x={w - RULER_W} y={0} width={RULER_W} height={h} />}
+        </g>
+      )}
+      {rulers.bottom && (
+        <LengthRuler
+          {...lengthRulerProps}
+          baseY={h - RULER_H + 4}
+          dir={1}
+          labelY={h - 3}
+          unitY={h - 3}
+          marks={rulerMarks}
+          minorMarks={rulerMinorMarks}
+        />
+      )}
+      {rulers.top && (
+        <LengthRuler
+          {...lengthRulerProps}
+          baseY={RULER_H - 4}
+          dir={-1}
+          labelY={11}
+          unitY={11}
+          marks={rulerMarks}
+          minorMarks={rulerMinorMarks}
+        />
+      )}
+      {rulers.right && vTicks.length > 0 && (
+        <RadialRuler
+          {...radialRulerProps}
+          baseX={w - RULER_W + 4}
+          dir={1}
+          labelX={w - RULER_W + 20}
+          anchor="start"
+          ticks={vTicks}
+          minorTicks={vMinorTicks}
+        />
+      )}
+      {rulers.left && vTicks.length > 0 && (
+        <RadialRuler
+          {...radialRulerProps}
+          baseX={RULER_W - 4}
+          dir={-1}
+          labelX={RULER_W - 20}
+          anchor="end"
+          ticks={vTicks}
+          minorTicks={vMinorTicks}
+        />
+      )}
+    </>
+  );
+}
+
+function LengthRuler({
   baseY,
   dir,
   labelY,
@@ -32,15 +171,14 @@ export function LengthRuler({
   dir: 1 | -1;
   labelY: number;
   unitY: number;
-  /** Where the baseline starts and ends (viewBox px). */
+  // viewBox px
   x0: number;
   x1: number;
-  /** The datum: model 0 (the nose tip) in viewBox px. */
   ctxX0: number;
   scale: number;
   rulerStep: number;
   rulerDigits: number;
-  /** Labeled majors and their minor subdivisions, in model meters. */
+  // Model meters.
   marks: number[];
   minorMarks: number[];
 }) {
@@ -80,16 +218,11 @@ export function LengthRuler({
   );
 }
 
-/** A minor mark halfway between two labeled majors, drawn longer than the rest. */
 function isHalfStep(m: number, rulerStep: number): boolean {
   return Math.abs(((((m / rulerStep) % 1) + 1) % 1) - 0.5) < 0.02;
 }
 
-/**
- * One radial (vertical) ruler: same treatment; `dir` points the ticks into the
- * side lane (away from the drawing) so the numbers sit clear of the airframe.
- */
-export function RadialRuler({
+function RadialRuler({
   baseX,
   dir,
   labelX,
@@ -97,6 +230,7 @@ export function RadialRuler({
   frameTopY,
   frameBotY,
   vTop,
+  originY = vTop,
   scale,
   rulerStep,
   rulerDigits,
@@ -107,27 +241,24 @@ export function RadialRuler({
   dir: 1 | -1;
   labelX: number;
   anchor: 'start' | 'end';
-  /** Where the baseline starts and ends (viewBox px): the corners of the frame. */
+  // viewBox px
   frameTopY: number;
   frameBotY: number;
-  /** Where the graduations start (viewBox px). */
   vTop: number;
+  originY?: number;
   scale: number;
   rulerStep: number;
   rulerDigits: number;
-  /** Labeled majors (already placed) and their minor subdivisions (model meters). */
+  // Majors already placed in px; minors in model meters.
   ticks: { y: number; label: number }[];
   minorTicks: number[];
 }) {
   const u = useUnits();
   return (
     <g pointerEvents="none">
-      {/* Baseline runs corner-to-corner (to the top/bottom length-ruler baselines,
-          or the viewport edge where that side's ruler is off) so the rulers close
-          into one frame; the ticks stay in vTop..vBot. */}
       <line x1={baseX} y1={frameTopY} x2={baseX} y2={frameBotY} className="stroke-line/55" />
       {minorTicks.map((m, i) => {
-        const y = vTop + m * scale;
+        const y = originY + m * scale;
         const medium = isHalfStep(m, rulerStep);
         return (
           <line

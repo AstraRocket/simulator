@@ -6,10 +6,6 @@ import '../../../src/i18n';
 import { UpdateCheckDialog } from '../../../src/components/layout/UpdateCheckDialog';
 import { useUpdateStore } from '../../../src/state/updateStore';
 
-/**
- * The menu's Check for updates: it asks the moment it opens and says what came
- * of it, "you are up to date" included, which the update banner never says.
- */
 afterEach(cleanup);
 
 beforeEach(() => {
@@ -48,8 +44,6 @@ describe('UpdateCheckDialog', () => {
 
   it('does not paint or announce the previous answer when it opens again', () => {
     useUpdateStore.setState({ result: 'upToDate', checker: () => new Promise(() => {}) });
-    // What the first commit put in the live region, read before any effect of
-    // the dialog's own has run.
     const seen: (string | null | undefined)[] = [];
     function Probe() {
       useLayoutEffect(() => {

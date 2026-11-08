@@ -9,7 +9,6 @@ import {
   isClusterPattern,
 } from '../../src/tree/cluster';
 
-/** Java source with runs of whitespace collapsed, so the guards survive reformatting. */
 const JAVA = readFileSync(
   fileURLToPath(
     new URL(
@@ -20,10 +19,6 @@ const JAVA = readFileSync(
   'utf8',
 ).replace(/\s+/g, ' ');
 
-/**
- * Every `new ClusterConfiguration("name", x0, y0, ...)` in the Java, in source
- * order, each point expression evaluated with the file's own helper constants.
- */
 function kernelPatterns(): [string, number[]][] {
   const R5 = 1.0 / (2 * Math.sin((2 * Math.PI) / 10));
   const SQRT2 = 1.4142135623730951;
@@ -36,10 +31,8 @@ function kernelPatterns(): [string, number[]][] {
     for (; depth > 0; end++) depth += JAVA[end] === '(' ? 1 : JAVA[end] === ')' ? -1 : 0;
     const args = JAVA.slice(at + marker.length, end - 1).split(',');
     const name = /^\s*"([^"]+)"\s*$/.exec(args[0]!)?.[1];
-    // The constructor's own declaration has no quoted name.
     if (!name) continue;
-    // The point expressions are Java arithmetic that is also valid JavaScript,
-    // evaluated as written so the table is the kernel's and not a retyped copy.
+    // Java arithmetic that is also valid JavaScript, so the table is the kernel's, not a retyped copy.
     // eslint-disable-next-line @typescript-eslint/no-implied-eval -- source is the committed kernel file
     const evaluate = new Function('R5', 'SQRT2', 'SQRT3', `return [${args.slice(1).join(',')}];`) as (
       ...k: number[]
@@ -92,8 +85,6 @@ describe('CLUSTER_POINTS / CLUSTER_OPTIONS', () => {
   });
 
   it('offers every pattern as a dropdown option, in kernel order', () => {
-    // The property panel renders these verbatim as <option value>, so the list
-    // must be the pattern names and must not drift from CLUSTER_POINTS.
     expect(CLUSTER_OPTIONS).toEqual(Object.keys(CLUSTER_POINTS));
     expect(CLUSTER_OPTIONS[0]).toBe('single');
     expect(CLUSTER_OPTIONS.every((n) => clusterCount(n) >= 1)).toBe(true);
@@ -106,7 +97,6 @@ describe('clusterOffsets', () => {
   });
 
   it('spaces tubes by 2·radius·scale in the cross-section plane', () => {
-    // double, R=0.01, scale 1 ⇒ separation 0.02; points −0.5 and +0.5
     const out = clusterOffsets('double', 0.01, 1, 0);
     expect(out).toHaveLength(2);
     expect(out[0]!.y).toBeCloseTo(-0.01);
@@ -116,15 +106,12 @@ describe('clusterOffsets', () => {
   });
 
   it('applies clusterScale to the separation', () => {
-    const out = clusterOffsets('double', 0.01, 2, 0); // separation 0.04
+    const out = clusterOffsets('double', 0.01, 2, 0);
     expect(out[1]!.y).toBeCloseTo(0.02);
   });
 
   it('rotates the layout the way the kernel rotates it', () => {
-    // double rotated 90° swings the pair onto the z axis. The kernel applies
-    // R(−θ), so the point (−0.5, 0) goes to (0, +0.5): +z, not −z. Expecting −z
-    // here would let the app draw every rotated cluster mirrored against the
-    // arrangement the kernel is flying.
+    // The kernel applies R(−θ), so (−0.5, 0) goes to +z, not −z.
     const out = clusterOffsets('double', 0.01, 1, Math.PI / 2);
     expect(out[0]!.y).toBeCloseTo(0);
     expect(out[0]!.z).toBeCloseTo(0.01);
@@ -132,12 +119,7 @@ describe('clusterOffsets', () => {
     expect(out[1]!.z).toBeCloseTo(-0.01);
   });
 
-  /**
-   * …and it stays that way. This transcribes ClusterConfiguration.getPoints
-   * (ClusterConfiguration.java:108-119) independently rather than re-running
-   * clusterOffsets, so a sign that drifts fails for every pattern at once
-   * instead of only in whichever single case someone remembered to pin.
-   */
+  // Independent transcription of ClusterConfiguration.getPoints (ClusterConfiguration.java:108-119).
   it('matches ClusterConfiguration.getPoints for every pattern and rotation', () => {
     expect(JAVA).toContain('ret.add(x * cos + y * sin); ret.add(-x * sin + y * cos);');
     const kernelPoints = (pts: number[], rotation: number) => {

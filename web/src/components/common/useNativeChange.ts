@@ -1,13 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { useLatestRef } from './useLatestRef';
 
-/**
- * Listen for the native `change` event on an input: it fires once, when the
- * user lets go of a slider or closes a color picker, where React's `onChange`
- * is the native `input` event and fires on every step of the drag. For a value
- * worth committing once (a setting write, an undo step). The handler is read
- * through a ref, so the listener is attached once.
- */
+// React's `onChange` is the native `input` event (every drag step); native `change` fires once on release.
 export function useNativeChange(
   ref: RefObject<HTMLInputElement | null>,
   onChange: (el: HTMLInputElement) => void,

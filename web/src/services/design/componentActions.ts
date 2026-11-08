@@ -7,35 +7,12 @@ import { scaleNode } from '../../tree/scaleRocket';
 import { syncDerived } from './treeEdit';
 import { uuid } from '../app/uuid';
 
-/**
- * The buttons on OpenRocket's config dialogs that change the tree rather than
- * set a field: convert a fin set to freeform, split a fin set into single fins,
- * split a pod set or booster into separate ones, split a motor cluster into
- * separate tubes, and put a cluster's spacing back to the default.
- *
- * Pure tree transforms, returning the same tree when there is nothing to do, so
- * the store can skip the undo step. Each one answers a `can*` predicate as well,
- * because a disabled button that says why beats one that does nothing on a fin
- * set with a single fin.
- *
- * All of them replace a node with one or more nodes at the same position among
- * its siblings, which is the shape of `splitInstances` upstream.
- */
+// Returning the same tree when nothing changes lets the store skip the undo step.
 
-/** Fin sets whose planform `finPlanformPoints` can hand to a freeform outline. */
 const CONVERTIBLE = new Set(['trapezoidfinset', 'ellipticalfinset']);
 
-/** The dimension keys that describe a trapezoid or elliptical planform and
- *  nothing else. A freeform outline replaces all of them. */
 const PLANFORM_KEYS = ['rootChord', 'tipChord', 'sweep', 'height'] as const;
 
-/**
- * What a split divides: how many copies, and which key holds the angle they are
- * spread around. A fin set's instance count is its fin count and its angle is
- * its base rotation; a pod set or booster counts instances and carries an
- * `angleOffset`. Upstream reaches both through `getInstanceCount` and
- * `AnglePositionable`, which our nodes spell differently per type.
- */
 const SPLITTABLE: Record<string, { count: string; angle: string }> = {
   trapezoidfinset: { count: 'finCount', angle: 'rotation' },
   ellipticalfinset: { count: 'finCount', angle: 'rotation' },
@@ -45,15 +22,7 @@ const SPLITTABLE: Record<string, { count: string; angle: string }> = {
   parallelstage: { count: 'instanceCount', angle: 'angleOffset' },
 };
 
-/**
- * Every id in this subtree replaced with a fresh one, so a copy is a new part
- * rather than a second node claiming the same identity.
- *
- * `origins`, when given, collects each new id against the id it was copied
- * from. A part's per-configuration settings (its motor, deployment and
- * separation) are keyed by its id, and desktop's `copy()` carries them to the
- * copy; the caller uses this map to do the same.
- */
+/** `origins` maps each new id to its source id. */
 export function reid(node: ComponentNode, origins?: Map<string, string>): ComponentNode {
   const out: ComponentNode = { ...node, id: uuid() };
   if (origins && typeof node.id === 'string') origins.set(out.id as string, node.id);
@@ -61,40 +30,19 @@ export function reid(node: ComponentNode, origins?: Map<string, string>): Compon
   return out;
 }
 
-/** Give the first copy the original's id back, and drop the id it no longer has from `origins`. */
 function keepFirstId(copies: ComponentNode[], id: string, origins?: Map<string, string>): void {
   if (origins && typeof copies[0]!.id === 'string') origins.delete(copies[0]!.id);
   copies[0]!.id = id;
 }
 
-/**
- * Put `replacements` where `id` was, among its siblings, and resync the derived
- * values. One node replaces it in place; several fan out from its position.
- */
 function replaceInPlace(tree: RocketTree, id: string, replacements: ComponentNode[]): RocketTree {
   const components = replaceNode(tree.components, id, () => replacements);
   return components === tree.components ? tree : syncDerived({ ...tree, components });
 }
 
-/** Whether this fin set has a planform a freeform outline can be built from. */
 export const canConvertToFreeform = (node: ComponentNode | null | undefined): boolean =>
   !!node && CONVERTIBLE.has(node.type);
 
-/**
- * Turn a trapezoidal or elliptical fin set into a freeform one with the same
- * outline, as `FreeformFinSet.convertFinSet` does.
- *
- * Everything that is not the planform survives: the fin count, thickness, cant,
- * cross section, base rotation, the through-the-wall tab, the fillet, the
- * material, the position, the color and the comment. What goes is the four
- * dimensions the outline now describes, because leaving them would be two
- * descriptions of one shape with nothing keeping them in step.
- *
- * The part keeps its id, so the selection and anything that names it are
- * undisturbed. An unnamed fin set relabels itself, because the tree falls back
- * to the type's own name; one the user named keeps that name, which is the
- * intent of upstream's rename-only-if-it-is-still-the-default rule.
- */
 export function convertToFreeform(tree: RocketTree, id: string): RocketTree {
   const node = findNode(tree.components, id);
   if (!node || !canConvertToFreeform(node)) return tree;
@@ -105,26 +53,14 @@ export function convertToFreeform(tree: RocketTree, id: string): RocketTree {
   return replaceInPlace(tree, id, [out]);
 }
 
-/** How many single parts a split would make; 1 means there is nothing to do. */
 export const splitCount = (node: ComponentNode | null | undefined): number => {
   if (!node) return 1;
   const spec = SPLITTABLE[node.type];
   return spec ? countOf(node, spec.count, 1) : 1;
 };
 
-/** Whether this node is more than one instance of something. */
 export const canSplit = (node: ComponentNode | null | undefined): boolean => splitCount(node) > 1;
 
-/**
- * Break a multi-instance part into single ones, as `splitInstances` does: a
- * three-fin set becomes three one-fin sets at 0, 120 and 240 degrees, and a
- * two-instance booster becomes two boosters half a turn apart.
- *
- * `baseName` is the name to number: the caller passes the part's display name,
- * because an unnamed part shows its type and this module cannot localize. An
- * override mass is divided between the copies, since it was a figure for the
- * whole set.
- */
 export function splitInstances(
   tree: RocketTree,
   id: string,
@@ -146,26 +82,14 @@ export function splitInstances(
     if (typeof override === 'number') copy['overrideMass'] = override / count;
     return copy;
   });
-  // The first copy keeps the original id, so whatever was selected stays
-  // selected rather than the panel emptying under the button just pressed.
+  // Keep the original id so the selection does not empty under the button.
   keepFirstId(copies, id, origins);
   return replaceInPlace(tree, id, copies);
 }
 
-/** Whether this inner tube carries a cluster of more than one motor. */
 export const canSplitCluster = (node: ComponentNode | null | undefined): boolean =>
   !!node && node.type === 'innertube' && clusterCount(node['cluster'] as string | undefined) > 1;
 
-/**
- * Break a motor cluster into separate inner tubes, one per tube position, as
- * `InnerTube.makeIndividualClusterComponent` does.
- *
- * Each copy becomes a single tube pinned at the offset the cluster put it at,
- * with the cluster's spacing and roll reset because they no longer describe
- * anything. It duplicates whatever was attached to the tube as well, which is
- * the warning on the desktop's own tooltip: a cluster with an engine block in it
- * becomes four tubes with four engine blocks.
- */
 export function splitCluster(
   tree: RocketTree,
   id: string,
@@ -174,15 +98,12 @@ export function splitCluster(
 ): RocketTree {
   const node = findNode(tree.components, id);
   if (!node || !canSplitCluster(node)) return tree;
-  // InnerTube.getClusterPoints, so a cluster that was already off-center splits
-  // into tubes that stay where they were drawn.
   const places = clusterPlacesOf(node);
   const copies = places.map((p, i) => {
     const copy = reid(node, origins);
     copy['cluster'] = 'single';
     copy['clusterScale'] = 1;
     copy['clusterRotation'] = 0;
-    // `setRadialShift`: the y/z offset stated as a distance and a direction.
     copy['radialPosition'] = p.radialPosition;
     copy['radialDirection'] = p.radialDirection;
     copy.name = baseName + ' #' + String(i + 1);
@@ -193,11 +114,7 @@ export function splitCluster(
   return replaceInPlace(tree, id, copies);
 }
 
-/**
- * The desktop's Reset settings button beside the cluster picker: spacing back to
- * one tube diameter and roll back to zero. Only those two, which is what its own
- * tooltip promises; the pattern itself is left alone.
- */
+// Resets spacing and roll only, not the pattern, as desktop does.
 export function resetCluster(tree: RocketTree, id: string): RocketTree {
   const node = findNode(tree.components, id);
   if (!node || node.type !== 'innertube' || !isClusterPattern(node['cluster'])) return tree;
@@ -205,18 +122,7 @@ export function resetCluster(tree: RocketTree, id: string): RocketTree {
   return replaceInPlace(tree, id, [{ ...node, clusterScale: 1, clusterRotation: 0 }]);
 }
 
-/**
- * Scale one component by a factor: the freeform editor's **Scale fin**.
- *
- * The desktop reaches the general Scale dialog here with only this component
- * selected, so it is the same scale a whole-rocket one would apply, confined to
- * one part (the outline, the wall, the tab and the fillet all together), since a
- * fin scaled without its tab no longer passes through its own slot.
- *
- * A component has no children worth scaling (a fin set has none at all), so this
- * deliberately does not recurse: scaling a body tube here would leave everything
- * inside it at its old size, and that is the whole-rocket scale's job.
- */
+// Deliberately does not recurse into children.
 export function scaleComponent(tree: RocketTree, id: string, factor: number): RocketTree {
   if (!(factor > 0) || !Number.isFinite(factor) || factor === 1) return tree;
   const node = findNode(tree.components, id);

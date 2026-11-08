@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-
-/**
- * A built source tree is never the pinned release, so `--or` gives digests the
- * desktop rejects. It runs only when OPENROCKET_UNPINNED=1 says so, and then
- * with the same "do not commit" warning another jar gets.
- */
 describe('checkSourceTree', () => {
   const lib = new URL('../../../scripts/lib/openrocketRelease.mjs', import.meta.url).href;
   const run = (unpinned: boolean) => {

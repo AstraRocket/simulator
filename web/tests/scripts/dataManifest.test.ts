@@ -5,12 +5,6 @@ import { join } from 'node:path';
 // @ts-expect-error - a plain .mjs build script helper, no types
 import { rowCount, writeDataManifest } from '../../scripts/lib/dataManifest.mjs';
 
-/**
- * The manifest dates each catalog by the run that last changed it. The publish
- * step pushes only when a file changed, so a run that changes no catalog has to
- * leave the manifest byte for byte as it was: a date that moved on every run
- * would publish an empty refresh every week.
- */
 let dir: string;
 const read = () => readFileSync(join(dir, 'manifest.json'), 'utf8');
 const motors = (rows: unknown[]) => writeFileSync(join(dir, 'motors.generated.json'), JSON.stringify(rows));
@@ -65,11 +59,6 @@ describe('writeDataManifest', () => {
   });
 });
 
-/**
- * The rows a catalog holds, which the manifest records and the offline check
- * compares: a parts catalog wraps its rows in one array beside its stamps, so
- * its top-level keys are not its rows.
- */
 describe('rowCount', () => {
   it('counts the array a catalog is', () => {
     expect(rowCount([{}, {}, {}])).toBe(3);

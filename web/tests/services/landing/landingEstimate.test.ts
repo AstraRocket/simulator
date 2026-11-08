@@ -26,7 +26,6 @@ describe('estimateLanding', () => {
     const e = estimateLanding({ ...site, variant: variant(), validUnix: start + 6 * 3600 })!;
     expect(e.hours).toBe(HOUR_OFFSETS.length);
     expect(e.samples).toHaveLength(135);
-    // The fixture wind blows from the west, so the rocket lands east.
     expect(e.nominal.landing.east).toBeGreaterThan(0);
     expect(e.ellipse!.semiMajorM).toBeGreaterThan(0);
     expect(e.samples).toContainEqual(e.nominal.landing);
@@ -73,7 +72,6 @@ describe('runLandingEstimate', () => {
     const run = await runLandingEstimate(q, { fetchImpl, sleep: async () => {} });
     if (typeof run === 'string') throw new Error(run);
     expect(run.terrain).toBe(true);
-    // Ground rising downwind: the landing is above the pad.
     expect(run.estimate.nominal.groundElevationM).toBeGreaterThan(1500);
     expect(urls.some((u) => u.includes('/v1/elevation') && u.split(',').length > 50)).toBe(true);
   });
@@ -97,7 +95,6 @@ describe('runLandingEstimate', () => {
     const { urls, fetchImpl } = routes('none');
     const run = await runLandingEstimate({ ...q, padElevationM: null }, { fetchImpl, sleep: async () => {} });
     expect(run).toBe('noElevation');
-    // No forecast is asked for at a height the site does not have.
     expect(urls.every((u) => new URL(u).pathname === '/v1/elevation')).toBe(true);
   });
 });

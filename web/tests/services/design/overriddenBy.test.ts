@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { overriddenBy } from '../../../src/services/design/overriddenBy';
 
-/** The kernel's getMassOverriddenBy and its CG and CD twins. */
 const tree = (stage: Record<string, unknown>, tube: Record<string, unknown>): RocketTree =>
   ({
     components: [

@@ -30,7 +30,6 @@ const node = (o: object) => o as unknown as ComponentNode;
 const spec = (designation: string): MotorSpec =>
   ({ designation, manufacturer: 'Estes', diameter: 0.024, length: 0.07, ejectionDelay: 5 }) as unknown as MotorSpec;
 
-/** 'aft' first in tree order, 'pod' nested deeper and declared second. */
 const tree = {
   components: [
     node({ type: 'bodytube', id: 'aft', motorMount: true }),
@@ -66,11 +65,6 @@ describe('primaryMotor', () => {
     expect(primaryMotor(tree, newFlightConfig())).toBeUndefined();
   });
 
-  /**
-   * A loaded `.ork` puts a curve-less placeholder in a mount the file left
-   * empty, and the sustainer's mount comes first. A design seating only its
-   * booster flies on desktop, so the gate judges the motor that can fly.
-   */
   it('is the first motor with a usable curve, past an empty mount ahead of it', () => {
     const empty = { ...spec(''), times: [], thrusts: [], masses: [] } as MotorSpec;
     const config = newFlightConfig({ aft: { spec: empty }, pod: { spec: C6 } });
@@ -92,9 +86,6 @@ describe('reconcileConfig', () => {
   });
 
   it('seeds it on a delay the picker itself would have chosen', () => {
-    // The seeded motor is the one motor the app picks for you, so the delay has
-    // to be one Estes actually sells on a C6 and the one `MotorDialog.choose`
-    // would land on: the middle of that motor's own charges, not a constant.
     const { delays } = parseDelays(
       (
         JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/motors.generated.json'), 'utf8')) as {
@@ -143,8 +134,6 @@ describe('loadoutSignature', () => {
   });
 
   it('treats two fetches of one motor as the same motor', () => {
-    // Curve samples are deliberately not part of it: a re-fetched catalog motor
-    // is a different object and the same motor.
     expect(loadoutSignature({ aft: { spec: spec('C6') } })).toBe(loadoutSignature({ aft: { spec: spec('C6') } }));
   });
 });
@@ -180,7 +169,7 @@ describe('ensureConfig', () => {
 describe('seatedMotorsKey', () => {
   it('moves when a motor does', () => {
     const before = newFlightConfig({ aft: { spec: spec('C6') } });
-    const after = newFlightConfig({ aft: { spec: spec('C6') } }); // a different spec object
+    const after = newFlightConfig({ aft: { spec: spec('C6') } });
     expect(seatedMotorsKey(tree, before)).not.toBe(seatedMotorsKey(tree, after));
   });
 
@@ -207,7 +196,6 @@ describe('motorSpecs', () => {
 });
 
 describe('deployment overrides', () => {
-  /** A design with one chute that the design opens at apogee. */
   const withChute = {
     components: [
       node({
@@ -223,8 +211,7 @@ describe('deployment overrides', () => {
   const over = (o: object) => ({ ...newFlightConfig(), deployments: { chute: o } });
 
   it('leaves the tree ALONE when nothing is overridden', () => {
-    // Identity, not equality: the rebuild keys and every memo chain downstream
-    // compare by reference, so a copy would look like an edit.
+    // Identity: downstream memos compare by reference, so a copy looks like an edit.
     expect(configuredTree(withChute, newFlightConfig())).toBe(withChute);
     expect(configuredTree(withChute, over({}))).toBe(withChute);
   });
@@ -233,7 +220,7 @@ describe('deployment overrides', () => {
     const out = configuredTree(withChute, over({ deployAltitude: 150 }));
     const chute = out.components[0]!.children![0]!;
     expect(chute['deployAltitude']).toBe(150);
-    expect(chute['deployEvent']).toBe('apogee'); // the design still decides when
+    expect(chute['deployEvent']).toBe('apogee');
     expect(chute['deployDelay']).toBe(0);
   });
 
@@ -263,7 +250,6 @@ describe('deployment overrides', () => {
 });
 
 describe('separation overrides', () => {
-  /** Two stages: the top one has nothing above it to let go of. */
   const staged = {
     components: [
       node({ type: 'stage', id: 'sustainer', children: [] }),
@@ -277,7 +263,7 @@ describe('separation overrides', () => {
     const out = configuredTree(staged, over({ separationDelay: 2 }));
     const booster = out.components[1]!;
     expect(booster['separationDelay']).toBe(2);
-    expect(booster['separationEvent']).toBe('ejection'); // the design still decides what
+    expect(booster['separationEvent']).toBe('ejection');
   });
 
   it('leaves the tree alone when nothing is overridden', () => {
@@ -347,8 +333,6 @@ describe('deployment and separation as flown', () => {
   const stage = { type: 'stage', id: 'booster' } as ComponentNode;
 
   it("fills what a device leaves out with the kernel's own deployment", () => {
-    // DeploymentConfiguration: EJECTION, 200 m, 0 s. The bridge sets only the
-    // keys a node carries, so a device without an event opens on the charge.
     expect(designDeployment(bare)).toEqual({ deployEvent: 'ejection', deployAltitude: 200, deployDelay: 0 });
   });
 

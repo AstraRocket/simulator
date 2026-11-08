@@ -688,6 +688,13 @@ function completeComponent(context is Context, comp is map, sketchFace, tform is
                         });
             }
 
+            // A ring around a cluster or an offset mount: its holes are cut from
+            // the solid disc the sketch drew (note 36).
+            if (revolveOk && compType == "centeringring")
+            {
+                resultQuery = cutRingHoles(context, comp, id, tform, units, resultQuery);
+            }
+
             // A motor mount gets its motor as a child of the mount, not the rocket
             // (note 16).
             if (revolveOk)
@@ -859,6 +866,84 @@ function unionShoulders(context is Context, comp is map, id is Id, tform is Tran
     }
 
     return resultQuery;
+}
+
+/** Cut a centering ring's holes, one where each tube of a cluster or an offset
+ *  mount passes through it, placed as the split tubes are (note 36). */
+function cutRingHoles(context is Context, comp is map, id is Id, tform is Transform, units is ValueWithUnits, baseQuery is Query) returns Query
+{
+    const holes = comp.params.holes;
+    if (holes == undefined || size(holes) == 0)
+        return baseQuery;
+
+    const length = comp.params.length;
+    // The ring's fore face.  Its x and y are the frame's, so a hole at
+    // radialDirection d lands where `resolveTransform` puts a tube at d.
+    const facePlane = plane(tform.translation, tform.linear * vector(0, 0, 1), tform.linear * vector(1, 0, 0));
+
+    var tools = [];
+    for (var i, hole in holes)
+    {
+        const holeId = id + ("hole" ~ i);
+        const holeSketch = newSketchOnPlane(context, holeId + "sketch", {
+                    "sketchPlane" : facePlane
+                });
+        skCircle(holeSketch, "circle", {
+                    "center" : vector(hole.radialPosition * cos(hole.radialDirection * radian),
+                                      hole.radialPosition * sin(hole.radialDirection * radian)) * units,
+                    "radius" : hole.radius * units
+                });
+        skSolve(holeSketch);
+
+        const holeFaces = evaluateQuery(context, qSketchRegion(holeId + "sketch"));
+        if (size(holeFaces) == 0)
+        {
+            continue;
+        }
+
+        // Past both faces, so the cut leaves no skin.  The ring runs aft of its
+        // fore face, against the plane's normal.
+        try
+        {
+            opExtrude(context, holeId + "extrude", {
+                        "entities" : holeFaces[0],
+                        "direction" : -facePlane.normal,
+                        "endBound" : BoundingType.BLIND,
+                        "endDepth" : 2 * length * units,
+                        "startBound" : BoundingType.BLIND,
+                        "startDepth" : length * units
+                    });
+        }
+        catch(holeError)
+        {
+            // @keep -- a failure the user can act on, not routine chatter
+            println("  [hole] CAUGHT " ~ comp.name ~ " hole " ~ i ~ ": " ~ toString(holeError));
+            continue;
+        }
+        tools = append(tools, qCreatedBy(holeId + "extrude", EntityType.BODY));
+    }
+
+    if (size(tools) == 0)
+        return baseQuery;
+
+    try
+    {
+        opBoolean(context, id + "holesCut", {
+                    "operationType" : BooleanOperationType.SUBTRACTION,
+                    "tools" : qUnion(tools),
+                    "targets" : baseQuery
+                });
+    }
+    catch(cutError)
+    {
+        // @keep -- a failure the user can act on, not routine chatter
+        println("  [hole] CAUGHT " ~ comp.name ~ " cut: " ~ toString(cutError));
+        // The ring stays a solid disc, without the cutters left standing in it.
+        opDeleteBodies(context, id + "holesDelete", {
+                    "entities" : qUnion(tools)
+                });
+    }
+    return baseQuery;
 }
 
 /** Cant a fin set: roll the solid about the fin's span axis, through the mid-point
@@ -2405,4 +2490,19 @@ function resolveMaterial(componentMaterial)
  *     result is identical; and the fin branch, which uses the component's OWN
  *     axis, is untouched.  Only a genuinely off-axis parent changes, which is
  *     exactly the case that was wrong.
+ *
+ * 36. A centering ring's holes
+ *
+ *     A ring around a cluster or an offset mount carries `params.holes`: one
+ *     entry per tube, with the same `radialPosition` and `radialDirection` the
+ *     split tubes carry and the tube's outer radius.  The sketch then draws a
+ *     solid disc, and `cutRingHoles` cuts a cylinder through it at each entry.
+ *
+ *     `innerRadius` is still the one centered bore, so a release of this feature
+ *     that predates `holes` builds the ring as it always did.  A ring with no
+ *     `holes` is the plain revolved annulus.
+ *
+ *     A cluster at its default spacing has tubes that touch, so the holes touch
+ *     too, and the piece between them can come out as a separate body.  That is
+ *     the ring the tubes need, as the DXF cut sheet draws it.
  */

@@ -4,7 +4,7 @@ import { Dialog } from '../common/Dialog';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { useFilePick } from '../common/useFilePick';
 import { errorText } from '../../i18n/keyedError';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { assertImportSize, readFileText } from '../../services/files/decodeText';
 import { exportFilename, saveText } from '../../services/files/saveFile';
 import { appName } from '../../services/app/appInfo';
@@ -25,15 +25,6 @@ import { StatusLine } from '../common/StatusLine';
 const button =
   'rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
 
-/**
- * Export ▸ Backup and Import ▸ Backup: everything this browser keeps besides
- * designs, as one file to take to another browser or machine
- * (services/storage/backup.ts). One dialog with a half for each, since they
- * share the library list and its names.
- *
- * Both let the user choose libraries. A backup starts with all of them; a
- * restore starts with all the file holds, and says what each one did.
- */
 export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const { settings, update } = useSettings();
@@ -52,11 +43,6 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
     return next;
   };
 
-  /**
-   * A save or a restore: busy while it runs, and its failure in the status
-   * line. The store's own message, since a refused write is not always
-   * "storage full".
-   */
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
     setStatus(null);
@@ -72,8 +58,7 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
   const save = () =>
     run(async () => {
       const text = await makeBackup(toSave, settings);
-      // The user's own calendar day: a UTC date names an evening backup in the
-      // Americas tomorrow.
+      // Local calendar day: a UTC date names an evening backup in the Americas tomorrow.
       await saveText(text, exportFilename([appName(), 'backup', todayYmd()], 'json'), 'application/json');
       setStatus(t('backup.saved'));
     });
@@ -105,12 +90,10 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
     });
   };
 
-  // Alphabetical by the name shown, in the reader's language.
   const libraries = [...BACKUP_LIBRARIES].sort((x, y) =>
     t(`backup.lib.${x}`).localeCompare(t(`backup.lib.${y}`), i18n.language),
   );
 
-  // Something to take: a file is open and it holds a library that is ticked.
   const restorable = !!file && BACKUP_LIBRARIES.some((lib) => toRestore.has(lib) && file.entries[lib]);
 
   const made = file?.created ? new Date(file.created) : null;
@@ -157,9 +140,6 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
         {mode === 'restore' && (
           <section className="space-y-2">
             <p className="leading-snug text-ink-muted">{t('backup.restoreNote')}</p>
-            {/* The same list the backup offers, settled by the file: until one
-                is open nothing can be chosen, and then the lists it holds start
-                ticked and the rest stay off, shown rather than hidden. */}
             {libraries.map((lib) => {
               const held = file?.entries[lib];
               return (
@@ -213,7 +193,7 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
           </section>
         )}
 
-        {/* Always mounted, empty until there is something to say (see UpdateToast). */}
+        {/* Always mounted so the live region announces (see UpdateToast). */}
         <StatusLine tone="muted">{status}</StatusLine>
       </div>
     </Dialog>

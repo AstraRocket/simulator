@@ -3,14 +3,8 @@ import * as THREE from 'three';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import { buildPieces } from '../../../src/components/canvas/rocketPieces';
-import { buildAftScene } from '../../../src/components/canvas/AftView';
+import { buildAftScene } from '../../../src/components/canvas/aftScene';
 
-/**
- * A transition end with no radius on record is drawn the way the kernel builds
- * it (ComponentFactory, case "transition", makes it automatic): resolved by
- * `syncAutoRadii`, the one copy of the neighbor rule, which
- * `geometryParity.kernel.test.ts` holds to the kernel for keyless ends.
- */
 const fore = { type: 'bodytube', id: 'fore', length: 0.2, outerRadius: 0.03, thickness: 0.001 } as ComponentNode;
 const bare = { type: 'transition', id: 'tr', length: 0.05, thickness: 0.001, shape: 'conical' } as ComponentNode;
 const aft = { type: 'bodytube', id: 'aft', length: 0.2, outerRadius: 0.02, thickness: 0.001 } as ComponentNode;
@@ -61,7 +55,6 @@ describe('a bare transition in the drawings', () => {
       p.geometry.computeBoundingBox();
       box.union(p.geometry.boundingBox!);
     }
-    // The aft end still follows the 20 mm tube behind it.
     expect(box.max.z).toBeCloseTo(0.02, 4);
   });
 });

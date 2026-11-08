@@ -9,20 +9,12 @@ import { kernelGeometry, loadEngine } from '../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Parts whose node leaves a key out, and shoulders the kernel holds to a
- * cone's base, read the way the kernel builds them. Every expected value is
- * read back from the kernel through the bridge.
- */
-
 const part = (o: object) => o as unknown as ComponentNode;
 const stage = (children: object[]): RocketTree =>
   ({ components: [part({ type: 'stage', id: 'stage', children })] }) as unknown as RocketTree;
 const NOSE = { type: 'nosecone', id: 'nose', shape: 'ogive', length: 0.1, aftRadius: 0.03, thickness: 0.002 };
 
 describe('a part with no position key', () => {
-  // Each type the kernel builds with its constructor's axial method when the
-  // bridge is given no position: bottom, middle or top.
   const TYPES: ComponentType[] = [
     'trapezoidfinset',
     'ellipticalfinset',
@@ -123,21 +115,17 @@ describe('a freeform fin span in the parts table', () => {
 });
 
 describe('a nose cone shoulder against its base', () => {
-  /** The kernel's shoulder radius for the cone `nose` in this design. */
   const kernelShoulder = async (tree: RocketTree) =>
     kernelGeometry(await loadEngine(), tree, { fields: true }).get('nose')!.fields!['shoulderRadius'] as number;
 
   it("stops an automatic shoulder at the base, NoseCone.setShoulderRadius's clamp", async () => {
     const shoulder = { shoulderLength: 0.02, shoulderThickness: 0.001 };
-    // A 13 mm cone on a 50 mm tube: the bore behind it is 49 mm.
     const tree = syncDerived(
       stage([
         { ...NOSE, aftRadius: 0.013, shoulderAuto: true, ...shoulder },
         { type: 'bodytube', id: 'tube', length: 0.3, outerRadius: 0.05, thickness: 0.001 },
       ]),
     );
-    // The clamp, from the kernel: a flipped cone's stated shoulder goes
-    // through the clamping setter (`settleFlippedShoulders`).
     const clamp = await kernelShoulder(
       stage([
         { type: 'bodytube', id: 'tube', length: 0.3, outerRadius: 0.05, thickness: 0.001 },

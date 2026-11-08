@@ -1,49 +1,33 @@
 import type { StateCreator } from 'zustand';
 import { isResultView, type Tab, type DesignPane, type TwoDView, type ViewMode } from './tabs';
 import type { WorkspaceState } from './store';
+import { toggled } from '../services/app/collections';
 
-/**
- * Navigation: which tab and pane are open, which view the center pane shows,
- * and the 2D schematic's own controls. None of it is part of the design, so it
- * is not in undo history and not saved with the design.
- */
 export interface ViewSlice {
   tab: Tab;
-  /** Which half of the Design tab a phone shows; ignored at lg+, where both do. */
   designPane: DesignPane;
   view: ViewMode;
   twoD: TwoDView;
-  roll: number; // 2D fin-spin, radians, kept in [0, 2π)
-  resetKey: number; // bump to remount the 2D schematic
+  roll: number; // radians, kept in [0, 2π)
+  resetKey: number;
+  /** Part ids hidden in the 2D and 3D views. Not design data: no undo step, not saved, as on desktop. */
+  hiddenParts: ReadonlySet<string>;
 
   setTab: (tab: Tab) => void;
-  /** Open the Design tab on one of its two phone panes (see {@link DesignPane}). */
   setDesignPane: (pane: DesignPane) => void;
   setView: (view: ViewMode) => void;
   setTwoD: (v: TwoDView) => void;
   setRoll: (roll: number) => void;
   rollBy: (d: number) => void;
   resetView: () => void;
+  toggleHiddenPart: (id: string) => void;
+  showAllParts: () => void;
 }
 
-/**
- * A `view` paired with a tab that can actually show it.
- *
- * On a phone the center pane backs two tabs and each owns a family: Sketch the
- * design views, Results the flight ones. Rocket and Simulate show no view at
- * all, so a caller sitting on either is left where it is.
- *
- * Every write of `view` that can change the tab goes through this, or sets
- * both together. Writing the two apart lands you on a
- * Results tab with no result and an empty view switch.
- */
+// Every `view` write that can change the tab goes through this, or Results can open empty.
 export function showing(s: { tab: Tab; designPane: DesignPane }, view: ViewMode): Partial<WorkspaceState> {
   if (s.tab === 'sim' || (s.tab === 'design' && s.designPane === 'stats')) return { view };
-  return isResultView(view)
-    ? { view, tab: 'results' }
-    : // Coming back from Results, the drawing is what shows a design view, so a
-      // phone lands on the Sketch pane rather than the stats it was never asked for.
-      { view, tab: 'design', designPane: 'sketch' };
+  return isResultView(view) ? { view, tab: 'results' } : { view, tab: 'design', designPane: 'sketch' };
 }
 
 export const createViewSlice: StateCreator<WorkspaceState, [], [], ViewSlice> = (set) => ({
@@ -53,10 +37,8 @@ export const createViewSlice: StateCreator<WorkspaceState, [], [], ViewSlice> = 
   twoD: 'side',
   roll: 0,
   resetKey: 0,
+  hiddenParts: new Set<string>(),
 
-  // The three below keep the tab and the center-pane view in step (see
-  // {@link showing}). `tab` is the page at every width: the header's tab strip
-  // on desktop, the bottom tab bar on a phone.
   setTab: (tab) =>
     set((s) => {
       if (tab === 'results') return { tab, view: isResultView(s.view) ? s.view : 'flight' };
@@ -74,4 +56,6 @@ export const createViewSlice: StateCreator<WorkspaceState, [], [], ViewSlice> = 
       return { roll: x < 0 ? x + 2 * Math.PI : x };
     }),
   resetView: () => set((s) => ({ roll: 0, resetKey: s.resetKey + 1 })),
+  toggleHiddenPart: (id) => set((s) => ({ hiddenParts: toggled(s.hiddenParts, id) })),
+  showAllParts: () => set({ hiddenParts: new Set<string>() }),
 });

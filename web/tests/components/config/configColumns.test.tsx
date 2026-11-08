@@ -33,10 +33,6 @@ const cell = (deployDelay: number) => {
 
 afterEach(() => act(() => void i18n.changeLanguage('en')));
 
-/**
- * A configuration's own value has to read as its own without color: the editor
- * card says so in words, and so must the table.
- */
 describe('configuration table cells', () => {
   it('mark an override in words and with a mark, not by color alone', () => {
     const el = cell(1.5);

@@ -9,10 +9,9 @@ import { num, str } from '../../../tree/nodeProps';
 import { KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
 import { notePartName } from '../importNote';
 
-/** Design-level `[mach, altitude m]` conditions table (RASAero's Mach-Alt table). */
+/** `[mach, altitude m]` rows. */
 export type MachAltTable = [number, number][];
 
-/** Mach-Alt conditions table. No table ⇒ the empty element (RASAero's "unset"). */
 export function writeMachAlt(w: Cdx1Writer, machAlt: MachAltTable | undefined): void {
   const { emit } = w;
   if (machAlt && machAlt.length > 0) {
@@ -24,15 +23,9 @@ export function writeMachAlt(w: Cdx1Writer, machAlt: MachAltTable | undefined): 
   }
 }
 
-/** The warning raised when the simulation block's weight and CG cells are written as 0. */
 export const RASAERO_STAGE_MASS_WARNING: Keyed = { key: 'errors.exportRasaeroStageMass' };
 
-/**
- * Each stage's nozzle exit diameter in inches, for RASAero's power-on drag, or
- * 0 for a stage with no motor or no diameter set. RASAero flies one motor per
- * stage, so a cluster is written as the one nozzle with the same total exit
- * area, as desktop's `SimulationDTO.getNozzleExitDiameter` does.
- */
+/** Inches. A cluster is one nozzle of the same total exit area, as `SimulationDTO.getNozzleExitDiameter`. */
 export function stageNozzles(stagesIn: readonly ComponentNode[], slots: readonly StageEngineSlot[]): number[] {
   return stagesIn.map((st, i) => {
     const mount = slots[i]?.mount;
@@ -40,24 +33,13 @@ export function stageNozzles(stagesIn: readonly ComponentNode[], slots: readonly
   });
 }
 
-/** What the simulation block needs beyond the stages and their engines. */
 export interface SimulationInput {
   stageLaunch: readonly (StageLaunch | undefined)[];
-  /** Ids of the stages the configuration does not fly (`FlightConfig.grounded`). */
   grounded?: readonly string[];
-  /** Each stage's nozzle exit diameter (in), from {@link stageNozzles}. */
   nozzles: readonly number[];
 }
 
-/**
- * The delays of RASAero's staging timeline, which runs from each booster's
- * burnout: the booster and the stage above coast together for the booster's
- * separation delay, and the stage above then coasts for its ignition delay.
- * The kernel's separation and ignition events are converted to it as
- * desktop's `SimulationDTO.setStagingDelays` does, with a warning for an event
- * the timeline has no place for. Only an included booster is staged; every
- * other cell keeps its motor's own ignition delay, and no separation delay.
- */
+/** RASAero times run from each booster's burnout, ignition after separation (`SimulationDTO.setStagingDelays`). */
 function stagingDelays(
   w: Cdx1Writer,
   stagesIn: readonly ComponentNode[],
@@ -70,12 +52,10 @@ function stagingDelays(
     if (!included[lower]) continue;
     const lowerStage = stagesIn[lower]!;
     const upperStage = stagesIn[lower - 1]!;
-    // An included booster always has a motor.
-    const lowerDelay = slots[lower]!.motor!.delay ?? 0;
+    const lowerDelay = slots[lower]?.motor?.delay ?? 0;
     const plugged = lowerDelay >= PLUGGED_DELAY;
     const upper = slots[lower - 1]?.motor;
 
-    // Times after the burnout of the lower stage.
     let ignite = 0;
     if (upper) {
       const ev = upper.ignitionEvent ?? 'automatic';
@@ -89,7 +69,6 @@ function stagingDelays(
       ignite += upper.ignitionDelay ?? 0;
     }
 
-    // The kernel's separation defaults, as `designSeparation` reads them.
     const sepEv = str(lowerStage, 'separationEvent', KERNEL_SEPARATION.separationEvent);
     let separate = 0;
     if (sepEv === 'ejection' && !plugged) separate = lowerDelay;
@@ -115,21 +94,8 @@ function stagingDelays(
 }
 
 /**
- * Simulation block: RASAero's loader dereferences every child without null
- * checks, so its own files always carry all of these. The *Engine elements are
- * the only optional ones and must be omitted (not written empty) when there is
- * no motor.
- *
- * The per-stage weight/CG cells are cumulative, each the stack from the
- * sustainer through that stage with its motors, as desktop's `SimulationDTO`
- * fills every one of them from `MassCalculator`. `stageLaunch` holds them by
- * stage index (`cumulativeStageLaunch`); RASAero flies a stage at the weight
- * its cell says, so a stage with no figure is written as 0 and the warning
- * says so, the way desktop warns when it has no stage mass to write.
- *
- * A booster is included only when the configuration flies it and it has an
- * engine string: RASAero aborts the simulation of an included booster with no
- * engine, as desktop's `SimulationDTO` notes.
+ * RASAero's loader dereferences every child without null checks, so all are written
+ * except *Engine elements; it aborts on an included booster with no engine (`SimulationDTO`).
  */
 export function writeSimulationList(
   w: Cdx1Writer,
@@ -143,8 +109,6 @@ export function writeSimulationList(
   const included = stagesIn.map((_, i) => !!stageEngines[i] && flies(i));
   if (stagesIn.some((_, i) => stageLaunch[i] === undefined)) w.warn(RASAERO_STAGE_MASS_WARNING);
   const { ignition, separation } = stagingDelays(w, stagesIn, slots, included);
-  // RASAero flies one motor per stage: a cluster's other motors and a second
-  // mount's only weigh (desktop's SimulationDTO.warnUnsupportedMotors).
   stagesIn.forEach((st, i) => {
     if (flies(i) && slots[i]?.extraMotors) {
       w.warn({ key: 'errors.exportRasaeroExtraMotors', values: { stage: notePartName(st) } });
@@ -169,9 +133,7 @@ export function writeSimulationList(
   emit(`<IncludeBooster1>${included[1] ? 'True' : 'False'}</IncludeBooster1>`);
   if (stageEngines[2]) emit(`<Booster2Engine>${esc(stageEngines[2])}</Booster2Engine>`);
   emit(`<Booster2LaunchWt>${stackWt(2)}</Booster2LaunchWt>`);
-  // `Booster2Delay`, not `Booster2SeparationDelay`: RASAero names the two
-  // boosters' separation delays differently, and desktop's
-  // RASAeroCommonConstants.BOOSTER2_SEPARATION_DELAY is this same tag.
+  // RASAero's own tag, not `Booster2SeparationDelay` (RASAeroCommonConstants.BOOSTER2_SEPARATION_DELAY).
   emit(`<Booster2Delay>${fmt(separation[2] ?? 0)}</Booster2Delay>`);
   emit(`<Booster2CG>${stackCg(2)}</Booster2CG>`);
   emit(`<Booster2NozzleDiameter>${nozzle(2)}</Booster2NozzleDiameter>`);

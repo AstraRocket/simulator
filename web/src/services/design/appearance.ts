@@ -3,42 +3,19 @@ import { hexOf, packRgb, parseHexColor, rgbChannels } from './colorHex';
 import { colorForType, DEFAULT_PART_COLORS, type PartPalette } from './partColors';
 import { EXTERNAL_COMPONENT_TYPES } from '../../tree/componentKinds';
 
-/**
- * A part's 3D appearance: the desktop Appearance tab's lower half, without the
- * texture.
- *
- * Two colors describe a part in a `.ork`, and they are separate settings. The
- * figure color (`<color>`, node key `color`) is what the 2D views draw. The
- * appearance (`<appearance>`, node key `appearance`) is what the 3D view
- * renders: a paint color, its alpha (desktop's Opacity), and a shine. A part
- * with no appearance of its own is drawn with the default for its type
- * (`DefaultAppearance.getDefaultAppearance`), which is a texture on the
- * desktop and here the Settings palette color with the default's shine.
- *
- * The parts that implement `InsideColorComponent` also carry an inside
- * appearance (`<insideappearance>`), used when `separateInsideOutside` is set,
- * and `edgesSameAsInside`, which picks which of the two the cut edges take. A
- * fin set calls its two sides left (outside) and right (inside).
- */
+/** Separate from the figure color (`color`), which the 2D views draw. */
 export interface PartAppearance {
-  /** `#rrggbb`. */
   paint: string;
-  /** The paint's alpha, 0-255, as `ORColor` stores it. Desktop's Opacity is this over 255. */
+  /** 0-255, as `ORColor` stores it, not 0-1. */
   alpha: number;
   /** 0-1, clamped as the `Appearance` constructor clamps it. */
   shine: number;
-  /**
-   * `<opacityaffectstexture>`, from a desktop newer than 24.12. There is no
-   * texture here for it to affect, so it has no control; it is kept so a save
-   * writes back what was read.
-   */
+  /** Unused here, kept so a save round-trips it. */
   opacityAffectsTexture?: boolean;
 }
 
-/** One surface's look, resolved for drawing. */
 export interface Look {
   color: string;
-  /** 0-1. */
   shine: number;
   /** 0-1. */
   opacity: number;
@@ -64,35 +41,23 @@ export const SIDED_TYPES: ReadonlySet<ComponentType> = new Set<ComponentType>([
   'freeformfinset',
 ]);
 
-/**
- * The shine of each type's default appearance (`DefaultAppearance`): the
- * spiral-wound tubes and the plastic parts carry one, the textures (`simple`)
- * have none. A type desktop has no default for gets none.
- */
+/** Desktop `DefaultAppearance`. */
 const DEFAULT_SHINE: Partial<Record<ComponentType, number>> = {
-  bodytube: 0.3, // ESTES_BT
-  innertube: 0.1, // ESTES_IT
+  bodytube: 0.3,
+  innertube: 0.1,
   tubecoupler: 0.1,
   tubefinset: 0.1,
-  launchlug: 0.3, // WHITE_BT
-  nosecone: 0.3, // getPlastic: a nose cone is a Transition
+  launchlug: 0.3,
+  nosecone: 0.3,
   transition: 0.3,
   railbutton: 0.3,
 };
 
-/**
- * What `new AppearanceBuilder()` starts from (`resetToDefaults`): the
- * appearance a part takes when "Use default" is cleared and it had none.
- */
+/** Desktop `AppearanceBuilder.resetToDefaults`. */
 export const BUILDER_DEFAULT: PartAppearance = { paint: '#bbbbbb', alpha: 255, shine: 0.3 };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/**
- * A stored appearance, or undefined when the value is not one. The value can
- * come from an autosaved session or a saved part, so it is checked rather than
- * cast.
- */
 export function readAppearance(v: unknown): PartAppearance | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const o = v as Record<string, unknown>;
@@ -108,35 +73,26 @@ export function readAppearance(v: unknown): PartAppearance | undefined {
   };
 }
 
-/** The default appearance of a part type, in the given palette. */
 export function defaultAppearance(type: ComponentType, palette: PartPalette = DEFAULT_PART_COLORS): PartAppearance {
   return { paint: colorForType(type, palette), alpha: 255, shine: DEFAULT_SHINE[type] ?? 0 };
 }
 
-/** The appearance a part is drawn with on its outside: its own, else its type's default. */
 export function outsideAppearance(node: ComponentNode, palette?: PartPalette): PartAppearance {
   return readAppearance(node['appearance']) ?? defaultAppearance(node.type, palette);
 }
 
-/** The inside appearance as stored, else the type's default (`RealisticRenderer.getInsideAppearance`). */
 function insideAppearance(node: ComponentNode, palette?: PartPalette): PartAppearance {
   return readAppearance(node['insideAppearance']) ?? defaultAppearance(node.type, palette);
 }
 
-/** Opacity (desktop's spinner value) from an alpha byte. */
 export const opacityOf = (a: PartAppearance): number => a.alpha / 255;
 
-/** An alpha byte from an opacity, truncated as `AppearanceBuilder.setOpacity` does. */
+/** Truncated, not rounded, as `AppearanceBuilder.setOpacity` does. */
 export const alphaOf = (opacity: number): number => Math.trunc(clamp01(opacity) * 255);
 
 const lookOf = (a: PartAppearance): Look => ({ color: a.paint, shine: a.shine, opacity: opacityOf(a) });
 
-/**
- * The three surfaces a part is drawn with, as `RealisticRenderer.renderComponent`
- * picks them: a part with no inside appearance draws its inside and edges with
- * the outside one; one with an inside appearance uses it for the inside only
- * when the two are separate, and for the edges when `edgesSameAsInside` is set.
- */
+/** As desktop `RealisticRenderer.renderComponent` picks them. */
 export function partLooks(node: ComponentNode, palette?: PartPalette): { outside: Look; inside: Look; edges: Look } {
   const outside = outsideAppearance(node, palette);
   if (!INSIDE_COLOR_TYPES.has(node.type)) {
@@ -151,14 +107,9 @@ export function partLooks(node: ComponentNode, palette?: PartPalette): { outside
   };
 }
 
-/** The parts that extend `ExternalComponent`, whose figure shine follows their finish. */
 const EXTERNAL_TYPES = EXTERNAL_COMPONENT_TYPES;
 
-/**
- * `FigureRenderer.getShine`: the shininess an external part's finish gives it,
- * out of OpenGL's 128, and 20 for an internal part. A finish 24.12 does not
- * list takes the switch's default.
- */
+/** Desktop `FigureRenderer.getShine`, out of OpenGL's 128. */
 const FIGURE_SHININESS: Partial<Record<string, number>> = {
   rough: 10,
   unfinished: 30,
@@ -167,18 +118,13 @@ const FIGURE_SHININESS: Partial<Record<string, number>> = {
   polished: 128,
 };
 
-/** A hex color with each channel scaled, as `FigureRenderer` darkens the inside. */
 const scaled = (hex: string, k: number): string => {
-  const [r, g, b] = rgbChannels(parseHexColor(hex) ?? 0).map((c) => Math.round(c * k));
-  return hexOf(packRgb(r!, g!, b!));
+  const [r, g, b] = rgbChannels(parseHexColor(hex) ?? 0);
+  const dim = (c: number) => Math.round(c * k);
+  return hexOf(packRgb(dim(r), dim(g), dim(b)));
 };
 
-/**
- * The looks of desktop's 3D Figure view (`FigureRenderer.renderComponent`):
- * the figure color, else the type's default, on the outside and the edges,
- * the same color at 70% on the inside, and a shine from the finish. Opaque:
- * what the view shows through is decided by the part, not its color.
- */
+/** Desktop `FigureRenderer.renderComponent`. */
 export function figureLooks(node: ComponentNode, palette?: PartPalette): { outside: Look; inside: Look; edges: Look } {
   const rgb = parseHexColor(node['color']);
   const color = rgb === null ? colorForType(node.type, palette) : hexOf(rgb);

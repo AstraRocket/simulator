@@ -7,11 +7,6 @@ import { byFileName as untyped } from '../../scripts/lib/orcText.mjs';
 type File = { name: string; text: string };
 const byFileName = untyped as (files: File[]) => File[];
 
-/**
- * The parts catalog's row order follows the order its files are read in, and
- * the manifest hashes the rows, so a change of order alone makes every browser
- * download the catalog again. The order has to be the same on every machine.
- */
 describe('part file order', () => {
   const names = ['zeta.orc', 'Apogee.orc', 'BalsaMachining.orc', 'always_ready.orc', 'Estes.orc'];
   const files = (list: string[]) => list.map((name) => ({ name, text: '' }));

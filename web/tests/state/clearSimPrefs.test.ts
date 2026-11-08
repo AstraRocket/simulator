@@ -16,8 +16,7 @@ describe('clearSimPrefs', () => {
     expect(active().prefs).toEqual({ timeStep: 0.01, maxTime: 300 });
 
     useWorkspaceStore.getState().clearSimPrefs();
-    // undefined, not {}: `prefs` is spread over the globals at run time, and the
-    // editor reads "is anything overridden" from the key count.
+    // undefined, not {}: the editor reads "is anything overridden" from the key count.
     expect(active().prefs).toBeUndefined();
   });
 
@@ -36,8 +35,6 @@ describe('clearSimPrefs', () => {
     expect(active().prefs).toBeUndefined();
     const before = active();
     useWorkspaceStore.getState().clearSimPrefs();
-    // Same object: an edit that changes nothing must not open an undo entry or
-    // flag a result that is still valid.
     expect(active()).toBe(before);
   });
 });

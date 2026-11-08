@@ -7,24 +7,11 @@ import { TreeSchematic } from '../../../src/components/canvas/TreeSchematic';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 
-/**
- * No inert controls on the aft view.
- *
- * At the default view, zoom-out and fit are both no-ops: `zoomBy` clamps the
- * scale at 1, and fit sets the view to `ZOOM_IDENTITY`, which is what it already
- * is. Both drawings use the shared `ZoomButtons`, which disables them there, so
- * no button looks clickable and does nothing, and fit stays in place rather than
- * appearing and shifting the strip.
- *
- * Driven through the real buttons rather than asserted against the component's
- * internals: `disabled` is what the user can see.
- */
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-/** A one-tube rocket: enough for the view to draw something to zoom. */
 const tree = {
   name: 'T',
   components: [
@@ -38,11 +25,7 @@ const tree = {
 
 const view = () => renderWithProviders(<AftView tree={tree} />);
 
-/**
- * By aria-label, as a screen reader would find it. `schematic.zoomIn` carries the
- * wheel/pan hint in its text, so match on the start of it rather than pinning a
- * sentence that is free to be reworded.
- */
+// `schematic.zoomIn` carries a wheel/pan hint, so match only its start.
 const btn = (label: string | RegExp) => screen.getByLabelText(label) as HTMLButtonElement;
 const ZOOM_IN = /^Zoom in/;
 const ZOOM_OUT = /^Zoom out$/;
@@ -73,15 +56,12 @@ describe('the aft view gates its zoom controls', () => {
 
   it('disables zoom-in at the ceiling the wheel shares', () => {
     view();
-    // 1.5^n past 12: the clamp is the same `WHEEL_ZOOM.max` the wheel handler
-    // uses, so the button cannot be left live at a scale the wheel refuses.
     for (let i = 0; i < 10; i++) {
       const b = btn(ZOOM_IN);
       if (b.disabled) break;
       fireEvent.click(b);
     }
     expect(btn(ZOOM_IN).disabled).toBe(true);
-    // And the other two are still live there, because the view is zoomed.
     expect(btn(ZOOM_OUT).disabled).toBe(false);
     expect(btn(FIT).disabled).toBe(false);
   });
@@ -121,7 +101,6 @@ describe('the side schematic gates the same three the same way', () => {
   });
 });
 
-/** The lug's ring sits at the kernel's own radius (LaunchLug()) when the node states none. */
 describe('the aft view draws a keyless launch lug at the kernel size', () => {
   it('scales the lug against the tube by the kernel radius to 24 mm', () => {
     const withLug = {
@@ -155,11 +134,6 @@ describe('the aft view draws a keyless launch lug at the kernel size', () => {
   });
 });
 
-/**
- * A ring, coupler, bulkhead or engine block is sized as every other view sizes
- * it (discGeometry.discDims): its own radius, else the bore of the tube it sits
- * in, and it draws the ring's own bore.
- */
 describe('the aft view sizes a centering ring the way the cut sheet does', () => {
   it('fills the bore of the tube and shows the ring bore', () => {
     const withRing = {
@@ -195,7 +169,6 @@ describe('the aft view sizes a centering ring the way the cut sheet does', () =>
   });
 });
 
-/** A cleared Name field writes `name: ''`; the part is still titled by its type. */
 describe('the aft view titles an empty-named part by its type', () => {
   it('does not draw a blank title', () => {
     const blank = {
@@ -215,7 +188,6 @@ describe('the aft view titles an empty-named part by its type', () => {
   });
 });
 
-/** Zoomed in, the view pans from the keyboard, not only by dragging. */
 describe('the aft view pans from the keyboard', () => {
   const svg = () => screen.getByRole('group', { name: /Aft view|aft/i });
   const transform = () => svg().querySelector('g')!.getAttribute('transform');
@@ -234,7 +206,6 @@ describe('the aft view pans from the keyboard', () => {
   });
 });
 
-/** The side view pans from the keyboard the same way once zoomed in. */
 describe('the side view pans from the keyboard', () => {
   const svg = () => screen.getByLabelText(/^Rocket side view/);
   const transform = () => svg().querySelector('g[transform^="translate"]')!.getAttribute('transform');

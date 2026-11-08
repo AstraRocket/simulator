@@ -14,20 +14,7 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * An end set narrower than its fixed shoulder cuts the shoulder back to it.
- *
- * Desktop sets the shoulder again through its clamping setter whenever the end
- * radius is set (Transition.java:121 and :232, a nose cone's base being one of
- * the two ends), and that setter holds the shoulder radius to the end and the
- * shoulder wall to the new radius:
- *
- *   shoulderRadius    = min(shoulderRadius, endRadius)        Transition.java:447, :559
- *   shoulderThickness = min(shoulderRadius, shoulderThickness) Transition.java:456, :568
- *
- * The expected values below are that closed form, and the panel's node has to
- * hold what the kernel flies after the build (`getComponentFields`).
- */
+// Setting an end radius re-runs the clamping shoulder setter (Transition.java:121, :232, :447, :456).
 
 const tube = (id: string, outerRadius: number): ComponentNode =>
   ({ type: 'bodytube', id, length: 0.3, outerRadius, thickness: 0.001 }) as ComponentNode;
@@ -38,7 +25,6 @@ function design(part: ComponentNode): RocketTree {
   } as RocketTree;
 }
 
-/** What the kernel holds for the part once the edited design is built. */
 function kernelFields(tree: RocketTree, id: string): Record<string, number> {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));

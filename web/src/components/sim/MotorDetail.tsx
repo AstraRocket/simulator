@@ -6,15 +6,8 @@ import { useUnits } from '../../prefs/useUnits';
 import type { CatalogMotor } from '../../services/motors/motorDb';
 import { initialThrust } from '../../services/motors/motorPicker';
 import { avgThrustOf, ispOf, massFracOf } from '../../services/motors/motorMath';
-import {
-  ChartAxes,
-  CHART_HEADROOM,
-  chartScales,
-  linePath,
-  baselineArea,
-  LegendSwatch,
-  highestSample,
-} from './chartAxes';
+import { ChartAxes, CHART_HEADROOM, LegendSwatch } from './chartAxes';
+import { chartScales, linePath, baselineArea, highestSample } from './chartScales';
 import { inUserUnit, motorTypeLabel } from './motorFormat';
 import { withFixedUnit } from '../../i18n/format';
 import { token } from '../common/colorTokens';
@@ -27,32 +20,31 @@ import { CATALOG_TO_SI } from '../../services/motors/catalogUnits';
 import { usePersistedState } from '../common/usePersistedState';
 import { Check } from '../common/Check';
 import { MotorHeading, NoCurveNote } from './MotorPanelParts';
+import { ExhaustPreview } from './ExhaustPreview';
+import { exhaustFor, exhaustIdFor } from '../../services/motors/exhaust';
 
 /** Desktop's threshold for "Hide very similar thrust curves" (MOTOR_SIMILARITY_THRESHOLD). */
 const SIMILAR = 0.95;
 
-/** Detail panel for a catalog motor: manufacturer/class header, thrust-curve
- *  chart, and the spec grid. Reads only the catalog row it is given (no fetch). */
 export function MotorDetail({
   motor,
   onBack,
   curveIndex,
   onCurveChange,
+  onShowExhaustStyles,
 }: {
   motor: CatalogMotor;
   onBack?: () => void;
   curveIndex: number;
   onCurveChange: (i: number) => void;
+  onShowExhaustStyles?: () => void;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
   const curves = useMemo(() => motor.curves ?? [], [motor.curves]);
   const samples = (curves[curveIndex] ?? curves[0])?.samples ?? [];
   const [hideSimilar, setHideSimilar] = usePersistedState(loadHideSimilar, saveHideSimilar);
-  // The curves the dropdown offers: the one shown, and with the box ticked only
-  // those the kernel's MotorCorrelation does not call near duplicates of it.
-  // Every curve while the engine is still loading, rather than none. Engine
-  // readiness is a dependency, so the list is filtered once the engine arrives.
+  // Near duplicates per the kernel's MotorCorrelation.
   const engineReady = useEngineReady();
   const offered = useMemo(
     () =>
@@ -60,8 +52,6 @@ export function MotorDetail({
         .map((_, i) => i)
         .filter((i) => {
           if (!hideSimilar || !engineReady || i === curveIndex || !curves[curveIndex]) return true;
-          // A curve the kernel cannot compare is offered rather than hidden, and
-          // never takes the dialog down with it.
           try {
             const score = motorSimilarity(
               finalizeSamples(curves[curveIndex].samples),
@@ -77,21 +67,17 @@ export function MotorDetail({
   const title = motorName(motor);
   const showCommon = !!motor.code && motor.code !== motor.designation;
 
-  // Avg thrust and total impulse are motor-level (certified); peak and initial
-  // thrust reflect the specific curve on screen.
+  // Avg thrust is motor-level (certified); peak and initial follow the curve shown.
   const avg = avgThrustOf(motor);
   const max = samples.length ? Math.max(...samples.map((s) => s[1])) : (motor.maxThrust ?? 0);
   const init = samples.length ? initialThrust(samples) : null;
-  // NaN when the catalog lacks the weights; the formatters render a dash.
   const isp = ispOf(motor);
   const massFrac = massFracOf(motor);
-  // ThrustCurve's URL keys on the full designation (e.g. "E26W"), not the common
-  // name ("E26"); `code` holds it when they differ.
+  // ThrustCurve's URL keys on the full designation ("E26W"), not the common name ("E26").
   const tcUrl = `https://www.thrustcurve.org/motors/${encodeURIComponent(motor.manufacturer)}/${encodeURIComponent(motorName(motor))}/`;
 
   const g = withFixedUnit;
-  // The catalog is in mm / g / N / N.s (see CatalogMotor), so `scale` lifts a
-  // field to SI before the user's unit is applied.
+  // The catalog is in mm / g / N / N.s, so `scale` lifts a field to SI.
   const q = (quantity: Parameters<typeof u.fmt>[0], v: number | null | undefined, scale = 1, d?: number) =>
     inUserUnit(u, quantity, v, scale, d);
 
@@ -102,16 +88,15 @@ export function MotorDetail({
           <span aria-hidden="true">←</span> {t('motorDlg.backToList')}
         </button>
       )}
-      <MotorHeading kicker={motor.manufacturer} impulseClass={motor.class} title={title} />
+      <MotorHeading kicker={motor.manufacturer} impulseClass={motor.class} title={title} designation />
       <div className="mt-0.5 text-sm text-ink-muted">
         {showCommon && (
           <>
-            {t('motorDlg.commonName')} {motor.designation} ·{' '}
+            {t('motorDlg.commonName')} <span className="font-data">{motor.designation}</span> ·{' '}
           </>
         )}
         {motor.type ? motorTypeLabel(motor.type, t) : ''}
       </div>
-      {/* An imported curve has no ThrustCurve page to link to. */}
       {!motor.custom && (
         <a
           href={tcUrl}
@@ -173,13 +158,28 @@ export function MotorDetail({
         <SpecItem label={t('motorDlg.propType')} value={motor.propInfo ?? NO_VALUE} />
         <SpecItem label={t('motorDlg.sparky')} value={t(motor.sparky ? 'motorDlg.yes' : 'motorDlg.no')} />
       </dl>
+      <div className="mt-2 flex items-center gap-2">
+        <ExhaustPreview look={exhaustFor(motor)} className="h-9 w-36 shrink-0" />
+        {onShowExhaustStyles ? (
+          <button
+            type="button"
+            onClick={onShowExhaustStyles}
+            className="text-left text-[11px] leading-snug text-ink-muted underline hover:text-ink"
+          >
+            {t('exhaust.inFlight', { look: t(`exhaust.look_${exhaustIdFor(motor)}`) })}
+          </button>
+        ) : (
+          <p className="text-[11px] leading-snug text-ink-muted">
+            {t('exhaust.inFlight', { look: t(`exhaust.look_${exhaustIdFor(motor)}`) })}
+          </p>
+        )}
+      </div>
       <p className="mt-2 text-[11px] leading-snug text-ink-faint">{t('motorDlg.calcNote')}</p>
     </div>
   );
 }
 
-/** One term and its value in a motor spec `<dl>`. Renders `<dt>`/`<dd>`, so it
- *  must sit inside a `<dl>`; for a free-standing tile use `common/Stat`. */
+/** Renders `<dt>`/`<dd>`, so it must sit inside a `<dl>`; free-standing tiles use `common/Stat`. */
 export function SpecItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -189,11 +189,6 @@ export function SpecItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * Compact thrust-vs-time chart: filled curve, average-thrust line, burn marker.
- * `avg` and `burn` are null while they are not known (the kernel not loaded
- * yet); their lines are left out.
- */
 export function ThrustChart({
   samples,
   avg,
@@ -213,8 +208,7 @@ export function ThrustChart({
   const line = linePath(samples, X, Y);
   const area = baselineArea(samples, X, Y, tMax);
   const peak = highestSample(samples);
-  // Per instance: `url(#id)` resolves to the first match in the document, so a
-  // second chart sharing a fixed id would paint with the first one's gradient.
+  // Per instance: `url(#id)` resolves to the first match in the document.
   const fillId = `thrustFill${useId()}`;
 
   return (
@@ -236,7 +230,6 @@ export function ThrustChart({
             <stop offset="100%" stopColor={token('thrust')} stopOpacity="0.04" />
           </linearGradient>
         </defs>
-        {/* initial-thrust window (0–0.5 s) */}
         {0.5 < tMax && (
           <rect x={X(0)} y={PT} width={X(0.5) - X(0)} height={H - PT - PB} fill={token('thrust-band')} opacity="0.06" />
         )}

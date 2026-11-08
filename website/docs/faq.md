@@ -11,6 +11,9 @@ No. It's a web app: open the URL in a modern browser. No JDK, no download.
 ### Are my designs uploaded anywhere?
 No. Everything runs on your device. Your rockets, custom motors, saved parts, materials and saved launch locations are kept in your browser's IndexedDB (with localStorage as the fallback), and your settings in its localStorage. You can export a `.ork` to your disk. Nothing is sent to a server.
 
+### Can my designs sync between my computer and my phone?
+Not through the app itself. Save them into a folder Google Drive, OneDrive, Dropbox or iCloud Drive syncs, and open them from there on the other device. **[Syncing your work](./syncing-your-work.md)** walks through each service.
+
 ### Will my `.ork` files work in desktop OpenRocket?
 Yes: open and save are full-fidelity round-trips, and a saved file reopens in desktop OpenRocket. Two things do not come across: decals are removed on import, because their images are stored separately in the file, and a component this app does not support is skipped. The import banner names both.
 
@@ -45,7 +48,7 @@ A material kept **in this design** also travels with the file: it is in the file
 What does not travel is the material's place in **your** custom list in this browser. Open that file on another machine and the part is still the right density under the right name, but the material is not in that browser's custom list until you add it there. To bring the whole list along, use a backup: see the next question.
 
 ### How do I move my materials, parts and locations to another computer?
-**Menu → Export → Backup.** **Save backup file** writes one `.json` file holding what this browser keeps besides your designs: Custom Materials, Custom Parts, Launch Locations, Imported Motors, Flight Path Templates (your own formats for the flight path export) and your settings. Uncheck any you want to leave out. On the other browser, **Menu → Import → Backup**, then **Open backup file…**, shows what the file holds; pick what to take and press **Restore**.
+**Menu → Export → Backup.** **Save backup file** writes one `.json` file holding what this browser keeps besides your designs: Custom Materials, Custom Parts, Launch Locations, Imported Motors, Flight Path Templates (your own formats for the flight path export) and your settings. Uncheck any you want to leave out. On the other browser, **Menu → Import → Backup**, then **Open backup file…**, shows what the file holds; pick what to take and press **Restore**. Keep the backup in a synced folder and every device can reach it (see [Syncing your work](./syncing-your-work.md)).
 
 Lists are merged: an entry that matches one already there replaces it (a material by its type and name, a saved part by its type, maker and part number), and the rest are added. Your settings are replaced by the file's. Each list reports how many entries were added, replaced and refused; an entry is refused when it would not be accepted if you entered it here, such as a material with no density.
 

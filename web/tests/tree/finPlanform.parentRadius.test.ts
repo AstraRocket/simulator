@@ -20,28 +20,14 @@ describe('parentRadiusOf', () => {
     expect(parentRadiusOf(treeWith({ outerRadius: 0.02 }), 'f')).toBeCloseTo(0.02, 12);
   });
   it('falls back to the kernel body-tube radius, not a chord, when the key is absent', () => {
-    // Falling back to FIN_DEFAULTS.rootChord (0.05 m), a radius-less tube would
-    // clamp the tab at 50 mm where the kernel flies BodyTube()'s 25 mm tube
-    // (SymmetricComponent.DEFAULT_RADIUS).
+    // The kernel flies BodyTube()'s 25 mm radius, not FIN_DEFAULTS.rootChord's 50 mm.
     expect(parentRadiusOf(treeWith({}), 'f')).toBeCloseTo(KERNEL_BODYTUBE_OUTER_RADIUS, 12);
     expect(KERNEL_BODYTUBE_OUTER_RADIUS).toBe(0.025);
   });
 });
 
-/**
- * Fin sets on a nose cone or a transition, where the parent's radius changes
- * under the tab. The kernel's limit is `FinSet.getMaxTabHeight()`:
- *
- *     min(sym.getRadius(finFront.x + getTabFrontEdge()),
- *         sym.getRadius(finFront.x + getTabTrailingEdge()))
- *
- * with `getTabFrontEdge()` the `tabPosition` from
- * `AxialMethod.getAsPosition(tabOffset, tabLength, length)` and `finFront.x` the
- * fin's axial position in the parent. The expected radii below are
- * `Transition.getRadius(x)` written out by hand for each shape.
- */
+// `FinSet.getMaxTabHeight()`: min of the parent radius at the tab's front and trailing edges.
 describe('parentRadiusOf on a tapered parent', () => {
-  /** A 60 mm root freeform fin set; the first point sits on the body. */
   const fin = (extra: Record<string, unknown>) => ({
     type: 'freeformfinset',
     id: 'f',
@@ -59,12 +45,7 @@ describe('parentRadiusOf on a tapered parent', () => {
       components: [{ type: 'stage', id: 's', children: [{ id: 'p', ...parent, children: [f] }] }],
     }) as unknown as RocketTree;
 
-  /**
-   * `Transition.getRadius(x)` for a conical part, not clipped: stations outside
-   * [0, length] read the end radius; with r1 > r2 the station is mirrored
-   * (`x = length - x`) and the ends swapped, then
-   * `r1 + CONICAL.getRadius(x, r2 - r1, length)`, which is `r1 + (r2 - r1) * x / length`.
-   */
+  /** `Transition.getRadius(x)`: with r1 > r2 the station is mirrored and the ends swapped. */
   const conical = (fore: number, aft: number, length: number, x: number): number => {
     if (x < 0) return fore;
     if (x >= length) return aft;
@@ -91,7 +72,6 @@ describe('parentRadiusOf on a tapered parent', () => {
   const boatTail = { type: 'transition', shape: 'conical', length: 0.1, foreRadius: 0.025, aftRadius: 0.015 };
 
   it('reads a boat tail at the tab ends, not at its narrow end', () => {
-    // Fin front at 0; tab from 10 mm to 50 mm along the fin.
     const f = fin({ position: { method: 'top', offset: 0 }, tabOffsetMethod: 'top', tabOffset: 0.01, tabLength: 0.04 });
     const expected = Math.min(conical(0.025, 0.015, 0.1, 0.01), conical(0.025, 0.015, 0.1, 0.05));
     expect(expected).toBeCloseTo(0.02, 12);
@@ -99,7 +79,6 @@ describe('parentRadiusOf on a tapered parent', () => {
   });
 
   it('places a bottom-anchored fin and a middle-anchored tab as the kernel does', () => {
-    // Fin front = 0.1 - 0.06 = 0.04; tab front = (0.06 - 0.02) / 2 = 0.02.
     const f = fin({
       position: { method: 'bottom', offset: 0 },
       tabOffsetMethod: 'middle',
@@ -111,7 +90,6 @@ describe('parentRadiusOf on a tapered parent', () => {
   });
 
   it('reads the end radius for a tab station past the part', () => {
-    // Fin front 0.05, bottom-anchored tab offset 0.02: the tab runs 0.09 to 0.13.
     const f = fin({
       position: { method: 'top', offset: 0.05 },
       tabOffsetMethod: 'bottom',
@@ -125,7 +103,6 @@ describe('parentRadiusOf on a tapered parent', () => {
   });
 
   it('reads a nose cone along its profile, tip forward', () => {
-    // A nose cone is a transition from 0 at the tip to the base radius.
     const nose = { type: 'nosecone', shape: 'conical', length: 0.2, aftRadius: 0.025 };
     const f = fin({ position: { method: 'top', offset: 0.05 }, tabOffsetMethod: 'top', tabOffset: 0, tabLength: 0.04 });
     const expected = Math.min(conical(0, 0.025, 0.2, 0.05), conical(0, 0.025, 0.2, 0.09));
@@ -143,7 +120,6 @@ describe('parentRadiusOf on a tapered parent', () => {
   });
 
   it('reads an ogive nose cone on its curve', () => {
-    // Not flipped and r1 = 0 < r2, so getRadius(x) = OGIVE.getRadius(x, base, length, param).
     const nose = { type: 'nosecone', shape: 'ogive', shapeParameter: 1, length: 0.2, aftRadius: 0.025 };
     const f = fin({
       position: { method: 'top', offset: 0.03 },
@@ -152,8 +128,6 @@ describe('parentRadiusOf on a tapered parent', () => {
       tabLength: 0.03,
     });
     const expected = Math.min(ogive(0.04, 0.025, 0.2, 1), ogive(0.07, 0.025, 0.2, 1));
-    // A tangent ogive bulges above the cone of the same base, so a chord or a
-    // cone read at the same station would come out short.
     expect(expected).toBeGreaterThan(conical(0, 0.025, 0.2, 0.04) + 0.003);
     expect(parentRadiusOf(treeOn(nose, f), 'f')).toBeCloseTo(expected, 12);
   });
@@ -181,8 +155,7 @@ describe('parentRadiusOf on a tapered parent', () => {
 describe('finSpan on a hostile outline', () => {
   it('handles a 200k-point freeform outline without a stack overflow', async () => {
     const { finSpan } = await import('../../src/tree/finPlanform');
-    // `Math.max(...pts.map())` would spread 200k arguments into one call and
-    // throw RangeError before the PDF report's own guard is reached.
+    // `Math.max(...pts)` would throw RangeError on 200k arguments.
     const pts: [number, number][] = [];
     for (let i = 0; i < 200_000; i++) pts.push([i * 1e-6, (i % 100) * 1e-4]);
     pts.push([0.2, 0.05]);

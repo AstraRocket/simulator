@@ -5,18 +5,6 @@ import { findParent, updateNode } from '../../services/design/treeEdit';
 import { useWorkspaceStore } from '../../state/store';
 import { PanelButton } from './PanelButton';
 
-/**
- * OpenRocket's **Calculate automatically** button, at the foot of the fin tab
- * section: work the tab out from what is inside the airframe under the fin.
- *
- * It reads the tree rather than taking a patch callback, because the answer
- * depends on the fin's neighbors - the mount tube it has to reach and the
- * centering rings it has to fit between - which the property panel does not
- * have. See services/design/finTabAuto.ts for the rule.
- *
- * Renders nothing for a fin set that is not on a symmetric body, because there
- * is nothing to measure against and the desktop does nothing there either.
- */
 export function AutoFinTabButton({ node }: { node: ComponentNode }) {
   const { t } = useTranslation();
   const tree = useWorkspaceStore((s) => s.tree);

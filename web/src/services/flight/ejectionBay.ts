@@ -1,0 +1,142 @@
+import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
+import { bodyTubeRadius, num } from '../../tree/nodeProps';
+import { axialFrames, type AxialFrame } from '../../tree/axialRebase';
+import { lineageOf, walkNodes } from '../../tree/treeWalk';
+import { uiToSi } from '../../prefs/units';
+
+// Packed recovery gear is not subtracted, matching hobby charge calculators.
+
+const BLOCKING = new Set(['bulkhead', 'centeringring', 'engineblock', 'tubecoupler', 'innertube']);
+
+export interface EjectionBay {
+  tubeId: string;
+  tubeName: string;
+  /** Inside diameter, m. */
+  boreM: number;
+  lengthM: number;
+  wholeTube: boolean;
+  pins: ShearPins;
+}
+
+/** m from the nose tip. */
+interface Span {
+  start: number;
+  end: number;
+}
+
+export function ejectionBay(tree: RocketTree, deviceId: string): EjectionBay | null {
+  const lineage = lineageOf(tree.components, deviceId);
+  const tube = lineage.slice(1).find((n) => n.type === 'bodytube');
+  if (!tube?.id) return null;
+  const frames = axialFrames(tree);
+  const tubeFrame = frames.get(tube.id);
+  const deviceFrame = frames.get(deviceId);
+  if (!tubeFrame || !deviceFrame) return null;
+
+  const boreM = 2 * (bodyTubeRadius(tube) - num(tube, 'thickness', 0));
+  const tubeSpan = spanOf(tubeFrame);
+  const blocks = [...innerBlocks(tube, new Set(lineage), frames), ...shoulderBlocks(tree, tube, frames)];
+  const device = spanOf(deviceFrame);
+  const middle = (device.start + device.end) / 2;
+  let fore = tubeSpan.start;
+  let aft = tubeSpan.end;
+  for (const b of blocks) {
+    if (b.end <= middle) fore = Math.max(fore, b.end);
+    else if (b.start >= middle) aft = Math.min(aft, b.start);
+  }
+  return {
+    tubeId: tube.id,
+    tubeName: typeof tube.name === 'string' ? tube.name : '',
+    boreM,
+    lengthM: Math.max(0, aft - fore),
+    wholeTube: fore === tubeSpan.start && aft === tubeSpan.end,
+    pins: shearPinsIn(tube),
+  };
+}
+
+const spanOf = (f: AxialFrame): Span => ({ start: f.start, end: f.start + f.length });
+
+// `holders` (inner tubes carrying the device) are skipped: they do not wall it off.
+function innerBlocks(tube: ComponentNode, holders: Set<ComponentNode>, frames: Map<string, AxialFrame>): Span[] {
+  const out: Span[] = [];
+  for (const c of walkNodes(tube.children ?? [])) {
+    const f = c.id ? frames.get(c.id) : undefined;
+    if (f && BLOCKING.has(c.type) && !holders.has(c)) out.push(spanOf(f));
+  }
+  return out;
+}
+
+function shoulderBlocks(tree: RocketTree, tube: ComponentNode, frames: Map<string, AxialFrame>): Span[] {
+  const siblings = tree.components.flatMap((n) => (n.type === 'stage' ? (n.children ?? []) : [n]));
+  const i = siblings.findIndex((n) => n.id === tube.id);
+  const out: Span[] = [];
+  const before = siblings[i - 1];
+  const after = siblings[i + 1];
+  const frameOf = (n: ComponentNode | undefined) => (n?.id ? frames.get(n.id) : undefined);
+  const b = frameOf(before);
+  if (before && b) {
+    const shoulder =
+      before.type === 'nosecone'
+        ? num(before, 'shoulderLength', 0)
+        : before.type === 'transition'
+          ? num(before, 'aftShoulderLength', 0)
+          : 0;
+    if (shoulder > 0) out.push({ start: b.start + b.length, end: b.start + b.length + shoulder });
+  }
+  const a = frameOf(after);
+  if (after && a && after.type === 'transition') {
+    const shoulder = num(after, 'foreShoulderLength', 0);
+    if (shoulder > 0) out.push({ start: a.start - shoulder, end: a.start });
+  }
+  return out;
+}
+
+export const PIN_SIZES = ['2-56', '4-40', '6-32'] as const;
+export type PinSize = (typeof PIN_SIZES)[number];
+
+const LBF = uiToSi('force', 'lbf', 1);
+
+/** N. */
+export const PIN_STRENGTH_N: Readonly<Record<PinSize, number>> = {
+  '2-56': 35 * LBF,
+  '4-40': 60 * LBF,
+  '6-32': 90 * LBF,
+};
+
+export const DEFAULT_PINS = { count: 3, size: '2-56' as PinSize };
+
+export interface ShearPins {
+  count: number;
+  /** Null when the strength was given in the name rather than by size. */
+  size: PinSize | null;
+  /** Per pin, N. */
+  forceN: number;
+  from: string | null;
+}
+
+function shearPinsIn(tube: ComponentNode): ShearPins {
+  for (const c of walkNodes(tube.children ?? [])) {
+    if (c.type !== 'masscomponent' || typeof c.name !== 'string') continue;
+    const pins = parseShearPins(c.name);
+    if (pins) return pins;
+  }
+  return { ...DEFAULT_PINS, forceN: PIN_STRENGTH_N[DEFAULT_PINS.size], from: null };
+}
+
+// Accepts "3x 2-56", "shear pins 4-40 x4", "2 pins #4-40", "4 × 6-32 @ 95 lbf".
+export function parseShearPins(name: string): ShearPins | null {
+  const s = name.toLowerCase();
+  const size = PIN_SIZES.find((z) => new RegExp(`(^|[^0-9])#?\\s*${z}([^0-9]|$)`).test(s)) ?? null;
+  if (!size && !/pin|shear|friction/.test(s)) return null;
+  if (/friction/.test(s)) return { count: 0, size: null, forceN: 0, from: name };
+  // A thread size's own digits are not a count, so take them out first.
+  const rest = size ? s.replace(size, ' ') : s;
+  const strength = /@\s*(\d+(?:\.\d+)?)\s*(lbf|lbs?|n)\b/.exec(rest);
+  const countText = rest.replace(strength?.[0] ?? '', ' ');
+  const count = /(\d+)\s*(?:x|×|\*|pins?|shear)/.exec(countText) ?? /(?:x|×|\*)\s*(\d+)/.exec(countText);
+  const n = count ? Number(count[1]) : DEFAULT_PINS.count;
+  const forceN = strength
+    ? Number(strength[1]) * (strength[2] === 'n' ? 1 : LBF)
+    : PIN_STRENGTH_N[size ?? DEFAULT_PINS.size];
+  return { count: n, size: strength ? null : (size ?? DEFAULT_PINS.size), forceN, from: name };
+}

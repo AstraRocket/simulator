@@ -4,23 +4,9 @@ import { join } from 'node:path';
 import { DATA_DIR } from '../../testing/dataDir';
 import { FIELDS, type Field } from '../../../src/services/design/componentFields';
 
-/**
- * Every option in a `select` field has to be given a label.
- *
- * `DimensionFields` renders an option as `optLabel(o, t)`, else
- * `t(`${optI18n}.${o}`)`, else the raw value. The raw value renders as a
- * dropdown reading `ogive / conical / ellipsoid`, lower case and untranslated,
- * and nothing else fails, so a field in FIELDS without a label for each of its
- * options fails here.
- *
- * Every locale is read off disk: a key missing in one language renders the
- * English word inside a translated panel.
- */
 const LOCALES = ['en', 'de', 'es', 'fr', 'pt-BR', 'pt-PT', 'nl', 'pl', 'ru', 'ja'] as const;
 
-/** The locale files, read the way the app ships them. `DATA_DIR` resolves from
- *  the repo rather than from `import.meta.url`, which a jsdom-flavored run
- *  turns into an http URL. */
+// `DATA_DIR`, not `import.meta.url`, which jsdom turns into an http URL.
 const messages = Object.fromEntries(
   LOCALES.map((l) => [
     l,
@@ -51,8 +37,6 @@ describe('select fields', () => {
   it('resolves every option to a string in every locale', () => {
     const missing: string[] = [];
     for (const { type, f } of selects) {
-      // An optLabel computes its text in code (the cluster patterns build
-      // theirs from a count), so there is no key to look up.
       if (!f.optI18n) continue;
       for (const o of f.options) {
         for (const locale of LOCALES) {
@@ -65,7 +49,6 @@ describe('select fields', () => {
   });
 
   it('capitalizes the English option text, the way the field labels are', () => {
-    // A dropdown of lower case enum values under a capitalized label.
     const lower: string[] = [];
     for (const { f } of selects) {
       if (!f.optI18n) continue;
@@ -78,11 +61,6 @@ describe('select fields', () => {
   });
 });
 
-/**
- * The Deploy-at select offers every event the kernel can deploy on, read from
- * the Java enum itself, so a value a desktop file carries always has an option
- * to show it and a new design can choose it.
- */
 describe('the deploy event options', () => {
   it('cover every DeploymentConfiguration.DeployEvent', () => {
     const java = readFileSync(

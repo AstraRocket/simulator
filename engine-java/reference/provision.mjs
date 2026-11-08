@@ -1,23 +1,3 @@
-/**
- * provision.mjs - make the pinned PRISTINE upstream OpenRocket core available
- * to the reference harness.
- *
- * The harness compiles upstream `core/src/main/java` UNMODIFIED - no extraction,
- * no patches - so that its flight results are an INDEPENDENT reference for the
- * engine we ship. `test/parity/` cannot serve that role: its JVM, JS and WASM
- * targets all compile from `src/java`, which is upstream PLUS `patches/`, so the
- * three agreeing proves only that TeaVM did not break anything.
- *
- * The upstream tree is the same cache `extract/extract.mjs` provisions
- * (`engine-java/.openrocket-src`), at the same ref, read from the same
- * `extract/UPSTREAM` - that file is deliberately the only copy of the pin and
- * this must not become a second one. Extraction only needs `core/src/main/java`;
- * compiling core also needs its resources (l10n, datafiles, build.properties),
- * its one vendored jar (`core/libs/script-api-1.0.jar`) and its `build.gradle`,
- * which is where the dependency list is read from. Widening a non-cone sparse
- * checkout is additive, so extraction is unaffected, and this re-adds the paths
- * on every run so a cache rebuilt by `extract --refresh` self-heals.
- */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -27,9 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const engineRoot = join(here, '..');
 const cache = join(engineRoot, '.openrocket-src');
 
-/** Paths core needs to COMPILE, beyond the java the extractor already takes. */
-// Leading slash on the single FILE, or git warns that a bare path could match at
-// any depth (NON-CONE PROBLEMS in git-sparse-checkout(1)).
+// Leading slash on the file, or git warns it could match at any depth (git-sparse-checkout NON-CONE PROBLEMS).
 const SPARSE = ['core/src/main/java', 'core/src/main/resources', 'core/libs', '/core/build.gradle'];
 
 const die = (m) => {
@@ -39,7 +17,6 @@ const die = (m) => {
 const git = (cwd, ...a) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8' }).trim();
 const firstLine = (e) => String(e && e.message ? e.message : e).split('\n')[0];
 
-/** repo + ref, parsed out of extract/UPSTREAM - the single source of truth. */
 const readPin = () => {
   const text = readFileSync(join(engineRoot, 'extract', 'UPSTREAM'), 'utf8');
   const field = (k) => {
@@ -79,8 +56,7 @@ export const provision = () => {
       );
     }
   } else {
-    // Cache exists (extraction made it, or we did). Widen it to what core needs
-    // to compile; `add` is idempotent and leaves extraction's paths in place.
+    // Widen every run: `add` is idempotent and keeps extract's paths, so a refreshed cache self-heals.
     try {
       git(cache, 'sparse-checkout', 'add', ...SPARSE);
     } catch (e) {

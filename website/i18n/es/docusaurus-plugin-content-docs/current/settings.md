@@ -30,11 +30,11 @@ Cada magnitud tiene su propia unidad, configurable en la pestaña **Unidades**. 
 
 Una instalación nueva arranca con los **valores métricos**, y los botones de restablecer restauran ese mismo conjunto.
 
-Todo sigue tu elección: los campos donde escribes, el árbol de componentes, la tira de estadísticas, las reglas y los calibres del 2D, las anotaciones del 3D, las gráficas de vuelo y de resistencia, el explorador de motores y las exportaciones a PDF y CSV (que indican la unidad utilizada y pueden fijarse por separado en métricas o imperiales; consulta [Archivos y exportaciones](./files-and-exports.md)). La unidad de **Dimensiones de componentes** también llega al vuelo: consulta [Lo que las unidades no cambian](#what-units-dont-change).
+Todo sigue tu elección: los campos donde escribes, el árbol de componentes, la franja Información, las reglas y los calibres del 2D, las anotaciones del 3D, las gráficas de vuelo y de resistencia, el explorador de motores y las exportaciones a PDF y CSV (que indican la unidad utilizada y pueden fijarse por separado en métricas o imperiales; consulta [Archivos y exportaciones](./files-and-exports.md)). La unidad de **Dimensiones de componentes** también llega al vuelo: consulta [Lo que las unidades no cambian](#what-units-dont-change).
 
 ### Cambiar la unidad de un solo campo {#changing-a-unit-on-one-field}
 
-La unidad impresa junto a un valor también es un selector: haz clic y elige otra. Eso cambia **ese campo y nada más**: si pones la *Longitud* de una ojiva en pulgadas, su *Espesor*, el árbol de componentes, las reglas y la tira de estadísticas siguen en tu unidad por defecto. El cambio se mantiene al recargar.
+La unidad impresa junto a un valor también es un selector: haz clic y elige otra. Eso cambia **ese campo y nada más**: si pones la *Longitud* de una ojiva en pulgadas, su *Espesor*, el árbol de componentes, las reglas y la franja Información siguen en tu unidad por defecto. El cambio se mantiene al recargar.
 
 Un campo que muestra algo distinto de tu valor por defecto aparece **en ámbar**, para que un valor en pulgadas entre centímetros se vea claramente como algo que elegiste y no como un error. Al pasar el ratón por encima muestra tu valor por defecto.
 
@@ -104,14 +104,15 @@ Estos valores están en la pestaña **Simulación** e inicializan cada nueva sim
 - **Ejecutar automáticamente las simulaciones desactualizadas**: cuando la pestaña Resultados muestra una simulación que nunca se ha ejecutado o cuyo resultado está desactualizado, la ejecuta. Desactivado por defecto.
 
 - **Paso de tiempo**: el tamaño de paso del integrador. Más pequeño es más preciso pero más lento.
-- **Tiempo máx. de sim.**: un límite de seguridad sobre el tiempo de vuelo simulado, que corta una ejecución que nunca aterriza.
+- **Tiempo máx. de sim.**: un límite de seguridad sobre el tiempo de vuelo simulado, que corta una ejecución que nunca aterriza. 1200 s (20 minutos) por defecto, como en OpenRocket de escritorio, y como máximo 2400 s (40 minutos).
 - **Paso angular máximo**: lo máximo que el cohete puede girar en un paso de integración. Más pequeño es más preciso en un cabeceo rápido, y más lento.
 - **Semilla aleatoria**: fija la aleatoriedad del viento y la turbulencia para que una simulación sea reproducible; déjala sin definir para obtener resultados variados.
-- **Método de cálculo** y **método de simulación**: se muestran solo como referencia, no se eligen. Todo vuelo usa aerodinámica de Barrowman extendido con un integrador Runge-Kutta 4 de 6 grados de libertad.
+- **Método de simulación**: el integrador con el que avanza el vuelo, **Runge-Kutta 4 de 6 DOF** (el predeterminado, como en OpenRocket de escritorio) o **Runge-Kutta 6 de 6 DOF**. RK6 da un paso de orden mayor y es algo más lento; los dos suelen coincidir de cerca. El descenso con paracaídas y el vuelo en tumbo usan sus propios integradores en ambos casos. Se guarda en el `.ork`; un OpenRocket de escritorio sin RK6 vuela RK4.
+- **Método de cálculo**: se muestra solo como referencia, no se elige. Todo vuelo usa aerodinámica de Barrowman extendido.
 
 Cada simulación puede sobrescribir cualquiera de estos valores. Una sobrescritura **vacía** no está ausente: significa *seguir el valor global*, y el campo muestra ese valor global como marcador de posición. Por eso las opciones de ejecución nunca bloquean un vuelo: siempre hay un valor por defecto debajo. **Restablecer valores predeterminados** borra las sobrescrituras de una simulación; **Guardar como predeterminado** copia los valores actuales de la simulación a estos ajustes globales.
 
-Cambiar el paso de tiempo, el tiempo máximo de simulación, el paso angular máximo o la semilla aleatoria marca como **desactualizadas** todas las simulaciones que ya se han ejecutado. Una simulación que sobrescribe ese ajuste no se toca, porque su propio valor sigue aplicándose.
+Cambiar el método de simulación, el paso de tiempo, el tiempo máximo de simulación, el paso angular máximo o la semilla aleatoria marca como **desactualizadas** todas las simulaciones que ya se han ejecutado. Una simulación que sobrescribe ese ajuste no se toca, porque su propio valor sigue aplicándose.
 
 ## Lanzamiento {#launch}
 

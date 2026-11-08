@@ -14,6 +14,8 @@ There are two things you do with it:
 
 Everything runs **on your device**. There's no server, no account, and nothing is uploaded: your designs are kept in your browser, and the `.ork` files you import and export stay on your own disk.
 
+> **There is no sync between devices, by design.** To have your rockets on another computer or your phone, and backed up, save them into a Google Drive, OneDrive, Dropbox or iCloud Drive folder: see **[Syncing your work](./syncing-your-work.md)**.
+
 ## How it relates to OpenRocket
 
 AstraRocket is **not** a re-creation of OpenRocket's desktop app. It's a streamlined web interface over the **same physics core**:

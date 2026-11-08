@@ -9,22 +9,16 @@ import type { StaticInfo } from '../../../src/engine/openRocketEngine';
 const setInfo = (warningTexts: string[]) =>
   useWorkspaceStore.setState({ info: { warnings: warningTexts.length, warningTexts } as StaticInfo });
 
-/**
- * The kernel's design warnings arrive in `StaticInfo.warningTexts`, and this panel
- * is where they are shown; an unread field would hide them silently.
- */
 describe('DesignWarnings', () => {
   beforeEach(() => setInfo([]));
 
   it('renders nothing when the design is clean', () => {
-    // No jest-dom matchers in this project, so assert on the DOM directly.
     const { container } = renderWithProviders(<DesignWarnings />);
     expect(container.innerHTML).toBe('');
   });
 
   it('translates the kernel key and keeps the component names', () => {
-    // TeaVM ships no resource bundles, so the kernel hands back its own lookup
-    // key. What follows it is real content the kernel built.
+    // TeaVM ships no resource bundles, so the kernel hands back its lookup key.
     setInfo(['[Warning.DISCONTINUITY]:  "Nose cone", "Body tube"']);
     renderWithProviders(<DesignWarnings />);
     expect(screen.getByText('Body diameter discontinuity: "Nose cone", "Body tube"')).toBeTruthy();

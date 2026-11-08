@@ -18,7 +18,6 @@ describe('chainOuterRadius', () => {
     expect(chainOuterRadius(n('transition', { aftRadius: Number.NaN }))).toBe(0);
   });
 
-  // keylessParts.kernel.test.ts holds these to the radius the kernel builds.
   it('reads a body tube or nose cone with no radius as the one it flies at', () => {
     expect(chainOuterRadius(n('bodytube'))).toBe(bodyTubeRadius(n('bodytube')));
     expect(chainOuterRadius(n('nosecone'))).toBe(noseConeAftRadius(n('nosecone')));
@@ -37,7 +36,6 @@ describe('anyOuterRadius', () => {
     expect(anyOuterRadius(n('parachute'))).toBe(0);
   });
 
-  // keylessParts.kernel.test.ts holds this to the radius the kernel builds.
   it('reads a nose cone with no radius as the one it flies at', () => {
     expect(anyOuterRadius(n('nosecone'))).toBe(noseConeAftRadius(n('nosecone')));
   });
@@ -61,8 +59,7 @@ describe('axialChain', () => {
 });
 
 describe('motorSeatStart', () => {
-  // InnerTube/BodyTube.getMotorPosition: length - motor length + overhang,
-  // from the mount's front; here offset by the mount's own start.
+  // InnerTube/BodyTube.getMotorPosition: length - motor length + overhang, from the mount's front.
   it('seats the motor flush with the aft end', () => {
     expect(motorSeatStart(n('innertube'), 0.5, 0.2, 0.15)).toBeCloseTo(0.55, 12);
   });

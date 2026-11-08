@@ -7,15 +7,9 @@ import { resolveDisc } from '../../../src/services/design/discGeometry';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The export framing: the corner-by-corner fit, the degenerate-`up` nudge and
- * the NaN-box guard.
- */
-
 const boxOf = (min: [number, number, number], max: [number, number, number]) =>
   new THREE.Box3(new THREE.Vector3(...min), new THREE.Vector3(...max));
 
-/** A piece-like with a geometry, as `piecesBounds` consumes. */
 const piece = (min: [number, number, number], max: [number, number, number]) => {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute([min[0], min[1], min[2], max[0], max[1], max[2]], 3));
@@ -32,8 +26,6 @@ describe('isFittableBox', () => {
   });
 
   it('rejects a box poisoned with NaN', () => {
-    // The guard exists because a single non-finite vertex anywhere in the
-    // model makes the whole fit NaN, and the export then renders nothing.
     const b = boxOf([0, 0, 0], [1, 1, 1]);
     b.max.y = NaN;
     expect(isFittableBox(b)).toBe(false);
@@ -60,8 +52,7 @@ describe('piecesBounds', () => {
 });
 
 describe('fitCameraToBox', () => {
-  const dir = new THREE.Vector3(0, 0, -1); // looking down -Z
-
+  const dir = new THREE.Vector3(0, 0, -1);
   it('keeps the subject centered and the view direction exact', () => {
     const box = boxOf([-1, -1, -1], [1, 1, 1]);
     const { position, target } = fitCameraToBox(box, dir, 50, 16 / 9);
@@ -73,8 +64,6 @@ describe('fitCameraToBox', () => {
   });
 
   it('actually fits: every corner lands inside the frustum', () => {
-    // The real contract. A long thin rocket viewed on a wide aspect is the
-    // case a naive "distance from bounding sphere" fit gets wrong.
     const box = boxOf([-0.02, -0.02, -0.5], [0.02, 0.02, 0.5]);
     const fov = 50;
     const aspect = 16 / 9;
@@ -106,8 +95,7 @@ describe('fitCameraToBox', () => {
   });
 
   it('survives a view straight down the up axis', () => {
-    // Dead overhead degenerates the cross product; the nudge exists so the
-    // result is finite and matches what three's own lookAt would pick.
+    // Dead overhead degenerates the cross product; the nudge matches three's own lookAt.
     const box = boxOf([-1, -1, -1], [1, 1, 1]);
     const { position } = fitCameraToBox(box, new THREE.Vector3(0, -1, 0), 50, 16 / 9);
     expect(position.toArray().every(Number.isFinite)).toBe(true);
@@ -129,8 +117,6 @@ describe('fitCameraToBox', () => {
 
 describe('exportCamera', () => {
   it('brackets the subject with its near and far planes', () => {
-    // Fitting a small rocket pulls the camera well inside the live camera's
-    // 0.1 m default near plane, which would export an empty frame.
     const box = boxOf([-0.02, -0.02, -0.05], [0.02, 0.02, 0.05]);
     const src = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
     src.position.set(0, 0, 1);
@@ -157,11 +143,6 @@ describe('exportCamera', () => {
   });
 });
 
-/**
- * The internals build. A cutaway needs two things: tubes are hollow, and what
- * the 2D schematic draws inside them is in the 3D build too, at the dimensions
- * the rest of the app agrees on.
- */
 const tree = {
   name: 'Section',
   components: [
@@ -190,8 +171,6 @@ const tree = {
   ],
 } as unknown as RocketTree;
 
-/** A piece's world-space axial span and radial band (rocket axis = +X), with
- *  its position/rotation applied exactly as <mesh> composes them. */
 function extent(p: Piece): { x0: number; x1: number; r0: number; r1: number } {
   const r = p.rotation ?? [0, 0, 0];
   const t = p.position ?? [0, 0, 0];
@@ -220,8 +199,6 @@ describe('buildPieces internals', () => {
     const { pieces } = buildPieces(tree);
     const [body] = byId(pieces, 'body');
     const e = extent(body!);
-    // Outer radius out, bore in: a solid cylinder reaches the axis (r0 = 0)
-    // and leaves nothing for a section to show.
     expect(e.r1).toBeCloseTo(0.013, 6);
     expect(e.r0).toBeCloseTo(0.012, 6);
     expect(e.x0).toBeCloseTo(0.1, 6);
@@ -229,9 +206,7 @@ describe('buildPieces internals', () => {
   });
 
   it('keeps the tube when the wall is thicker than the radius, losing only the bore', () => {
-    // A units slip in a hand-edited .ork. The print export returns null here on
-    // purpose (a blocked bore must not ship as a part); a view that dropped the
-    // tube would just lose the rocket.
+    // The print export returns null here on purpose; the view must not drop the tube.
     const bad = JSON.parse(JSON.stringify(tree));
     bad.components[0].children[1].thickness = 0.02;
     const [body] = byId(buildPieces(bad as RocketTree).pieces, 'body');
@@ -251,8 +226,6 @@ describe('buildPieces internals', () => {
     const [ring] = byId(pieces, 'cr');
     const d = resolveDisc(tree, 'cr')!;
     const e = extent(ring!);
-    // Outer = the tube's bore, inner = the mount it centers: the same numbers
-    // the DXF cut sheet and the printed ring use.
     expect(e.r1).toBeCloseTo(d.outerR, 6);
     expect(e.r0).toBeCloseTo(d.innerR, 6);
     expect(e.r1).toBeCloseTo(0.012, 6);
@@ -306,15 +279,6 @@ describe('buildPieces internals', () => {
   });
 });
 
-/**
- * Shoulders in the 3D model.
- *
- * A shoulder round-trips through `.ork`, is editable in the panel, draws in
- * the 2D schematic and is part of the printed solid, so the 3D builder has to
- * read the keys too. Without them the model stops at the base of the cone, and a
- * shoulder lives inside the tube next door, which is what the cutaway exists to
- * show.
- */
 describe('buildPieces shoulders', () => {
   const noseTree = (shoulder: Record<string, number>) =>
     ({
@@ -334,9 +298,7 @@ describe('buildPieces shoulders', () => {
   it('carries a nose cone shoulder aft, at the shoulder radius', () => {
     const { pieces } = buildPieces(noseTree({ shoulderLength: 0.03, shoulderRadius: 0.011 }));
     const e = extent(byId(pieces, 'nose')[0]!);
-    // 100 mm of cone plus 30 mm of stub reaching into the tube behind it.
     expect(e.x1).toBeCloseTo(0.13, 6);
-    // The widest point is still the cone's base, not the stub.
     expect(e.r1).toBeCloseTo(0.013, 6);
   });
 
@@ -346,8 +308,6 @@ describe('buildPieces shoulders', () => {
   });
 
   it('clamps a shoulder wider than the part it steps down from', () => {
-    // A slip in a hand-edited file. Revolved as given it is a flange standing
-    // proud of the airframe; clamped it is a stub that is merely a tight fit.
     const { pieces } = buildPieces(noseTree({ shoulderLength: 0.03, shoulderRadius: 0.05 }));
     expect(extent(byId(pieces, 'nose')[0]!).r1).toBeCloseTo(0.013, 6);
   });
@@ -378,20 +338,12 @@ describe('buildPieces shoulders', () => {
       ],
     } as unknown as RocketTree;
     const e = extent(byId(buildPieces(tree).pieces, 'trans')[0]!);
-    // The transition starts at x = 0.2; its fore shoulder reaches forward into the
-    // tube ahead of it, and its aft shoulder past its own end.
     expect(e.x0).toBeCloseTo(0.18, 6);
     expect(e.x1).toBeCloseTo(0.265, 6);
   });
 });
 
-/**
- * A nose cone, body tube or transition with no `length` key is laid out at the
- * kernel's length for its type (ComponentFactory: nose 150 mm, body 200 mm,
- * transition 75 mm), not at zero. At zero the part would draw as nothing while
- * the engine flies it full length. An explicit 0 (the phantom tube a T-tail hangs
- * from) is still 0.
- */
+// A missing length takes the ComponentFactory default; an explicit 0 stays 0.
 describe('a chain part with no length key', () => {
   it('is laid out at the kernel length for its type', () => {
     const keyless = {
@@ -448,10 +400,7 @@ describe('buildPieces rail buttons', () => {
     const [button] = byId(buildPieces(withButton(Math.PI)).pieces, 'rb');
     expect(button).toBeDefined();
     const e = extent(button!);
-    // Standing on the 13 mm surface, as wide as its 10 mm diameter centered
-    // on its station (the kernel positions it as a 0-long part, see
-    // lugButtonStation.kernel.test.ts) and as tall as the kernel's default
-    // total height, 9.7 mm (RailButton.java:62).
+    // Centered on its station as a 0-long part, 9.7 mm tall by default (RailButton.java:62).
     expect(e.x0).toBeCloseTo(0.095, 6);
     expect(e.x1).toBeCloseTo(0.105, 6);
     expect(e.r1).toBeGreaterThan(0.013 + 0.0097 - 1e-6);
@@ -462,19 +411,13 @@ describe('buildPieces rail buttons', () => {
       const [button] = byId(buildPieces(withButton(ang)).pieces, 'rb');
       return button!.position!;
     };
-    // y = R cos(angle), z = R sin(angle), with R the surface plus half the
-    // button's 9.7 mm height.
+    // y = R cos(angle), z = R sin(angle), R = surface plus half the button height.
     expect(center(Math.PI)[1]).toBeCloseTo(-(0.013 + 0.0097 / 2), 6);
     expect(center(Math.PI / 2)[2]).toBeCloseTo(0.013 + 0.0097 / 2, 6);
   });
 });
 
-/**
- * An `absolute` part is measured from the nose tip, whatever holds it. Inside a
- * pod the pod's own parts are drawn in a turned and lifted copy of the rocket
- * frame, so the station of a part in its second tube still has to come out at
- * that offset (the kernel's station, pinned in axialAbsolute.kernel.test.ts).
- */
+// An `absolute` part is measured from the nose tip even inside a pod's frame.
 describe('buildPieces absolute placement', () => {
   const podded = {
     name: 'Pod',
@@ -540,7 +483,6 @@ describe('buildPieces absolute placement', () => {
     const copies = byId(buildPieces(podded).pieces, 'podBh');
     expect(copies).toHaveLength(2);
     for (const c of copies) expect(extent(c).x0).toBeCloseTo(0.32, 6);
-    // The pod's own tube still starts behind its nose, 0.2 + 0.05 from the tip.
     for (const c of byId(buildPieces(podded).pieces, 'podTube')) expect(extent(c).x0).toBeCloseTo(0.25, 6);
   });
 });

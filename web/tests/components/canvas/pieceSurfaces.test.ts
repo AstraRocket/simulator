@@ -3,11 +3,7 @@ import * as THREE from 'three';
 import { buildPieces, isSurfaced, SURFACE, type Piece } from '../../../src/components/canvas/rocketPieces';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The 3D pieces carry the three surfaces desktop's realistic view paints
- * separately (`Geometry.Surface`: OUTSIDE, INSIDE, EDGES), each a geometry
- * group drawn with that surface's look.
- */
+// One geometry group per desktop `Geometry.Surface` (OUTSIDE, INSIDE, EDGES).
 
 const design = (children: ComponentNode[], chain: ComponentNode[] = []): RocketTree =>
   ({
@@ -25,7 +21,7 @@ const design = (children: ComponentNode[], chain: ComponentNode[] = []): RocketT
 
 const pieceOf = (tree: RocketTree, id: string): Piece => buildPieces(tree).pieces.find((p) => p.id === id)!;
 
-/** The vertices of one surface's group, in the piece's own frame (float32, so compared to a micrometer). */
+/** Float32, so compare to a micrometer. */
 function surfaceVertices(p: Piece, surface: keyof typeof SURFACE): THREE.Vector3[] {
   const g = p.geometry;
   const pos = g.getAttribute('position');
@@ -39,7 +35,6 @@ function surfaceVertices(p: Piece, surface: keyof typeof SURFACE): THREE.Vector3
   return out;
 }
 
-/** Distance from the rocket axis (+X). */
 const radial = (v: THREE.Vector3) => Math.hypot(v.y, v.z);
 
 describe('a tube', () => {
@@ -90,7 +85,6 @@ describe('a fin set', () => {
 
   it("paints its -z face with the outside look and its +z face with the inside one, as FinRenderer's left and right sides", () => {
     expect(isSurfaced(fin.geometry)).toBe(true);
-    // One fin at no rotation lies in the XY plane, so its faces are at z = ±t/2.
     for (const v of surfaceVertices(fin, 'outside')) expect(v.z).toBeCloseTo(-0.002, 6);
     for (const v of surfaceVertices(fin, 'inside')) expect(v.z).toBeCloseTo(0.002, 6);
     expect(surfaceVertices(fin, 'edges').length).toBeGreaterThan(0);
@@ -152,5 +146,31 @@ describe("three.js's own primitives", () => {
     const button = pieceOf(tree, 'rb');
     expect(button.geometry.groups.length).toBeGreaterThan(0);
     expect(isSurfaced(button.geometry)).toBe(false);
+  });
+});
+
+describe('a centering ring around a cluster', () => {
+  const ring = pieceOf(
+    design([
+      { id: 'cr', type: 'centeringring', length: 0.003 },
+      { id: 'mount', type: 'innertube', outerRadius: 0.006, length: 0.07, cluster: '3-ring' },
+    ] as ComponentNode[]),
+    'cr',
+  );
+  const d = 0.012 / Math.sqrt(3);
+  const tubes = [Math.PI / 2, Math.PI / 2 + (2 * Math.PI) / 3, Math.PI / 2 - (2 * Math.PI) / 3].map((a) => ({
+    y: d * Math.cos(a),
+    z: d * Math.sin(a),
+  }));
+
+  it('has its outer wall at the body bore and a wall round each tube', () => {
+    expect(isSurfaced(ring.geometry)).toBe(true);
+    for (const v of surfaceVertices(ring, 'outside')) expect(radial(v)).toBeCloseTo(0.019, 6);
+    const inside = surfaceVertices(ring, 'inside');
+    for (const v of inside) {
+      expect(Math.min(...tubes.map((t) => Math.hypot(v.y - t.y, v.z - t.z)))).toBeCloseTo(0.006, 6);
+    }
+    for (const t of tubes) expect(inside.some((v) => Math.hypot(v.y - t.y, v.z - t.z) < 0.0061)).toBe(true);
+    for (const v of surfaceVertices(ring, 'edges')) expect([0, 0.003].some((x) => Math.abs(v.x - x) < 1e-6)).toBe(true);
   });
 });

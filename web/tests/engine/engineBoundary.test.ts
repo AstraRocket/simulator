@@ -9,26 +9,7 @@ import {
 import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 import { MAX_FIN_POINTS, MAX_LINE_COUNT, MAX_NESTING_DEPTH } from '../../src/services/files/ork/importLimits';
 
-/**
- * The real kernel, not a stub.
- *
- * A test that stubs the engine asserts what the facade hands it: the right seam
- * for marshaling, and useless for the thing these tests cover, which is what
- * the Java does when handed something bad. The `parsed.error` checks on the JS
- * side only work if the kernel answers with an `{"error": ...}` envelope rather
- * than throwing out of TeaVM as an opaque JS exception from inside a 3 MB
- * bundle, where `JSON.parse` never runs.
- *
- * Loading the vendored module directly (rather than through `initEngine`, which
- * wants a browser) keeps this a plain node test.
- */
-/**
- * Real physics, so the 5 s default does not fit. `beforeAll` loads the 3 MB
- * TeaVM bundle, and the "accepts a well-formed motor" case flies a whole
- * trajectory through it: about 1 s on an idle machine, but several seconds under
- * `--coverage` with the rest of the suite running beside it. The cap and its
- * reasoning are in `testing/kernelTimeout.ts`.
- */
+// The vendored module loads directly because `initEngine` wants a browser.
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
 type Engine = typeof import('../../src/engine/vendor/openrocket-engine.mjs');
@@ -93,19 +74,7 @@ describe('the kernel is actually wired up', () => {
   });
 });
 
-/**
- * The stability margin is the kernel's to convert, both ways of stating it.
- *
- * Computed app-side as `((cp - cg) / length) * 100` it is the right shape over the
- * wrong denominator: OpenRocket's `PercentageOfLengthUnit` divides by
- * `getLengthAerodynamic()`, the span of the aerodynamic components, while `length`
- * bounds every component including the ones with no aerodynamic effect.
- *
- * The fixture below is the ordinary way the two differ: a motor tube that hangs
- * out of the back of the airframe. An inner tube is an `InternalComponent`, whose
- * `isAerodynamic()` is final and false, so the overhang lengthens the rocket
- * without lengthening its aerodynamic span.
- */
+// Desktop `PercentageOfLengthUnit` divides by `getLengthAerodynamic()`, not the full length.
 const OVERHANG = {
   components: [
     {
@@ -132,8 +101,6 @@ const OVERHANG = {
               position: { method: 'bottom', offset: 0 },
             },
             {
-              // 70 mm of motor tube in a 200 mm airframe, pushed 40 mm out the
-              // back: the rocket is 40 mm longer than its aerodynamic span.
               id: 'mount',
               type: 'innertube',
               length: 0.07,
@@ -151,11 +118,9 @@ const OVERHANG = {
 
 describe('the stability margin comes from the kernel, in both units', () => {
   it('reports an aerodynamic span shorter than the rocket, for this design', () => {
-    // The premise of every assertion below. Without it the two denominators are
-    // the same number and the test proves nothing.
     const info = OpenRocketDesign.buildTree(OVERHANG).staticInfo();
-    expect(info.length).toBeCloseTo(0.34, 6); // 100 + 200 + 40 mm of overhang
-    expect(info.lengthAerodynamic).toBeCloseTo(0.3, 6); // nose + tube, no overhang
+    expect(info.length).toBeCloseTo(0.34, 6);
+    expect(info.lengthAerodynamic).toBeCloseTo(0.3, 6);
     expect(info.lengthAerodynamic).toBeLessThan(info.length);
   });
 
@@ -166,16 +131,12 @@ describe('the stability margin comes from the kernel, in both units', () => {
   });
 
   it('is NOT the margin over the whole length, which overhang inflates', () => {
-    // Dividing by 0.34 m instead of 0.30 m understates the margin by about 12%
-    // on a design as ordinary as a motor with overhang.
     const info = OpenRocketDesign.buildTree(OVERHANG).staticInfo();
     const wrong = ((info.cp - info.cg) / info.length) * 100;
     expect(Math.abs(info.stabilityPercent - wrong)).toBeGreaterThan(0.5);
   });
 
   it('measures calibers against the largest body diameter', () => {
-    // `CaliberUnit`, which is the reference diameter and has nothing to do with
-    // either length: a 26 mm body on this design.
     const info = OpenRocketDesign.buildTree(OVERHANG).staticInfo();
     expect(info.stabilityCalibers).toBeCloseTo((info.cp - info.cg) / info.refDiameter, 6);
     expect(info.refDiameter).toBeCloseTo(0.026, 6);
@@ -191,14 +152,6 @@ describe('the stability margin comes from the kernel, in both units', () => {
 });
 
 describe('error envelopes, from the Java side', () => {
-  /**
-   * `reset()` must not rewind `nextHandle`, which would reuse handle ids. The web
-   * app calls `resetEngine()` before every rebuild and `buildRocket` registers
-   * exactly one object, so the new design would take handle 1 (the number a
-   * design held from before the rebuild still carries) and that stale object
-   * would return results for the new rocket. The counter only climbs, so a freed
-   * handle stays permanently unknown.
-   */
   it('a design held across a reset fails loudly instead of aliasing the next rocket', () => {
     const stale = build();
     expect(stale.staticInfo().length).toBeCloseTo(0.3, 6);
@@ -207,7 +160,6 @@ describe('error envelopes, from the Java side', () => {
     const fresh = build();
     expect(fresh.staticInfo().length).toBeCloseTo(0.3, 6);
 
-    // A reused handle would return `fresh`'s numbers with no error whatsoever.
     expect(() => stale.staticInfo()).toThrow(/handle/i);
   });
 
@@ -216,23 +168,14 @@ describe('error envelopes, from the Java side', () => {
   });
 
   it('refuses an unbounded aero sweep instead of exhausting the heap', () => {
-    // Unguarded, {"machMax":1e9} would build a List<Double> of 2e10 entries and
-    // the tab would die with no recoverable error.
     expect(() => build().aeroSweep({ machMin: 0, machMax: 1e9, machStep: 0.05 })).toThrow(/over the/);
     expect(() => build().aeroSweep({ machMin: 2, machMax: 1 })).toThrow(/finite machMin <= machMax/);
-    // Infinity cannot even reach the kernel: JSON.stringify turns it into
-    // null, so JsonLite takes the default. It looks like a hole and is not
-    // one; the finite guard covers a value that does arrive.
+    // Infinity never reaches the kernel: JSON.stringify writes it as null.
     expect(JSON.stringify({ machMax: Infinity })).toBe('{"machMax":null}');
   });
 
   it('refuses a sweep whose point count overflows, instead of returning an empty one', () => {
-    // Finite inputs whose quotient is not: (1 - 0) / 5e-324 is Infinity, and
-    // `(long) Infinity + 1` wraps negative past the point cap. Unguarded, the JS
-    // build throws a RangeError out of the bundle and the WASM build returns an
-    // empty sweep with no error at all; both have to refuse it by name. The regex
-    // is deliberately not /sweep/i: the wrapper prefixes every message with
-    // "engine aeroSweep failed", which would match a bare RangeError too.
+    // Not /sweep/i: the wrapper prefixes every message with "engine aeroSweep failed".
     expect(() => build().aeroSweep({ machMin: 0, machMax: 1, machStep: 5e-324 })).toThrow(/infinite number|over the/);
     expect(() => build().aeroSweep({ machMin: -1.7e308, machMax: 1.7e308, machStep: 0.05 })).toThrow(
       /infinite number|over the/,
@@ -240,8 +183,7 @@ describe('error envelopes, from the Java side', () => {
   });
 
   it('the kernel itself refuses a non-finite ignition delay, not only the wrapper', () => {
-    // Straight at the facade: through OpenRocketDesign the wrapper's own
-    // delayS check fires first and the kernel's guard would go untested.
+    // Straight at the facade, or the wrapper's delayS check fires first.
     const h = engine.buildRocket(JSON.stringify(TREE));
     engine.setMotorById(h, 'tube', C6.designation, C6.diameter, C6.length, C6.times, C6.thrusts, C6.masses, C6.cgX, 5);
     for (const bad of [Infinity, -Infinity, NaN]) {
@@ -250,14 +192,6 @@ describe('error envelopes, from the Java side', () => {
     expect(() => engine.setMotorIgnitionById(h, 'tube', 'launch', 1)).not.toThrow();
   });
 
-  /**
-   * A wind level's altitude is its identity to the kernel:
-   * `MultiLevelPinkNoiseWindModel` binary-searches its sorted list to insert
-   * one and throws on a collision. Defaulted to 0, an absent or unreadable
-   * altitude would become a level at the pad, which either displaces the real
-   * surface wind or collides with the ground level and fails the run with the
-   * kernel naming its own internals. Both faults are refused here, by name.
-   */
   it('refuses a wind level that cannot say where it is', () => {
     const fly = (windLevels: unknown[]) => {
       const d = build();
@@ -267,8 +201,7 @@ describe('error envelopes, from the Java side', () => {
     const level = (o: Record<string, unknown>) => ({ speed: 4, direction: Math.PI / 2, stddev: 0, ...o });
 
     expect(fly([level({})])).toThrow(/altitude/i);
-    // JSON.stringify writes NaN and Infinity as null, so the bridge sees an
-    // absent value and takes its default, which is NaN, not 0.
+    // JSON.stringify writes NaN and Infinity as null; the bridge default is NaN, not 0.
     expect(fly([level({ altitude: NaN })])).toThrow(/altitude/i);
     expect(fly([level({ altitude: Infinity })])).toThrow(/altitude/i);
     expect(fly([level({ altitude: 'high' })])).toThrow(/altitude/i);
@@ -283,21 +216,7 @@ describe('error envelopes, from the Java side', () => {
     ).toThrow(/repeat|level 2/i);
   });
 
-  /**
-   * Upstream's 4-arg `addWindLevel` builds each level's sub-model with the
-   * no-arg `PinkNoiseWindModel` constructor, which seeds itself from
-   * `new Random().nextInt()`. `setRandomSeed` only stores an int on
-   * `SimulationConditions` and never reaches the wind model, so the bridge has
-   * to seed each level itself; otherwise a turbulent multi-level profile is
-   * freshly random on every run while single-level runs repeat exactly.
-   * `WindProfileDialog` makes per-level stddev editable, and `windSweep`
-   * compares runs across a changed parameter, so unseeded levels would make
-   * that comparison against noise.
-   *
-   * Both halves matter. Same-seed-repeats alone would also pass if the
-   * turbulence were simply dead, so the different-seed case is what says the
-   * seed actually reaches the levels.
-   */
+  // Upstream's 4-arg `addWindLevel` seeds from `new Random()`, so the bridge seeds each level.
   it('gives one turbulent profile the same flight twice at one seed', () => {
     const fly = (randomSeed: number) => {
       const d = build();
@@ -337,12 +256,7 @@ describe('error envelopes, from the Java side', () => {
   });
 });
 
-/**
- * Bad input the kernel would otherwise accept silently, flying a different
- * rocket than the one described, or none, with no error to say so.
- */
 describe('the boundary refuses what it cannot build faithfully', () => {
-  /** TREE with one component's fields replaced. */
   const withPart = (id: string, patch: Record<string, unknown>) => {
     const tree = structuredClone(TREE) as unknown as { components: Record<string, unknown>[] };
     const visit = (nodes: Record<string, unknown>[]) => {
@@ -357,8 +271,7 @@ describe('the boundary refuses what it cannot build faithfully', () => {
   };
 
   it('refuses a trapezoid fin count the kernel would quietly clamp or truncate', () => {
-    // FinSet.setFinCount clamps to 8, and a bare (int) cast truncates 3.9 to 3:
-    // each would build a rocket with a different fin count than the file's.
+    // FinSet.setFinCount clamps to 8, and an (int) cast truncates 3.9 to 3.
     for (const finCount of [12, 3.9, 0]) {
       expect(() => OpenRocketDesign.buildTree(withPart('fins', { finCount })).staticInfo()).toThrow(/finCount.*1\.\.8/);
     }
@@ -382,7 +295,6 @@ describe('the boundary refuses what it cannot build faithfully', () => {
 });
 
 describe('every enum name is read, and an unknown one is refused', () => {
-  /** TREE with one component's fields replaced (same as above, kept local). */
   const patched = (id: string, patch: Record<string, unknown>) => {
     const tree = structuredClone(TREE) as unknown as { components: Record<string, unknown>[] };
     const visit = (nodes: Record<string, unknown>[]) => {
@@ -399,8 +311,6 @@ describe('every enum name is read, and an unknown one is refused', () => {
     OpenRocketDesign.buildTree(patched(id, patch)).staticInfo();
 
   it('refuses a name it does not know, instead of defaulting it', () => {
-    // Each of these would otherwise build quietly as the default: square fins,
-    // an ogive nose, a part at the top, a chute at ejection, a normal finish.
     expect(() => builds('fins', { crossSection: 'diamond' })).toThrow(/fin cross-section: 'diamond'/);
     expect(() => builds('nose', { shape: 'bogus' })).toThrow(/shape: 'bogus'/);
     expect(() => builds('fins', { position: { method: 'nonsense', offset: 0 } })).toThrow(/position method/);
@@ -408,10 +318,6 @@ describe('every enum name is read, and an unknown one is refused', () => {
   });
 
   it('reads the upstream names a desktop file can carry', () => {
-    // A desktop file's lower-stage-separation chute, OpenRocket's mirror and
-    // optimum finishes, and the after position all build.
-    // Mapped, not just accepted: a mirror finish is smoother than a normal one,
-    // so it carries less friction drag. Defaulted to NORMAL, the two would be equal.
     const cd = (finish: string) =>
       OpenRocketDesign.buildTree(patched('nose', { finish })).aeroSweep({ machMin: 0.3, machMax: 0.3, machStep: 0.1 })
         .powerOff.total[0]!;
@@ -433,16 +339,7 @@ describe('the builders check what they are given', () => {
   });
 });
 
-/**
- * The browser's import ceilings are the kernel's, so a file that imports also
- * builds. Nesting: the deepest design the importer admits (a stage plus
- * MAX_NESTING_DEPTH levels of parts, 30 in all) must build, and one level more
- * must be refused by the kernel, which is what makes the importer's cap exact.
- */
 describe('the import ceilings match the kernel', () => {
-  // Parts that nest in each other indefinitely: a pod set inside a tube inside a
-  // pod set. The deepest part is a freeform fin, whose point list costs two more
-  // JSON levels than any other part.
   const deep = (levels: number) => {
     let node: Record<string, unknown> = {
       type: 'freeformfinset',
@@ -463,9 +360,7 @@ describe('the import ceilings match the kernel', () => {
     return { components: [{ type: 'stage', children: [node] }] } as unknown as RocketTree;
   };
 
-  // The kernel's nesting limit is what the importer's cap has to match, so that is
-  // what this asserts. At 30 levels this chain can still be refused for another
-  // reason (a fin cannot sit on a pod set at an even depth), which is no part of it.
+  // Only the nesting refusal counts: this chain can fail for other reasons.
   it('admits the deepest design the importer admits, and refuses one level more', () => {
     expect(() => OpenRocketDesign.buildTree(deep(MAX_NESTING_DEPTH + 1)).staticInfo()).not.toThrow(/nesting/);
     expect(() => OpenRocketDesign.buildTree(deep(MAX_NESTING_DEPTH + 2)).staticInfo()).toThrow(/nesting/);
@@ -479,8 +374,6 @@ describe('the import ceilings match the kernel', () => {
     expect(() => OpenRocketDesign.buildTree(tree as unknown as RocketTree).staticInfo()).toThrow(/points/);
   });
 
-  // The editor and both importers hold a shroud line count to this one ceiling,
-  // so a count any of them admits must build, and one more must not.
   it('builds a parachute at the line count ceiling, and refuses one line more', () => {
     const withLines = (lineCount: number) => {
       const tree = structuredClone(TREE) as unknown as { components: Record<string, unknown>[] };
@@ -533,12 +426,7 @@ describe('motor validation at the boundary', () => {
     expect(d.simulate({ launchRodLength: 1 }).summary.maxAltitude).toBeGreaterThan(0);
   });
 
-  /**
-   * `applyMotor` sizes `cgPoints` from `times.length` and indexes `masses[i]`, so
-   * unchecked, a short array would throw ArrayIndexOutOfBounds out of TeaVM with
-   * no envelope. The JS wrapper's `assertFiniteCurve` guards finiteness, but it
-   * lives in the wrapper: anything calling the export directly bypasses it.
-   */
+  // Direct export calls bypass the JS wrapper's checks.
   it('rejects mismatched curve arrays with a message naming the motor', () => {
     expect(() =>
       engine.setMotorById(
@@ -549,7 +437,7 @@ describe('motor validation at the boundary', () => {
         0.07,
         [0, 1, 2],
         [0, 50, 0],
-        [0.1, 0.05], // one short
+        [0.1, 0.05],
         0.035,
         5,
       ),
@@ -571,9 +459,6 @@ describe('motor validation at the boundary', () => {
 
 describe('the 7-argument simulate() overload', () => {
   it('returns an error envelope for a non-finite option rather than a JSON parse failure', () => {
-    // These are concatenated straight into JSON; NaN would emit
-    // `"windAverage":NaN`, which JsonLite rejects with a message that names no
-    // option. The overload checks every option is finite before it builds the JSON.
     const h = engine.buildRocket(JSON.stringify(TREE));
     engine.setMotorById(h, 'tube', 'C6', 0.018, 0.07, C6.times, C6.thrusts, C6.masses, 0.035, 5);
     const raw = engine.simulate(h, 1, 0, Number.NaN, 0, 0, 0.05);
@@ -582,22 +467,12 @@ describe('the 7-argument simulate() overload', () => {
   });
 });
 
-/**
- * Non-finite aero is reported, not rewritten as a plausible number.
- *
- * Running every per-component CD, CNα and CP through a zero-if-NaN step would
- * make a component whose reading went NaN contribute 0, and 0 is a legitimate
- * answer here: a part that makes no normal force reads 0 and means it. A
- * swallowed NaN would be indistinguishable from it, and the breakdown would
- * silently stop summing to the rocket totals beside it.
- */
 describe('the aero sweep does not fabricate zeros', () => {
   it('counts the non-finite readings it met, and a healthy sweep meets none', () => {
     const sweep = build().aeroSweep({ machMin: 0.1, machMax: 0.4, machStep: 0.1 }) as unknown as {
       nonFinite?: number;
       components: { cd: (number | null)[] }[];
     };
-    // The field is present and this design is clean.
     expect(sweep.nonFinite).toBe(0);
     expect(sweep.components.length).toBeGreaterThan(0);
   });
@@ -606,8 +481,6 @@ describe('the aero sweep does not fabricate zeros', () => {
     const sweep = build().aeroSweep({ machMin: 0.1, machMax: 0.4, machStep: 0.1 });
     for (const c of sweep.components) {
       for (const v of c.cd) {
-        // Not `toBeCloseTo(0)`: the point is that a real reading arrives as a
-        // number. A null here would mean the kernel could not compute it.
         expect(Number.isFinite(v), `${c.name} cd`).toBe(true);
       }
     }
@@ -620,15 +493,7 @@ describe('the aero sweep does not fabricate zeros', () => {
   });
 });
 
-/**
- * Mass rows come back in TREE order, deterministically.
- *
- * `getCMAnalysis` returns a Map keyed by `component.hashCode()`, and
- * RocketComponent.hashCode() hashes a per-run random UUID, so iterating
- * `analysis.values()` would put the mass table in a different order on every
- * run, and a different one again JVM vs TeaVM. The numbers would be right; the
- * rows would just shuffle under the reader between one build and the next.
- */
+// `getCMAnalysis` is keyed by a per-run random UUID hash, so its order shuffles between builds.
 describe('component masses are ordered, not shuffled', () => {
   const names = () =>
     build()
@@ -638,13 +503,10 @@ describe('component masses are ordered, not shuffled', () => {
   it('is stable across repeated builds in one session', () => {
     const first = names();
     expect(first.length).toBeGreaterThan(1);
-    // Fresh handles, fresh UUIDs, fresh hash codes, and the same order.
     for (let i = 0; i < 5; i++) expect(names()).toEqual(first);
   });
 
   it('follows the component tree, nose before fins', () => {
-    // TREE is nose → tube → fins, and the table should read that way rather
-    // than in whatever order a hash map happened to yield.
     const order = names();
     const nose = order.findIndex((n) => /nose/i.test(n));
     const fins = order.findIndex((n) => /fin/i.test(n));
@@ -660,27 +522,19 @@ describe('component masses are ordered, not shuffled', () => {
   });
 });
 
-/**
- * Three options the bridge could hardcode, proved against the real kernel rather
- * than at the marshaling seam. An option the Java ignores looks exactly like a
- * working one from the JS side, so each case asserts the flight actually moved.
- */
 describe('the bridge passes these options through to the physics', () => {
   const deg = (d: number) => (d * Math.PI) / 180;
 
   const fly = (options: Record<string, unknown>) => {
     const d = build();
     d.setMotorById('tube', C6);
-    // Pinned seed: the default mints a fresh one per run, and two flights flown
-    // on different turbulence would compare nothing.
+    // Pinned seed: the default mints a fresh one per run.
     return d.simulate({ randomSeed: 7, ...options } as never).summary.maxAltitude;
   };
 
   const underG = (g: number) => fly({ gravityModel: 'constant', constantGravity: g });
 
   it('coasts higher the weaker the constant gravity', () => {
-    // Monotonic rather than one threshold: any single ratio is a number someone
-    // has to re-tune, where the order is the physics.
     const [moon, mars, half, earth] = [underG(1.62), underG(3.71), underG(5), underG(9.80665)];
     expect(moon).toBeGreaterThan(mars);
     expect(mars).toBeGreaterThan(half);
@@ -688,28 +542,23 @@ describe('the bridge passes these options through to the physics', () => {
   });
 
   it('lands within a meter of WGS when the constant is sea-level g', () => {
-    // Not identical: WGS varies g with latitude and altitude and a constant does
-    // not. Close is the point, because it says the model swapped rather than broke.
     expect(Math.abs(underG(9.80665) - fly({}))).toBeLessThan(1);
   });
 
   it('flies differently in humid air than in dry air', () => {
-    // Water vapor is lighter than dry air, so a humid pad is a thinner one.
-    // Small, but it has to be there.
     const at = (rh: number) => fly({ temperature: 303.15, pressure: 101325, relativeHumidity: rh });
     expect(at(1)).not.toBe(at(0));
   });
 
   describe('the maximum angle step', () => {
-    // An angled rod in wind is the only case the cap binds in: straight up in
-    // still air the rocket barely rotates and the time step governs throughout.
+    // The cap binds only when the rocket rotates: an angled rod in wind.
     const rotating = { launchRodAngle: deg(10), windAverage: 4, windStdDeviation: 0 };
 
     it('changes the flight once it is tight enough to bind', () => {
       const loose = fly({ ...rotating, maxAngleStep: deg(30) });
       const tight = fly({ ...rotating, maxAngleStep: deg(0.1) });
       expect(tight).not.toBe(loose);
-      expect(tight).toBeGreaterThan(0); // a shorter step, not a diverged run
+      expect(tight).toBeGreaterThan(0);
     });
 
     it('tightens monotonically', () => {
@@ -721,21 +570,28 @@ describe('the bridge passes these options through to the physics', () => {
     });
 
     it('defaults to the kernel RECOMMENDED_ANGLE_STEP when we send nothing', () => {
-      // Our DEFAULT_SETTINGS value is 3 degrees, the kernel's own default. If
-      // upstream ever moves it, this fails.
+      // DEFAULT_SETTINGS uses 3 degrees, the kernel's default.
       expect(fly({ ...rotating, maxAngleStep: deg(3) })).toBe(fly(rotating));
+    });
+  });
+
+  describe('the stepper', () => {
+    const windy = { windAverage: 4, windStdDeviation: 0 };
+
+    it('flies RK6 differently from RK4, and RK4 when we send nothing', () => {
+      const rk4 = fly({ ...windy, stepper: 'rk4' });
+      const rk6 = fly({ ...windy, stepper: 'rk6' });
+      expect(rk6).not.toBe(rk4);
+      expect(Math.abs(rk6 - rk4)).toBeLessThan(1);
+      expect(fly(windy)).toBe(rk4);
+    });
+
+    it('refuses a stepper the kernel does not have', () => {
+      expect(() => fly({ ...windy, stepper: 'euler' })).toThrow(/stepper/i);
     });
   });
 });
 
-/**
- * Stage activeness, through the real kernel.
- *
- * A grounded stage contributes no mass, no aerodynamics and no motor, which is
- * how a two-stage design is flown as its own sustainer. The flag lives on the
- * flight configuration, so this is also the check that the facade addresses a
- * stage by node id and reaches the configuration the rest of the API reads.
- */
 describe('a grounded stage leaves the flight', () => {
   const TWO_STAGE = {
     components: [
@@ -794,8 +650,6 @@ describe('a grounded stage leaves the flight', () => {
     const grounded = OpenRocketDesign.buildTree(TWO_STAGE);
     grounded.setMotorById('lower', C6);
     grounded.setStageActiveById('booster', false);
-    // The motor is in the stage that stayed behind, so the propellant goes with
-    // it: this is the number a "sustainer only" configuration flies on.
     expect(grounded.staticInfo().mass).toBeLessThan(loaded - C6.masses![0]! / 2);
   });
 
@@ -805,21 +659,8 @@ describe('a grounded stage leaves the flight', () => {
   });
 });
 
-/**
- * Dual deployment.
- *
- * `RecoveryDevice.isDrogue()` is what the kernel branches on: a stage with a
- * drogue judges its main against `mainHighSpeedWarn`/`mainLowSpeedWarn` and its
- * drogue against `drogueLowSpeedWarn`, and a stage without one judges everything
- * against `recoverySpeedWarn` alone. Without `setDrogue`, every rocket would be
- * single-deployment to the kernel and the three dual-deployment thresholds would
- * be unreachable however they were set.
- *
- * The drogue-low-speed check is commented out upstream and enabled here by a
- * patch (BasicEventSimulationEngine, PATCH(drogue-low-speed)).
- */
+// The drogue-low-speed check is enabled by PATCH(drogue-low-speed) in BasicEventSimulationEngine.
 describe('dual deployment reaches the kernel', () => {
-  /** The TREE above plus a drogue at apogee and a main lower down. */
   const dualTree = (drogue: boolean) =>
     ({
       components: [
@@ -883,38 +724,21 @@ describe('dual deployment reaches the kernel', () => {
   };
 
   it('warns about a slow drogue at apogee once the threshold is high enough', () => {
-    // At apogee the rocket is all but stationary, so a threshold above the
-    // apogee speed must fire and one at zero must not: the same flight, judged
-    // differently, which is the only way to show the value is read rather than
-    // some constant.
     expect(keys(dualTree(true), { drogueLowSpeedWarn: 50 })).toContain('RECOVERY_DROGUE_LOW_SPEED');
     expect(keys(dualTree(true), { drogueLowSpeedWarn: 0 })).not.toContain('RECOVERY_DROGUE_LOW_SPEED');
   });
 
   it('stays silent when the same chute is not marked as a drogue', () => {
-    // Without the flag the stage is single-deployment, so the drogue branch is
-    // never entered at all.
     expect(keys(dualTree(false), { drogueLowSpeedWarn: 50 })).not.toContain('RECOVERY_DROGUE_LOW_SPEED');
   });
 
   it('judges the main against the dual-deployment thresholds, not the single one', () => {
-    // A main that opens at 60 m: fast for a main, nowhere near the single
-    // threshold. Only the dual branch can call it, and only when a drogue is
-    // present to put the flight on that branch.
     const low = { mainHighSpeedWarn: 0.1, recoverySpeedWarn: 1000 };
     expect(keys(dualTree(true), low)).toContain('RECOVERY_MAIN_HIGH_SPEED');
     expect(keys(dualTree(false), low)).not.toContain('RECOVERY_MAIN_HIGH_SPEED');
   });
 });
 
-/**
- * A component inside a mass component: an altimeter bay or a payload sled with
- * hardware nested in it.
- *
- * Upstream's `MassComponent.isCompatible` accepts internal components, and a
- * `.ork` the desktop writes can nest them, so `addChild` must not throw on one
- * or the file would not open.
- */
 describe('a mass component can hold internal components', () => {
   const withNested = (nested: boolean) =>
     ({
@@ -953,27 +777,11 @@ describe('a mass component can hold internal components', () => {
   });
 
   it('counts the nested part in the rocket mass', () => {
-    // Not just "it built": a child the kernel accepts but never weighs would
-    // look identical from here.
     const massOf = (nested: boolean) => OpenRocketDesign.buildTree(withNested(nested)).staticInfo().mass;
     expect(massOf(true)).toBeGreaterThan(massOf(false));
   });
 });
 
-/**
- * Fin fillets reach the kernel.
- *
- * The kernel computes a fillet's volume, mass and CM
- * (FinSet.calculateFilletVolumeCentroid, and calculateCM adds filletMass to
- * every fin unconditionally), but only if `ComponentFactory` calls
- * `setFilletRadius`; otherwise the field stays at its initial 0 and every
- * fillet flies as if it were not there. The .ork reader, writer and the rocket
- * scaler all carry `filletRadius`, so the number can be in the tree, on disk
- * and in the panel's reach while the engine never sees it.
- *
- * These assert the effect, not the plumbing. A bridge that set the radius on a
- * component the kernel then ignored would pass any "it built" check.
- */
 describe('fin fillets are flown, not just stored', () => {
   const filleted = (radius: number, density?: number) =>
     ({
@@ -1019,8 +827,6 @@ describe('fin fillets are flown, not just stored', () => {
   });
 
   it("weighs the bead in ITS OWN material, not the fin's", () => {
-    // The fin is cardboard by default and the bead is epoxy; a bridge that set
-    // the radius but not the material would weigh both the same.
     expect(massOf(0.006, 1250)).toBeGreaterThan(massOf(0.006));
   });
 
@@ -1030,18 +836,7 @@ describe('fin fillets are flown, not just stored', () => {
   });
 });
 
-/**
- * A transition's shoulders reach the kernel whole.
- *
- * Both halves of a shoulder's mass have to reach the kernel. Without the wall,
- * the stub flies as a surface with no material. The cap (the disc that closes
- * the far end) is per side: a transition node carries `foreShoulderCapped` and
- * `aftShoulderCapped`, not the nose cone's single `shoulderCapped` key.
- *
- * Mass is the only honest witness: the fields can be set, saved and reloaded
- * and still change nothing about the rocket that flies. So this asks the real
- * kernel what the design weighs.
- */
+// Transition caps are per side, unlike the nose cone's single `shoulderCapped`.
 const withTransition = (shoulder: Record<string, unknown>) =>
   ({
     components: [
@@ -1085,18 +880,12 @@ describe("a transition's shoulders weigh what they are built from", () => {
     const open = massOf(withTransition(walls));
     const foreCapped = massOf(withTransition({ ...walls, foreShoulderCapped: true }));
     const bothCapped = massOf(withTransition({ ...walls, foreShoulderCapped: true, aftShoulderCapped: true }));
-    // Per side: the fore cap alone is not the whole of it, which is what
-    // reading one flag for both ends would produce.
     expect(foreCapped).toBeGreaterThan(open);
     expect(bothCapped).toBeGreaterThan(foreCapped);
   });
 
   it('flies an absent shoulder wall as the 0 the panel and the .ork state', () => {
-    // Transition.setForeShoulderLength seeds a shoulder that grows from length 0
-    // with the neighbor's wall, or the part's own when it is set before the part
-    // is attached, as the build does. The panel shows an absent wall as 0 and the
-    // .ork writes 0, which desktop flies, so the bridge sets it after the
-    // length rather than leave the seeded wall in place.
+    // Transition.setForeShoulderLength seeds a wall from 0, so the bridge sets thickness after length.
     const caps = { foreShoulderCapped: true, aftShoulderCapped: true };
     const absent = massOf(withTransition(caps));
     const stated = massOf(withTransition({ ...caps, foreShoulderThickness: 0, aftShoulderThickness: 0 }));
@@ -1117,11 +906,6 @@ describe("a transition's shoulders weigh what they are built from", () => {
   });
 });
 
-/**
- * Values that round-trip through the file and have to reach the kernel too.
- * Mass is the witness again, because that is the whole point: each of these
- * changes what the rocket weighs or how its weight is distributed.
- */
 const withPart = (part: Record<string, unknown>) =>
   ({
     components: [
@@ -1155,8 +939,6 @@ describe('part fields the bridge forwards reach the kernel', () => {
   });
 
   it('builds every instance of a repeated ring', () => {
-    // Compared as the ring's own contribution, not the whole rocket's mass:
-    // the airframe dwarfs three centering rings.
     const bare = dryMass(withPart({ id: 'x', type: 'bulkhead', length: 0.0001, outerRadius: 0.0001 }));
     const one = dryMass(withPart({ id: 'cr', type: 'centeringring', length: 0.003, outerRadius: 0.019 })) - bare;
     const three =
@@ -1179,11 +961,7 @@ describe('part fields the bridge forwards reach the kernel', () => {
       OpenRocketDesign.buildTree(
         withPart({ id: 'm', type: 'masscomponent', mass: 0.05, length: 0.02, radius: 0.005, radialPosition }),
       ).staticInfo().rollInertia;
-    // Moving mass off the long axis can only increase the roll inertia.
-    // A ring is deliberately not tested here: upstream `RingComponent`
-    // returns its CG on the axis whatever the radial position says
-    // (`getComponentCG` ignores shiftY/shiftZ), so the value is a drawing and
-    // bounding-box concern there, and the bridge is faithful to that.
+    // Not a ring: upstream `RingComponent.getComponentCG` ignores shiftY/shiftZ.
     expect(roll(0.012)).toBeGreaterThan(roll(0));
   });
 
@@ -1216,9 +994,6 @@ describe('part fields the bridge forwards reach the kernel', () => {
       nose['flipped'] = flip;
       return OpenRocketDesign.buildTree(t).staticInfo().cgEmpty;
     };
-    // Mirroring the profile does not change its volume, so the mass is the
-    // same either way. What moves is where that mass sits: a cone that tapers
-    // the other way puts its material at the other end.
     expect(cg(true)).not.toBeCloseTo(cg(false), 4);
   });
 
@@ -1247,17 +1022,10 @@ describe('part fields the bridge forwards reach the kernel', () => {
         crossSection: 'airfoil',
       }),
     );
-    // AIRFOIL's volume factor is 0.85 against SQUARE's 1.00.
     expect(airfoil).toBeLessThan(square);
   });
 });
 
-/**
- * A filled component is solid: no wall, no bore. The desktop offers it as a
- * checkbox on a nose cone, a transition and a body tube, and it rides in the
- * file as `<thickness>filled</thickness>`. A body tube has to carry it to the
- * kernel too, or a solid tube flies hollow.
- */
 describe('a filled component is solid', () => {
   const tubeTree = (filled: boolean) =>
     ({
@@ -1278,23 +1046,7 @@ describe('a filled component is solid', () => {
   });
 });
 
-/**
- * A self-intersecting freeform outline is refused by name, not flown as some
- * other fin.
- *
- * `FreeformFinSet.setPoints` validates after it has snapped the outline to the
- * body, and on a crossing it rolls the whole outline back to whatever the fin
- * held before (on a fin the bridge has just constructed, the kernel's default
- * outline), reporting the refusal only to the log. Unchecked, that flies a fin
- * the design does not draw: a crossing outline reports length 0.325 m, the
- * default fin's own number, where the outline as drawn gives 0.300 m, with
- * neither an error nor a warning reaching the app.
- *
- * So the assertion that matters is not "it throws": it is that the refused
- * outline does not quietly produce the default fin's geometry. Both halves are
- * pinned, because a future kernel that stops rolling back would pass the first
- * and fail the second.
- */
+// On a crossing, `FreeformFinSet.setPoints` silently rolls back to the previous outline.
 describe('a self-intersecting freeform fin outline is refused', () => {
   const finTree = (points?: number[][], name?: string) =>
     ({
@@ -1326,21 +1078,18 @@ describe('a self-intersecting freeform fin outline is refused', () => {
       ],
     }) as unknown as RocketTree;
 
-  /** A plain trapezoid, 0.06 m root chord, nothing aft of the root: legal, and a 0.300 m rocket. */
   const VALID = [
     [0, 0],
     [0.02, 0.05],
     [0.05, 0.05],
     [0.06, 0],
   ];
-  /** The same four points with two swapped, so the outline crosses itself. */
   const BOWTIE = [
     [0, 0],
     [0.05, 0.05],
     [0, 0.05],
     [0.06, 0],
   ];
-  /** A repeated point: the segment it makes touches its neighbor along its whole length. */
   const REPEATED = [
     [0, 0],
     [0.02, 0.05],
@@ -1367,11 +1116,6 @@ describe('a self-intersecting freeform fin outline is refused', () => {
     expect(() => OpenRocketDesign.buildTree(finTree(BOWTIE)).staticInfo()).toThrow(/freeform fin set/);
   });
 
-  /**
-   * The silent substitution itself, stated as geometry: a refused outline must
-   * not return the default fin's numbers. `info()` with no points is the default
-   * fin, so this compares the two answers the app could show.
-   */
   it('does not fly the default fin in place of the refused one', () => {
     const fallback = info();
     expect(fallback.length).toBeCloseTo(0.325, 9);
@@ -1384,21 +1128,15 @@ describe('a self-intersecting freeform fin outline is refused', () => {
     expect(flew).not.toBe(fallback.length);
   });
 
-  /** The flag is per-call, so one refused fin must not poison the next build. */
   it('builds a good outline after a refused one', () => {
     expect(() => info(BOWTIE)).toThrow();
     expect(info(VALID).length).toBeCloseTo(0.3, 9);
   });
 });
 
-/**
- * The launch panel's sea-level pressure check reads the standard pressure at
- * the site from the kernel's own atmosphere, so the app holds no second one.
- */
 describe('the standard atmosphere comes from the kernel', () => {
   it('gives the standard pressure at sea level and at a high site', () => {
     expect(standardPressurePa(0)).toBeCloseTo(101_325, 0);
-    // The textbook figure at 1500 m is 84 556 Pa.
     expect(Math.abs(standardPressurePa(1500)! - 84_556)).toBeLessThan(50);
   });
 

@@ -10,14 +10,6 @@ import { PropSection } from './PropSection';
 import type { NodeEditProps } from './DimensionFields';
 import { NumberWithUnit } from '../common/NumberRow';
 
-/**
- * The property panel's override section: the mass / CG / CD overrides
- * (OpenRocket semantics), each an enable box, a value and an
- * "apply to all subcomponents" toggle.
- */
-
-/** One override (mass / CG / CD): an enable checkbox + value, and, once enabled,
- *  an "apply to all subcomponents" toggle (OpenRocket's override-subtree flag). */
 function OverrideRow({
   label,
   unit,
@@ -31,6 +23,7 @@ function OverrideRow({
   subLabel,
   sub,
   onSub,
+  whole = false,
   coveredBy,
 }: {
   label: string;
@@ -38,7 +31,6 @@ function OverrideRow({
   enabled: boolean;
   value: number;
   step: number;
-  /** The box's floor; absent, it takes any number. */
   min?: number;
   onToggle: (on: boolean) => void;
   /** `null` while the box is empty: a cleared box is not a typed 0. */
@@ -47,10 +39,11 @@ function OverrideRow({
   subLabel: string;
   sub: boolean;
   onSub: (on: boolean) => void;
-  /** The note naming the ancestor whose override decides this value; the row is locked while it does. */
+  whole?: boolean;
   coveredBy?: { note: string; tip: string };
 }) {
   const locked = !!coveredBy;
+  const showSub = enabled && !(whole && sub);
   return (
     <div className="space-y-1">
       <label className="flex items-center justify-between gap-3">
@@ -85,7 +78,7 @@ function OverrideRow({
           {coveredBy.note}
         </p>
       )}
-      {enabled && (
+      {showSub && (
         <label className="flex items-center gap-2 pl-6 text-[11px] text-ink-faint">
           <input
             type="checkbox"
@@ -104,37 +97,36 @@ function OverrideRow({
   );
 }
 
-/** The note and its tooltip for each override an ancestor can decide (desktop's RocketCompCfg wording). */
 const COVER_KEYS = {
   mass: ['override.massBy', 'override.massByTip'],
   cg: ['override.cgBy', 'override.cgByTip'],
   cd: ['override.cdBy', 'override.cdByTip'],
 } as const;
 
-/** Mass / CG / CD overrides (OpenRocket semantics). A stage-level override
- *  with "all subcomponents" on is the usual way to pin a measured mass/CG. */
+const CONTAINERS: ReadonlySet<string> = new Set(['stage', 'parallelstage', 'podset']);
+
 export function OverridesSection({
   node,
   onChange,
   onCommit,
   coveredBy = {},
 }: NodeEditProps & {
-  /** The ancestor whose override decides each value, by name. */
   coveredBy?: Partial<Record<'mass' | 'cg' | 'cd', string>>;
 }) {
   const { t } = useTranslation();
-  // Desktop's wording: a red note naming the ancestor, and its explanation on hover.
   const cover = (kind: 'mass' | 'cg' | 'cd') => {
     const name = coveredBy[kind];
     const [note, tip] = COVER_KEYS[kind];
     return name ? { note: t(note, { name }), tip: t(tip, { name }) } : undefined;
   };
   const u = useUnits();
-  // The rows below the type-specific fields carry their own units too.
   const massOverrideScope = unitScope('prop', node.type, PANEL_SCOPE_KEYS[0]);
   const cgOverrideScope = unitScope('prop', node.type, PANEL_SCOPE_KEYS[1]);
   const overrideMassUnit = u.at(massOverrideScope, 'mass');
   const overrideCgUnit = u.at(cgOverrideScope, 'length');
+  // An imported .ork with a container's sub override off keeps it off until the user ticks it.
+  const whole = CONTAINERS.has(node.type);
+  const subOn = (current: unknown) => (whole ? true : current);
 
   return (
     <PropSection title={t('override.title')}>
@@ -142,15 +134,14 @@ export function OverridesSection({
         label={t('override.mass')}
         unit={<UnitChip quantity="mass" scope={massOverrideScope} />}
         step={overrideMassUnit.step(0.0005)}
-        // The bridge refuses a negative mass (ComponentFactory.NON_NEGATIVE)
-        // and desktop's spinner floors it at 0 (RocketComponentConfig).
+        // ComponentFactory.NON_NEGATIVE; desktop floors it at 0 (RocketComponentConfig).
         min={0}
         enabled={typeof node.overrideMass === 'number'}
         value={overrideMassUnit.toUi(num(node, 'overrideMass'))}
         onToggle={(on) =>
           onChange({
             overrideMass: on ? Math.max(num(node, 'overrideMass'), 0.01) : undefined,
-            overrideSubcomponentsMass: on ? node.overrideSubcomponentsMass : undefined,
+            overrideSubcomponentsMass: on ? subOn(node.overrideSubcomponentsMass) : undefined,
           })
         }
         onValue={onSi(overrideMassUnit, (si) => si !== null && onChange({ overrideMass: si }))}
@@ -158,6 +149,7 @@ export function OverridesSection({
         subLabel={t('override.applyAll')}
         sub={node.overrideSubcomponentsMass === true}
         onSub={(on) => onChange({ overrideSubcomponentsMass: on || undefined })}
+        whole={whole}
         coveredBy={cover('mass')}
       />
       <OverrideRow
@@ -171,7 +163,7 @@ export function OverridesSection({
         onToggle={(on) =>
           onChange({
             overrideCGX: on ? num(node, 'overrideCGX') : undefined,
-            overrideSubcomponentsCG: on ? node.overrideSubcomponentsCG : undefined,
+            overrideSubcomponentsCG: on ? subOn(node.overrideSubcomponentsCG) : undefined,
           })
         }
         onValue={onSi(overrideCgUnit, (si) => si !== null && onChange({ overrideCGX: si }))}
@@ -179,11 +171,10 @@ export function OverridesSection({
         subLabel={t('override.applyAll')}
         sub={node.overrideSubcomponentsCG === true}
         onSub={(on) => onChange({ overrideSubcomponentsCG: on || undefined })}
+        whole={whole}
         coveredBy={cover('cg')}
       />
-      {/* No floor: a drag coefficient override may be negative. Desktop's
-          spinner runs -Infinity..Infinity (RocketComponentConfig) and
-          RocketComponent.setOverrideCD stores any value. */}
+      {/* No floor: a CD override may be negative (RocketComponent.setOverrideCD). */}
       <OverrideRow
         label={t('override.cd')}
         step={0.05}
@@ -192,7 +183,7 @@ export function OverridesSection({
         onToggle={(on) =>
           onChange({
             overrideCD: on ? num(node, 'overrideCD') || 0.5 : undefined,
-            overrideSubcomponentsCD: on ? node.overrideSubcomponentsCD : undefined,
+            overrideSubcomponentsCD: on ? subOn(node.overrideSubcomponentsCD) : undefined,
           })
         }
         onValue={(v) => v !== null && onChange({ overrideCD: v })}
@@ -200,6 +191,7 @@ export function OverridesSection({
         subLabel={t('override.applyAll')}
         sub={node.overrideSubcomponentsCD === true}
         onSub={(on) => onChange({ overrideSubcomponentsCD: on || undefined })}
+        whole={whole}
         coveredBy={cover('cd')}
       />
       <p className="text-[11px] leading-snug text-ink-faint">{t('override.cpNote')}</p>

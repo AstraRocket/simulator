@@ -1,16 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
-import {
-  forgetLandingEstimator,
-  LandingEstimator,
-  minutesSeconds,
-} from '../../../src/components/tools/LandingEstimator';
+import { LandingEstimator } from '../../../src/components/tools/LandingEstimator';
+import { forgetLandingEstimator } from '../../../src/components/tools/landingEstimatorMemory';
+import { minutesSeconds } from '../../../src/components/tools/minutesSeconds';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { answer } from '../../testing/openMeteoFixture';
 import { resetWeatherState, setWeatherTransport } from '../../../src/services/weather/openMeteo';
 
-/** The site each landing map was drawn over, newest last. */
 const mapSites = vi.hoisted(() => [] as { lat: number; lon: number }[]);
 vi.mock('../../../src/components/common/map/LandingMap', async (importOriginal) => {
   const real = await importOriginal<typeof import('../../../src/components/common/map/LandingMap')>();
@@ -80,7 +77,6 @@ describe('LandingEstimator', () => {
   });
 });
 
-/** The bearing is an angle held in degrees; it prints in the reader's angle unit. */
 it('prints the landing bearing in the angle unit', async () => {
   seedSettings({ units: { angle: 'rad' } });
   renderWithProviders(<LandingEstimator />);
@@ -91,11 +87,6 @@ it('prints the landing bearing in the angle unit', async () => {
 
 const OUTDATED = /have changed since this estimate/;
 
-/**
- * The result belongs to the inputs it was computed from. The map stays over the
- * site the drift was computed for, and the result says so once the form no
- * longer matches it.
- */
 describe('a result after its inputs change', () => {
   const estimate = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Estimate landing' }));

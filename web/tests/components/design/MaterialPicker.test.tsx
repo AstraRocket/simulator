@@ -14,20 +14,9 @@ import { DefaultMaterials } from '../../../src/components/layout/DefaultMaterial
 import { defaultMaterialKey } from '../../../src/services/design/materialSlots';
 import catalog from '../../../public/data/materials.generated.json';
 
-/**
- * The picker's two store round-trips finish after an await and are guarded by
- * `useLatest().observe()`. `main.tsx` renders the app under React.StrictMode,
- * whose development double-invoke runs every effect's cleanup once and then
- * re-runs the effect, so a guard that only ever flips to stale on cleanup would
- * stay stale for the component's whole life, and the post-await state would
- * never land.
- */
-
-// A material kept in the design lives on the shared workspace tree; clear it so
-// one test's addition does not show in the next test's list.
+// StrictMode's effect double-invoke can leave a cleanup-only `useLatest().observe()` guard stale forever.
 beforeEach(() => useWorkspaceStore.setState((s) => ({ tree: { ...s.tree, documentMaterials: undefined } })));
 
-/** An in-memory material store, so the test never touches IndexedDB. */
 function memoryStore(): MaterialStore {
   let items: Material[] = [];
   return {
@@ -57,31 +46,19 @@ describe('MaterialPicker under StrictMode', () => {
 
     fireEvent.change(screen.getByPlaceholderText('Name (e.g. G10 fiberglass)'), { target: { value: 'Moon Cheese' } });
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '1234' } });
-    // The custom-list path, the one with the store round trip.
     fireEvent.click(screen.getByRole('checkbox', { name: 'Add to my custom materials, for every design' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    // The `submitCustom` path: two awaits, then setMats + onChange. The
-    // density is typed in the user's unit (g/cm³ by default) and handed on in
-    // SI, so only the name is pinned here; the third argument is the group the
-    // material was filed under, which the .ork writer wants.
+    // Density is converted from the user's unit to SI, so only the name is pinned.
     await waitFor(() => expect(onChange).toHaveBeenCalledWith('Moon Cheese', expect.any(Number), expect.any(String)));
     expect(onChange.mock.calls[0]![1]).toBeGreaterThan(0);
     expect(screen.getByRole('option', { name: /Moon Cheese/ })).toBeTruthy();
   });
 });
 
-/**
- * Deleting a custom material takes it out of the list and nothing else. Desktop's
- * material database delete (`MaterialEditPanel.removeMaterial` in 24.12)
- * removes the entry and leaves every component that uses it alone, so the part
- * keeps the name and density it was given, and a picker already on screen shows
- * them under "From this part" once Custom Materials has deleted it.
- */
 describe('MaterialPicker after a custom material is deleted', () => {
   beforeAll(serveData);
 
-  /** A store holding `items`, whose delete takes the named entry out. */
   const storeOf = (items: Material[]) => {
     setMaterialStore({
       list: async () => items,
@@ -95,7 +72,6 @@ describe('MaterialPicker after a custom material is deleted', () => {
   const selectOf = () =>
     [...document.querySelectorAll('select')].find((s) => s.querySelector('optgroup')) as HTMLSelectElement;
 
-  /** Delete through the library, as Custom Materials does, and wait for the open picker to reload. */
   const deleteIt = async (name: string, type: Material['type']) => {
     await waitFor(() => expect(screen.queryAllByRole('option', { name: /★/ }).length).toBeGreaterThan(0));
     await act(async () => {
@@ -104,8 +80,6 @@ describe('MaterialPicker after a custom material is deleted', () => {
     await waitFor(() => expect(screen.queryAllByRole('option', { name: /★/ })).toHaveLength(0));
   };
 
-  // Every material type, since each one has its own catalog and its own slot on
-  // the part.
   it.each(['bulk', 'surface', 'line'] as const)(
     'keeps a %s part on the deleted material, shown as the part’s own',
     async (type) => {
@@ -118,7 +92,6 @@ describe('MaterialPicker after a custom material is deleted', () => {
       expect(select.value).toBe('Moon Cheese');
       const own = select.querySelector('optgroup[label="From this part"] option');
       expect(own?.textContent).toMatch(/^Moon Cheese · /);
-      // No list entry of that name remains: the material left the list.
       expect(
         [...select.querySelectorAll('optgroup:not([label="From this part"]) option')].map(
           (o) => (o as HTMLOptionElement).value,
@@ -128,8 +101,6 @@ describe('MaterialPicker after a custom material is deleted', () => {
   );
 
   it('keeps the part’s own density when the deleted entry shadowed a built-in of the same name', async () => {
-    // The built-in Balsa is in the served catalog at its own density; the custom
-    // entry of the same name is the part's, at another.
     const builtIn = (catalog as Material[]).find((m) => m.type === 'bulk' && m.name === 'Balsa')!;
     expect(builtIn).toBeTruthy();
     const own = builtIn.density * 2;
@@ -139,7 +110,6 @@ describe('MaterialPicker after a custom material is deleted', () => {
     await deleteIt('Balsa', 'bulk');
     expect(onChange).not.toHaveBeenCalled();
     const select = selectOf();
-    // The part's own entry, ahead of the built-in of the same name.
     expect(select.querySelector('optgroup[label="From this part"] option')?.textContent).toMatch(/^Balsa · /);
     expect(select.value).toBe('Balsa');
   });
@@ -181,10 +151,6 @@ describe('MaterialPicker naming', () => {
   });
 });
 
-/**
- * Group headings in the reader's language, as desktop translates its material
- * groups. The value stored with a material stays the catalog's English name.
- */
 describe('MaterialPicker group headings', () => {
   beforeAll(serveData);
   beforeEach(() => setMaterialStore(memoryStore()));
@@ -205,13 +171,6 @@ describe('MaterialPicker group headings', () => {
   });
 });
 
-/**
- * The add form's density box names its material type's quantity and the unit
- * the box reads, once. The quantity names are desktop's own for the three kinds
- * (`pref.dlg.lbl.Bulkdensity`, `Surfacedensity`, `Linedensity` in 24.12's
- * l10n/messages.properties:388-392); the unit is the one the list beside the box
- * prints each entry's density in, which is the unit the typed figure is read in.
- */
 describe('MaterialPicker add form density box', () => {
   beforeAll(serveData);
   beforeEach(() => setMaterialStore(memoryStore()));
@@ -224,7 +183,6 @@ describe('MaterialPicker add form density box', () => {
     const { container } = renderWithProviders(<MaterialPicker type={type} onChange={() => {}} />);
     const select = [...container.querySelectorAll('select')].at(-1) as HTMLSelectElement;
     await waitFor(() => expect(select.querySelectorAll('optgroup option').length).toBeGreaterThan(0));
-    // "Name · 170 kg/m³": the list's unit is what follows the number.
     const listed = (select.querySelector('optgroup option')!.textContent ?? '').split(' · ')[1]!;
     const unit = listed.slice(listed.indexOf(' ') + 1);
     fireEvent.change(select, { target: { value: '__add__' } });
@@ -234,12 +192,7 @@ describe('MaterialPicker add form density box', () => {
   });
 });
 
-/**
- * A fin fillet is offered every bulk material, adhesives included, as desktop's
- * fin fillet material box is: FinSetConfig.java:632 in 24.12 builds its
- * `MaterialModel` over `Material.Type.BULK`, the whole bulk database. The
- * expected list is the served catalog file itself.
- */
+// Every bulk material, adhesives included (FinSetConfig.java:632).
 describe('MaterialPicker on a fillet', () => {
   beforeAll(serveData);
   beforeEach(() => setMaterialStore(memoryStore()));

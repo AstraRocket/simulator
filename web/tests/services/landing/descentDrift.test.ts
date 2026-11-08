@@ -4,7 +4,7 @@ import { offsetToLatLon } from '../../../src/services/map/geodesy';
 import { groundAt, terrainBounds, terrainPoints, TERRAIN_POINTS } from '../../../src/services/landing/terrain';
 
 const SITE = { latitudeDeg: 40, longitudeDeg: -105, padElevationM: 1500 };
-/** A west wind (blowing from 270, so the air moves east) of `speed` at every height. */
+// Blowing from 270, so the air moves east.
 const westWind = (speed: number): WindLayer[] => [
   { altitudeM: 0, speed, fromDeg: 270 },
   { altitudeM: 20_000, speed, fromDeg: 270 },
@@ -74,7 +74,6 @@ describe('descentDrift', () => {
 
   it('lands sooner on rising ground downwind and later on falling ground', () => {
     const plan = { apogeeAglM: 300, firstRateMs: 5 };
-    // The ground rises (or falls) 1 m for every 4 m east of the pad.
     const slope = (k: number) => (_lat: number, lon: number) => 1500 + k * (lon + 105) * 85_000;
     const flat = descentDrift({ ...SITE, plan, wind: westWind(5) });
     const up = descentDrift({ ...SITE, plan, wind: westWind(5), groundAt: slope(0.25) });

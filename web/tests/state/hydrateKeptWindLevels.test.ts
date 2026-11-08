@@ -14,12 +14,6 @@ const profile = [
 
 afterEach(() => localStorage.clear());
 
-/**
- * A profile kept under the Average model belongs to the simulation that holds
- * it. A stored workspace keeps it across a reload, and a launch without one
- * does not take the defaults', or a file that never had a profile is saved
- * with one.
- */
 describe('a profile kept under the Average model, on reload and on open', () => {
   it('survives a reload of the stored workspace', () => {
     s().resetWorkspace();
@@ -63,12 +57,6 @@ describe('a profile kept under the Average model, on reload and on open', () => 
   });
 });
 
-/**
- * A launch without a flown profile flies the Average model, so a multilevel
- * profile in the Settings defaults must not reach it through the merge that
- * fills its missing fields. A new simulation, which has no launch of its own,
- * takes the defaults whole, profile included.
- */
 describe('a default multilevel profile', () => {
   const withDefaultProfile = () =>
     saveSettings({

@@ -22,11 +22,7 @@ describe('duplicateAltitudeRows', () => {
     expect(duplicateAltitudeRows([lvl(600), lvl(0), lvl(600), lvl(600)])).toEqual([2, 3]);
   });
 
-  /**
-   * Exact equality, because that is what `MultiLevelPinkNoiseWindModel` compares
-   * when it binary-searches for the insertion point. Rounding these together
-   * would report a fault the run does not have.
-   */
+  // Exact equality, as MultiLevelPinkNoiseWindModel's binary search compares.
   it('treats altitudes a hair apart as two levels', () => {
     expect(duplicateAltitudeRows([lvl(0), lvl(1e-9)])).toEqual([]);
   });
@@ -37,7 +33,6 @@ describe('isUsableLevel', () => {
     expect(isUsableLevel(lvl(0))).toBe(true);
     expect(isUsableLevel({ ...lvl(0), altitudeM: Infinity })).toBe(false);
     expect(isUsableLevel({ ...lvl(0), stddev: NaN })).toBe(false);
-    // What a hand-edited or older stored preference can actually hold.
     expect(isUsableLevel({ altitudeM: '300', speed: 4, directionDeg: 90, stddev: 0 })).toBe(false);
     expect(isUsableLevel({ speed: 4, directionDeg: 90, stddev: 0 })).toBe(false);
     expect(isUsableLevel(null)).toBe(false);
@@ -61,11 +56,6 @@ describe('usableWindLevels', () => {
   });
 });
 
-/**
- * Expected values follow MultiLevelPinkNoiseWindModel.getWindVelocity: each
- * level is (speed sin dir, speed cos dir), two bracketing levels blend
- * linearly in altitude, and getWindDirection is atan2(east, north).
- */
 describe('padLevelWind', () => {
   const at = (altitudeM: number, speed: number, directionDeg: number): WindLevel => ({
     altitudeM,
@@ -80,7 +70,6 @@ describe('padLevelWind', () => {
   });
 
   it('blends two levels as vectors at the pad altitude', () => {
-    // North 10 m/s at 0 m, east 10 m/s at 1000 m: halfway is (5, 5).
     const w = padLevelWind({ launchAltitudeM: 500, windLevels: [at(1000, 10, 90), at(0, 10, 0)] })!;
     expect(w.speedMs).toBeCloseTo(Math.SQRT2 * 5, 10);
     expect(w.headingDeg).toBeCloseTo(45, 10);

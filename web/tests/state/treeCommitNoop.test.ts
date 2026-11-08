@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useWorkspaceStore } from '../../src/state/store';
 
-/**
- * A tree edit that changes nothing records no undo step and leaves the tree
- * object alone. The tree is the kernel rebuild dependency, so a fresh copy of
- * an unchanged design costs a full rebuild, and Undo would then step over an
- * entry that does nothing visible.
- */
 const s = () => useWorkspaceStore.getState();
 
 describe('tree edits that change nothing', () => {
@@ -15,7 +9,6 @@ describe('tree edits that change nothing', () => {
   });
 
   it('records nothing for a move past the end of the siblings', () => {
-    // The nose cone is the first part of the default stage, so it cannot move up.
     s().setSelectedId('nose');
     const before = s().tree;
     const depth = s().past.length;

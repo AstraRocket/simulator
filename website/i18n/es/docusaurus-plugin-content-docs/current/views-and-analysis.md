@@ -10,18 +10,25 @@ En un teléfono las vistas de diseño viven en la pestaña **Croquis** y las de 
 
 Una vista lateral a escala del cohete con los marcadores de **CG** (▲) y **CP** (●) y el margen de estabilidad indicado.
 
-- **Calibres**: herramientas de medición que se arrastran. El calibre horizontal mide la distancia entre dos líneas verticales (longitudes); el vertical mide en transversal (diámetros y envergaduras). Las líneas se **ajustan** a los bordes de los componentes.
-- **Reglas**: un marco de medición alrededor del dibujo, con un **interruptor por lado** (arriba / abajo / izquierda / derecha) junto a los botones de CG/CP y **Datos**.
-- **Zoom y desplazamiento**: los botones +/− o la rueda para acercar. Con el dibujo ampliado, arrastra para desplazarte.
+- **Calibres**: **↔ Longitud** y **↕ Diámetro** en la barra son herramientas de medición que se arrastran. **Longitud** mide la distancia entre dos líneas verticales; **Diámetro** mide en transversal (diámetros y envergaduras). Las líneas se **ajustan** a los bordes de los componentes. Con el dibujo ampliado, la lectura de cada calibre sigue a la vista, y los tiradores de Diámetro pasan al borde izquierdo de la vista cuando la ojiva queda fuera.
+- **Reglas**: un marco de medición alrededor del dibujo, con un **interruptor por lado** (arriba / abajo / izquierda / derecha) junto a los botones de CG/CP y **Datos**. Las reglas se mantienen al ampliar o desplazar: sus marcas siguen al dibujo y se afinan al acercar, así que una pieza ampliada se sigue pudiendo medir con ellas.
+- **Cuadrícula**: dibuja líneas en las marcas de la regla detrás de la vista lateral, y sigue el zoom y el desplazamiento. Las exportaciones de imagen y SVG la omiten.
+- **Zoom y desplazamiento**: **+**, **−** y **Ajustar** en la esquina inferior derecha del dibujo, o la rueda, para acercar. Con el dibujo ampliado, arrastra para desplazarte; **Ajustar** vuelve a mostrar el cohete entero. Los marcadores de CG / CP, sus etiquetas y los calibres mantienen su tamaño al ampliar. La vista trasera tiene el mismo bloque de zoom.
 - **Giro**: con el encuadre ajustado, arrastrar el dibujo hacia los lados gira el cohete sobre su eje longitudinal, para ver los juegos de aletas de canto o de frente. El deslizador del borde izquierdo hace lo mismo con cualquier zoom.
 - **Lateral / Trasera**: cambia entre el perfil lateral y una vista posterior (de frente); **Restablecer** recupera el encuadre por defecto.
+
+## Ocultar piezas (2D y 3D)
+
+El botón del ojo en una fila del árbol de componentes oculta esa pieza y todo lo que contiene en la vista lateral, la vista trasera y el modelo 3D, para que puedas ver lo que hay detrás. Las piezas posteriores no se mueven. **Mostrar todo**, bajo el árbol, las devuelve todas.
+
+Ocultar solo cambia la imagen: las piezas ocultas siguen contando en la masa, el CG, la aerodinámica y todos los datos de vuelo, y la trayectoria de vuelo 3D las sigue dibujando. Ocultar no se guarda con el diseño, y abrir otro diseño lo borra.
 
 ## Interruptores de vista (2D y 3D) {#view-toggles-2d-and-3d}
 
 Dos botones de la barra controlan lo que se superpone en las vistas **2D** y **3D**:
 
 - **CG / CP**: muestra u oculta los marcadores de **CG / CP / estabilidad** y sus etiquetas.
-- **Datos**: muestra u oculta la tarjeta de vistazo rápido con **longitud · masa · CG · CP · estabilidad** en la esquina superior izquierda (el mismo resumen que la [franja de estadísticas](#reading-the-stats-strip), útil en un teléfono, donde la franja está en la otra pestaña).
+- **Datos**: muestra u oculta la tarjeta de vistazo rápido con **longitud · masa · CG · CP · estabilidad** en la esquina superior izquierda. Empieza desactivada, porque la [franja Información](#reading-the-stats-strip) bajo el dibujo muestra las mismas cifras; es útil en un teléfono, donde la franja está en la otra pestaña.
 
 ## Modelo 3D {#3d-model}
 
@@ -65,7 +72,7 @@ Puedes exportar estos datos como **CSV** (consulta [Archivos y exportaciones](./
 
 ## Vuelo (tras una simulación) {#flight-after-a-simulation}
 
-Un panel de **gráficas de vuelo** a lo largo del tiempo: altitud, velocidad, aceleración, Mach, empuje, resistencia, masa, estabilidad, CP, CG y ángulo de ataque, además de la **presión dinámica**, **q·α** (la presión dinámica por el ángulo de ataque, que es lo que sigue la carga lateral sobre aletas y acopladores) y la **velocidad de alabeo**. Los eventos del vuelo (fin de combustión, apogeo, apertura, aterrizaje) están marcados, lo que responde *cuándo*; la tabla **[Eventos de vuelo](./running-a-simulation.md#flight-events)** del panel de Resultados lee esos mismos eventos como una lista, cada uno con el estado del cohete en ese instante. Elige qué magnitudes se muestran desde la barra de fichas, pasa el cursor para obtener una retícula sincronizada y la lectura de valores en todas las gráficas, y amplía o desplaza el eje temporal (los botones +/−, arrastrando, o con Ctrl / pellizco). **Las magnitudes que elijas se recuerdan**: abre empuje y masa una vez y seguirán abiertas la próxima vez, en este diseño y en cualquier otro. **Velocidad frente a altitud** traza el ascenso y el descenso frente a la altitud en lugar del tiempo; no se amplía con el eje temporal, y el instante de la retícula aparece como un punto sobre la curva. El **⤢** de la esquina de una gráfica la muestra sola a toda la altura del panel, y **⤡** devuelve las demás.
+Un panel de **gráficas de vuelo** a lo largo del tiempo: altitud, velocidad, aceleración, Mach, empuje, resistencia, masa, estabilidad, CP, CG y ángulo de ataque, además de la **presión dinámica**, **q·α** (la presión dinámica por el ángulo de ataque, que es lo que sigue la carga lateral sobre aletas y acopladores) y la **velocidad de alabeo**. Los eventos del vuelo (fin de combustión, apogeo, apertura, aterrizaje) están marcados, lo que responde *cuándo*; la tabla **[Eventos de vuelo](./running-a-simulation.md#flight-events)** del panel de Resultados lee esos mismos eventos como una lista, cada uno con el estado del cohete en ese instante. Elige qué magnitudes se muestran desde la barra de fichas. **Añadir una magnitud…**, al final de la barra, añade una gráfica para cualquier otra cosa que la simulación haya registrado, con el nombre que le da OpenRocket de escritorio: posición al este y al norte, distancia lateral, latitud y longitud, velocidades de cabeceo y guiñada, el número de Reynolds, los coeficientes de resistencia y su reparto en fricción / presión / base, los coeficientes de momento, el viento, la temperatura, presión y densidad del aire, la masa del motor, el paso de tiempo y más. Una gráfica añadida recibe su propia ficha, que la cierra. **Y frente a X…**, en la misma lista, traza una magnitud frente a otra en lugar de frente al tiempo: elige los ejes Y y X y pulsa **Añadir gráfica**, para el coeficiente de resistencia frente al Mach, el norte frente al este o cualquier otro par. Dos distancias (norte frente a este) se dibujan a la misma escala, de modo que la curva conserva su forma sobre el terreno, y una magnitud aerodinámica (CP, estabilidad, q·α) se detiene al final del vuelo hacia delante, como en su propia gráfica. Pasa el cursor para obtener una retícula sincronizada y la lectura de valores en todas las gráficas, y amplía o desplaza el eje temporal (los botones +/−, arrastrando, o con Ctrl / pellizco). **Las magnitudes que elijas se recuerdan**: abre empuje y masa una vez y seguirán abiertas la próxima vez, en este diseño y en cualquier otro. **Velocidad frente a altitud** traza el ascenso y el descenso frente a la altitud en lugar del tiempo. Ni ella ni los pares que añadas se amplían con el eje temporal, y el instante de la retícula aparece como un punto sobre la curva. El **⤢** de la esquina de una gráfica la muestra sola a toda la altura del panel, y **⤡** devuelve las demás.
 
 **Elegir qué vuelo**: si ejecutas una sola simulación, el título del panel es simplemente su nombre. Si ejecutas varias a la vez, el título se convierte en un **selector** con esas mismas: púlsalo y elige el vuelo que quieres leer. Se muestra un vuelo cada vez, y la elección se aplica a las cuatro vistas de resultados (las gráficas, la [traza en tierra](#ground-track-after-a-simulation), la trayectoria 3D y el [entorno](#environment-after-a-simulation)), así que al cambiar ves el mismo vuelo lo mires como lo mires.
 
@@ -155,9 +162,9 @@ Una hora cuyo viento o ángulo de lanzamiento supera el límite de seguridad no 
 
 Sin un pronóstico, la sección explica cómo obtenerlo. Para un cohete no diseñado aquí, el [estimador de aterrizaje](./tools.md#landing-estimator) de la pestaña Herramientas da una estimación a partir de velocidades de descenso escritas.
 
-## Leer la franja de estadísticas {#reading-the-stats-strip}
+## Leer la franja Información {#reading-the-stats-strip}
 
-La franja inferior resume el diseño actual como una cuadrícula de fichas (se pliega con el galón de su cabecera):
+La franja **Información** bajo el dibujo resume el diseño actual como una cuadrícula de fichas (se pliega con el galón de su cabecera):
 
 - **Longitud**, **Diámetro máx.** y **Esbeltez** (longitud / diámetro).
 - **Masa** y **CG**, cada uno mostrado **vacío / cargado** (en seco y con el motor) en una sola ficha.

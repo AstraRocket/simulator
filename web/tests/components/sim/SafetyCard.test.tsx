@@ -7,16 +7,6 @@ import { useConfirmStore } from '../../../src/state/confirmStore';
 import { renderWithProviders, readSettings, seedSettings } from '../../testing/renderWithProviders';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 
-/**
- * The "Before you fly" card folds, and the fold sticks.
- *
- * Two rules it has to keep. The fold is gated by an acknowledgment, because
- * the fold is remembered and that click is the last time the notes get asked
- * for on this browser. And the card never disappears: the heading and its ⚠
- * stay on screen in both states, so what folds away is the explanation.
- */
-
-/** The card plus the app-wide modal it drives, which App mounts at the root. */
 function panel() {
   return (
     <>
@@ -28,12 +18,10 @@ function panel() {
 
 const head = () => screen.getByRole('button', { name: /Before you fly/ });
 
-/** Click the heading and settle the acknowledgment the way the user would. */
 async function fold(acknowledge: boolean) {
   fireEvent.click(head());
   fireEvent.click(screen.getByRole('button', { name: acknowledge ? 'I understand' : 'Cancel' }));
-  // The toggle awaits the confirm promise, so the settings write lands a
-  // microtask after the click.
+  // The settings write lands a microtask after the click.
   await act(async () => {});
 }
 
@@ -55,12 +43,9 @@ const sim = {
 } as unknown as FlightResult;
 
 describe('SafetyCard folding', () => {
-  // RTL's cleanup unmounts but leaves localStorage, and the fold is persisted,
-  // so without this each test would inherit the previous one's fold and the
-  // toggles would run backwards.
+  // RTL cleanup leaves localStorage, where the fold is persisted.
   beforeEach(() => {
     localStorage.clear();
-    // A request left open by a failed test would cancel the next one's.
     useConfirmStore.setState({ request: null });
   });
 
@@ -74,7 +59,6 @@ describe('SafetyCard folding', () => {
     renderWithProviders(panel());
     fireEvent.click(head());
     expect(screen.getByRole('alertdialog', { name: 'Acknowledge the safety notes' })).toBeTruthy();
-    // Still open behind the dialog: nothing has been folded yet.
     expect(screen.getByText('Not modeled at all')).toBeTruthy();
     expect(readSettings().showSafetyCard).toBeUndefined();
   });
@@ -83,7 +67,6 @@ describe('SafetyCard folding', () => {
     renderWithProviders(panel());
     await fold(true);
     expect(screen.queryByText('Not modeled at all')).toBeNull();
-    // The caution is still on screen and still reads as a warning.
     expect(head().getAttribute('aria-expanded')).toBe('false');
     expect(head().textContent).toContain('⚠');
   });

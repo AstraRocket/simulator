@@ -1,22 +1,7 @@
 import { constants, setPriority } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * End-to-end config. Playwright builds the app and serves the build with
- * `vite preview` on a fixed port (strictPort so it fails loudly rather than
- * drifting to 5174…), drives a headless Chromium, and tears the server down
- * when the run ends. The SwiftShader flags software-render WebGL so the 3D
- * views don't come up blank on a headless/CI box with no GPU.
- */
-
-// The specs that exercise the phone layout. They set their own viewport, so
-// under the desktop project they already ran at phone widths; what the Pixel
-// project adds is the rest of a phone: touch events, a 2.6x device pixel
-// ratio, `isMobile` viewport handling and a mobile user agent. The pane
-// dividers and maximize specs are desktop-only by design and are not here.
-// The phone accessibility scan is the exception the other way: it takes its
-// viewport from this project and the desktop one ignores it, since
-// a11y.spec.ts scans the same views at desktop width.
+// a11y-phone.spec.ts takes its viewport from the mobile project only; the desktop project ignores it.
 const MOBILE_SPECS = [
   '**/layout-overflow.spec.ts',
   '**/sketch-rotation.spec.ts',
@@ -25,14 +10,6 @@ const MOBILE_SPECS = [
   '**/a11y-phone.spec.ts',
 ];
 
-// The specs every pull request and push to a branch other than master and beta
-// runs (`npm run e2e:core`): the paths a broken build breaks first. The app boots with and without the engine,
-// a part is selected and edited, a motor is picked, a simulation runs, and the
-// shell holds together on a phone and from the keyboard. The rest of the suite
-// runs by hand (e2e-full.yml), and locally with `npm run e2e`. That includes
-// the axe scans (a11y.spec.ts, a11y-phone.spec.ts): some 300 of them, one per
-// view, theme and dialog, which on a CI runner's two workers take longer than
-// a pull request can wait.
 const CORE_SPECS = [
   '**/smoke.spec.ts',
   '**/engine-boot.spec.ts',
@@ -55,11 +32,7 @@ const CORE_SPECS = [
 ];
 const core = process.env.E2E_SCOPE === 'core';
 
-// Every browser software-renders WebGL across many threads, so a local run
-// takes the whole machine at its peaks whatever the worker count. Below-normal
-// priority, which the build, the preview server, the workers and the browsers
-// they launch all inherit, leaves the desktop responsive: the suite gets the
-// CPU nothing else wants. CI has nothing else to share with.
+// Software WebGL saturates the machine; child processes inherit the lower priority.
 if (!process.env.CI) {
   try {
     setPriority(constants.priority.PRIORITY_BELOW_NORMAL);
@@ -68,41 +41,25 @@ if (!process.env.CI) {
   }
 }
 
-// Four by default: on a 28-core box eight put the CPU at 95% or more for half
-// the core set's samples, and four for a fifth of them, for about the same
-// wall time once the build is counted. E2E_WORKERS overrides it.
 const localWorkers = Number(process.env.E2E_WORKERS) || 4;
 
 export default defineConfig({
   testDir: './e2e',
-  // Every test spreads across the workers, not just every file: each test has
-  // its own browser context and storage, so none depends on another's order,
-  // and a long file (simulations-tab) does not set the floor. A GitHub runner
-  // has 4 vCPUs that also serve the app and software-render WebGL for every
-  // browser, so CI runs two; a local run uses `localWorkers` above.
   fullyParallel: true,
   workers: process.env.CI ? 2 : localWorkers,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // Under CI the `github` reporter annotates the PR, and the HTML report is
-  // written beside it (never auto-opened: there is no browser to open it in),
-  // with the trace of any retried spec. The workflow uploads it only when the
-  // job fails (`if: failure()` in gates.yml), so a spec that passed on its
-  // retry leaves no uploaded report.
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://localhost:5180',
     trace: 'on-first-retry',
+    // SwiftShader software-renders WebGL so the 3D views aren't blank without a GPU.
     launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader'] },
   },
   projects: [
     {
       name: 'chromium',
-      // Desktop width so the split-pane layout (stats footer + Simulations
-      // panel) renders; the mobile layout hides both behind tabs. Past `2xl`
-      // (1536), which is what the Design tab's property column asks for: at
-      // 1500 that column is a dialog instead (component-dialog.spec) and every
-      // spec that drives the property editor would be driving the dialog.
+      // Past `2xl` (1536): below it the property column becomes a dialog.
       ...(core ? { testMatch: CORE_SPECS } : {}),
       testIgnore: '**/a11y-phone.spec.ts',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 950 } },
@@ -113,15 +70,7 @@ export default defineConfig({
       use: { ...devices['Pixel 7'] },
     },
   ],
-  // The production build, not the dev server. The dev server compiles modules
-  // on request, so every fresh page in every worker pays for hundreds of them
-  // and the one Vite process becomes the bottleneck. The build is also what
-  // ships, with the timing that ships: the dev server's slower boot can hide
-  // ordering bugs. Built fresh each run, and never reused, so a server left on
-  // the port cannot serve an old build. The docs the Help dialog
-  // reads are copied in from public/docs by the build (npm run docs:build).
-  // `npm run e2e:sections` builds and serves once for all its sections and
-  // sets E2E_SERVED, so each section's run does not start a server of its own.
+  // Never reused, so a leftover server cannot serve an old build.
   webServer: process.env.E2E_SERVED
     ? undefined
     : {

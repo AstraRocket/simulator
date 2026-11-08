@@ -8,17 +8,8 @@ const neverRun = (id: string, name: string): Simulation => ({ id, name, result: 
 
 const sims = [flown('a', 'C6', 100), flown('b', 'D12', 200), neverRun('c', 'Never run')];
 
-/**
- * Which flight the Results tab draws.
- *
- * Deliberately not the Simulations table's tick boxes: those answer "which rows
- * should Run fly", and with one shared control, reading a result would silently
- * re-arm the Run button, or ticking rows to fly them would yank the charts around.
- */
 describe('resultFlight', () => {
   it('follows the active simulation when nothing has been picked', () => {
-    // The right default: open Results and you are reading the row you were just
-    // working on.
     expect(resultFlight(sims, null, 'b')?.name).toBe('D12');
   });
 
@@ -27,20 +18,14 @@ describe('resultFlight', () => {
   });
 
   it('falls back when the pick has never flown', () => {
-    // Its numbers do not exist yet; showing a chart frame with no data would
-    // read as a bug rather than as a choice.
     expect(resultFlight(sims, 'c', 'a')?.name).toBe('C6');
   });
 
   it('falls back when the pick no longer names a simulation', () => {
-    // Deleting the row you were reading lands you on the active one rather than
-    // on an empty tab.
     expect(resultFlight(sims, 'gone', 'a')?.name).toBe('C6');
   });
 
   it('reads a stale active id as the first row, as the tiles beside the charts do', () => {
-    // selectActive falls back to sims[0]; returning nothing here would leave the
-    // charts empty while the tiles describe the first row's flight.
     expect(resultFlight(sims, null, 'gone')?.name).toBe('C6');
   });
 

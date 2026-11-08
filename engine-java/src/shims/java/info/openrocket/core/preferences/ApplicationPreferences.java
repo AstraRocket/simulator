@@ -11,32 +11,20 @@ import info.openrocket.core.simulation.RK4SimulationStepper;
 import info.openrocket.core.simulation.SimulationStepperMethod;
 import info.openrocket.core.util.GeodeticComputationStrategy;
 
-/**
- * SHIM replacing OpenRocket's desktop ApplicationPreferences (which drags in
- * the OBJ-export subsystem and java.util.prefs). Exposes only the surface the
- * carved kernel calls, returning OpenRocket's stock defaults, with values copied
- * verbatim from upstream. A kernel call to a missing method fails to compile, so
- * the surface grows only as needed.
- */
+/** SHIM: returns upstream's stock defaults verbatim; there is no persisted store. */
 public class ApplicationPreferences {
 
-    /** OpenRocket default: Mach number used for override-CD computations. */
     public double getDefaultMach() {
         return 0.3;
     }
 
-    /** Upstream default: true. */
     public boolean getMotorNameColumn() {
         return true;
     }
 
-    /** Upstream default: FlightConfiguration.DEFAULT_CONFIG_NAME (no stored pref here). */
     public String getDefaultFlightConfigName() {
         return FlightConfiguration.DEFAULT_CONFIG_NAME;
     }
-
-    // ---- Generic accessors: no persisted store in the web engine, so the
-    // ---- caller-supplied default is the value (matches an empty prefs store).
 
     public double getDouble(String key, double defaultValue) {
         return defaultValue;
@@ -50,8 +38,6 @@ public class ApplicationPreferences {
         return defaultValue;
     }
 
-    // ---- Preference key constants (SimulationOptions references these) ----
-
     public static final String LAUNCH_ROD_LENGTH = "LaunchRodLength";
     public static final String LAUNCH_INTO_WIND = "LaunchIntoWind";
     public static final String LAUNCH_ROD_ANGLE = "LaunchRodAngle";
@@ -59,8 +45,6 @@ public class ApplicationPreferences {
     public static final String WIND_DIRECTION = "WindDirection";
     public static final String WIND_AVERAGE = "WindAverage";
     public static final String WIND_TURBULENCE = "WindTurbulence";
-
-    // ---- Launch / simulation defaults (values copied from upstream) ----
 
     private PinkNoiseWindModel averageWindModel;
 
@@ -96,28 +80,24 @@ public class ApplicationPreferences {
         return ExtendedISAModel.STANDARD_TEMPERATURE;
     }
 
-    /** Upstream default: ExtendedISAModel.STANDARD_RELATIVE_HUMIDITY. */
     public double getLaunchRelativeHumidity() {
         return ExtendedISAModel.STANDARD_RELATIVE_HUMIDITY;
     }
 
-    /** Upstream default gravity model: WGS. */
     public GravityModelType getGravityModel() {
         return GravityModelType.WGS;
     }
 
-    /** Upstream default constant-gravity value (m/s^2). */
+    /** m/s^2 */
     public double getConstantGravityValue() {
         return 9.807;
     }
 
-    /** Upstream default stepper: RK4. No persisted store in the web engine. */
     public SimulationStepperMethod getSimulationStepperMethodChoice() {
         return SimulationStepperMethod.RK4;
     }
 
     public void setSimulationStepperMethodChoice(SimulationStepperMethod choice) {
-        // no-op: the web engine has no persisted preference store.
     }
 
     public double getLaunchPressure() {
@@ -136,15 +116,7 @@ public class ApplicationPreferences {
         return RK4SimulationStepper.RECOMMENDED_MAX_TIME;
     }
 
-    /**
-     * Upstream lazily creates the model and then seeds it from the stored wind
-     * preferences ({@code loadWindModelState}), so a fresh desktop install gets
-     * 2 m/s at 10% turbulence blowing from due east, not a dead-calm model.
-     * A bare {@code new PinkNoiseWindModel()} (average 0, standard deviation 0)
-     * would diverge from the desktop: anything that reaches this model without
-     * overriding it, such as {@code MultiLevelPinkNoiseWindModel.addInitialLevel()}
-     * seeding level 0, would fly a calm day where OpenRocket flies a breezy one.
-     */
+    /** Must be seeded like upstream, not calm: callers use it unmodified. */
     public PinkNoiseWindModel getAverageWindModel() {
         if (averageWindModel == null) {
             averageWindModel = new PinkNoiseWindModel();
@@ -153,21 +125,12 @@ public class ApplicationPreferences {
         return averageWindModel;
     }
 
-    /**
-     * Upstream's seeding step, reproduced. There is no persisted store here, so
-     * every {@code getDouble} returns its default, and these three defaults are
-     * upstream's.
-     */
     protected void loadWindModelState() {
         averageWindModel.setAverage(getDouble(WIND_AVERAGE, 2.0));
         averageWindModel.setTurbulenceIntensity(getDouble(WIND_TURBULENCE, 0.1));
         averageWindModel.setDirection(getDouble(WIND_DIRECTION, Math.PI / 2));
     }
 
-    /**
-     * Upstream defaults (no stored per-component preference in the web engine):
-     * LINE → elastic cord, SURFACE → ripstop nylon, BULK → cardboard.
-     */
     public Material getDefaultComponentMaterial(
             Class<? extends RocketComponent> componentClass,
             Material.Type type) {

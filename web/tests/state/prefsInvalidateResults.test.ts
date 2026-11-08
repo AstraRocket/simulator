@@ -5,20 +5,8 @@ import { DEFAULT_SETTINGS } from '../../src/services/storage/settings';
 import type { FlightResult } from '../../src/engine/openRocketEngine';
 import { asFlown, isStale } from '../testing/flown';
 
-/**
- * A saved result must not claim to be current after the settings it was flown
- * under have moved.
- *
- * The global run preferences are one of the four inputs a result's key covers,
- * alongside the design, the configuration and the row's launch conditions. The
- * store is tested rather than the React effect that mirrors the settings into
- * it, because the decision that matters is per row: which rows a given change
- * ages.
- */
-
 const RESULT = { summary: { maxAltitude: 100 }, events: [], series: {} } as unknown as FlightResult;
 
-/** Two rows with results: one plain, one pinning its own time step. */
 function seed(): void {
   const s = useWorkspaceStore.getState();
   s.setSimPrefs(BASE);
@@ -44,16 +32,10 @@ describe('changedPrefKeys', () => {
     expect(changedPrefKeys(base, { ...base, guideAwareRodClearance: true })).toEqual(['guideAwareRodClearance']);
   });
 
-  /**
-   * The settings store hands out a new `simulation` object on every unrelated
-   * change in it, so comparing objects rather than keys would age every result
-   * on screen when someone switched a unit or a part color.
-   */
   it('sees no change in a different object holding the same values', () => {
     expect(changedPrefKeys(base, { ...base })).toEqual([]);
   });
 
-  /** The list is what the invalidation keys off, so it must be the whole type. */
   it('covers every key a flight reads', () => {
     expect([...SIM_PREF_KEYS].sort()).toEqual(
       [
@@ -67,17 +49,12 @@ describe('changedPrefKeys', () => {
         'maxTime',
         'railExitVelocityMin',
         'randomSeed',
+        'stepper',
         'timeStep',
       ].sort(),
     );
   });
 
-  /**
-   * These two live in `SimulationSettings` and are deliberately not here: they
-   * are interface behavior, and listing them would age every result for a
-   * change that cannot move a number. The minimum rail exit speed is listed: the
-   * engine is asked how long a launcher reaches it, so a run records it.
-   */
   it('excludes the settings that never reach the engine', () => {
     const keys: readonly string[] = SIM_PREF_KEYS;
     expect(keys).not.toContain('confirmDelete');
@@ -98,10 +75,6 @@ describe('a change to the global run preferences', () => {
     expect(isStale(row('plain'))).toBe(true);
   });
 
-  /**
-   * A row with its own override for the changed key is unaffected: its override
-   * wins at run time, so its numbers still stand.
-   */
   it('leaves a row that pins the changed key alone', () => {
     setGlobals({ timeStep: 0.01 });
     expect(isStale(row('pinned'))).toBe(false);
@@ -121,8 +94,6 @@ describe('a change to the global run preferences', () => {
 
   it('does nothing when no flight key moved', () => {
     const before = useWorkspaceStore.getState().simPrefs;
-    // A new object holding the same values, as the settings store hands out on
-    // every unrelated change: it must not re-render every subscriber.
     useWorkspaceStore.getState().setSimPrefs({ ...BASE });
     expect(useWorkspaceStore.getState().simPrefs).toBe(before);
   });

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// The sim normally runs in a Web Worker; stub it so the batch resolves instantly.
 const simulateMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/engine/simClient', async (orig) => ({
   ...(await orig<typeof import('../../src/engine/simClient')>()),
@@ -27,19 +26,10 @@ const PREFS = {
   drogueLowSpeedWarn: 3.048,
 } as SimPrefs;
 
-// The runs fly the globals the store mirrors, so the mirror holds PREFS.
 beforeEach(() => st().setSimPrefs(PREFS));
 
 const RESULT = { summary: { maxAltitude: 100 }, events: [], series: {} } as unknown as FlightResult;
 
-/**
- * A batch reports every row that did not fly, naming each one.
- *
- * A per-row `set({ err })` would leave only the last message, with no row name
- * on it, and the skip line written once the batch drains would overwrite it: two
- * timeouts and a row with no motor would report only the missing motor.
- * Failures are collected and written as one named line beside the skips.
- */
 describe('a batch where rows FAIL', () => {
   beforeEach(() => {
     simulateMock.mockReset();
@@ -57,32 +47,26 @@ describe('a batch where rows FAIL', () => {
   });
 
   it('names EVERY failed row, not just whichever finished last', async () => {
-    // Fail all three, so a last-writer-wins report is unmistakable.
     simulateMock.mockImplementation(() => Promise.reject(new Error('kernel exploded')));
 
     await st().runSims(st().sims.map((x) => x.id));
 
     const err = st().err ?? '';
     for (const name of ['Alpha', 'Bravo', 'Charlie']) expect(err).toContain(name);
-    // The reason survives too, once per row rather than once for the batch.
     expect(err.match(/kernel exploded/g) ?? []).toHaveLength(3);
   });
 
   it('does not let the skip line erase the failures', async () => {
-    // Charlie cannot fly at all (a curve-less motor is what an unresolved
-    // `.ork` import leaves behind), so the skip path has something to say too.
-    // Its line must not be written over the failures.
     seatMotor('Charlie', CURVELESS);
-    // The payload carries no row identity, so key on call order: `flying` is
-    // built in target order, and with Charlie skipped that is Alpha then Bravo.
+    // The payload has no row identity; call order is target order minus skips.
     simulateMock.mockRejectedValueOnce(new Error('boom alpha')).mockResolvedValue(RESULT);
 
     await st().runSims(st().sims.map((x) => x.id));
 
     const err = st().err ?? '';
-    expect(err).toContain('Alpha'); // the failure survived the skip line...
+    expect(err).toContain('Alpha');
     expect(err).toContain('boom alpha');
-    expect(err).toContain('Charlie'); // ...and the skip is still reported
+    expect(err).toContain('Charlie');
   });
 
   it("gives a keyed failure from the worker in the app's language", async () => {

@@ -5,20 +5,17 @@ import { fireAction } from '../../state/fireAction';
 import { useHelpStore } from '../../state/helpStore';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { WorkbenchTabs } from './WorkbenchTabs';
+import { HeaderSummary } from './HeaderSummary';
 import { EngineBadge } from './EngineBadge';
 import { SaveStatus } from './SaveStatus';
 import { UndoRedoButtons } from './UndoRedoButtons';
 import { DaylightToggle } from './DaylightToggle';
 import { FileMenuButton } from './FileMenu';
-import { useHeaderDialogs } from './HeaderDialogs';
+import { HeaderDialogs } from './HeaderDialogs';
+import { useHeaderDialogs } from './useHeaderDialogs';
 import { useUndoShortcuts } from './useUndoShortcuts';
 import { useFilePick } from '../common/useFilePick';
 
-/** Top bar: title + version, the desktop workbench tabs, the save status,
- *  language, and a collapsible menu holding the New / Open (library) / Save As /
- *  Import / Export / About actions. Owns the hidden .ork / .rkt file inputs that
- *  Import triggers; the badge, the undo pair and the dialogs are their own
- *  modules. */
 export function AppHeader() {
   const { t } = useTranslation();
   const canSave = useWorkspaceStore((s) => !!s.info);
@@ -31,31 +28,15 @@ export function AppHeader() {
   const onSaveRkt = useWorkspaceStore((s) => s.saveRkt);
   const openFile = (f: File) => fireAction(onOpenFile(f));
   const ork = useFilePick({ accept: '.ork', onFile: openFile });
-  // A second picker for the same handler, differing only in its `accept`. One
-  // input filtered to both would show `.ork` files to somebody who picked
-  // RockSim from the menu; the reader sniffs the bytes either way
-  // (services/files/designFile.ts), so a mislabeled file still opens.
   const rkt = useFilePick({ accept: '.rkt', onFile: openFile });
-  const { open, dialogs } = useHeaderDialogs();
+  const { flags, open, close } = useHeaderDialogs();
   const openHelp = useHelpStore((s) => s.openHelp);
 
   useUndoShortcuts();
 
   return (
-    // flex-wrap, not a fixed row: the title, the live save state and the action
-    // group together outrun a phone's width, and a fixed row would run off the
-    // right edge and make the whole document scroll sideways, sliding the bottom
-    // tab bar out of view. Wrapping keeps every control reachable and the page
-    // exactly one viewport wide, at any width and in any language.
+    // flex-wrap: a fixed row overflows a phone and scrolls the page sideways.
     <header className="flex flex-wrap items-center gap-1.5 border-b border-line/10 px-4 py-3 lg:gap-1 xl:gap-2">
-      {/* The mark, the name and the three badges are the app's identity, and they
-          read the same at every width: no breakpoint takes one of them away, so
-          nobody has to learn that a narrower window means a different header.
-          What gives when the row runs short is elsewhere (the save status' age
-          and the menu's word below 2xl, the gaps and the icon buttons' padding
-          below xl), and below that the row wraps, which is how it fits on a
-          phone. */}
-      {/* The mark opens About, as the version does. */}
       <button
         onClick={() => open('about')}
         title={t('about.open')}
@@ -65,11 +46,6 @@ export function AppHeader() {
         <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" aria-hidden="true" className="h-6 w-6" />
       </button>
       <h1 className="text-base font-semibold tracking-tight">{t('app.title')}</h1>
-      {/* The three static badges (version, pre-release, engine backend) in one
-          pill rather than three, which would cost two extra gaps and two extra
-          sets of padding. The colors separate them: the backend is emerald for
-          WebAssembly and muted for the JavaScript fallback, the pre-release word
-          is amber. */}
       <span className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-none ring-1 ring-line/10">
         <button
           onClick={() => open('about')}
@@ -87,10 +63,8 @@ export function AppHeader() {
       </span>
       <SaveStatus />
 
-      {/* The desktop workbench tabs live in the header's dead middle rather than
-          in a strip of their own below it. Hidden below lg, where the bottom
-          TabBar takes over. */}
       <WorkbenchTabs />
+      <HeaderSummary />
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-1 xl:gap-2">
         <UndoRedoButtons />
@@ -99,13 +73,10 @@ export function AppHeader() {
         <FileMenuButton
           canSave={canSave}
           actions={{
-            // Through `fireAction`, not passed directly. `FileMenuButton` declares
-            // these `() => void` and these store actions return promises, so a
-            // failure the action does not catch would otherwise vanish.
+            // Through `fireAction`: a promise in a `() => void` slot would lose its failure.
             onNew: () => fireAction(onNew()),
             onOpenLibrary: () => open('library'),
             onSaveAs: () => {
-              // Names of existing designs drive the duplicate warning.
               fireAction(refreshDesigns());
               open('saveAs');
             },
@@ -125,8 +96,6 @@ export function AppHeader() {
             onBackup: () => open('backup'),
             onRestore: () => open('restore'),
             onSettings: () => open('settings'),
-            // No argument is the docs index; Safety opens Help already on its
-            // own page, which is what addressing help by slug is for.
             onHelp: () => openHelp(),
             onSafety: () => openHelp('safety'),
             onPrivacy: () => open('privacy'),
@@ -138,7 +107,7 @@ export function AppHeader() {
 
       {ork.input}
       {rkt.input}
-      {dialogs}
+      <HeaderDialogs flags={flags} onClose={close} />
     </header>
   );
 }

@@ -4,7 +4,6 @@ import { kernelComponentName } from '../../../src/services/app/warningText';
 import { METRIC_UNITS } from '../../../src/prefs/units';
 import type { ComponentNode, FlightResult } from '../../../src/engine/openRocketEngine';
 
-/** A two-branch result whose second branch carries `name`. */
 const result = (name: string) =>
   ({
     branches: [

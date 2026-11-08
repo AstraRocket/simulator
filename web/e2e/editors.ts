@@ -2,15 +2,8 @@ import { expect, openTab, type Page } from './base';
 import type { ComponentType } from '../src/engine/openRocketEngine';
 import en from '../src/i18n/locales/en.json' with { type: 'json' };
 
-/** Every type with a property editor. The fairing has none, and the Add menu never offers one. */
 type EditorType = Exclude<ComponentType, 'fairing'>;
 
-/**
- * Where a part of each type comes from: the default design, or the Add menu
- * with the stage or the default body tube selected. Keyed by the app's own
- * type, so a type the app gains fails the typecheck until its editor is
- * scanned. The order is the Add menu's.
- */
 const EDITORS: Record<EditorType, 'default' | 'stage' | 'body'> = {
   stage: 'default',
   nosecone: 'default',
@@ -35,18 +28,9 @@ const EDITORS: Record<EditorType, 'default' | 'stage' | 'body'> = {
   parallelstage: 'body',
 };
 
-/** The editor's heading: the part's type, as the panel names it. */
 const label = (type: EditorType): string => en.part[type];
 
-/**
- * Select a part of every type in turn, the way a user does: a click on its row
- * in the tree, or the Add menu where the default design has none. `scan` runs
- * once each editor is showing.
- *
- * `dialog` is for a window under `2xl`, where the editor is a modal over the
- * tree: it is closed before each next click, as a user closes it to reach the
- * tree again.
- */
+// `dialog`: under `2xl` the editor is a modal over the tree, so it is closed before each click.
 export async function eachEditor(
   page: Page,
   scan: (name: string) => Promise<void>,

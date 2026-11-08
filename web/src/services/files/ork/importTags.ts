@@ -5,6 +5,7 @@ import { COMPONENT_DEFAULTS } from '../../design/componentDefaults';
 import { clampCount, finiteNum } from './numbers';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_COUNT } from './importLimits';
 import { EXTRA_KEY, readPassthrough } from './passthrough';
+import { BAYS_KEY, MAIN_DEVICE_KEY, readBays, readMainDevice } from './orkBays';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
@@ -15,16 +16,11 @@ import { CLUSTER_POINTS } from '../../../tree/cluster';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
 import { PROFILE_SHAPES } from '../../../tree/shapeProfile';
 
-/**
- * Readers for the individual .ork elements more than one component carries:
- * numeric tags, materials, fin tabs and fillets, packed size, deployment,
- * separation, instances and axial position. Each reads one element group off
- * `el` and, where it writes, writes only the node keys for that group.
- */
+/** `BooleanSetter` ignores case. */
+export function isTrueTag(el: Element, tag: string): boolean {
+  return text(el, `:scope > ${tag}`)?.toLowerCase() === 'true';
+}
 
-/** Read a numeric child `<tag>` of an .ork element, or `fallback` when it's
- *  absent / non-finite. Not the tree-node reader (`nodeProps.num`): this parses
- *  XML text, including the "auto 0.012" flag+value form OpenRocket writes. */
 export function numTag(el: Element, tag: string, fallback: number): number {
   const t = text(el, `:scope > ${tag}`);
   // Values like "auto 0.012" carry an automatic flag + last value.
@@ -32,65 +28,28 @@ export function numTag(el: Element, tag: string, fallback: number): number {
   return Number.isFinite(v) ? v : fallback;
 }
 
-/**
- * A dimension or a mass off an .ork element: `numTag`, floored at zero.
- *
- * `numTag` accepts any finite value, so without the floor a
- * `<length>-5</length>` would reach the tree, the mesh, the mass integral and
- * the kernel, where a negative length is not a small design and not an error
- * either: it is geometry that inverts. The `.rkt` reader floors every
- * dimension it reads (`nonNeg` in `rktImport.ts`); this is the same floor on
- * the same quantities for the other format.
- *
- * Use it for a quantity no value of which can be negative: a length, a radius,
- * a diameter, a thickness, a chord, a mass. Not for a signed one: a fin
- * `<sweeplength>` is negative when the fin sweeps forward, an `<axialoffset>`
- * and a `<launchlatitude>` are signed, and a cant or a rotation is an angle.
- * Those keep `numTag`.
- */
+/** Not for signed values (sweep, offsets, angles), which keep `numTag`. */
 export function nonNegTag(el: Element, tag: string, fallback: number): number {
   return Math.max(0, numTag(el, tag, fallback));
 }
 
-/**
- * A radius OpenRocket may write as the sentinel `auto`.
- *
- * Inner structure takes its outer radius from whatever it sits in, and a
- * centering ring takes its inner radius from the motor mount through it. The
- * file says `auto` for those rather than a number, and the kernel recomputes
- * them as the design changes.
- *
- * `undefined` means automatic, which is how the rest of the app spells it: the
- * node simply has no radius key, `ComponentFactory` leaves the kernel's
- * automatic flag on, and the exporter writes `auto` straight back. Reading
- * `auto` through `numTag` instead would fall through to its fallback and lose
- * the automatic flag.
- */
+/** `undefined` means automatic; `numTag` would lose the flag. */
 export function autoRadiusTag(el: Element, tag: string): number | undefined {
   const t = text(el, `:scope > ${tag}`)?.trim();
   if (!t || t.toLowerCase().startsWith('auto')) return undefined;
-  // A stated 0 is a radius of 0, as DocumentConfig's setter sets it: desktop's
-  // phantom tubes carry fins on a pod at the pod's own axis.
+  // A stated 0 is kept: desktop's phantom tubes carry fins on a pod at its own axis.
   const v = finiteNum(t);
   return v !== undefined && v >= 0 ? v : undefined;
 }
 
-/** `<isdrogue>` as OpenRocket writes it: present and "true" or absent altogether. */
 export function isDrogueTag(el: Element): boolean {
   return (text(el, ':scope > isdrogue') ?? '').trim().toLowerCase() === 'true';
 }
 
-/** <fincount>, bounded to what the renderers can loop over. */
 export function finCountTag(el: Element, fallback: number = COMPONENT_DEFAULTS.finset.finCount): number {
   return clampCount(numTag(el, 'fincount', fallback), 1, MAX_FIN_COUNT);
 }
 
-/**
- * `<packedradius>auto 0.0125</packedradius>` is how MassObjectSaver writes an
- * automatic packed radius for any mass object: the marker and the value it
- * worked out. Sets the flag, and the value when it is a usable one; false when
- * the radius is not automatic.
- */
 export function readAutoPackedRadius(el: Element, node: ComponentNode): boolean {
   const raw = text(el, ':scope > packedradius')?.trim() ?? '';
   if (!raw.toLowerCase().startsWith('auto')) return false;
@@ -100,15 +59,7 @@ export function readAutoPackedRadius(el: Element, node: ComponentNode): boolean 
   return true;
 }
 
-/**
- * A recovery device's packed size: <packedlength> as `length` and
- * <packedradius> as `radius`. Both are MassObject's own length and radius
- * upstream, which is why those are the names, and `radius` is the key the
- * engine bridge, the schematic and the 3D build all read. Under any other key
- * the value would survive a round trip through the file and reach nothing: the
- * kernel would fly the 12.5 mm default. Kept only when it differs from the
- * default the writer falls back to, so an untouched design stays clean.
- */
+/** Keyed `length` / `radius`: any other key would fly the 12.5 mm default. */
 export function readPackedSize(el: Element, node: ComponentNode): void {
   node['length'] = nonNegTag(el, 'packedlength', COMPONENT_DEFAULTS.recovery.packedLength);
   if (readAutoPackedRadius(el, node)) return;
@@ -116,10 +67,6 @@ export function readPackedSize(el: Element, node: ComponentNode): void {
   if (r >= 0 && r !== COMPONENT_DEFAULTS.recovery.packedRadius) node['radius'] = r;
 }
 
-/** `<cd>auto</cd>`, `<linelength>auto</linelength>`, `<cordlength>auto</cordlength>`:
- *  a value the kernel works out, which the desktop shows as a checkbox. A line
- *  or cord length is written as its number with `<linelengthauto>true` or
- *  `<cordlengthauto>true` beside it, since desktop cannot read `auto` there. */
 export function readAutoValue(el: Element, node: ComponentNode, tag: string, flag: string): boolean {
   if (
     (text(el, `:scope > ${tag}`)?.trim().toLowerCase() ?? '') === 'auto' ||
@@ -131,57 +78,36 @@ export function readAutoValue(el: Element, node: ComponentNode, tag: string, fla
   return false;
 }
 
-/**
- * The bulk material's `group` attribute, when the file carries one (the name
- * and density are read by `matName` / `matDensity`). Read for every part by
- * `readCommon`, since `RocketComponentSaver.materialParam` writes it for every
- * material: without it the writer has no group to put back, and desktop's
- * `MaterialSetter` then looks the material up with no group.
- */
-function readMaterialGroup(el: Element, node: ComponentNode): void {
-  const m = el.querySelector(':scope > material');
-  if (!m || m.getAttribute('type') !== 'bulk') return;
-  const group = m.getAttribute('group');
-  if (group) node['materialGroup'] = group;
-}
-
-/** A positive number attribute, else undefined: a material's density off the file. */
 const positiveAttr = (el: Element, name: string): number | undefined => {
   const v = finiteNum(el.getAttribute(name));
   return v !== undefined && v > 0 ? v : undefined;
 };
 
-/**
- * The bulk material's `shearModulus` attribute, carried for the writer.
- *
- * Upstream's `materialParam` writes it for a user-defined material and for any
- * material whose modulus is not zero, and `MaterialSetter` looks the material
- * up by it when present. Nothing here reads it, so it is kept only to be
- * written back; absent stays absent, since the setter treats the attribute's
- * presence as the user having set it.
- */
-function readShearModulus(el: Element, node: ComponentNode): void {
-  const m = el.querySelector(':scope > material');
-  if (!m || m.getAttribute('type') !== 'bulk') return;
-  const v = finiteNum(m.getAttribute('shearModulus'));
-  if (v !== undefined && v >= 0) node['shearModulus'] = v;
-}
-
-function matDensity(el: Element): number | undefined {
-  const m = el.querySelector(':scope > material');
-  if (!m || m.getAttribute('type') !== 'bulk') return undefined;
-  return positiveAttr(m, 'density');
-}
-
-/** Material name if it's a real name (not the "custom" placeholder). */
-function matName(el: Element, type: string, selector = ':scope > material'): string | undefined {
-  const m = el.querySelector(selector);
-  if (!m || m.getAttribute('type') !== type) return undefined;
+function matName(m: Element): string | undefined {
   const name = m.textContent?.trim();
   return name && name.toLowerCase() !== 'custom' ? name : undefined;
 }
 
-/** Surface/line material density+name for recovery devices and cords. */
+// Their `<material>` is surface or line, or a mass object has none (`DocumentConfig`).
+const NOT_BULK_TYPES: ReadonlySet<string> = new Set(['parachute', 'streamer', 'shockcord', 'masscomponent']);
+
+/** `MaterialSetter` checks a type only when one is stated; otherwise the part decides the kind. */
+function readBulkMaterial(el: Element, node: ComponentNode): void {
+  const m = el.querySelector(':scope > material');
+  if (!m) return;
+  const type = m.getAttribute('type');
+  if (type !== 'bulk' && (type !== null || NOT_BULK_TYPES.has(node.type))) return;
+  const density = positiveAttr(m, 'density');
+  if (density !== undefined) node.density = density;
+  const name = matName(m);
+  if (name) node['materialName'] = name;
+  const group = m.getAttribute('group');
+  if (group) node['materialGroup'] = group;
+  // Absent stays absent: `MaterialSetter` treats its presence as user-set.
+  const shear = finiteNum(m.getAttribute('shearModulus'));
+  if (shear !== undefined && shear >= 0) node['shearModulus'] = shear;
+}
+
 export function readSoftMaterial(
   el: Element,
   node: ComponentNode,
@@ -191,48 +117,31 @@ export function readSoftMaterial(
   selector = ':scope > material',
 ): void {
   const m = el.querySelector(selector);
-  if (!m || m.getAttribute('type') !== kind) return;
-  const d = positiveAttr(m, 'density');
-  if (d !== undefined) node[densityKey] = d;
-  const name = matName(el, kind, selector);
+  if (!m) return;
+  const type = m.getAttribute('type');
+  if (type !== null && type !== kind) return;
+  // 0 is legal, as desktop's `MaterialSetter` takes it: a massless canopy stays massless.
+  const d = finiteNum(m.getAttribute('density'));
+  if (d !== undefined && d >= 0) node[densityKey] = d;
+  const name = matName(m);
   if (name) node[nameKey] = name;
 }
 
-/**
- * <instancecount>/<instanceseparation>.
- *
- * CenteringRing and Bulkhead are LineInstanceable and LaunchLug/RailButton are
- * Instanceable, so OpenRocket writes these for all four. Carrying them keeps a
- * motor mount declared as one CenteringRing with instancecount 3 from coming
- * back from a save as a single ring. The simulation counts all N, and the side
- * and 3D views draw all N.
- */
 export function readInstances(el: Element, node: ComponentNode): void {
   const count = clampCount(numTag(el, 'instancecount', 1), 1, MAX_ASSEMBLY_INSTANCES);
   if (count > 1) node['instanceCount'] = count;
-  // A stated spacing is kept, 0 included: an absent one is the kernel's
-  // constructor spacing (60 mm for a lug), not 0, so dropping a stated 0 would
-  // pull a desktop file's stacked lugs apart.
+  // A stated 0 is kept: absent means the kernel's constructor spacing (60 mm for a lug).
   const sep = numTag(el, 'instanceseparation', NaN);
   if (Number.isFinite(sep)) node['instanceSeparation'] = sep;
 }
 
-/** Radial mounting angle (LaunchLug / RailButton) in radians. OpenRocket writes
- *  it as <angleoffset> (degrees), older files as <radialdirection>; the kernel
- *  default is 180°. Stored in radians to match the tree/renderers, and clamped
- *  to [-180°, 180°] as LaunchLug.setAngleOffset and RailButton.setAngleOffset
- *  clamp it when desktop loads the file: 270 flies as 180 there. */
+/** Radians from degrees, clamped as LaunchLug/RailButton.setAngleOffset clamp it on load. */
 export function readAngleAroundBody(el: Element): number {
   const a = numTag(el, 'angleoffset', NaN);
   const deg = Number.isFinite(a) ? a : numTag(el, 'radialdirection', 180);
   return Math.min(Math.PI, Math.max(-Math.PI, degToRad(deg)));
 }
 
-/**
- * Supersonic airfoil section, used by the RASAero export (our extension tags:
- * the desktop loader warns on unknown elements and continues, so files stay
- * openable there). Absent tags leave the classic cross-section behavior.
- */
 export function readAirfoil(el: Element, node: ComponentNode): void {
   const section = text(el, ':scope > airfoilsection');
   if (section) node['airfoilSection'] = section;
@@ -245,21 +154,10 @@ export function readAirfoil(el: Element, node: ComponentNode): void {
   readFillet(el, node);
 }
 
-/**
- * Fin fillets.
- *
- * OpenRocket's FinSetSaver writes <filletradius>/<filletmaterial> for every fin
- * set and counts the fillet volume toward fin mass. The values are read onto the
- * node so the kernel bridge flies them (radius and material density) and a save
- * writes them back: hard-writing `<filletradius>0.0</filletradius>` and a
- * Cardboard material would delete a desktop design's 6 mm epoxy fillets from the
- * user's own file.
- */
 function readFillet(el: Element, node: ComponentNode): void {
   const r = numTag(el, 'filletradius', 0);
   if (r > 0) node['filletRadius'] = r;
-  // The material is kept whatever the radius: desktop keeps a fin set's fillet
-  // material at a 0 radius, and a fillet turned back on is in that material.
+  // Kept at a 0 radius too, as desktop keeps it.
   const m = el.querySelector(':scope > filletmaterial');
   if (!m) return;
   const d = positiveAttr(m, 'density');
@@ -270,17 +168,12 @@ function readFillet(el: Element, node: ComponentNode): void {
   if (name) node['filletMaterialName'] = name;
 }
 
-/** Fin-set rotation about the body axis (.ork stores degrees; we keep rad). */
 export function readFinRotation(el: Element, node: ComponentNode): void {
   const deg = numTag(el, 'rotation', 0);
   if (deg !== 0) node['rotation'] = degToRad(deg);
 }
 
-/**
- * Fin tabs: <tabheight>, <tablength>, <tabposition relativeto="...">. Desktop
- * files carry two tabposition elements (legacy front/center/end + modern
- * top/middle/bottom); like the desktop reader, the last one wins.
- */
+/** Desktop files carry two <tabposition>; the last wins, as on desktop. */
 export function readFinTabs(el: Element, node: ComponentNode): void {
   const h = numTag(el, 'tabheight', 0);
   const len = numTag(el, 'tablength', 0);
@@ -299,30 +192,18 @@ export function readFinTabs(el: Element, node: ComponentNode): void {
 }
 
 function readPosition(el: Element): ComponentPosition | undefined {
-  // Modern files write <axialoffset method="...">; OpenRocket ≤ 15.03 wrote
-  // only <position type="...">; fall back to it or old files lose every
-  // fin/lug/inner-tube offset.
+  // OpenRocket ≤ 15.03 files have only <position type="...">.
   const off = el.querySelector(':scope > axialoffset') ?? el.querySelector(':scope > position');
   if (!off) return undefined;
   const method = (off.getAttribute('method') ?? off.getAttribute('type') ?? 'top') as ComponentPosition['method'];
-  // 'after' must be in this list: a part whose method is rejected loses its
-  // position and falls back to the parent's top, so a part seated after its
-  // sibling would jump to the front of the parent.
+  // A rejected method falls back to the parent's top, so 'after' must be listed.
   if (!['top', 'middle', 'bottom', 'absolute', 'after'].includes(method)) return undefined;
   return { method, offset: finiteNum(off.textContent) ?? 0 };
 }
 
-/**
- * An enum name as the bridge and desktop match it: lower-cased with the
- * underscores removed (`ComponentFactory.enumKey`, `DocumentConfig.findEnum`).
- */
 const enumToken = (raw: string): string => raw.trim().toLowerCase().replace(/_/g, '');
 
-/**
- * The surface finishes the bridge builds (`ComponentFactory.finishOf`), each
- * to the name the app keeps: `ExternalComponent.Finish` lower-cased, plus the
- * bridge's `regular` alias for NORMAL.
- */
+/** Includes `ComponentFactory.finishOf`'s `regular` alias for NORMAL. */
 const FINISHES: ReadonlyMap<string, string> = new Map([
   ...[
     'rough',
@@ -338,24 +219,13 @@ const FINISHES: ReadonlyMap<string, string> = new Map([
   ['regular', 'normal'],
 ]);
 
-/** `Transition.Shape`, as `ComponentFactory.shapeOf` accepts it. */
 const SHAPES: ReadonlyMap<string, string> = new Map(PROFILE_SHAPES.map((s) => [s, s]));
 
-/** `FinSet.CrossSection`, as `ComponentFactory.crossSectionOf` accepts it. */
 const CROSS_SECTIONS: ReadonlyMap<string, string> = new Map(['square', 'rounded', 'airfoil'].map((s) => [s, s]));
 
-/** How much of a refused value a note shows: enough to recognize, never a page. */
 const NOTE_VALUE_CHARS = 40;
 
-/**
- * A `<tag>` whose text has to name one of the kernel's enum constants.
- *
- * The text is free text from the file, and the readers keep it as the node's
- * value, which the writers then use to index their code tables and the bridge
- * hands to a `valueOf`-style switch. Only a name the bridge builds gets
- * through; anything else is dropped with a note naming the part, so the part
- * flies the kernel's default and the user is told. An absent tag is absent.
- */
+/** Only a name the bridge builds gets through: the bridge hands it to a `valueOf`-style switch. */
 function enumTag(
   el: Element,
   tag: string,
@@ -372,23 +242,18 @@ function enumTag(
   return undefined;
 }
 
-/** A nose cone's or transition's `<shape>`, or `fallback` when absent or not a shape the kernel has. */
 export function shapeTag(el: Element, node: ComponentNode, notes: ImportNote[] | undefined, fallback: string): string {
   return enumTag(el, 'shape', SHAPES, 'importNote.shapeUnknown', node, notes) ?? fallback;
 }
 
-/** A fin set's `<crosssection>`, or nothing when absent or not a section the kernel has. */
 export function crossSectionTag(el: Element, node: ComponentNode, notes: ImportNote[] | undefined): string | undefined {
   return enumTag(el, 'crosssection', CROSS_SECTIONS, 'importNote.crossSectionUnknown', node, notes);
 }
 
-/** `MassComponent.MassComponentType`, as `ComponentFactory.massComponentTypeOf` accepts it. */
 const MASS_TYPES: ReadonlyMap<string, string> = new Map(MASS_COMPONENT_TYPES.map((s) => [enumToken(s), s]));
 
-/** `ClusterConfiguration.CONFIGURATIONS` by XML name, as the bridge looks them up. */
 const CLUSTERS: ReadonlyMap<string, string> = new Map(Object.keys(CLUSTER_POINTS).map((s) => [enumToken(s), s]));
 
-/** A mass component's `<masscomponenttype>`, or nothing when absent or not a type the kernel has. */
 export function massComponentTypeTag(
   el: Element,
   node: ComponentNode,
@@ -397,41 +262,19 @@ export function massComponentTypeTag(
   return enumTag(el, 'masscomponenttype', MASS_TYPES, 'importNote.massTypeUnknown', node, notes);
 }
 
-/** An inner tube's `<clusterconfiguration>`, or nothing when absent or not a pattern the kernel has. */
 export function clusterTag(el: Element, node: ComponentNode, notes: ImportNote[] | undefined): string | undefined {
   return enumTag(el, 'clusterconfiguration', CLUSTERS, 'importNote.clusterUnknown', node, notes);
 }
 
-/**
- * The deploy events the bridge builds (`ComponentFactory.deployEventOf`), each
- * under the token desktop writes and matches (the enum name lower-cased with
- * the underscores removed, `DocumentConfig.findEnum`) and mapped to the name
- * the app keeps, so `lowerstageseparation` and the underscored spelling name
- * the one event.
- */
 const DEPLOY_EVENT_NAMES: ReadonlyMap<string, string> = new Map(DEPLOY_EVENTS.map((ev) => [enumToken(ev), ev]));
 
-/** The separation events the bridge builds (`OpenRocketEngine.separationEventOf`), the same way. */
 const SEPARATION_EVENT_NAMES: ReadonlyMap<string, string> = new Map(SEPARATION_EVENTS.map((ev) => [enumToken(ev), ev]));
 
-/**
- * Recovery-device deployment as the design states it: the bare tags, which are
- * desktop's default. A configuration's <deploymentconfiguration> block is that
- * configuration's override (captureDeployments), never the design's value.
- */
 export function readDeployment(el: Element, node: ComponentNode, notes: ImportNote[] | undefined): void {
   Object.assign(node, readDeploymentTags(el, node, notes));
 }
 
-/**
- * The deployment tags one element states, and only those, the same way for the
- * design and for each configuration's override. An event the bridge has no
- * constant for is dropped with a note, as `enumTag` drops a shape: the bridge
- * throws on it, which would refuse the whole file, where desktop warns and
- * keeps the default event. Altitude and delay are floored: a negative deploy
- * altitude never fires the kernel's altitude trigger, and the input field
- * holds the same minimum.
- */
+/** Altitude is floored: a negative one never fires the kernel's altitude trigger. */
 export function readDeploymentTags(
   src: Element,
   node: ComponentNode,
@@ -447,12 +290,6 @@ export function readDeploymentTags(
   return o;
 }
 
-/**
- * The separation tags one element states, and only those, read the way
- * {@link readDeploymentTags} reads deployment (the event checked against the
- * bridge's names, the numbers floored), for the design and for each
- * configuration's override alike.
- */
 export function readSeparationTags(src: Element, node: ComponentNode, notes: ImportNote[] | undefined): OrkSepOverride {
   const o: OrkSepOverride = {};
   const event = enumTag(
@@ -471,13 +308,6 @@ export function readSeparationTags(src: Element, node: ComponentNode, notes: Imp
   return o;
 }
 
-/**
- * Stage separation (a lower <stage> or a strap-on <parallelstage>) as the design
- * states it: the bare tags on `el`, with `configEl`'s fields over them when the
- * caller passes one, as the desktop handler clones the default and applies only
- * the fields a block carries. Only values that differ from the desktop defaults
- * are kept, so an untouched stage stays clean.
- */
 export function readSeparation(
   el: Element,
   node: ComponentNode,
@@ -493,38 +323,25 @@ export function readSeparation(
     node['separationAltitude'] = o.separationAltitude;
 }
 
-/**
- * What every component carries: name, bulk material, finish, the mass/CG/Cd
- * overrides and (for the types the desktop positions) the axial position.
- * `notes` takes the note for a value the file names that the kernel has no
- * constant for.
- */
 export function readCommon(el: Element, node: ComponentNode, withPosition: boolean, notes?: ImportNote[]): void {
-  // Anything in this component we have no model for, kept as raw XML so a save
-  // does not strip it (services/files/ork/passthrough.ts). First, so that a node
-  // carrying only unknown elements still carries them.
+  // First, so a node carrying only unknown elements still carries them.
   const extra = readPassthrough(el);
   if (extra) node[EXTRA_KEY] = extra;
+  const bays = readBays(el);
+  if (bays) node[BAYS_KEY] = bays;
+  if (readMainDevice(el)) node[MAIN_DEVICE_KEY] = true;
   const nm = text(el, ':scope > name');
   if (nm) node.name = nm;
-  // The desktop's Comment tab. Carried through so a builder's notes survive a
-  // round trip; nothing in the app reads it but the panel.
   const cmt = text(el, ':scope > comment');
   if (cmt) node['comment'] = cmt;
-  // The 2D line style the part is outlined with (services/design/figureStyle.ts).
   const ls = text(el, ':scope > linestyle');
   if (ls) node['lineStyle'] = ls;
-  // Which catalog part this component came from. The desktop shows it at the
-  // top of every config dialog (the Parts Library row), and our own picker is
-  // the same control, so the link is a fact about the design and not an
-  // implementation detail of the file.
   const preset = el.querySelector(':scope > preset');
   if (preset) {
     const partNo = preset.getAttribute('partno');
     if (partNo) {
       node['preset'] = {
-        // The file carries the kernel's enum constant (NOSE_CONE); the picker
-        // and the panel speak our row types.
+        // The file carries the kernel's enum constant (NOSE_CONE).
         type: appPresetType(preset.getAttribute('type') ?? ''),
         manufacturer: preset.getAttribute('manufacturer') ?? '',
         partNo,
@@ -532,16 +349,9 @@ export function readCommon(el: Element, node: ComponentNode, withPosition: boole
       };
     }
   }
-  const density = matDensity(el);
-  if (density !== undefined) node.density = density;
-  const bulkName = matName(el, 'bulk');
-  if (bulkName) node['materialName'] = bulkName;
-  readMaterialGroup(el, node);
-  readShearModulus(el, node);
+  readBulkMaterial(el, node);
   const fin = enumTag(el, 'finish', FINISHES, 'importNote.finishUnknown', node, notes);
   if (fin && fin !== 'normal') node['finish'] = fin;
-  // The part's own figure color, the one the 2D views draw: three 0-255
-  // channels on one element in the file, a hex string in the tree.
   const col = orColor(el.querySelector(':scope > color'));
   if (col) node['color'] = col.paint;
   readAppearances(el, node);
@@ -552,11 +362,6 @@ export function readCommon(el: Element, node: ComponentNode, withPosition: boole
   }
 }
 
-/**
- * A color element's channels, as `ORColor.fromXMLAttributes` reads them: no
- * color at all unless all three channels (and the alpha, when present) are
- * integers in 0-255.
- */
 function orColor(col: Element | null): { paint: string; alpha: number } | null {
   if (!col) return null;
   const ch = (name: string): number | null => {
@@ -571,12 +376,6 @@ function orColor(col: Element | null): { paint: string; alpha: number } | null {
   return { paint: hexOf(packRgb(r, g, b)), alpha };
 }
 
-/**
- * One `<appearance>` or `<insideappearance>` block, as `AppearanceHandler`
- * builds it: whatever the block leaves out keeps the `AppearanceBuilder`
- * default, a paint that is not a color included. The decal is not read: its
- * image is a separate member of the zip, which is not kept.
- */
 function readAppearanceBlock(el: Element): PartAppearance {
   const out: PartAppearance = { ...BUILDER_DEFAULT };
   const paint = orColor(el.querySelector(':scope > paint'));
@@ -588,12 +387,7 @@ function readAppearanceBlock(el: Element): PartAppearance {
   return out;
 }
 
-/**
- * The 3D appearance (`services/design/appearance.ts`). The inside block and its
- * two flags are read only on a part that has an inside, as
- * `InsideAppearanceHandler` applies them only to an `InsideColorComponent`.
- * The flags' 22.02 beta spellings are read too, as desktop reads them.
- */
+/** The inside block only for an `InsideColorComponent`, as `InsideAppearanceHandler` does. */
 function readAppearances(el: Element, node: ComponentNode): void {
   const outside = el.querySelector(':scope > appearance');
   if (outside) node['appearance'] = readAppearanceBlock(outside);
@@ -612,29 +406,22 @@ function readAppearances(el: Element, node: ComponentNode): void {
   if (flag('edgessameasinside', 'edgesSameAsInside')) node['edgesSameAsInside'] = true;
 }
 
-/** Mass / CG / Cd overrides, and the flags that spread them over the subtree. */
 function readOverrides(el: Element, node: ComponentNode): void {
-  // As desktop's setters take them: a mass override is held at 0 or more
-  // (`RocketComponent.setOverrideMass`, Math.max(m, 0)) and a CG override is
-  // stored as given (`setOverrideCGX`); only the dialog's spinner floors it.
   const om = numTag(el, 'overridemass', NaN);
   if (Number.isFinite(om)) node['overrideMass'] = Math.max(om, 0);
   const ocg = numTag(el, 'overridecg', NaN);
   if (Number.isFinite(ocg)) node['overrideCGX'] = ocg;
-  // The Cd override takes any finite value, as `setOverrideCD` and the desktop
-  // dialog do: a negative figure offsets drag the rest of the design adds.
+  // A negative Cd is valid (`setOverrideCD`): it offsets the rest of the design's drag.
   const ocd = numTag(el, 'overridecd', NaN);
   if (Number.isFinite(ocd)) node['overrideCD'] = ocd;
-  // "Override for all subcomponents": per-quantity flags (24.x format);
-  // legacy files carry a single <overridesubcomponents> covering all.
-  const legacyAll = text(el, ':scope > overridesubcomponents') === 'true';
-  if (legacyAll || text(el, ':scope > overridesubcomponentsmass') === 'true') {
+  const legacyAll = isTrueTag(el, 'overridesubcomponents');
+  if (legacyAll || isTrueTag(el, 'overridesubcomponentsmass')) {
     node['overrideSubcomponentsMass'] = true;
   }
-  if (legacyAll || text(el, ':scope > overridesubcomponentscg') === 'true') {
+  if (legacyAll || isTrueTag(el, 'overridesubcomponentscg')) {
     node['overrideSubcomponentsCG'] = true;
   }
-  if (legacyAll || text(el, ':scope > overridesubcomponentscd') === 'true') {
+  if (legacyAll || isTrueTag(el, 'overridesubcomponentscd')) {
     node['overrideSubcomponentsCD'] = true;
   }
 }

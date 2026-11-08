@@ -13,7 +13,7 @@ import {
   type PartAppearance,
 } from '../../services/design/appearance';
 import { hexOf, parseHexColor } from '../../services/design/colorHex';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { readLineStyle } from '../../services/design/figureStyle';
 import { figureToken } from '../../tree/schematicGeometry';
 import { LineStyleRow } from './LineStyleRow';
@@ -27,26 +27,7 @@ import { tokenValues } from '../common/colorTokens';
 import { useNativeChange } from '../common/useNativeChange';
 import { PanelButton } from './PanelButton';
 
-/**
- * How the part is drawn, as against what it is: desktop's Appearance tab
- * without the texture. Nothing here reaches the simulation.
- *
- * Two settings, as on the desktop. The figure style is the color the 2D views
- * draw the part in (`<color>`). The appearance is what the 3D views render
- * (`<appearance>`): a paint color, its shine and its opacity, and on a part
- * with an inside (a tube, a cone, a fin set) a second one for the inside, used
- * when the two are set apart, with a choice of which the edges take.
- *
- * Below the part's own sections and above Overrides and Comment. Not rendered
- * for a stage, which is the container its parts are drawn in and has no
- * surface of its own.
- */
-export function AppearanceSection({
-  node,
-  onCommitChange,
-  // Every control here lands once: a color when its picker closes, a number on
-  // blur, a slider on release.
-}: CommitEditProps) {
+export function AppearanceSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
   const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
@@ -54,7 +35,6 @@ export function AppearanceSection({
   const sided = SIDED_TYPES.has(node.type);
   const separate = hasInside && node['separateInsideOutside'] === true;
   const [surface, setSurface] = useState<'outside' | 'inside'>('outside');
-  // The inside tab exists only while the two are set apart.
   const editing = separate ? surface : 'outside';
   const sideName = (s: 'outside' | 'inside') =>
     sided
@@ -63,8 +43,7 @@ export function AppearanceSection({
 
   const figureColor = typeof node.color === 'string' ? node.color : undefined;
   const saved = settings.figureStyles[node.type];
-  // `ApplicationPreferences.setDefaultColor` / `setDefaultLineStyle`, each
-  // only when the part has one, and the part's own cleared after.
+  // `ApplicationPreferences.setDefaultColor` / `setDefaultLineStyle`, then the part's own is cleared.
   const saveAsDefault = () => {
     const lineStyle = readLineStyle(node['lineStyle']);
     update({
@@ -77,21 +56,13 @@ export function AppearanceSection({
   };
   const key = editing === 'inside' ? 'insideAppearance' : 'appearance';
   const own = readAppearance(node[key]);
-  // What the part is drawn with when it has no appearance of its own; the
-  // controls show it, disabled, as desktop does.
   const shown = own ?? defaultAppearance(node.type, palette);
-  // Clearing "Use default" starts from what was on screen, so the part does
-  // not change until something is edited.
   const set = (patch: Partial<PartAppearance>) => onCommitChange({ [key]: { ...shown, ...patch } });
 
   return (
     <PropSection title={t('prop.appearance')}>
       <SubHeading title={t('prop.figureStyle')} hint={t('prop.figureStyleHint')} />
-      {/* `AppearancePanel`'s style rows. "Use default color" covers the line
-          style too: ticking it clears both, clearing it starts both from the
-          type's defaults, and with it ticked neither can be set. Saving as
-          the default moves the part's style into Settings for its type and
-          puts the part back on the default. */}
+      {/* As `AppearancePanel`: "Use default color" covers the line style too. */}
       <div className="flex items-center justify-between gap-3">
         <Check
           checked={figureColor === undefined}
@@ -165,11 +136,6 @@ export function AppearanceSection({
   );
 }
 
-/**
- * The figure color a part with none of its own is drawn in: the type's saved
- * default, else the 2D side view's fill for it. Where no stylesheet is loaded,
- * the part's 3D palette color.
- */
 function figureDefault(type: ComponentType, saved: string | undefined): string {
   if (saved) return saved;
   const name = figureToken(type);
@@ -186,11 +152,6 @@ function SubHeading({ title, hint }: { title: string; hint: string }) {
   );
 }
 
-/**
- * A color: the swatch and its hex, as desktop pairs them. The swatch commits
- * when its picker closes (ColorInput); the hex box on blur or Enter, and a box
- * that does not hold a color goes back to the one in use.
- */
 function ColorRow({
   label,
   value,
@@ -204,7 +165,6 @@ function ColorRow({
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(value);
-  // A new color from elsewhere (the swatch, an undo) replaces the draft.
   const [seen, setSeen] = useState(value);
   if (seen !== value) {
     setSeen(value);
@@ -241,15 +201,9 @@ function ColorRow({
   );
 }
 
-/** Tenths of a percent: what the box shows of a 0-1 value. */
 const pctOf = (v: number) => roundTo(v * 100, 1);
 
-/**
- * A 0-1 value as a percentage, as desktop's relative unit shows shine and
- * opacity: a slider and a box. The slider previews while dragged and commits
- * on release; the box commits on blur, and only when its number changed, so
- * a value the box rounds is never written back rounded.
- */
+// Commits only when the number changed, so a rounded value is never written back.
 function PercentRow({
   label,
   value,
@@ -263,7 +217,6 @@ function PercentRow({
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const ref = useRef<HTMLInputElement>(null);
-  // Committed once, on release, not on every step of the drag.
   useNativeChange(ref, (el) => {
     const v = Number(el.value) / 100;
     setDrag(null);
@@ -272,8 +225,7 @@ function PercentRow({
   const shown = drag ?? value;
   return (
     <div className="flex items-center justify-between gap-3">
-      {/* The box is the control the label names; the slider is a second way
-          to move it, kept out of the tab order and the accessibility tree. */}
+      {/* The slider is a duplicate control, kept out of the tab order and a11y tree. */}
       <span className="text-xs text-ink-muted">{label}</span>
       <span className="flex items-center gap-2">
         <input

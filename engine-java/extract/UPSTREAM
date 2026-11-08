@@ -38,6 +38,6 @@
 # What each bump changed, and every golden value it moved, is recorded in
 # patches/LEDGER.md under "Repinned to upstream".
 repo = https://github.com/AstraRocket/openrocket.git
-ref  = f5ac8a15202a4021315d085b263df9937c02ef61
-date = 2026-10-26
-describe = release-24.12-2379-gf5ac8a152
+ref  = 2d76b9733a1c1ccd5e59eddc7f778a15a803cc34
+date = 2026-11-04
+describe = release-24.12-2416-g2d76b9733

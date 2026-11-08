@@ -1,21 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
-import { ErrorBoundary, isChunkLoadError, LazyBoundary, lazyNamed } from '../../../src/components/common/ErrorBoundary';
+import { ErrorBoundary, LazyBoundary } from '../../../src/components/common/ErrorBoundary';
+import { isChunkLoadError, lazyNamed } from '../../../src/components/common/lazyNamed';
 import { renderWithProviders } from '../../testing/renderWithProviders';
-
-/**
- * Without a boundary, a lazy view whose chunk has gone missing (a stale Pages
- * deploy) takes the whole window down: the throw comes out of Suspense during
- * render and React unmounts everything.
- */
 
 const Boom = ({ error }: { error: Error }) => {
   throw error;
 };
 
-// React logs the caught error itself, on top of the boundary's own log. Both are
-// expected here, and left unsilenced they bury the rest of the test output.
+// React logs the caught error on top of the boundary's own log; silence both.
 let logged: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   logged = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -52,14 +46,11 @@ describe('ErrorBoundary', () => {
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('could not be loaded');
     expect(alert.textContent).not.toContain('no longer on the server');
-    // The message itself is shown: on a bug it is the only clue to pass on.
     expect(alert.textContent).toContain('Cannot read properties of undefined');
   });
 });
 
 describe('isChunkLoadError', () => {
-  /** Each engine words a failed dynamic import differently and none of them
-   *  uses a distinguishable error type, so the message is all there is. */
   it('recognizes what each browser says about a chunk it could not fetch', () => {
     expect(isChunkLoadError(new TypeError('Failed to fetch dynamically imported module: https://x/a.js'))).toBe(true);
     expect(isChunkLoadError(new TypeError('error loading dynamically imported module'))).toBe(true);
@@ -76,11 +67,6 @@ describe('isChunkLoadError', () => {
   });
 });
 
-/**
- * A lazy view behind LazyBoundary: the boundary sits outside the Suspense,
- * because it is the chunk fetch that fails on a stale deploy and Suspense
- * re-throws that rejection. A failed chunk is the fallback, not a dead app.
- */
 describe('LazyBoundary and lazyNamed', () => {
   it('shows the fallback when the chunk will not load', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -3,15 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useLatest } from '../../../src/components/common/useLatest';
 
-/**
- * The generation guard for callbacks that land after an await.
- *
- * `LaunchPanel`'s geolocation callbacks, `WindProfileDialog.importCsv`,
- * `MotorDialog`'s import, delete and pick, and `useExportTemplates.onImport` each
- * await a file read, a permission prompt or an IndexedDB round trip and then call
- * an `onChange` that writes to whatever rows are the current edit targets. A
- * geolocation prompt can sit unanswered for minutes.
- */
 describe('useLatest', () => {
   it('reports a fresh claim as current', () => {
     const { result } = renderHook(() => useLatest());
@@ -28,7 +19,6 @@ describe('useLatest', () => {
   });
 
   it('makes every outstanding claim stale on unmount', () => {
-    // The case this covers: the dialog is gone and the result still arrives.
     const { result, unmount } = renderHook(() => useLatest());
     const mine = result.current.claim();
     expect(mine()).toBe(true);
@@ -40,7 +30,6 @@ describe('useLatest', () => {
     const { result } = renderHook(() => useLatest());
     const inFlight = result.current.claim();
     const watcher = result.current.observe();
-    // Taking the observation did not invalidate the claim already out.
     expect(inFlight()).toBe(true);
     expect(watcher()).toBe(true);
   });
@@ -53,8 +42,6 @@ describe('useLatest', () => {
   });
 
   it('keeps the same claim function across re-renders', () => {
-    // It goes into callbacks that live in props; a new identity per render would
-    // defeat every memo those sit behind.
     const { result, rerender } = renderHook(() => useLatest());
     const before = result.current.claim;
     rerender();
@@ -70,7 +57,6 @@ describe('useLatest', () => {
   });
 
   it('aborts the outstanding request on unmount', () => {
-    // A forecast fetch started by a tab that has since closed is canceled.
     const { result, unmount } = renderHook(() => useLatest());
     const signal = result.current.claimSignal();
     unmount();

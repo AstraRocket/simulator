@@ -15,12 +15,6 @@ import { getWorkspaceStore } from '../../src/services/storage/workspaceStore';
 import { SavePartButton } from '../../src/components/design/SavePartButton';
 import { renderWithProviders } from '../testing/renderWithProviders';
 
-/**
- * Text kept as a string is worded in the language the user reads, even when
- * that language's bundle arrives after the app has mounted. Here the German
- * bundle is held until the moment each test releases it.
- */
-
 let release: () => void;
 const originalRead = localeBackend.read.bind(localeBackend);
 
@@ -38,8 +32,7 @@ beforeEach(() => {
     addListener: () => {},
     removeListener: () => {},
   })) as unknown as typeof window.matchMedia;
-  // Dropped from the store directly: `removeResourceBundle` also drops the
-  // namespace, after which nothing loads at all.
+  // Not `removeResourceBundle`: it also drops the namespace, and then nothing loads.
   delete (i18n.store.data as Record<string, unknown>).de;
   let pending: (() => void) | null = null;
   release = () => pending?.();

@@ -9,18 +9,6 @@ import {
 } from '../../src/engine/openRocketEngine';
 import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
 
-/**
- * How long a launcher a design needs to leave it at a minimum speed, as the
- * engine reports it: the bridge flies a probe of the same rocket on a very long
- * rod and stops it at that speed (`api/RailSpeedProbe.java`).
- *
- * The standing check is the round trip: fly the design again on a rod exactly
- * that long and it leaves at the minimum speed. That holds whether the answer
- * is inside the real rod's length or past it, and with guide-aware clearance,
- * where the answer is a rod length rather than the distance the rocket moved.
- *
- * Flies the real kernel; see `testing/kernelTimeout.ts`.
- */
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
 type Engine = typeof import('../../src/engine/vendor/openrocket-engine.mjs');
@@ -31,7 +19,6 @@ beforeAll(async () => {
   __setEngineForTests(engine);
 });
 
-/** A small rocket, with a launch lug when one is asked for. */
 const design = (guide: ComponentNode | null = null): RocketTree =>
   ({
     components: [
@@ -66,7 +53,6 @@ const design = (guide: ComponentNode | null = null): RocketTree =>
     ],
   }) as unknown as RocketTree;
 
-/** At the tube's front, so guide-aware clearance ends well before the rod's end. */
 const LUG = {
   id: 'lug',
   type: 'launchlug',
@@ -89,7 +75,6 @@ const C6 = {
   masses: [0.0242, 0.021, 0.017, 0.013, 0.0108],
 } as unknown as MotorSpec;
 
-/** A 1 ms step, so the round trip resolves the speed to a few cm/s. */
 const RUN: SimulationOptions = { launchRodLength: 1, randomSeed: 1, timeStep: 0.001, maxTime: 0.6 };
 
 function fly(tree: RocketTree, opts: Partial<SimulationOptions>) {
@@ -122,7 +107,6 @@ describe('rail length needed', () => {
     const min = plain.launchRodVelocity + 3;
     const needed = fly(design(), { railExitMinSpeed: min }).railLengthNeeded!;
     expect(needed).toBeGreaterThan(1);
-    // Fly it on exactly that rod: it leaves at the minimum.
     expect(fly(design(), { launchRodLength: needed }).launchRodVelocity).toBeCloseTo(min, 1);
   });
 
@@ -130,11 +114,6 @@ describe('rail length needed', () => {
     expect(fly(design(), { railExitMinSpeed: 500 }).railLengthNeeded).toBeNull();
   });
 
-  /**
-   * With guide-aware clearance the rocket stops being guided before its tail
-   * reaches the rod's end, so the answer is the rod that lets the lug carry it
-   * to the speed, not the distance moved.
-   */
   it('is a rod length under guide-aware clearance too', () => {
     const opts = { guideAwareRodClearance: true };
     const plain = fly(design(LUG), opts);

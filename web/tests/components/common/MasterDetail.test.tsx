@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useGuardedSelection } from '../../../src/components/common/MasterDetail';
+import { useGuardedSelection } from '../../../src/components/common/useGuardedSelection';
 import { useConfirmStore } from '../../../src/state/confirmStore';
 
 describe('useGuardedSelection', () => {

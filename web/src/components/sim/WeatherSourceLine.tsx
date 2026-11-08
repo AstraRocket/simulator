@@ -7,28 +7,15 @@ import { fmtSiteTime } from '../../i18n/format';
 import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
 import { smallButton } from '../common/smallButton';
 
-/** How often the "old forecast" check is looked at again. */
 const TICK_MS = 60_000;
 
-/**
- * Where a simulation's weather came from: the forecast's hour and place, when
- * it was fetched, Open-Meteo's credit, and anything since that makes it read
- * differently (an edit, a moved site, a newer forecast likely). Shown on the
- * Atmosphere card, where Refresh reopens the Weather dialog on the same date,
- * hour and groups, and in the Results Environment view, which has no Refresh.
- */
 export function WeatherSourceLine({
   launch,
   onRefresh,
   summary = true,
 }: {
   launch: LaunchConditions;
-  /**
-   * The "forecast for … at …, fetched …" sentence. The Environment view leaves
-   * it out: its own row already shows the date, time and coordinates.
-   */
   summary?: boolean;
-  /** Absent where the Weather dialog is not offered. */
   onRefresh?: () => void;
 }) {
   const { t } = useTranslation();
@@ -69,8 +56,7 @@ export function WeatherSourceLine({
           {t('weather.source.refresh')}
         </button>
       )}
-      {/* CC BY 4.0 asks for the credit wherever the data is shown, and this
-          line goes wherever values from it are. */}
+      {/* CC BY 4.0 requires the credit wherever the data is shown. */}
       <OpenMeteoCredit />
     </div>
   );

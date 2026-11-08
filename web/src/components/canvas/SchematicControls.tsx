@@ -3,20 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { IMAGE_FORMAT_EXT, schematicSvg, svgToImage, type ExportData } from '../../services/exports/schematicExport.js';
 import { download, exportFilename } from '../../services/files/saveFile.js';
 import { ImageExportMenu } from './ImageExportMenu.js';
-import type { ZoomState } from '../../tree/schematicGeometry';
-import { ZoomButtons } from './ZoomButtons';
 import { errorText } from '../../i18n/keyedError';
 import { token } from '../common/colorTokens';
 import { SvgExportButton } from './SvgExportButton';
+import { ToolDivider } from './ViewBtn';
 
-/**
- * The TreeSchematic control strip: SVG / image export, the two caliper
- * toggles, and the shared zoom buttons (`ZoomButtons`). The schematic decides where the
- * strip renders (over the drawing or portaled into the pane header) and owns
- * the state the buttons change; this file is the buttons.
- */
-
-/** A caliper's two ends, in model meters. */
+// Model meters.
 type Caliper = { a: number; b: number } | null;
 
 export function SchematicControls({
@@ -32,14 +24,8 @@ export function SchematicControls({
   caliperV,
   setCaliperH,
   setCaliperV,
-  zoom,
-  setZoom,
-  zoomBy,
 }: {
-  /** The drawing the export buttons serialize. Read only inside the click
-   *  handlers, never during render. */
   svgRef: RefObject<SVGSVGElement | null>;
-  /** When set, the SVG / image export buttons appear. */
   exportData?: ExportData;
   onError?: (message: string) => void;
   scale: number;
@@ -51,9 +37,6 @@ export function SchematicControls({
   caliperV: Caliper;
   setCaliperH: Dispatch<SetStateAction<Caliper>>;
   setCaliperV: Dispatch<SetStateAction<Caliper>>;
-  zoom: ZoomState;
-  setZoom: Dispatch<SetStateAction<ZoomState>>;
-  zoomBy: (f: number) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -85,6 +68,7 @@ export function SchematicControls({
               }
             }}
           />
+          <ToolDivider />
         </>
       )}
       <button
@@ -95,7 +79,8 @@ export function SchematicControls({
         style={caliperH ? { background: 'var(--accent)', color: token('on-accent') } : undefined}
         onClick={() => setCaliperH((c) => (c ? null : { a: totalLen * 0.2, b: totalLen * 0.8 }))}
       >
-        ⟺
+        <span aria-hidden>↔</span>
+        <span className="hidden @[63rem]/bar:inline">{t('schematic.caliperLength')}</span>
       </button>
       <button
         className="file-btn"
@@ -105,9 +90,9 @@ export function SchematicControls({
         style={caliperV ? { background: 'var(--accent)', color: token('on-accent') } : undefined}
         onClick={() => setCaliperV((c) => (c ? null : { a: maxR, b: -maxR }))}
       >
-        ⇕
+        <span aria-hidden>↕</span>
+        <span className="hidden @[63rem]/bar:inline">{t('schematic.caliperDiameter')}</span>
       </button>
-      <ZoomButtons zoom={zoom} setZoom={setZoom} zoomBy={zoomBy} />
     </>
   );
 }

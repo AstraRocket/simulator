@@ -8,7 +8,7 @@ import {
   peakOf,
   rangeOf,
   timeSeriesSummary,
-  velocityAltitudeSummary,
+  xySummary,
 } from '../../../src/components/canvas/chartSummary';
 import { localeTranslator } from '../../testing/localeTranslator';
 import i18n from '../../../src/i18n';
@@ -16,11 +16,6 @@ import ja from '../../../src/i18n/locales/ja.json';
 import en from '../../../src/i18n/locales/en.json';
 import de from '../../../src/i18n/locales/de.json';
 
-/**
- * The sentences a screen reader hears for each chart, in place of the drawing.
- * Built from real locale strings, so a renamed key or a lost placeholder fails
- * here rather than reaching a reader as a raw key.
- */
 const t = localeTranslator(en);
 
 describe('peakOf and rangeOf', () => {
@@ -106,13 +101,11 @@ describe('eventsSummary', () => {
   });
 });
 
-describe('velocityAltitudeSummary', () => {
-  it('states the top speed and the altitude it was reached at', () => {
-    const fmt = { velocity: (v: number) => `${v} m/s`, altitude: (a: number) => `${a} m` };
-    const line = { name: 'S', alt: [0, 40, 120, 300], vel: [0, 60, 95, 10] };
-    expect(velocityAltitudeSummary(t, 'Velocity vs altitude', [line], fmt)).toBe(
-      'Velocity vs altitude: top speed 95 m/s at 120 m',
-    );
+describe('xySummary', () => {
+  it('states the peak and the x it was reached at', () => {
+    const fmt = { y: (v: number) => `${v} m/s`, x: (a: number) => `${a} m` };
+    const line = { name: 'S', xs: [0, 40, 120, 300], ys: [0, 60, 95, 10] };
+    expect(xySummary(t, 'Velocity vs altitude', [line], fmt)).toBe('Velocity vs altitude: peak 95 m/s at 120 m');
   });
 });
 

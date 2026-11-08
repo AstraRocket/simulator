@@ -4,11 +4,6 @@ import { resolve } from 'node:path';
 import { DEFAULT_FILLET_MATERIAL, withFilletDefault } from '../../../src/services/design/filletDefault';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
-/**
- * A fillet added in the app starts as epoxy paste, not desktop's default
- * Cardboard. A fillet from a file, or one that already has a material, keeps
- * what it has.
- */
 const fin = (extra: Record<string, unknown> = {}) =>
   ({ id: 'f', type: 'trapezoidfinset', ...extra }) as unknown as ComponentNode;
 

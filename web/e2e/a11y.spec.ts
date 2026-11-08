@@ -9,11 +9,6 @@ import { DESIGN_VIEWS, RESULT_VIEWS, type ViewMode } from '../src/state/tabs';
 import { STORAGE_PREFIX, nsKey } from '../src/services/storage/storageKeys';
 import type { HeaderDialog, LibraryTab, SettingsTab } from '../src/components/layout/dialogKeys';
 
-/*
- * The names of every dialog tab, keyed by the type the app switches on, as the
- * view names in axe.ts are.
- */
-
 const SETTINGS: Record<SettingsTab, string> = {
   general: 'General',
   units: 'Units',
@@ -23,56 +18,42 @@ const SETTINGS: Record<SettingsTab, string> = {
   sketch: 'Sketch',
   sim: 'Simulation',
   launch: 'Launch',
+  flyer: 'Flyer',
 };
 const LIBRARY: Record<LibraryTab, string> = { mine: 'My rockets', examples: 'Examples' };
 
 const keys = <K extends string>(r: Record<K, unknown>): K[] => Object.keys(r) as K[];
 
-/** One scan: what to open. A view that reads a flight result runs one first. */
 interface Scan {
   name: string;
   open: (page: Page) => Promise<void>;
-  /** The work-in-progress notice, for the one scan that is of the notice. */
   wip?: WipState;
-  /**
-   * A state of the app before or without the engine: `open` loads the page
-   * itself, and the scan does not wait for the engine first.
-   */
   boot?: true;
 }
 
-/**
- * Switch the center pane to one of the tab's views and wait for it to draw.
- * The 3D views load their renderer on demand, and axe run over the
- * placeholder would scan text that is about to go away.
- */
 async function openView(page: Page, view: ViewMode): Promise<void> {
   await press(page, VIEW[view]);
   await expect(page.getByText('Loading 3D…')).toHaveCount(0);
 }
 
-/** Open the Aero view and wait for the sweep, so axe reads the charts rather than "Computing…". */
 async function openAero(page: Page): Promise<void> {
   await openTab(page, 'Design');
   await openView(page, 'drag');
   await aeroChartsDrawn(page);
 }
 
-/** Choose a menu entry, expanding its submenu first when it has one. */
 async function menu(page: Page, item: string, parent?: 'Import' | 'Export'): Promise<void> {
   await page.getByRole('button', { name: 'Menu' }).click();
   if (parent) await page.getByRole('menuitem', { name: parent, exact: true }).click();
   await page.getByRole('menuitem', { name: item }).click();
 }
 
-/** The open dialog, once it is on screen. */
 async function dialogOpen(page: Page, name?: string) {
   const dialog = name ? page.getByRole('dialog', { name }) : page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   return dialog;
 }
 
-/** Open a dialog from the menu and wait for it. */
 const fromMenu =
   (item: string, parent?: 'Import' | 'Export') =>
   async (page: Page): Promise<void> => {
@@ -80,17 +61,10 @@ const fromMenu =
     await dialogOpen(page);
   };
 
-// Playwright's cwd is web/, as in help-dialog.spec.ts.
+// Playwright's cwd is web/.
 const docsBuilt = existsSync('public/docs/index.html');
 
-/**
- * The Help dialog opened from the menu on `item`, with its page shown and
- * settled. The docs frame stays transparent until it is ready, and the docs
- * site animates its colors as it takes the theme, so a scan that does not wait
- * reads either the loading line or colors partway through a transition. In CI
- * the docs are built before the scans; missing there, the scan fails rather
- * than passing on the "not part of this copy" note.
- */
+// Waits out the frame's theme transition, or axe reads colors mid-transition.
 async function helpOpen(page: Page, item: 'Help' | 'Safety') {
   await menu(page, item);
   const dialog = await dialogOpen(page);
@@ -116,7 +90,6 @@ async function helpOpen(page: Page, item: 'Help' | 'Safety') {
   return dialog;
 }
 
-/** The motor dashboard with two motors checked, which is what Compare and Combine work on. */
 async function dashboardWithTwo(page: Page) {
   await menu(page, 'Motor Dashboard');
   const dialog = await dialogOpen(page);
@@ -126,7 +99,6 @@ async function dashboardWithTwo(page: Page) {
   return dialog;
 }
 
-/** Answer Open-Meteo locally, as weather.spec.ts does, so nothing leaves the machine. */
 async function answerOpenMeteo(page: Page): Promise<void> {
   await page.route(/open-meteo\.com/, async (route) => {
     const url = route.request().url();
@@ -143,36 +115,19 @@ async function answerOpenMeteo(page: Page): Promise<void> {
   });
 }
 
-/** Open the app with the engine download held open, never answered, as a stalled network does. */
 async function engineStalled(page: Page): Promise<void> {
   await page.route(/openrocket-engine|\.wasm/, () => undefined);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 }
 
-/** Open the app with the engine download refused. */
 async function engineFailed(page: Page): Promise<void> {
   await page.route(/openrocket-engine|\.wasm/, (route) => route.abort());
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByText('The physics engine could not be loaded.').first()).toBeVisible({ timeout: 20_000 });
 }
 
-/**
- * A deploy, played locally. Once the first worker is active, the page is
- * reloaded so that worker controls it, as it does for anyone who has visited
- * before. The registration is then given sw.js again under a query; the route
- * serves it naming a build script with the next id, and serves that script as
- * the shipped one with its build id raised. The browser installs it beside the
- * running worker and leaves it waiting as a newer build, which raises the
- * update banner.
- *
- * Controlled first: on a page no worker controls (a first visit) the browser
- * activates the new worker almost at once, and the app's question to the
- * waiting worker can go unanswered in the switch.
- *
- * A new script URL rather than `update()`: the browser's update check of the
- * same URL does not pass through the context's routes, so it would fetch the
- * shipped sw.js and find nothing new.
- */
+// The page must be controlled first, or the browser activates the new worker at once.
+// A new script URL rather than `update()`: the update check bypasses the context's routes.
 async function updateWaiting(page: Page): Promise<void> {
   let shipped = '';
   await page.context().route(/\/sw\.js(\?.*)?$/, async (route) => {
@@ -204,7 +159,6 @@ async function updateWaiting(page: Page): Promise<void> {
   await expect(page.getByText('A new version is available.')).toBeVisible({ timeout: 30_000 });
 }
 
-/** The 3D view with its code missing, as on a stale deploy: the view's fallback in its place. */
 async function viewFallback(page: Page): Promise<void> {
   await page.route(/\/assets\/Rocket3D-[^/]*\.js$/, (route) => route.abort());
   await ready(page);
@@ -213,13 +167,6 @@ async function viewFallback(page: Page): Promise<void> {
   await expect(page.getByRole('alert').filter({ hasText: /Reload/ })).toBeVisible({ timeout: 20_000 });
 }
 
-/**
- * The screens that come up only when something goes wrong or changes under the
- * app: the engine banner while it loads, once it is stuck and when it failed;
- * the update banner; and the fallback a view shows when its code cannot load.
- * Every other scan waits for the engine first, so none of these is on screen in
- * any of them.
- */
 const BOOT: Scan[] = [
   {
     name: 'Engine banner / loading',
@@ -242,7 +189,6 @@ const BOOT: Scan[] = [
   { name: 'View fallback', boot: true, open: viewFallback },
 ];
 
-/** Every workbench screen: each tab, each view of its view switch, and each sub-tab or pane inside one. */
 const SCREENS: Scan[] = [
   ...keys(TWO_D).map((side): Scan => ({
     name: `Design / 2D / ${TWO_D[side]}`,
@@ -268,8 +214,6 @@ const SCREENS: Scan[] = [
         await press(page, AERO_PANE[pane]);
       },
     })),
-  // The per-component tables shade their cells, and each shading is a
-  // different ramp under the same text, so the pane is scanned once per shading.
   ...['By magnitude', 'By heat'].map((shading): Scan => ({
     name: `Design / Aero / Per component, ${shading}`,
     open: async (page) => {
@@ -296,14 +240,10 @@ const SCREENS: Scan[] = [
       await openTab(page, 'Simulations');
     },
   },
-  // Two ticked and not flown: running them switches to Results, so the
-  // editor's multi-edit banner is on screen only before a run.
   {
     name: 'Simulations / two ticked',
     open: ticked,
   },
-  // A design edit after a flight: the header carries the Outdated marker and
-  // the table rows say Outdated.
   {
     name: 'Results / outdated',
     open: async (page) => {
@@ -319,8 +259,6 @@ const SCREENS: Scan[] = [
     name: `Results / ${VIEW[view]}`,
     open: (page) => resultView(page, view),
   })),
-  // The alternate layouts a control switches to: the drawing over the whole
-  // window, one flight chart panel alone, and a dialog widened.
   {
     name: 'Design / whole window',
     open: async (page) => {
@@ -348,8 +286,6 @@ const SCREENS: Scan[] = [
     name: `Tools / ${TOOL[tool]}`,
     open: (page) => openTool(page, TOOL[tool]),
   })),
-  // What each tool shows once it has an answer: the landing card and its map,
-  // and the flight figures, flagged ones included.
   {
     name: 'Tools / Landing estimator / estimate',
     open: async (page) => {
@@ -361,7 +297,6 @@ const SCREENS: Scan[] = [
   },
 ];
 
-/** Two simulations, both ticked and neither flown, with the editor's multi-edit banner showing. */
 async function ticked(page: Page): Promise<void> {
   await openTab(page, 'Simulations');
   await page.getByRole('button', { name: 'Duplicate simulation' }).click();
@@ -369,7 +304,6 @@ async function ticked(page: Page): Promise<void> {
   await expect(page.getByRole('status').filter({ hasText: 'Editing 2 selected simulations.' })).toBeVisible();
 }
 
-/** Open one tool on the Tools tab. */
 async function openTool(page: Page, name: string): Promise<void> {
   await openTab(page, 'Tools');
   const tab = page.getByRole('tab', { name, exact: true });
@@ -377,7 +311,6 @@ async function openTool(page: Page, name: string): Promise<void> {
   await expect(tab).toHaveAttribute('aria-selected', 'true');
 }
 
-/** Open a tabbed dialog from the menu on one of its tabs. */
 async function dialogTab(page: Page, item: string, tab: string): Promise<void> {
   await menu(page, item);
   const dialog = await dialogOpen(page);
@@ -386,17 +319,12 @@ async function dialogTab(page: Page, item: string, tab: string): Promise<void> {
   await expect(button).toHaveAttribute('aria-selected', 'true');
 }
 
-/**
- * The dialogs the menu raises, keyed by the header's own list of them, so a
- * dialog added there has to be added here. The tabbed ones and the motor
- * dashboard are scanned per tab and per pane in DIALOG_SCANS.
- */
 const HEADER_DIALOGS: Record<Exclude<HeaderDialog, 'settings' | 'library' | 'motors'>, Scan['open']> = {
   report: fromMenu('Rocket Design Report'),
   about: fromMenu('About'),
   privacy: fromMenu('Privacy'),
   updates: fromMenu('Check for updates'),
-  examples: fromMenu('Import an example rocket', 'Import'),
+  examples: fromMenu('Import one of the examples', 'Import'),
   print: fromMenu('Export printable parts as 3MF', 'Export'),
   locations: fromMenu('Launch Locations'),
   parts: fromMenu('Custom Parts'),
@@ -406,42 +334,30 @@ const HEADER_DIALOGS: Record<Exclude<HeaderDialog, 'settings' | 'library' | 'mot
   saveAs: fromMenu('Save As…'),
 };
 
-/** A menu dialog's scan, under the name the header's list gives it. */
 const header = (id: keyof typeof HEADER_DIALOGS): Scan => ({ name: `Menu / ${id}`, open: HEADER_DIALOGS[id] });
 
-/** Open the Results tab on one of its views, after a flight to show. */
 async function resultView(page: Page, view: ViewMode): Promise<void> {
   await runFlight(page);
   await openTab(page, 'Results');
   await openView(page, view);
 }
 
-/** Select a part by its row in the tree. */
 async function selectPart(page: Page, name: string): Promise<void> {
   await openTab(page, 'Design');
   await page.getByRole('tree', { name: 'Components' }).locator(`[title="${name}"]`).first().click();
 }
 
-/** The flight path export dialog, over the 3D path view. */
 async function pathExport(page: Page) {
   await resultView(page, 'path');
   await page.getByTitle('Export flight path (KML / GPX / CSV)').click();
   return dialogOpen(page, 'Export flight path');
 }
 
-/*
- * The saved-item lists. On a fresh profile each shows only its empty-state
- * message, so the rows, the editors beside them and the warnings on them are
- * scanned only with something saved first. Each is saved the way a user saves
- * it.
- */
-
 const SAVED_PART = 'Bench tube';
 const BROKEN_PART = 'Bench tube with no sizes';
 const SAVED_DESIGN = 'Bench rocket';
 const SAVED_LOCATION = 'Bench field';
 
-/** Save the default rocket's body tube as a reusable part. */
 async function savePart(page: Page): Promise<void> {
   await selectPart(page, 'Body tube');
   await page.getByRole('button', { name: 'Save as part' }).click();
@@ -452,16 +368,11 @@ async function savePart(page: Page): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-/**
- * Store a copy of the saved part with no dimensions, as a store written by
- * another build or by hand can hold. No control in the app saves one: the
- * save refuses a part it could not list.
- */
+// Straight to the store: the app's own save refuses a part with no dimensions.
 async function storeBrokenPart(page: Page): Promise<void> {
   await savePart(page);
   await page.evaluate(
-    // The names are passed in: this function body is serialized and run in
-    // the page, where a module import does not reach.
+    // Passed in: this body runs serialized in the page, where imports do not reach.
     ([db, key, partNo]) =>
       new Promise<void>((resolve, reject) => {
         const req = indexedDB.open(db);
@@ -485,7 +396,6 @@ async function storeBrokenPart(page: Page): Promise<void> {
   );
 }
 
-/** Open Custom Parts and select one saved part, so its editor is open beside the list. */
 async function myPartsOn(page: Page, partNo: string) {
   await HEADER_DIALOGS.parts(page);
   const dialog = await dialogOpen(page, 'Custom Parts');
@@ -494,7 +404,6 @@ async function myPartsOn(page: Page, partNo: string) {
   return dialog;
 }
 
-/** Save the open design under a name of its own, so My rockets lists it. */
 async function saveDesign(page: Page): Promise<void> {
   await HEADER_DIALOGS.saveAs(page);
   const dialog = page.getByRole('dialog');
@@ -503,7 +412,6 @@ async function saveDesign(page: Page): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-/** Save a launch location from the menu's manager, and close it. */
 async function saveLocation(page: Page): Promise<void> {
   await HEADER_DIALOGS.locations(page);
   const dialog = page.getByRole('dialog', { name: 'Manage saved locations' });
@@ -518,13 +426,6 @@ async function saveLocation(page: Page): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-/**
- * Every dialog, keyed by the component that renders it (dialogSurfaces.ts,
- * which a unit test holds to the source), so a dialog the app gains fails the
- * typecheck until it is scanned here. Each is opened the way a user opens it:
- * from the menu, on each tab and pane of the tabbed ones, and from inside a
- * tab, a part's editor or another dialog.
- */
 const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
   SettingsDialog: keys(SETTINGS).map((tab): Scan => ({
     name: `Settings / ${SETTINGS[tab]}`,
@@ -545,8 +446,8 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
-  ExportDialog: [
-    header('report'),
+  ExportDialog: [header('report')],
+  ReportPrintSettings: [
     {
       name: 'Report / print settings',
       open: async (page) => {
@@ -621,13 +522,21 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       open: async (page) => {
         await menu(page, 'Motor Dashboard');
         const dialog = await dialogOpen(page);
-        // A motor with a curve: the grid draws before the catalog lands, and a
-        // row clicked before then is replaced under the click.
+        // The grid draws before the catalog lands; a row clicked earlier is replaced under the click.
         await dialog.getByPlaceholder(/Search by code/i).fill('C6');
         const row = dialog.locator('tbody tr').first();
         await expect(row).toContainText('C6');
         await row.click();
         await expect(dialog.getByText('View on ThrustCurve.org')).toBeVisible();
+      },
+    },
+    {
+      name: 'Motor Dashboard / Exhaust styles',
+      open: async (page) => {
+        await menu(page, 'Motor Dashboard');
+        const dialog = await dialogOpen(page);
+        await dialog.getByRole('button', { name: 'Exhaust styles', exact: true }).click();
+        await expect(dialog.getByRole('heading', { name: 'Dark smoke' })).toBeVisible();
       },
     },
     {
@@ -728,7 +637,17 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
-  // Under `2xl`, a laptop's width, the part editor is a dialog over the drawing.
+  FinFlutterReadout: [
+    {
+      name: 'Fin flutter',
+      open: async (page) => {
+        await selectPart(page, 'Trapezoidal fin set');
+        await page.getByRole('button', { name: 'Fin flutter…' }).click();
+        await dialogOpen(page, 'Fin flutter');
+      },
+    },
+  ],
+  // Under `2xl` the part editor is a dialog.
   ComponentDialog: [
     {
       name: 'Component editor',
@@ -770,6 +689,28 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  SimpleMotorGuide: [
+    {
+      name: 'Benchtop motor guide',
+      open: async (page) => {
+        await openTab(page, 'Benchtop');
+        for (const [label, value] of [
+          ['Body diameter', '2.48'],
+          ['Overall length', '45'],
+          ['Dry mass', '40'],
+          ['CG, no motor', '25'],
+          ['Motor mount diameter', '18'],
+        ] as const) {
+          const box = page.getByLabel(label, { exact: true });
+          await box.fill(value);
+          await box.blur();
+        }
+        await page.getByRole('button', { name: 'Motor guide' }).click();
+        const dialog = await dialogOpen(page);
+        await expect(dialog.getByRole('button', { name: /^Fly\b/ })).toBeVisible();
+      },
+    },
+  ],
   MotorGuideDialog: [
     {
       name: 'Motor guide',
@@ -777,7 +718,7 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
         await openTab(page, 'Simulations');
         await page.getByRole('button', { name: 'Motor guide' }).click();
         const dialog = await dialogOpen(page);
-        await expect(dialog.getByRole('button', { name: /^Fly\b/})).toBeVisible();
+        await expect(dialog.getByRole('button', { name: /^Fly\b/ })).toBeVisible();
       },
     },
   ],
@@ -797,7 +738,6 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
     {
       name: 'Find a place',
       open: async (page) => {
-        // Coordinates, so the one lookup is the elevation, answered locally.
         await answerOpenMeteo(page);
         await openTab(page, 'Simulations');
         await page.getByRole('button', { name: 'Find a place' }).first().click();
@@ -829,7 +769,7 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       name: 'Flight data CSV',
       open: async (page) => {
         await resultView(page, 'flight');
-        await page.getByRole('button', { name: 'Download flight data (.csv)' }).first().click();
+        await page.getByRole('button', { name: 'Download flight data as CSV' }).first().click();
         await dialogOpen(page);
       },
     },
@@ -874,34 +814,23 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
   ],
 };
 
-/** Open a popup by its trigger and wait for the menu it opens. */
 async function openMenu(page: Page, trigger: ReturnType<Page['getByRole']>): Promise<void> {
   await trigger.click();
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('menu').first()).toBeVisible();
 }
 
-/** Turn a disclosure from the state the page opens it in to the other. */
 async function toggle(fold: ReturnType<Page['getByRole']>): Promise<void> {
   const was = await fold.getAttribute('aria-expanded');
   await fold.click();
   await expect(fold).toHaveAttribute('aria-expanded', was === 'true' ? 'false' : 'true');
 }
 
-/** Open a native `<details>` by its summary and wait for it to be open. */
 async function openDetails(summary: ReturnType<Page['locator']>): Promise<void> {
   await summary.click();
   await expect(summary.locator('xpath=..')).toHaveAttribute('open', '');
 }
 
-/**
- * Every popup and disclosure, keyed by the component that renders it
- * (popupSurfaces.ts, which a unit test holds to the source), each scanned in
- * a state the page does not open in: a menu or a panel opened, a fold that
- * starts open folded. The import notes are the exception: they open by default
- * and are scanned open. A popup the app gains fails the typecheck until it is
- * here.
- */
 const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
   CheckMenu: [
     {
@@ -936,7 +865,6 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       name: 'Popup / component list folded',
       open: async (page) => {
         await openTab(page, 'Design');
-        // By title, which names the list and says which way it turns.
         await toggle(page.getByTitle(/the component list/));
       },
     },
@@ -948,6 +876,15 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
         const row = tree.locator('[role="treeitem"][aria-expanded="true"]').first();
         await row.getByRole('button', { name: 'Collapse' }).click();
         await expect(tree.locator('[role="treeitem"][aria-expanded="false"]').first()).toBeVisible();
+      },
+    },
+  ],
+  DesignNotesSection: [
+    {
+      name: 'Popup / design notes',
+      open: async (page) => {
+        await openTab(page, 'Design');
+        await toggle(page.getByRole('button', { name: 'Design notes', exact: true }));
       },
     },
   ],
@@ -1020,11 +957,23 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
+  RecoveryBaysPane: [
+    {
+      name: 'Popup / stage bays folded',
+      open: async (page) => {
+        await openTab(page, 'Configurations');
+        await page
+          .getByRole('navigation', { name: 'Flight configurations' })
+          .getByRole('button', { name: CONFIGS.bays, exact: true })
+          .click();
+        await toggle(page.locator('h3 > button[aria-expanded]').first());
+      },
+    },
+  ],
   ResultPicker: [
     {
       name: 'Popup / flight picker',
       open: async (page) => {
-        // The picker is there once one run has flown two simulations.
         await ready(page);
         await openTab(page, 'Simulations');
         await page.getByRole('button', { name: 'Duplicate simulation' }).click();
@@ -1034,17 +983,29 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
-  SimSummary: [
+  SafetyCard: [
     {
       name: 'Popup / safety card folded',
       open: async (page) => {
         await runFlight(page);
         await openTab(page, 'Results');
-        // Folding it asks for an acknowledgment first.
         const fold = page.getByRole('button', { name: 'Before you fly' }).first();
         await fold.click();
         await page.getByRole('alertdialog').getByRole('button', { name: 'I understand' }).click();
         await expect(fold).toHaveAttribute('aria-expanded', 'false');
+      },
+    },
+  ],
+  SimpleHelp: [
+    {
+      name: 'Popup / Benchtop help open',
+      open: async (page) => {
+        // Under xl the help is a fold.
+        await page.setViewportSize({ width: 1100, height: 950 });
+        await openTab(page, 'Benchtop');
+        const help = page.locator('details').filter({ hasText: 'How it works' });
+        await help.locator('summary').click();
+        await expect(help).toHaveAttribute('open', '');
       },
     },
   ],
@@ -1053,19 +1014,22 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       name: 'Popup / statistics folded',
       open: async (page) => {
         await openTab(page, 'Design');
-        await toggle(page.getByRole('button', { name: /Static statistics/ }).first());
+        await toggle(
+          page
+            .getByRole('button')
+            .filter({ has: page.getByText('Information', { exact: true }) })
+            .first(),
+        );
       },
     },
   ],
 };
 const POPUPS: Scan[] = keys(POPUP_SCANS).flatMap((id) => POPUP_SCANS[id]);
 
-// A component with two popups needs two scans.
 for (const id of keys(POPUP_SCANS)) {
   if (POPUP_SCANS[id].length < POPUP_SURFACES[id]) throw new Error(`${id} renders more popups than are scanned`);
 }
 
-// A component with two dialogs needs two scans, and a menu dialog its own.
 for (const id of keys(DIALOG_SCANS)) {
   if (DIALOG_SCANS[id].length < DIALOG_SURFACES[id]) throw new Error(`${id} renders more dialogs than are scanned`);
 }
@@ -1074,18 +1038,6 @@ for (const id of keys(HEADER_DIALOGS)) {
   if (!DIALOGS.some((d) => d.name === `Menu / ${id}`)) throw new Error(`the menu's ${id} dialog is not scanned`);
 }
 
-/**
- * Every view through axe, in every theme. Contrast is the part the JSX lint
- * cannot see: it depends on the theme's tokens and the surface under the text,
- * so each theme is its own scan. The theme attribute is set directly; the
- * setting that normally sets it is covered in daylight-toggle.spec.ts.
- *
- * One test per theme and view, so the scans spread across the workers. An
- * axe pass over a screen with a live WebGL canvas takes several seconds on a
- * CI runner software-rendering it, after the engine boot and, for a view that
- * reads a result, a flight run. The part editors are one test per theme: one
- * page load, each part selected in turn.
- */
 for (const theme of THEMES) {
   test.describe(`axe in the ${theme} theme`, () => {
     for (const scan of [...SCREENS, ...DIALOGS, ...POPUPS, ...BOOT]) {
@@ -1093,8 +1045,6 @@ for (const theme of THEMES) {
         if (scan.wip) test.use({ wip: scan.wip });
         const themed = (page: Page) =>
           page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
-        // A boot scan loads the page itself; every other one opens on the app
-        // with the engine up.
         const start = scan.boot
           ? async (page: Page) => {
               await scan.open(page);
@@ -1128,11 +1078,6 @@ for (const theme of THEMES) {
   });
 }
 
-/**
- * Keyboard and screen-reader reachability: modals close from the keyboard,
- * state is exposed rather than shown by color alone, and controls that sit
- * together carry distinct accessible names.
- */
 test.describe('accessibility', () => {
   test('the export dialog closes on Escape and names its close button', async ({ page }) => {
     await page.goto('/');
@@ -1142,10 +1087,8 @@ test.describe('accessibility', () => {
     const dialog = page.getByRole('dialog').first();
     await expect(dialog).toBeVisible();
 
-    // The close button carries a real accessible name, not just the ✕ glyph.
     await expect(dialog.getByRole('button', { name: 'Close' })).toBeVisible();
 
-    // An aria-modal overlay must have a keyboard way out.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
   });
@@ -1158,21 +1101,12 @@ test.describe('accessibility', () => {
 
     const tabs = page.getByRole('tab');
     expect(await tabs.count()).toBeGreaterThan(1);
-    // Exactly one selected, and which one is exposed rather than implied by a
-    // background color.
     await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
   });
 
   test('unit chips in the stats strip have distinct accessible names', async ({ page }) => {
     await page.goto('/');
 
-    // Four of these are the length quantity (length, max diameter, CG, CP) and
-    // two are mass. Named by quantity alone they would announce identically, so
-    // each carries its own tile's name.
-    //
-    // Scoped to the strip: "Length unit" also exists in the launch panel (the
-    // rod's length), which is a separate cross-panel collision and not what
-    // this pins.
     const strip = page.locator('div.grid').filter({ hasText: 'Max diameter' }).first();
     const names = await strip.evaluate((el) =>
       [...el.querySelectorAll('select[aria-label]')].map((s) => s.getAttribute('aria-label') || ''),
@@ -1184,11 +1118,6 @@ test.describe('accessibility', () => {
   test('no two unit chips on one screen announce the same name', async ({ page }) => {
     await page.goto('/');
 
-    // The whole workbench at once: the stats strip, the property panel and the
-    // launch panel each mint unit chips, and they must not collide across panels:
-    // two "Length unit"s (the rod's and the rocket's) or two "Direction unit"s
-    // (the rod's and the wind's) on screen together are indistinguishable to
-    // anyone navigating by name.
     await expect(page.getByText('Max diameter')).toBeVisible();
     const names = await page.evaluate(() =>
       [...document.querySelectorAll('select[aria-label]')]
@@ -1200,11 +1129,6 @@ test.describe('accessibility', () => {
     expect(dupes, `duplicate unit chip names: ${[...new Set(dupes)].join(', ')}`).toEqual([]);
   });
 
-  /**
-   * An `aria-modal` dialog needs a focus trap and focus restore (`useFocusTrap`):
-   * without them Tab walks out into the page behind the overlay and the trigger
-   * loses focus on close.
-   */
   test('a modal keeps Tab inside it and hands focus back on close', async ({ page }) => {
     await page.goto('/');
 
@@ -1215,7 +1139,6 @@ test.describe('accessibility', () => {
     const dialog = page.getByRole('dialog').first();
     await expect(dialog).toBeVisible();
 
-    // Tab all the way round; focus must never leave the panel.
     for (let i = 0; i < 12; i++) {
       await page.keyboard.press('Tab');
       const inside = await dialog.evaluate((el) => el.contains(document.activeElement));
@@ -1230,18 +1153,10 @@ test.describe('accessibility', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Menu' }).click();
 
-    // Both submenus can be open at once, so two entries reading "OpenRocket
-    // (.ork)" are ambiguous to a screen reader and a strict-mode violation for
-    // getByRole.
     await page.getByRole('menuitem', { name: /^Import$/ }).click();
     await expect(page.getByRole('menuitem', { name: 'Import OpenRocket (.ork)' })).toBeVisible();
   });
 
-  /**
-   * The drag curves and the flight charts show their values at a crosshair.
-   * The crosshair must be movable from the keyboard as well as by pointer, or
-   * those values are unreachable without a mouse.
-   */
   test('the aero chart crosshair can be driven from the keyboard', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Aero', exact: true }).click();
@@ -1249,24 +1164,17 @@ test.describe('accessibility', () => {
     const chart = page.getByRole('group', { name: /arrow keys to move the crosshair/i }).first();
     await expect(chart).toBeVisible();
 
-    // Focusing alone plants the crosshair, so there is something to read at once.
     await chart.focus();
-    // The crosshair line carries a data hook so the test does not depend on
-    // its color class.
     const crosshair = () => page.locator('svg line[data-crosshair]');
-    // Count, not visibility: a 1px SVG <line> has no meaningful bounding box,
-    // so Playwright reports it hidden even while it is drawn and positioned.
-    // One per chart card: hoverM is shared, so all three track together.
+    // Count, not visibility: Playwright reports a 1px SVG <line> hidden even when drawn.
     expect(await crosshair().count()).toBeGreaterThan(0);
 
-    // Arrowing moves it: the line's x must change.
     const xAt = async () => crosshair().first().getAttribute('x1');
     const start = await xAt();
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     expect(await xAt()).not.toBe(start);
 
-    // Home and End reach the ends, and Escape puts it away.
     await page.keyboard.press('Home');
     const home = await xAt();
     await page.keyboard.press('End');
@@ -1283,17 +1191,13 @@ test.describe('accessibility', () => {
     const charts = page.getByRole('group', { name: /arrow keys to move the crosshair/i }).first();
     await expect(charts).toBeVisible();
 
-    // The announcement is a live region that speaks on a key step only, so a
-    // pointer sweep does not flood a reader; its text is what a reader hears.
     const readout = page.locator('[role="status"][aria-live="polite"]').filter({ hasText: /\d/ }).first();
     await charts.focus();
     await page.keyboard.press('ArrowLeft');
     await expect(readout).toHaveText(/\d/);
     const mid = defined(await readout.textContent(), 'the crosshair announcement');
 
-    // Web-first (`toHaveText` retries) rather than a one-shot `textContent()`
-    // compare: the region updates after the keypress, and a read taken before
-    // it would compare the text with itself.
+    // Retrying `toHaveText`: the region updates after the keypress.
     await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('ArrowLeft');
     await expect(readout).not.toHaveText(mid);
@@ -1305,12 +1209,6 @@ test.describe('accessibility', () => {
     await expect(readout).not.toHaveText(atStart);
   });
 
-  /**
-   * Each chart states its numbers in words for a screen reader: a flight panel
-   * its peak and when, the flight's events in order, and a drag chart each
-   * curve's peak and its Mach number. Without these, the only way to hear a
-   * value is to walk the crosshair sample by sample.
-   */
   test('the charts describe themselves to a screen reader', async ({ page }) => {
     await page.goto('/');
     await runFlight(page);
@@ -1318,7 +1216,6 @@ test.describe('accessibility', () => {
     await expect(page.getByRole('img', { name: /^Altitude: peak \S+ m at [\d.]+ s$/ })).toBeVisible();
     await expect(page.getByText(/^Events: .*Apogee at [\d.]+ s/)).toHaveCount(1);
 
-    // The drag charts are a design view, on the Design tab.
     await openTab(page, 'Design');
     await page.getByRole('button', { name: 'Aero', exact: true }).click();
     await expect(page.getByRole('img', { name: /peak .* at Mach [\d.]+/ }).first()).toBeVisible();

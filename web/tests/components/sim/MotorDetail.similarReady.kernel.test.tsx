@@ -11,12 +11,6 @@ import type { CatalogMotor } from '../../../src/services/motors/motorDb';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * "Hide very similar thrust curves" filters the curve list once the engine
- * arrives, when the picker opened before it. Which curve is a near duplicate is
- * the kernel's MotorCorrelation through the bridge, against desktop's 0.95.
- */
-
 const curve = (src: string, pts: [number, number][]) => ({ src, samples: pts });
 const SHOWN: [number, number][] = [
   [0, 0],

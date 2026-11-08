@@ -1,23 +1,6 @@
-// Which of desktop's entries behind one motor name is the motor the app flies.
-//
-// Desktop can hold several entries under one manufacturer and designation that
-// the delay does not tell apart, and they can differ in launch mass by a
-// kilogram while their curves are near equal (AeroTech L339N is 3.15 kg and
-// 4.5 kg). So the entries are ranked on launch mass first, against the loaded
-// mass the app flies, and then on total impulse, burn time and peak thrust,
-// against the curve the app flies. Both sides come from the flown data: the
-// entry's from desktop's own motor object (motor-digests/MotorDump.java), the
-// row's from the bundled curve the picker seats by default
-// (`motorSpec.ts` builds a bundled motor from `curves[0]` and `mass`).
-
-/** The kernel's `Motor.MARGINAL_THRUST` (core/.../motor/Motor.java:67). */
+/** `Motor.MARGINAL_THRUST` (core/.../motor/Motor.java:67). */
 const MARGINAL_THRUST = 0.05;
 
-/**
- * Launch masses this close, relative, are one mass: both databases state a
- * mass to a few figures, so a smaller gap says nothing about which motor it is,
- * and the curve decides.
- */
 const SAME_MASS = 0.01;
 
 /** `MathUtil.equals` (core/.../util/MathUtil.java), as `mathEquals.ts` ports it. */
@@ -28,18 +11,10 @@ function equals(a, b) {
   return Math.abs(a - b) < eps * absb;
 }
 
-/** `MathUtil.map`: `value` from [fromMin, fromMax] onto [toMin, toMax]. */
 const map = (value, fromMin, fromMax, toMin, toMax) =>
   toMin + ((value - fromMin) * (toMax - toMin)) / (fromMax - fromMin);
 
-/**
- * `[time, thrust]` samples as the kernel flies them, the steps of
- * `finalizeCurve` (src/services/motors/curveFinalize.ts): sorted by time, ties
- * in file order; a zero-thrust point added at t = 0 when there is none; the
- * first of two points at t = 0 dropped; exact repeats dropped; of two final
- * points at one time the zero one dropped; and a step at one instant keeping
- * the later value.
- */
+/** Mirrors `finalizeCurve` (src/services/motors/curveFinalize.ts); keep the steps in sync. */
 function finalizeSamples(samples) {
   const pts = samples.map(([t, f], i) => ({ t, f, i })).sort((a, b) => a.t - b.t || a.i - b.i);
   if (!pts.length) return [];
@@ -56,13 +31,7 @@ function finalizeSamples(samples) {
   return pts.filter((p, i) => i === pts.length - 1 || !equals(p.t, pts[i + 1].t)).map((p) => [p.t, p.f]);
 }
 
-/**
- * Total impulse, burn time and peak thrust of a finalized curve, as
- * `ThrustCurveMotor.computeStatistics` states them
- * (core/.../motor/ThrustCurveMotor.java:707-795): burn between the crossings
- * of 5% of peak, impulse by trapezoids over the whole curve. Null for a curve
- * the kernel could not compute them for.
- */
+/** `ThrustCurveMotor.computeStatistics` (core/.../motor/ThrustCurveMotor.java:707-795). */
 function curveStatistics(curve) {
   if (curve.length < 2) return null;
   const time = curve.map((p) => p[0]);
@@ -96,11 +65,7 @@ function curveStatistics(curve) {
   return { impulse, burn: Math.max(burnEnd - burnStart, 0), maxThrust };
 }
 
-/**
- * What the app flies for a catalog row, in the terms the dump states an entry
- * in: launch mass (kg) and the statistics of the default curve. A figure the
- * row cannot give is undefined, and ranks nothing.
- */
+/** Launch mass in kg (the row's mass is grams). */
 export function flownMotor(row) {
   const samples = row.curves?.[0]?.samples;
   const stats = samples?.length ? curveStatistics(finalizeSamples(samples)) : null;
@@ -115,12 +80,6 @@ export function flownMotor(row) {
 const relative = (ours, theirs) =>
   Number.isFinite(ours) && Number.isFinite(theirs) && ours !== 0 ? Math.abs(theirs - ours) / Math.abs(ours) : 0;
 
-/**
- * How far one dumped entry is from what the app flies, as `[mass, curve]`,
- * compared in that order: the launch mass's relative error (zero within
- * {@link SAME_MASS}), then the summed relative error over impulse, burn and
- * peak thrust.
- */
 function entryDistance(entry, flown) {
   const mass = relative(flown.launchMass, entry.launchMass);
   return [
@@ -131,15 +90,9 @@ function entryDistance(entry, flown) {
   ];
 }
 
-/** Order two `entryDistance` results, closest first. */
 const compareDistance = (a, b) => a[0] - b[0] || a[1] - b[1];
 
-/**
- * The dumped entries for one catalog row as the catalog stores them:
- * deduplicated by digest with the delays each offers merged, closest to what
- * the app flies first, and ties broken on the digest so a re-run writes the
- * same bytes.
- */
+/** Ties break on digest so reruns write the same bytes. */
 export function rankEntries(entries, row) {
   const flown = flownMotor(row);
   const byDigest = new Map();

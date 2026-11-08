@@ -22,8 +22,6 @@ const ok = (json: unknown, status = 200) => Promise.resolve(new Response(JSON.st
 beforeEach(() => resetWeatherState());
 
 describe('forecastStart', () => {
-  // The clock moves between reads. One instant, so a call a hair before
-  // midnight cannot pair today's date with the hour after it.
   it('takes the date and the hour from one instant', () => {
     let now = new Date(2026, 9, 24, 22, 59, 59, 999).getTime();
     const spy = vi.spyOn(Date, 'now').mockImplementation(() => now++);
@@ -114,6 +112,16 @@ describe('parseForecast', () => {
     expect(s.heightWinds.map((h) => h.heightM)).toEqual([80, 120, 180]);
     expect(s.levels).toHaveLength(PRESSURE_LEVELS.length);
     expect(s.levels[0]).toMatchObject({ pressureHPa: 1000, windSpeed: 10, humidityPct: 30 });
+  });
+
+  it('places each pressure level at its geometric height, not the geopotential one', () => {
+    // The kernel's atmosphere reads altitudes as geometric (ExtendedISAModel),
+    // so a geopotential 24,000 m is flown at R·Z/(R − Z), about 91 m higher.
+    const body = answer(1600);
+    body.hourly['geopotential_height_30hPa'] = body.hourly['geopotential_height_30hPa']!.map(() => 24000);
+    const level = parseForecast(body, [1600])[0]!.samples[0]!.levels.find((l) => l.pressureHPa === 30)!;
+    expect(level.altitudeM).toBeCloseTo((6356766 * 24000) / (6356766 - 24000), 6);
+    expect(level.altitudeM! - 24000).toBeCloseTo(91, 0);
   });
   it('reads the sky readouts, and visibility only from the forecast', () => {
     const [v] = parseForecast(answer(1600), [1600]);

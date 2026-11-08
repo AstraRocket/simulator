@@ -1,26 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { buildFlightPathModel, defaultExportOptions, renderKml } from '../../../src/services/exports/flightPathExport';
+import { buildFlightPathModel, defaultExportOptions } from '../../../src/services/exports/flightPathExport';
+import { renderKml } from '../../../src/services/exports/flightPath/formats';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import en from '../../../src/i18n/locales/en.json';
 import { localeTranslator } from '../../testing/localeTranslator';
 
-/**
- * The KML balloons carry HTML, and the escaping is the subtle part of them, so
- * it is checked by actually parsing the file rather than by matching text.
- *
- * Its own file because that needs a DOM parser, and the rest of the export
- * suite runs in the default node environment.
- *
- * The rule the parse proves: the template writes its markup pre-escaped
- * (`&lt;b&gt;`) and does not wrap the balloon in CDATA. Mustache escapes every
- * substituted value, and inside a CDATA block the XML parser would not decode
- * those escapes, so a rocket named `Bill & Ted` would reach the balloon as the
- * literal text `Bill &amp; Ted`. Pre-escaped, the markup decodes to the tags
- * it means. A value is escaped twice, for HTML and then for XML, because the
- * decoded description is HTML: a name stays text in the balloon.
- */
+// No CDATA: the XML parser would not decode Mustache's escapes inside it. Values are escaped twice: HTML, then XML.
 
 const NAME = `Bill & Ted's <Excellent> Rocket`;
 
@@ -57,13 +44,9 @@ const kml = () =>
 describe('balloon HTML', () => {
   it('parses as XML, with the markup decoded to tags and the name still HTML-escaped', () => {
     const doc = new DOMParser().parseFromString(kml(), 'application/xml');
-    // A `]]>` in a name would have closed a CDATA block early; an unescaped
-    // `&` would break the document outright. Either shows up here.
     expect(doc.querySelector('parsererror')).toBeNull();
 
     const description = doc.getElementsByTagName('description')[0]!.textContent!;
-    // The parser hands back the HTML the template meant, with the name as
-    // HTML text: one more decode, by the balloon, gives the name the user typed.
     expect(description.startsWith(`<b>Rocket:</b> Bill &amp; Ted's &lt;Excellent&gt; Rocket<br/>`)).toBe(true);
   });
 
@@ -71,12 +54,8 @@ describe('balloon HTML', () => {
     const doc = new DOMParser().parseFromString(kml(), 'application/xml');
     const host = document.createElement('div');
     host.innerHTML = doc.getElementsByTagName('description')[0]!.textContent!;
-    // A bold label and a line break, because the template asked for them - not
-    // because the reader sees the characters `<b>` and `<br/>`.
     expect(host.querySelector('b')?.textContent).toBe('Rocket:');
     expect(host.querySelectorAll('br').length).toBeGreaterThan(1);
-    // The whole name comes through as the reader typed it, angle brackets
-    // included: they are text in the balloon, not an element.
     expect(host.textContent).toContain(`Rocket: ${NAME}`);
     expect(host.querySelector('Excellent')).toBeNull();
   });

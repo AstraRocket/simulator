@@ -15,11 +15,6 @@ import {
   type PdfPage,
 } from './pdfPage';
 
-/**
- * The design report: the title, the fit-to-page side view, the rocket's
- * name and stage count, and the summary grid for the whole rocket and (by
- * stage) each stage.
- */
 export function writeDesignSection(p: PdfPage, model: ReportModel, tree: RocketTree): void {
   sectionBreak(p);
   heading(p, p.t('report.title'));
@@ -34,14 +29,11 @@ function writeSideView(p: PdfPage, tree: RocketTree): void {
   const frame = pageFrame(p.PW, p.PH);
   const scale = sideViewScale(sv.w, sv.h, frame);
   ensure(p, sv.h * scale + 6);
-  // ensure() may have broken to a new page, so the origin is taken from the
-  // y that survived it, not the one the scale was computed against.
+  // ensure() may have broken to a new page, so take the origin from the new y.
   const { ox, oy } = sideViewOrigin(sv.w, sv.h, scale, p.y, frame);
   const line: [number, number, number] = [30, 30, 30];
   // +radius points up, and PDF y grows down, so y-scale is negated.
   for (const f of sv.fins) fillScaled(p, f, ox, oy, scale, -scale, [205, 205, 205], line);
-  // Strap-on boosters and pods, drawn beside the airframe exactly as the 2D
-  // schematic draws them. Before the body, so the core reads as in front.
   for (const pod of sv.pods) fillScaled(p, pod, ox, oy, scale, -scale, [218, 218, 218], line);
   fillScaled(p, sv.body, ox, oy, scale, -scale, [232, 232, 232], line);
   p.y += sv.h * scale + 6;

@@ -8,13 +8,7 @@ import type { Component, TubeComponent } from '../../../src/services/parts/compo
 import { loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/**
- * A catalog part that states an inner diameter of 0 is solid:
- * `ThicknessRingComponent.loadFromPreset` sets the wall to
- * (outer - inner) / 2 whenever the part states an inner diameter, so the
- * Estes NB-50 balsa nose block flies as a solid 24.13 mm by 25.4 mm cylinder
- * of balsa, π r² L ρ, not as a tube with the wall it had before.
- */
+// `ThicknessRingComponent.loadFromPreset` sets the wall to (outer - inner) / 2, so an inner diameter of 0 is solid.
 describe('a catalog coupler with an inner diameter of 0', () => {
   const rows = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/components.generated.json'), 'utf8'))
     .components as (Component & { partNo: string })[];

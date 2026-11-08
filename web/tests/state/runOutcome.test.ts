@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// The sim normally runs in a Web Worker pool; stub the client so a test decides
-// when, and how, each flight settles.
 const simulateMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/engine/simClient', async (orig) => ({
   ...(await orig<typeof import('../../src/engine/simClient')>()),
@@ -23,11 +21,6 @@ beforeEach(() => {
   st().resetWorkspace();
 });
 
-/**
- * A run reports how each row came out. The PDF export waits on it to decide
- * whether the report has fresh numbers, and a run that resolved the same way
- * for a landing and for a timeout would let it write the previous run's.
- */
 describe('run outcomes', () => {
   it('is landed when the flight comes back', async () => {
     simulateMock.mockResolvedValue(RESULT);
@@ -66,7 +59,6 @@ describe('run outcomes', () => {
     st().patchSelected({ length: 0.3 });
     release(RESULT);
     expect(await running).toBe('dropped');
-    // The row goes back to idle; left queued it would read as in flight forever.
     expect(st().simRuns[selectActive(st()).id]).toBeUndefined();
   });
 
@@ -90,11 +82,6 @@ describe('run outcomes', () => {
   });
 });
 
-/**
- * One batch at a time. A second one taking over the cancel handle and the busy
- * flag leaves the first unreachable by Cancel and the app reading idle while it
- * is still flying.
- */
 describe('a run started while another is in flight', () => {
   let calls: { opts: SimCallOptions; resolve: (r: FlightResult) => void; reject: (e: Error) => void }[];
 
@@ -114,11 +101,10 @@ describe('a run started while another is in flight', () => {
     expect(st().simBusy).toBe(true);
 
     expect(await st().runSim()).toBe('busy');
-    expect(calls).toHaveLength(1); // nothing new dispatched
+    expect(calls).toHaveLength(1);
     expect(st().err).toBeTruthy();
-    expect(st().simBusy).toBe(true); // the first is still flying
+    expect(st().simBusy).toBe(true);
 
-    // Cancel still reaches the first batch.
     st().cancelRun();
     expect(await first).toBe('canceled');
     expect(st().simBusy).toBe(false);
@@ -135,12 +121,6 @@ describe('a run started while another is in flight', () => {
   });
 });
 
-/**
- * A result describes the launch it was flown from. Editing the row's launch
- * after the run leaves the result readable and outdated, and the views that
- * describe the flight (the ground track's site, the air the flight met) must
- * still show the site it flew from, not the edited one.
- */
 describe('the flown launch', () => {
   it('stays with the result when the launch is edited afterward', async () => {
     simulateMock.mockResolvedValue(RESULT);

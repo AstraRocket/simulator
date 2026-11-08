@@ -24,21 +24,19 @@ const prefs: SimPrefs = {
   timeStep: 0.05,
   maxTime: 1200,
   maxAngleStep: deg2rad(3),
+  stepper: 'rk4',
   randomSeed: 42,
   deploymentSpeedWarn: 20,
   mainHighSpeedWarn: 30.48,
   mainLowSpeedWarn: 15.24,
   drogueLowSpeedWarn: 3.048,
-  // OpenRocket's own clearance model, which is the default.
   guideAwareRodClearance: false,
   railExitVelocityMin: 15,
 };
 
 describe('simConditions carries humidity, gravity and the angle step', () => {
   it('omits humidity entirely when it is ISA', () => {
-    // Not sent as the standard value: the bridge reads an absent key as NaN and
-    // only leaves standard ISA when temperature, pressure and humidity are all
-    // absent. Sending 0 would look like a deliberate bone-dry launch.
+    // The bridge keeps ISA only when all three keys are absent; 0 would be a bone-dry launch.
     expect(simConditions(base, prefs).relativeHumidity).toBeUndefined();
   });
 
@@ -47,7 +45,6 @@ describe('simConditions carries humidity, gravity and the angle step', () => {
   });
 
   it('sends humidity even when temperature and pressure stay ISA', () => {
-    // The case that keying the bridge off temperature/pressure alone would drop.
     const o = simConditions({ ...base, relativeHumidity: 0.8 }, prefs);
     expect(o.temperature).toBeUndefined();
     expect(o.pressure).toBeUndefined();
@@ -69,6 +66,12 @@ describe('simConditions carries humidity, gravity and the angle step', () => {
   it('leaves the angle step out when there are no prefs at all', () => {
     expect(simConditions(base).maxAngleStep).toBeUndefined();
   });
+
+  it('passes the stepper, and leaves it to the kernel when there are no prefs', () => {
+    expect(simConditions(base, prefs).stepper).toBe('rk4');
+    expect(simConditions(base, { ...prefs, stepper: 'rk6' }).stepper).toBe('rk6');
+    expect(simConditions(base).stepper).toBeUndefined();
+  });
 });
 
 describe('humidity, gravity and the Earth model round-trip through .ork', () => {
@@ -88,8 +91,6 @@ describe('humidity, gravity and the Earth model round-trip through .ork', () => 
   });
 
   it('leaves ISA once humidity alone is set', () => {
-    // Temperature and pressure are still null, so a both-or-ISA test would write
-    // model="isa" and throw the humidity away.
     const xml = exportOrk({ name: 'Opts', tree, launch: { ...base, relativeHumidity: 0.9 } });
     expect(xml).not.toContain('<atmosphere model="isa"/>');
     expect(xml).toContain('<baserelativehumidity>0.9</baserelativehumidity>');
@@ -116,10 +117,7 @@ describe('humidity, gravity and the Earth model round-trip through .ork', () => 
     expect(exportOrk({ name: 'Opts', tree, launch: base })).not.toContain('<gravity');
   });
 
-  // 24.12 has no gravity setting: upstream's <gravity model="constant"><value>
-  // makes it warn on <value> and misread the rest of the simulations block,
-  // while a <conditions> child it does not know is skipped without a warning
-  // (SimulationConditionsHandler). `npm run audit` opens such a file in 24.12.
+  // 24.12 misreads upstream's <gravity><value> but silently skips unknown <conditions> children.
   it('writes constant gravity as the bare pair desktop skips', () => {
     const xml = exportOrk({ name: 'Opts', tree, launch: { ...base, gravityModel: 'constant', constantGravity: 9.81 } });
     expect(xml).toMatch(/<gravitymodel>constant<\/gravitymodel>\s*<constantgravity>9\.81<\/constantgravity>/);
@@ -150,7 +148,6 @@ describe('humidity, gravity and the Earth model round-trip through .ork', () => 
   });
 
   it('keeps the Earth model that was chosen', () => {
-    // A writer that always wrote spherical would bring a WGS84 design back spherical.
     expect(roundTrip({ ...base, geodetic: 'wgs84' })?.geodetic).toBe('wgs84');
     expect(roundTrip({ ...base, geodetic: 'flat' })?.geodetic).toBe('flat');
   });

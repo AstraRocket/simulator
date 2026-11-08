@@ -23,18 +23,7 @@ beforeAll(async () => {
   __setEngineForTests(engine);
 });
 
-/**
- * RASAero's simulation block holds one launch weight and CG per stage, each
- * the stack from the sustainer through that stage with its motors: desktop's
- * `SimulationDTO` fills the sustainer's cell with stage 0 alone and booster
- * 1's with stages 0 and 1, from `MassCalculator` with only those stages
- * active. RASAero flies the sustainer after staging at its own cell, so a 0
- * there is a sustainer with no weight.
- *
- * The expected cells are the kernel's own: `staticInfo` of the built
- * configuration with the booster grounded, then with every stage on, read
- * straight off the handle.
- */
+// RASAero flies the sustainer after staging at its own cell, so a 0 there is a weightless sustainer.
 
 const C6 = {
   designation: 'C6',
@@ -126,7 +115,6 @@ const TWO_STAGE = {
   ],
 } as unknown as RocketTree;
 
-/** The design built with a C6 in each mount. */
 function build(): OpenRocketDesign {
   const r = OpenRocketDesign.buildTree(TWO_STAGE);
   r.setMotorById('smount', C6);
@@ -142,7 +130,6 @@ const cell = (xml: string, tag: string): number => {
 
 describe('the RASAero simulation block of a two-stage design', () => {
   it('writes each stage cell as the kernel weighs the stack through that stage', () => {
-    // Expected: the handle itself, grounded and then whole.
     const expected = build();
     expected.setStageActiveById('booster', false);
     const sustainerOnly = expected.staticInfo();
@@ -157,8 +144,7 @@ describe('the RASAero simulation block of a two-stage design', () => {
       stageLaunch: cumulativeStageLaunch(TWO_STAGE, build()),
       motors: { smount: { designation: 'C6' }, bmount: { designation: 'C6' } },
     });
-    // The writer rounds to its own decimal places, so the comparison allows the
-    // last place in pounds and inches.
+    // The writer rounds, so allow the last place in pounds and inches.
     expect(cell(xml, 'SustainerLaunchWt')).toBeCloseTo(sustainerOnly.mass * LB, 3);
     expect(cell(xml, 'SustainerCG')).toBeCloseTo(sustainerOnly.cg * IN, 3);
     expect(cell(xml, 'Booster1LaunchWt')).toBeCloseTo(whole.mass * LB, 3);

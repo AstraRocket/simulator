@@ -9,16 +9,6 @@ import { DesignPropertiesDialog } from './DesignPropertiesDialog';
 import { ExampleList } from './ExamplesDialog';
 import { LIBRARY_TABS, type LibraryTab } from './dialogKeys';
 
-/**
- * The saved-designs library ("My Rockets"), and the bundled examples beside it.
- *
- * Designs live in IndexedDB (designLibrary.ts) and the open one autosaves, so
- * there is no explicit save here and nothing to lose by switching: opening
- * another design flushes the current one first.
- *
- * Mounted only while open (`{open && <DesignLibraryDialog />}`): the list is
- * refreshed once on mount, and a half-finished rename is dropped by unmount.
- */
 export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const designs = useWorkspaceStore((s) => s.designs);
@@ -27,12 +17,7 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
   const openDesign = useWorkspaceStore((s) => s.openDesign);
   const renameDesign = useWorkspaceStore((s) => s.renameDesign);
   const deleteDesign = useWorkspaceStore((s) => s.deleteDesign);
-  // `onClose` is an inline arrow in HeaderDialogs, so it gets a new identity on
-  // every HeaderDialogs render, and `refresh()` writes a fresh `designs` array
-  // that HeaderDialogs subscribes to. An effect keyed on onClose that refreshed
-  // would loop: refresh -> re-render -> new onClose -> refresh. So the refresh
-  // runs once on mount (below); the Escape listener is the focus trap's own
-  // effect, which re-subscribes harmlessly.
+  // Do not key the refresh effect on `onClose`: a new arrow each render, so it would loop.
 
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [tab, setTab] = useState<LibraryTab>('mine');
@@ -42,13 +27,9 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
     fireAction(refresh());
   }, [refresh]);
 
-  // The saved-at stamp in the app's language, not the browser's: otherwise a
-  // Spanish UI over an en-US browser shows "9/20/2026, 3:04 PM" beside Spanish labels.
+  // The app's language, not the browser's.
   const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' });
 
-  // Deleting a saved design cannot be undone, and on a phone this button sits a
-  // few millimeters from Rename in a full-screen dialog. Ask first: the same
-  // gate File > New uses.
   const askDelete = async (id: string, name: string) => {
     const ok = await confirm({
       message: t('library.deleteConfirm', { name }),
@@ -66,9 +47,6 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
         onClose={onClose}
         size="lg"
         toolbar={
-          // A real tablist, not two buttons that look like one: the settings
-          // dialog sets the precedent and screen readers get the relationship.
-          // It sits in the toolbar band so it stays put while the list scrolls.
           <div role="tablist" aria-label={t('library.title')} className="flex gap-1 px-2 pt-2">
             {LIBRARY_TABS.map((key) => (
               <button

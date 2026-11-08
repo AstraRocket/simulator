@@ -1,11 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 
-/**
- * The header's undo / redo button pair, enabled by the workspace history
- * stacks. The keyboard shortcuts are `useUndoShortcuts`, mounted by the bar.
- */
-
 const iconBtn =
   'rounded-lg bg-raised px-2 py-1.5 xl:px-2.5 text-sm leading-none text-ink ring-1 ring-line/10 hover:bg-elevated disabled:cursor-not-allowed disabled:text-ink-dim disabled:hover:bg-raised';
 

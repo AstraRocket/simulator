@@ -2,16 +2,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup } from '@testing-library/react';
 
-/**
- * The storage warnings over the session: a save's own failure, retired by the
- * next save that lands, and the standing notices (IndexedDB degraded, the
- * stored design unreadable), which no save undoes and no later warning may
- * overwrite. The messages expected are the locale's own.
- *
- * Driven through the real effects hook with the workspace store's edges
- * stubbed, as `useWorkspaceEffects.test.tsx` does.
- */
-
 const load = vi.hoisted(() => vi.fn());
 const save = vi.hoisted(() => vi.fn());
 const saveSync = vi.hoisted(() => vi.fn());
@@ -57,7 +47,6 @@ function Host() {
 
 const s = () => useWorkspaceStore.getState();
 
-/** A stored workspace, as reopening a design from My Rockets reads it. */
 const stored = () =>
   migrateWorkspace({
     version: 3,
@@ -93,7 +82,6 @@ const mount = async () => {
   return r;
 };
 
-/** Edit, and let the debounced autosave run and settle. */
 const editAndAutosave = async () => {
   act(() => s().addPartToTree('bodytube'));
   await act(async () => {
@@ -103,9 +91,7 @@ const editAndAutosave = async () => {
   });
 };
 
-/** What the store's save throws when another tab has moved the design on. */
 const conflict = () => new Error('conflict');
-/** What it throws when the browser refuses the write. */
 const quota = () => new Error('QuotaExceeded');
 
 describe('a save conflict', () => {
@@ -181,7 +167,6 @@ describe('a standing notice', () => {
 });
 
 describe('a load that fails', () => {
-  /** Hide the tab, as switching to another one does, and let any write settle. */
   const hideTab = async () => {
     const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
     try {
@@ -198,7 +183,6 @@ describe('a load that fails', () => {
     ['the read rejects', () => load.mockRejectedValue(new Error('idb blocked'))],
     ['the stored design does not hydrate', () => load.mockResolvedValue({ ...stored(), tree: null })],
   ])('leaves the untouched default rocket unsaved when the tab is hidden: %s', async (_what, fail) => {
-    // The page's own starting state, which no New or load has marked.
     useWorkspaceStore.setState({ tree: { ...s().tree } });
     fail();
     await mount();

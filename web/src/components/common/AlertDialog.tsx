@@ -5,27 +5,7 @@ import { useBackdropDismiss } from './useBackdropDismiss';
 import { layerClass, widthClass, type DialogLayer, type DialogSize } from './dialogSize';
 import { DialogButton, DialogActions } from './DialogButton';
 
-/**
- * The one short-prompt shell: a heading, a sentence, and a button or two.
- *
- * `role="alertdialog"` rather than `dialog`, which is why this is not the
- * {@link Dialog} shell with a smaller body. An alertdialog interrupts to say
- * something or to ask one question, so it has no toolbar, no footer, no scrolling
- * body, no layout to choose and nothing to expand into: there is no content
- * behind the content. What it does need and a plain dialog does not is a
- * description: the message is what a screen reader should read out on arrival,
- * pointed at by `aria-describedby`.
- *
- * It is deliberately not full-bleed on a phone (no `.dialog-panel`, see
- * index.css): filling a screen with two lines and a button is all empty space,
- * and one of these opens on top of a dialog that is already full-screen there,
- * where full bleed would read as that dialog being replaced rather than as
- * something raised over it.
- *
- * One shell, because copies drift: backdrop opacity, heading scale, an
- * `aria-label` repeating the visible heading, a hardcoded element id, or a
- * window-level Escape listener beside the one `useFocusTrap` already provides.
- */
+/** Deliberately no `.dialog-panel`: it opens over full-screen dialogs and must read as raised over them. */
 export function AlertDialog({
   title,
   message,
@@ -39,54 +19,31 @@ export function AlertDialog({
   onCancel,
 }: {
   title: string;
-  /** The question, or what is being announced. Becomes the accessible
-   *  description, so it is read out with the dialog rather than only seen. */
   message: ReactNode;
-  /** A single emoji beside the heading, where one says something the words
-   *  cannot say as quickly. */
   icon?: string;
   size?: DialogSize;
   layer?: DialogLayer;
-  /** Paint the confirm button as destructive. */
   danger?: boolean;
   confirmLabel: string;
   onConfirm: () => void;
-  /** Overrides the generic "Cancel". Ignored without `onCancel`. */
   cancelLabel?: string;
-  /**
-   * The way out, and the only thing that decides whether there is one: given, it
-   * is the Cancel button, the Escape key and the backdrop alike. Omitted, the
-   * prompt must be acknowledged - no button, and Escape and the backdrop do
-   * nothing rather than dismissing something the app is waiting on.
-   */
+  /** Omitted, the prompt must be acknowledged: Escape and the backdrop do nothing. */
   onCancel?: () => void;
 }) {
   const { t } = useTranslation();
-  // Escape reaches the topmost open surface only, and a prompt with no way out
-  // swallows it there rather than letting it through to whatever is underneath
-  // (useFocusTrap), so no window-level listener is needed here.
   const panelRef = useFocusTrap<HTMLDivElement>(true, onCancel ? { onEscape: onCancel } : {});
   const backdrop = useBackdropDismiss(onCancel);
   const titleId = useId();
   const messageId = useId();
 
   return (
-    <div
-      // A backdrop press is the mouse twin of Escape, which the focus trap
-      // handles (useBackdropDismiss).
-      className={`fixed inset-0 ${layerClass[layer]} grid place-items-center bg-shade/60 p-4`}
-      {...backdrop}
-    >
+    <div className={`fixed inset-0 ${layerClass[layer]} grid place-items-center bg-shade/60 p-4`} {...backdrop}>
       <div // eslint-disable-line jsx-a11y-x/click-events-have-key-events, jsx-a11y-x/no-noninteractive-element-interactions -- a backdrop click is the mouse twin of Escape, which the focus trap handles; the panel only stops that click
         ref={panelRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={messageId}
-        // A maximum height it will almost never reach: a one-sentence prompt
-        // cannot overflow, but a confirmation quoting a long design name on a
-        // short window could, and running off the bottom would take the buttons
-        // with it.
         className={`w-full ${widthClass(size)} max-h-[85vh] overflow-y-auto rounded-2xl bg-surface p-6 ring-1 ring-line/10`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -104,10 +61,7 @@ export function AlertDialog({
           {message}
         </p>
         <DialogActions>
-          {/* Cancel first in the DOM, with the focus on confirm (`autoFocus`).
-              The focus trap must respect `autoFocus` rather than move focus to
-              the first focusable child, or the focus ring sits on Cancel while
-              Enter runs the destructive action. */}
+          {/* Confirm has `autoFocus`; the focus trap must respect it though Cancel is first in the DOM. */}
           {onCancel && (
             <DialogButton onClick={onCancel} variant="secondary">
               {cancelLabel ?? t('common.cancel')}

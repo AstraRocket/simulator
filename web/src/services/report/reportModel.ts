@@ -1,10 +1,13 @@
+import { chargeRows, type ChargeRow } from '../flight/recoveryCharges';
+import { designBays, type DesignBay } from '../flight/recoveryBays';
 import type { ComponentNode, OpenRocketDesign, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
-import { useWorkspaceStore, selectConfig, selectOutdated, configOf } from '../../state/store';
 import { buildConfiguredRocket, buildKey } from '../design/buildRocket';
 import { isRecoveryDevice } from '../design/treeEdit';
 import { MATERIAL_KEYS } from '../design/materialSlots';
 import { activateThrough, stageIdsByTopStage } from '../design/stageStack';
 import { liveMotors, type FlightConfig } from '../flight/flightConfigs';
+import type { Simulation } from '../flight/simulations';
+import type { LoadedMeta } from '../files/wireLoadedOrk';
 import { motorStats, type MotorStats } from './rocketReport';
 import { numOpt } from '../../tree/nodeProps';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
@@ -17,39 +20,29 @@ import { stageFileName } from '../design/orkTree';
 import i18n from '../../i18n';
 import { errorText } from '../../i18n/keyedError';
 
-/** The full data model for the rocket report (SI). Pure data; the PDF formats it. */
+// All SI.
 
 export interface PartRow {
   depth: number;
   type: string;
   name: string;
   material?: string;
-  /** The material's density, in SI for `densityKind`. */
+  /** kg/m³, kg/m² or kg/m per `densityKind` (absent means bulk). */
   density?: number;
-  /** Which density `density` is: bulk (kg/m³, also when absent), surface (kg/m²) or line (kg/m). */
   densityKind?: MaterialDensity;
   length: number;
   outerR?: number;
   innerR?: number;
-  /** A transition's two ends, which it carries instead of one outer radius. */
   foreR?: number;
   aftR?: number;
   thickness?: number;
-  /** A planar fin set's span, root to tip. Its root chord is `length`. */
   span?: number;
   mass: number;
 }
 
-/** The quantity a part's material density is measured in. */
 export type MaterialDensity = 'density' | 'surfaceDensity' | 'lineDensity';
 
-/**
- * The node keys of the material the kernel's `getMaterial()` returns for a part:
- * a parachute's and a streamer's canopy (`RecoveryDevice`, a surface material),
- * a shock cord's cord (`ShockCord`, a line material), and the bulk material of
- * everything else. A parachute's shroud lines are a second material the kernel
- * reads through `getLineMaterial()`.
- */
+// Matches the kernel's getMaterial(); shroud lines (getLineMaterial()) are not included.
 function rowMaterial(
   node: ComponentNode,
 ): Required<Pick<PartRow, 'densityKind'>> & Pick<PartRow, 'material' | 'density'> {
@@ -63,11 +56,6 @@ function rowMaterial(
   };
 }
 
-/**
- * The radii a part's row shows, per type: a nose cone's base, a transition's
- * fore and aft ends, and a tube's bore from its outside and wall, since a tube
- * stores a thickness rather than an inner radius. A filled part has no bore.
- */
 function rowRadii(node: ComponentNode): Pick<PartRow, 'outerR' | 'innerR' | 'foreR' | 'aftR'> {
   if (node.type === 'nosecone') return { outerR: numOpt(node, 'aftRadius') };
   if (node.type === 'transition') return { foreR: numOpt(node, 'foreRadius'), aftR: numOpt(node, 'aftRadius') };
@@ -94,13 +82,8 @@ export interface FlightRows {
   groundHitVelocity: number;
 }
 
-/** One seated motor of a configuration, with the launch mass it lifts. */
 export interface ConfigMotor extends MotorStats {
-  /**
-   * Launch mass (kg) of the stack from the top stage through this motor's own
-   * stage, with this configuration's motors in it. NaN when the kernel could not
-   * build the configuration.
-   */
+  /** kg, top stage through this motor's stage; NaN when the build failed. */
   loadedMass: number;
 }
 
@@ -108,17 +91,11 @@ export interface MotorConfig {
   name: string;
   motors: ConfigMotor[];
   flight: FlightRows | null;
-  /**
-   * The flight was flown from inputs other than the current ones (the design,
-   * its configuration, the launch or the run preferences), so its figures do
-   * not describe the design the rest of the report does.
-   */
   outdated?: boolean;
 }
 
-/** A fin set's axial position (m) from the nose tip: root leading/trailing edge. */
+/** Root edges from the nose tip (m). */
 export interface FinSetPosition {
-  /** The fin set's own name; absent when it has none, and a writer names it by `type`. */
   name?: string;
   type: string;
   topX: number;
@@ -127,22 +104,17 @@ export interface FinSetPosition {
 
 export interface ReportModel {
   name: string;
-  /** The design type token as stored (`original`, `commercial_kit`, ...), when the design names one. */
   designType?: string;
   stages: ComponentNode[];
   whole: Summary;
-  /** One entry per stage (a single-stage rocket's stage is the whole rocket). */
   stageSummaries: Summary[];
   configs: MotorConfig[];
   partsByStage: { stage: string; rows: PartRow[] }[];
   finSetsByStage: { stage: string; sets: FinSetPosition[] }[];
+  charges?: ChargeRow[];
+  bays?: DesignBay[];
 }
 
-/**
- * The parts table of one stage. `tree` is the design the stage is in, which a
- * freeform fin's span reads its parent's station from (`finMount`); a stage
- * on its own stands for a one-stage design.
- */
 export function stageParts(
   stage: ComponentNode,
   rocket: { componentInfo: (id: string) => { mass: number } },
@@ -165,8 +137,6 @@ export function stageParts(
         type: node.type,
         name: (node.name as string) || '',
         ...rowMaterial(node),
-        // A fin set's root chord, and the kernel's default for a part with no
-        // length on record, rather than 0.
         length: axialLength(node),
         ...rowRadii(node),
         // A filled part is solid: the stored wall is not what flies.
@@ -183,23 +153,12 @@ export function stageParts(
   return rows;
 }
 
-/** One full engine build: its static info plus the live handle to install. */
 export interface ReportBuild {
   info: StaticInfo;
   handle: OpenRocketDesign;
 }
 
-/**
- * Run report work that may build rockets of its own, then put the live handle
- * back. Every build resets the shared engine, so once `work` has built anything
- * (`rebuilt()` says whether it did) the whole-rocket handle is rebuilt and
- * reinstalled, in a `finally`, so a build that fails can't leave the app's live
- * 3D/stability handle stranded on the last rocket built.
- *
- * The engine work is injected so this stays testable without the real engine:
- * `buildWhole` rebuilds the full rocket, and `restore` installs that final build
- * as the live handle.
- */
+// Every build resets the shared engine, so the whole-rocket handle is reinstalled in a finally.
 export function restoringEngine<T>(
   work: () => T,
   rebuilt: () => boolean,
@@ -219,19 +178,7 @@ function restoreWhole(
   restore: (built: ReportBuild) => void,
   onRestoreFailed: (e: unknown) => void,
 ): void {
-  // The `finally` covers the work throwing; this try covers `buildWhole()`
-  // itself throwing. Unguarded, `restore` would never run and the store would
-  // keep pointing at the last report build: a handle for one stage or one
-  // configuration, standing in for the rocket. Nothing re-triggers the rebuild
-  // effect, because its dependencies did not change, so the aero pane would stay
-  // dead until an unrelated edit moved them.
-  //
-  // Reported, never rethrown. Rethrowing from a `finally` replaces whatever the
-  // try block threw, which would lose the build failure that is the more useful
-  // of the two. The report itself is still valid - parts and fin-set positions
-  // were gathered off the live handle before any rebuild, and each summary and
-  // mass comes from its own isolated build - so it is returned, and what is
-  // wrong is said out loud rather than left to be discovered.
+  // Never rethrow: throwing from a finally would replace the more useful error.
   try {
     restore(buildWhole());
   } catch (e) {
@@ -239,25 +186,10 @@ function restoreWhole(
   }
 }
 
-/** What a configuration's motor masses need of a built rocket. */
 export type MassBuild = Pick<OpenRocketDesign, 'setStageActiveById' | 'staticInfo'>;
 
-/**
- * Each seated motor of one configuration, with the launch mass it lifts.
- *
- * A motor lifts the stack from the top stage through the stage it sits in, with
- * this configuration's motors: the sustainer's motor does not lift the booster,
- * and a booster's motor lifts everything above it. The stages through the
- * motor's are on and the ones below it off, whatever the configuration grounds,
- * which is how the desktop design report weighs them. A parallel booster counts
- * with the stage it is attached to.
- *
- * `build` builds the configured rocket (a real build resets the shared engine,
- * so the caller restores the live handle afterward). `whole`, when given, is the
- * launch mass of this exact configuration with every stage on, from a build
- * already in hand; with it, a configuration that grounds nothing needs no build
- * for a motor in the bottom stage.
- */
+// Desktop design report: top stage through the motor's own stage, whatever the config grounds.
+// `build` resets the shared engine; the caller restores the live handle.
 export function configMotors(
   tree: RocketTree,
   config: FlightConfig,
@@ -266,7 +198,6 @@ export function configMotors(
 ): ConfigMotor[] {
   const top = stageNodes(tree);
   const last = Math.max(0, top.length - 1);
-  // Mount id → index of the top-level stage it is in.
   const stageOf = new Map<string, number>();
   top.forEach((st, i) => {
     for (const n of walkNodes([st])) if (typeof n.id === 'string') stageOf.set(n.id, i);
@@ -288,8 +219,6 @@ export function configMotors(
         activateThrough(r, stageIds, k);
         mass = r.staticInfo().mass;
       } catch {
-        // A configuration the kernel cannot build has no mass to divide by; its
-        // thrust-to-weight reads as no value rather than taking the report down.
         failed = true;
       }
     }
@@ -302,22 +231,21 @@ export function configMotors(
     .map(([id, m]) => ({ ...motorStats(m.spec), loadedMass: massThrough(stageOf.get(id) ?? last) }));
 }
 
-/**
- * Assemble the report from the live design + simulations (synchronous engine
- * work).
- *
- * `install` is where the whole-rocket rebuild goes when the report built rockets
- * of its own (a multi-stage design's per-stage summaries, a configuration other
- * than the one flown), since those builds reset the shared engine. It defaults
- * to re-seating the live handle through the store, which is what a caller
- * outside React wants. A caller rendering a component passes its own, because a
- * store write during render updates every other subscriber mid-render; it is
- * handed the same build to install once it is out of the render pass. The
- * engine is whole either way by the time this returns: only the store's view of
- * it is the caller's to time.
- */
-export function assembleReport(install?: (built: ReportBuild) => void): ReportModel | null {
-  const s = useWorkspaceStore.getState();
+export interface ReportSource {
+  tree: RocketTree;
+  info: StaticInfo | null;
+  rocket: OpenRocketDesign | null;
+  loadedMeta: LoadedMeta | null;
+  sims: readonly Simulation[];
+  flownConfig: () => FlightConfig;
+  configOf: (sim: Simulation) => FlightConfig;
+  isOutdated: (sim: Simulation) => boolean;
+  applyBuild: (info: StaticInfo | null, rocket: OpenRocketDesign | null) => void;
+  setErr: (message: string) => void;
+}
+
+// A caller inside render must pass `install`: the default store write updates subscribers mid-render.
+export function assembleReport(s: ReportSource, install?: (built: ReportBuild) => void): ReportModel | null {
   const { tree, info, rocket } = s;
   if (!info || !rocket) return null;
   const name = designNameOf(tree, s.loadedMeta);
@@ -327,11 +255,9 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
     : [{ type: 'stage', name: '', children: tree.components } as unknown as ComponentNode];
 
   const infoRocket = rocket as unknown as { componentInfo: (id: string) => { mass: number; positionX: number } };
-  // The name the .ork written beside this report gives the stage, since the
-  // report's own rows go into that file's <designinfo> and the design CSV.
   const stageName = stageFileName;
 
-  // Parts + fin-set positions need the live handle: gather before any rebuild.
+  // Needs the live handle: gather before any rebuild.
   const partsByStage = stageList.map((st, i) => ({
     stage: stageName(st, i),
     rows: stageParts(st, infoRocket, tree),
@@ -342,12 +268,9 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
   }));
 
   const whole: Summary = { label: name, info };
-  const flown = selectConfig(s);
+  const flown = s.flownConfig();
   const flownKey = buildKey(tree, flown);
 
-  // Every build below resets the engine, so once one has run the app's live
-  // handle is rebuilt and restored (in a finally, see restoringEngine) even if a
-  // build throws.
   let rebuilt = false;
   const build = (t: RocketTree, c: FlightConfig) => {
     rebuilt = true;
@@ -356,12 +279,6 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
 
   const { stageSummaries, configs } = restoringEngine(
     () => {
-      // One summary per stage. A single-stage rocket's stage is the whole
-      // rocket, so its info is reused (no rebuild). Multiple stages build each
-      // alone: the configuration keys its motors by mount id, so a one-stage
-      // tree gets exactly the motors that stage's own mounts hold, the
-      // sustainer's motor cannot land in the booster, and a stage with no mount
-      // is built empty rather than borrowing one.
       const stageSummaries: Summary[] =
         stages.length > 1
           ? stages.map((st, i) => ({
@@ -369,32 +286,25 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
               info: build({ name, components: [st] }, flown).staticInfo(),
             }))
           : stageList.map((st, i) => ({ label: stageName(st, i), info }));
-      // Each configuration weighed with its own motors. The flown one's full
-      // stack is the live info already, so it costs no build.
       const configs: MotorConfig[] = s.sims.map((sim) => {
-        const config = configOf(s.configs, sim);
+        const config = s.configOf(sim);
         return {
           name: sim.name,
           motors: configMotors(tree, config, build, buildKey(tree, config) === flownKey ? info.mass : undefined),
           flight: sim.result ? sim.result.summary : null,
-          outdated: sim.result ? selectOutdated(s, sim) : false,
+          outdated: sim.result ? s.isOutdated(sim) : false,
         };
       });
       return { stageSummaries, configs };
     },
     () => rebuilt,
     () => {
-      // The live handle is replaced by this, so it has to be configured the
-      // way the rebuild effect configures it - the same configuration, whose
-      // ignition overrides ride along with its motors.
+      // Must match how the rebuild effect configures the live handle.
       const main = buildConfiguredRocket(tree, flown);
       return { info: main.staticInfo(), handle: main };
     },
     install ?? ((built) => s.applyBuild(built.info, built.handle)),
     (e) => {
-      // Clear the live build rather than leave a report build standing in for
-      // the rocket. The stats and the aero pane then show their "not built"
-      // state, which is true, and the next design edit rebuilds.
       s.applyBuild(null, null);
       s.setErr(errorText(e, i18n.t));
     },
@@ -409,10 +319,11 @@ export function assembleReport(install?: (built: ReportBuild) => void): ReportMo
     configs,
     partsByStage,
     finSetsByStage,
+    charges: chargeRows(tree),
+    bays: designBays(tree).filter((b) => b.record.tests.length || Object.keys(b.record).length > 1),
   };
 }
 
-/** Each fin set in a stage, with its root's axial span from the nose (m). */
 export function finSetPositions(
   stage: ComponentNode,
   rocket: { componentInfo: (id: string) => { positionX: number } },
@@ -420,17 +331,10 @@ export function finSetPositions(
   const out: FinSetPosition[] = [];
   for (const n of walkNodes(stage.children ?? [])) {
     if (!isFinSet(String(n.type)) || typeof n.id !== 'string') continue;
-    // axialLength, not a per-type ternary here: it already dispatches
-    // freeform → root chord, trapezoid/elliptical → rootChord, everything
-    // else → length. That "everything else" is what tube fins need: they
-    // are marked like any other fin set (OpenRocket's FinMarkingGuide
-    // collects TubeFinSet beside FinSet) but their axial span is the tube's
-    // length, and reading through rootChord would give every one of them a
-    // 50 mm root it does not have.
+    // axialLength, not rootChord: a tube fin's span is its length.
     const root = axialLength(n);
     try {
-      // The kernel locates a canted set by its first fin turned about the
-      // root's midpoint; the marks go at the root's own station.
+      // The kernel locates a canted set by its first fin turned about the root midpoint.
       const topX = rocket.componentInfo(n.id).positionX - cantFrontShift(n, root);
       const own = typeof n.name === 'string' ? n.name.trim() : '';
       out.push({ ...(own ? { name: own } : {}), type: String(n.type), topX, bottomX: topX + root });

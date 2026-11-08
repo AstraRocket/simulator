@@ -1,61 +1,22 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   MIN_ZOOM,
-  SITE_ZOOM,
   TILE_SOURCES,
   formatCoord,
   metersPerPixel,
   project,
-  roundCoord,
-  unproject,
   visibleTiles,
   type TileSourceId,
-  panView,
 } from '../../services/map/slippyMap';
 import { rememberTileLayer, tileLayer } from '../../services/map/tileLayer';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import { fmtNum, withUnit, shortDigits } from '../../i18n/format';
 import { siToUi } from '../../prefs/units';
-import { useElementResize } from '../common/useElementResize';
 import { useTileVerdict } from '../common/map/useTileVerdict';
 import { MapCredit, TileImg, TileLayerButtons } from '../common/map/MapParts';
 import { SOURCE_LAYERS } from '../common/map/mapStyle';
-import { useNativeWheel } from '../common/useNativeWheel';
-
-/**
- * The launch site, seen from above.
- *
- * A latitude and a longitude give no feedback on their own: a dropped minus
- * sign moves a Colorado field to western China and nothing on screen looks any
- * different. This is the confirmation, and for a club field with no published
- * coordinates, the way to enter them at all: the field can be recognized from
- * the air.
- *
- * Tiles come from Esri's imagery or street map, drawn as plain `<img>` tags
- * at computed offsets rather than through a mapping library: showing one point
- * and letting it be dragged is the whole requirement, and Leaflet or MapLibre
- * would bring a layer system, a plugin surface and a stylesheet for the parts
- * we do not use. The projection lives in `services/map/slippyMap.ts`, where it
- * is tested against hand-computed figures.
- *
- * Tiles are cached by the service worker (see the runtime rule in
- * vite.config.ts), so a location you looked at at home still draws at the field
- * with no signal. Somewhere you have never viewed cannot draw offline, and the
- * map says so rather than showing an empty gray box.
- */
-
-/** Below this many pixels of pointer travel, a drag was really a click. */
-const CLICK_SLOP_PX = 4;
-
-/** How far one arrow key pans the map, in screen pixels. */
-const KEY_PAN_PX = 80;
-
-interface View {
-  lat: number;
-  lon: number;
-  zoom: number;
-}
+import { useSiteMapView, type View } from './useSiteMapView';
 
 export function SiteMap({
   latitudeDeg,
@@ -65,165 +26,24 @@ export function SiteMap({
 }: {
   latitudeDeg: number | null;
   longitudeDeg: number | null;
-  /** Given, the map is a control: clicking moves the location. Omitted, it only shows. */
   onPick?: (latitudeDeg: number, longitudeDeg: number) => void;
   className?: string;
 }) {
   const { t } = useTranslation();
-  const u = useUnits();
   const hostRef = useRef<HTMLDivElement>(null);
   const keysId = useId();
-  const [size, setSize] = useState({ w: 320, h: 256 });
   const [source, setSource] = useState<TileSourceId>(tileLayer());
-  const [view, setView] = useState<View>({
-    lat: latitudeDeg ?? 0,
-    lon: longitudeDeg ?? 0,
-    zoom: latitudeDeg === null || longitudeDeg === null ? 2 : SITE_ZOOM,
-  });
   const { imagery, onTileLoad, onTileError, retry } = useTileVerdict(source);
   const tiles = TILE_SOURCES[source];
 
-  /**
-   * Switching layers re-asks the network, and pressing the layer already shown
-   * is a retry, so the buttons stay up while the map is offline.
-   */
   const pickSource = (id: TileSourceId) => {
     rememberTileLayer(id);
     retry();
     setSource(id);
   };
-
-  useElementResize(hostRef, (r) => {
-    if (r.width > 0 && r.height > 0) setSize({ w: r.width, h: r.height });
-  });
-
-  /**
-   * Recenter when the coordinates change from outside the map.
-   *
-   * A location picked from the dropdown, an imported `.ork` or "use my location" all
-   * move the site and the map has to follow. A click on the map moves it too,
-   * and following that one would snap the view out from under the pointer
-   * mid-correction, so the coordinate we last emitted is remembered and skipped.
-   */
-  const emitted = useRef<{ lat: number; lon: number } | null>(null);
-  useEffect(() => {
-    if (latitudeDeg === null || longitudeDeg === null) return;
-    const mine = emitted.current;
-    if (mine && Math.abs(mine.lat - latitudeDeg) < 1e-9 && Math.abs(mine.lon - longitudeDeg) < 1e-9) return;
-    setView((v) => ({
-      lat: latitudeDeg,
-      lon: longitudeDeg,
-      // Keep the zoom the user has chosen, but come in from the world view:
-      // arriving at a real place still zoomed out to whole continents is the
-      // same non-answer as no map at all.
-      zoom: v.zoom < SITE_ZOOM - 3 ? SITE_ZOOM : v.zoom,
-    }));
-  }, [latitudeDeg, longitudeDeg]);
-
-  const setZoom = (next: number, about?: { x: number; y: number }) => {
-    const z = Math.max(MIN_ZOOM, Math.min(tiles.maxZoom, next));
-    if (z === view.zoom) return;
-    if (!about) return setView((v) => ({ ...v, zoom: z }));
-    // Keep whatever is under the pointer under the pointer: the new view puts
-    // that point at the center, then moves back by the pointer's offset.
-    const at = unproject(about.x, about.y, view.lat, view.lon, view.zoom, size.w, size.h);
-    setView(
-      panView({ lat: at.latitudeDeg, lon: at.longitudeDeg, zoom: z }, size.w / 2 - about.x, size.h / 2 - about.y),
-    );
-  };
-
-  // Pan, and the click that is not a pan. One pointer, captured, so a drag that
-  // leaves the box keeps working until the button comes up.
-  const drag = useRef<{ id: number; x: number; y: number; view: View; moved: number } | null>(null);
-  // Pointers down on the map. A second finger ends the gesture: a two-finger
-  // touch is not a pan of one of them, and the finger that lifts last must not
-  // read as a tap that moves the site.
-  const down = useRef(new Set<number>());
-  const release = (e: React.PointerEvent) => {
-    down.current.delete(e.pointerId);
-  };
-
-  const localPoint = (e: { clientX: number; clientY: number }) => {
-    const r = hostRef.current?.getBoundingClientRect();
-    return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
-  };
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (imagery === 'unavailable') return;
-    // A control inside the map is not the map.
-    //
-    // The layer buttons, the zoom buttons and the recenter button are children
-    // of this box, so their pointer events bubble to these handlers. Without
-    // this guard a click on a button would read as a click on the ground and
-    // move the launch site to whatever the button covers. Leaving `drag` unset
-    // also makes `onPointerUp` bail, so one guard covers both halves.
-    if ((e.target as Element).closest?.('button')) return;
-    // Captured on the box, not on `e.target`: the target is usually a tile,
-    // and a tile unmounts as soon as the drag pans or zooms past it, which
-    // drops the capture mid-gesture.
-    down.current.add(e.pointerId);
-    if (down.current.size > 1) {
-      drag.current = null;
-      return;
-    }
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, view, moved: 0 };
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d || d.id !== e.pointerId) return;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    d.moved = Math.max(d.moved, Math.abs(dx) + Math.abs(dy));
-    if (d.moved < CLICK_SLOP_PX) return;
-    // The ground follows the pointer, so the center moves the other way.
-    setView(panView(d.view, -dx, -dy));
-  };
-
-  /**
-   * The keyboard path, for everything the pointer does: arrows pan, + and -
-   * zoom, and Enter or Space puts the location at the center of the view, which
-   * a crosshair marks while the map has keyboard focus. Keys aimed at the
-   * buttons inside the map are theirs.
-   */
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.target !== e.currentTarget) return;
-    const pan = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
-    if (pan) {
-      e.preventDefault();
-      setView(panView(view, pan[0]! * KEY_PAN_PX, pan[1]! * KEY_PAN_PX));
-    } else if (e.key === '+' || e.key === '=') {
-      e.preventDefault();
-      setZoom(view.zoom + 1);
-    } else if (e.key === '-' || e.key === '_') {
-      e.preventDefault();
-      setZoom(view.zoom - 1);
-    } else if ((e.key === 'Enter' || e.key === ' ') && onPick) {
-      e.preventDefault();
-      // Rounded like a click (see onPointerUp).
-      const lat = roundCoord(view.lat);
-      const lon = roundCoord(view.lon);
-      emitted.current = { lat, lon };
-      onPick(lat, lon);
-    }
-  };
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    release(e);
-    const d = drag.current;
-    drag.current = null;
-    if (!d || d.id !== e.pointerId) return;
-    if (d.moved >= CLICK_SLOP_PX || !onPick) return;
-    const p = localPoint(e);
-    const at = unproject(p.x, p.y, view.lat, view.lon, view.zoom, size.w, size.h);
-    // Four places is about 10 m, which is finer than anyone can point at a
-    // field and matches what "use my location" writes.
-    const lat = roundCoord(at.latitudeDeg);
-    const lon = roundCoord(at.longitudeDeg);
-    emitted.current = { lat, lon };
-    onPick(lat, lon);
-  };
+  const live = imagery !== 'unavailable';
+  const { size, view, setView, setZoom, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onKeyDown } =
+    useSiteMapView({ hostRef, latitudeDeg, longitudeDeg, onPick, maxZoom: tiles.maxZoom, live });
 
   const pin =
     latitudeDeg === null || longitudeDeg === null
@@ -236,27 +56,6 @@ export function SiteMap({
       ? t('map.label')
       : `${t('map.label')}: ${formatCoord(latitudeDeg, longitudeDeg)}`;
 
-  /**
-   * Wheel zoom as a native non-passive listener, like `useWheelZoom` and
-   * `useChartZoom`.
-   *
-   * React's `onWheel` is registered passive at the root, so a `preventDefault`
-   * inside it does nothing: scrolling over the map would zoom the map and scroll
-   * the launch form underneath it, which on a phone means the map slides out from
-   * under the finger that is zooming it.
-   *
-   * The handler reads the current `view` through `useNativeWheel`, so the
-   * listener is attached once rather than on every pan and zoom.
-   */
-  useNativeWheel(
-    hostRef,
-    (e) => {
-      e.preventDefault();
-      setZoom(view.zoom + (e.deltaY < 0 ? 1 : -1), localPoint(e));
-    },
-    imagery !== 'unavailable',
-  );
-
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       <div // eslint-disable-line jsx-a11y-x/no-noninteractive-element-interactions -- a focusable map: the arrows pan it and +/- zoom it, and the group names it without claiming a widget role it does not fit
@@ -267,11 +66,7 @@ export function SiteMap({
         // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- a focusable map: the arrows pan it and +/- zoom it, and the group names it without claiming a widget role it does not fit
         tabIndex={imagery === 'unavailable' ? undefined : 0}
         onKeyDown={imagery === 'unavailable' ? undefined : onKeyDown}
-        // `active:` rather than a class chosen from the drag ref: whether a
-        // pointer is down is the browser's business, and reading a ref while
-        // rendering is how a component ends up not re-rendering when it moves.
-        // `touch-none` while the map pans: otherwise a touch drag scrolls the
-        // page, and the browser cancels the pointer before the map can move.
+        // `touch-none` or the browser cancels the pointer to scroll.
         className={`group relative min-h-0 flex-1 overflow-hidden rounded-lg bg-raised ring-1 ring-line/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${
           imagery === 'unavailable'
             ? 'cursor-default'
@@ -280,10 +75,7 @@ export function SiteMap({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={(e) => {
-          release(e);
-          drag.current = null;
-        }}
+        onPointerCancel={onPointerCancel}
       >
         {imagery === 'unavailable' ? (
           <Graticule latitudeDeg={latitudeDeg} longitudeDeg={longitudeDeg} width={size.w} height={size.h} />
@@ -311,84 +103,128 @@ export function SiteMap({
           </div>
         )}
 
-        {/* Up offline too: pressing a layer is the retry. */}
         <TileLayerButtons layers={SOURCE_LAYERS} value={source} onPick={pickSource} />
-        {imagery !== 'unavailable' && (
-          <>
-            <span id={keysId} className="sr-only">
-              {t(onPick ? 'map.keysPick' : 'map.keysView')}
-            </span>
-            {onPick && (
-              // Where Enter will put the location. Shown only for keyboard focus:
-              // a pointer user clicks the spot itself.
-              <div
-                aria-hidden
-                className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-xl text-accent-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-focus-visible:block"
-              >
-                +
-              </div>
-            )}
-            <div className="absolute right-1 top-1 flex flex-col overflow-hidden rounded-md ring-1 ring-shade/40">
-              <button
-                onClick={() => setZoom(view.zoom + 1)}
-                disabled={view.zoom >= tiles.maxZoom}
-                aria-label={t('map.zoomIn')}
-                className="bg-surface/80 px-2 py-0.5 text-sm text-ink hover:bg-raised disabled:opacity-40"
-              >
-                +
-              </button>
-              <button
-                onClick={() => setZoom(view.zoom - 1)}
-                disabled={view.zoom <= MIN_ZOOM}
-                aria-label={t('map.zoomOut')}
-                className="bg-surface/80 px-2 py-0.5 text-sm text-ink hover:bg-raised disabled:opacity-40"
-              >
-                −
-              </button>
-            </div>
-            {!pinVisible && latitudeDeg !== null && longitudeDeg !== null && (
-              <button
-                onClick={() => setView((v) => ({ ...v, lat: latitudeDeg, lon: longitudeDeg }))}
-                className="absolute bottom-1 left-1 rounded-md bg-surface/80 px-2 py-1 text-[11px] text-ink ring-1 ring-shade/40 hover:bg-raised"
-              >
-                <span aria-hidden="true">◎</span> {t('map.recenter')}
-              </button>
-            )}
-            <MapCredit>{tiles.attribution}</MapCredit>
-          </>
+        {live && (
+          <MapOverlays
+            keysId={keysId}
+            picking={!!onPick}
+            zoom={view.zoom}
+            maxZoom={tiles.maxZoom}
+            setZoom={setZoom}
+            recenterTo={
+              !pinVisible && latitudeDeg !== null && longitudeDeg !== null
+                ? { lat: latitudeDeg, lon: longitudeDeg }
+                : null
+            }
+            setView={setView}
+            attribution={tiles.attribution}
+          />
         )}
       </div>
 
+      <MapFooter latitudeDeg={latitudeDeg} longitudeDeg={longitudeDeg} live={live} picking={!!onPick} view={view} />
+    </div>
+  );
+}
+
+function MapOverlays({
+  keysId,
+  picking,
+  zoom,
+  maxZoom,
+  setZoom,
+  recenterTo,
+  setView,
+  attribution,
+}: {
+  keysId: string;
+  picking: boolean;
+  zoom: number;
+  maxZoom: number;
+  setZoom: (next: number) => void;
+  recenterTo: { lat: number; lon: number } | null;
+  setView: (update: (v: View) => View) => void;
+  attribution: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <span id={keysId} className="sr-only">
+        {t(picking ? 'map.keysPick' : 'map.keysView')}
+      </span>
+      {picking && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-xl text-accent-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] group-focus-visible:block"
+        >
+          +
+        </div>
+      )}
+      <div className="absolute right-1 top-1 flex flex-col overflow-hidden rounded-md ring-1 ring-shade/40">
+        <button
+          onClick={() => setZoom(zoom + 1)}
+          disabled={zoom >= maxZoom}
+          aria-label={t('map.zoomIn')}
+          className="bg-surface/80 px-2 py-0.5 text-sm text-ink hover:bg-raised disabled:opacity-40"
+        >
+          +
+        </button>
+        <button
+          onClick={() => setZoom(zoom - 1)}
+          disabled={zoom <= MIN_ZOOM}
+          aria-label={t('map.zoomOut')}
+          className="bg-surface/80 px-2 py-0.5 text-sm text-ink hover:bg-raised disabled:opacity-40"
+        >
+          −
+        </button>
+      </div>
+      {recenterTo && (
+        <button
+          onClick={() => setView((v) => ({ ...v, ...recenterTo }))}
+          className="absolute bottom-1 left-1 rounded-md bg-surface/80 px-2 py-1 text-[11px] text-ink ring-1 ring-shade/40 hover:bg-raised"
+        >
+          <span aria-hidden="true">◎</span> {t('map.recenter')}
+        </button>
+      )}
+      <MapCredit>{attribution}</MapCredit>
+    </>
+  );
+}
+
+function MapFooter({
+  latitudeDeg,
+  longitudeDeg,
+  live,
+  picking,
+  view,
+}: {
+  latitudeDeg: number | null;
+  longitudeDeg: number | null;
+  live: boolean;
+  picking: boolean;
+  view: View;
+}) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  return (
+    <>
       <p className="flex items-baseline justify-between gap-2 text-[11px] leading-tight text-ink-muted">
         <span className="tabular-nums">
           {latitudeDeg === null || longitudeDeg === null ? t('map.noCoords') : formatCoord(latitudeDeg, longitudeDeg)}
         </span>
-        {imagery === 'unavailable' ? (
+        {!live ? (
           <span className="shrink-0 text-warn-400">{t('map.offline')}</span>
         ) : (
           <span className="shrink-0 tabular-nums">{scaleLabel(u, view.lat, view.zoom)}</span>
         )}
       </p>
-      {onPick && imagery !== 'unavailable' && (
-        <p className="text-[11px] leading-tight text-ink-faint">{t('map.pick')}</p>
-      )}
-    </div>
+      {picking && live && <p className="text-[11px] leading-tight text-ink-faint">{t('map.pick')}</p>}
+    </>
   );
 }
 
-/**
- * The larger unit a distance unit's scale label moves up to past one of it, so
- * a user working in feet reads the scale in feet and miles ("1.2 km" beats
- * "1234 m"). Only the two base units that have a large sibling in
- * `UNITS.distance` promote; a user who picked `km`, `yd` or `mi` is shown that
- * unit at every size.
- */
 const SCALE_PROMOTION: Record<string, string> = { m: 'km', ft: 'mi' };
 
-/**
- * Roughly how much ground a hundred pixels covers, for a sense of scale, in the
- * user's own distance unit.
- */
 function scaleLabel(u: Units, lat: number, zoom: number): string {
   const meters = metersPerPixel(lat, zoom) * 100;
   const sym = u.sym('distance');
@@ -398,16 +234,7 @@ function scaleLabel(u: Units, lat: number, zoom: number): string {
   return u.fmtSym('distance', meters, 0);
 }
 
-/**
- * What is left when there are no tiles: a lat/lon grid with the point on it.
- *
- * Deliberately not a drawn coastline. There is no map data in this app and
- * inventing a rough one would put the pin in a shape that is nearly a country,
- * which is worse than no shape at all when the whole job is telling you whether
- * the coordinates are where you meant. The grid, with the equator and prime
- * meridian drawn stronger, does catch the error that actually happens, which is
- * a sign the wrong way round.
- */
+/** Offline fallback; the stronger equator and prime meridian catch a flipped sign. */
 function Graticule({
   latitudeDeg,
   longitudeDeg,

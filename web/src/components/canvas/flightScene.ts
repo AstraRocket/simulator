@@ -6,33 +6,12 @@ import { num } from '../../tree/nodeProps';
 import type { PartPalette } from '../../services/design/partColors';
 import { outsideAppearance } from '../../services/design/appearance';
 
-/**
- * The trajectory geometry behind FlightPath3D.
- *
- * Everything here is pure: samples in, scene points / vertex colors / callout
- * anchors out. The component keeps the camera, the transport and the HUD.
- */
-
-/**
- * Meters east, up and north of the pad as a three.js position. The kernel's Px
- * is east and Py north (FlightDataType TYPE_POSITION_X / TYPE_POSITION_Y, and
- * the geodetic step adds Y to latitude). three.js is right-handed with +y up,
- * so with east on +x, north is -z: north on +z draws the whole scene as its
- * mirror image, a northeast drift curling the wrong way.
- */
+// Kernel Px is east, Py north; with three.js +y up, north is -z (on +z the scene mirrors).
 export function sceneFromEnu(east: number, up: number, north: number): THREE.Vector3 {
   return new THREE.Vector3(east, up, -north);
 }
 
-/**
- * The motor burns in one branch's events, as [start, end] times.
- *
- * Each BURNOUT closes the burn its latest IGNITION opened. A burnout with no
- * open burn extends the previous window (a cluster's motors burning out at
- * different times), or, before any ignition, opens at 0. A staged flight's
- * main branch carries the booster's burnout first and the sustainer's later,
- * so reading the first BURNOUT alone would end the boost at staging.
- */
+// A burnout with no open burn extends the previous window (cluster motors burning out apart).
 export function boostWindows(events: readonly { type: string; time: number }[]): [number, number][] {
   const out: [number, number][] = [];
   let start: number | null = null;
@@ -49,39 +28,82 @@ export function boostWindows(events: readonly { type: string; time: number }[]):
   return out;
 }
 
-/** Whether `t` falls inside any burn window. */
-export const isBoosting = (t: number, windows: readonly [number, number][]): boolean =>
+const isBoosting = (t: number, windows: readonly [number, number][]): boolean =>
   windows.some(([a, b]) => t >= a && t < b);
 
-/** Boost / coast / descent arc colors, from Settings. */
+export const burnAt = (t: number, windows: readonly [number, number][]): number =>
+  windows.findIndex(([a, b]) => t >= a && t < b);
+
+export function delayWindows(
+  events: readonly { type: string; time: number }[],
+  burns: readonly [number, number][],
+): [number, number][] {
+  const charges = events.filter((e) => e.type === 'EJECTION_CHARGE').map((e) => e.time);
+  const out: [number, number][] = [];
+  burns.forEach(([, end], i) => {
+    const nextBurn = burns[i + 1]?.[0] ?? Infinity;
+    const charge = charges.filter((t) => t > end && t <= nextBurn).sort((a, b) => a - b)[0];
+    if (charge != null) out.push([end, charge]);
+  });
+  return out;
+}
+
+export interface SmokePuff {
+  pos: THREE.Vector3;
+  time: number;
+  burn: number;
+  delay: boolean;
+}
+
+export function smokePuffs(
+  scene: Pick<FlightScene, 'scenePts' | 'times' | 'boostWindows'> & Partial<Pick<FlightScene, 'delayWindows'>>,
+  max: number,
+  tail = 0,
+  gap = 0,
+): SmokePuff[] {
+  const { scenePts, times, boostWindows: burns, delayWindows: delays = [] } = scene;
+  const smokeAt = (t: number): { burn: number; delay: boolean } | null => {
+    const burn = burnAt(t, burns);
+    if (burn >= 0) return { burn, delay: false };
+    const d = delays.findIndex(([a, b]) => t >= a && t < b);
+    if (d < 0) return null;
+    const opened = burns.findIndex(([, end]) => end === delays[d]![0]);
+    return { burn: Math.max(0, opened), delay: true };
+  };
+  const inBurn: number[] = [];
+  for (let i = 0; i < times.length; i++) if (smokeAt(times[i]!)) inBurn.push(i);
+  const step = Math.max(1, inBurn.length / max);
+  const out: SmokePuff[] = [];
+  const dir = new THREE.Vector3();
+  for (let k = 0; k < inBurn.length && out.length < max; k += step) {
+    const i = inBurn[Math.floor(k)]!;
+    const prev = scenePts[Math.max(0, i - 1)]!;
+    const next = scenePts[Math.min(scenePts.length - 1, i + 1)]!;
+    dir.subVectors(next, prev);
+    if (dir.lengthSq() < 1e-12) dir.set(0, 1, 0);
+    const pos = scenePts[i]!.clone().addScaledVector(dir.normalize(), -tail);
+    pos.y = Math.max(pos.y, 0);
+    const last = out[out.length - 1];
+    if (last && last.pos.distanceTo(pos) < gap) continue;
+    const smoke = smokeAt(times[i]!);
+    if (smoke) out.push({ pos, time: times[i]!, ...smoke });
+  }
+  return out;
+}
+
 export type PhaseColors = { boost: string; coast: string; descent: string };
 
 export interface FlightScene {
-  /** Per-point RGB for the arc's vertex colors. */
   colors: [number, number, number][];
-  /** The arc itself, scaled so peak altitude is 24 scene units. */
   scenePts: THREE.Vector3[];
-  /** Index of the highest sample: where the apogee marker sits. */
   apogeeIdx: number;
   deployT: number;
-  /**
-   * The motor burns as [start, end] times: an ignition to the burnout that
-   * ends it. A staged flight has one per stage, with the coast between them
-   * outside every window, so the boost color and the flame follow each burn.
-   */
   boostWindows: [number, number][];
+  delayWindows: [number, number][];
   times: number[];
   alts: number[];
   vels: number[];
   callouts: { type: string; pos: THREE.Vector3; time: number }[];
-  /**
-   * Scene units per meter, which is the whole scale of the drawing.
-   *
-   * Peak altitude is pinned to 24 units, so this varies with the flight. It is
-   * reported rather than recomputed by anything that needs to put a real-world
-   * measurement into the scene - the ground map lays tiles out in meters and
-   * has to agree with the arc exactly.
-   */
   unitsPerMeter: number;
 }
 
@@ -102,23 +124,17 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
       north: Number(py[i]) || 0,
     });
   }
-  // Loop, don't spread: a long/fine-timestep flight has tens of thousands of
-  // samples, and Math.max(...bigArray) overflows the call-argument stack.
+  // Loop, don't spread: Math.max(...bigArray) overflows the argument stack.
   let maxA = 1;
   for (const r of rows) if (r.a > maxA) maxA = r.a;
   const s = 24 / maxA;
   const evT = (type: string) => result.events.find((e) => e.type === type)?.time;
   const burns = boostWindows(result.events);
   const lastBurnout = burns[burns.length - 1]?.[1];
-  // Fall back to the last sample time, not `maxA`, which is the peak altitude
-  // in meters: read as seconds it would make `r.t <= apT` true for the whole
-  // trajectory, and the descent color would never appear.
+  // Seconds, not `maxA` (meters).
   const lastT = rows[rows.length - 1]?.t ?? 0;
   const apT = evT('APOGEE') ?? result.summary.timeToApogee ?? lastT;
-  // The model turns over at the recovery deployment, else at apogee: the end
-  // of forward flight the chart uses (`forwardFlightEnd`). An ejection charge
-  // is not one: a booster's charge lands in the sustainer's branch at booster
-  // burnout, and a charge with nothing to open leaves the rocket flying on.
+  // Matches `forwardFlightEnd`. Not EJECTION_CHARGE: a booster's charge lands in the sustainer's branch.
   const deployed = evT('RECOVERY_DEVICE_DEPLOYMENT');
   const dpT = deployed ?? apT;
   const sp = rows.map((r) => sceneFromEnu(r.east * s, r.a * s, r.north * s));
@@ -142,7 +158,6 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
     });
     return bi;
   };
-  // Dedup callouts by proximity in time; keep the most significant.
   const wanted: [string, number | undefined][] = [
     ['BURNOUT', lastBurnout],
     ['APOGEE', apT],
@@ -152,15 +167,10 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   const cos: { type: string; pos: THREE.Vector3; time: number }[] = [];
   for (const [type, tt] of wanted) {
     if (tt == null) continue;
-    // `sp` is empty when every sample failed the finiteness filter above (a
-    // kernel failure that still returns a result object). Checked rather than
-    // silenced with a `!`: the second callout would throw on
-    // `undefined.distanceTo` inside the memo, before the component's
-    // `scenePts.length < 2` guard, taking the app down instead of showing
-    // "no path".
+    // `sp` can be empty after a kernel failure; a `!` would throw before the "no path" guard.
     const pos = sp[idxAt(tt)];
     if (!pos) continue;
-    if (cos.some((c) => c.pos.distanceTo(pos) < 1.5)) continue; // skip coincident label
+    if (cos.some((c) => c.pos.distanceTo(pos) < 1.5)) continue;
     cos.push({ type, pos, time: tt });
   }
   return {
@@ -169,6 +179,7 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
     apogeeIdx: ai,
     deployT: dpT,
     boostWindows: burns,
+    delayWindows: delayWindows(result.events, burns),
     times: rows.map((r) => r.t),
     alts: rows.map((r) => r.a),
     vels: rows.map((r) => r.v),
@@ -177,15 +188,7 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   };
 }
 
-/**
- * The sample index a playback fraction lands on.
- *
- * `progress` is a fraction of flight time, not of sample count: the sim packs
- * most of its samples into the fast boost/coast, so index-based playback
- * would crawl there. This is the largest index whose time is at or before
- * `progress * totalT` (index 0 when none is), found by binary search because
- * the frame loop asks every frame.
- */
+// `progress` is a fraction of flight time, not sample count: samples cluster in the boost.
 export function indexForProgress(times: readonly number[], progress: number): number {
   const n = times.length;
   if (n === 0) return 0;
@@ -201,11 +204,9 @@ export function indexForProgress(times: readonly number[], progress: number): nu
   return lo;
 }
 
-/** Where the flying model sits and points for one sample, written in place. */
 export interface ModelPose {
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
-  /** World point of the nose tip: where a recovery device hangs from. */
   nose: THREE.Vector3;
 }
 
@@ -219,16 +220,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 const NOSE_AXIS = new THREE.Vector3(-1, 0, 0);
 const tangent = new THREE.Vector3();
 
-/**
- * Pose the model at sample `idx`: nose (local -X) along the path tangent, or
- * hanging nose-up once the chute is out. The model is centered on the
- * trajectory point so it straddles the path (its nose does not shoot past the
- * apogee marker), but lifted near the ground so it sits on the pad at launch
- * instead of sinking half-under it.
- *
- * Writes into `out` rather than allocating: the playback loop calls this on
- * every animation frame.
- */
+// Nose is local -X. Writes into `out`: called every frame.
 export function modelPoseAt(
   scenePts: readonly THREE.Vector3[],
   idx: number,
@@ -259,10 +251,6 @@ export type Recovery =
   | { kind: 'parachute'; diameter: number; color: string }
   | { kind: 'streamer'; length: number; width: number; color: string }
   | null;
-/**
- * The recovery device the 3D flight shows: the first parachute or streamer in
- * tree order, sized as the kernel flies it when it states no size.
- */
 export function findRecovery(tree: RocketTree, palette: PartPalette): Recovery {
   const n = findRecoveryDevices(tree)[0];
   if (!n) return null;

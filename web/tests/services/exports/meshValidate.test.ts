@@ -9,18 +9,8 @@ import {
   solidForNode,
 } from '../../../src/services/exports/solidMesh';
 
-/**
- * The mesh validator, and every solid the exporter can produce, checked with it.
- *
- * An edge count (`countBoundaryEdges`) asks only "is every edge used twice",
- * which an empty mesh, a flipped face and a self-overlapping cap all pass.
- * These tests prove the validator detects each failure mode, then hold every
- * real component to it.
- */
-
 const node = (props: Record<string, unknown>): ComponentNode => ({ id: 'n1', ...props }) as unknown as ComponentNode;
 
-/** A closed, consistently wound tetrahedron: the smallest valid solid. */
 function tetra(): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1], 3));
@@ -34,8 +24,6 @@ describe('validateSolid detects what countBoundaryEdges cannot', () => {
   });
 
   it('catches an empty mesh, which an edge count calls watertight', () => {
-    // A scaled-down design can have every triangle dropped as degenerate, which
-    // leaves no edges at all, so an edge count finds no open one.
     const g = tetra();
     g.setIndex([]);
     expect(validateSolid(g).map((i) => i.kind)).toContain('empty');
@@ -43,20 +31,15 @@ describe('validateSolid detects what countBoundaryEdges cannot', () => {
 
   it('catches a hole', () => {
     const g = tetra();
-    g.setIndex([0, 2, 1, 0, 1, 3, 0, 3, 2]); // one face removed
+    g.setIndex([0, 2, 1, 0, 1, 3, 0, 3, 2]);
     expect(validateSolid(g).map((i) => i.kind)).toContain('non-manifold-edge');
   });
 
   it('catches a flipped face that leaves every edge used exactly twice', () => {
-    // This is the cap-fan failure in miniature: the edge count is still
-    // perfect, but two faces traverse the same edge the same way, so the
-    // surface has no consistent inside.
     const g = tetra();
     g.setIndex([0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 3, 2]); // last face reversed
     const kinds = validateSolid(g).map((i) => i.kind);
     expect(kinds).toContain('inconsistent-winding');
-    // ...and prove an edge count alone would be satisfied: every
-    // undirected edge is still shared by exactly two faces.
     expect(kinds).not.toContain('non-manifold-edge');
   });
 
@@ -73,7 +56,6 @@ describe('validateSolid detects what countBoundaryEdges cannot', () => {
   });
 
   it('names what is wrong, not merely that something is', () => {
-    // The detail text is what a caller would show, so it is asserted.
     const g = tetra();
     g.setIndex([]);
     expect(
@@ -92,8 +74,6 @@ describe('meshTolerances scale with the model', () => {
 
     const tiny = new THREE.BufferGeometry();
     tiny.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1e-3, 0, 0], 3));
-    // A part a thousand times smaller gets a tolerance a thousand times finer,
-    // instead of one that erases the whole model.
     expect(meshTolerances(tiny).weld).toBeLessThan(1e-8);
     expect(meshTolerances(tiny).weld).toBeGreaterThan(0);
   });
@@ -157,7 +137,6 @@ describe('every exported component is a valid solid', () => {
       0.012,
     ],
     [
-      // Non-convex planform: the case a fan-from-the-mean cap gets wrong.
       'freeform fin with a concave notch',
       node({
         type: 'freeformfinset',
@@ -184,9 +163,6 @@ describe('every exported component is a valid solid', () => {
   });
 
   it('refuses a scaled-down design rather than exporting an empty solid', () => {
-    // 0.003x on a 70 mm nose cone puts every triangle under a fixed 1e-12 area
-    // cut. With a fixed cut they would all be dropped, the empty result would
-    // have no open edges, and the export would "succeed" with nothing in the file.
     const tiny = node({ type: 'nosecone', shape: 'ogive', length: 0.00021, aftRadius: 0.000036 });
     const geo = solidForNode(tiny);
     expect(geo).not.toBeNull();
@@ -219,8 +195,6 @@ describe('isSimplePolygon rejects a pinched outline', () => {
   });
 
   it('rejects two vertices dragged onto each other', () => {
-    // FreeformFinEditor allows it, and it extrudes into a pinch point where
-    // four shell faces share one vertex. Strict inequalities alone would accept it.
     expect(
       isSimplePolygon([
         [0, 0],
@@ -234,7 +208,6 @@ describe('isSimplePolygon rejects a pinched outline', () => {
 
   it('rejects a vertex sitting exactly on a non-adjacent edge', () => {
     expect(
-      // Vertex 3 sits exactly on the root edge (vertex 0 -> vertex 1).
       isSimplePolygon([
         [0, 0],
         [0.08, 0],
@@ -247,14 +220,7 @@ describe('isSimplePolygon rejects a pinched outline', () => {
 });
 
 describe('makeWatertight caps a non-convex hole without overlapping itself', () => {
-  /**
-   * An open prism whose cross-section is concave: a notch at (1, 0.5) between
-   * two spikes. The arithmetic mean of the five corners is (1, 0.9), which
-   * sits in the notch, outside the polygon. Fanning a cap from there emits
-   * triangles that overlap and face opposite ways, while still using every
-   * boundary edge exactly twice, so an edge count reports a watertight
-   * solid. Ear clipping uses only the loop's own vertices and cannot do that.
-   */
+  // The corners' mean (1, 0.9) lies outside the polygon, so a fan cap from it overlaps itself.
   const CONTOUR: Array<[number, number]> = [
     [0, 0],
     [2, 0],
@@ -263,10 +229,9 @@ describe('makeWatertight caps a non-convex hole without overlapping itself', () 
     [0, 2],
   ];
 
-  /** Side walls only, no caps, consistently wound outward. */
   function openPrism(): THREE.BufferGeometry {
     const pos: number[] = [];
-    for (const [x, y] of CONTOUR) pos.push(x, y, 0, x, y, 1); // bottom, top per corner
+    for (const [x, y] of CONTOUR) pos.push(x, y, 0, x, y, 1);
     const idx: number[] = [];
     for (let i = 0; i < CONTOUR.length; i++) {
       const j = (i + 1) % CONTOUR.length;
@@ -290,18 +255,11 @@ describe('makeWatertight caps a non-convex hole without overlapping itself', () 
 
   it('closes into a genuinely valid solid', () => {
     const capped = makeWatertight(openPrism());
-    expect(countBoundaryEdges(capped)).toBe(0); // what an edge count asks
-    expect(validateSolid(capped)).toEqual([]); // what it could not ask
+    expect(countBoundaryEdges(capped)).toBe(0);
+    expect(validateSolid(capped)).toEqual([]);
   });
 
   it('keeps every cap triangle inside the outline it is closing', () => {
-    // The fan failure, stated directly. It is a geometric defect, not a
-    // topological one: a fan from an apex outside the loop is still a closed,
-    // consistently wound surface (each spoke is traversed once each way), so
-    // neither an edge count nor validateSolid's winding check can see it. What
-    // is wrong is that the cap covers area the part does not occupy and then
-    // cancels it with oppositely-wound triangles, leaving a self-intersecting
-    // lid. Ear clipping uses only the loop's own vertices, so it cannot.
     const capped = makeWatertight(openPrism());
     const pos = capped.getAttribute('position');
     const idx = capped.getIndex()!;
@@ -321,20 +279,16 @@ describe('makeWatertight caps a non-convex hole without overlapping itself', () 
       const ia = idx.getX(t),
         ib = idx.getX(t + 1),
         ic = idx.getX(t + 2);
-      // Only the bottom lid: the three corners all on z = 0.
       if (pos.getZ(ia) !== 0 || pos.getZ(ib) !== 0 || pos.getZ(ic) !== 0) continue;
       capTriangles++;
       const cx = (pos.getX(ia) + pos.getX(ib) + pos.getX(ic)) / 3;
       const cy = (pos.getY(ia) + pos.getY(ib) + pos.getY(ic)) / 3;
       expect({ cx, cy, inside: inside(cx, cy) }).toEqual({ cx, cy, inside: true });
     }
-    // The notch means a correct triangulation needs at least three ears.
     expect(capTriangles).toBeGreaterThanOrEqual(3);
   });
 
   it('adds no vertex of its own', () => {
-    // A fan invents an apex; ear clipping reuses the loop's corners. A cap
-    // that needs a new point is a cap that can put it in the wrong place.
     const open = openPrism();
     const before = open.getAttribute('position').count;
     expect(makeWatertight(openPrism()).getAttribute('position').count).toBe(before);

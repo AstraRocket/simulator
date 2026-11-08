@@ -30,18 +30,6 @@ const rowsOf = (text: string) =>
     m: attr(m[1]!, 'm') / 1000,
     cg: attr(m[1]!, 'cg') / 1000,
   }));
-
-/**
- * The ground truth: the desktop's own example designs embed their motors as
- * `thrustcurves/<digest>.rse`. Where the desktop named the file by the digest of
- * its own content, which is how every file we write is named, reading it back
- * the way the desktop's loader does and hashing it reproduces the name. That is
- * the check the desktop makes when it opens a `.ork` we write.
- *
- * The pods example's Estes A10 is left out: its name is the motor database's
- * digest of a source file that is not in the archive, and no hash of the
- * embedded rows reproduces it, so the desktop resolves it from its database.
- */
 const SELF_NAMED: Record<string, string[]> = {
   'two-stage-high-power-rocket.ork': [
     'a06234b6049c1079e394cb9ecd4607a9',
@@ -63,11 +51,7 @@ describe('the motor digest, against files the desktop wrote', () => {
   }
 });
 
-/**
- * Desktop's `RockSimMotorLoader` sorts the rows by time before it finalizes
- * and hashes them. The digests are what OpenRocket 24.12's own loader computes
- * for these two files (`RockSimMotorLoader.load(...).build().getDigest()`).
- */
+// Expected digests from OpenRocket 24.12's `RockSimMotorLoader.load(...).build().getDigest()`.
 describe('rseDigest, rows out of time order', () => {
   const rse = (rows: string[]) =>
     [

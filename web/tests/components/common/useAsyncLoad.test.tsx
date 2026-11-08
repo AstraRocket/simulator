@@ -23,8 +23,7 @@ function Probe({
   );
 }
 
-// Plain `render`: the hook needs no providers, and `renderWithProviders`'s
-// rerender would drop its wrapper and remount the probe.
+// Plain `render`: `renderWithProviders`'s rerender would drop its wrapper and remount the probe.
 afterEach(cleanup);
 
 const flush = () => act(async () => {});
@@ -54,7 +53,6 @@ describe('useAsyncLoad', () => {
   it('shows loading for a new key, but keeps the data on screen through a refresh', async () => {
     const { rerender } = render(<Probe k="a" refresh={0} load={() => Promise.resolve('a1')} />);
     await flush();
-    // Held open, so the old data can be seen standing while the reload runs.
     let release: (v: string) => void = () => {};
     const pending = new Promise<string>((r) => (release = r));
     rerender(<Probe k="a" refresh={1} load={() => pending} />);

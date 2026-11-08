@@ -21,10 +21,6 @@ describe('trackPoints', () => {
     ]);
   });
 
-  /**
-   * Zero is the pad, so substituting it for a missing sample would draw a line
-   * back to the launch point and out again.
-   */
   it('drops a sample whose other half is missing, rather than calling it zero', () => {
     expect(trackPoints(series([0, null, 20], [0, 5, 9]))).toEqual([
       { east: 0, north: 0 },
@@ -53,8 +49,7 @@ describe('distance and bearing from the pad', () => {
     expect(bearingFromPad({ east: 0, north: 10 })).toBe(0);
     expect(bearingFromPad({ east: 10, north: 0 })).toBe(90);
     expect(bearingFromPad({ east: 0, north: -10 })).toBe(180);
-    // Not -90: a bearing is stated 0-360, which is how it is read off a compass
-    // and how the flight-path export already writes it.
+    // Not -90: bearings are 0-360, as the flight-path export writes them.
     expect(bearingFromPad({ east: -10, north: 0 })).toBe(270);
   });
 });
@@ -74,11 +69,6 @@ describe('groundTrackLine', () => {
   });
 });
 
-/**
- * The frame is square and centered on the pad. Scaling the axes independently
- * would bend a straight drift into a curve and make a circle of equal distance
- * read as an ellipse, which is exactly what the range rings are there to deny.
- */
 describe('trackExtent', () => {
   it('spans the furthest point on EITHER axis, across every track', () => {
     const a = groundTrackLine('a', 'A', '#fff', series([0, 100], [0, 10]));
@@ -91,25 +81,17 @@ describe('trackExtent', () => {
     expect(trackExtent([a])).toBeCloseTo(440, 6);
   });
 
-  /**
-   * Still air lands a rocket a tenth of a meter from the pad. A view scaled to
-   * that has rings labeled in centimeters and no aerial imagery at that zoom,
-   * so the frame has a floor and a landing on the pad reads as a dot on the pad.
-   */
   it('never zooms closer than a hundred meters across, however short the flight', () => {
     expect(trackExtent([])).toBe(MIN_EXTENT_M);
     expect(trackExtent([groundTrackLine('a', 'A', '#fff', series([0, 0], [0, 0]))])).toBe(MIN_EXTENT_M);
-    // A still-air landing, which is what a plain run of the default design gives.
     expect(trackExtent([groundTrackLine('a', 'A', '#fff', series([0, 0.11], [0, 0.02]))])).toBe(MIN_EXTENT_M);
-    // A real drift is still sized to itself.
     expect(trackExtent([groundTrackLine('a', 'A', '#fff', series([0, 400], [0, 0]))])).toBeCloseTo(440, 6);
   });
 });
 
 describe('rangeRings', () => {
   it('steps on the 1/2/5 ladder, so the labels are numbers a person reads', () => {
-    // The step rounds up onto the ladder, so `count` is a ceiling rather than a
-    // target: 275/4 is 68.75, which rounds to 100 and rings twice.
+    // `count` is a ceiling: 275/4 = 68.75 rounds up to 100 and rings twice.
     expect(rangeRings(275)).toEqual([100, 200]);
     expect(rangeRings(1000)).toEqual([500, 1000]);
     expect(rangeRings(4)).toEqual([1, 2, 3, 4]);
@@ -122,8 +104,7 @@ describe('rangeRings', () => {
   });
 
   it('gives exact radii on a fractional step, not float noise', () => {
-    // On a sub-meter step both the multiplying and the accumulating forms
-    // drift: 0.1 * 3 is 0.30000000000000004 in IEEE754, and so is 0.1 + 0.1 + 0.1.
+    // 0.1 * 3 and 0.1 + 0.1 + 0.1 are both 0.30000000000000004 in IEEE754.
     expect(rangeRings(0.4)).toEqual([0.1, 0.2, 0.3, 0.4]);
     expect(rangeRings(0.7)).toEqual([0.2, 0.4, 0.6]);
     expect(rangeRings(0.3, 6)).toEqual([0.05, 0.1, 0.15, 0.2, 0.25, 0.3]);

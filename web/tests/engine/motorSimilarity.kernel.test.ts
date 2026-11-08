@@ -4,10 +4,7 @@ import { loadEngine } from '../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * The kernel's MotorCorrelation through the bridge: what desktop's "Hide very
- * similar thrust curves" compares against 0.95.
- */
+// MotorCorrelation: desktop's "Hide very similar thrust curves" compares it against 0.95.
 
 const times = [0, 0.1, 0.5, 1, 1.2];
 const thrust = [0, 20, 15, 10, 0];

@@ -1,20 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { NumberInput, parseFieldValue } from '../../../src/components/common/NumberInput';
+import { NumberInput } from '../../../src/components/common/NumberInput';
+import { parseFieldValue } from '../../../src/components/common/parseFieldValue';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * Every numeric field in the app funnels through here, so this is the one
- * place worth holding to "nothing that is not a real number gets out".
- *
- * A NaN check and a clamp are not enough on their own: `parseFloat("1e999")` is
- * `Infinity`, `Number.isNaN` says no, and the clamp cannot help because
- * `Infinity < min` is false and most callers pass no `max` at all. An Infinity
- * that gets out reaches the node, is persisted, exported to `.ork`, and read back
- * as `0` by `num()`, so the field shows Infinity while the geometry behaves as if
- * the dimension were absent.
- */
 describe('NumberInput', () => {
   const type = (value: string, props: { min?: number; max?: number } = {}) => {
     cleanup(); // several renders per test: RTL only auto-cleans between tests
@@ -32,9 +22,7 @@ describe('NumberInput', () => {
     expect(type('')).toHaveBeenCalledWith(null);
   });
 
-  // The overflow cases are asserted against parseFieldValue rather than the
-  // rendered input: jsdom sanitizes "1e999" on a type="number" field to an
-  // empty value, so a DOM test of it passes for the wrong reason.
+  // Not via the DOM: jsdom empties "1e999" on a number input.
   it('reports null for Infinity rather than letting it reach the geometry', () => {
     expect(parseFieldValue('1e999')).toBeNull();
     expect(parseFieldValue('-1e999')).toBeNull();
@@ -54,11 +42,6 @@ describe('NumberInput', () => {
     expect(parseFieldValue('')).toBeNull();
   });
 
-  /**
-   * The blurred box shows the noise-trimmed value, and focusing it must seed the
-   * draft with that same text. Seeded with `String(value)`, a unit-converted
-   * 0.1 + 0.2 turns into "0.30000000000000004" the moment the user clicks in.
-   */
   it('seeds the editing draft with the same trimmed text the box showed', () => {
     cleanup();
     renderWithProviders(<NumberInput value={0.1 + 0.2} onChange={() => {}} ariaLabel="len" />);
@@ -69,18 +52,11 @@ describe('NumberInput', () => {
   });
 
   it('still clamps a typed value to the declared bounds', () => {
-    // HTML min/max are only spinner hints; a typed-in value ignores them.
     expect(type('-5', { min: 0 })).toHaveBeenCalledWith(0);
     expect(type('99', { min: 0, max: 10 })).toHaveBeenCalledWith(10);
   });
 });
 
-/**
- * commitOnBlur: for a field whose every value costs something to apply (the aero
- * sweep runs the kernel; a settings write hits storage), the typed value goes
- * out once, on blur or Enter, not per keystroke, and not at all if nothing was
- * typed.
- */
 describe('NumberInput commitOnBlur', () => {
   it('reports once, on blur, and not per keystroke', () => {
     const onChange = vi.fn();
@@ -115,11 +91,7 @@ describe('NumberInput commitOnBlur', () => {
   });
 });
 
-/**
- * A field unmounted mid-edit, as a dialog closed on Escape unmounts it. React
- * fires no blur for a removed node, so the typed value is reported by the
- * unmount, through the same rules a blur applies.
- */
+// React fires no blur for a removed node.
 describe('NumberInput commitOnBlur, unmounted mid-edit', () => {
   const typeThenUnmount = (value: string, props: { min?: number; max?: number } = {}) => {
     const onChange = vi.fn();
@@ -181,7 +153,6 @@ describe('NumberInput commitOnBlur, unmounted mid-edit', () => {
   it('reports to the latest handler, not the one from the first render', () => {
     const first = vi.fn();
     const second = vi.fn();
-    // A bare render, so the rerender updates this input rather than replacing it.
     const { rerender, unmount } = render(<NumberInput value={1} onChange={first} commitOnBlur ariaLabel="step" />);
     const el = screen.getByLabelText('step');
     fireEvent.focus(el);

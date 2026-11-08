@@ -7,12 +7,7 @@ import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The fields whose kernel setter clamps them against the rest of the part, or
- * against the part it sits on. Each expected value is the clamp written out
- * from the Java setter named beside it. Lengths are typed in centimeters, the
- * panel's default length unit.
- */
+// Lengths are typed in centimeters, the panel's default length unit.
 
 const field = (type: string, key: string) => {
   const f = FIELDS[type]!.find((x) => x.key === key);
@@ -20,7 +15,6 @@ const field = (type: string, key: string) => {
   return f;
 };
 
-/** Type `text` into one field of `node` and return the number it stores. */
 const typeInto = (node: Record<string, unknown>, key: string, label: string, text: string): unknown => {
   const onChange = vi.fn();
   renderWithProviders(
@@ -32,7 +26,7 @@ const typeInto = (node: Record<string, unknown>, key: string, label: string, tex
 
 describe('a wall is at most the radius it is cut from', () => {
   it.each([
-    // SymmetricComponent.setThickness: clamp(t, 0, getMaxRadius()), the outer radius on a tube.
+    // SymmetricComponent.setThickness: clamp(t, 0, getMaxRadius()).
     [{ type: 'bodytube', outerRadius: 0.013, thickness: 0.001 }, 0.013],
     // ThicknessRingComponent.setThickness: clamp(t, 0, getOuterRadius()).
     [{ type: 'tubecoupler', outerRadius: 0.012, thickness: 0.001 }, 0.012],
@@ -41,9 +35,7 @@ describe('a wall is at most the radius it is cut from', () => {
     [{ type: 'launchlug', outerRadius: 0.003, thickness: 0.0005 }, 0.003],
     // TubeFinSet.setThickness: clamp(t, 0, getOuterRadius()).
     [{ type: 'tubefinset', outerRadius: 0.01, thickness: 0.001 }, 0.01],
-    // SymmetricComponent.setThickness on a nose cone: getMaxRadius() is the base.
     [{ type: 'nosecone', aftRadius: 0.02, thickness: 0.002 }, 0.02],
-    // On a transition, the wider of the two ends.
     [{ type: 'transition', foreRadius: 0.02, aftRadius: 0.03, thickness: 0.002 }, 0.03],
   ])('%o', (node, max) => {
     expect(typeInto(node, 'thickness', 'Thickness', '9')).toBeCloseTo(max, 12);

@@ -5,7 +5,6 @@ const field =
   'mt-1 w-full rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500';
 const labelClass = 'mt-4 block text-xs font-medium text-ink-muted';
 
-/** A saved part's name, manufacturer and description: the fields it is found by in the picker. */
 export function PartMetaFields({
   idPrefix,
   meta,
@@ -13,11 +12,9 @@ export function PartMetaFields({
   onEnter,
   autoFocus = false,
 }: {
-  /** Keeps the label ids apart when two forms could be in the document. */
   idPrefix: string;
   meta: PartMeta;
   onChange: (patch: Partial<PartMeta>) => void;
-  /** Enter in any field, for a form that submits on it. */
   onEnter?: () => void;
   autoFocus?: boolean;
 }) {

@@ -9,30 +9,10 @@ import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { uuid } from '../../services/app/uuid';
 import { SiteMap } from './SiteMap';
 import { LAUNCH_SITE_LIMITS as LIMITS, type LaunchLocation } from '../../services/storage/launchLocationStore';
-import { EditorFooter, useReportDirty, EditorBack } from '../common/MasterDetail';
+import { EditorFooter, EditorBack } from '../common/MasterDetail';
+import { useReportDirty } from '../common/useGuardedSelection';
 
-/**
- * The detail half of the saved locations dialog: one location in full (name,
- * latitude, longitude and elevation), or a blank one being created.
- *
- * Every field is editable, not just the name. Coordinates get typed wrong, a
- * field's published elevation gets corrected, and a location saved from the
- * launch panel captures whatever was in the boxes at the time, so the thing you
- * most want to fix about a location is usually a number rather than its name.
- *
- * The bounds are the store's own (`LAUNCH_SITE_LIMITS`, checked by
- * `isLocation`), which are also the ones `LaunchPanel` clamps its fields to.
- * Stating them here as `min`/`max` means a bad value is unreachable rather than
- * rejected after the fact.
- *
- * The map under the fields is the other half of the same job. Four digits of
- * latitude cannot be checked by reading them, and a club field often has no
- * published coordinates at all. Clicking the map fills both numbers, and the
- * numbers move the pin, so either one can be the thing you know.
- *
- * The parent mounts this keyed on the location, so selecting another one
- * re-seeds every field by remounting rather than through an effect.
- */
+/** The parent keys this on the location, so selecting another re-seeds by remount. */
 export function LocationEditor({
   location,
   takenNames = [],
@@ -42,18 +22,12 @@ export function LocationEditor({
   onApply,
   onBack,
 }: {
-  /** The location to edit, or null to create one. */
   location: LaunchLocation | null;
-  /** Other locations' names, to warn about a duplicate (not to forbid it). */
   takenNames?: string[];
-  /** Lets the list ask before a selection change would discard edits. */
   onDirtyChange: (dirty: boolean) => void;
   onSave: (location: LaunchLocation) => void;
-  /** Absent while creating: there is nothing stored yet to remove. */
   onDelete?: () => void;
-  /** Absent while creating, and refused while edited: see the button. */
   onApply?: () => void;
-  /** Phone only: the two panes share the width, so the list needs a way back. */
   onBack: () => void;
 }) {
   const { t } = useTranslation();
@@ -65,40 +39,18 @@ export function LocationEditor({
   const [lon, setLon] = useState<number | null>(location?.longitudeDeg ?? null);
   const [alt, setAlt] = useState<number | null>(location?.launchAltitudeM ?? null);
 
-  // Altitude shares the launch panel's own unit and scope, so a user working in
-  // feet sees feet in both places rather than meters in one of them.
   const altUnit = u.at(unitScope('launch', SITE_ALTITUDE_FIELD), LAUNCH_SI.distance.q);
 
-  /**
-   * Focus and select the name synchronously, before the browser paints.
-   *
-   * A deferred focus (such as `requestAnimationFrame`) leaves a frame in which
-   * the dialog is on screen without focus. A click into another field inside
-   * that frame would have its focus pulled away mid-keystroke, so the first
-   * thing typed into the latitude would land in the name box.
-   *
-   * A layout effect runs after the DOM is in place and before paint, so there
-   * is no such gap. `useFocusTrap`'s own pull is a passive effect that skips a
-   * panel which already holds focus, so it runs after this and leaves it be.
-   *
-   * Only when creating: in a master-detail list, stealing focus on every
-   * selection would fight the arrow keys somebody is browsing the list with.
-   */
+  // Layout effect, not deferred: a frame without focus lets keystrokes land in the wrong field.
   useLayoutEffect(() => {
     if (!location) nameRef.current?.select();
   }, [location]);
 
   const trimmed = name.trim();
   const duplicate = trimmed !== '' && takenNames.some((n) => n.toLowerCase() === trimmed.toLowerCase());
-  // Latitude and longitude have no sensible default (a location at 0°,0° is in
-  // the Gulf of Guinea, not "unset"), so both are required. A blank elevation
-  // is saved as unknown, never as sea level: a coastal field types its 0.
+  // A blank elevation is unknown, never sea level.
   const valid = trimmed !== '' && lat !== null && lon !== null;
 
-  // Compared against what is stored rather than tracked by a flag set on every
-  // keystroke, so typing a character and deleting it again leaves the editor
-  // clean and the discard prompt does not fire over an edit nobody made. A new
-  // location is dirty the moment anything is entered.
   const dirty =
     name !== (location?.name ?? '') ||
     lat !== (location?.latitudeDeg ?? null) ||
@@ -107,14 +59,7 @@ export function LocationEditor({
 
   useReportDirty(dirty, onDirtyChange);
 
-  /**
-   * Bumped by Discard to remount the number fields.
-   *
-   * `NumberInput` holds a text draft while it is focused and only drops it on
-   * blur, so putting the prop back is not enough on its own: the field keeps
-   * rendering what was typed. Clicking Discard blurs it first, but a Discard
-   * reached any other way does not. Remounting throws the draft away outright.
-   */
+  // Remounts the number fields: `NumberInput` keeps its focused draft until blur.
   const [revision, setRevision] = useState(0);
 
   const revert = () => {
@@ -140,12 +85,7 @@ export function LocationEditor({
     <>
       <div // eslint-disable-line jsx-a11y-x/no-static-element-interactions -- catches Enter bubbling up from any field in the form; the div itself takes no input
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
-        // On the wrapper rather than the panel, which the shell owns. Keydown
-        // bubbles from whichever field is being typed into, so this still
-        // catches Enter anywhere in the form. Only from a field: Enter on a
-        // button is that button's, and Enter on the map is a pick it has
-        // already handled, which would otherwise save the coordinates from
-        // before it.
+        // Only from a field: Enter on the map is a pick that would save stale coordinates.
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.defaultPrevented && e.target instanceof HTMLInputElement) {
             e.preventDefault();
@@ -212,9 +152,6 @@ export function LocationEditor({
           </Row>
         </div>
 
-        {/* Fed from the draft fields rather than the saved location, so the pin
-            tracks a coordinate as it is typed and a mistake shows before the
-            location is written. */}
         <SiteMap
           latitudeDeg={lat}
           longitudeDeg={lon}
@@ -238,10 +175,6 @@ export function LocationEditor({
           <button
             onClick={onApply}
             disabled={dirty}
-            // Refused mid-edit rather than applying the draft: this list is
-            // the sites you have saved, and sending the simulation a set of
-            // coordinates that exist nowhere is not what "use this location"
-            // offers.
             title={dirty ? t('location.applyNeedsSave') : t('location.apply')}
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-accent-300 hover:bg-accent-500/10 disabled:text-ink-faint disabled:hover:bg-transparent"
           >

@@ -1,31 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { useSettings } from '../../state/SettingsProvider';
+import { useSettings } from '../../state/useSettings';
 import { UNITS, unitFor, type Quantity } from '../../prefs/units';
 import { withKey } from '../../services/app/objectKeys';
-import { useUnits } from '../../prefs/useUnits';
 
-/**
- * The unit shown beside a value, changeable in place: a borderless <select>
- * styled to read as plain text.
- *
- * It changes this field only. `scope` names the field (see `unitScope`), and
- * the choice is stored against that key, so setting a nose cone's Length to
- * inches leaves its Thickness, the tree, the rulers and the stats strip alone.
- * Settings ▸ Units remains the one place that moves everything at once.
- *
- * The choice persists. Picking the Settings default back removes the override
- * rather than storing one that happens to match, so the field goes back to
- * following the preference if that preference later changes.
- *
- * A field showing something other than the default is tinted, so a card with
- * one length in inches among centimeters reads as deliberate rather than as a
- * bug, and so a choice made months ago is findable where it actually matters,
- * not only in the preferences dialog.
- *
- * The accessible name carries the figure or quantity, not just "unit": a panel can
- * show a dozen of these at once, and a bare "Unit" makes every one of them announce
- * identically to a screen reader.
- */
+/** Picking the Settings default removes the override, so the field follows later preference changes. */
 export function UnitChip({
   quantity,
   scope,
@@ -34,14 +12,6 @@ export function UnitChip({
 }: {
   quantity: Quantity;
   scope: string;
-  /**
-   * The name of the figure this chip belongs to ("Rod exit", "CG", …).
-   *
-   * The quantity alone is not enough to tell chips apart: the stats strip shows
-   * four length chips at once (length, max diameter, CG, CP) and the flight
-   * summary four velocity ones, so without this they all announce identically
-   * and `getByLabel` matches every one of them.
-   */
   label?: string;
   className?: string;
 }) {
@@ -53,8 +23,6 @@ export function UnitChip({
     <select
       value={current}
       title={overridden ? t('units.chipOverridden', { unit: settings.units[quantity] }) : t('units.chipTitle')}
-      // The tint is a color-only cue, which reaches nobody using a screen
-      // reader, so the accessible name carries the same fact in words.
       aria-label={
         overridden
           ? t('units.ariaForOverridden', { quantity: label ?? t(`units.q.${quantity}`) })
@@ -62,7 +30,6 @@ export function UnitChip({
       }
       onClick={(e) => e.stopPropagation()}
       onChange={(e) => {
-        // The default unit clears the override rather than storing it.
         const v = e.target.value;
         update({ unitOverrides: withKey(settings.unitOverrides, scope, v === settings.units[quantity] ? null : v) });
       }}
@@ -77,19 +44,4 @@ export function UnitChip({
       ))}
     </select>
   );
-}
-
-/**
- * A field's unit and its chip from one scope, so a tile cannot format its value
- * in one field's unit while its chip changes another's. `chip(label)` is the
- * `UnitChip` for the same scope and quantity.
- */
-export function useScopedUnit(scope: string, quantity: Quantity) {
-  const field = useUnits().at(scope, quantity);
-  return {
-    ...field,
-    chip: (label: string, className?: string) => (
-      <UnitChip label={label} quantity={quantity} scope={scope} className={className} />
-    ),
-  };
 }

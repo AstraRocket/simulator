@@ -14,16 +14,8 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/**
- * An `after` position, which only an older or hand-edited file carries, is
- * resolved by the app before the kernel sees the design. Its station has to be
- * the one the kernel gives the same design built with `after` as written: the
- * previous sibling's aft end for the parts whose isAfter() is the method's own,
- * and the parent's aft end plus the offset for the ones that override it to
- * false (fin sets, inner tubes, lugs, mass objects, tube fins).
- */
+// `after` is the previous sibling's aft end, or the parent's aft end plus offset when isAfter() is false.
 
-/** Each part's station from the nose, as the kernel locates it. */
 function kernelStations(tree: RocketTree, ids: string[]): Map<string, number> {
   engine.reset();
   const handle = engine.buildRocket(JSON.stringify(tree));

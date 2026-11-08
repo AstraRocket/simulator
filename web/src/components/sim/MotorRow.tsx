@@ -13,11 +13,6 @@ import type { IgnitionScope } from '../../state/store';
 import { ejectionDelayText } from './motorFormat';
 import { RadioGroup } from '../common/RadioGroup';
 
-/**
- * A motor-mount summary card: the seated motor (designation, dims, delay, curve)
- * + a "Change…" button opening the picker, and a 📈 thrust-curve popup. `title`
- * names the mount on multi-mount rockets; `motor` is null for an empty mount.
- */
 export function MotorRow({
   motor,
   onChange,
@@ -35,43 +30,22 @@ export function MotorRow({
   motor: MotorSpec | null;
   onChange: (m: MotorSpec) => void;
   onError: (msg: string | null) => void;
-  /** The mount's bore and the length it has room for (mm), which drive the
-   *  picker's "fits the mount" filter. */
+  /** Bore and room in mm. */
   mount?: MountFit | null;
-  /** Card heading (e.g. "Motor - Center mount"); defaults to just "Motor". */
   title?: string;
-  /** When this mount's motor ignites (defaults to automatic). */
   ignition?: { event: IgnitionEvent; delay: number };
   onIgnitionChange?: (event: IgnitionEvent, delay: number, scope: IgnitionScope) => void;
-  /** Every configuration's motor in this mount, and the mount itself, already ignite as this one does. */
   ignitionEverywhere?: boolean;
-  /** Close the ignition edit's undo entry (event change: immediate; delay: on blur). */
   onCommit?: () => void;
-  /**
-   * A multi-row selection is being edited, and this card is not part of it.
-   *
-   * Not a warning about overwriting, which is what the amber marker means
-   * elsewhere: a motor change only ever touches the active simulation, so the
-   * card says which one it is about instead. Rows differing on motor is the
-   * normal state of a comparison, not something to flag.
-   */
   soloEdit?: boolean;
-  /** The motors this mount carries in its other flight configurations. */
   used?: MotorSpec[];
-  /** The configuration and mount this card chooses for, for the picker's thrust-to-weight filter. */
   liftoff?: LiftoffAt;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
   const [open, setOpen] = useState(false);
   const [curveOpen, setCurveOpen] = useState(false);
-  // An unresolved .ork motor is seated as a curve-less placeholder: show its
-  // name but flag it as not-found and hide the (empty) thrust-curve view.
   const hasCurve = !!motor?.masses?.length;
-  // Names the card as a landmark ("Motor", or "Motor - Inner tube 2" when a
-  // rocket has several mounts). Without it, a multi-mount design is a run of
-  // unlabeled sections to a screen reader, each holding a "Change…" button with
-  // nothing to say which tube it seats.
   const cardLabel = title ?? t('sims.motor');
   return (
     <section aria-label={cardLabel} className={'rounded-xl bg-surface p-3 ring-1 ring-line/10'}>
@@ -83,7 +57,7 @@ export function MotorRow({
           </div>
           {motor ? (
             <>
-              <div className="truncate text-lg font-semibold text-accent-400">{motorName(motor)}</div>
+              <div className="truncate font-data text-lg font-semibold text-accent-400">{motorName(motor)}</div>
               <div className="text-xs text-ink-faint">
                 {u.fmt('motorDimensions', motor.diameter)} × {u.fmt('motorDimensions', motor.length)}{' '}
                 {u.sym('motorDimensions')}
@@ -130,10 +104,6 @@ export function MotorRow({
           onCommit={onCommit}
         />
       )}
-      {/* Mounted only while open, so each opening starts from fresh state:
-          mounted permanently and returning null when closed, the picker would
-          keep the previous motor's ejection delay across a reopen and fetch the
-          catalog on app start. */}
       {open && (
         <MotorDialog
           onClose={() => setOpen(false)}
@@ -150,17 +120,7 @@ export function MotorRow({
   );
 }
 
-/** When this mount's motor ignites: the OpenRocket event set plus a delay (s)
- *  after that event. "Automatic" lights launch-stage motors at launch and upper
- *  stages on the stage-below's ejection; the others (+ delay) drive air-starts
- *  and electronically-lit sustainers.
- *
- *  The scope and the reset are desktop's (IgnitionSelectionDialog,
- *  MotorConfigurationPanel's Reset ignition). The scope starts on this
- *  configuration, as the dialog does for a mount with a motor in it, and holds
- *  for the edits that follow until it is switched back or the card is shown
- *  for another configuration. Reset is `MotorConfiguration.useDefaultIgnition`:
- *  Automatic with no delay, not the mount's own ignition. */
+/** Mirrors desktop IgnitionSelectionDialog; reset is `MotorConfiguration.useDefaultIgnition`, not the mount's own. */
 function IgnitionControl({
   event,
   delay,
@@ -198,12 +158,7 @@ function IgnitionControl({
         </select>
         {event !== 'never' && (
           <label className="flex shrink-0 items-center gap-1 text-ink-faint">
-            +
-            {/* `NumberInput` for the same reason the ejection delay in MotorDialog
-                is one: a raw box with `?? 0` would commit a zero ignition delay the
-                moment the field is cleared to retype, which on an air-start is the
-                upper stage lighting at separation. The draft buffer holds the empty
-                string instead, and a blank box means "no change". */}
+            +{/* `NumberInput`: a raw box would commit a zero delay when cleared to retype. */}
             <NumberInput
               min={0}
               step={0.5}
@@ -244,8 +199,7 @@ function IgnitionControl({
       {scope === 'all' && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="min-w-0 flex-1 text-[11px] leading-snug text-ink-faint">{t('sims.ignitionAllHint')}</p>
-          {/* Desktop's OK applies the dialog's values whether or not they were
-              edited; this is that, for an ignition already set here. */}
+          {/* Desktop's OK applies the values whether or not they were edited. */}
           <button
             type="button"
             disabled={everywhere}

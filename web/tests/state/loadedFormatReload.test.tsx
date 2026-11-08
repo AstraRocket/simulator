@@ -10,7 +10,6 @@ import type { KeyValueStore } from '../../src/services/storage/keyValueStore';
 import { sniffDesignFormat } from '../../src/services/files/designFile';
 import { renderWithProviders } from '../testing/renderWithProviders';
 
-/** The library's backing store, held in memory, as a reload finds it. */
 class MemoryKv implements KeyValueStore {
   map = new Map<string, string>();
   async get(k: string) {
@@ -44,13 +43,8 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-/**
- * The loaded-design card names the format of the file the design came from. A
- * stored workspace carries it, so the card says the same after a reload.
- */
 describe('a stored imported design', () => {
   it('keeps the format the card names across a reload', async () => {
-    // The format as the importer reads it off a RockSim file.
     const format = sniffDesignFormat('<RockSimDocument><FileVersion>4</FileVersion></RockSimDocument>');
     expect(format).toBe('rkt');
     const st = useWorkspaceStore.getState();
@@ -66,7 +60,6 @@ describe('a stored imported design', () => {
     const kv = new MemoryKv();
     setDesignLibrary(new DesignLibrary(kv));
     await new LibraryWorkspaceStore().save(saved);
-    // A reload: a new store over the same storage.
     const w = (await new LibraryWorkspaceStore().load())!;
     expect(w.loadedMeta?.format).toBe('rkt');
     act(() => useWorkspaceStore.getState().hydrate(w));

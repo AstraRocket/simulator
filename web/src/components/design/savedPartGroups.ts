@@ -2,12 +2,7 @@ import type { ComponentType } from '../../services/parts/componentDb';
 import type { SavedPartEntry } from '../../services/parts/customParts';
 import { groupBy } from '../../services/app/collections';
 
-/**
- * Where each catalog type's group sits in the saved-parts library: the add-part
- * palette's order (body, inner, recovery, other). Typed against the catalog's
- * own type list, so a new catalog type does not compile until it has a place
- * here, and the list never falls back to first-seen order.
- */
+// Typed against the catalog's type list so a new catalog type does not compile until it has a place.
 const GROUP_ORDER = {
   nosecone: 0,
   bodytube: 1,
@@ -26,11 +21,6 @@ const rank = (type: string): number =>
   // A type the app no longer knows sorts last rather than first.
   (GROUP_ORDER as Record<string, number>)[type] ?? Object.keys(GROUP_ORDER).length;
 
-/**
- * Saved parts grouped by catalog type, each group's parts by part number. The
- * group order is fixed, so the list does not rearrange itself as parts are
- * saved and deleted.
- */
 export function groupSavedParts(entries: readonly SavedPartEntry[]): { type: string; list: SavedPartEntry[] }[] {
   return [...groupBy(entries, (e) => e.part.type).entries()]
     .sort((a, b) => rank(a[0]) - rank(b[0]))

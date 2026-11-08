@@ -4,8 +4,7 @@ import { selectConfig } from '../../src/state/workspaceSelectors';
 import { saveBlob } from '../../src/services/files/saveFile';
 import type { RocketTree } from '../../src/engine/openRocketEngine';
 
-// The file is written through saveBlob, which needs a browser; the test reads
-// the blob it was handed.
+// saveBlob needs a browser; the test reads the blob it was handed.
 vi.mock('../../src/services/files/saveFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/services/files/saveFile')>()),
   saveBlob: vi.fn(async () => {}),
@@ -13,7 +12,6 @@ vi.mock('../../src/services/files/saveFile', async (importOriginal) => ({
 
 const s = () => useWorkspaceStore.getState();
 
-/** A nose, a tube and a parachute that deploys on the ejection charge in the design. */
 const tree = {
   name: 'x',
   components: [
@@ -37,16 +35,10 @@ const tree = {
 
 beforeEach(() => {
   s().resetWorkspace();
-  // The whole rocket's launch mass and CG, as a build leaves them: the single
-  // stage's simulation cell. Without a build the export warns that it wrote 0.
   useWorkspaceStore.setState({ err: null, tree, info: { mass: 0.1, cg: 0.2 } as never });
   vi.mocked(saveBlob).mockClear();
 });
 
-/**
- * Desktop's RecoveryDTO reads each chute's deployment from the selected flight
- * configuration, so an override there is what the export carries.
- */
 describe('saveRasaero', () => {
   it("exports the selected configuration's deployment, not the design's", async () => {
     const active = selectConfig(s());
@@ -61,8 +53,7 @@ describe('saveRasaero', () => {
     expect(await blob.text()).toContain('<EventType1>Apogee</EventType1>');
   });
 
-  // RASAero has no ejection charge: desktop writes such a chute as an apogee
-  // one and warns, and the banner says so with the file saved.
+  // RASAero has no ejection charge: desktop writes it as apogee and warns.
   it("writes the design's own ejection charge as apogee, with a warning", async () => {
     await s().saveRasaero();
     expect(s().err).toContain('"Main"');

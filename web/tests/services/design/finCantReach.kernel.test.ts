@@ -7,13 +7,7 @@ import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
 
-/**
- * A canted fin set whose turned root reaches the body radius ahead of its
- * midpoint flies NaN fin points in the kernel (`FinSet.getFinCantYOffset`
- * guards only `dz >= radius`, with `dz` negative ahead of the midpoint). The
- * run is refused for exactly the fin sets whose points the kernel returns as
- * NaN, read through `getComponentGeometry` (NaN arrives as null).
- */
+// `FinSet.getFinCantYOffset` guards only `dz >= radius`; `dz` < 0 ahead of the midpoint gives NaN (null) fin points.
 
 const R = 0.012;
 const CANT = (15 * Math.PI) / 180;
@@ -62,16 +56,12 @@ const design = (rootChord: number, cant = CANT, method = 'bottom'): RocketTree =
     ],
   } as unknown as RocketTree);
 
-/** True when the kernel's fin outline for `fins` holds a NaN coordinate. */
 const kernelNaN = async (tree: RocketTree): Promise<boolean> => {
   const pts = kernelGeometry(await loadEngine(), tree).get('fins')!.finPoints!;
   return pts.some(([x, y]) => x === null || y === null);
 };
 
 describe('a canted fin set whose turned root reaches the body', () => {
-  // Each pair straddles the point where the kernel's square root goes negative:
-  // a root of 2r / sin(15 deg) (92.7 mm on a 12 mm tube), and the same fin set
-  // at a cant just under and over the angle where a 100 mm root reaches.
   const cases: { label: string; tree: RocketTree }[] = [
     { label: '100 mm root at 15 deg', tree: design(0.1) },
     { label: '90 mm root at 15 deg', tree: design(0.09) },

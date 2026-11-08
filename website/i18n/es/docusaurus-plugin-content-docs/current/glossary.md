@@ -164,6 +164,8 @@ Usa el buscador de la parte superior de este sitio, o el buscador del diálogo *
 
 **Forma en planta**: Una aleta vista de frente, y el **área en planta** es el área de ese contorno.
 
+**Franja Información**: La fila de recuadros bajo las vistas del diseño, con el título **Información** (antes, la tira de estadísticas): longitud, diámetro, relación de finura, masa vacía y cargada, CG, CP, masa de recuperación, estabilidad, coeficiente de arrastre, pendiente de fuerza normal y los momentos de inercia. Todas sus cifras vienen del motor mientras editas, salvo las marcadas como estimación. Ver **Estimación**.
+
 **Fuerza normal (sustentación)**: La fuerza aerodinámica perpendicular al eje del cohete, que es la que le hace orientarse al viento o corregir. Su coeficiente es `Cn`, y la pendiente de este frente al ángulo de ataque es CNα.
 
 **Fuselaje**: El cuerpo exterior del cohete: los tubos, el morro y las transiciones sobre los que realmente fluye el aire, frente a lo que va dentro de ellos.
@@ -192,7 +194,7 @@ Usa el buscador de la parte superior de este sitio, o el buscador del diálogo *
 
 **Instancia**: Una repetición de una pieza: un par de botones de riel, un anillo de cápsulas, un racimo de tubos. *En la aplicación:* **Número de instancias** y **Separación entre copias** en una pieza que se puede repetir.
 
-**Integración**: Avanzar el vuelo en pequeñas porciones de tiempo, que es como se calcula toda la trayectoria. El motor usa **RK4**, un integrador Runge-Kutta de cuarto orden, con paso adaptativo. Ver **Paso de tiempo**.
+**Integración**: Avanzar el vuelo en pequeñas porciones de tiempo, que es como se calcula toda la trayectoria. El motor usa **RK4**, un integrador Runge-Kutta de cuarto orden, con paso adaptativo, o **RK6** cuando el método de simulación lo pide. Ver **Paso de tiempo**.
 
 **Intensidad de turbulencia**: La σ de las rachas expresada como porcentaje del viento medio, que a menudo es la forma más fácil de pensarla. *En la aplicación:* **Intensidad de turbulencia** en las condiciones de lanzamiento y en el editor del perfil de viento, donde ella y la desviación estándar se siguen.
 
@@ -333,8 +335,6 @@ Usa el buscador de la parte superior de este sitio, o el buscador del diálogo *
 **Tiempo de vuelo**: Cuánto duró todo el vuelo. El **tiempo hasta el apogeo** es solo la subida.
 
 **Tipo de motor**: Qué clase de motor es: de un solo uso, recargable o híbrido. El **tipo de propelente** nombra lo que lleva dentro. Ambos vienen del catálogo de motores, no de tu diseño, y ninguno cambia la simulación: lo que vuela es la curva de empuje. *En la aplicación:* los filtros y las filas de detalle del explorador de motores.
-
-**Tira de estadísticas**: La fila de recuadros bajo las vistas del diseño: longitud, diámetro, relación de finura, masa vacía y cargada, CG, CP, masa de recuperación, estabilidad, coeficiente de arrastre, pendiente de fuerza normal y los momentos de inercia. Todas sus cifras vienen del motor mientras editas, salvo las marcadas como estimación. Ver **Estimación**.
 
 **Tobera**: La garganta y la campana del motor, que aceleran los gases de escape. *En la aplicación:* el diámetro de salida de la tobera de una etapa, cuando un archivo `.ork` lo define, reduce el arrastre de base mientras el motor empuja, y la vista Aero muestra entonces una curva de arrastre con motor.
 

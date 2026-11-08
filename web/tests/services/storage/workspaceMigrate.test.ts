@@ -27,8 +27,6 @@ describe('migrateWorkspace', () => {
     expect(migrateWorkspace(v3({ sims: [] }))).toBeNull();
   });
 
-  // Every reader after this one dereferences each entry, so a null entry has to
-  // be refused here rather than throw later in the load.
   it('refuses a blob whose simulations, configurations or components are not objects', () => {
     expect(migrateWorkspace(v3({ sims: [sim(), null] }))).toBeNull();
     expect(migrateWorkspace(v3({ sims: [sim({ id: 7 })] }))).toBeNull();
@@ -41,9 +39,6 @@ describe('migrateWorkspace', () => {
   });
 
   it('refuses a version this build does not know, rather than half-reading it', () => {
-    // An installed PWA can have an older build cached, so a newer workspace is a
-    // live possibility. Reading it as far as it parses would overwrite the user's
-    // design with a partial copy of itself.
     expect(migrateWorkspace(v3({ version: 4 }))).toBeNull();
     expect(migrateWorkspace(v3({ version: 2 }))).toBeNull();
   });
@@ -59,11 +54,6 @@ describe('migrateWorkspace', () => {
   });
 });
 
-/**
- * A stored design can hold a rail button or centering ring whose linked
- * dimensions disagree. Loading holds them as the kernel builds them, so the panel shows
- * what flies, and a result flown from the stored design stays current.
- */
 describe('migrateWorkspace linked dimensions', () => {
   const stored = (parts: object[]) =>
     ({

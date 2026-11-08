@@ -11,6 +11,9 @@ No. Es una aplicación web: abre la URL en un navegador moderno. Sin JDK, sin de
 ### ¿Se suben mis diseños a algún sitio? {#are-my-designs-uploaded-anywhere}
 No. Todo se ejecuta en tu dispositivo. Tus cohetes, tus motores personalizados, tus piezas guardadas, tus materiales y tus lugares de lanzamiento guardados se guardan en el IndexedDB de tu navegador (con localStorage como alternativa), y tus ajustes en su localStorage. Puedes exportar un `.ork` a tu disco. No se envía nada a ningún servidor.
 
+### ¿Se pueden sincronizar mis diseños entre mi ordenador y mi teléfono? {#can-my-designs-sync-between-my-computer-and-my-phone}
+No a través de la propia app. Guárdalos en una carpeta que sincronice Google Drive, OneDrive, Dropbox o iCloud Drive, y ábrelos desde ahí en el otro dispositivo. **[Sincronizar tu trabajo](./syncing-your-work.md)** explica cada servicio.
+
 ### ¿Mis archivos `.ork` funcionarán en OpenRocket de escritorio? {#will-my-ork-files-work-in-desktop-openrocket}
 Sí: la importación y la exportación son de ida y vuelta con total fidelidad, y un archivo exportado se vuelve a abrir en OpenRocket de escritorio. Hay dos cosas que no pasan: las calcomanías se eliminan al importar, porque sus imágenes se guardan aparte dentro del archivo, y un componente que esta aplicación no admite se omite. El aviso de importación nombra ambas.
 
@@ -45,7 +48,7 @@ Un material guardado **en este diseño** también viaja con el archivo: está en
 Lo que no viaja es el lugar del material en **tu** lista personalizada de este navegador. Abre ese archivo en otro equipo y la pieza sigue teniendo la densidad correcta con el nombre correcto, pero el material no estará en la lista personalizada de ese navegador hasta que lo añadas allí. Para llevarte la lista entera, usa una copia de seguridad: mira la siguiente pregunta.
 
 ### ¿Cómo paso mis materiales, piezas y ubicaciones a otro equipo? {#how-do-i-move-my-materials-parts-and-locations-to-another-computer}
-**Menú → Exportar → Copia de seguridad.** **Guardar copia de seguridad** escribe un archivo `.json` con lo que este navegador guarda aparte de tus diseños: Materiales personalizados, Piezas personalizadas, ubicaciones de lanzamiento, motores importados, plantillas de trayectoria de vuelo (tus propios formatos para la exportación de la trayectoria) y tus ajustes. Desmarca lo que quieras dejar fuera. En el otro navegador, **Menú → Importar → Copia de seguridad** y luego **Abrir copia de seguridad…** muestra lo que contiene el archivo; elige qué traer y pulsa **Restaurar**.
+**Menú → Exportar → Copia de seguridad.** **Guardar copia de seguridad** escribe un archivo `.json` con lo que este navegador guarda aparte de tus diseños: Materiales personalizados, Piezas personalizadas, ubicaciones de lanzamiento, motores importados, plantillas de trayectoria de vuelo (tus propios formatos para la exportación de la trayectoria) y tus ajustes. Desmarca lo que quieras dejar fuera. En el otro navegador, **Menú → Importar → Copia de seguridad** y luego **Abrir copia de seguridad…** muestra lo que contiene el archivo; elige qué traer y pulsa **Restaurar**. Guarda la copia de seguridad en una carpeta sincronizada y todos tus dispositivos podrán llegar a ella (consulta [Sincronizar tu trabajo](./syncing-your-work.md)).
 
 Las listas se combinan: una entrada que coincide con una que ya está la reemplaza (un material por su tipo y nombre, una pieza guardada por su tipo, fabricante y número de pieza) y el resto se añade. Tus ajustes se reemplazan por los del archivo. Cada lista indica cuántas entradas se añadieron, reemplazaron y rechazaron; una entrada se rechaza cuando no se aceptaría si la introdujeras aquí, como un material sin densidad.
 

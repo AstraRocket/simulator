@@ -1,13 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// The guide flies through the same worker pool a normal batch does; stub it so
-// each flight can be settled by hand and its payload inspected.
 const simulateMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/engine/simClient', async (orig) => ({
   ...(await orig<typeof import('../../src/engine/simClient')>()),
   simulateInWorker: simulateMock,
 }));
-// And the spec builder, so a test controls the motor each flight seats.
 const fetchSpecMock = vi.hoisted(() => vi.fn());
 vi.mock('../../src/services/motors/motorSpec', async (orig) => ({
   ...(await orig<typeof import('../../src/services/motors/motorSpec')>()),
@@ -48,7 +45,6 @@ const motor = (designation: string, delays?: string): CatalogMotor =>
     impulse: 10,
     burn: 1.9,
     mass: 24,
-    // A bundled curve: the guide flies only motors whose curve is on the device.
     curves: [
       {
         src: 'cert',
@@ -62,12 +58,10 @@ const motor = (designation: string, delays?: string): CatalogMotor =>
     ...(delays ? { delays } : {}),
   }) as CatalogMotor;
 
-/** Charges either side of the optimum the flights below report (6.6 s). */
 const CHARGED = motor('C6', '3,5,7');
 const PLUGGED = motor('C6P', 'P');
 const BARE = motor('C5');
 
-/** A flight with an optimum delay and the rail-exit figures a row reads. */
 const flight = (optimumDelay: number, apogee = 300) =>
   ({
     summary: {
@@ -117,7 +111,6 @@ describe('a motor guide', () => {
   const simId = () => st().sims[0]!.id;
   const mountId = () => findMounts(st().tree)[0]!.id as string;
   const start = (motors: CatalogMotor[]) => st().runMotorGuide(simId(), mountId(), motors);
-  /** The flights submitted so far, once every candidate's curve lookup has settled. */
   const flights = async (n: number) => vi.waitFor(() => expect(calls).toHaveLength(n));
   const seated = (c: (typeof calls)[number]) => c.payload.config.motors[mountId()]!.spec;
 
@@ -125,8 +118,6 @@ describe('a motor guide', () => {
     const done = start([CHARGED, PLUGGED, BARE]);
     await flights(3);
     expect(st().motorGuideRun).toEqual({ simId: simId(), done: 0, total: 3 });
-    // The middle charge, plugged for a plugged-only motor, and the picker's
-    // default for one with no delay data.
     expect(calls.map((c) => [seated(c).designation, seated(c).ejectionDelay])).toEqual([
       ['C6', 5],
       ['C6P', PLUGGED_DELAY],
@@ -140,11 +131,6 @@ describe('a motor guide', () => {
     expect(st().motorGuideRun).toBeNull();
   });
 
-  /**
-   * The optimum comes from a probe with no deployment, so it does not depend on
-   * the charge flown; the deployment speed does. A row is the flight at the
-   * charge the flier would actually pick.
-   */
   it('flies a motor again at its nearest charge when that differs from the probe', async () => {
     const done = start([CHARGED]);
     await flights(1);
@@ -176,7 +162,6 @@ describe('a motor guide', () => {
     expect(st().motorGuide!.rows[0]!.delay).toBe(5);
   });
 
-  /** Every other mount, and the row's own configuration, stay as they are. */
   it('flies throwaway configurations and leaves the workspace alone', async () => {
     const configsBefore = st().configs;
     const own = configOf(st().configs, st().sims[0]!);
@@ -192,10 +177,6 @@ describe('a motor guide', () => {
     expect(st().sims[0]!.result).toBeNull();
   });
 
-  /**
-   * A motor with no curve on the device would be looked up on thrustcurve.org
-   * by the picker. The guide never does: it lists the motor as not flown.
-   */
   it('never fetches a curve, naming a motor that has none as not flown', async () => {
     const curveless = { ...motor('D12'), curves: undefined } as CatalogMotor;
     const done = start([curveless, BARE]);
@@ -236,11 +217,6 @@ describe('a motor guide', () => {
     expect(st().motorGuide!.failed).toEqual([expect.objectContaining({ reason: 'no curve' })]);
   });
 
-  /**
-   * A motor that makes the rocket high power tightens the launcher angle the
-   * codes allow, so a candidate is refused on its own, the way a single run of
-   * it would be, rather than flown or allowed to refuse the whole guide.
-   */
   it('refuses a candidate a single run of it would refuse', async () => {
     st().patchActiveLaunch({ launchRodAngleDeg: 25 });
     fetchSpecMock.mockImplementation(async (cat: CatalogMotor, delay: number) => ({
@@ -259,7 +235,6 @@ describe('a motor guide', () => {
     expect(st().motorGuide!.failed.map((f) => f.motor.designation)).toEqual(['C6P']);
   });
 
-  /** Unlike a drift sweep's region, each row stands on its own. */
   it('keeps the rows already flown when canceled, and says it is partial', async () => {
     const done = start([BARE, PLUGGED]);
     await flights(2);

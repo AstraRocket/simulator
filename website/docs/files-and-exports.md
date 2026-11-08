@@ -76,7 +76,7 @@ The app keeps a library of your rockets in the browser, so you can work on sever
 
 > **Saved designs are per-browser and per-device.** The library lives in this browser on this machine: it does not sync, and clearing your browser data removes it (see [Offline & Installing](./offline-and-installing.md)).
 >
-> **`.ork` files are how you sync.** Export to a folder your system already syncs (iCloud Drive, OneDrive, Google Drive, Dropbox) and the design is on your other machines, backed up, and shareable; import it there to keep working. That also works with desktop OpenRocket, since it is the same file format.
+> **`.ork` files are how you sync.** Export to a folder your system already syncs (iCloud Drive, OneDrive, Google Drive, Dropbox) and the design is on your other machines, backed up, and shareable; import it there to keep working. That also works with desktop OpenRocket, since it is the same file format. **[Syncing your work](./syncing-your-work.md)** covers setting this up on each device.
 
 ## Exporting to RASAero II (`.CDX1`)
 
@@ -156,6 +156,8 @@ Plus a few options:
 - **Motors Summary**: per simulation, a flight summary (apogee, times, and launcher-exit / max / deployment / landing velocities) and a motor table (average and peak thrust, burn time, total impulse, thrust-to-weight, weight, size).
 - **Update simulation data**: re-runs the simulation first so the flight numbers are current (it doesn't change your on-screen view).
 - **Show by stage**: group the summary and parts by stage.
+
+A design that saves [recovery charges](./designing-a-rocket.md#saving-charges) gets a **Recovery charges** table in the PDF, after the motors: the drogue then the main, each with the bay it goes in and its primary and backup powder. The design CSV carries the same as **Recovery charges** rows. A design with none saved has neither.
 
 Then choose an output:
 

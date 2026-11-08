@@ -61,6 +61,6 @@ While you are offline, the buttons that need a connection are grayed out and say
 
 ## Clearing it
 
-Clearing your browser's site data for AstraRocket removes the offline copy and **also removes your saved designs, custom motors, and materials**, since those live in the same browser storage. Export anything you want to keep as `.ork` first. Saved into a synced folder (iCloud Drive, OneDrive, Google Drive, Dropbox), it doubles as a backup you can reopen anywhere (see **[Files & Exports](./files-and-exports.md)**).
+Clearing your browser's site data for AstraRocket removes the offline copy and **also removes your saved designs, custom motors, and materials**, since those live in the same browser storage. Export anything you want to keep as `.ork` first. Saved into a synced folder (iCloud Drive, OneDrive, Google Drive, Dropbox), it doubles as a backup you can reopen anywhere (see **[Syncing your work](./syncing-your-work.md)**).
 
 If you installed the app, uninstall it the way you'd remove any other app on your device.

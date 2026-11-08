@@ -1,21 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// remoteData resolves its bases at module load from import.meta.env, and memoizes
-// every fetch for the session, so each case stubs the env, resets the module
-// registry, and imports a fresh copy.
+// remoteData reads its bases at module load and memoizes, so each case imports a fresh copy.
 
 type Route = { status?: number; body?: unknown; fail?: boolean; hang?: boolean; bodyMs?: number };
 
-/** Install a fetch stub over a url→response table; returns the URLs it saw. */
 function stubFetch(routes: Record<string, Route>) {
   const seen: string[] = [];
   vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
     seen.push(url);
-    // Match ignoring the ?v=<hash> cache-buster.
     const route = routes[url.split('?')[0]!];
     if (!route || route.fail) return Promise.reject(new Error('network down'));
-    // A host that accepts the connection and then never answers: the case the
-    // short probe timeout exists for. Settles only when fetchJson aborts it.
     if (route.hang)
       return new Promise((_res, rej) => {
         init?.signal?.addEventListener('abort', () => rej(new Error('aborted')));
@@ -27,9 +21,7 @@ function stubFetch(routes: Record<string, Route>) {
       json: () =>
         route.bodyMs == null
           ? Promise.resolve(route.body)
-          : // A response whose headers arrived but whose body is still streaming:
-            // a slow link, not a dead host. Abortable, like a real body stream.
-            new Promise((res, rej) => {
+          : new Promise((res, rej) => {
               const t = setTimeout(() => res(route.body), route.bodyMs);
               init?.signal?.addEventListener('abort', () => {
                 clearTimeout(t);
@@ -107,12 +99,9 @@ describe('fetchCatalog: separate data host configured', () => {
 
     await expect(fetchCatalog('motors')).resolves.toEqual(['remote']);
     expect(seen).toEqual([`${REMOTE}manifest.json`, `${REMOTE}motors.generated.json?v=fresh99`]);
-    // The in-build copy is never touched while the host is healthy.
     expect(seen.some((u) => u.startsWith('/data/'))).toBe(false);
   });
 
-  // The data host is refreshed by the catalog sync, which regenerates neither
-  // file; a deploy refreshes the build's copy, which is the newer one.
   for (const name of ['materials', 'contributors'] as const)
     it(`reads ${name} from the build, never from the data host`, async () => {
       vi.stubEnv('VITE_DATA_BASE', REMOTE);
@@ -128,12 +117,6 @@ describe('fetchCatalog: separate data host configured', () => {
       expect(seen).toEqual(['/data/manifest.json', `/data/${name}.generated.json?v=new`]);
     });
 
-  /**
-   * The host is the only source of the motors and components: the build does not
-   * carry them (vite.config.ts), and an in-build copy could be older than the
-   * published one. Offline, the service worker answers this same request from
-   * its cached download.
-   */
   it('never reads the in-build copy of a hosted catalog, even with the host down', async () => {
     vi.stubEnv('VITE_DATA_BASE', REMOTE);
     const seen = stubFetch({
@@ -167,8 +150,7 @@ describe('fetchCatalog: separate data host configured', () => {
   });
 
   it('refuses a host that is up but serving the wrong shape', async () => {
-    // `{"error":"rebuilding"}` with HTTP 200 parses fine, and unvalidated would
-    // leave the caller spreading a non-array into the motor picker.
+    // `{"error":"rebuilding"}` with HTTP 200 parses fine.
     vi.stubEnv('VITE_DATA_BASE', REMOTE);
     stubFetch({
       [`${REMOTE}manifest.json`]: { body: {} },
@@ -178,7 +160,6 @@ describe('fetchCatalog: separate data host configured', () => {
     const fetchCatalog = await load();
 
     await expect(fetchCatalog('motors', Array.isArray)).rejects.toThrow(/Could not load the motor catalog/);
-    // Keyed, so the banner renders it in the UI language, reason included.
     await expect(fetchCatalog('motors', Array.isArray)).rejects.toMatchObject({
       key: 'errors.remote.motors',
       values: { reason: { key: 'errors.remote.badShape' } },
@@ -212,7 +193,6 @@ describe('fetchCatalog: separate data host configured', () => {
       const caught = fetchCatalog('motors').catch((e: Error) => e.message);
       let settled = false;
       void caught.then(() => (settled = true));
-      // 8 s on the manifest, then 8 s on the catalog.
       await vi.advanceTimersByTimeAsync(15_900);
       expect(settled).toBe(false);
       await vi.advanceTimersByTimeAsync(300);
@@ -225,8 +205,6 @@ describe('fetchCatalog: separate data host configured', () => {
   it('lets a SLOW body finish: a 1.6 MB catalog on 3G outlasts any first-byte budget', async () => {
     vi.useFakeTimers();
     try {
-      // Headers land immediately; the body takes 30s, as ~1.6 MB does on a
-      // throttled link. A single combined budget would abort this.
       stubFetch({
         '/data/manifest.json': { body: { motors: 'abc123' } },
         '/data/motors.generated.json': { body: ['slow-but-complete'], bodyMs: 30_000 },
@@ -281,26 +259,15 @@ describe('hasDataHost', () => {
   });
 });
 
-/**
- * The size cap has to apply to bytes received, not to a header the host may not
- * send, and `manifest()` is the call that proves it.
- *
- * `fetchCatalog` always passes an onProgress (it publishes progress per
- * catalog), so the catalog body is always streamed and capped. `manifest()`
- * passes none, and must still be metered: a chunked manifest has no
- * content-length, so the declared-size check cannot fire, and an unmetered
- * `res.json()` would buffer it without bound.
- */
 describe('the manifest body is metered, not just the catalog', () => {
   it('stops pulling an endless chunked manifest instead of buffering it whole', async () => {
-    const CHUNK = 4 * 1024 * 1024; // 4 MiB
+    const CHUNK = 4 * 1024 * 1024;
     let manifestChunksPulled = 0;
 
     const endlessManifest = () => {
       const body = new ReadableStream<Uint8Array>({
         pull(c) {
           manifestChunksPulled++;
-          // Far more than the 32 MiB cap if anything reads to the end.
           if (manifestChunksPulled > 200) return c.close();
           c.enqueue(new Uint8Array(CHUNK));
         },
@@ -308,9 +275,8 @@ describe('the manifest body is metered, not just the catalog', () => {
       return {
         ok: true,
         status: 200,
-        headers: { get: () => null }, // no content-length: the declared check is blind here
-        // A real Response.json() drains the body. A stub that ignores the body
-        // cannot tell a metered read from an unmetered one.
+        headers: { get: () => null },
+        // Drains the body like a real Response.json(), or metering is untestable.
         json: async () => {
           const r = body.getReader();
           for (;;) if ((await r.read()).done) break;
@@ -340,12 +306,9 @@ describe('the manifest body is metered, not just the catalog', () => {
     );
 
     const fetchCatalog = await load();
-    // A failed manifest is not an error (it just means no cache-buster), so the
-    // catalog still loads. The point is what it cost to get there.
     await expect(fetchCatalog('motors')).resolves.toEqual([{ designation: 'H128' }]);
 
-    // 32 MiB / 4 MiB = 8 chunks, plus the one that trips the limit. Unmetered,
-    // res.json() would drain all 200.
+    // 32 MiB / 4 MiB = 8 chunks, plus the one that trips the limit.
     expect(manifestChunksPulled).toBeLessThanOrEqual(10);
   });
 });
@@ -375,12 +338,11 @@ describe('manifest failures', () => {
     });
     const fetchCatalog = await load();
 
-    await fetchCatalog('motors'); // manifest down: no buster, but not remembered as "none"
+    await fetchCatalog('motors');
     expect(seen).toEqual(['/data/manifest.json', '/data/motors.generated.json']);
 
     manifestUp = true;
     await fetchCatalog('components');
-    // Re-read, and this time the hash is applied.
     expect(seen.slice(2)).toEqual(['/data/manifest.json', '/data/components.generated.json?v=h2']);
   });
 
@@ -417,7 +379,6 @@ describe('manifest failures', () => {
     });
     const fetchCatalog = await load();
     await expect(fetchCatalog('motors')).rejects.toThrow(/HTTP 503/);
-    // The catalog request's controller was aborted on the 503.
     expect(signals[1]!.aborted).toBe(true);
     expect(signals[0]!.aborted).toBe(false);
   });

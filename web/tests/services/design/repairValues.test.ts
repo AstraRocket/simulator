@@ -6,14 +6,6 @@ import i18n from '../../../src/i18n';
 import { SI_LIMITS } from '../../../src/prefs/entryValue';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * A design can arrive carrying a number the editor would never accept.
- *
- * The boxes clamp as you type, but a `.ork`, a share link, or a session
- * autosaved by a build without a given limit can hand the app a bulk density of
- * 1e9 kg/m³. A 200 mm tube of that weighs about 6 metric tons, so every mass, CG
- * and stability figure on screen would be nonsense with nothing saying why.
- */
 const tree = (density: unknown): RocketTree =>
   ({
     name: 'T',
@@ -48,7 +40,6 @@ const MAX = SI_LIMITS.density!.max!;
 
 describe('repairValues', () => {
   it('pulls a density no material has back to the limit', () => {
-    // Osmium, the densest thing there is, is about 22,590 kg/m³.
     const out = repairValues(tree(1e9));
     expect(tube(out.tree)['density']).toBe(MAX);
     expect(out.repaired).toContainEqual({ type: 'bodytube', name: 'Body', field: 'density', was: 1e9, now: MAX });
@@ -67,8 +58,6 @@ describe('repairValues', () => {
   });
 
   it('leaves an ordinary density alone, and the tree with it', () => {
-    // The same object back, so the ordinary load allocates nothing and cannot
-    // be told from one that never ran this.
     const t = tree(680);
     const out = repairValues(t);
     expect(out.tree).toBe(t);
@@ -87,10 +76,6 @@ describe('repairValues', () => {
   });
 });
 
-/**
- * The banner line names an unnamed part by its translated type, as every other
- * message does, not by the raw key ("bodytube").
- */
 describe('repairedText', () => {
   it('translates the type of an unnamed part', () => {
     const t = i18n.getFixedT('en');
@@ -102,11 +87,6 @@ describe('repairedText', () => {
   });
 });
 
-/**
- * A fin set's fillet is a bulk material too, entered through the same material
- * picker and its density limit, so a design arriving with an impossible one is
- * repaired to the same ceiling and named in the banner.
- */
 describe('repairValues on a fillet', () => {
   const fins = (filletDensity: unknown): RocketTree =>
     ({
@@ -149,7 +129,6 @@ describe('repairValues on a fillet', () => {
       const strings = JSON.parse(readFileSync(join(dir, file), 'utf8')) as Record<string, unknown>;
       const lookup = (key: string): unknown =>
         key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], strings);
-      // The banner's own sentence is not under test; every label it is handed is.
       const labels: string[] = [];
       const t = (key: string, opts?: Record<string, unknown>) => {
         if (key === 'banner.repaired') return String(opts?.['field']);

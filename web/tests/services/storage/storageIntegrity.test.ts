@@ -9,20 +9,6 @@ import type { Workspace } from '../../../src/services/storage/workspaceStore';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import 'fake-indexeddb/auto';
 
-/**
- * The storage tier's shared failure mode: silent data loss.
- *
- * Each case here looks fine from the outside: a refused write resolves cleanly,
- * a stale copy shadows a newer one, an index loses an entry to a concurrent tab,
- * a delete leaves the library pointing at bytes that are gone. Nothing throws,
- * nothing warns; the user finds out a session later.
- *
- * These tests assert the observable contract rather than the mechanism: what
- * comes back out after a write that storage refused, and what survives two
- * writers.
- */
-
-/** A fallback store that can be told to refuse writes, like a full quota. */
 class FakeLocal implements KeyValueStore {
   readonly map = new Map<string, string>();
   full = false;
@@ -52,7 +38,6 @@ beforeEach(async () => {
   indexedDB.deleteDatabase(STORAGE_PREFIX);
 });
 
-/** Make IndexedDB writes fail while reads keep working, as a full quota does. */
 async function withFailingWrites<T>(fn: () => Promise<T>): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/unbound-method -- saved to patch the prototype; called back with .call(this, ...)
   const realPut = IDBObjectStore.prototype.put;
@@ -74,14 +59,11 @@ describe('a save refused by IndexedDB is not shadowed by the stale copy', () => 
     expect(await kv.set('k', 'v1')).toBe(true);
     expect(await kv.get('k')).toBe('v1');
 
-    // The quota case: the write transaction aborts, reads keep working.
     await withFailingWrites(async () => {
-      expect(await kv.set('k', 'v2')).toBe(true); // the fallback took it
+      expect(await kv.set('k', 'v2')).toBe(true);
     });
     expect(fallback.map.get('k')).toBe('v2');
 
-    // Reading IndexedDB first would hand back 'v1': the save lost, with every
-    // layer above reporting success.
     expect(await kv.get('k')).toBe('v2');
   });
 
@@ -93,8 +75,6 @@ describe('a save refused by IndexedDB is not shadowed by the stale copy', () => 
       await kv.set('k', 'v2');
     });
 
-    // A fresh instance has no memory of the fallback, so the stale IndexedDB
-    // entry has to be gone from the store itself.
     expect(await new IndexedDbKeyValueStore(fallback).get('k')).toBe('v2');
   });
 
@@ -110,15 +90,12 @@ describe('a save refused by IndexedDB is not shadowed by the stale copy', () => 
 
 describe('the design index survives two concurrent writers', () => {
   it('keeps both designs when two tabs save at the same time', async () => {
-    // Two libraries over the same IndexedDB is what two tabs are.
     const a = new DesignLibrary(new IndexedDbKeyValueStore());
     const b = new DesignLibrary(new IndexedDbKeyValueStore());
 
     await Promise.all([a.write('A', 'Alpha', ws()), b.write('B', 'Bravo', ws())]);
 
     const ids = (await a.list()).map((m) => m.id).sort();
-    // Read-modify-write through a plain get/set loses one of these: both read
-    // the empty index, then each writes its own single entry over the other.
     expect(ids).toEqual(['A', 'B']);
   });
 
@@ -152,9 +129,6 @@ describe('deleting a design never leaves the library pointing at nothing', () =>
     kv.full = true;
     expect(await lib.remove('A')).toBe(false);
 
-    // Deleting the blob first would let a refused index write leave the library
-    // listing a design whose bytes are gone: activeId() returns it, read()
-    // returns null, and the app opens on `unreadable-design`.
     kv.full = false;
     expect((await lib.list()).map((m) => m.id)).toEqual(['A']);
     expect(await lib.read('A')).not.toBeNull();
@@ -203,8 +177,6 @@ describe('stored flight results are shape-checked before they are trusted', () =
   });
 
   it('drops a result whose summary went through JSON as null', async () => {
-    // NaN and Infinity serialize to null, so a summary number comes back null
-    // and the first `.toFixed()` on it throws in the middle of an export.
     const nan = good();
     (nan.summary as unknown as Record<string, unknown>)['maxVelocity'] = NaN;
     expect(await readBack({ s1: nan })).toEqual({});
@@ -230,12 +202,6 @@ const ws = (): Workspace =>
     loadedMeta: null,
   }) as unknown as Workspace;
 
-/**
- * The material and template stores, like the motor store, must not swallow a
- * refused write: `kv.update` reports refusal by returning false, and a store that
- * discards it lets the dialog await the save, get a clean resolve, and re-render
- * a list without the thing the user just added.
- */
 describe('custom material and template writes report a refused write', () => {
   it('throws storage-full instead of resolving cleanly', async () => {
     const kv = new FakeLocal();

@@ -13,43 +13,11 @@ import { componentName } from '../../services/app/warningText';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
 
-/**
- * The flight as a list you can read down: every event, when it happened, and
- * the state of the rocket at that instant.
- *
- * The charts mark the same events as a label strip, which is the right thing on
- * a plot and answers only "when". This table carries the numbers that say
- * whether each moment went well: how fast off the rail, how stable it was
- * there, what speed the chute actually saw.
- *
- * Its rows are the pure join in services/flight/flightEvents; this file is the
- * markup.
- *
- * Every branch, interleaved on the one launch clock, because the charts beside
- * it already draw every branch: a booster's landing missing from a table next
- * to a chart that plots it would read as a bug. The stage rides on the row as a
- * chip rather than as a column of its own: this pane is a narrow side column
- * (300 to 640 px), and a fifth column costs more than the single-stage case
- * (where there is no stage to name) can spare.
- */
-
-/** Which columns a value belongs to. The numbers are right-aligned and
- *  tabular so a time or an altitude reads as a column rather than as prose. */
 const NUM = 'py-1 pl-2 text-right tabular-nums';
 
-/**
- * The per-event extras, already formatted: the line under an event that says
- * what that particular moment is read for.
- *
- * A sub-line rather than more columns for the reason in EVENT_EXTRAS: only the
- * rail-departure row has a thrust-to-weight worth printing, so a TWR column
- * would be one number and a dozen blanks.
- */
 function Extras({ row }: { row: EventRow }) {
   const t = useLauncherT();
   const u = useUnits();
-  // Max-Q shares its unit with the summary tile, so the chip on that tile moves
-  // this number too: they are the same figure and would otherwise disagree.
   const q = u.at(unitScope('sim', 'maxQ'), 'pressure');
   const parts = (EVENT_EXTRAS[row.type] ?? []).flatMap((k: ExtraKey) => {
     const v = row[k];
@@ -85,8 +53,6 @@ export function FlightEventsTable({
   const alt = u.at(unitScope('events', 'altitude'), 'distance');
   const spd = u.at(unitScope('events', 'velocity'), 'velocity');
   const rows = useMemo(() => eventRows(sim), [sim]);
-  // Only worth naming a stage when there is more than one; a single-stage
-  // flight would otherwise wear a "Stage 1" chip on every row saying nothing.
   const staged = (sim?.branches?.length ?? 0) > 1;
   const stageName = (r: EventRow) => (staged ? stageLabel(t, r.branch, r.branchName) : '');
   if (!sim || !rows.length) return null;
@@ -95,12 +61,6 @@ export function FlightEventsTable({
     <CardGroup
       title={t('flight.events')}
       region
-      // The file carries every extra as its own column, where the table puts
-      // them on a sub-line - a spreadsheet wants a rectangle it can sort,
-      // and it has no narrow column to respect. It writes the settings-level
-      // units rather than this table's own chips, the way every other export in
-      // the app does: a file outlives the session and often goes to
-      // somebody else.
       aside={
         <button
           onClick={() =>
@@ -113,8 +73,6 @@ export function FlightEventsTable({
           title={t('flight.eventsCsv')}
           className={smallButton('chip', 'ink', 'shrink-0')}
         >
-          {/* The visible short label stays out of the name, which is the full
-              one: the Results tab has another CSV button. */}
           <span aria-hidden>⬇</span> <span aria-hidden>CSV</span>
           <span className="sr-only">{t('flight.eventsCsv')}</span>
         </button>
@@ -130,9 +88,6 @@ export function FlightEventsTable({
               <th scope="col" className="py-1 pl-2 text-right font-normal">
                 {t('flight.time')}
               </th>
-              {/* The unit lives in the header, not on every row: one chip per
-                  column changes the whole column, and a chip per cell would be
-                  a dozen identical selects down the table. */}
               <th scope="col" className="py-1 pl-2 text-right font-normal">
                 <span className="block">{t('flight.altitude')}</span>
                 <UnitChip
@@ -153,21 +108,14 @@ export function FlightEventsTable({
               </th>
             </tr>
           </thead>
-          {/* One <tbody> per event, so an extras line is tied to its own row
-              rather than floating between two of them, and so a row and its
-              detail cannot be split by a zebra stripe or a border. */}
           {rows.map((r) => (
             <tbody key={r.key} className="border-b border-line/5 last:border-0">
               <tr>
                 <th scope="row" className="py-1 text-left font-medium text-ink">
-                  {t(EVENT_NAME[r.type]!)}{' '}
-                  {/* The component that raised it: which parachute, which
-                      motor. This is how a dual-deploy drogue is told from the
-                      main, and a cluster's per-motor burnouts from each other.
-                      The {' '} is a real space rather than only the margin,
-                      so a row selected and copied out of the table reads
-                      "Recovery deployment Drogue" and not one run-on word. */}
-                  {r.source && <span className="ml-1 font-normal text-ink-faint">{componentName(r.source, t)}</span>}{' '}
+                  {t(EVENT_NAME[r.type]!)} {/* The {' '} keeps copied text from running the names together. */}
+                  {r.source && (
+                    <span className="ml-1 font-normal text-ink-faint">{componentName(r.source, t)}</span>
+                  )}{' '}
                   {staged && (
                     <span className="ml-1 whitespace-nowrap rounded bg-raised px-1 text-[10px] font-normal text-ink-muted">
                       {stageName(r)}

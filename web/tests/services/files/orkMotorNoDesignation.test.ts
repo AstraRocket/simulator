@@ -3,15 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { importOrk } from '../../../src/services/files/orkFile';
 import { noteTexts } from '../../testing/importNotes';
 
-/**
- * A `<motor>` with no `<designation>` names no motor.
- *
- * Desktop's `MotorHandler` keeps the designation null, finds no motor for it
- * and leaves the mount empty with a warning. Here the reference's designation
- * is empty, never an English word standing in for one, since the designation
- * reaches the mount label and the notes in whatever language the app shows;
- * the note names the mount instead.
- */
+// The designation stays empty, never an English placeholder: it reaches the translated mount label.
 
 const ork = (motor: string): string =>
   `<?xml version="1.0"?><openrocket version="1.8"><rocket><name>T</name>` +

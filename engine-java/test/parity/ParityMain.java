@@ -18,20 +18,7 @@ import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.CoordinateIF;
 import info.openrocket.core.util.Quaternion;
 
-/**
- * JVM-vs-TeaVM parity harness.
- *
- * Runs a fixed battery of engine calculations (atmosphere, mass/CG, aero CP/CD, full flights,
- * staging, clusters, etc.) and prints every result as a pipe-delimited line of raw
- * {@code Double.toString} values: no rounding, no locale, so the text is byte-comparable.
- *
- * The point is not the numbers themselves but that they are identical across runtimes: this
- * same class runs on the JVM and inside the shipped engine (TeaVM-JS and WASM-GC, through
- * {@code OpenRocketEngine.runParity()}), and {@code test/parity/parity.mjs} diffs the output
- * line by line. A mismatch means the browser build diverged from the reference JVM (a TeaVM
- * miscompile or unported dependency). It ships so that parity checks the very files the app
- * loads; the app never calls it.
- */
+/** Ships via OpenRocketEngine.runParity() so parity checks the files the app loads. */
 public final class ParityMain {
     public static void main(String[] args) {
         atmosphereScenarios();
@@ -58,34 +45,12 @@ public final class ParityMain {
         uuidScenarios();
         preferencesScenarios();
         mutableScenarios();
-        // Last, so the process-wide state it touches (the UUID counter, the
-        // flight order) leaves every earlier line where it was.
+        // Order matters from here (process-wide UUID counter): add new scenarios at the end.
         atmosphereProfileScenarios();
-        // After it, for the same reason: new lines go on the end of the run.
         railLengthScenarios();
+        stepperScenarios();
     }
 
-    /**
-     * Fin cant and the roll coefficients it drives, across Mach and roll rate.
-     * <p>
-     * No other parity design sets a cant angle, so everywhere else
-     * {@code FinSetCalc} multiplies the roll forcing by {@code cantAngle == 0}
-     * and every roll quantity is identically zero; the {@code aero.forces} field
-     * list prints no roll term either. Without this scenario, a change to the
-     * roll forcing in {@code FinSetCalc} would pass both parity and golden, and
-     * {@code validation/score.mjs} only knows cd/cp/cna.
-     * <p>
-     * Not obscure physics: {@code ComponentFactory} reads a `cant` key for all
-     * three fin-set types, the web app round-trips it, and
-     * {@code OpenRocketEngine} ships CrollForce and CrollDamp to the aero view
-     * precisely so a user can check that a cant is doing what they meant. It is
-     * computed in the most heavily patched file in the tree.
-     * <p>
-     * Roll damping needs a non-zero roll rate to be non-zero, so the sweep
-     * crosses both: at rate 0 the damping term vanishes and Croll is pure
-     * forcing; at high rate the two oppose and Croll changes sign, which is the
-     * equilibrium roll rate the user actually cares about.
-     */
     private static void rollScenarios() {
         double[] cantsDeg = { 0.0, 0.5, 2.0, -2.0 };
         double[] machs = { 0.3, 0.8, 1.5 };
@@ -134,33 +99,13 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Motor-designation sort order, which is the one place the two platforms
-     * run genuinely different code.
-     * <p>
-     * {@code java.text.Collator} is a jdkstub: on the JVM the real JDK class
-     * wins by parent delegation, under TeaVM the stub runs. So this scenario
-     * is not testing that TeaVM compiled our source faithfully, it is testing
-     * that our stub agrees with the JDK it stands in for: the one comparison
-     * in this harness where a mismatch means the stub is wrong rather than the
-     * compiler. Without a sorted list printed here, the stub could disagree with
-     * the JDK indefinitely and no gate would notice.
-     * <p>
-     * {@code DesignationComparator} is the live consumer and it sorts at
-     * PRIMARY, where "H128W" and "H128-W" must compare equal, "H128W" and "H128.W"
-     * must not, and "AeroTech" must sort before "A-P"; a raw case-sensitive
-     * tiebreak gets that last one backwards.
-     */
+    /** Collator is a jdkstub under TeaVM but the real JDK class on the JVM: a mismatch means the stub is wrong. */
     private static void collatorScenarios() {
         String[] names = {
                 "H128W", "H128-W", "AeroTech", "A-P", "K550W", "k550w",
                 "A10-3T", "A10 3T", "Pro38", "Pro-38", "1/2A3", "-5",
                 "C11-3", "C11 3", "Estes", "Cesaroni", "Loki", "LOKI", "loki",
-                // The four marks en_US does not ignore (ignoring one would make two
-                // motors one), and real names that carry them.
                 "H128.W", "H128'W", "H128_W", "H128/W", "A.T.", "1/4A3", "LOC/Precision",
-                // The same space and hyphen in different places: secondary order
-                // depends on where they fall, not only on which they are.
                 "A-10 3T", "A 10-3T",
         };
         int[] strengths = {
@@ -170,8 +115,6 @@ public final class ParityMain {
         for (int s = 0; s < strengths.length; s++) {
             java.text.Collator coll = java.text.Collator.getInstance(java.util.Locale.US);
             coll.setStrength(strengths[s]);
-            // The full sign matrix, not just a sorted order: a sorted list hides
-            // the ties, and PRIMARY equality is exactly what the consumer needs.
             StringBuilder row = new StringBuilder();
             for (String a : names) {
                 for (String b : names) {
@@ -181,9 +124,6 @@ public final class ParityMain {
             }
             System.out.println("collator.matrix|" + strengths[s] + "|" + row);
         }
-        // Strength must be per-instance: a shared singleton with a no-op
-        // setStrength hands two callers asking for different strengths whichever
-        // was set last.
         java.text.Collator primary = java.text.Collator.getInstance(java.util.Locale.US);
         primary.setStrength(java.text.Collator.PRIMARY);
         java.text.Collator identical = java.text.Collator.getInstance(java.util.Locale.US);
@@ -194,20 +134,6 @@ public final class ParityMain {
                 primary.getStrength(), identical.getStrength());
     }
 
-    /**
-     * {@code LongUUID.randomUUID} determinism and spread.
-     * <p>
-     * The ids never reach the facade's output, so only this pins them. A raw
-     * counter would lose its nibble at bits 12-15 to the version mask, so the
-     * most-significant half would repeat every 2048 calls (and
-     * {@code MotorConfigurationId} keys on exactly that, so two configurations
-     * on one mount could alias); and with only the low bits moving, every
-     * {@code toShortKey()} would be the constant "01234567".
-     * <p>
-     * Pinning it also asserts something parity is uniquely able to check: that
-     * the JVM and both TeaVM targets generate the same ids. If they ever
-     * diverge, every id-keyed map iterates differently on the two platforms.
-     */
     private static void uuidScenarios() {
         java.util.Set<Long> msbs = new java.util.HashSet<>();
         java.util.Set<String> prefixes = new java.util.HashSet<>();
@@ -219,23 +145,12 @@ public final class ParityMain {
             prefixes.add(s8);
             if (i == 0) first = u.toString();
         }
-        // 4096 distinct most-significant halves, and many distinct short keys: a
-        // raw counter yields 2048 and exactly 1 respectively.
+        // A raw counter would give 2048 and 1.
         line("uuid.spread", msbs.size(), prefixes.size());
-        // Exact value, so the two platforms must agree bit for bit.
         System.out.println("uuid.first|" + first);
     }
 
-    /**
-     * {@code PATCH(teavm-mutable-trace)}: an immuted object refuses a write with
-     * upstream's message and no cause.
-     * <p>
-     * Upstream's {@code Mutable} keeps a {@code Throwable} from the immute() call
-     * and attaches it as the cause; under TeaVM that Throwable is a JS Error that
-     * keeps the finished simulation alive. A cause here means the patch was lost.
-     * The branch case proves the flag is what {@code FlightDataBranch} consults,
-     * and the clone case that a copy keeps the frozen state.
-     */
+    /** PATCH(teavm-mutable-trace): a cause on the refusal means the patch was lost. */
     private static void mutableScenarios() {
         info.openrocket.core.util.Mutable m = new info.openrocket.core.util.Mutable();
         boolean before = m.isMutable();
@@ -264,17 +179,6 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * The shim {@code ApplicationPreferences} defaults, pinned against upstream's.
-     * <p>
-     * A shim is the only provider of a fully-qualified name that upstream also
-     * defines, so a default that silently stops matching the desktop is invisible
-     * at compile time and wrong at runtime. Nothing in {@code extract --check}
-     * compares a shim to the class it shadows. The wind model is the sharpest
-     * case: {@code getAverageWindModel()} must seed 2 m/s at 10% turbulence from
-     * due east as upstream does, and a dead-calm model would go unnoticed because
-     * {@code OpenRocketEngine} clears the wind levels before every run.
-     */
     private static void preferencesScenarios() {
         info.openrocket.core.preferences.ApplicationPreferences prefs =
                 info.openrocket.core.startup.Application.getPreferences();
@@ -290,15 +194,6 @@ public final class ParityMain {
                 prefs.getDefaultMach());
     }
 
-    /**
-     * Opt-in supersonic aerodynamics (RASAero supersonicAero). With the
-     * flag on: corrected supersonic fin normal force (2D Busemann level with
-     * finite-span correction, roughly double the clamped classic value),
-     * exact NACA-1307 body-fin interference, Mach-dependent nose CNa growth,
-     * and no M4.9 grid clamp. Locks CP/CNa at transonic, supersonic and
-     * hypersonic Mach for both flag states; flag off must stay identical to
-     * the classic values (also covered by the aero.cp lines).
-     */
     private static void supersonicAeroScenarios() {
         Rocket rocket = buildReferenceRocket();
         info.openrocket.core.rocketcomponent.FlightConfiguration config =
@@ -315,7 +210,6 @@ public final class ParityMain {
             cOff.setAOA(Math.toRadians(2));
             CoordinateIF cpOff = off.getCP(config, cOff, w);
 
-            // supersonicAero via the RASAero strategy pair.
             info.openrocket.core.aerodynamics.RASAeroStabilityCalculator stab =
                     new info.openrocket.core.aerodynamics.RASAeroStabilityCalculator();
             stab.setSupersonicAero(true);
@@ -332,7 +226,6 @@ public final class ParityMain {
 
             line("ssaero." + mach, cpOff.getX(), cpOff.getWeight(), cpOn.getX(), cpOn.getWeight());
 
-            // Lock the flag-on drag decomposition too.
             info.openrocket.core.aerodynamics.AerodynamicForces fOn =
                     on.getAerodynamicForces(config, cOn, w);
             line("ssaerocd." + mach, fOn.getCD(), fOn.getFrictionCD(),
@@ -340,13 +233,6 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * RASAero fin airfoil cross-sections: a single-wedge section (thickness wave
-     * + fin base drag) and a hexagonal section with an explicit LE radius, locked
-     * at subsonic/supersonic Mach. The section physics runs only with rogersKbf or
-     * supersonicAero on, and this scenario sets neither, so these lines pin the
-     * classic crossSection path for these inputs.
-     */
     private static void airfoilSectionScenarios() {
         String base = "{\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
                 + "{\"type\":\"nosecone\",\"shape\":\"conical\",\"length\":0.085,\"aftRadius\":0.015,\"thickness\":0.0015},"
@@ -371,13 +257,6 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Minimum-diameter rocket: the body tube itself is the motor mount (no
-     * inner tube); kernel BodyTube implements MotorMount, and setMotorById
-     * must accept it. 24 mm airframe flying a 18 mm C6 loaded directly in the
-     * tube, with a nozzle exit near the body diameter (the power-on base-drag
-     * case min-diameter rockets exist for). Locks static info + flight summary.
-     */
     private static void minDiameterScenarios() {
         String json = "{\"name\":\"MinDia\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"nozzleExitDiameter\":0.014,\"children\":["
                 + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
@@ -402,13 +281,6 @@ public final class ParityMain {
                 api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
     }
 
-    /**
-     * The rail-length probe (api.RailSpeedProbe): how long a rod the rocket needs
-     * to leave it at a given speed. Three asks against one rocket on a 1 m rod: a
-     * speed it reaches on the rod, so the answer is shorter than the rod; one it
-     * reaches only past it; and one no rod is long enough for, which reads null.
-     * The flight's own figures ride along to prove the probe leaves them alone.
-     */
     private static void railLengthScenarios() {
         String json = "{\"name\":\"Rail\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
                 + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
@@ -432,14 +304,32 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * A forecast atmosphere (api.AtmosphereProfile) in place of the standard
-     * one. The same rocket flies three ways: on its own levels, anchored at a
-     * site above sea level (which drops the levels below the pad), and with
-     * a top level low enough that the flight climbs past it onto the standard
-     * shape. The levels are colder and thinner than standard so a lost profile
-     * cannot hide behind ISA.
-     */
+    private static void stepperScenarios() {
+        String json = "{\"name\":\"Stepper\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
+                + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
+                + "{\"type\":\"bodytube\",\"id\":\"body\",\"length\":0.45,\"outerRadius\":0.012,\"thickness\":0.0005,\"density\":950,\"motorMount\":true,\"children\":["
+                + "  {\"type\":\"trapezoidfinset\",\"finCount\":3,\"rootChord\":0.05,\"tipChord\":0.03,\"sweep\":0.02,\"height\":0.025,\"thickness\":0.003},"
+                + "  {\"type\":\"parachute\",\"diameter\":0.30}"
+                + "]}]}]}";
+        int r = api.OpenRocketEngine.buildRocket(json);
+        api.OpenRocketEngine.setMotorById(r, "body", "C6", 0.018, 0.070,
+                new double[] { 0, 0.1, 0.3, 0.5, 1.0, 1.5, 1.85, 2.0 },
+                new double[] { 0, 12.0, 6.0, 5.1, 4.9, 4.8, 4.5, 0 },
+                new double[] { 0.0240, 0.0231, 0.0215, 0.0202, 0.0174, 0.0147, 0.0133, 0.0132 },
+                0.035, 5.0);
+        for (String stepper : new String[] { "rk4", "rk6" }) {
+            java.util.Map<String, Object> summary = asMap(api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                    r, "{\"rodLength\":1.0,\"windAverage\":4.0,\"stepper\":\"" + stepper + "\"}")).get("summary"));
+            line("flight.stepper." + stepper,
+                    api.JsonLite.dbl(summary, "maxAltitude", Double.NaN),
+                    api.JsonLite.dbl(summary, "maxVelocity", Double.NaN),
+                    api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
+        }
+        Object error = api.JsonLite.parseObject(
+                api.OpenRocketEngine.simulateJson(r, "{\"rodLength\":1.0,\"stepper\":\"euler\"}")).get("error");
+        line("flight.stepper.unknown", error != null ? 1 : 0);
+    }
+
     private static void atmosphereProfileScenarios() {
         String json = "{\"name\":\"Atmo\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
                 + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
@@ -474,15 +364,6 @@ public final class ParityMain {
                 api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
     }
 
-    /**
-     * Opt-in Rogers Modified Barrowman body-fin interference (rogersKbf). With
-     * the flag on the fin set adds the Kbf body carryover (τ·cna at the fin root
-     * quarter-chord), so total CNα rises and CP moves slightly aft (a larger
-     * static margin) vs classic Barrowman. Flag off must reproduce the
-     * plain-Barrowman CP exactly (covered by the aero.cp lines; here both
-     * states are printed side by side). The JVM and both TeaVM targets run the
-     * patched calc.
-     */
     private static void rogersKbfScenarios() {
         Rocket rocket = buildReferenceRocket();
         info.openrocket.core.rocketcomponent.FlightConfiguration config =
@@ -499,7 +380,6 @@ public final class ParityMain {
             cOff.setAOA(Math.toRadians(2));
             CoordinateIF cpOff = off.getCP(config, cOff, w);
 
-            // Rogers Kbf via the RASAero strategy pair.
             info.openrocket.core.aerodynamics.RASAeroStabilityCalculator stab =
                     new info.openrocket.core.aerodynamics.RASAeroStabilityCalculator();
             stab.setRogersKbf(true);
@@ -518,12 +398,7 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Aero sweep bridge method. Exercises getAeroSweep over a small Mach grid
-     * and pins power-off and power-on total/base CD. The design sets a stage
-     * nozzle but has no motor, so no nozzle-exit area reaches the sweep and the
-     * power-on values equal the power-off ones.
-     */
+    /** Stage nozzle but no motor, so power-on equals power-off. */
     private static void aeroSweepScenarios() {
         String json = "{\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"nozzleExitDiameter\":0.016,\"children\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
@@ -550,15 +425,7 @@ public final class ParityMain {
         System.out.println("dragsweep.compcount|" + comps.size());
     }
 
-    /**
-     * Off-axis assemblies (PodSet / ParallelStage) through the tree API: the
-     * ComponentAssemblyCalc and off-axis MassCalculation paths.
-     * A symmetric 2-pod ring keeps CG on-axis but gains transverse/roll inertia
-     * (parallel-axis term); a 1-instance pod shifts CG laterally (CM.y != 0);
-     * a separating ParallelStage must spawn an extra flight branch.
-     */
     private static void podScenarios() {
-        // --- (A) Symmetric 2-pod set: on-axis CG, off-axis inertia ---
         String podJson = "{\"name\":\"Pod\",\"components\":[{\"type\":\"stage\",\"name\":\"Core\",\"children\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
                 + "{\"type\":\"bodytube\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -597,14 +464,12 @@ public final class ParityMain {
                 podStruct.getIxx(), podStruct.getIyy(), podStruct.getIzz(),
                 podStruct.getLongitudinalInertia(), podStruct.getRotationalInertia());
 
-        // --- (B) Asymmetric 1-instance pod: lateral CG shift (CM.y != 0) ---
         int r1 = api.OpenRocketEngine.buildRocket(podJson.replace("\"instanceCount\":2", "\"instanceCount\":1"));
         RigidBody s1 = MassCalculator.calculateStructure(
                 ((info.openrocket.core.rocketcomponent.Rocket) getRocketFromInfo(r1)).getSelectedConfiguration());
         line("mass.pod1.offaxis", s1.getMass(), s1.getCM().getX(),s1.getCM().getY(),s1.getCM().getZ(),
                 s1.getIxx(), s1.getIyy(), s1.getIzz());
 
-        // --- (C) Separating ParallelStage booster -> extra flight branch ---
         String boosterJson = "{\"name\":\"Booster\",\"components\":[{\"type\":\"stage\",\"name\":\"Core\",\"children\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
                 + "{\"type\":\"bodytube\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -627,8 +492,7 @@ public final class ParityMain {
         api.OpenRocketEngine.setMotorById(rb, "bmount", "C6", 0.018, 0.070, times, thrusts, masses, 0.035, 0.0);
         lineStaticInfo("para.info", api.OpenRocketEngine.getStaticInfo(rb));
 
-        // maxTime cap: turbulent-descent ULP row-count drift (same reasoning as
-        // conditions/staging). Assert branch count + names exactly; summary at tol.
+        // maxTime cap: a long descent drifts in row count by ULP noise.
         String result = api.OpenRocketEngine.simulateJson(rb, "{\"rodLength\":1.2,\"maxTime\":6}");
         java.util.Map<String, Object> parsed = api.JsonLite.parseObject(result);
         Object branchesObj = parsed.get("branches");
@@ -648,19 +512,6 @@ public final class ParityMain {
                 api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
     }
 
-    /**
-     * Serial two-stage flights through the tree API. Two common field patterns:
-     * - "auto": low/mid-power gap staging: booster motor's ejection charge
-     *   (delay 0) separates the booster and lights the sustainer
-     *   (IgnitionEvent.AUTOMATIC). Chuteless booster falls on its own branch.
-     * - "timed": the high-power pattern: separation at booster burnout,
-     *   sustainer lit by electronics (burnout + 1 s); booster recovers under
-     *   its own chute on its own branch.
-     * Locks: branch count/names, per-branch event sequences, per-branch
-     * apogee/end-time (the sustainer must fly ~2 stages high; the booster
-     * branch must end on its own GROUND_HIT). Only apogee and separation time
-     * are printed per branch, not the end time.
-     */
     private static void stagingScenarios() {
         runStagingScenario("auto", null, 0.0, false);
         runStagingScenario("timed", "burnout", 1.0, true);
@@ -727,10 +578,7 @@ public final class ParityMain {
             for (Object v : alt) {
                 if (v instanceof Double && (Double) v > maxAlt) maxAlt = (Double) v;
             }
-            // Apogee + separation time only: the end of a ~3-minute chute
-            // descent accumulates transcendental ULP noise (end time drifts
-            // ~1e-6 rel, sample count ±1), the same class as the turbulent-
-            // scenario cap. The event sequences above are exact strings.
+            // Not the end time: a ~3-minute chute descent accumulates ULP noise.
             double sepTime = Double.NaN;
             for (Object e : (java.util.List<?>) b.get("events")) {
                 java.util.Map<String, Object> ev = asMap(e);
@@ -743,14 +591,6 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Clustered motor mount: identical airframe flown with a single mount vs
-     * a 3-ring cluster of the same motor. The kernel fires the cluster as
-     * thrust×count with mass/inertia at the cluster geometry points: the
-     * cluster flight must show ~3× the loaded-motor mass delta and a much
-     * higher max acceleration. Also asserts the cluster geometry itself
-     * (count + tube offsets) so a silently-ignored cluster param can't pass.
-     */
     private static void clusterScenarios() {
         for (String pattern : new String[] { null, "3-ring" }) {
             String name = pattern == null ? "single" : "ring3";
@@ -766,7 +606,6 @@ public final class ParityMain {
                     + "]}]}";
             int r = api.OpenRocketEngine.buildRocket(json);
 
-            // Geometry assertion straight off the kernel component.
             info.openrocket.core.rocketcomponent.Rocket rocket =
                     (info.openrocket.core.rocketcomponent.Rocket) getRocketFromInfo(r);
             info.openrocket.core.rocketcomponent.InnerTube mount = null;
@@ -803,16 +642,7 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Off-axis roll inertia: the same two motors 15 mm off the axis, built
-     * two ways. "split" is the desktop split cluster, two single-instance inner
-     * tubes each at radialPosition 0.015; "double" is one inner tube with a
-     * double cluster scaled to the same offsets. The mass is in the same places,
-     * so roll inertia (Ixx) must agree between the two, for the structure and
-     * with the motors loaded. Upstream gives the split pair neither the tubes'
-     * nor the motors' m * r^2. "axis" is the on-axis control: the patch adds
-     * exactly 0.0 there.
-     */
+    /** "split" and "double" place the same mass, so Ixx must agree; upstream gives the split pair no m * r^2. */
     private static void splitClusterScenarios() {
         String head = "{\"name\":\"Split\",\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.12,\"aftRadius\":0.033,\"thickness\":0.002},"
@@ -856,9 +686,6 @@ public final class ParityMain {
                     launch.getIxx(), launch.getIyy());
         }
 
-        // The same tube 15 mm off the axis, drawn as a coupler and as an inner
-        // tube. Only InnerTube's offsets carry its radial shift, so without the
-        // patch the coupler gets no m * r^2 at all; the two Ixx must agree.
         String offAxisTube = "\"length\":0.05,\"outerRadius\":0.0095,\"thickness\":0.0005,\"density\":1200,"
                 + "\"radialPosition\":0.015,\"radialDirection\":0.7,\"position\":{\"method\":\"top\",\"offset\":0.1}}";
         for (String type : new String[] { "tubecoupler", "innertube" }) {
@@ -870,11 +697,6 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Dual deployment: drogue at apogee + main at 150 m AGL. Events must
-     * carry their source component name so the app can tell which device
-     * deployed (drogue vs main); safety thresholds differ per stage.
-     */
     private static void dualDeployScenarios() {
         String rocket = "{\"name\":\"DualDeploy\",\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
@@ -905,7 +727,6 @@ public final class ParityMain {
                 }
             }
         }
-        // Sources compare exactly (strings); times get flight.* tolerance.
         System.out.println(sources);
         double[] t = new double[times.size()];
         for (int i = 0; i < times.size(); i++) t[i] = times.get(i);
@@ -917,9 +738,7 @@ public final class ParityMain {
         return (java.util.Map<String, Object>) o;
     }
 
-    /** Cross-sections and freeform fins through the tree API. */
     private static void finVariantScenarios() {
-        // Same reference rocket, airfoil cross-section: CD must drop vs square.
         for (String cs : new String[] { "square", "rounded", "airfoil" }) {
             String json = "{\"components\":["
                     + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
@@ -942,7 +761,6 @@ public final class ParityMain {
             line("fins.crosssection." + cs, f.getCD(), f.getFrictionCD(), f.getPressureCD());
         }
 
-        // Freeform fin set: swept clipped-delta planform.
         String freeform = "{\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
                 + "{\"type\":\"bodytube\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -953,10 +771,6 @@ public final class ParityMain {
         int r2 = api.OpenRocketEngine.buildRocket(freeform);
         lineStaticInfo("fins.freeform.info", api.OpenRocketEngine.getStaticInfo(r2));
 
-        // Tube fins and rail buttons: both ship to the app, and both have their
-        // own aero and mass code that no other line here exercises. Without
-        // these, a wrong tube-fin CNa or rail-button drag term passes all three
-        // targets agreeing on it, and no golden value pins it.
         String tubeFins = "{\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
                 + "{\"type\":\"bodytube\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -977,7 +791,6 @@ public final class ParityMain {
         finTabScenarios();
     }
 
-    /** Static info, then the drag breakdown, CNa and CP at a subsonic and a transonic Mach. */
     private static void componentAeroLines(String tag, int handle) {
         lineStaticInfo(tag + ".info", api.OpenRocketEngine.getStaticInfo(handle));
         info.openrocket.core.rocketcomponent.FlightConfiguration config =
@@ -996,12 +809,7 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Fin tabs (through-the-wall): tab volume must add mass and shift CG;
-     * per-component info must expose the (all-fins) mass and subtree mass.
-     */
     private static void finTabScenarios() {
-        // Trapezoid fins, no tab vs 10 mm-deep × 30 mm-long tab.
         String noTab = "{\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
                 + "{\"type\":\"bodytube\",\"id\":\"body\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -1020,14 +828,12 @@ public final class ParityMain {
         lineComponentInfo("fins.tab.10mm.comp", api.OpenRocketEngine.getComponentInfo(rTab, "fins"));
         lineComponentInfo("fins.tab.10mm.body", api.OpenRocketEngine.getComponentInfo(rTab, "body"));
 
-        // Tab height beyond the body radius must clamp (kernel validation).
         String clamped = noTab.replace("\"position\":{\"method\":\"bottom\",\"offset\":0}}",
                 "\"position\":{\"method\":\"bottom\",\"offset\":0},"
                 + "\"tabHeight\":0.5,\"tabLength\":0.030}");
         int rClamp = api.OpenRocketEngine.buildRocket(clamped);
         lineComponentInfo("fins.tab.clamped.comp", api.OpenRocketEngine.getComponentInfo(rClamp, "fins"));
 
-        // Freeform fins with a tab.
         String ffTab = "{\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002},"
                 + "{\"type\":\"bodytube\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -1051,12 +857,10 @@ public final class ParityMain {
                 api.JsonLite.dbl(info, "positionX", Double.NaN));
     }
 
-    /** Reflection-free accessor: the kernel Rocket behind a handle, via the public API. */
     private static Object getRocketFromInfo(int handle) {
         return api.OpenRocketEngine.getRocketForTesting(handle);
     }
 
-    /** Custom launch conditions (wind + site atmosphere) through the API. */
     private static void conditionsScenarios() {
         String reference = "{\"name\":\"Ref\",\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002,\"shape\":\"ogive\"},"
@@ -1072,13 +876,7 @@ public final class ParityMain {
                 new double[] { 0.0240, 0.0231, 0.0215, 0.0202, 0.0174, 0.0147, 0.0133, 0.0132 },
                 0.035, 5.0);
 
-        // Windy launch from a hot high-altitude site with low pressure.
-        // maxTime caps the flight just past apogee (~6.8 s) and deployment
-        // (~7.2 s): a turbulent sim is chaotic, and over a ~100 s descent the
-        // JVM-vs-JS transcendental ULP noise amplifies until the adaptive
-        // stepper's row count flips, a structural diff no numeric tolerance
-        // absorbs. 8 s keeps full coverage (wind, atmosphere, deployment,
-        // every series) while staying within comparable drift.
+        // maxTime 8 s: over a long descent ULP noise flips the adaptive stepper's row count.
         String result = api.OpenRocketEngine.simulateJson(r, "{"
                 + "\"rodLength\":1.2,\"rodAngle\":0.087,\"windAverage\":3.0,"
                 + "\"windStdDeviation\":0.6,\"launchAltitude\":1400,"
@@ -1097,7 +895,6 @@ public final class ParityMain {
                 api.JsonLite.dbl(summary, "deploymentVelocity", Double.NaN),
                 api.JsonLite.dbl(summary, "optimumDelay", Double.NaN));
 
-        // Extended series exist and have consistent lengths.
         java.util.Map<String, Object> series = api.JsonLite.obj(parsed, "series");
         String[] keys = { "time", "altitude", "velocity", "acceleration", "mass",
                 "thrust", "drag", "mach", "stability", "cpLocation", "cgLocation", "aoa" };
@@ -1109,13 +906,7 @@ public final class ParityMain {
         line("flight.conditions.serieslens", sizes);
     }
 
-    /**
-     * The JSON tree API must produce identical physics to direct
-     * construction, and the extended component set must compute consistent
-     * mass/CP on both JVM and TeaVM.
-     */
     private static void treeApiScenarios() {
-        // Same reference rocket, built via the JSON tree API.
         String reference = "{\"name\":\"Ref\",\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.07,\"aftRadius\":0.012,\"thickness\":0.002,\"shape\":\"ogive\"},"
                 + "{\"type\":\"bodytube\",\"length\":0.30,\"outerRadius\":0.012,\"thickness\":0.0003,\"density\":950,\"children\":["
@@ -1127,8 +918,6 @@ public final class ParityMain {
         line("tree.api.ref", 1);
         lineStaticInfo("tree.info.ref", api.OpenRocketEngine.getStaticInfo(r1));
 
-        // Extended component set: transition, coupler, rings, lug, streamer,
-        // shock cord, mass component, elliptical fins.
         String extended = "{\"name\":\"Extended\",\"components\":["
                 + "{\"type\":\"nosecone\",\"length\":0.1,\"aftRadius\":0.0125,\"thickness\":0.002,\"shape\":\"haack\"},"
                 + "{\"type\":\"bodytube\",\"length\":0.35,\"outerRadius\":0.0125,\"thickness\":0.0005,\"density\":950,\"children\":["
@@ -1151,8 +940,6 @@ public final class ParityMain {
         lineStaticInfo("tree.info.ext", api.OpenRocketEngine.getStaticInfo(r2));
     }
 
-    /** Re-parse the API's JSON (JsonLite) into numeric parity fields so the
-     *  differential comparator can apply per-field ULP tolerance. */
     private static void lineStaticInfo(String tag, String json) {
         java.util.Map<String, Object> info = api.JsonLite.parseObject(json);
         line(tag,
@@ -1165,23 +952,20 @@ public final class ParityMain {
                 api.JsonLite.dbl(info, "warnings", Double.NaN));
     }
 
-    /** java.util.Random is algorithm-specified (LCG); verify TeaVM matches. */
     private static void randomScenarios() {
         java.util.Random r = new java.util.Random(42);
         line("random.seeded42", r.nextDouble(), r.nextDouble(), r.nextGaussian(), r.nextGaussian());
     }
 
-    /** Full 6DOF flight: C6-class motor, no wind, ISA, WGS gravity. */
     private static void flightScenarios() {
         Rocket rocket = buildReferenceRocket();
-        // Dedicated flight configuration (motors cannot attach to the default config).
+        // Motors cannot attach to the default config.
         info.openrocket.core.rocketcomponent.FlightConfigurationId fcid =
                 new info.openrocket.core.rocketcomponent.FlightConfigurationId(
                         "00000001-0001-4001-8001-000000000001");
         rocket.createFlightConfiguration(fcid);
         rocket.setSelectedConfiguration(fcid);
 
-        // C6-class motor built from explicit data points (deterministic; no db).
         info.openrocket.core.motor.ThrustCurveMotor motor =
                 new info.openrocket.core.motor.ThrustCurveMotor.Builder()
                         .setManufacturer(info.openrocket.core.motor.Manufacturer.getManufacturer("Estes"))
@@ -1201,7 +985,6 @@ public final class ParityMain {
                         .setDigest("harness-c6")
                         .build();
 
-        // Attach to the inner-tube mount.
         InnerTube mount = null;
         for (info.openrocket.core.rocketcomponent.RocketComponent c
                 : rocket.getSelectedConfiguration().getAllComponents()) {
@@ -1275,7 +1058,6 @@ public final class ParityMain {
         }
     }
 
-    /** Extended-Barrowman CP and force coefficients across Mach and AoA. */
     private static void aeroScenarios() {
         Rocket rocket = buildReferenceRocket();
         FlightConfiguration config = rocket.getSelectedConfiguration();
@@ -1308,7 +1090,6 @@ public final class ParityMain {
         }
         line("aero.warnings", warnings.size());
 
-        // Static helper functions (pure math, worth pinning).
         for (double m : machs) {
             line("aero.staticCD", m,
                     info.openrocket.core.aerodynamics.BarrowmanCalculator.calculateStagnationCD(m),
@@ -1316,12 +1097,6 @@ public final class ParityMain {
         }
     }
 
-    /**
-     * Reference rocket (Alpha-III class): ogive nose, body tube, 3 trapezoid
-     * fins, inner-tube motor mount, parachute. Mix of default materials
-     * (exercises the shimmed preference defaults, identical both sides) and
-     * explicit materials.
-     */
     private static Rocket buildReferenceRocket() {
         Rocket rocket = new Rocket();
         AxialStage stage = new AxialStage();
@@ -1357,9 +1132,7 @@ public final class ParityMain {
         Rocket rocket = buildReferenceRocket();
         FlightConfiguration config = rocket.getSelectedConfiguration();
 
-        // Direct per-class calls to the bounds API. These are real parity values
-        // and they force TeaVM's dependency analyzer to link every implementation
-        // (it under-links impls reached only via map-key virtual dispatch).
+        // Forces TeaVM to link every bounds impl (it under-links impls reached only via map-key dispatch).
         int bi = 0;
         for (info.openrocket.core.rocketcomponent.RocketComponent c : config.getAllComponents()) {
             double boundsSize = c.getComponentBounds().size();
@@ -1369,20 +1142,16 @@ public final class ParityMain {
             line("comp.bounds." + (bi++), boundsSize, instBox);
         }
 
-        // Structural counts: parity values and the first divergence tripwire.
         line("tree.counts", rocket.getChildCount(), config.getAllComponents().size(),
                 config.getActiveComponents().size(), config.getActiveStages().size(),
                 config.getStageCount(), config.getActiveInstances().size());
 
-        // Per-component masses: localizes any mass divergence to a component.
-        // (Indexed tag, not getSimpleName(): TeaVM strips class name metadata.)
+        // Indexed tag, not getSimpleName(): TeaVM strips class name metadata.
         int ci = 0;
         for (info.openrocket.core.rocketcomponent.RocketComponent c : config.getAllComponents()) {
             line("comp.mass." + (ci++), c.getMass(), c.getLength());
         }
 
-        // Instance-context counts: masses aggregate through these transforms.
-        // Sorted, so the line does not depend on map iteration order.
         java.util.List<Integer> ctxCounts = new java.util.ArrayList<>();
         for (java.util.ArrayList<info.openrocket.core.rocketcomponent.InstanceContext> v
                 : config.getActiveInstances().values()) {
@@ -1395,7 +1164,6 @@ public final class ParityMain {
         }
         line("tree.ctx.sorted", sortedCounts);
 
-        // Direct probes of fin instance expansion.
         TrapezoidFinSet finProbe = null;
         for (info.openrocket.core.rocketcomponent.RocketComponent c : config.getAllComponents()) {
             if (c instanceof TrapezoidFinSet) {
@@ -1405,14 +1173,10 @@ public final class ParityMain {
         line("fins.instances", finProbe.getFinCount(), finProbe.getInstanceCount(),
                 finProbe.getInstanceAngles().length, finProbe.getInstanceOffsets().length);
 
-        // Virtual dispatch check: the tree walk calls getInstanceCount() through
-        // a RocketComponent-typed reference; it must hit FinSet's override (=3).
         info.openrocket.core.rocketcomponent.RocketComponent rcRef = finProbe;
         line("fins.virtual", rcRef.getInstanceCount(), rcRef.getInstanceAngles().length);
 
-        // Map emplace probe: repeated emplace on the same key must append (list
-        // grows), not replace. InstanceMap extends LinkedHashMap where upstream
-        // uses ConcurrentHashMap (see patches/LEDGER.md).
+        // InstanceMap extends LinkedHashMap where upstream uses ConcurrentHashMap (see patches/LEDGER.md).
         info.openrocket.core.rocketcomponent.InstanceMap im =
                 new info.openrocket.core.rocketcomponent.InstanceMap();
         im.emplace(finProbe, 0, info.openrocket.core.util.Transformation.IDENTITY);
@@ -1420,7 +1184,6 @@ public final class ParityMain {
         im.emplace(finProbe, 2, info.openrocket.core.util.Transformation.IDENTITY);
         line("im.count", im.count(finProbe), im.size());
 
-        // Does an explicit post-enableEvents change event rebuild the contexts?
         line("fins.ctx.before", config.getActiveInstances().count(finProbe));
         finProbe.setFinCount(4);
         line("fins.ctx.after4", config.getActiveInstances().count(finProbe));
@@ -1443,7 +1206,6 @@ public final class ParityMain {
 
     private static void atmosphereScenarios() {
         ExtendedISAModel std = new ExtendedISAModel();
-        // Altitudes probing layer boundaries, interpolation midpoints, clamps.
         double[] alts = { -100, 0, 1, 250, 499, 500, 501, 1234.56, 5000, 10999, 11000,
                 11001, 15000, 20000, 32000, 47000, 51000, 71000, 84852, 90000 };
         for (double alt : alts) {
@@ -1451,9 +1213,6 @@ public final class ParityMain {
             line("isa.std", alt, c.getTemperature(), c.getPressure(), c.getDensity(),
                     c.getMachSpeed(), c.getKinematicViscosity());
         }
-        // Custom launch-site model, based at the site altitude.
-        // Arguments: (altitude, temp, pressure, humidity).
-
         ExtendedISAModel site = new ExtendedISAModel(1400, 285.15, 86000,
                 ExtendedISAModel.STANDARD_RELATIVE_HUMIDITY);
         for (double alt : new double[] { 0, 1400, 1401, 3000, 11000, 20000 }) {
@@ -1480,7 +1239,6 @@ public final class ParityMain {
         }
     }
 
-    /** Canonical output: tag then raw Double.toString values, '|'-separated. */
     private static void line(String tag, double... values) {
         StringBuilder sb = new StringBuilder(tag);
         for (double v : values) {

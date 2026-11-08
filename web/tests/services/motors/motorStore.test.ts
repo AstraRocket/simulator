@@ -54,7 +54,7 @@ describe('custom motors', () => {
   it('adds newest-first and de-dupes by id', async () => {
     await store.addCustomMotor(custom('a'));
     await store.addCustomMotor(custom('b'));
-    await store.addCustomMotor(custom('a')); // replace, not duplicate
+    await store.addCustomMotor(custom('a'));
     const list = await store.listCustomMotors();
     expect(list.map((m) => m.id)).toEqual(['a', 'b']);
   });
@@ -74,9 +74,7 @@ describe('custom motors', () => {
 });
 
 describe('custom motors report refused writes', () => {
-  // `kv.set` reports failure by returning false rather than throwing. Unless the
-  // store turns that into a throw, MotorDialog awaits the import, gets a clean
-  // resolve, and re-renders a catalog that does not contain the motor.
+  // `kv.set` returns false rather than throwing.
   it('throws when an import cannot be stored', async () => {
     const kv = new FakeKv();
     const store = new KeyValueMotorStore(kv);
@@ -92,11 +90,6 @@ describe('custom motors report refused writes', () => {
     await expect(store.removeCustomMotor('m1')).rejects.toThrow(/storage-full/);
   });
 });
-
-/**
- * What `isCustomMotor` lets through is built into a motor spec on every pick,
- * and `samplesToMotorSpec` does not check each sample, so the store has to.
- */
 describe('isCustomMotor rejects what would reach the kernel broken', () => {
   const good = () => ({
     id: 'custom:Test:A1',
@@ -125,9 +118,6 @@ describe('isCustomMotor rejects what would reach the kernel broken', () => {
   });
 
   it('drops a row the .eng and .rse readers would refuse for its size or masses', async () => {
-    // engParser and rseParser refuse a non-positive size, a non-positive loaded
-    // mass and a propellant mass below 0 or above the loaded one; a negative
-    // propellant mass flies a motor that gains mass as it burns.
     expect(await survives({ ...good(), propWeightG: -1 })).toBe(0);
     expect(await survives({ ...good(), totalWeightG: 0, propWeightG: 0 })).toBe(0);
     expect(await survives({ ...good(), propWeightG: 25 })).toBe(0);
@@ -137,7 +127,6 @@ describe('isCustomMotor rejects what would reach the kernel broken', () => {
   });
 
   it('drops a row whose delay list, type or source is malformed', async () => {
-    // `parseDelays` splits `delayList`; one bad row would take down the picker.
     expect(await survives({ ...good(), delayList: 5 })).toBe(0);
     expect(await survives({ ...good(), delayList: ['5'] })).toBe(0);
     expect(await survives({ ...good(), type: 'solid' })).toBe(0);
@@ -146,17 +135,13 @@ describe('isCustomMotor rejects what would reach the kernel broken', () => {
   });
 
   it('drops a sample that is not a {time, thrust} pair', async () => {
-    // `samples: [{}]` would become `times: [undefined]` and NaN masses in the kernel.
     expect(await survives({ ...good(), samples: [{}] })).toBe(0);
     expect(await survives({ ...good(), samples: [null] })).toBe(0);
     expect(await survives({ ...good(), samples: [[0, 1]] })).toBe(0);
   });
 
   it('drops a sample whose time or thrust is null', async () => {
-    // Written as NaN/Infinity by whatever produced the blob; JSON.stringify
-    // turns both into null on the way to storage, so null is what the store
-    // actually reads back. The per-field checks on the row cannot see these;
-    // isCustomMotor has to look inside `samples` itself.
+    // JSON.stringify writes NaN/Infinity as null, so null is what comes back.
     expect(await survives({ ...good(), samples: [{ time: 0, thrust: null }] })).toBe(0);
     expect(await survives({ ...good(), samples: [{ time: null, thrust: 1 }] })).toBe(0);
     expect(await survives({ ...good(), samples: [{ time: 0 }] })).toBe(0);
@@ -188,8 +173,6 @@ describe('isCustomMotor rejects what would reach the kernel broken', () => {
   });
 
   it('drops a dimension or weight that is absent, null or not a number', async () => {
-    // Not tested with NaN: JSON.stringify writes it as null, so a NaN can never
-    // be read back out of the store. These three can arrive.
     for (const k of ['diameter', 'length', 'totalWeightG', 'propWeightG'] as const) {
       expect(await survives({ ...good(), [k]: null }), `${k}=null`).toBe(0);
       expect(await survives({ ...good(), [k]: '18' }), `${k}="18"`).toBe(0);

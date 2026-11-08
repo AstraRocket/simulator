@@ -9,11 +9,7 @@ import { kernelGeometry, loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Desktop's new mass component weighs 0 g (24.12 `MassComponent()` stores
- * `dconst_0` into `mass`), and desktop flies it. The kernel builds one too, so
- * the run check lets a design carrying one through.
- */
+// Desktop's `MassComponent()` stores 0 into `mass` and desktop flies it.
 const design = (mass: ComponentNode, inMount: boolean): RocketTree =>
   ({
     components: [
@@ -78,7 +74,6 @@ describe('a mass component of 0 g', () => {
         const tree = design(node, inMount);
         const engine = await loadEngine();
         const k = kernelGeometry(engine, tree, { fields: true }).get('m')!;
-        // The kernel holds the part at 0 g and adds nothing to the rocket's mass.
         expect(k.fields?.['mass']).toBe(0);
         const info = staticInfo(engine, tree);
         expect(info.error).toBeUndefined();

@@ -3,11 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { useFocusTrap } from '../../../src/components/common/useFocusTrap';
 
-/**
- * Stock jsdom reports `offsetParent === null` for every element, so the trap's
- * visibility filter would see no focusable children at all. A browser gives
- * every laid-out element an offsetParent.
- */
+// jsdom reports `offsetParent === null` everywhere, which hides every child from the trap.
 let offsetParent: PropertyDescriptor | undefined;
 beforeEach(() => {
   offsetParent = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
@@ -48,7 +44,6 @@ describe('useFocusTrap', () => {
     render(<FramePanel />);
     const frame = screen.getByTitle('page');
     frame.focus();
-    // The frame is the last stop, so Tab from it wraps to the first control.
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Tab' });
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'close' }));
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Tab', shiftKey: true });
@@ -77,10 +72,6 @@ describe('useFocusTrap', () => {
     expect(document.activeElement).toBe(first);
   });
 
-  /**
-   * Tab inside an iframe is the frame document's keydown, which the panel never
-   * hears, so the browser can move focus straight past the panel's edge.
-   */
   it('brings focus back when it lands outside the panel', () => {
     render(
       <>
@@ -119,10 +110,6 @@ describe('useFocusTrap', () => {
     expect(document.activeElement).toBe(first);
   });
 
-  /**
-   * The modals rely on this one window keydown listener for Escape rather than
-   * each carrying its own, so a break here breaks every modal at once.
-   */
   it('calls onEscape on a window-level Escape while active', () => {
     const onEscape = vi.fn();
     render(<Panel active onEscape={onEscape} />);
@@ -147,12 +134,6 @@ describe('useFocusTrap', () => {
     expect(onEscape).not.toHaveBeenCalled();
   });
 
-  /**
-   * The listener has to be on the window, because a dialog is not always the
-   * thing focused when Escape is pressed. So every open surface hears every
-   * Escape, and only the top one may act on it: dismissing the rename prompt
-   * inside the design library must not shut the library behind it too.
-   */
   describe('with more than one surface open', () => {
     it('gives Escape to the one on top, and only that one', () => {
       const under = vi.fn();
@@ -187,11 +168,6 @@ describe('useFocusTrap', () => {
       expect(over).not.toHaveBeenCalled();
     });
 
-    /**
-     * Help is mounted early in the header and opens over dialogs rendered after
-     * it, so the surface on top is the one opened last, wherever it sits in the
-     * document.
-     */
     it('gives Escape and focus to the surface opened last, even when it is earlier in the document', () => {
       const earlier = vi.fn();
       const later = vi.fn();
@@ -214,7 +190,6 @@ describe('useFocusTrap', () => {
 
       const inEarlier = screen.getByRole('button', { name: 'in earlier' });
       expect(document.activeElement).toBe(inEarlier);
-      // Focus moved by the user inside the surface on top stays there.
       inEarlier.blur();
       inEarlier.focus();
       expect(document.activeElement).toBe(inEarlier);
@@ -223,7 +198,6 @@ describe('useFocusTrap', () => {
       expect(earlier).toHaveBeenCalledTimes(1);
       expect(later).not.toHaveBeenCalled();
 
-      // Closed again, the one underneath is on top once more.
       rerender(<Pair earlierOpen={false} />);
       fireEvent.keyDown(window, { key: 'Escape' });
       expect(later).toHaveBeenCalledTimes(1);
@@ -231,9 +205,6 @@ describe('useFocusTrap', () => {
     });
 
     it('swallows it under a surface that cannot be dismissed', () => {
-      // A modal with no onEscape is one that must not close on it
-      // (WorkInProgressDialog). While it is on top, Escape does nothing at all
-      // rather than closing whatever sits underneath.
       const under = vi.fn();
       render(
         <>

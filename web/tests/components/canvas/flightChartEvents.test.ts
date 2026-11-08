@@ -1,14 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { eventStripHeight, packEventLabels } from '../../../src/components/canvas/FlightChartEvents';
+import { eventStripHeight, packEventLabels } from '../../../src/components/canvas/flightChartEventLabels';
 import { EVENT_ROW_H, PAD_L, PAD_R } from '../../../src/components/canvas/flightChartAxis';
 
-/**
- * The event-label row packing. It is a pure function, so the "never overlap"
- * promise in its comment is held here.
- */
-
-const width = () => 40; // every label 40 px wide, so half = 20
-
+const width = () => 40;
 describe('packEventLabels', () => {
   it('keeps well-separated labels on row 0', () => {
     const out = packEventLabels(
@@ -32,7 +26,6 @@ describe('packEventLabels', () => {
       640,
       width,
     );
-    // 100 and 120 overlap (halves of 20 each), 130 overlaps both.
     expect(out.map((l) => l.row)).toEqual([0, 1, 2]);
   });
 

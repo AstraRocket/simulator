@@ -3,20 +3,19 @@ import { useWorkspaceStore, selectOutdated, selectShownSim, type WorkspaceState 
 import { simStatus, simStatusLabel, type SimStatus } from '../../services/flight/simulations';
 import { ResultPicker } from '../sim/ResultPicker';
 import { ViewToggle } from './ViewToggle';
-import { ViewBtn } from './ViewBtn';
+import { JOINED, ToolDivider, ToolGroup, ViewBtn } from './ViewBtn';
+import { Segmented } from '../common/Segmented';
+import { ToggleButton } from '../common/ToggleButton';
 import { useViewPrefs } from './useViewPrefs';
 
-/**
- * The status of the flight the Results tab shows, as the simulations table
- * words it (`simStatus`). A string, so subscribing to it re-renders only when
- * that answer changes.
- */
+const TWO_D_VIEWS = ['side', 'aft'] as const;
+
+// A string, so subscribers re-render only when the status changes.
 const selectShownStatus = (s: WorkspaceState): SimStatus => {
   const sim = selectShownSim(s);
   return simStatus(sim, s.simRuns, s.tree, selectOutdated(s, sim));
 };
 
-/** The chip each status shows beside the heading; the rest show none. */
 const STATUS_CHIP: Partial<Record<SimStatus, string>> = {
   queued: 'bg-accent-500/15 text-accent-300 ring-accent-400/30',
   running: 'bg-accent-500/15 text-accent-300 ring-accent-400/30',
@@ -24,12 +23,6 @@ const STATUS_CHIP: Partial<Record<SimStatus, string>> = {
   outdated: 'bg-warn-500/15 text-warn-200 ring-warn-400/30',
 };
 
-/**
- * The center pane's header row: the result heading, the 2D presets or the
- * slot the 3D model portals its presets into, the CG/CP · Info · ruler
- * toggles, the slot the canvas portals its other controls into, the view
- * toggle and the maximize button.
- */
 export function CenterToolbar({
   resultName,
   onCtrlSlot,
@@ -37,11 +30,8 @@ export function CenterToolbar({
   maxed,
   onToggleMaxed,
 }: {
-  /** The shown flight's simulation name, for the Results heading. */
   resultName: string;
-  /** Ref callback for the center slot the 2D schematic portals into. */
   onCtrlSlot: (el: HTMLDivElement | null) => void;
-  /** Ref callback for the left slot the 3D view portals its camera presets into, where 2D has its own. */
   onPresetSlot: (el: HTMLDivElement | null) => void;
   maxed: boolean;
   onToggleMaxed: () => void;
@@ -53,38 +43,18 @@ export function CenterToolbar({
   const twoD = useWorkspaceStore((s) => s.twoD);
   const onTwoD = useWorkspaceStore((s) => s.setTwoD);
   const onResetView = useWorkspaceStore((s) => s.resetView);
-  // The flight the heading names, not the active row: with the picker on
-  // another row, the chip has to describe the numbers on screen.
   const status = useWorkspaceStore(selectShownStatus);
   const chip = STATUS_CHIP[status];
-  const { showMarkers, showInfoCard, rulers, toggleMarkers, toggleInfoCard, toggleRulerSide } = useViewPrefs();
+  const { showMarkers, showInfoCard, showGrid, rulers, toggleMarkers, toggleInfoCard, toggleGrid, toggleRulerSide } =
+    useViewPrefs();
 
+  // `@container/bar`: ToolDivider responds to this row's width.
   return (
-    // Wraps for the same reason the app header does: the presets, the
-    // portalled canvas controls and the view toggle do not fit a phone's
-    // width in one row, and an unwrapped row scrolls the whole page
-    // sideways.
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 pt-3">
-      {/* 2D view presets + the CG/CP · Info toggles, left-justified in the
-      same row as the view toggle. The toggles apply to both 2D and 3D. */}
+    <div className="@container/bar flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 pt-3">
       <div className="flex flex-wrap items-center gap-1">
-        {/* Whose flight this is. The design views are about the one rocket
-        on screen and need no label, but a result belongs to a named
-        simulation, and with several of them the charts are otherwise
-        unattributed. The stale marker rides along because results
-        survive a design edit: the numbers stay readable, so the tab has
-        to say when they no longer describe the rocket. */}
         {tab === 'results' && (
           <div className="flex items-center gap-2">
-            {/* A heading, not a span: it titles the whole pane, and a
-            screen reader should be able to jump to it. Once a second
-            simulation has flown the picker becomes the heading, so the name
-            is not shown twice. `ResultPicker` renders its own h2 in that case. */}
             <ResultPicker fallbackName={resultName} />
-            {/* The table's word for the shown flight. While it is queued or
-            being flown again its numbers are about to be replaced, which is
-            what this says; Outdated would be true but no longer the thing to
-            act on. Outdated itself shows only once there is a result. */}
             {chip && (
               <span
                 role={status === 'outdated' ? undefined : 'status'}
@@ -101,12 +71,15 @@ export function CenterToolbar({
         {view === '2d' && (
           <>
             <ViewBtn onClick={onResetView}>{t('view.reset')}</ViewBtn>
-            <ViewBtn active={twoD === 'side'} onClick={() => onTwoD('side')}>
-              {t('view.side')}
-            </ViewBtn>
-            <ViewBtn active={twoD === 'aft'} onClick={() => onTwoD('aft')}>
-              {t('view.aft')}
-            </ViewBtn>
+            <Segmented
+              size="bar"
+              options={TWO_D_VIEWS}
+              value={twoD}
+              onChange={onTwoD}
+              fmt={(v) => t(`view.${v}`)}
+              title={(v) => t(`view.${v}Title`)}
+            />
+            <ToolDivider />
           </>
         )}
         {view === '3d' && <div ref={onPresetSlot} className="flex items-center gap-1" />}
@@ -118,38 +91,40 @@ export function CenterToolbar({
             <ViewBtn active={showInfoCard} onClick={toggleInfoCard} title={t('view.infoCardTitle')}>
               {t('view.infoCard')}
             </ViewBtn>
-            {/* Rulers only frame the 2D side view; one toggle per side (T/B/L/R). */}
             {view === '2d' && (
-              <div className="flex items-center gap-1">
-                <span className="pl-1 text-xs font-medium text-ink-muted">{t('view.rulers')}</span>
-                {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
-                  <ViewBtn
-                    key={side}
-                    active={rulers[side]}
-                    onClick={() => toggleRulerSide(side)}
-                    title={t(`view.ruler_${side}`)}
-                    label={t(`view.ruler_${side}`)}
-                  >
-                    {t(`view.ruler_${side}_abbr`)}
+              <>
+                {twoD === 'side' && (
+                  <ViewBtn active={showGrid} onClick={toggleGrid} title={t('view.gridTitle')}>
+                    {t('view.grid')}
                   </ViewBtn>
-                ))}
-              </div>
+                )}
+                <ToolDivider />
+                <span className="text-xs font-medium text-ink-muted">{t('view.rulers')}</span>
+                <ToolGroup label={t('view.rulers')}>
+                  {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
+                    <ToggleButton
+                      key={side}
+                      active={rulers[side]}
+                      onClick={() => toggleRulerSide(side)}
+                      title={t(`view.ruler_${side}`)}
+                      label={t(`view.ruler_${side}`)}
+                      className={`${JOINED} w-6`}
+                    >
+                      {t(`view.ruler_${side}_abbr`)}
+                    </ToggleButton>
+                  ))}
+                </ToolGroup>
+              </>
             )}
           </>
         )}
       </div>
-      {/* Center slot: the 2D schematic portals its caliper / zoom / export
-      buttons here, and the 3D model its cutaway, view type and export. */}
       <div ref={onCtrlSlot} className="flex items-center gap-1" />
-      {/* ml-auto keeps it hard right even when it wraps onto a line of its
-      own, where justify-between has nothing to push against. */}
+      {/* ml-auto keeps it right when wrapped alone, where justify-between does nothing. */}
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <ViewToggle view={view} onChange={onView} family={tab === 'results' ? 'result' : 'design'} />
-        {/* Desktop only: there are no side columns below lg for it to
-            reclaim, so the button would be a no-op there. */}
         <span className="hidden lg:block">
-          {/* A toggle keeps one accessible name and reports its state through
-              aria-pressed; the tooltip says what the next press does. */}
+          {/* One accessible name plus aria-pressed; the tooltip says what the next press does. */}
           <ViewBtn
             active={maxed}
             onClick={onToggleMaxed}

@@ -1,10 +1,9 @@
-// cspell:ignore Fusée
+// cspell:ignore Fusée Lóki
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { MAX_IMPORT_FILE_BYTES, decodeFileText, readFileText } from '../../../src/services/files/decodeText';
 
-/** UTF-16LE with its byte order mark, as Windows tools write it. */
 const utf16le = (s: string): Blob => {
   const bytes = new Uint8Array(2 + s.length * 2);
   bytes[0] = 0xff;
@@ -32,7 +31,6 @@ describe('readFileText', () => {
   });
 
   describe('a declared encoding', () => {
-    /** The text as single bytes: each char code is one byte, as Latin-1 writes it. */
     const latin1 = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 
     it('reads an ISO-8859-1 file by its declaration, as an XML parser does', () => {
@@ -44,6 +42,14 @@ describe('readFileText', () => {
       // 0x80 is the euro sign in windows-1252 and a control in Latin-1.
       const bytes = latin1(`<?xml version='1.0' encoding='windows-1252'?><a>\u0080</a>`);
       expect(decodeFileText(bytes)).toContain('<a>€</a>');
+    });
+
+    it('reads an undeclared file that is not valid UTF-8 as windows-1252, as desktop reads a .eng', () => {
+      // RASPMotorLoader reads ISO-8859-1: 0xF3 alone is ó there and invalid UTF-8.
+      expect(decodeFileText(latin1('G80 29 124 4-7-10 0.0625 0.123 Lóki\n'))).toBe(
+        'G80 29 124 4-7-10 0.0625 0.123 Lóki\n',
+      );
+      expect(decodeFileText(new TextEncoder().encode('Lóki'))).toBe('Lóki');
     });
 
     it('stays UTF-8 for a UTF-8 declaration, an unknown label or none', () => {

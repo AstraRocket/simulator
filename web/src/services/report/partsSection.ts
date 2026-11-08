@@ -6,7 +6,6 @@ import { heading, len, q, qv, sectionBreak, sub, table, type Col, type PdfPage, 
 
 type PartRow = ReportModel['partsByStage'][number]['rows'][number];
 
-/** The components table: every part of every selected stage, by stage or as one list. */
 export function writePartsSection(p: PdfPage, partsStages: ReportModel['partsByStage']): void {
   const { t, CW, opts } = p;
   sectionBreak(p);
@@ -23,7 +22,7 @@ export function writePartsSection(p: PdfPage, partsStages: ReportModel['partsByS
   }
 }
 
-/** The components table's columns, across a content width of `w` millimeters. */
+/** `w` is mm. */
 export function partColumns(t: T, w: number): Col[] {
   return [
     { title: t('report.part'), w: w * 0.3 },
@@ -33,12 +32,7 @@ export function partColumns(t: T, w: number): Col[] {
   ];
 }
 
-/**
- * A material density in the unit of its own kind: bulk, surface or line, to
- * four significant figures. Densities span seven orders of magnitude across
- * the three kinds (steel is 7850 kg/m³, a Kevlar thread 0.00015 kg/m), so a
- * fixed count of decimals is wrong in one unit or another.
- */
+// Significant figures, not fixed decimals: densities span seven orders of magnitude.
 function density(p: PdfPage, kind: MaterialDensity, si: number): string {
   const unit = p.units[kind];
   return `${fmtSig(siToUi(kind, unit, si), 4)} ${unit}`;
@@ -50,7 +44,6 @@ function partRow(p: PdfPage, r: PartRow): string[] {
     r.outerR != null
       ? `Ø ${qv(p, 'length', r.outerR * 2)}${r.innerR != null ? '/' + qv(p, 'length', r.innerR * 2) : ''} ${units.length}`
       : '',
-    // A transition: its fore end, then its aft end.
     r.foreR != null && r.aftR != null
       ? `Ø ${qv(p, 'length', r.foreR * 2)} → ${qv(p, 'length', r.aftR * 2)} ${units.length}`
       : '',

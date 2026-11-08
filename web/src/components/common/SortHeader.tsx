@@ -1,11 +1,5 @@
 import type { ReactNode } from 'react';
 
-/**
- * A table column header that sorts. It says which way it sorts to assistive
- * technology too (`aria-sort` on the header cell), not only with the arrow,
- * which is hidden from it.
- * Without `onSort` it is a plain header cell.
- */
 export function SortHeader({
   active = false,
   dir = 1,
@@ -14,7 +8,6 @@ export function SortHeader({
   children,
 }: {
   active?: boolean;
-  /** 1 ascending, -1 descending; read only while `active`. */
   dir?: 1 | -1;
   onSort?: () => void;
   className?: string;

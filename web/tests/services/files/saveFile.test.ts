@@ -5,10 +5,6 @@ import { download, exportFilename, saveBlob, saveText, safeFilename } from '../.
 import { parseWindProfileCsv } from '../../../src/services/flight/windProfileCsv';
 import { loadSettings, saveSettings } from '../../../src/services/storage/settings';
 
-// The share sheet is used only where `<a download>` is known to fail: iOS or
-// iPadOS running the app as an installed PWA. Everywhere else the anchor wins,
-// because it puts the file straight in the downloads folder with no extra tap.
-
 const clicks: { download: string; href: string }[] = [];
 
 function trackAnchorClicks() {
@@ -24,7 +20,7 @@ function trackAnchorClicks() {
   });
 }
 
-/** Pose as a platform: apple = iOS/iPadOS, standalone = installed PWA. */
+// apple = iOS/iPadOS, standalone = installed PWA.
 function pose({ apple, standalone, canShare = true }: { apple: boolean; standalone: boolean; canShare?: boolean }) {
   vi.stubGlobal('navigator', {
     userAgent: apple ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' : 'Mozilla/5.0 (Windows NT 10.0)',
@@ -62,7 +58,6 @@ describe('saveBlob', () => {
   });
 
   it('downloads via an anchor on iOS in a browser TAB', async () => {
-    // Not installed → the anchor works, so do not hijack it with a share sheet.
     const nav = pose({ apple: true, standalone: false });
     await saveBlob(blob(), 'rocket.ork');
     expect(clicks).toHaveLength(1);
@@ -96,7 +91,6 @@ describe('saveBlob', () => {
     const nav = pose({ apple: true, standalone: true });
     nav.share.mockRejectedValueOnce(new DOMException('canceled', 'AbortError'));
     await saveBlob(blob(), 'rocket.ork');
-    // Canceling is a decision, not a failure: a surprise download would ignore it.
     expect(clicks).toHaveLength(0);
   });
 
@@ -122,14 +116,12 @@ describe('safeFilename', () => {
   });
 
   it('falls back when a name reduces to nothing', () => {
-    // "///" sanitizes to "_", which is truthy but a useless filename, so a
-    // truthiness check alone is not enough.
+    // "///" sanitizes to "_", which is truthy but useless.
     expect(safeFilename('///')).toBe('rocket');
     expect(safeFilename('')).toBe('rocket');
   });
 
   it("takes the caller's own fallback", () => {
-    // The part exporter wants "part", the flight-path exporter "flight".
     expect(safeFilename('My Fin!', 'part')).toBe('My_Fin_');
     expect(safeFilename('', 'part')).toBe('part');
     expect(safeFilename('!!!', 'flight')).toBe('flight');
@@ -143,7 +135,6 @@ describe('safeFilename', () => {
     expect(safeFilename('Ракета')).toBe('Ракета');
     expect(safeFilename('ロケット 2')).toBe('ロケット_2');
     expect(safeFilename('Fusée-Ω')).toBe('Fusée-Ω');
-    // A combining mark is part of its letter.
     expect(safeFilename('रॉकेट')).toBe('रॉकेट');
   });
 
@@ -157,15 +148,10 @@ describe('safeFilename', () => {
   });
 });
 
-/** `download` is fire-and-forget, so let its inner save settle. */
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('download', () => {
-  /**
-   * One signature, filename first, pinned here. Because a text payload is also
-   * a `string`, the compiler accepts the two swapped, and a swapped call would
-   * download a file named after its own contents.
-   */
+  // Both are strings, so the compiler would accept them swapped.
   it('takes the filename first and the payload second', async () => {
     pose({ apple: false, standalone: false });
     download('aero-table.csv', 'Mach,Cd\r\n0.05,0.41\r\n', 'text/csv;charset=utf-8');
@@ -175,8 +161,6 @@ describe('download', () => {
   });
 
   it('passes a Blob straight through instead of re-wrapping it', async () => {
-    // The image exporters hand it an already-typed Blob; re-wrapping would
-    // replace its MIME type with the text default.
     pose({ apple: false, standalone: false });
     download('rocket-3d.png', new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
     await flush();
@@ -185,11 +169,6 @@ describe('download', () => {
   });
 });
 
-/**
- * The one naming rule every export follows. It exists because a downloads
- * folder is flat and shared: a file has to say which rocket it came from, and
- * a second design must not overwrite the first.
- */
 describe('exportFilename', () => {
   it('adds what the file IS for a rocket-level export, design documents included', () => {
     expect(exportFilename(['Big Bertha', 'design'], 'ork')).toBe('Big_Bertha-design.ork');
@@ -208,14 +187,11 @@ describe('exportFilename', () => {
   });
 
   it('drops empty parts rather than leaving a double separator', () => {
-    // A caller can pass an optional part without guarding it - an unnamed
-    // stage, a sim with no name yet.
     expect(exportFilename(['Bertha', '', undefined, 'flight-data'], 'csv')).toBe('Bertha-flight-data.csv');
     expect(exportFilename([null, 'Bertha', 'design'], 'ork')).toBe('Bertha-design.ork');
   });
 
   it('drops a part that survives cleaning as separators only', () => {
-    // safeFilename turns "///" into "_", which is truthy but says nothing.
     expect(exportFilename(['///', 'report'], 'pdf')).toBe('report.pdf');
   });
 
@@ -225,11 +201,6 @@ describe('exportFilename', () => {
   });
 });
 
-/**
- * Chrome and Edge's save dialog: the user picks the name and the folder. It
- * needs the click that asked for the file, so a save that comes too late is
- * refused, and the anchor download is what that save falls back to.
- */
 describe('saveBlob with the browser save dialog', () => {
   const picker = (behavior: 'save' | 'cancel' | 'refuse') => {
     const written: Blob[] = [];
@@ -285,11 +256,6 @@ describe('saveBlob with the browser save dialog', () => {
   });
 });
 
-/**
- * A CSV download starts with a UTF-8 byte-order mark, so Excel on Windows reads
- * it as UTF-8. Other text is saved as given, and a CSV that already has the mark
- * does not get a second.
- */
 describe('CSV byte-order mark', () => {
   const BOM = String.fromCharCode(0xfeff);
   const capture = () => {

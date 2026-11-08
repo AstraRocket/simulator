@@ -13,20 +13,8 @@ import { TILE_SOURCES } from '../../../src/services/map/slippyMap';
 
 const st = () => useWorkspaceStore.getState();
 
-/**
- * The ground track's map layer, without a network.
- *
- * jsdom never fetches an `<img>`, so nothing here needs a tile server: what is
- * checked is which tiles the view asks for, and that it still draws a correct
- * plan view when it asks for none. The projection itself is covered against
- * hand-computed figures in `services/map/slippyMap.test.ts`, and the track geometry
- * in `services/flight/groundTrack.test.ts`.
- *
- * There is no ResizeObserver in jsdom either, which the component handles by
- * keeping its 420 px default.
- */
+// jsdom never fetches `<img>` and has no ResizeObserver, so the view keeps its 420 px default.
 
-/** A complete, in-limits set of conditions: what the drift-sweep panel reads. */
 const LAUNCH = {
   launchRodLengthM: 1,
   launchRodAngleDeg: 0,
@@ -42,7 +30,6 @@ const LAUNCH = {
 
 const HOME = { latitudeDeg: 39.05, longitudeDeg: -104.8, launch: LAUNCH };
 
-/** A flight that drifts to 500 m east and 500 m north over four samples. */
 const flight = (): ChartFlight =>
   ({
     id: 'sim-1',
@@ -59,37 +46,19 @@ const flight = (): ChartFlight =>
     },
   }) as unknown as ChartFlight;
 
-/** `alt=""` makes the tiles presentational, so query them by tag. */
 const tiles = () => Array.from(document.querySelectorAll('img')).map((el) => el.getAttribute('src') ?? '');
 
-/**
- * Turn imagery on for the view just rendered.
- *
- * Needed by nearly every test here, because imagery is off until asked for.
- * Both the layer and whether imagery shows at all are also remembered at module
- * scope for the session (that is the point: switching to street in the site
- * map carries over), so a test that leaves it on would decide what the next
- * test renders. Asking for it explicitly is what keeps these independent of
- * each other's order.
- */
+// The imagery choice is module-scoped, so each test sets it and resets it after.
 const showImagery = () => fireEvent.click(screen.getByRole('button', { name: 'Satellite' }));
 
-/** Put the session memory back, so the next test starts from the real default. */
 const hideImagery = () => fireEvent.click(screen.getByRole('button', { name: 'None' }));
 
 describe('GroundTrack imagery', () => {
-  /**
-   * Nothing is fetched from anybody's tile servers until somebody asks to see
-   * the ground. The plan view is a measurement that stands on its own (the
-   * range rings do not depend on a picture), so opening Results is not a reason
-   * to reach out for scenery.
-   */
   it('asks for no tiles at all until the ground is turned on', () => {
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
     expect(tiles()).toHaveLength(0);
     // jest-dom's matchers are not loaded here, so read the attribute directly.
     expect(screen.getByRole('button', { name: 'None' }).getAttribute('aria-pressed')).toBe('true');
-    // And the view is complete without it.
     expect(screen.getByRole('img', { name: /over the ground/i })).toBeTruthy();
     expect(screen.queryByText(/Esri/)).toBeNull();
   });
@@ -105,11 +74,6 @@ describe('GroundTrack imagery', () => {
     hideImagery();
   });
 
-  /**
-   * The zoom follows the flight rather than sitting at the site map's fixed
-   * SITE_ZOOM. A 500 m drift draws closer in than a 5 km one, so it must ask for
-   * a higher zoom.
-   */
   it('zooms to the track rather than to a fixed site zoom', () => {
     const zoomOf = (sources: string[]) => Number(sources[0]!.match(/MapServer\/tile\/(\d+)\//)![1]);
 
@@ -140,22 +104,13 @@ describe('GroundTrack imagery', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Street' }));
     expect(tiles().every((s) => s.includes('World_Street_Map/MapServer/tile/'))).toBe(true);
 
-    // Off is a real choice, not a disabled-looking button: imagery under a
-    // track is context, and sometimes it is in the way.
     fireEvent.click(screen.getByRole('button', { name: 'None' }));
     expect(tiles()).toHaveLength(0);
-    // The measurement is what survives, so the plan view is still readable.
     expect(screen.getByRole('img', { name: /over the ground/i })).toBeTruthy();
 
     hideImagery();
   });
 
-  /**
-   * A simulation cannot run without coordinates (services/flight/requiredLaunch.ts),
-   * so this is the defensive case rather than the common one. It matters
-   * because falling back to a default site the way the KML export does
-   * would draw somebody else's field under a real measurement.
-   */
   it('draws the bare plan view, with no layer buttons, when the site is blank', () => {
     renderWithProviders(<GroundTrack flight={flight()} latitudeDeg={null} longitudeDeg={null} launch={LAUNCH} />);
     expect(tiles()).toHaveLength(0);
@@ -163,16 +118,6 @@ describe('GroundTrack imagery', () => {
     expect(screen.getByRole('img', { name: /over the ground/i })).toBeTruthy();
   });
 
-  /**
-   * The case a plain run in still air produces: the rocket lands a tenth of a
-   * meter from the pad.
-   *
-   * Sized to the flight alone, the zoom runs past what any provider holds and the
-   * result is an empty box under a Satellite button that looks pressed. The floor
-   * is in the view's scale rather than here: `trackExtent` bottoms out at a field
-   * (MIN_EXTENT_M), so there is ground worth showing and the imagery is ordinary
-   * imagery.
-   */
   it('still draws a map when the rocket lands on the pad', () => {
     const calm = flight();
     calm.result.series.Px = [0, 0.03, 0.07, 0.11];
@@ -182,18 +127,12 @@ describe('GroundTrack imagery', () => {
 
     expect(tiles().length).toBeGreaterThan(0);
     expect(screen.queryByText('No imagery at this zoom level')).toBeNull();
-    // And the rings are a walk rather than a measurement in centimeters.
     const labels = Array.from(document.querySelectorAll('svg[role="img"] text')).map((el) => el.textContent ?? '');
     expect(labels.some((x) => /^[1-9]\d*(\.\d+)? m$/.test(x))).toBe(true);
     expect(labels.some((x) => /^0\.\d+ m$/.test(x))).toBe(false);
     hideImagery();
   });
 
-  /**
-   * One 404 is a hole in the coverage at this zoom; a screenful failing is no
-   * network, and the results views are exactly where somebody is standing in a
-   * field with no signal. What is left is the bare plan view.
-   */
   it('falls back to the bare plan view when the tiles do not arrive', () => {
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
     showImagery();
@@ -205,30 +144,18 @@ describe('GroundTrack imagery', () => {
     expect(screen.getByText('No imagery offline')).toBeTruthy();
     expect(screen.getByRole('img', { name: /over the ground/i })).toBeTruthy();
 
-    // Still a way back: picking a layer re-asks the network.
     showImagery();
     expect(tiles().length).toBeGreaterThan(0);
     hideImagery();
   });
 });
 
-/**
- * The drift region a wind sweep leaves behind.
- *
- * The store is written directly rather than a sweep being flown: what is under
- * test here is the drawing: that the region belongs to the right flight, is
- * framed rather than clipped, and says which ground it covers.
- */
 describe('GroundTrack drift region', () => {
-  // The flight the fixture draws is `sim-1`, and the sweep panel looks its row
-  // up in the store to decide whether the sweep has aged. Without a row of that
-  // id every sweep would read as stale, and the staleness test below would pass
-  // for the wrong reason.
+  // Without row `sim-1` every sweep reads as stale and the staleness test passes vacuously.
   beforeEach(() => {
     useWorkspaceStore.setState({ sims: st().sims.map((x, i) => (i === 0 ? { ...x, id: 'sim-1' } : x)) });
   });
 
-  /** Four landings in a square 800 m across, well outside the 500 m track. */
   const sweep = (simId: string, tree = st().tree): DriftSweep => ({
     simId,
     tree,
@@ -252,12 +179,10 @@ describe('GroundTrack drift region', () => {
   it('draws the envelope, the ellipse and every swept landing', () => {
     useWorkspaceStore.setState({ driftSweep: sweep('sim-1') });
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
-    // The filled hull and the dashed ellipse.
     expect(shapes()).toHaveLength(2);
     expect(shapes()[0]!.getAttribute('fill-opacity')).toBe('0.14');
     expect(shapes()[1]!.getAttribute('stroke-dasharray')).toBeTruthy();
-    // One dot per landing, plus the pad. The landing markers are rings (no
-    // fill), so filled circles are the samples.
+    // Landing markers are unfilled rings, so filled circles are the samples.
     const dots = Array.from(document.querySelectorAll('svg[role="img"] circle')).filter(
       (c) => c.getAttribute('r') === '1.6',
     );
@@ -276,21 +201,12 @@ describe('GroundTrack drift region', () => {
     expect(screen.getByRole('button', { name: 'Drift' })).toBeTruthy();
   });
 
-  /**
-   * A sweep is held one at a time, workspace-wide. Drawing another row's
-   * landings over this one's track would be a picture of two different flights.
-   */
   it('ignores a sweep flown for another simulation', () => {
     useWorkspaceStore.setState({ driftSweep: sweep('some-other-sim') });
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
     expect(shapes()).toHaveLength(0);
   });
 
-  /**
-   * The region routinely reaches further than the single track drawn through
-   * it, so the frame has to be sized to hold it; otherwise the view clips
-   * exactly the thing it was opened for.
-   */
   it('widens the frame to hold a region bigger than the track', () => {
     const labels = () =>
       Array.from(document.querySelectorAll('svg[role="img"] text')).map((el) => el.textContent ?? '');
@@ -304,10 +220,6 @@ describe('GroundTrack drift region', () => {
     expect(biggest(labels())).toBeGreaterThan(biggest(withoutSweep));
   });
 
-  /**
-   * A stage whose track is too short to draw is left out of the readout, and
-   * the stages after it must still be matched to their own sweep.
-   */
   it('reads each stage band from its own branch when an earlier track is too short to draw', () => {
     const staged = {
       ...flight(),
@@ -332,14 +244,9 @@ describe('GroundTrack drift region', () => {
   it('reads out the swept range band beside the flown one', () => {
     useWorkspaceStore.setState({ driftSweep: sweep('sim-1') });
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
-    // Every landing of this sweep is the same distance out: 400√2 ≈ 566 m.
     expect(screen.getByText('(566–566 m)')).toBeTruthy();
   });
 
-  /**
-   * Landing distances read in the Downrange tile's unit, so one landing reads
-   * the same here, on the summary and in the hourly landings.
-   */
   it('reads landing distances in the Downrange unit', () => {
     seedSettings({ unitOverrides: { 'sim.downrange': 'ft' } });
     useWorkspaceStore.setState({ driftSweep: sweep('sim-1') });
@@ -352,14 +259,7 @@ describe('GroundTrack drift region', () => {
     }
   });
 
-  /**
-   * The design or the row's own motor and conditions can move after a sweep
-   * flew. The region is still the honest answer for the rocket that flew it, so
-   * it stays up and says so rather than vanishing or redrawing as current.
-   */
   it('flags a region older than what is on screen, without dropping it', () => {
-    // Same sweep twice: once against the design it flew, once against a design
-    // that has moved since.
     useWorkspaceStore.setState({ driftSweep: sweep('sim-1') });
     const { unmount } = renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
     fireEvent.click(screen.getByRole('button', { name: /^Drift/ }));
@@ -368,16 +268,11 @@ describe('GroundTrack drift region', () => {
 
     useWorkspaceStore.setState({ driftSweep: { ...sweep('sim-1'), tree: { ...st().tree } } });
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
-    // Still drawn, with the stale note on the panel.
     expect(shapes()).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: /^Drift/ }));
     expect(screen.getByText(/design or its simulation settings have changed/i)).toBeTruthy();
   });
 
-  /**
-   * The region is what somebody reads when deciding how big a field they need,
-   * so how settled it is belongs beside it rather than only in the docs.
-   */
   it('says on the panel that the region is experimental', () => {
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
     fireEvent.click(screen.getByRole('button', { name: 'Drift' }));
@@ -390,17 +285,12 @@ describe('GroundTrack drift region', () => {
     expect(screen.queryByRole('button', { name: 'Run sweep' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Drift' }));
     expect(screen.getByRole('button', { name: 'Run sweep' })).toBeTruthy();
-    // Seeded from the flight's own 4 m/s wind, over the whole compass.
     expect((screen.getByLabelText('Speeds') as HTMLInputElement).value).toBe('4');
     expect((screen.getByLabelText('Headings') as HTMLInputElement).value).toBe('8');
     expect(screen.getByText('32 flights')).toBeTruthy();
   });
 });
 
-/**
- * A bearing or heading span is an angle held in degrees; it prints in the
- * reader's angle unit, as the flight chart's angle of attack does.
- */
 describe('GroundTrack angle readouts', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
@@ -408,7 +298,6 @@ describe('GroundTrack angle readouts', () => {
   it('prints a landing bearing in radians when the angle unit is radians', () => {
     seedSettings({ units: { angle: 'rad' } });
     renderWithProviders(<GroundTrack flight={flight()} {...HOME} />);
-    // 500 m east and north of the pad: 45 degrees.
     expect(screen.getByText(/707 m · 0\.79 rad/)).toBeTruthy();
   });
 

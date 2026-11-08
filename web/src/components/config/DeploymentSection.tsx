@@ -6,21 +6,11 @@ import { OverrideCard, OverrideNumber, OverrideSelect, OverrideAltitude } from '
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { fmtUpTo } from '../../i18n/format';
-import { partName } from './ConfigsTable';
-// The design field's list, so the override offers every event the part can.
+import { partName } from './partName';
 import { DEPLOY_EVENTS } from '../../services/design/componentFields';
 import { LOWER_STAGE_SEPARATION, hasStageBelow } from '../../services/design/fieldRange';
 import { findNode } from '../../services/design/treeEdit';
 
-/**
- * When one recovery device opens under this configuration.
- *
- * Every field is an override with a fall-through: empty means the device's own
- * value on the design, which is shown as the placeholder, so the control reads
- * as the value the flight will actually use. That is the same shape a
- * simulation's preference overrides have, and it is what makes "deploy the main
- * at 150 m on this flight only" one field rather than a second copy of the part.
- */
 export function DeploymentSection({
   config,
   device,
@@ -28,7 +18,6 @@ export function DeploymentSection({
 }: {
   config: FlightConfig;
   device: ComponentNode;
-  /** The device's place among the design's recovery devices, for an unnamed one's label. */
   index: number;
 }) {
   const { t } = useTranslation();
@@ -37,17 +26,13 @@ export function DeploymentSection({
   const onCommit = useWorkspaceStore((s) => s.commitEdit);
 
   const id = device.id as string;
-  // Whether the device's stage has one below it; undefined for a device the
-  // design does not hold, which is offered every event.
+  // Undefined for a device the design does not hold, which is offered every event.
   const stageBelow = useWorkspaceStore((s) => (findNode(s.tree, id) ? hasStageBelow(s.tree, id) : undefined));
   const over = deployOverride(config, id);
-  // What the design says, which is what an un-overridden field falls through to.
   const design = designDeployment(device);
   const baseEvent = design.deployEvent;
   const event = over?.deployEvent ?? baseEvent;
-  // The lower-stage separation never fires on the bottom stage (the design field
-  // drops it there too, fieldRange.fieldOptions); a value the flight already
-  // holds stays on offer so an imported file shows as itself.
+  // A value already held stays on offer so an imported file shows as itself.
   const events = DEPLOY_EVENTS.filter(
     (ev) => ev !== LOWER_STAGE_SEPARATION || stageBelow !== false || event === LOWER_STAGE_SEPARATION,
   );
@@ -70,9 +55,6 @@ export function DeploymentSection({
         }}
       />
 
-      {/* Altitude is read by the altitude trigger only, so the box is offered
-          under that event alone, as the property panel and desktop do; a stored
-          override survives a trip through another event and is back with it. */}
       {event === 'altitude' && (
         <OverrideAltitude
           name={name}

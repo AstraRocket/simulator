@@ -8,7 +8,7 @@ import { defaultDesignName } from '../../../src/services/app/appInfo';
 
 class FakeKv implements KeyValueStore {
   map = new Map<string, string>();
-  full = false; // simulate quota exceeded → set() reports failure
+  full = false;
   async get(k: string) {
     return this.map.has(k) ? this.map.get(k)! : null;
   }
@@ -20,14 +20,7 @@ class FakeKv implements KeyValueStore {
   async remove(k: string) {
     this.map.delete(k);
   }
-  /**
-   * Atomic, like the real IndexedDB transaction behind it.
-   *
-   * A plain `get` then `set` with an await in between is not what the store does,
-   * and it lets two overlapping index mutations read the same list so the second
-   * clobbers the first. That also hides the duplicate-entry case below: three
-   * concurrent creates leave one surviving index row, which reads as "one design".
-   */
+  // Must stay atomic like the real IndexedDB transaction, or the duplicate-entry case hides.
   private lock: Promise<unknown> = Promise.resolve();
   async update(k: string, fn: (raw: string | null) => string | null) {
     const prev = this.lock;
@@ -47,13 +40,6 @@ class FakeKv implements KeyValueStore {
   }
 }
 
-/**
- * A plausible flight result.
- *
- * Not the stub `{ series: {} }`: `DesignLibrary.readResults` shape-checks every
- * entry (a stored `NaN` comes back as `null`, which throws in the exporters), so
- * a fixture has to look like a flight the app could have produced.
- */
 const flight = (time: number[] = [0, 1]) =>
   ({
     summary: {
@@ -91,7 +77,6 @@ const workspace = (): Workspace =>
     loadedMeta: null,
   }) as unknown as Workspace;
 
-/** A readable stored design, for the corrupt blobs to break one thing at a time. */
 const blob = () => ({
   version: 3,
   tree: { components: [] },
@@ -99,9 +84,6 @@ const blob = () => ({
   configs: [{ id: 'c1', motors: {} }],
 });
 
-/** Raw key of the one design in the library, for seeding corrupt blobs.
- *  `:results` is excluded along with the index and active keys: the flights
- *  live beside the design under the same prefix. */
 const designKey = (kv: FakeKv) =>
   [...kv.map.keys()].find(
     (k) =>
@@ -142,20 +124,7 @@ describe('LibraryWorkspaceStore', () => {
     expect(await new DesignLibrary(kv).list()).toHaveLength(1);
   });
 
-  /**
-   * The autosave slot is shared between tabs.
-   *
-   * Two tabs of an installed PWA open the same design, because both open
-   * whatever was active, and each autosaves its own copy on a 500 ms debounce.
-   * Writing unconditionally would make the last writer win: one edit in a tab
-   * left open yesterday would silently overwrite a day's work in the other, and
-   * once that tab closed there would be nothing left to recover from.
-   *
-   * A second store instance is a second tab here: the claim a tab holds on an
-   * entry is per instance, which is exactly the thing two tabs do not share.
-   */
   describe('a design changed by another tab', () => {
-    /** Both tabs on the same design, each having seen it as it was. */
     const twoTabs = async () => {
       await store.save(workspace());
       const other = new LibraryWorkspaceStore();
@@ -178,8 +147,6 @@ describe('LibraryWorkspaceStore', () => {
     });
 
     it('keeps refusing, because the edits are still unsaved', async () => {
-      // Not a warn-once: writing on the next keystroke would destroy exactly
-      // what the first refusal was protecting.
       const other = await twoTabs();
       await other.save({ ...workspace(), activeId: 'theirs' });
       await store.save(workspace()).catch(() => {});
@@ -187,14 +154,11 @@ describe('LibraryWorkspaceStore', () => {
     });
 
     it('does not refuse a tab saving over its own writes', async () => {
-      // The ordinary case, and the one that must not become a false alarm.
       await store.save(workspace());
       await store.save(workspace());
       await expect(store.save(workspace())).resolves.toBeUndefined();
     });
 
-    // The compare is made inside the index write. Made on an earlier read, two
-    // tabs saving at once both pass it, and the last writer wins after all.
     it('lets only one of two tabs saving at once write', async () => {
       const other = await twoTabs();
       const outcomes = await Promise.allSettled([
@@ -204,8 +168,6 @@ describe('LibraryWorkspaceStore', () => {
       expect(outcomes.map((o) => o.status).sort()).toEqual(['fulfilled', 'rejected']);
     });
 
-    // The unload journal is stamped later than the other tab's save, so the next
-    // load would replay this tab's stale design over the newer work.
     it('writes no unload journal once a save has been refused', async () => {
       const other = await twoTabs();
       await other.save({ ...workspace(), activeId: 'theirs' });
@@ -219,16 +181,11 @@ describe('LibraryWorkspaceStore', () => {
       expect((await new LibraryWorkspaceStore().load())!.activeId).toBe('theirs');
     });
 
-    // The autosave and the hidden-tab flush overlap. Run together, the second
-    // would read the first one's new stamp as another tab's.
     it('does not refuse two overlapping saves from the same tab', async () => {
       await store.save(workspace());
       await expect(Promise.all([store.save(workspace()), store.save(workspace())])).resolves.toBeDefined();
     });
 
-    // A save made before a switch, still waiting its turn when the switch
-    // lands, runs under the claim it was made with. Read after the switch, the
-    // claim is gone and the save writes over the other tab's work.
     it('keeps the claim of a save queued before a switch', async () => {
       const other = await twoTabs();
       await other.save({ ...workspace(), activeId: 'theirs' });
@@ -250,10 +207,6 @@ describe('LibraryWorkspaceStore', () => {
       expect((await new LibraryWorkspaceStore().load())!.activeId).toBe('two');
     });
 
-    // The save claims the entry's stamp before it writes the blob. A tab that
-    // opens the design in between reads the old blob; the stamp moves again
-    // after the blob, so that tab's next save is refused instead of writing the
-    // old design back.
     it('refuses a tab that read the old blob while a save was writing', async () => {
       const other = await twoTabs();
       const lib = new DesignLibrary(kv);
@@ -262,7 +215,6 @@ describe('LibraryWorkspaceStore', () => {
       let reader: LibraryWorkspaceStore | null = null;
       kv.set = async (k: string, v: string) => {
         if (k.endsWith(id) && !reader) {
-          // Between the claim and the blob: another tab opens the design.
           reader = new LibraryWorkspaceStore();
           await reader.load();
         }
@@ -275,7 +227,6 @@ describe('LibraryWorkspaceStore', () => {
     });
 
     it('does not refuse after switching to a different design', async () => {
-      // A switch drops the claim with everything else about the old entry.
       const other = await twoTabs();
       await other.save({ ...workspace(), activeId: 'theirs' });
       store.setActiveId(null);
@@ -283,15 +234,6 @@ describe('LibraryWorkspaceStore', () => {
     });
   });
 
-  /**
-   * Overlapping first saves are one design, not one each.
-   *
-   * A save that finds no active id must not call `lib.create()` unconditionally:
-   * the first create is the slowest write the app makes, the 500 ms autosave
-   * debounce can fire again inside it, and the `visibilitychange` flush saves
-   * outside the debounce entirely. So tabbing away just after an import leaves the
-   * library holding several identical rockets, all but one orphaned.
-   */
   it('creates ONE design when first saves overlap', async () => {
     await Promise.all([store.save(workspace()), store.save(workspace()), store.save(workspace())]);
     expect(await new DesignLibrary(kv).list()).toHaveLength(1);
@@ -305,11 +247,6 @@ describe('LibraryWorkspaceStore', () => {
     expect((await lib.read(meta!.id))!.activeId).toBe('later');
   });
 
-  /**
-   * A create that lands after the workspace has been replaced must not adopt
-   * its id: the entry it made belongs to the design that just went away, and
-   * claiming it would send the new design's autosaves over the old one.
-   */
   it('does not adopt a create that finished after a detach', async () => {
     const saving = store.save(workspace());
     store.setActiveId(null); // New / a second import, mid-create
@@ -333,22 +270,15 @@ describe('LibraryWorkspaceStore', () => {
     expect((await new DesignLibrary(kv).list()).map((m) => m.name)).toEqual([defaultDesignName(), 'Once']);
   });
 
-  /**
-   * Flights persist, but not inside the design blob.
-   *
-   * Stored under their own key, because the design blob is rewritten on every
-   * keystroke's debounced autosave and a result is tens of thousands of samples.
-   * Dropped, a reload loses every run.
-   */
   it('stores flight results, and keeps them out of the design blob', async () => {
     await store.save(workspace());
 
     const blob = kv.map.get(designKey(kv))!;
-    expect(blob).not.toContain('series'); // the inputs, and only the inputs
+    expect(blob).not.toContain('series');
     expect([...kv.map.keys()].some((k) => k.endsWith(':results'))).toBe(true);
 
     const w = await store.load();
-    expect(w!.sims[0]!.result).not.toBeNull(); // …and a reload has them back
+    expect(w!.sims[0]!.result).not.toBeNull();
   });
 
   it('rewrites the flights only when a run has changed them', async () => {
@@ -357,13 +287,10 @@ describe('LibraryWorkspaceStore', () => {
     const key = [...kv.map.keys()].find((k) => k.endsWith(':results'))!;
     const first = kv.map.get(key);
 
-    // Same result objects, an edit elsewhere: the flights must not be rewritten,
-    // which is what keeps typing cheap.
     kv.map.set(key, 'SENTINEL');
     await store.save({ ...w, tree: { components: [{ id: 'x' }] } } as unknown as Workspace);
     expect(kv.map.get(key)).toBe('SENTINEL');
 
-    // A new result object is a change.
     const ran = { ...w, sims: [{ ...w.sims[0]!, result: flight([1, 2]) }] } as unknown as Workspace;
     await store.save(ran);
     expect(kv.map.get(key)).not.toBe('SENTINEL');
@@ -376,19 +303,9 @@ describe('LibraryWorkspaceStore', () => {
 
     const cleared = { ...workspace(), sims: [{ ...workspace().sims[0]!, result: null }] } as unknown as Workspace;
     await store.save(cleared);
-    // An empty map removes the key rather than storing "{}".
     expect([...kv.map.keys()].some((k) => k.endsWith(':results'))).toBe(false);
   });
 
-  /**
-   * A design that is there but unreadable is not the same as no design.
-   *
-   * `load()` returning null for both opens the hydration gate with the default
-   * rocket, and the autosave writes it over the unreadable design at the same id
-   * 500 ms after the first edit. It throws instead, which the effects hook turns
-   * into the load-failed warning, and detaches, so the next save creates a new
-   * entry rather than finishing the overwrite.
-   */
   it.each([
     ['unparseable', '{bad json'],
     ['a blob with no configurations', JSON.stringify({ version: 3, tree: { components: [] }, sims: [{ id: 's1' }] })],
@@ -413,12 +330,8 @@ describe('LibraryWorkspaceStore', () => {
 
     await expect(store.load()).rejects.toThrow(/unreadable/);
 
-    // The next save must land somewhere new. The unreadable bytes stay put, so
-    // whatever can be recovered by hand still can be.
     await store.save(workspace());
     expect(kv.map.get(originalKey)).toBe(corrupt);
-    // Design blobs, so `:results` is excluded along with the index and active
-    // keys: the flights live beside each design under the same prefix.
     const keys = [...kv.map.keys()].filter(
       (k) =>
         k.startsWith(nsKey('designs:')) && !k.endsWith(':index') && !k.endsWith(':active') && !k.endsWith(':results'),
@@ -426,10 +339,6 @@ describe('LibraryWorkspaceStore', () => {
     expect(keys).toHaveLength(2);
   });
 
-  // The claim on the entry is taken only once the read has fully succeeded. A
-  // read that fails after the blob parsed (the flights, here) must leave the
-  // store detached too, or the next save writes over the design with a stamp
-  // that matches.
   it('detaches when the read fails after the blob has parsed', async () => {
     await store.save(workspace());
     const originalKey = designKey(kv);
@@ -448,19 +357,12 @@ describe('LibraryWorkspaceStore', () => {
   });
 
   it('save() throws when storage is full instead of silently dropping work', async () => {
-    await store.save(workspace()); // establish the design first
+    await store.save(workspace());
     kv.full = true;
     await expect(store.save(workspace())).rejects.toThrow(/storage-full/);
   });
 });
 
-/**
- * Opening a design from the library reads it the way boot does. A design is
- * stored lean, with its flights beside it; opened without them, every row reads
- * not run and the first save writes an empty results map over the stored one.
- * The claim is what the next save is checked against, so another tab's save in
- * between is caught rather than overwritten.
- */
 describe('openActive', () => {
   const seed = async () => {
     const lib = getDesignLibrary();

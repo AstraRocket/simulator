@@ -558,7 +558,10 @@ public class SymmetricComponentCalc extends RocketComponentCalc {
 					interpolator = calculateFleemanNoseInterpolator();
 					break;
 				}
-				interpolator = calculateOgiveNoseInterpolator(param, sinphi);
+				// Ogives follow the wave drag of a cone with the same length and base diameter,
+				// not that of the joint angle (sinphi)
+				interpolator = calculateOgiveNoseInterpolator(param,
+						1 / MathUtil.safeSqrt(1 + 4 * pow2(fineness)));
 				analyticNose = true; // PATCH (RASAero)
 				analyticMul = 0.72 * pow2(param - 0.5) + 0.82;
 				break;

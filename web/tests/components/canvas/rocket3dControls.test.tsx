@@ -6,16 +6,16 @@ import type { R3fHandles } from '../../../src/components/canvas/useRocketExport'
 import { renderWithProviders } from '../../testing/renderWithProviders';
 import { KeyedError } from '../../../src/i18n/keyedError';
 
-// No WebGL in jsdom: the canvas renders nothing, so only the HTML controls
-// around it mount.
+// No WebGL in jsdom, so only the HTML controls around the canvas mount.
 vi.mock('@react-three/fiber', () => ({ Canvas: () => null, useFrame: () => {}, useThree: () => ({}) }));
 vi.mock('@react-three/drei', () => ({ OrbitControls: () => null, Bounds: () => null }));
 // The CG/CP marker textures draw on a 2D canvas, which jsdom does not have.
-vi.mock('../../../src/components/canvas/rocketCallouts', () => ({
+vi.mock('../../../src/components/canvas/markerTexture', () => ({
   markerTexture: () => ({ dispose: () => {} }),
+}));
+vi.mock('../../../src/components/canvas/rocketCallouts', () => ({
   AxisCallout: () => null,
 }));
-// By default the capture succeeds and the encode refuses, the way an 8K JPEG can.
 let capture: () => HTMLCanvasElement = () => document.createElement('canvas');
 vi.mock('../../../src/components/canvas/offscreenCapture', () => ({
   captureSceneOffscreen: () => capture(),

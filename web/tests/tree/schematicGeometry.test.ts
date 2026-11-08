@@ -25,8 +25,6 @@ const node = (o: object): ComponentNode => o as unknown as ComponentNode;
 
 describe('internalExtent with no length on record', () => {
   it('draws the length the bridge builds each type at', () => {
-    // ComponentFactory reads each type's length with its constructor's value
-    // as the fallback (KERNEL_DEFAULTS).
     const mass = { type: 'masscomponent', id: 'm' } as unknown as ComponentNode;
     const chute = { type: 'parachute', id: 'p' } as unknown as ComponentNode;
     expect(internalExtent(mass, 0.012).length).toBe(KERNEL_DEFAULTS.masscomponent.length);
@@ -35,18 +33,13 @@ describe('internalExtent with no length on record', () => {
 });
 
 describe('rulerGraduations', () => {
-  // A 1000 px baseline at 1000 px/m with the datum at x=100: majors every
-  // 0.1 m from the first one at or after the baseline's start.
   const base = { rulerStep: 0.1, rulerX0: 50, rulerX1: 1050, x0: 100, scale: 1000, vSpanM: 0.25, vTop: 40 };
 
   it('places length majors at the datum-relative step across the baseline', () => {
     const g = rulerGraduations({ ...base, showLen: true, showRad: false });
-    // (50 - 100) / 1000 = -0.05 m rounds up to the 0 m major; the last is at 0.9 m.
     expect(g.rulerMarks[0]).toBeCloseTo(0, 9);
     expect(g.rulerMarks[g.rulerMarks.length - 1]).toBeCloseTo(0.9, 9);
     expect(g.rulerMarks).toHaveLength(10);
-    // Five minors per major: -0.04 m (the first at or after the baseline's
-    // start) through 0.94 m at 0.02 m, which is 50.
     expect(g.rulerMinorMarks).toHaveLength(50);
     expect(g.rulerMinorMarks[0]).toBeCloseTo(-0.04, 9);
     expect(g.vTicks).toEqual([]);
@@ -62,6 +55,15 @@ describe('rulerGraduations', () => {
     expect(g.rulerMinorMarks).toEqual([]);
   });
 
+  it('follows a zoom: radial majors from a datum above the window, at the zoomed scale', () => {
+    const g = rulerGraduations({ ...base, scale: 2000, vy0: -110, showLen: false, showRad: true });
+    expect(g.vTicks).toHaveLength(3);
+    expect(g.vTicks[0]!.label).toBeCloseTo(0.1, 9);
+    expect(g.vTicks[2]!.label).toBeCloseTo(0.3, 9);
+    expect(g.vTicks[0]!.y).toBeCloseTo(90, 9);
+    expect(g.vMinorTicks[0]).toBeCloseTo(0.08, 9);
+  });
+
   it('returns four empty arrays when both rulers are off', () => {
     expect(rulerGraduations({ ...base, showLen: false, showRad: false })).toEqual({
       rulerMarks: [],
@@ -74,18 +76,18 @@ describe('rulerGraduations', () => {
 
 describe('niceRulerStep', () => {
   it('picks a 1/2/2.5/5/10-times-power-of-ten step giving ~8 marks', () => {
-    expect(niceRulerStep(1)).toBeCloseTo(0.2, 9); // 1/8 = 0.125 → 0.2
-    expect(niceRulerStep(0.4)).toBeCloseTo(0.05, 9); // 0.05 → 0.05
+    expect(niceRulerStep(1)).toBeCloseTo(0.2, 9);
+    expect(niceRulerStep(0.4)).toBeCloseTo(0.05, 9);
     expect(niceRulerStep(8)).toBeCloseTo(1, 9);
-    expect(niceRulerStep(0)).toBeGreaterThan(0); // guarded, never 0/NaN
+    expect(niceRulerStep(0)).toBeGreaterThan(0);
   });
 });
 
 describe('snapNear', () => {
   it('snaps to the nearest target within eps, else returns the raw value', () => {
-    expect(snapNear(0.11, [0.1, 0.2], 0.05)).toBeCloseTo(0.1, 9); // within eps
-    expect(snapNear(0.15, [0.1, 0.2], 0.02)).toBeCloseTo(0.15, 9); // both 0.05 away > eps → raw
-    expect(snapNear(0.3, [], 0.05)).toBe(0.3); // no targets
+    expect(snapNear(0.11, [0.1, 0.2], 0.05)).toBeCloseTo(0.1, 9);
+    expect(snapNear(0.15, [0.1, 0.2], 0.02)).toBeCloseTo(0.15, 9);
+    expect(snapNear(0.3, [], 0.05)).toBe(0.3);
   });
 });
 
@@ -97,7 +99,6 @@ describe('axialStart', () => {
     expect(axialStart(node({ position: { method: 'top', offset: 0 } }), cLen, pStart, pLen)).toBeCloseTo(0, 9);
     expect(axialStart(node({ position: { method: 'bottom', offset: 0 } }), cLen, pStart, pLen)).toBeCloseTo(0.15, 9);
     expect(axialStart(node({ position: { method: 'middle', offset: 0 } }), cLen, pStart, pLen)).toBeCloseTo(0.075, 9);
-    // no position → defaults to top+0
     expect(axialStart(node({}), cLen, pStart, pLen)).toBeCloseTo(0, 9);
   });
 });
@@ -142,13 +143,13 @@ describe('computeSchematicLayout', () => {
 
   it('flattens stages into a nose→tail chain and measures length/radius', () => {
     const out = computeSchematicLayout(tree, null, dims);
-    expect(out.chain).toHaveLength(2); // nose + body (stage unwrapped)
+    expect(out.chain).toHaveLength(2); // stage unwrapped
     expect(out.totalLen).toBeCloseTo(0.3, 6);
     expect(out.maxR).toBeGreaterThanOrEqual(0.012);
   });
   it('vHalf includes the fin height, and scale/size are positive', () => {
     const out = computeSchematicLayout(tree, null, dims);
-    expect(out.vHalf).toBeGreaterThan(out.maxR); // fins add vertical reach
+    expect(out.vHalf).toBeGreaterThan(out.maxR);
     expect(out.vHalf).toBeCloseTo(0.012 + 0.03, 6);
     expect(out.scale).toBeGreaterThan(0);
     expect(out.w).toBeGreaterThanOrEqual(320);
@@ -167,13 +168,7 @@ describe('profilePath', () => {
   });
 });
 
-/**
- * Tube fins size themselves to the body they ring, so the frame has to measure
- * them against that body, not the widest thing on the rocket.
- */
 describe('computeSchematicLayout: tube fins on a narrow aft tube', () => {
-  // A 60 mm forward section stepping down to a 25 mm aft tube, tube fins on the
-  // aft tube carrying no explicit radius (so they auto-size to what they ring).
   const stepped = {
     components: [
       node({
@@ -196,17 +191,12 @@ describe('computeSchematicLayout: tube fins on a narrow aft tube', () => {
   const dims = { chPx: 480, cw: 900, maxHeight: 420 };
 
   it('sizes them from the tube they ring, not the widest section forward of it', () => {
-    // 6 tubes just touching a 12.5 mm body: r = R·sin(π/6)/(1 − sin(π/6)) = R,
-    // so they reach 2R = 25 mm above the surface, and vHalf = 30 + 25 = 55 mm.
     const out = computeSchematicLayout(stepped, null, dims);
     expect(out.maxR).toBeCloseTo(0.03, 9);
     expect(out.vHalf).toBeCloseTo(0.055, 9);
   });
 
   it('does not reserve the reach they would have had on the 60 mm section', () => {
-    // Measured against the whole rocket's 30 mm maxR the same set would claim
-    // 2 × 30 = 60 mm (2.4× too much) and vHalf would come out at 90 mm, shrinking
-    // every other part of the drawing to make room for nothing.
     const out = computeSchematicLayout(stepped, null, dims);
     expect(out.vHalf).toBeLessThan(0.09);
   });
@@ -215,7 +205,6 @@ describe('computeSchematicLayout: tube fins on a narrow aft tube', () => {
     const explicit = JSON.parse(JSON.stringify(stepped)) as RocketTree;
     const aft = explicit.components[0]!.children![3]!;
     (aft.children![0] as Record<string, unknown>)['outerRadius'] = 0.008;
-    // Explicit 8 mm tubes reach 16 mm, wherever they are mounted.
     expect(computeSchematicLayout(explicit, null, dims).vHalf).toBeCloseTo(0.03 + 0.016, 9);
   });
 });
@@ -223,7 +212,6 @@ describe('computeSchematicLayout: tube fins on a narrow aft tube', () => {
 describe('zoomAbout', () => {
   it('keeps the drawing point under the pointer fixed', () => {
     const z = { k: 2, x: 10, y: 20 };
-    // Drawing point under (px, py) before: ((px - x) / k, (py - y) / k).
     const px = 100,
       py = 60;
     const mx = (px - z.x) / z.k,
@@ -291,16 +279,9 @@ describe('colorOf', () => {
   });
 });
 
-/**
- * One margin text for every view that prints one, the 2D overlay and the 3D CP
- * callout alike: the tiered glyph, calibers, percent and the verdict word.
- */
 describe('marginText', () => {
   const t = (k: string) => i18n.t(k);
 
-  // The words are the stats strip's (`stabilityVerdictKey`), so the drawing
-  // and the strip beside it grade one margin alike, and a negative margin reads
-  // as unstable rather than under-stable.
   it('marks each band with its own glyph and the stats strip word', () => {
     expect(marginText(7, 12, t)!.text).toBe(`△ 7.00 cal · 12.0% (${t('schematic.overStable')})`);
     expect(marginText(2, 8, t)!.text).toBe(`✓ 2.00 cal · 8.0% (${t('stability.stable')})`);
@@ -319,12 +300,6 @@ describe('marginText', () => {
   });
 });
 
-/**
- * One default color per part type, for the side view, the aft view and the
- * "use default color" toggle, which writes this color into the part when it is
- * cleared. The toggle used to write `sch-shell` for a body tube drawn in
- * `sch-shell-light`, so starting an edit darkened the tube.
- */
 describe('figureToken', () => {
   it('gives each part type the ink it is drawn in', () => {
     expect(figureToken('bodytube')).toBe('sch-shell-light');

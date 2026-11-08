@@ -4,8 +4,7 @@ import { cleanup, screen } from '@testing-library/react';
 import type { FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-// The WebGL scene is not what this checks, and jsdom has no WebGL: the canvas
-// renders nothing, so only the HTML controls around it mount.
+// jsdom has no WebGL, so only the HTML controls mount.
 vi.mock('@react-three/fiber', () => ({
   Canvas: () => null,
   useFrame: () => {},
@@ -30,7 +29,6 @@ const result = {
 } as unknown as FlightResult;
 const tree = { name: 'T', components: [] } as unknown as RocketTree;
 
-/** Whether a pointer can reach `el`: the nearest ancestor that sets pointer-events decides. */
 const pointerReachable = (el: Element): boolean => {
   for (let n: Element | null = el; n; n = n.parentElement) {
     if (n.classList.contains('pointer-events-auto')) return true;

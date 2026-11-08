@@ -17,6 +17,7 @@ import {
   nonNegTag,
   numTag,
   readAirfoil,
+  isTrueTag,
   readAngleAroundBody,
   readAutoPackedRadius,
   readCommon,
@@ -41,13 +42,6 @@ import { degToRad } from '../../../prefs/units';
 import { KERNEL_DEFAULTS } from '../../../tree/kernelDefaults';
 import { finCant } from '../../../tree/nodeProps';
 
-/**
- * One reader per .ork element tag: the node the element becomes, before its
- * children. `convertChildren` walks a <subcomponents> through the table and
- * `readStages` builds the top-level stage nodes.
- */
-
-/** Builds the node for one element (its children are read by the caller). */
 type NodeReader = (ctx: OrkImportContext, el: Element) => ComponentNode;
 
 const base = (ctx: OrkImportContext, el: Element, type: ComponentType, withPosition: boolean): ComponentNode => {
@@ -56,9 +50,9 @@ const base = (ctx: OrkImportContext, el: Element, type: ComponentType, withPosit
   return node;
 };
 
-// Desktop writes <thickness>filled</thickness> for solid components.
 const readThicknessOrFilled = (el: Element, n: ComponentNode, fallback: number) => {
-  if (text(el, ':scope > thickness') === 'filled') {
+  // `DoubleSetter` compares its special word ignoring case.
+  if (text(el, ':scope > thickness')?.toLowerCase() === 'filled') {
     n['filled'] = true;
   } else {
     n['thickness'] = nonNegTag(el, 'thickness', fallback);
@@ -73,10 +67,9 @@ const readCant = (ctx: OrkImportContext, el: Element, n: ComponentNode) => {
   if (cs && cs !== 'square') n['crossSection'] = cs;
 };
 
-/** A <cd> that is a number: ignore `auto` and a garbage value rather than store (and re-export) NaN. */
 const readCd = (el: Element, n: ComponentNode) => {
   const cdText = text(el, ':scope > cd');
-  if (cdText === 'auto') {
+  if (cdText?.toLowerCase() === 'auto') {
     n['cdAuto'] = true;
     return;
   }
@@ -86,9 +79,8 @@ const readCd = (el: Element, n: ComponentNode) => {
   }
 };
 
-/** Off-axis placement: <radialposition> (m) + <radialdirection> (deg → rad), only kept when non-zero. */
+/** <radialposition> (m) + <radialdirection> (deg to rad). */
 const readRadial = (el: Element, n: ComponentNode) => {
-  // A distance from the axis, so floored; the direction beside it is an angle.
   const radPos = nonNegTag(el, 'radialposition', 0);
   if (radPos !== 0) n['radialPosition'] = radPos;
   const radDir = numTag(el, 'radialdirection', 0);
@@ -105,18 +97,10 @@ const readNosecone: NodeReader = (ctx, el) => {
   n['shape'] = shapeTag(el, n, ctx.notes, 'ogive');
   n['shapeParameter'] = nonNegTag(el, 'shapeparameter', shapeParamDefault(String(n['shape'])));
   readShoulder(el, n, 'aft', 'shoulder');
-  // A flipped nose cone is a tail cone; read so it keeps its orientation
-  // through a round trip.
-  if (text(el, ':scope > isflipped') === 'true') n['flipped'] = true;
+  if (isTrueTag(el, 'isflipped')) n['flipped'] = true;
   return n;
 };
 
-/**
- * One shoulder's `<{side}shoulder*>` tags into the node keys `{key}Radius`,
- * `Length`, `Thickness` and `Capped`: a nose cone's one (`shoulder`) or a
- * transition's two. A zero is no shoulder, so it is left unset. A capped
- * shoulder is closed by a disc of the part's own material.
- */
 function readShoulder(el: Element, n: ComponentNode, side: 'fore' | 'aft', key: string): void {
   const r = numTag(el, `${side}shoulderradius`, 0);
   const l = numTag(el, `${side}shoulderlength`, 0);
@@ -124,7 +108,7 @@ function readShoulder(el: Element, n: ComponentNode, side: 'fore' | 'aft', key: 
   if (l > 0) n[`${key}Length`] = l;
   const th = numTag(el, `${side}shoulderthickness`, 0);
   if (th > 0) n[`${key}Thickness`] = th;
-  if (text(el, `:scope > ${side}shouldercapped`) === 'true') n[`${key}Capped`] = true;
+  if (isTrueTag(el, `${side}shouldercapped`)) n[`${key}Capped`] = true;
 }
 
 const readTransition: NodeReader = (ctx, el) => {
@@ -139,10 +123,8 @@ const readTransition: NodeReader = (ctx, el) => {
   readThicknessOrFilled(el, n, COMPONENT_DEFAULTS.transition.thickness);
   n['shape'] = shapeTag(el, n, ctx.notes, 'conical');
   n['shapeParameter'] = nonNegTag(el, 'shapeparameter', shapeParamDefault(String(n['shape'])));
-  // <shapeclipped>: clipped vs full profile (ellipsoid/power/haack).
-  // Forwarded to the kernel bridge as 'clipped'; absent keeps the
-  // kernel default (clipped, matching the desktop).
-  const clip = text(el, ':scope > shapeclipped');
+  // Absent keeps the kernel default (clipped, matching the desktop).
+  const clip = text(el, ':scope > shapeclipped')?.toLowerCase();
   if (clip === 'true' || clip === 'false') n['clipped'] = clip === 'true';
   readShoulder(el, n, 'fore', 'foreShoulder');
   readShoulder(el, n, 'aft', 'aftShoulder');
@@ -158,12 +140,10 @@ const readBodytube: NodeReader = (ctx, el) => {
   n['outerRadius'] = btR ?? bt.outerRadius;
   readThicknessOrFilled(el, n, bt.thickness);
   readMotor(ctx, el, n);
-  // Extension tag: sub-minimum flag (motor case is the airframe).
   if (text(el, ':scope > caseairframe') === 'true') n['caseAirframe'] = true;
   return n;
 };
 
-/** What every planar fin set has after its outline: wall, cant, section, tab and rotation. */
 function readPlanarFin(ctx: OrkImportContext, el: Element, n: ComponentNode): void {
   n['thickness'] = nonNegTag(el, 'thickness', COMPONENT_DEFAULTS.finset.thickness);
   readCant(ctx, el, n);
@@ -178,8 +158,7 @@ const readTrapezoidFinset: NodeReader = (ctx, el) => {
   const fin = COMPONENT_DEFAULTS.trapezoidfinset;
   n['rootChord'] = nonNegTag(el, 'rootchord', fin.rootChord);
   n['tipChord'] = nonNegTag(el, 'tipchord', fin.tipChord);
-  // Signed, and the only fin dimension that is: a negative sweep is a
-  // forward-swept fin, which is a real shape the desktop draws.
+  // Signed: a negative sweep is a forward-swept fin.
   n['sweep'] = numTag(el, 'sweeplength', fin.sweep);
   n['height'] = nonNegTag(el, 'height', fin.height);
   readPlanarFin(ctx, el, n);
@@ -190,15 +169,7 @@ const readFreeformFinset: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'freeformfinset', true);
   n['finCount'] = finCountTag(el);
   readPlanarFin(ctx, el, n);
-  // Capped: every renderer walks the outline per fin, so a crafted file
-  // with a million <point>s is a frozen tab. A real freeform fin has tens.
-  // Walked by sibling links and stopped at the cap, rather than selecting the
-  // whole list first. Indexing a live `children` collection is O(n) per
-  // access in jsdom (so O(n^2) over the list), and a selector materializes
-  // every point before the cap can slice; the sibling walk is O(cap) in
-  // every DOM. A missing x/y attribute must skip the point (Number(null) is
-  // 0, which would silently drop a vertex onto the origin), and say so, as
-  // desktop's FinSetPointHandler warns for each point it cannot read.
+  // Sibling walk: live `children` indexing is O(n) per access in jsdom.
   const pts: [number, number][] = [];
   const finpoints = el.querySelector(':scope > finpoints');
   if (finpoints) {
@@ -216,8 +187,6 @@ const readFreeformFinset: NodeReader = (ctx, el) => {
     if (unreadable > 0) {
       ctx.notes.push(keyedNote('importNote.finPointsUnreadable', { part: notePartName(n), count: unreadable }));
     }
-    // A point past the cap is a dropped vertex, and the outline the user sees
-    // is not the file's, so the import says so.
     for (; pt; pt = pt.nextElementSibling) {
       if (pt.tagName === 'point') {
         ctx.notes.push(keyedNote('importNote.finPointsCapped', { max: MAX_FIN_POINTS }));
@@ -225,8 +194,6 @@ const readFreeformFinset: NodeReader = (ctx, el) => {
       }
     }
   }
-  // Fewer than three points is no outline: the node carries none, the kernel
-  // flies its default freeform outline, and the user is told.
   if (pts.length >= 3) n['points'] = pts;
   else ctx.notes.push(keyedNote('importNote.finPointsTooFew', { part: notePartName(n) }));
   return n;
@@ -255,12 +222,6 @@ const readTubeFinset: NodeReader = (ctx, el) => {
   return n;
 };
 
-/**
- * `RadiusMethod` and `AngleMethod` by the token desktop writes (the enum name
- * lower-cased, `mirror_xy` with or without its underscore), each to the name
- * the bridge builds (`ComponentFactory.radiusMethodOf`, `angleMethodOf`).
- * Anything else reads as relative, desktop's default.
- */
 const RADIUS_METHODS: ReadonlyMap<string, string> = new Map(
   ['relative', 'free', 'surface', 'coaxial'].map((m) => [m, m]),
 );
@@ -278,21 +239,14 @@ const readInnertube: NodeReader = (ctx, el) => {
   n['length'] = nonNegTag(el, 'length', it.length);
   n['outerRadius'] = nonNegTag(el, 'outerradius', it.outerRadius);
   n['thickness'] = nonNegTag(el, 'thickness', it.thickness);
-  // Cluster (desktop stores rotation in degrees; we keep radians).
   const cluster = clusterTag(el, n, ctx.notes);
   if (cluster && cluster !== 'single') {
     n['cluster'] = cluster;
     n['clusterScale'] = nonNegTag(el, 'clusterscale', 1);
     n['clusterRotation'] = (numTag(el, 'clusterrotation', 0) * Math.PI) / 180;
   }
-  // Off-axis / split-cluster offset: desktop splits a cluster into single
-  // tubes, each carrying its position as <radialposition> (meters) +
-  // <radialdirection> (degrees). We keep the direction in radians (like
-  // angleOffset) and only carry non-zero values so a centered tube stays
-  // clean. Without this, every off-center tube would collapse onto the
-  // centerline and the next save would make it permanent.
+  // A desktop split cluster puts each tube's offset here; without it they collapse onto the axis.
   readRadial(el, n);
-  // Our extension tag: the mount's physical motor-length limit.
   const mml = numTag(el, 'maxmotorlength', 0);
   if (mml > 0) n['maxMotorLength'] = mml;
   readMotor(ctx, el, n);
@@ -319,8 +273,7 @@ const readCenteringring: NodeReader = (ctx, el) => {
   const cir = autoRadiusTag(el, 'innerradius');
   if (cir === undefined) n['innerRadiusAuto'] = true;
   if (cir !== undefined) n['innerRadius'] = cir;
-  // The inner radius's setter raises the outer to meet it, as the desktop
-  // loader runs it.
+  // The inner radius's setter raises the outer to meet it, as on desktop load.
   if (cor !== undefined) n['outerRadius'] = cir === undefined ? cor : settleRingOuterLoad(cor, cir);
   readInstances(el, n);
   return n;
@@ -330,8 +283,6 @@ const readBulkhead: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'bulkhead', true);
   n['length'] = nonNegTag(el, 'length', COMPONENT_DEFAULTS.bulkhead.length);
   readRadial(el, n);
-  // No inner radius: a bulkhead is solid, and upstream's saver omits the
-  // element for one entirely (RadiusRingComponentSaver).
   const bor = autoRadiusTag(el, 'outerradius');
   if (bor === undefined) n['outerRadiusAuto'] = true;
   if (bor !== undefined) n['outerRadius'] = bor;
@@ -364,14 +315,7 @@ const readLaunchlug: NodeReader = (ctx, el) => {
 const readRailbutton: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'railbutton', true);
   const rb = COMPONENT_DEFAULTS.railbutton;
-  // The rest of the button's geometry (RailButtonSaver.java writes all six)
-  // and its material. The kernel bridge flies them; the writer falls back to
-  // the desktop's constructor constants only when the node carries none, so
-  // hard-writing those constants and a Delrin material would bring a 1010
-  // button sized by hand on the desktop back from a save as the stock one. The
-  // setters clamp the heights and bore against each other as they load, so a
-  // pair that disagrees arrives as the desktop holds it. Only carried when they differ from the defaults the
-  // writer falls back to, so an untouched design stays clean.
+  // Settled as the desktop setters clamp them on load.
   const read: Partial<Record<keyof typeof RAIL_BUTTON_FALLBACK, number>> = {
     outerDiameter: nonNegTag(el, 'outerdiameter', rb.outerDiameter),
   };
@@ -395,9 +339,6 @@ const readRailbutton: NodeReader = (ctx, el) => {
   return n;
 };
 
-// Our extension element (the camera shroud): the desktop warns about the
-// unknown element and skips it. Nothing in the editor can create a fairing, so
-// this only ever reads one back out of a file this app wrote. See openRocketEngine.ts ComponentType.
 const readFairing: NodeReader = (ctx, el) => {
   const n = base(ctx, el, 'fairing', true);
   const fr = COMPONENT_DEFAULTS.fairing;
@@ -410,25 +351,14 @@ const readFairing: NodeReader = (ctx, el) => {
   return n;
 };
 
-/** A recovery device's role and when it comes out. */
 function readRecoveryDeployment(ctx: OrkImportContext, el: Element, n: ComponentNode): void {
-  // Drogue or main. The desktop writes <isdrogue> only when it is true, and
-  // the kernel needs it to tell dual deployment from single: without it every
-  // flight takes the single-deployment branch.
+  // Without it every flight takes the single-deployment branch.
   if (isDrogueTag(el)) n['drogue'] = true;
-  // The design's value is the bare tags. A configuration's
-  // <deploymentconfiguration> is that configuration's override, recorded on
-  // it by captureDeployments; with no declarations a stray block is not read.
   readDeployment(el, n, ctx.notes);
   captureDeployments(ctx, el, n);
 }
 
-/**
- * The separation block that sets the design's own value: none when the file
- * declares configurations, since each block is then its configuration's
- * override (captureSeparations), and the first block when it declares none,
- * because there is no configuration to hold it.
- */
+/** With declared configurations every block is an override, so none sets the design's own. */
 function undeclaredSeparation(ctx: OrkImportContext, el: Element): Element | null {
   return ctx.chosenConfigId === null ? configScoped(ctx, el, 'separationconfiguration') : null;
 }
@@ -440,15 +370,13 @@ const readParachute: NodeReader = (ctx, el) => {
   const chute = COMPONENT_DEFAULTS.parachute;
   n['diameter'] = nonNegTag(el, 'diameter', chute.diameter);
   readCd(el, n);
-  // Bounded: the kernel sums line mass per line, and a file can say anything.
-  // From 0: a parachute may have no lines (`Parachute.setLineCount`).
+  // Zero lines is valid (`Parachute.setLineCount`).
   n['lineCount'] = clampCount(numTag(el, 'linecount', chute.lineCount), 0, MAX_LINE_COUNT);
   if (!readAutoValue(el, n, 'linelength', 'lineLengthAuto'))
     n['lineLength'] = nonNegTag(el, 'linelength', chute.lineLength);
   readSoftMaterial(el, n, 'surface', 'surfaceDensity', 'surfaceMaterialName');
   readSoftMaterial(el, n, 'line', 'lineDensity', 'lineMaterialName', ':scope > linematerial');
   readRecoveryDeployment(ctx, el, n);
-  // Our extension tag (desktop warns-and-ignores): spill hole diameter.
   const spill = numTag(el, 'spillholediameter', 0);
   if (spill > 0) n['spillHoleDiameter'] = spill;
   return n;
@@ -483,51 +411,40 @@ const readMasscomponent: NodeReader = (ctx, el) => {
   n['length'] = nonNegTag(el, 'packedlength', mc.length);
   n['radius'] = mc.radius;
   if (!readAutoPackedRadius(el, n)) n['radius'] = nonNegTag(el, 'packedradius', mc.radius);
-  // Preserve-through: what kind of mass this is (altimeter, payload…).
-  // No mass/CG effect, but the desktop shows it and users set it there.
   const mct = massComponentTypeTag(el, n, ctx.notes);
   if (mct && mct !== 'masscomponent') n['massComponentType'] = mct;
-  // Off-axis placement: <radialposition> (m) + <radialdirection> (deg → rad),
-  // only kept when non-zero so a centered mass stays clean.
   readRadial(el, n);
   return n;
 };
 
-// Off-axis assemblies. <podset> = external pods (non-separating, always
-// relative angle); <parallelstage> / legacy <boosterset> = strap-on
-// boosters (separating). The nested nose/body/fin chain imports via
-// convertChildren (the caller recurses).
 const readAssembly =
   (asmType: 'podset' | 'parallelstage'): NodeReader =>
   (ctx, el) => {
-    const n = base(ctx, el, asmType, true); // name + overrides + axialoffset/position
+    const n = base(ctx, el, asmType, true);
     n['instanceCount'] = clampCount(
-      // Absent, the count `new PodSet()` and `new ParallelStage()` start with.
       numTag(el, 'instancecount', KERNEL_DEFAULTS[asmType].instanceCount),
       1,
       MAX_ASSEMBLY_INSTANCES,
     );
     const radEl = el.querySelector(':scope > radiusoffset');
     if (radEl) {
-      n['radiusOffset'] = finiteNum(radEl.textContent) ?? 0; // meters, no conversion
+      n['radiusOffset'] = finiteNum(radEl.textContent) ?? 0; // meters
       n['radiusMethod'] = methodOf(radEl, RADIUS_METHODS);
     }
     const angEl = el.querySelector(':scope > angleoffset');
     if (angEl) {
-      n['angleOffset'] = ((finiteNum(angEl.textContent) ?? 0) * Math.PI) / 180; // deg → rad, like cant
+      n['angleOffset'] = ((finiteNum(angEl.textContent) ?? 0) * Math.PI) / 180; // deg to rad
       if (asmType === 'parallelstage') {
         n['angleMethod'] = methodOf(angEl, ANGLE_METHODS);
       }
     }
     if (asmType === 'parallelstage') {
-      // Same separation read as a booster <stage>.
       readSeparation(el, n, undeclaredSeparation(ctx, el), ctx.notes);
       captureSeparations(ctx, el, n);
     }
     return n;
   };
 
-/** The per-tag reader table; an element with no entry is reported as ignored. */
 const NODE_READERS: Record<string, NodeReader> = {
   nosecone: readNosecone,
   transition: readTransition,
@@ -553,7 +470,6 @@ const NODE_READERS: Record<string, NodeReader> = {
   boosterset: readAssembly('parallelstage'),
 };
 
-/** The nodes under `parentEl`'s <subcomponents>, recursively. */
 function convertChildren(ctx: OrkImportContext, parentEl: Element, depth = 0): ComponentNode[] {
   checkDepth(depth, '.ork');
   const out: ComponentNode[] = [];
@@ -565,8 +481,6 @@ function convertChildren(ctx: OrkImportContext, parentEl: Element, depth = 0): C
       ctx.ignored.add(el.tagName);
       continue;
     }
-    // Counted here rather than in each reader: this is the one place every
-    // child component enters the tree, whatever its type.
     countComponent(ctx, '.ork');
     const node = read(ctx, el);
     const kids = convertChildren(ctx, el, depth + 1);
@@ -576,10 +490,6 @@ function convertChildren(ctx: OrkImportContext, parentEl: Element, depth = 0): C
   return out;
 }
 
-/**
- * Every stage imports, each as a stage node carrying its separation config
- * (desktop writes defaults bare under <stage>).
- */
 export function readStages(ctx: OrkImportContext, stages: Element[]): ComponentNode[] {
   return stages.map((stageEl, i) => {
     countComponent(ctx, '.ork');
@@ -588,18 +498,12 @@ export function readStages(ctx: OrkImportContext, stages: Element[]): ComponentN
       id: freshId(),
       name: text(stageEl, ':scope > name') ?? defaultStageName(i),
     };
-    // What every component carries (comment, line style, color, overrides and
-    // the appearance kept as passthrough), as RocketComponentSaver writes it
-    // for a stage too. A stage has no axial position of its own.
     readCommon(stageEl, stage, false, ctx.notes);
     stage.name = text(stageEl, ':scope > name') ?? defaultStageName(i);
-    // RASAero power-on base-drag input (meters), every stage incl. sustainer.
+    // Meters.
     const nozzle = numTag(stageEl, 'nozzleexitdiameter', NaN);
     if (!Number.isNaN(nozzle) && nozzle > 0) stage['nozzleExitDiameter'] = nozzle;
     if (i > 0) {
-      // The design's value is the bare tags. 24.12 writes a
-      // <separationconfiguration> for each configuration that overrides the
-      // default, and captureSeparations records it on that configuration.
       readSeparation(stageEl, stage, undeclaredSeparation(ctx, stageEl), ctx.notes);
       captureSeparations(ctx, stageEl, stage);
     }

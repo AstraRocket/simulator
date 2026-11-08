@@ -9,29 +9,19 @@ import { staticInfoRows } from '../report/designInfo';
 import { fixedDecimal } from '../files/numberText';
 import { canvas2d } from './offscreenRaster';
 
-/**
- * 2D/3D image export with a data header, the drawings an L3 / Tripoli
- * Class 3 certification packet includes. The SVG is true scale (its
- * width/height are physical millimeters, so it prints 1:1 and still scales
- * freely on screen); raster output is PNG or JPEG.
- */
-
 export interface ExportData {
   name: string;
   info: StaticInfo | null;
   units: UnitSelection;
-  /** Full span diameter incl. fins, lugs, rail buttons and pods (m), from `rocketSpanM`. */
+  /** Full span diameter including fins, lugs and pods (m). */
   spanM?: number;
   withMotors: boolean;
   appVersion: string;
-  /** The UI's translator: the header is written in the language the user reads. */
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-/** RockSim-style header block: the numbers a cert reviewer wants on the page. */
 export function dataHeaderLines(d: ExportData): string[] {
   const { t, units: u } = d;
-  // In the UI language's number format, as the margin beside them is.
   const length = (si: number) => withUnit(fmtUpTo(siToUi('length', u.length, si), 3), u.length);
   const mass = (si: number) => {
     const v = siToUi('mass', u.mass, si);
@@ -51,8 +41,6 @@ export function dataHeaderLines(d: ExportData): string[] {
         ? t('export.headerLaunchMass', { mass: mass(i.mass), dry: mass(i.massEmpty) })
         : t('export.headerDryMass', { dry: mass(i.massEmpty) }),
     );
-    // CP and margin only when the design has them, by the same test as every
-    // other design-info table: with no normal force there is no CP to state.
     const hasCp = staticInfoRows(i).some((r) => r.key === 'cp');
     lines.push(
       hasCp
@@ -64,21 +52,12 @@ export function dataHeaderLines(d: ExportData): string[] {
   return lines;
 }
 
-/** The header font for an export of the given width, the same for the SVG and the raster. */
 const headerFontPx = (widthPx: number): number => Math.max(12, Math.round(widthPx * 0.016));
 
-/**
- * The day the drawing is exported, on the user's own clock and in the UI
- * language: the UTC date is a day off for an evening export in the Americas
- * or an early one east of Greenwich.
- */
+/** Local date, not UTC: UTC is a day off for evening exports in the Americas. */
 const exportDate = (at: Date): string =>
   new Intl.DateTimeFormat(i18n.resolvedLanguage || 'en', { dateStyle: 'medium' }).format(at);
 
-/** Light-theme values for the CSS variables the schematic markup uses
- *  (--accent = the selection outline when a component is selected;
- *  --status-* = the CP/stability-margin callout inks;
- *  --launch = the loaded-motor case tint). */
 const EXPORT_VARS: [string, string][] = [
   ['var(--surface-1)', '#ffffff'],
   ['var(--text-primary)', '#20242c'],
@@ -89,12 +68,7 @@ const EXPORT_VARS: [string, string][] = [
   ['var(--status-serious)', '#e34948'],
 ];
 
-/**
- * The print colors of the schematic's own tokens (`var(--c-sch-*)`, index.css).
- * A downloaded SVG has no stylesheet to resolve a variable against, and a page
- * prints on white whatever theme the screen is in, so each token has a print
- * value of its own here rather than whatever it reads on screen.
- */
+// A downloaded SVG has no stylesheet, so its `var(--c-sch-*)` tokens are baked to these.
 export const PRINT_COLORS: Record<string, string> = {
   'sch-line': '#7a786f',
   'sch-part': '#b9b7b0',
@@ -119,10 +93,6 @@ export const PRINT_COLORS: Record<string, string> = {
   'sch-innertube': '#3f8f6f',
 };
 
-/**
- * Every `var(--c-*)` in the markup as a plain color: its print value when it
- * has one, else what it reads on screen now, so no variable reaches the file.
- */
 export function bakeTokens(markup: string): string {
   const root = typeof document === 'undefined' ? null : getComputedStyle(document.documentElement);
   return markup.replace(/var\(--c-([\w-]+)\)/g, (_whole, name: string) => {
@@ -130,15 +100,7 @@ export function bakeTokens(markup: string): string {
   });
 }
 
-/**
- * Standalone SVG from the live schematic <svg>: identity view transform,
- * CSS variables baked to light-theme values, white background, data header
- * on top, physical size in mm so it prints at 100 % scale.
- *
- * @param svgEl      the live schematic svg element
- * @param pxPerM     the drawing's scale (viewBox px per meter)
- * @param viewW/viewH the drawing's viewBox size
- */
+/** @param pxPerM viewBox px per meter */
 export function schematicSvg(
   svgEl: SVGSVGElement,
   pxPerM: number,
@@ -147,13 +109,11 @@ export function schematicSvg(
   d: ExportData,
 ): string {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
-  // Identity view: exports always show the whole rocket, whatever the
-  // on-screen zoom/pan state.
   const zoomG = clone.querySelector(':scope > g');
   zoomG?.setAttribute('transform', 'translate(0 0) scale(1)');
+  clone.querySelector('[data-schematic-grid]')?.remove();
 
   let inner = new XMLSerializer().serializeToString(clone);
-  // The wrapper svg re-declares size/viewBox; keep only the content.
   inner = inner.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
   for (const [v, val] of EXPORT_VARS) {
     inner = inner.split(v).join(val);
@@ -163,14 +123,6 @@ export function schematicSvg(
   return svgWithHeader(inner, viewW, viewH, d, mm);
 }
 
-/**
- * A drawing as a standalone SVG document under the RockSim-style header band:
- * `inner` is the drawing's markup in a `viewW` by `viewH` box from the origin,
- * and `size` turns a length in that box into the document's width and height
- * (millimeters for the 2D schematic, which is drawn to scale; pixels for the
- * 3D model, which is not).
- */
-/** The header band's type size, line height, lines and height, for a drawing `widthPx` wide. */
 function headerBand(widthPx: number, d: ExportData): { fs: number; lineH: number; lines: string[]; headerH: number } {
   const fs = headerFontPx(widthPx);
   const lineH = Math.round(fs * 1.45);
@@ -178,6 +130,7 @@ function headerBand(widthPx: number, d: ExportData): { fs: number; lineH: number
   return { fs, lineH, lines, headerH: lineH * (lines.length + 1) };
 }
 
+/** `size` maps a viewBox length to document units (mm for 2D, px for 3D). */
 export function svgWithHeader(
   inner: string,
   viewW: number,
@@ -185,8 +138,6 @@ export function svgWithHeader(
   d: ExportData,
   size: (px: number) => string,
 ): string {
-  // Header band: proportional to drawing width so it stays readable at any
-  // physical size (a 4 m rocket printed 1:1 gets 4 m of banner).
   const { fs, lineH, lines, headerH } = headerBand(viewW, d);
   const totalH = viewH + headerH;
 
@@ -208,11 +159,8 @@ export function svgWithHeader(
 </svg>`;
 }
 
-/** Raster formats for the image exports. Both encode from the same
- *  white-composited canvas, so JPEG's missing alpha never shows. */
 export type ImageFormat = 'png' | 'jpeg';
 export const IMAGE_FORMAT_EXT: Record<ImageFormat, string> = { png: 'png', jpeg: 'jpg' };
-/** Width presets for the resolution picker. */
 export const IMAGE_WIDTHS = [1920, 3840, 7680] as const;
 const JPEG_QUALITY = 0.92;
 
@@ -225,15 +173,6 @@ const encodeCanvas = (canvas: HTMLCanvasElement, format: ImageFormat): Promise<B
     );
   });
 
-/**
- * Rasterize an SVG string at the given pixel width.
- *
- * A canvas past the browser's size limit (Safari stops near 16.7 Mpx, and the
- * widest preset on a short, wide-finned rocket passes it) has no 2D context, and
- * a browser may also throw while allocating it. Either way the promise rejects
- * with a keyed error the caller shows, and the object URL is released on every
- * path.
- */
 export function svgToImage(svgString: string, widthPx = 3840, format: ImageFormat = 'png'): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(new Blob([svgString], { type: 'image/svg+xml' }));
@@ -260,14 +199,7 @@ export function svgToImage(svgString: string, widthPx = 3840, format: ImageForma
   });
 }
 
-/**
- * Compose a 3D-view snapshot with the data header band above it.
- * `glCanvas` is any canvas holding the rendered frame at export size: the
- * offscreen 2D canvas the render-target capture produces, or, on the
- * fallback path, the live WebGL canvas (which then needs
- * preserveDrawingBuffer for drawImage to see the frame). A composed canvas past
- * the browser's size limit rejects with the same keyed error `svgToImage` gives.
- */
+// A live WebGL `glCanvas` needs preserveDrawingBuffer for drawImage to see the frame.
 export function snapshotWithHeader(
   glCanvas: HTMLCanvasElement,
   d: ExportData,
@@ -293,5 +225,4 @@ export function snapshotWithHeader(
   return encodeCanvas(canvas, format);
 }
 
-/** The MIME type a schematic SVG string is served under. */
 export const SVG_MIME = 'image/svg+xml';

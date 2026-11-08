@@ -43,26 +43,38 @@ npm run build        # typecheck (tsc) + lint + production build; must pass befo
 npm run preview      # serve the production build locally
 npm run test         # Vitest: unit tests (.test.ts) and component tests (.test.tsx)
 npm run test:watch   # Vitest in watch mode while developing
-npm run e2e          # Playwright end-to-end tests against a fresh production build on port 5180
+npm run gate:e2e     # Playwright end-to-end tests against a fresh production build on port 5180
                      # (run `npx playwright install chromium` once first; nothing installs the browser for you)
                      # A local run is below-normal priority with 4 workers; E2E_WORKERS=8 for more.
-npm run e2e:sections # the same suite one section at a time (shell, design, aero, motors, simulation,
+npm run test:e2e:sections # the same suite one section at a time (shell, design, aero, motors, simulation,
                      # results, tools, files, a11y), then the offline-data, offline-help and update
                      # checks as steps; a report after each and a table at the end.
                      # `-- --skip a11y,update`, `-- --only aero,motors`, `-- --list`; Playwright
                      # options after a second `--`. Sections and steps live in
                      # scripts/lib/e2eSectionList.mjs.
+npm run check        # THE ONE TO RUN BEFORE YOU PUSH: every test and check in the
+                     # project (all unit tests, all e2e, the offline and update checks,
+                     # the desktop comparisons, the engine audit), then one pass/fail
+                     # table. If OpenRocket needs building, it stops and says how.
+npm run test:<step>  # one step of check: types, lint, build, docs, format, spell, knip,
+                     # dupes, unit, repo, desktop, helpers, e2e, engine
+npm run test:coverage # the unit suite with coverage and its floors; not part of check
+npm run test:quick   # the fast pass while you work, by hand or for an AI assistant:
+                     # typecheck, lint and the unit suite, with no build, so it is safe
+                     # during an e2e run. It does not replace check before a push.
+npm run metrics      # the figures docs/CODE_QUALITY.md grades on: function size, complexity,
+                     # non-null assertions, casts, and the functions over each limit
 npm run dupes        # jscpd copy-paste check over src (see below); part of audit
-npm run verify       # the pre-push gate: typecheck, lint, the production build,
-                     # and the unit suite. Format, spell, knip and dupes run in
-                     # npm run audit.
-npm run audit        # every web check CI does not run: coverage, then the files
+npm run audit        # format, spell, knip, dupes, coverage and the repo checks, stopping
+                     # at the first failure, then the checks CI never runs: the files
                      # the app saves opened in desktop OpenRocket, then every
                      # part of them read back and compared with what the app's
                      # kernel flies, then the Java helpers compiled (needs a JDK
-                     # and the pinned OpenRocket; pass --jar <OpenRocket.jar> if
-                     # it is not installed).
-                     # ~350 s, which is why CI runs `verify` and you run this one by hand.
+                     # and `npm run openrocket:build`, once and after each
+                     # engine repin).
+npm run openrocket:build # clones and builds the OpenRocket commit the engine is
+                     # extracted from, into engine-java/.openrocket-build.
+                     # ~350 s, which is why it is not a CI gate and you run it by hand.
 ```
 
 `npm run dupes` runs jscpd with `web/.jscpd.json`. It scans the TypeScript and TSX under `web/src` and fails on any repeated block of at least 45 tokens and 5 lines (the reported duplication threshold is 0%), so a copied helper, formula, parser step or option list fails the gate before the two copies can drift apart. Below that size, the repeats are JSX table and chart boilerplate. What it leaves out, and why:
@@ -83,6 +95,14 @@ A few house rules that keep the codebase consistent:
 - **Never hardcode the app name, version, or the help/docs URL.** They come from `web/src/services/app/appInfo.ts` - name from i18n, version from `package.json`, and `HELP_URL` from `package.json`'s `wiki.url` (overridable at build time with `HELP_URL=…`).
 - **Match the surrounding code** - its naming, comment density, and style.
 - **No em dash (U+2014).** Prose takes a colon, comma, period or parentheses. `web/tests/repo/noEmDash.test.ts` fails on the character or its HTML entity anywhere in the project's own text; its header lists what it scans.
+- **Layers point one way.** `engine`, `services`, `tree`, `i18n` and `prefs` import nothing from `state` or `components`, and `state` imports nothing from `components`: pass what they need as an argument. ESLint enforces this, including through `import()`, and `import-x/no-cycle` rejects runtime import cycles. A later `no-restricted-syntax` block replaces an earlier one on the files they share, so a new block repeats the selectors it has to keep (`web/tests/repo/lintScope.test.ts` holds this).
+- **Functions stay under 200 lines and complexity 30.** ESLint enforces both in `web/src`. Split a function that mixes jobs, such as state, async work and markup. One that is a flat list or table can stay, with `// eslint-disable-next-line <rule> -- <the reason>` on it. A disable that is no longer needed fails lint, so an exception ends when the function shrinks. `npm run metrics` lists them.
+- **A deliberate exception states its reason where it is.** That goes for a lint disable, a long function, a `jscpd:ignore` and anything left out of a check on purpose. A decision not to change something broader goes in [`docs/CODE_QUALITY.md`](./CODE_QUALITY.md) or the Watch list in `TODO.md`.
+- **Non-null assertions are for an index with a known bound.** ESLint rejects every other kind in `web/src`. Narrow the value first, and use `must` from `services/app/must.ts` when the code guarantees it where the compiler cannot see why. Never quiet the compiler with `?? 0`: it turns a visible failure into a wrong number. Data from a file, a saved workspace or the network is validated before either one is used on it.
+- **Split code by moving it, not rewriting it.** Move by line range, then compare what a pure function returns or a component renders, before and after. Moving state into a conditionally rendered child resets it when the child unmounts. jsdom cannot render the 3D views, so a change there also needs a look in the browser. Some tests name files or components, and those lists follow the code: `web/e2e/dialogSurfaces.ts`, `web/e2e/popupSurfaces.ts`, `web/tests/colorTokens.test.ts`, `web/tests/prefs/entryValueCoverage.test.ts` and `web/tests/tree/finPlanform.kernel.test.ts`.
+- **A new lint rule is proven by planting a violation.** A rule can pass while checking nothing: `import-x/no-cycle` follows no import until its parser settings are in place. Plant one violation in each config block the rule has to reach, see it fail, and remove it.
+- **Script names say what they are for.** `test:*` is a check to run by hand and `gate:*` is a set CI runs, with one command per job. `web/tests/repo/docsMatchTheProject.test.ts` fails on a guide that names an npm script that does not exist, or that leaves out a job in `gates.yml`.
+- **Coverage floors sit about 2 points below actual,** in `web/vitest.config.ts`. Raise them as coverage grows. Lowering one needs a reason in the change that does it.
 - **Comments and test titles state the present constraint.** A comment says what holds and why; a test title says what it guards, not the bug it came from. No change history, issue or PR tags, audit finding IDs, dates or named people. `web/tests/repo/commentsStateTheConstraint.test.ts` scans comments and `describe`/`it`/`test` titles in `web/src` (not `src/engine/vendor`), `web/tests`, `web/e2e`, `web/scripts` and `engine-java/src/api` for issue references (`#123`, `PR #12`, `issue 12`, `openrocket#123`), audit IDs (`finding 12`, an ID beside the word audit or finding), ISO dates, and history phrases such as "until now", "previously", "used to be" and "we now". String literals and Markdown are not scanned. A line that needs one of these for a present-tense reason goes in the test's `ALLOWED` list with that reason.
 
 ## Where a number comes from
@@ -108,7 +128,7 @@ To restrict a new feature, add an entry to `CAPABILITIES` and ask for it where t
 
 The device is `desktop` when both hold, else `mobile`:
 
-1. **It is at least 1024 px wide** (`(min-width: 1024px)`, Tailwind's `lg:`), where the phone layout ends.
+1. **It is wide enough for the desktop layout**: at least 1024 px, or 1040 px on a touch screen (`(pointer: coarse)`), which is Tailwind's `lg:` as redefined at the top of `src/index.css`. The extra 16 px keep a 13" iPad Pro in portrait (1032 px) on the phone layout. `DESKTOP_QUERY` in `services/app/device.ts` and the two phone-only `@media` rules in `index.css` say the same thing and must change with it.
 2. **The device is not a phone or tablet:**
    - In **Chromium** (Chrome, Edge, Samsung Internet): the `formFactors` User-Agent Client Hint, from `navigator.userAgentData.getHighEntropyValues(['formFactors'])`. A device that lists `"Desktop"` is a desktop; one that does not (`"Mobile"`, `"Tablet"`, `"XR"`, ...) is not. It is asynchronous, so it is asked for once and cached, and the fallback below answers until it lands.
    - Everywhere else, or before that answer: **iOS/iPadOS** when the user agent contains `iPhone`, `iPad` or `iPod`, or `navigator.platform === 'MacIntel'` with `navigator.maxTouchPoints > 1`. **Android** when `navigator.userAgentData.platform === 'Android'`, else when the user agent contains `Android`.
@@ -248,30 +268,34 @@ Open a PR from your branch to **`dev`** (or to **`hotfix`** for a hotfix, see [B
 2. The underlying cause.
 3. How you fixed it.
 
-Make sure `npm run verify` passes (the typecheck, lint, build and unit suite CI runs; CI also runs the core Playwright specs and the docs site typecheck, all in parallel), and that you've checked the change in the browser. Add or update tests for any logic you touch under `web/src/services` or `web/src/engine`. Keep engine `.mjs`/`.wasm` regenerations in the same PR as their Java changes.
+Make sure `npm run check` passes (every test and check in the project), and that you've checked the change in the browser. Add or update tests for any logic you touch under `web/src/services` or `web/src/engine`. Keep engine `.mjs`/`.wasm` regenerations in the same PR as their Java changes.
 
 What CI gates on the PR itself (`.github/workflows/gates.yml`):
 
 | Job              | Runs                                                                                                      |
 | ---------------- | --------------------------------------------------------------------------------------------------------- |
 | `build-and-test` | `npm run build` in three parts: `typecheck`, `lint`, `vite build`                                         |
+| `housekeeping`   | `format:check`, `spell`, `knip` and `dupes`, one runner each                                              |
 | `unit`           | the unit suite, without coverage, split three ways (`vitest run --shard`)                                 |
-| `e2e`            | `npm run e2e:core`, the core Playwright specs (`CORE_SPECS` in `playwright.config.ts`), split three ways  |
+| `repo`           | the checks on the project itself (`tests/repo`, with `REPO_CHECKS=1`), also a step of `npm run audit`      |
+| `e2e`            | `npm run gate:e2e:core`, the core Playwright specs (`CORE_SPECS` in `playwright.config.ts`), split three ways  |
 | `website`        | `npm run typecheck` in `website/` (Docusaurus builds through Babel, which checks no types)                |
 
 The engine checks are not CI gates. After a change under `engine-java/` or to the vendored engine, run `npm run audit` in `engine-java/` (needs a JDK): parity, a rebuild that fails if the committed engine binaries differ, the extraction check, the pinned upstream date, and the aero scorecards. It stops at the first failure and names the step.
 
-The checks against desktop OpenRocket are not CI gates either, since they need a JDK and the pinned release jar. `npm run check:ork` in `web/` opens the `.ork` and `.rkt` files the app writes in desktop; `orkDesktopSamples.test.ts` writes them when `ORK_SAMPLES_DIR` is set (see `web/scripts/check-ork-opens.mjs`). `npm run check:fields` reads every part of those files back in desktop and compares it with what the app's kernel flies, which the samples test writes beside each file (see `web/scripts/check-desktop-fields.mjs`). Run `npm run audit`, which does all three, after changing anything either writer emits or anything the bridge builds. The catalog Java helpers under `web/scripts/` (`MotorDump.java`, `PresetDump.java`, `MaterialDump.java`) compile when a sync step runs them, by hand or in the weekly catalog workflow, and in `npm run audit` (its `helpers` step).
+The checks against desktop OpenRocket are not CI gates either, since they need a JDK and a build of OpenRocket. They run against the commit the engine is extracted from (`ref` in `engine-java/extract/UPSTREAM`), which `npm run openrocket:build` clones and builds, and they refuse a build of any other commit. The catalog sync scripts are separate: they stay pinned to the release jar in `web/scripts/data/openrocket-release.json`. `npm run check:ork` in `web/` opens the `.ork` and `.rkt` files the app writes in desktop; `orkDesktopSamples.test.ts` writes them when `ORK_SAMPLES_DIR` is set (see `web/scripts/check-ork-opens.mjs`). `npm run check:fields` reads every part of those files back in desktop and compares it with what the app's kernel flies, which the samples test writes beside each file (see `web/scripts/check-desktop-fields.mjs`). Run `npm run audit`, which does all three, after changing anything either writer emits or anything the bridge builds. The catalog Java helpers under `web/scripts/` (`MotorDump.java`, `PresetDump.java`, `MaterialDump.java`) compile when a sync step runs them, by hand or in the weekly catalog workflow, and in `npm run audit` (its `helpers` step).
 
 Every change goes through the change audit in [`docs/AUDIT_PROMPT_CHANGES.md`](./AUDIT_PROMPT_CHANGES.md) before it is called done, and every fix for an audit finding ships with a test whose expected value comes from the kernel, the Java or desktop and that fails without the fix ("Fixes" in [`docs/AUDIT_PROMPT.md`](./AUDIT_PROMPT.md)).
 
-The full Playwright suite is not a PR gate. It runs by hand from `.github/workflows/e2e-full.yml` (**Run workflow**), sharded two ways.
+The full Playwright suite is not a PR gate. It runs in `npm run check`, and by hand from `.github/workflows/e2e-full.yml` (**Run workflow**), sharded two ways. A check belongs where its result can still change the work, not at the last step before a deploy.
 
-A push to a branch with no pull request open runs no gate in CI. Run the gates locally (`npm run verify` and `npm run audit` in `web`, then `npx playwright test`).
+A push to a branch with no pull request open runs no gate in CI. Run `npm run check` in `web`.
+
+`npm run check` does not measure coverage, and no CI job does. Run `npm run test:coverage` in `web` while the work can still change: after adding or moving a lot of code, or after changing the floors. `npm run audit` runs it too. It repeats the whole unit suite, so it is not needed on every push.
 
 A pull request runs every `gates.yml` job on the merge result (`ci.yml`), then its own `verify` job, `CI / verify`: one check that stands for every gate on the merge result, and the one a pull request from a fork also gets. `web/tests/repo/ciTriggers.test.ts` fails if the `verify` job stops running after a failed gate or stops failing with it.
 
-The service worker checks (`npm run e2e:update`, `npm run e2e:offline-data` and `npm run e2e:offline-help`, against production builds) are the `update-flow` job in `e2e-full.yml`, run by hand with the full suite. No PR job builds the Docusaurus site; a broken MDX page, config or `sidebars.ts` fails `e2e-full.yml` and the deploy.
+The service worker checks (`npm run e2e:update`, `npm run e2e:offline-data` and `npm run e2e:offline-help`, against production builds) are the `update-flow` job in `e2e-full.yml`, which runs with the full suite. No PR job builds the Docusaurus site; a broken MDX page, config or `sidebars.ts` fails `e2e-full.yml` and the deploy.
 
 The axe scans (`a11y.spec.ts`, `a11y-phone.spec.ts`) are not in `CORE_SPECS`. There are about 300 of them, and on a runner's two workers they take longer than a pull request should wait. They run in the full suite.
 

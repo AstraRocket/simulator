@@ -6,12 +6,6 @@ import { ChartCard } from '../../../src/components/canvas/AeroCharts';
 import { FlightChart, type ChartFlight } from '../../../src/components/canvas/FlightChart';
 import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 
-/**
- * The keyboard crosshairs announce what they land on. A key step puts the
- * position and every series' value into a polite live region; a pointer move
- * leaves the region alone, or a screen reader would queue one announcement per
- * mouse sample.
- */
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -90,6 +84,6 @@ describe('flight chart crosshair', () => {
 
   it('names the CSV button by what it downloads', () => {
     renderWithProviders(<FlightChart flight={flight} />);
-    expect(screen.getByRole('button', { name: 'Download flight data (.csv)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download flight data as CSV' })).toBeTruthy();
   });
 });

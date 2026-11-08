@@ -1,8 +1,5 @@
-import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import info.openrocket.core.database.ComponentPresetDao;
-import info.openrocket.core.database.ComponentPresetDatabase;
 import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.file.GeneralRocketLoader;
@@ -51,32 +48,22 @@ import java.util.List;
  *            digest, ejection delay and ignition, each recovery device's
  *            deployment, each lower stage's or booster's separation, and which
  *            stages fly, in tree order;
- *   sims     each simulation's name, configuration and the conditions 24.12
+ *   sims     each simulation's name, configuration and the conditions desktop
  *            keeps (SimulationOptions).
  *
  * A number desktop holds as infinite or NaN (a plugged motor's delay) is
- * written as null. The wiring is `OrkCheck`'s: the preset database has to exist
- * before a file that names a catalog part can load.
+ * written as null.
  */
 public class OrkFields {
-    static ComponentPresetDatabase presets;
-
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.err.println("usage: OrkFields <out.json> <file.ork|file.rkt> [...]");
             System.exit(2);
         }
-        com.google.inject.Module wiring = new AbstractModule() {
-            @Override
-            protected void configure() {
-                bind(ComponentPresetDao.class).toProvider(() -> presets);
-            }
-        };
         CoreModule core = new CoreModule();
-        Injector injector = Guice.createInjector(core, new PluginModule(), wiring);
+        Injector injector = Guice.createInjector(core, new PluginModule());
         Application.setInjector(injector);
         core.startLoader();
-        presets = injector.getInstance(ComponentPresetDatabase.class);
 
         StringBuilder out = new StringBuilder("{");
         for (int i = 1; i < args.length; i++) {

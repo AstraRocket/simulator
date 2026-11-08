@@ -4,19 +4,6 @@ import { useWorkspaceStore } from '../../src/state/store';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-/**
- * A click must not be able to fail in silence.
- *
- * Every async store action catches its own failures and reports them through
- * `err`, but that is a convention only, and a bare `onSave()` in a click handler
- * is safe only while every action keeps it. That is why `no-floating-promises`
- * is enabled: an action that forgets leaves a button that does nothing, with
- * every gate green.
- *
- * `void onSave()` would satisfy the linter and preserve the hazard exactly.
- * `fireAction` is used instead, so the test is about the difference between the
- * two: a rejection reaches the banner.
- */
 const s = () => useWorkspaceStore.getState();
 
 describe('fireAction', () => {
@@ -47,16 +34,11 @@ describe('fireAction', () => {
   });
 
   it('passes a synchronous action straight through', () => {
-    // So a caller does not have to know which actions are async. `undefined` is
-    // what a void-returning action gives back.
     expect(() => fireAction(undefined)).not.toThrow();
     expect(s().err).toBeNull();
   });
 
   it('does not itself leave an unhandled rejection', async () => {
-    // The point of the helper: the promise it is handed is terminated. If the
-    // `.catch` were missing, this would print an unhandled rejection warning and
-    // the error would never reach the user.
     const rejected = Promise.reject(new Error('handled'));
     fireAction(rejected);
     await expect(rejected.catch((e: unknown) => (e as Error).message)).resolves.toBe('handled');
@@ -64,15 +46,16 @@ describe('fireAction', () => {
   });
 });
 
-/**
- * No component fires an async store action with `void`, which drops a rejection
- * the action forgot to catch. Every action declared `=> Promise<...>` on the
- * store is looked up by the local name a component binds it to.
- */
 describe('async store actions in components', () => {
   it('go through fireAction, never void', () => {
     const src = resolve(__dirname, '../../src');
-    const stateFiles = ['state/store.ts', 'state/fileSlice.ts', 'state/viewSlice.ts'];
+    const stateFiles = [
+      'state/store.ts',
+      'state/fileSlice.ts',
+      'state/designLibrarySlice.ts',
+      'state/exportSlice.ts',
+      'state/viewSlice.ts',
+    ];
     const asyncActions = new Set(
       stateFiles.flatMap((f) =>
         [...readFileSync(join(src, f), 'utf8').matchAll(/^\s+(\w+): \([^)]*\) => Promise</gm)].map((m) => m[1]!),

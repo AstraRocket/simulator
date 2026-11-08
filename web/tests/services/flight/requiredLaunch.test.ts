@@ -22,7 +22,6 @@ const full: CompleteLaunch = {
 
 describe('isFilled', () => {
   it('counts zero as filled, because six of the seven are legitimately zero', () => {
-    // Rod angle straight up, still air, no gusts, sea level, the equator, the prime meridian.
     expect(isFilled(0)).toBe(true);
     expect(isFilled(-3)).toBe(true);
   });
@@ -48,8 +47,6 @@ describe('missingRequired', () => {
   });
 
   it('does not require the single wind under a multilevel profile', () => {
-    // SimulationOptions.getWindModel flies MultiLevelPinkNoiseWindModel and
-    // never reads the average model while the profile is selected.
     const l = {
       ...full,
       windAverage: null,
@@ -58,7 +55,6 @@ describe('missingRequired', () => {
     };
     expect(missingRequired(l)).toEqual([]);
     expect(isComplete(l)).toBe(true);
-    // The other required fields still count.
     expect(missingRequired({ ...l, latitudeDeg: null })).toEqual(['latitudeDeg']);
   });
 
@@ -90,8 +86,8 @@ describe('withRequiredFrom', () => {
   it('fills only the blanks, and leaves real values alone', () => {
     const edited = { ...full, launchRodLengthM: null, windAverage: 9 };
     const out = withRequiredFrom(edited, full);
-    expect(out.launchRodLengthM).toBe(full.launchRodLengthM); // restored
-    expect(out.windAverage).toBe(9); // kept
+    expect(out.launchRodLengthM).toBe(full.launchRodLengthM);
+    expect(out.windAverage).toBe(9);
     expect(isComplete(out)).toBe(true);
   });
 

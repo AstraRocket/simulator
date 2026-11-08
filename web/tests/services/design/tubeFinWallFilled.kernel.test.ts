@@ -6,15 +6,7 @@ import { kernelGeometry, loadEngine } from '../../testing/kernelGeometry';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A tube fin set with no wall of its own flies the wall its parent hands it.
- *
- * `BodyTube.addChild` gives a wall-less tube fin set the tube's `getThickness()`,
- * which is the tube's radius when the tube is filled (`SymmetricComponent`),
- * and `TubeFinSet.setThickness` clamps that to the fin tube's own radius. The
- * app stores the wall it resolves, and the panel, the drawings and the file
- * state it, so the stored wall has to be the one the kernel reads back.
- */
+// `BodyTube.addChild` gives a wall-less tube fin set `getThickness()`, clamped by `TubeFinSet.setThickness` to its radius.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the TeaVM bundle is untyped */
 let engine: any;

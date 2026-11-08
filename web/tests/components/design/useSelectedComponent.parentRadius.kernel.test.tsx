@@ -9,12 +9,6 @@ import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * A tube fin set's body radius, which the tube-collision check reads, is the
- * radius its body tube flies at. A tube with no stored radius flies at the
- * bridge's default, read here from the kernel through the bridge.
- */
-
 const TREE = {
   name: 'R',
   components: [

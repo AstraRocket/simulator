@@ -7,12 +7,6 @@ import { Dialog } from '../../../src/components/common/Dialog';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-/**
- * Ctrl+Z and Ctrl+Y reach the design only when nothing modal is over it: the
- * design behind an open dialog is not what the user is looking at. The
- * component editor is the exception while it is on top, since it shows the
- * part being edited.
- */
 describe('useUndoShortcuts', () => {
   const undo = vi.fn();
   const redo = vi.fn();
@@ -39,6 +33,20 @@ describe('useUndoShortcuts', () => {
     press('y');
     expect(undo).toHaveBeenCalledTimes(1);
     expect(redo).toHaveBeenCalledTimes(1);
+  });
+
+  it('undoes and redoes by key position on a non-Latin layout, where Ctrl+Z sends `я`', () => {
+    renderHook(() => useUndoShortcuts());
+    const at = (key: string, code: string, shiftKey = false) =>
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey, ctrlKey: true, bubbles: true }));
+    at('я', 'KeyZ');
+    at('Я', 'KeyZ', true);
+    at('н', 'KeyY');
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(redo).toHaveBeenCalledTimes(2);
+    // A Latin layout keeps its own letter: AZERTY's `z` sits where QWERTY has W.
+    at('z', 'KeyW');
+    expect(undo).toHaveBeenCalledTimes(2);
   });
 
   it('undoes with a checkbox, radio, range, color input or select focused, which have no undo of their own', () => {
@@ -99,7 +107,6 @@ describe('useUndoShortcuts', () => {
     expect(redo).not.toHaveBeenCalled();
   });
 
-  /** The editor as it is mounted below the widest layout, opened by selecting a part. */
   const openEditor = () => {
     renderWithProviders(<ComponentDialog />);
     const { tree, setSelectedId } = useWorkspaceStore.getState();

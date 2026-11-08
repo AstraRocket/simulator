@@ -6,18 +6,7 @@ import { KERNEL_DEFAULTS, KERNEL_DEPLOYMENT } from '../../../tree/kernelDefaults
 import { KeyedError } from '../../../i18n/keyedError';
 import { notePartName } from '../importNote';
 
-/**
- * Recovery: RASAero's two slots, from the parachutes desktop's exporter reads
- * (RecoveryDTO.getParachutesFromRocket): every parachute anywhere in the first
- * three stages, in tree order. A streamer has no RASAero device, and is left
- * out with a warning.
- *
- * RASAero deploys device 1 at apogee and device 2 when it descends through
- * Altitude2, whatever the event types say, so the slot is the event's and not
- * the tree order's: the first apogee chute is device 1 and the first altitude
- * chute device 2, as desktop's RecoveryDTO assigns them. Another chute on an
- * event already taken is left out with a warning.
- */
+/** RASAero opens device 1 at apogee and device 2 at Altitude2 whatever the event types say (RecoveryDTO). */
 export function writeRecovery(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
   const { emit } = w;
   let apogee: ComponentNode | undefined;
@@ -28,14 +17,10 @@ export function writeRecovery(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
       continue;
     }
     if (c.type !== 'parachute') continue;
-    // A key the part does not carry is the kernel's default, as it flies. The
-    // caller passes the selected configuration's tree, so an override of the
-    // deployment is the event read here.
     const ev = str(c, 'deployEvent', KERNEL_DEPLOYMENT.deployEvent);
     const extra = () => w.warn({ key: 'errors.exportRasaeroChuteExtra', values: { name: notePartName(c) } });
     if (ev === 'ejection' || ev === 'apogee') {
-      // RASAero has no ejection charge; desktop writes such a chute as an
-      // apogee one and says so (RASAeroExport.warning14).
+      // No ejection charge in RASAero; desktop writes it as apogee (RASAeroExport.warning14).
       if (ev === 'ejection') w.warn({ key: 'errors.exportRasaeroChuteEjection', values: { name: notePartName(c) } });
       if (apogee) extra();
       else apogee = c;
@@ -43,8 +28,7 @@ export function writeRecovery(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
       if (altitude) extra();
       else altitude = c;
     } else {
-      // Any other event has no RASAero deployment. Desktop refuses it
-      // (RASAeroExport.error21) rather than write a chute that never opens.
+      // RASAeroExport.error21.
       throw new KeyedError('errors.rasaero.chuteEvent', {
         name: notePartName(c),
         event: { key: `deployEvent.${ev}` },
@@ -52,7 +36,6 @@ export function writeRecovery(w: Cdx1Writer, stagesIn: ComponentNode[]): void {
     }
   }
   const slot = (c: ComponentNode | undefined, eventType: 'Apogee' | 'Altitude') => ({
-    // Only device 2 has an altitude; RASAero opens device 1 at apogee.
     altitude: fmt(c && eventType === 'Altitude' ? num(c, 'deployAltitude', KERNEL_DEPLOYMENT.deployAltitude) * FT : 0),
     deviceType: c ? 'Parachute' : 'None',
     event: c ? 'True' : 'False',

@@ -2,13 +2,6 @@ import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { appName } from '../../services/app/appInfo';
 
-/**
- * The page side of the Help dialog: the docs frame, the loading line over it,
- * or, on a build with no docs, the way out to the published site.
- *
- * The frame is mounted only once the probe has found the page, and stays
- * transparent until `status` is 'ready'.
- */
 export function HelpPageFrame({
   status,
   src,
@@ -50,12 +43,7 @@ export function HelpPageFrame({
               src={src}
               title={t('help.title')}
               onLoad={onLoad}
-              // Hidden until the theme and the embed attribute are on,
-              // otherwise a light-mode machine shows a white flash of the
-              // full site chrome before the first paint of the stripped one.
-              // And out of reach until then: the load handler is what keeps a
-              // link inside the dialog, so a click on the unseen page before it
-              // runs would go to the docs site's own router instead.
+              // Inert until ready: a click before the load handler runs goes to the docs site's router.
               className={`h-full w-full border-0 ${status === 'ready' ? '' : 'pointer-events-none opacity-0'}`}
             />
           )}

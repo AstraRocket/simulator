@@ -7,12 +7,6 @@ import { useWorkspaceStore } from '../../../src/state/store';
 import { recoveryDevices } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
-/**
- * The stage's Recovery section: OpenRocket's own tab, and the only place it lets
- * the drogue be chosen. One choice per stage means a stage can never have two
- * drogues marked.
- */
-
 const chute = (id: string, name: string): ComponentNode =>
   ({ id, type: 'parachute', name, diameter: 0.4, lineCount: 6 }) as unknown as ComponentNode;
 
@@ -58,8 +52,6 @@ describe('a stage chooses single or dual deployment', () => {
   it('leaves the picker disabled until dual deployment is chosen', () => {
     renderWithProviders(<StageRecovery node={stage()} />);
     const picker = screen.getByLabelText('Drogue device') as HTMLSelectElement;
-    // A single-deployment stage has no drogue, so the picker is a readout of
-    // what would become one rather than a control.
     expect(picker.disabled).toBe(true);
     fireEvent.click(radio('Dual deployment'));
     expect((screen.getByLabelText('Drogue device') as HTMLSelectElement).disabled).toBe(false);
@@ -86,13 +78,41 @@ describe('a stage chooses single or dual deployment', () => {
   });
 });
 
+describe('a dual-deployment stage picks its main', () => {
+  beforeEach(() => seed([chute('main', 'Main chute'), chute('drg', 'Drogue chute'), chute('nose', 'Nose streamer')]));
+  const mainPicker = () => screen.getByLabelText('Main device') as HTMLSelectElement;
+
+  it('says every device is a main under single deployment, and is disabled', () => {
+    renderWithProviders(<StageRecovery node={stage()} />);
+    expect(mainPicker().disabled).toBe(true);
+    expect(mainPicker().selectedOptions[0]!.text).toBe('Every device');
+  });
+
+  it('offers every device but the drogue, starting on the first of them', () => {
+    renderWithProviders(<StageRecovery node={stage()} />);
+    fireEvent.click(radio('Dual deployment'));
+    fireEvent.change(screen.getByLabelText('Drogue device'), { target: { value: 'drg' } });
+    expect(mainPicker().disabled).toBe(false);
+    expect([...mainPicker().options].map((o) => o.text)).toEqual(['Main chute', 'Nose streamer']);
+    expect(mainPicker().value).toBe('main');
+  });
+
+  it('keeps the device picked', () => {
+    renderWithProviders(<StageRecovery node={stage()} />);
+    fireEvent.click(radio('Dual deployment'));
+    fireEvent.change(screen.getByLabelText('Drogue device'), { target: { value: 'drg' } });
+    fireEvent.change(mainPicker(), { target: { value: 'nose' } });
+    expect(mainPicker().value).toBe('nose');
+    const picked = recoveryDevices(useWorkspaceStore.getState().tree, 'st').filter((d) => d['mainDevice'] === true);
+    expect(picked.map((d) => d.id)).toEqual(['nose']);
+  });
+});
+
 describe('a stage with nothing to deploy', () => {
   beforeEach(() => seed([]));
 
   it('refuses dual deployment and says why', () => {
     renderWithProviders(<StageRecovery node={stage()} />);
-    // Not a picker with nothing in it: there is no choice to make, so the
-    // option is disabled and the reason is on screen.
     expect(radio('Dual deployment').disabled).toBe(true);
     expect(screen.queryByLabelText('Drogue device')).toBeNull();
     expect(screen.getByText('No recovery devices in this stage')).toBeTruthy();

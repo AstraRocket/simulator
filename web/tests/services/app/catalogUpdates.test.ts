@@ -3,12 +3,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { checkCatalog, diffKeys } from '../../../src/services/app/catalogUpdates';
 import { LocalStorageKeyValueStore } from '../../../src/services/storage/keyValueStore';
 
-/**
- * The catalog-updated banner reports a catalog this browser loaded before and
- * that has since changed: how many rows are new and how many are gone. The
- * first load in a browser reports nothing, since every row would be new to it,
- * and a load of the same hash reports nothing either.
- */
 describe('diffKeys', () => {
   it('counts the keys only in the new list and only in the old one', () => {
     expect(diffKeys(['a', 'b', 'c'], ['b', 'c', 'd', 'e'])).toEqual({ added: 2, removed: 1 });

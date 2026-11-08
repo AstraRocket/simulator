@@ -2,13 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { figureLooks } from '../../../src/services/design/appearance';
 import { DEFAULT_PART_COLORS } from '../../../src/services/design/partColors';
-import { drawnOpacity } from '../../../src/components/canvas/RocketModel';
+import { drawnOpacity } from '../../../src/components/canvas/drawnOpacity';
 import type { Piece } from '../../../src/components/canvas/rocketPieces';
-
-/**
- * The two 3D view types taken from desktop's: Figure (`FigureRenderer`) and
- * Finished (`RealisticRenderer`).
- */
 
 const node = (extra: Record<string, unknown>) => ({ type: 'bodytube', ...extra }) as unknown as ComponentNode;
 
@@ -25,7 +20,6 @@ describe('the Figure view', () => {
 
   it('draws the inside at 70% of the color and the edges as the outside', () => {
     const looks = figureLooks(node({ color: '#c8641e' }));
-    // 200, 100, 30 scaled by 0.7.
     expect(looks.inside.color).toBe('#8c4615');
     expect(looks.edges).toEqual(looks.outside);
   });
@@ -38,7 +32,6 @@ describe('the Figure view', () => {
     expect(shine(node({}))).toBeCloseTo(40, 9);
     expect(shine(node({ finish: 'smooth' }))).toBeCloseTo(80, 9);
     expect(shine(node({ finish: 'polished' }))).toBeCloseTo(128, 9);
-    // A finish 24.12's switch has no case for.
     expect(shine(node({ finish: 'mirror' }))).toBeCloseTo(100, 9);
     expect(shine({ type: 'centeringring', finish: 'polished' } as unknown as ComponentNode)).toBeCloseTo(20, 9);
   });

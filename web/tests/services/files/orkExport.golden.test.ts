@@ -4,16 +4,7 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import type { OrkTreeExportInput } from '../../../src/services/files/orkTypes';
 
-/**
- * Golden output of the .ork writer and reader. Every component type the writer
- * knows, every optional block (multi-config motors and deployments, separation,
- * wind profile, custom atmosphere, design info) and the classic single-config path all appear here,
- * so any drift in a line's text, order or indentation fails the snapshot.
- *
- * The only nondeterminism in the writer is `uuid()` for the <id> elements, so
- * it is replaced with a counter for the length of this file.
- */
-
+// `uuid()` for the <id> elements is the writer's only nondeterminism.
 let nextUuid = 0;
 vi.mock('../../../src/services/app/uuid', () => ({
   uuid: () => `00000000-0000-4000-8000-${String(++nextUuid).padStart(12, '0')}`,

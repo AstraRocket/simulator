@@ -43,7 +43,6 @@ describe('launchDiffKeys', () => {
   });
 
   it('treats null and undefined alike, since both mean not set', () => {
-    // temperatureC is null for ISA; a stored workspace may lack the key.
     const a = sim({ launch: { ...launch, temperatureC: null } });
     const { temperatureC: _drop, ...noKey } = launch;
     const b = sim({ launch: noKey as LaunchConditions });
@@ -57,7 +56,6 @@ describe('launchDiffKeys', () => {
     const b = sim({ launch: { ...launch, windLevels: [lo, hi] } });
     expect(launchDiffKeys([a, b]).has('windLevels')).toBe(false);
 
-    // The list is not kept sorted, so order is meaningful.
     const c = sim({ launch: { ...launch, windLevels: [hi, lo] } });
     expect(launchDiffKeys([a, c]).has('windLevels')).toBe(true);
   });
@@ -70,7 +68,6 @@ describe('launchDiffKeys', () => {
 
 describe('launchDiffKeys key order', () => {
   it('reads wind levels written in a different key order as the same', () => {
-    // A reload rebuilds these objects, so key order is not something the user set.
     const a = sim({ launch: { ...launch, windLevels: [{ altitudeM: 100, speed: 5, directionDeg: 90, stddev: 0 }] } });
     const b = sim({ launch: { ...launch, windLevels: [{ stddev: 0, directionDeg: 90, speed: 5, altitudeM: 100 }] } });
     expect(launchDiffKeys([a, b]).has('windLevels' as keyof LaunchConditions)).toBe(false);

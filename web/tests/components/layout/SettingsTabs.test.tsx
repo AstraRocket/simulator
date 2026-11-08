@@ -6,7 +6,6 @@ import { readSettings, renderWithProviders, seedSettings } from '../../testing/r
 
 beforeEach(() => localStorage.clear());
 
-/** Each Settings tab renders and writes on its own, outside the dialog. */
 describe('a Settings tab alone', () => {
   it('writes the playback speed', () => {
     seedSettings({ playbackSpeed: 1 });
@@ -21,19 +20,12 @@ describe('a Settings tab alone', () => {
     expect(screen.getByLabelText('Max angle step')).toBeTruthy();
   });
 
-  // The simulation editor and Settings describe the same solver options from
-  // one table, so the hint the editor gives the angle step shows here too.
   it('explains the max angle step, as the simulation editor does', () => {
     renderWithProviders(<SimTab />);
     expect(screen.getByText(/The most the rocket may rotate in one integration step/)).toBeTruthy();
   });
 });
 
-/**
- * A numeric setting is written when the field is left, not per keystroke:
- * every caller substitutes its default for an empty box, so a write mid-edit
- * would refill the box under the cursor.
- */
 describe('a numeric setting', () => {
   const timeStep = () => (readSettings()['simulation'] as Record<string, number> | undefined)?.['timeStep'];
 

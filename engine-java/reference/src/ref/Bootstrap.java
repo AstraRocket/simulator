@@ -21,24 +21,7 @@ import info.openrocket.core.preferences.ApplicationPreferences;
 import info.openrocket.core.preset.ComponentPreset;
 import info.openrocket.core.startup.Application;
 
-/**
- * Brings pristine upstream core up headless.
- *
- * Upstream's {@code Application} resolves its preferences and translator through
- * a Guice {@code Injector} and has no default, so nothing in core works until
- * one is installed. Upstream's own equivalent is {@code ServicesForTesting} +
- * {@code BaseTestCase}, which live under {@code core/src/test} - not in the
- * sparse checkout, and {@code BaseTestCase} drags in JUnit - so this is the same
- * wiring written out here.
- *
- * <b>Preferences are deliberately inert.</b> Every value the flight depends on is
- * set explicitly on {@code SimulationOptions} by the scenario, so a preference
- * read is a BUG in the comparison, not a knob: two engines agreeing because they
- * read the same default is not evidence, and two disagreeing because their
- * defaults differ is a false alarm. The handful of values below are the ones
- * upstream's own test stub supplies, kept identical so core's own paths behave as
- * upstream's tests expect them to.
- */
+/** Mirrors upstream's {@code ServicesForTesting} Guice wiring (core/src/test, outside the sparse checkout). */
 public final class Bootstrap {
 
     private Bootstrap() {
@@ -46,14 +29,11 @@ public final class Bootstrap {
 
     private static boolean done;
 
-    /** Idempotent: installs the injector the first time, no-ops after. */
     public static synchronized void init() {
         if (done) {
             return;
         }
-        // Upstream's test translator pins US so message lookups are stable; the
-        // harness prints no translated text, but core logs and warnings go
-        // through it and a turkish-locale toLowerCase would be a real hazard.
+        // As upstream's test translator does; also avoids a Turkish-locale toLowerCase.
         Locale.setDefault(Locale.US);
 
         Module application = new AbstractModule() {
@@ -69,16 +49,7 @@ public final class Bootstrap {
         done = true;
     }
 
-    /**
-     * The minimum {@code ApplicationPreferences} core will run against.
-     *
-     * Values match upstream's {@code ServicesForTesting.PreferencesForTesting}.
-     * Anything not named here answers with the caller's default rather than a
-     * silent zero, which is the one deliberate difference: upstream's stub
-     * returns 0 for every unrecognized double, and a 0 arriving where a real
-     * default was expected is exactly the kind of thing that would look like an
-     * engine disagreement.
-     */
+    /** Matches upstream's PreferencesForTesting, except unknown keys return the default, not 0. */
     public static class ReferencePreferences extends ApplicationPreferences {
 
         private static java.util.prefs.Preferences root;
@@ -172,11 +143,7 @@ public final class Bootstrap {
             return base();
         }
 
-        /**
-         * A scratch node, never read back. Core asks for one during startup; it
-         * must not be the user's real OpenRocket node, or running the reference
-         * would mutate the preferences of an OpenRocket install on this machine.
-         */
+        // A scratch node, so a real OpenRocket install's preferences are never touched.
         private static synchronized java.util.prefs.Preferences base() {
             if (root == null) {
                 root = java.util.prefs.Preferences.userRoot()

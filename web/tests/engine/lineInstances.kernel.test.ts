@@ -6,13 +6,7 @@ import type { ComponentNode } from '../../src/engine/openRocketEngine';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS });
 
-/**
- * Copies of a part repeated along the body are drawn at the spacing the kernel
- * flies. With no spacing stated that is the constructor's: a lug's length x 2
- * and a rail button's diameter x 6, set before the node's own sizes, and 0 for
- * a ring part. Drawn at 0, two lugs the kernel flies 60 mm apart sit on top of
- * each other in every view.
- */
+// Kernel constructor default spacing: lug length x 2, button diameter x 6 (set before the node's sizes), 0 for rings.
 describe('copies of a part with no spacing of its own', () => {
   const parts: ComponentNode[] = [
     { id: 'p', type: 'launchlug', length: 0.04, outerRadius: 0.004, instanceCount: 2 } as ComponentNode,

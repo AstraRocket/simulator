@@ -4,11 +4,7 @@ import info.openrocket.core.formatting.RocketDescriptor;
 import info.openrocket.core.rocketcomponent.FlightConfigurationId;
 import info.openrocket.core.rocketcomponent.Rocket;
 
-/**
- * SHIM: minimal RocketDescriptor (upstream's RocketDescriptorImpl is a Guice
- * plugin host for name-template substitutors). Returns the stored name as-is;
- * affects display strings only, never physics.
- */
+/** SHIM: replaces upstream's Guice-hosted RocketDescriptorImpl. */
 public class ShimRocketDescriptor implements RocketDescriptor {
 
     @Override
