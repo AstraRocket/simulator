@@ -9,7 +9,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Getting Started',
       collapsed: false,
-      items: ['getting-started', 'settings', 'offline-and-installing'],
+      items: ['getting-started', 'syncing-your-work', 'settings', 'offline-and-installing'],
     },
     {
       type: 'category',

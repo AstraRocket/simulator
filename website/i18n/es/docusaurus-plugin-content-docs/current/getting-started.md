@@ -8,6 +8,8 @@ AstraRocket se ejecuta en tu navegador: **no hay nada que instalar**. Abre **[ht
 
 Tras esa primera visita sigue funcionando **sin conexión**, así que puedes diseñar y simular en el campo de vuelo aunque no haya cobertura, y tu navegador te ofrecerá **instalarla** junto a tus demás aplicaciones: consulta **[Sin conexión e instalación](./offline-and-installing.md)**.
 
+> **Tu trabajo se queda en este dispositivo.** La app no tiene cuentas y no sincroniza. Para trabajar en otro ordenador o en tu teléfono, y para tener una copia de seguridad, guarda tus diseños en una carpeta de Google Drive, OneDrive, Dropbox o iCloud Drive: consulta **[Sincronizar tu trabajo](./syncing-your-work.md)**.
+
 Al abrirla verás una breve pantalla de inicio mientras se carga el motor de física, y después un cohete de ejemplo. La cabecera muestra una pequeña insignia **`WASM`** o **`JS`** que indica qué versión del núcleo de simulación se ha cargado (WebAssembly es la rápida por defecto; JavaScript es la alternativa).
 
 ## La disposición {#the-layout}
