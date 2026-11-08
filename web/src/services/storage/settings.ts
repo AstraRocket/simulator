@@ -212,7 +212,7 @@ const clampPlayback = (v: unknown): number => {
 /** SI; `maxAngleStep` in radians. A run cannot be interrupted, so `maxTime / timeStep` stays bounded. */
 export const SIM_BOUNDS = {
   timeStep: { min: 0.001, max: 10 },
-  maxTime: { min: 1, max: 10_000 },
+  maxTime: { min: 1, max: 2_400 },
   maxAngleStep: MAX_ANGLE_STEP_RANGE,
 } as const;
 

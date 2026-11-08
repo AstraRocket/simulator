@@ -1,10 +1,9 @@
 import i18n from '../../i18n';
-import { decodeFileText } from './decodeText';
 import type { ComponentNode, ComponentType } from '../../engine/openRocketEngine';
 import { syncAutoRadii } from '../design/autoRadius';
 import { defaultStageName, freshId } from '../design/orkTree';
 import { xmlText as text } from './xmlUtil';
-import { parseOrkXml } from './ork/importUnpack';
+import { parseOrkXml, unpackOrk } from './ork/importUnpack';
 import { clampCount, finiteNum } from './ork/numbers';
 import { MAX_FIN_COUNT, MAX_FIN_POINTS, MAX_LINE_COUNT, checkDepth, countComponent } from './ork/importLimits';
 import { ignoredNotes } from './ork/importNotes';
@@ -768,8 +767,7 @@ function applyFixedCd(ctx: RktContext, design: Element, stages: ComponentNode[])
 }
 
 export function importRkt(data: ArrayBuffer | string): OrkImportResult {
-  const xml = typeof data === 'string' ? data : decodeFileText(new Uint8Array(data));
-  const doc = parseOrkXml(xml, '.rkt');
+  const doc = parseOrkXml(unpackOrk(data).xml, '.rkt');
   const design = doc.querySelector('RockSimDocument > DesignInformation > RocketDesign');
   if (!design) throw new KeyedError('errors.file.notRkt');
 
