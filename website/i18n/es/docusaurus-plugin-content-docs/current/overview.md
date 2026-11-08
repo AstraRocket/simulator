@@ -14,6 +14,8 @@ Hay dos cosas que puedes hacer con ella:
 
 Todo se ejecuta **en tu dispositivo**. No hay servidor, no hay cuentas y no se sube nada: tus diseños se guardan en tu navegador, y los archivos `.ork` que importas y exportas quedan en tu propio disco.
 
+> **No hay sincronización entre dispositivos, por diseño.** Para tener tus cohetes en otro ordenador o en tu teléfono, y con copia de seguridad, guárdalos en una carpeta de Google Drive, OneDrive, Dropbox o iCloud Drive: consulta **[Sincronizar tu trabajo](./syncing-your-work.md)**.
+
 ## Su relación con OpenRocket {#how-it-relates-to-openrocket}
 
 AstraRocket **no** es una recreación de la aplicación de escritorio de OpenRocket. Es una interfaz web simplificada sobre el **mismo núcleo de física**:

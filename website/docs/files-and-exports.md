@@ -76,7 +76,7 @@ The app keeps a library of your rockets in the browser, so you can work on sever
 
 > **Saved designs are per-browser and per-device.** The library lives in this browser on this machine: it does not sync, and clearing your browser data removes it (see [Offline & Installing](./offline-and-installing.md)).
 >
-> **`.ork` files are how you sync.** Export to a folder your system already syncs (iCloud Drive, OneDrive, Google Drive, Dropbox) and the design is on your other machines, backed up, and shareable; import it there to keep working. That also works with desktop OpenRocket, since it is the same file format.
+> **`.ork` files are how you sync.** Export to a folder your system already syncs (iCloud Drive, OneDrive, Google Drive, Dropbox) and the design is on your other machines, backed up, and shareable; import it there to keep working. That also works with desktop OpenRocket, since it is the same file format. **[Syncing your work](./syncing-your-work.md)** covers setting this up on each device.
 
 ## Exporting to RASAero II (`.CDX1`)
 

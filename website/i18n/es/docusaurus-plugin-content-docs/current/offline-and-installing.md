@@ -61,6 +61,6 @@ Sin conexión, los botones que la necesitan aparecen atenuados y lo indican al s
 
 ## Cómo borrarla {#clearing-it}
 
-Borrar los datos del sitio de AstraRocket en tu navegador elimina la copia sin conexión y **también elimina tus cohetes guardados, tus motores y tus materiales personalizados**, porque viven en el mismo almacenamiento del navegador. Exporta antes como `.ork` todo lo que quieras conservar. Guardado en una carpeta sincronizada (iCloud Drive, OneDrive, Google Drive, Dropbox), sirve además como copia de seguridad que puedes reabrir en cualquier sitio (consulta **[Archivos y exportaciones](./files-and-exports.md)**).
+Borrar los datos del sitio de AstraRocket en tu navegador elimina la copia sin conexión y **también elimina tus cohetes guardados, tus motores y tus materiales personalizados**, porque viven en el mismo almacenamiento del navegador. Exporta antes como `.ork` todo lo que quieras conservar. Guardado en una carpeta sincronizada (iCloud Drive, OneDrive, Google Drive, Dropbox), sirve además como copia de seguridad que puedes reabrir en cualquier sitio (consulta **[Sincronizar tu trabajo](./syncing-your-work.md)**).
 
 Si instalaste la aplicación, desinstálala como quitarías cualquier otra aplicación de tu dispositivo.

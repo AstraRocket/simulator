@@ -8,6 +8,8 @@ AstraRocket runs in your web browser: **there's nothing to install**. Open **[ht
 
 After that first visit it keeps working **offline**, so you can design and simulate at a launch site with no signal, and your browser will offer to **install** it alongside your other apps: see **[Offline & Installing](./offline-and-installing.md)**.
 
+> **Your work stays on this device.** The app has no accounts and does not sync. To work on another computer or your phone, and to keep a backup, save your designs into a Google Drive, OneDrive, Dropbox or iCloud Drive folder: see **[Syncing your work](./syncing-your-work.md)**.
+
 When you open it, you'll see a brief splash screen while the physics engine loads, then a starter rocket. The header shows a small **`WASM`** or **`JS`** badge indicating which engine backend loaded (WebAssembly is the fast default; JavaScript is the fallback).
 
 ## The layout

@@ -76,7 +76,7 @@ La aplicación mantiene una biblioteca de tus cohetes en el navegador, así que 
 
 > **Los diseños guardados son por navegador y por dispositivo.** La biblioteca vive en este navegador en esta máquina: no se sincroniza, y borrar los datos del navegador la elimina (consulta [Sin conexión e instalación](./offline-and-installing.md)).
 >
-> **Los archivos `.ork` son la forma de sincronizar.** Exporta a una carpeta que tu sistema ya sincronice (iCloud Drive, OneDrive, Google Drive, Dropbox) y el diseño estará en tus otros equipos, respaldado y listo para compartir; impórtalo allí para seguir trabajando. Eso funciona también con OpenRocket de escritorio, porque es el mismo formato de archivo.
+> **Los archivos `.ork` son la forma de sincronizar.** Exporta a una carpeta que tu sistema ya sincronice (iCloud Drive, OneDrive, Google Drive, Dropbox) y el diseño estará en tus otros equipos, respaldado y listo para compartir; impórtalo allí para seguir trabajando. Eso funciona también con OpenRocket de escritorio, porque es el mismo formato de archivo. **[Sincronizar tu trabajo](./syncing-your-work.md)** explica cómo prepararlo en cada dispositivo.
 
 ## Exportar a RASAero II (`.CDX1`) {#exporting-to-rasaero-ii-cdx1}
 
