@@ -217,7 +217,27 @@
 # the first 256 bytes and nested <openrocket> roots, both crafted-file only.
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-11-09: reviewed 7fe1cf9 through f6a59fae (v0.198, 2026-11-09), 32
+# commits, 216 files. The only engine-java change is a `--source` argument
+# check in their carve script.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND FIXED HERE: an unreadable deployment,
+# separation or ignition number keeps the earlier value (desktop's parseDouble
+# NaN); fin tab positions replayed in file order through `setTabOffsetMethod`,
+# with desktop's case-sensitive method names; a non-bulk fillet material
+# ignored (`MaterialSetter`); CR-only `.eng` line endings
+# (`BufferedReader.readLine`).
+#
+# NOT TAKEN: their rising RSE per-point mass fallback and stored-motor repair
+# (desktop flies the stated masses); RockSim configurations split by burnout
+# time (desktop imports no RockSim simulations); recovery sizing advice,
+# fabrication exports and RASAero changes (features this app does not have);
+# a caution on unknown RockSim shape codes (desktop substitutes silently, as
+# we do).
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 7fe1cf9ffe78cf2d12885377def4f95779d45a10
-version = 0.197
-dated   = 2026-11-03
+ref     = f6a59faef7867ea4b31e977a091e495a5659a199
+version = 0.198
+dated   = 2026-11-09

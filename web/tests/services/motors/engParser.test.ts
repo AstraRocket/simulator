@@ -259,6 +259,14 @@ describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () =>
   });
 });
 
+describe('parseEng line endings', () => {
+  it('reads CR alone as a line break, as BufferedReader.readLine does', () => {
+    const m = parseEng(ENG.replace(/\n/g, '\r'))[0]!;
+    expect(m.designation).toBe('TC10');
+    expect(totalImpulse(m.samples)).toBeCloseTo(10, 6);
+  });
+});
+
 describe('parseEng designation', () => {
   it('takes the delay off the name, as the .rse reader and upstream do', () => {
     const m = parseEng(ENG.replace('TC10 24', 'C6-5 24'))[0]!;

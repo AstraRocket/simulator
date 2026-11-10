@@ -148,7 +148,6 @@ function readPlanarFin(ctx: OrkImportContext, el: Element, n: ComponentNode): vo
   n['thickness'] = nonNegTag(el, 'thickness', COMPONENT_DEFAULTS.finset.thickness);
   readCant(ctx, el, n);
   readAirfoil(el, n);
-  readFinTabs(el, n);
   readFinRotation(el, n);
 }
 
@@ -162,6 +161,7 @@ const readTrapezoidFinset: NodeReader = (ctx, el) => {
   n['sweep'] = numTag(el, 'sweeplength', fin.sweep);
   n['height'] = nonNegTag(el, 'height', fin.height);
   readPlanarFin(ctx, el, n);
+  readFinTabs(el, n);
   return n;
 };
 
@@ -196,6 +196,7 @@ const readFreeformFinset: NodeReader = (ctx, el) => {
   }
   if (pts.length >= 3) n['points'] = pts;
   else ctx.notes.push(keyedNote('importNote.finPointsTooFew', { part: notePartName(n) }));
+  readFinTabs(el, n);
   return n;
 };
 
@@ -206,6 +207,7 @@ const readEllipticalFinset: NodeReader = (ctx, el) => {
   n['rootChord'] = nonNegTag(el, 'rootchord', fin.rootChord);
   n['height'] = nonNegTag(el, 'height', fin.height);
   readPlanarFin(ctx, el, n);
+  readFinTabs(el, n);
   return n;
 };
 

@@ -17,7 +17,8 @@ interface Line {
 
 export function parseEng(text: string): CustomMotor[] {
   const lines: Line[] = text
-    .split(/\r?\n/)
+    // CR alone too, as `BufferedReader.readLine`.
+    .split(/\r\n|[\r\n]/)
     .map((l, i) => ({ text: l.trim(), no: i + 1 }))
     .filter((l) => l.text && !l.text.startsWith(';'));
   if (lines.length < 2) throw new KeyedError('errors.motorFile.engNoData');
