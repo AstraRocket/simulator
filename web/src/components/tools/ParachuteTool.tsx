@@ -1,20 +1,21 @@
 import { useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
-import { siteAirDensity } from '../../services/flight/recoverySizing';
+import { CHUTE_LIMITS, siteAirDensity } from '../../services/flight/recoverySizing';
 import { QNum } from '../sim/QNum';
 import { SizingFigures } from './SizingFigures';
 import { CardGroup } from '../common/CardGroup';
-import { SiteElevationField, SiteTemperatureField } from './SiteFields';
+import { SiteElevationField, SiteTemperatureField } from '../sim/SiteQNum';
 import { NumberRow } from '../common/NumberRow';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';
 import { remembered } from './parachuteToolMemory';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
 export function ParachuteTool() {
   const { t } = useTranslation();
   const u = useUnits();
   const [massKg, setMassKg] = useRemembered(remembered, 'massKg', 0.5);
-  const [cd, setCd] = useRemembered(remembered, 'cd', 0.8);
+  const [cd, setCd] = useRemembered(remembered, 'cd', KERNEL_DEFAULTS.parachute.cd);
   const [diameterM, setDiameterM] = useRemembered(remembered, 'diameterM', null);
   const [siteM, setSiteM] = useRemembered(remembered, 'siteM', 0);
   const [temperatureC, setTemperatureC] = useRemembered(remembered, 'temperatureC', null);
@@ -42,9 +43,7 @@ export function ParachuteTool() {
           />
           <NumberRow
             label={t('chuteTool.cd')}
-            step={0.05}
-            min={0.05}
-            max={3}
+            {...CHUTE_LIMITS.cd}
             required
             missing={cd == null}
             value={cd}
@@ -55,9 +54,7 @@ export function ParachuteTool() {
             field="chuteDiameter"
             kind="length"
             u={u}
-            stepSi={0.01}
-            minSi={0.01}
-            maxSi={20}
+            {...CHUTE_LIMITS.diameter}
             placeholder={t('chuteTool.none')}
             value={diameterM}
             onChange={setDiameterM}

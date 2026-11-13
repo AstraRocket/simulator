@@ -1,9 +1,10 @@
 import type { EngineWarning, FlightResult, MotorSpec, RocketTree } from '../../engine/openRocketEngine';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
 import type { CatalogMotor } from '../motors/motorDb';
+import { keyOf } from '../motors/motorKey';
 import { parseDelays } from '../motors/motorPicker';
 import type { FlightConfig } from './flightConfigs';
-import { seriesAt } from './flightEvents';
+import { seriesAtEvent, summaryFigures } from './flightEvents';
 import type { SimInputs } from './simulations';
 
 // A candidate is up to two flights (see probeDelay), so this caps a guide at sixteen flights.
@@ -57,7 +58,7 @@ export function guideConfig(config: FlightConfig, mountId: string, spec: MotorSp
 }
 
 // The kernel's optimum delay does not depend on the delay flown, but the deployment speed does.
-export function probeDelay(m: CatalogMotor): number {
+function probeDelay(m: CatalogMotor): number {
   const { delays, plugged } = parseDelays(m.delays);
   if (delays.length) return delays[Math.floor(delays.length / 2)]!;
   return plugged ? PLUGGED_DELAY : GUIDE_DEFAULT_DELAY;
@@ -73,28 +74,61 @@ export function nearestDelay(m: CatalogMotor, optimum: number | null): number | 
   return best;
 }
 
-const finite = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) ? v : null);
+export interface GuideBatch<R> {
+  rows: R[];
+  failed: GuideFailure[];
+  partial: boolean;
+}
+
+/**
+ * Flies each motor at its probe delay, then, when `refly` holds, again at the nearest listed delay.
+ * Canceled flights are dropped, not failed; rows and failures come back in the order asked.
+ */
+export async function flyGuideBatch<F extends { optimumDelay: number | null }, R extends { key: string }>(
+  motors: readonly CatalogMotor[],
+  opts: {
+    fly: (motor: CatalogMotor, delay: number) => Promise<F>;
+    refly: boolean;
+    row: (motor: CatalogMotor, key: string, flown: F, nearest: number | null) => R;
+    signal: AbortSignal;
+    /** Once per motor, flown or not. */
+    onSettled: () => void;
+    reason: (e: unknown) => string;
+  },
+): Promise<GuideBatch<R>> {
+  const { fly, refly, row, signal, onSettled, reason } = opts;
+  const rows: R[] = [];
+  const failed: GuideFailure[] = [];
+  await Promise.all(
+    motors.map(async (motor) => {
+      const key = keyOf(motor);
+      try {
+        const probe = probeDelay(motor);
+        const first = await fly(motor, probe);
+        const nearest = nearestDelay(motor, first.optimumDelay);
+        const again = refly && nearest != null && nearest !== probe;
+        rows.push(row(motor, key, again ? await fly(motor, nearest) : first, nearest));
+      } catch (e) {
+        if (!signal.aborted) failed.push({ key, motor, reason: reason(e) });
+      } finally {
+        onSettled();
+      }
+    }),
+  );
+  const order = new Map(motors.map((m, i) => [keyOf(m), i]));
+  const byAsked = (a: { key: string }, b: { key: string }) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0);
+  return { rows: rows.sort(byAsked), failed: failed.sort(byAsked), partial: signal.aborted };
+}
 
 export function guideRow(motor: CatalogMotor, key: string, spec: MotorSpec, result: FlightResult): GuideRow {
-  const s = result.summary;
-  const rodTime = result.events.find((e) => e.type === 'LAUNCHROD')?.time;
-  const at = (series: string) => (rodTime == null ? null : finite(seriesAt(result.series, series, rodTime)));
   return {
     key,
     motor,
     spec,
     delay: spec.ejectionDelay,
-    apogee: s.maxAltitude,
-    maxVelocity: s.maxVelocity,
-    maxAcceleration: s.maxAcceleration,
-    maxMach: s.maxMachNumber,
-    timeToApogee: s.timeToApogee,
-    railExit: s.launchRodVelocity,
-    railMargin: at('stability'),
-    railTwr: at('Twr'),
-    deployVelocity: finite(s.deploymentVelocity),
-    landingVelocity: finite(s.groundHitVelocity),
-    optimumDelay: finite(s.optimumDelay),
+    ...summaryFigures(result),
+    railMargin: seriesAtEvent(result, 'LAUNCHROD', 'stability'),
+    railTwr: seriesAtEvent(result, 'LAUNCHROD', 'Twr'),
     warnings: result.warnings ?? [],
     deployEvents: result.events.filter((e) => e.type === 'RECOVERY_DEVICE_DEPLOYMENT'),
   };

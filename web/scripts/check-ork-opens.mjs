@@ -20,27 +20,6 @@ const KNOWN = [
     warning: "Ring tail 'Not supported' was imported as a mass component; its aerodynamics are not simulated.",
     reason: 'OpenRocket has no ring tail part; desktop says so when it reads one, and the app gives the same note',
   },
-  {
-    file: 'default-design.ork',
-    warning: 'No matching ComponentPreset for component Nose Cone found matching Estes PNC-50KA',
-    reason:
-      "the catalog's preset digests are synced from the OpenRocket 24.12 release; the engine's own commit has a newer parts database",
-  },
-  {
-    file: 'every-part.ork',
-    warning: "Unknown parameter type 'linelengthauto' for Parachute, ignoring.",
-    reason: 'the app keeps its automatic line length in its own tag; desktop flies the number written beside it',
-  },
-  {
-    file: 'every-part.ork',
-    warning: "Unknown parameter type 'cordlengthauto' for Shock Cord, ignoring.",
-    reason: 'the app keeps its automatic cord length in its own tag; desktop flies the number written beside it',
-  },
-  {
-    file: 'conditions.ork',
-    warning: "Unknown parameter type 'linelengthauto' for Parachute, ignoring.",
-    reason: 'the app keeps its automatic line length in its own tag; desktop flies the number written beside it',
-  },
 ];
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));

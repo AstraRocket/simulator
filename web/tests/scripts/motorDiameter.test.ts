@@ -7,8 +7,9 @@ import { motorRow, DIAMETER_DECIMALS } from '../../scripts/lib/motorRow.mjs';
 import { digestKey } from '../../scripts/lib/motorDigestKey.mjs';
 import type { CatalogMotor } from '../../src/services/motors/motorDb';
 
-// Desktop's thrustcurves.ser value (scripts/motor-digests/MotorDump.java, fifth column).
-const DESKTOP_APOGEE_DIAMETER_M = 0.0105;
+// thrustcurve.org's diameter for Apogee's micro motors; the build's own database states 0.011 m
+// (scripts/motor-digests/MotorDump.java, fifth column), which the digest sync reaches within a millimeter.
+const THRUSTCURVE_APOGEE_DIAMETER_M = 0.0105;
 
 const apogeeA2 = {
   motorId: '5f4294d20002310000000123',
@@ -28,9 +29,9 @@ const apogeeA2 = {
 };
 
 describe('the motor row diameter', () => {
-  it('keeps the tenth of a millimeter desktop holds for Apogee A2', () => {
+  it('keeps the tenth of a millimeter thrustcurve.org states for Apogee A2', () => {
     const row = motorRow(apogeeA2, undefined) as CatalogMotor;
-    expect(row.diameter).toBeCloseTo(DESKTOP_APOGEE_DIAMETER_M * 1000, 9);
+    expect(row.diameter).toBeCloseTo(THRUSTCURVE_APOGEE_DIAMETER_M * 1000, 9);
     expect(row.diameter).not.toBe(11);
   });
 
@@ -42,11 +43,11 @@ describe('the motor row diameter', () => {
 });
 
 describe('the motor digest key', () => {
-  const desktopMm = DESKTOP_APOGEE_DIAMETER_M * 1000;
+  const tenthMm = THRUSTCURVE_APOGEE_DIAMETER_M * 1000;
 
-  it('keys a 10.5 mm row and the desktop 0.0105 m motor together, apart from 11 mm', () => {
+  it('keys a 10.5 mm row with a 0.0105 m motor, apart from 11 mm', () => {
     const row = motorRow(apogeeA2, undefined) as CatalogMotor;
-    expect(digestKey('Apogee', 'A2', row.diameter)).toBe(digestKey('Apogee', 'A2', desktopMm));
+    expect(digestKey('Apogee', 'A2', row.diameter)).toBe(digestKey('Apogee', 'A2', tenthMm));
     expect(digestKey('Apogee', 'A2', row.diameter)).not.toBe(digestKey('Apogee', 'A2', 11));
     expect(digestKey('Apogee', 'A2', row.diameter)).not.toBe(digestKey('Apogee', 'A2', 10));
   });
@@ -69,7 +70,7 @@ describe('the committed motor catalog', () => {
   it.each(['1/4A2', '1/2A2', 'A2', 'B2'])('holds Apogee %s at 10.5 mm with a desktop digest', (designation) => {
     const rows = catalog.filter((m) => m.manufacturer === 'Apogee' && m.designation === designation);
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.diameter).toBeCloseTo(DESKTOP_APOGEE_DIAMETER_M * 1000, 9);
+    expect(rows[0]!.diameter).toBeCloseTo(THRUSTCURVE_APOGEE_DIAMETER_M * 1000, 9);
     expect(rows[0]!.digests?.length).toBeGreaterThan(0);
   });
 });

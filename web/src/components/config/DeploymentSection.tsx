@@ -4,7 +4,7 @@ import { deployOverride, designDeployment, type FlightConfig } from '../../servi
 import { useWorkspaceStore } from '../../state/store';
 import { OverrideCard, OverrideNumber, OverrideSelect, OverrideAltitude } from './OverrideFields';
 import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
+import { propAltitudeUnit } from './configColumns';
 import { fmtUpTo } from '../../i18n/format';
 import { partName } from './partName';
 import { DEPLOY_EVENTS } from '../../services/design/componentFields';
@@ -36,8 +36,7 @@ export function DeploymentSection({
   const events = DEPLOY_EVENTS.filter(
     (ev) => ev !== LOWER_STAGE_SEPARATION || stageBelow !== false || event === LOWER_STAGE_SEPARATION,
   );
-  const scope = unitScope('prop', device.type, 'deployAltitude');
-  const alt = u.at(scope, 'distance');
+  const alt = propAltitudeUnit(u, device, 'deployAltitude');
 
   const name = partName(device, index, t);
   return (

@@ -1,7 +1,13 @@
 import type { ComponentInfo, ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_DEFAULTS, KERNEL_DEPLOYMENT, KERNEL_SEPARATION } from '../../tree/kernelDefaults';
 import { MAX_CANT, MAX_FIN_COUNT, MAX_INSTANCE_COUNT, MAX_LINE_COUNT, num, str } from '../../tree/nodeProps';
-import { shapeIsClippable, shapeParamDefault, shapeParamMax, shapeUsesParameter } from '../../tree/shapeProfile';
+import {
+  nodeShape,
+  shapeIsClippable,
+  shapeParamDefault,
+  shapeParamMax,
+  shapeUsesParameter,
+} from '../../tree/shapeProfile';
 import { clusterCount } from '../../tree/cluster';
 import { axialLength } from '../../tree/position';
 import type { DimensionBounds } from './linkedDimensions';
@@ -9,15 +15,11 @@ import type { Field } from './componentFields';
 
 export type FieldRange = { min?: number; max?: number };
 
-/** `ComponentFactory` reads ogive for a nose cone and conical for a transition. */
-const defaultShape = (node: ComponentNode): string =>
-  str(node, 'shape', node.type === 'nosecone' ? 'ogive' : 'conical');
-
 /** Shared by `visibleFields` and `sectionFields`; a test in only one would hide a row in one place but not the other. */
 export function fieldApplies(node: ComponentNode, f: Field): boolean {
-  if (f.key === 'shapeParameter') return shapeUsesParameter(defaultShape(node));
+  if (f.key === 'shapeParameter') return shapeUsesParameter(nodeShape(node));
   // `Transition.isClipped()` returns false outright for an unclippable shape.
-  if (f.key === 'clipped') return shapeIsClippable(defaultShape(node));
+  if (f.key === 'clipped') return shapeIsClippable(nodeShape(node));
   if (f.key === 'thickness' || f.key === 'innerDiameter') return node['filled'] !== true;
   if (f.key === 'clusterScale' || f.key === 'clusterSeparation' || f.key === 'clusterRotation') {
     return clusterCount(str(node, 'cluster', 'single')) > 1;
@@ -75,7 +77,7 @@ export function liveBounds(f: Field, tabDepth: number | null): DimensionBounds |
 
 function absentValue(node: ComponentNode, f: Field): number | undefined {
   if (f.whenAbsent !== undefined) return f.whenAbsent;
-  if (f.key === 'shapeParameter') return shapeParamDefault(defaultShape(node));
+  if (f.key === 'shapeParameter') return shapeParamDefault(nodeShape(node));
   const tables: Record<string, unknown>[] = [
     (KERNEL_DEFAULTS as Record<string, Record<string, unknown>>)[node.type] ?? {},
     KERNEL_DEPLOYMENT,
@@ -92,7 +94,7 @@ export function fieldValue(node: ComponentNode, f: Field): number | boolean | st
       return typeof node[f.key] === 'string' ? (node[f.key] as string) : (f.fallback ?? f.options[0]);
     case 'bool':
       // Transition.setShapeType sets clipped to isClippable().
-      if (f.key === 'clipped' && typeof node[f.key] !== 'boolean') return shapeIsClippable(defaultShape(node));
+      if (f.key === 'clipped' && typeof node[f.key] !== 'boolean') return shapeIsClippable(nodeShape(node));
       return node[f.key] === true;
     case 'length': {
       // Kernel setters clamp, but the BodyTube constructor (ComponentFactory) takes the wall as given.
@@ -120,7 +122,7 @@ export function fieldRange(node: ComponentNode, f: Field, bounds: DimensionBound
         max: f.key === 'finCount' ? MAX_FIN_COUNT : f.key === 'lineCount' ? MAX_LINE_COUNT : MAX_INSTANCE_COUNT,
       };
     case 'number':
-      return f.key === 'shapeParameter' ? { min: 0, max: shapeParamMax(defaultShape(node)) } : { min: 0 };
+      return f.key === 'shapeParameter' ? { min: 0, max: shapeParamMax(nodeShape(node)) } : { min: 0 };
     case 'angle':
       if (f.key === 'cant') return { min: -MAX_CANT, max: MAX_CANT };
       // Other angles wrap in the kernel; a one-sided bound would clamp -200 to -180 while the kernel flies 160.

@@ -8,7 +8,7 @@ import { launchDocs, type LaunchDevice, type LaunchDocs } from '../../services/f
 import type { ChargeRow } from '../../services/flight/recoveryCharges';
 import { designNameOf } from '../../services/app/appInfo';
 import { motorFullName } from '../../services/motors/motorName';
-import { useUnits } from '../../prefs/useUnits';
+import { fmtDegrees, useUnits } from '../../prefs/useUnits';
 import type { Units } from '../../prefs/useUnits';
 import { fmtNum, partLabel, stageLabel, stagePrefixed, withFixedUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
@@ -128,7 +128,9 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
             info && [t('report.cp'), Number.isFinite(info.cp) && info.cp > 0 ? u.fmtSym('length', info.cp) : NO_VALUE],
             info && [
               t('report.stabilityCal'),
-              Number.isFinite(info.stabilityCalibers) ? `${fmtNum(info.stabilityCalibers, 2)} cal` : NO_VALUE,
+              Number.isFinite(info.stabilityCalibers)
+                ? `${fmtNum(info.stabilityCalibers, 2)} ${t('stability.caliber')}`
+                : NO_VALUE,
             ],
             [
               t('launchDocs.certNeeded'),
@@ -178,15 +180,15 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
             [t('report.velOffRod'), flight ? u.fmtSym('velocity', flight.launchRodVelocity) : NO_VALUE],
             [
               t('launchDocs.railLength'),
-              docs.launch.launchRodLengthM != null ? u.fmtSym('distance', docs.launch.launchRodLengthM, 2) : NO_VALUE,
+              docs.launch.launchRodLengthM != null ? u.fmtSym('length', docs.launch.launchRodLengthM, 2) : NO_VALUE,
             ],
             [
               t('launchDocs.railAngle'),
-              docs.launch.launchRodAngleDeg != null ? `${fmtNum(docs.launch.launchRodAngleDeg, 1)}°` : NO_VALUE,
+              docs.launch.launchRodAngleDeg != null ? fmtDegrees(u, docs.launch.launchRodAngleDeg, 1) : NO_VALUE,
             ],
             [
               t('launchDocs.wind'),
-              docs.launch.windAverage != null ? u.fmtSym('velocity', docs.launch.windAverage) : NO_VALUE,
+              docs.launch.windAverage != null ? u.fmtSym('windspeed', docs.launch.windAverage) : NO_VALUE,
             ],
             [t('launchDocs.optimumDelay'), sec(flight?.optimumDelay)],
             [

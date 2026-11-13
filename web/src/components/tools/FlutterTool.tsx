@@ -4,7 +4,7 @@ import { useUnits } from '../../prefs/useUnits';
 import { flutterSpeed, flutterVerdict } from '../../services/flight/finFlutter';
 import { QNum } from '../sim/QNum';
 import { CardGroup } from '../common/CardGroup';
-import { SiteElevationField } from './SiteFields';
+import { SiteElevationField } from '../sim/SiteQNum';
 import { FinStockFields, FlutterMarginRows, FlutterSpeedRow } from './FlutterFields';
 import { stockModulus } from '../../state/finFlutterChoices';
 import { ToolLayout, ToolForm, ToolResultCard } from './ToolLayout';

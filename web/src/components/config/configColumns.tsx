@@ -9,15 +9,25 @@ import {
   stageFlies,
 } from '../../services/flight/flightConfigs';
 import { findMounts, findRecoveryDevices, findSeparators, findStages } from '../../services/design/treeEdit';
-import type { FieldUnit } from '../../prefs/useUnits';
+import type { FieldUnit, Units } from '../../prefs/useUnits';
+import { unitScope } from '../../prefs/units';
 import type { ConfigColumn } from './ConfigsTable';
 import { partName } from './partName';
 import { motorDesignation } from '../../services/motors/motorName';
-import { fmtUpTo } from '../../i18n/format';
+import { fmtUpTo, withUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { Overridden } from './Overridden';
 
-const delayText = (s: number, t: TFunction) => ` +${fmtUpTo(s, 3)}${t('units.second')}`;
+/** The altitude's unit under the part's stored chip key, shared by the table and the override cards. */
+export function propAltitudeUnit(
+  u: Units,
+  node: ComponentNode,
+  key: 'deployAltitude' | 'separationAltitude',
+): FieldUnit {
+  return u.at(unitScope('prop', node.type, key), 'distance');
+}
+
+const delayText = (s: number, t: TFunction) => ` +${withUnit(fmtUpTo(s, 3), t('units.second'))}`;
 
 const triggerText = (event: string, altitude: string | null, delay: number, t: TFunction) =>
   `${event}${altitude ? ` ${altitude}` : ''}${delay ? delayText(delay, t) : ''}`;

@@ -5,10 +5,9 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Bounds } from '@react-three/drei';
 import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
 import type { ExportData } from '../../services/exports/schematicExport.js';
-import { mergePalette } from '../../services/design/partColors';
-import { useSettings } from '../../state/useSettings';
+import { usePartPalette } from '../common/usePartPalette';
 import { useUnits } from '../../prefs/useUnits';
-import type { MotorDims } from '../../tree/schematicGeometry';
+import { stationLabel, type MotorDims } from '../../tree/schematicGeometry';
 import { markerRadius, type RenderMode } from './rocketPieces';
 import { rocketSvg } from './rocketSvgExport';
 import { exportView } from './rocketExportCamera';
@@ -26,7 +25,7 @@ import { RoomReflections } from './RoomReflections';
 import { LightBall, MovableKeyLight, ViewLight } from './MovableKeyLight';
 import { keyLight } from './keyLight';
 import { Rocket3DToolbar } from './Rocket3DToolbar';
-import { useCameraViews } from './useCameraViews';
+import { sideCameraPos, useCameraViews } from './useCameraViews';
 
 // Rocket axis is +X: nose tip at x=0, aft increasing, as in the engine.
 export function Rocket3D({
@@ -56,10 +55,9 @@ export function Rocket3D({
 }) {
   const { t } = useTranslation();
   const u = useUnits();
-  const { settings } = useSettings();
-  const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
+  const palette = usePartPalette();
   const { pieces, totalLen, maxR } = usePieces(tree, motors, palette);
-  // Framing and the export camera keep using every piece, so hiding a part never moves the view.
+  // The export camera keeps every piece; the view's first framing and each resize fit the shown ones.
   const shownPieces = useMemo(
     () => (hiddenIds?.size ? pieces.filter((p) => !p.id || !hiddenIds.has(p.id)) : pieces),
     [pieces, hiddenIds],
@@ -123,7 +121,7 @@ export function Rocket3D({
         // A rotated portrait pane swaps getBoundingClientRect's width and height; offsetWidth ignores transforms.
         resize={{ offsetSize: true }}
         style={{ flex: '1 1 0%', minHeight: 0 }}
-        camera={{ position: [center, 0, camDist * 1.05], fov: 40 }}
+        camera={{ position: sideCameraPos(center, camDist), fov: 40 }}
         // preserveDrawingBuffer, or the export's live-canvas fallback reads black. ACES turns saturated blue purple.
         gl={{ preserveDrawingBuffer: true, localClippingEnabled: true, toneMapping: THREE.NeutralToneMapping }}
         onCreated={(state) => {
@@ -152,7 +150,7 @@ export function Rocket3D({
                 dir={1}
                 color={scene['scene-callout']}
                 tex={cgTex}
-                label={`${t('schematic.cg')} · ${u.fmtSym('length', info.cg)}`}
+                label={stationLabel(t, u, 'cg', info.cg)}
                 len={maxR * 1.7}
                 markerR={markerR}
               />

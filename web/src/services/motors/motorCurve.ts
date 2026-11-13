@@ -54,3 +54,17 @@ export function hasUsableCurve(m: MotorSpec | null | undefined): boolean {
   if (!m || !Array.isArray(m.times) || m.times.length < MIN_CURVE_SAMPLES) return false;
   return curveProblem(m) === null;
 }
+
+/** No curve, no size: an empty mount's placeholder, never flown. */
+export function emptyMotorSpec(): MotorSpec {
+  return {
+    designation: '',
+    diameter: 0,
+    length: 0,
+    times: [],
+    thrusts: [],
+    masses: [],
+    cgX: 0,
+    ejectionDelay: 0,
+  };
+}

@@ -8,6 +8,7 @@ import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, type KernelGeometry } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 // A child sits once per parent instance (`RocketComponent.getComponentLocations`).
 
@@ -151,6 +152,7 @@ describe("the side view draws an inner tube's children in each tube of the clust
         roll: 0,
         uid: 't',
         setHoverId: () => {},
+        ...ENGLISH_LABELS,
       });
       const box = extents.get('eb')!.box;
       const ys = points.map(([y]) => y);

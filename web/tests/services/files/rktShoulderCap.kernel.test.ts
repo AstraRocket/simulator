@@ -16,7 +16,8 @@ beforeAll(async () => {
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-// The 24.12 jar's shoulder length setters do not cap; ComponentFactory sets the cap after the length.
+// Desktop's `Transition.setForeShoulderLength` and `setAftShoulderLength` cap a shoulder whose
+// length leaves 0, and the RockSim handlers set nothing after; checked by loading DOC in desktop.
 
 const DOC =
   `<RockSimDocument><DesignInformation><RocketDesign><Name>Caps</Name><StageCount>1</StageCount><Stage3Parts>` +
@@ -43,23 +44,29 @@ function kernelFields(tree: RocketTree, node: ComponentNode): Record<string, unk
 describe('a shoulder read from a .rkt', () => {
   const { tree } = importRkt(DOC);
 
-  it('carries no cap key', () => {
+  it('is capped', () => {
     const nose = byType(tree, 'nosecone');
     const t = byType(tree, 'transition');
     expect(nose['shoulderLength']).toBeCloseTo(0.02, 9);
-    expect(nose['shoulderCapped']).toBeUndefined();
+    expect(nose['shoulderCapped']).toBe(true);
     expect(t['foreShoulderLength']).toBeCloseTo(0.01, 9);
-    expect(t['foreShoulderCapped']).toBeUndefined();
-    expect(t['aftShoulderCapped']).toBeUndefined();
+    expect(t['foreShoulderCapped']).toBe(true);
+    expect(t['aftShoulderCapped']).toBe(true);
   });
 
-  it('flies open in the kernel, as desktop 24.12 holds it', () => {
+  it('flies capped in the kernel, as desktop holds it', () => {
     const nose = kernelFields(tree, byType(tree, 'nosecone'));
     expect(nose['shoulderLength']).toBeCloseTo(0.02, 9);
-    expect(nose['shoulderCapped']).toBe(false);
+    expect(nose['shoulderCapped']).toBe(true);
     const t = kernelFields(tree, byType(tree, 'transition'));
     expect(t['foreShoulderLength']).toBeCloseTo(0.01, 9);
-    expect(t['foreShoulderCapped']).toBe(false);
-    expect(t['aftShoulderCapped']).toBe(false);
+    expect(t['foreShoulderCapped']).toBe(true);
+    expect(t['aftShoulderCapped']).toBe(true);
+  });
+
+  it('is open on a part with no shoulder', () => {
+    const { tree: bare } = importRkt(DOC.replace(/<(\w*Shoulder\w*)>[^<]*<\/\1>/g, ''));
+    expect(byType(bare, 'nosecone')['shoulderCapped']).toBeUndefined();
+    expect(byType(bare, 'transition')['foreShoulderCapped']).toBeUndefined();
   });
 });

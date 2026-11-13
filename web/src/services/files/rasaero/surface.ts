@@ -1,9 +1,9 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
 import type { Keyed } from '../../../i18n/keyedError';
 import type { Cdx1Writer } from './units';
-import { bodyTubeRadius, num, numOpt, str } from '../../../tree/nodeProps';
+import { bodyTubeRadius, num, str } from '../../../tree/nodeProps';
 import { partLength } from '../../../tree/position';
-import { nodeShape, outerProfile, profileEnds } from '../../../tree/shapeProfile';
+import { nodeOuterProfile, profileEnds } from '../../../tree/shapeProfile';
 import { finPlanformArea, finPlanformPoints } from '../../../tree/finPlanform';
 import { isPlanarFinSet } from '../../../tree/tubefins';
 import { walkNodes } from '../../../tree/treeWalk';
@@ -51,17 +51,7 @@ function wetArea(node: ComponentNode): number | null {
   if (node.type === 'bodytube') return 2 * Math.PI * bodyTubeRadius(node) * partLength(node);
   if (node.type === 'nosecone' || node.type === 'transition') {
     const { fore, aft } = profileEnds(node);
-    const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
-    const pts = outerProfile(
-      nodeShape(node),
-      numOpt(node, 'shapeParameter'),
-      partLength(node),
-      fore,
-      aft,
-      WET_AREA_STEPS,
-      undefined,
-      clipped,
-    );
+    const pts = nodeOuterProfile(node, partLength(node), fore, aft, WET_AREA_STEPS);
     let area = 0;
     for (let i = 1; i < pts.length; i++) {
       const [x0, r0] = pts[i - 1]!;

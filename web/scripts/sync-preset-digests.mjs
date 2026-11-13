@@ -6,7 +6,7 @@ import { STAGED_COMPONENTS, writeFileAtomic } from './lib/catalogStaging.mjs';
 import { writeDataManifest } from './lib/dataManifest.mjs';
 import { digestChanges, goneSection, partProblems, presetsWithoutRow } from './lib/digestCoverage.mjs';
 import { builtInMaterials } from './lib/builtInMaterials.mjs';
-import { chooseBuild, runDumper } from './lib/openrocketJava.mjs';
+import { engineBuild, runDumper } from './lib/openrocketJava.mjs';
 import { presetVolumes } from './lib/presetVolume.mjs';
 import { statedMassTally } from './lib/statedMass.mjs';
 import { nearestMaterial } from './lib/nearestMaterial.mjs';
@@ -149,7 +149,7 @@ function dump(cp) {
 const digestState = (row) => ({ key: `${row.type}|${row.mfr}|${row.partNo.trim()}`, digested: Boolean(row.digest) });
 
 async function main() {
-  const { cp, label } = chooseBuild();
+  const { cp, label } = engineBuild();
   console.log(`reading presets from ${label}`);
   console.log('dumping presets:');
   const { holds, presetFor, presets } = dump(cp);
@@ -209,7 +209,7 @@ async function main() {
   const withoutRow = presetsWithoutRow(presets, catalog.components);
   if (withoutRow.length) {
     throw new Error(
-      `refusing to write: ${withoutRow.length} presets of the release have no row to carry their digest (${withoutRow.join(', ')}). Nothing written.`,
+      `refusing to write: ${withoutRow.length} presets of the build have no row to carry their digest (${withoutRow.join(', ')}). Nothing written.`,
     );
   }
   const problems = partProblems(catalog.components);

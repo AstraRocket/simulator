@@ -25,10 +25,17 @@ export interface ViewSlice {
 }
 
 // Every `view` write that can change the tab goes through this, or Results can open empty.
-export function showing(s: { tab: Tab; designPane: DesignPane }, view: ViewMode): Partial<WorkspaceState> {
+function showing(s: { tab: Tab; designPane: DesignPane }, view: ViewMode): Partial<WorkspaceState> {
   if (s.tab === 'sim' || (s.tab === 'design' && s.designPane === 'stats')) return { view };
   return isResultView(view) ? { view, tab: 'results' } : { view, tab: 'design', designPane: 'sketch' };
 }
+
+/** Where every newly opened design lands, whatever tab was showing: Design, its stats, the 2D view. */
+export const LAND_ON_DESIGN = {
+  tab: 'design',
+  designPane: 'stats',
+  view: '2d',
+} as const satisfies Partial<WorkspaceState>;
 
 export const createViewSlice: StateCreator<WorkspaceState, [], [], ViewSlice> = (set) => ({
   tab: 'design',

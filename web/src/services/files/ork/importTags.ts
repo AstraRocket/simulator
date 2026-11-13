@@ -10,11 +10,12 @@ import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
 import { degToRad } from '../../../prefs/units';
-import { KERNEL_DEPLOYMENT, KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
+import { KERNEL_FINISHES, KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
 import { DEPLOY_EVENTS, MASS_COMPONENT_TYPES, SEPARATION_EVENTS } from '../../design/componentFields';
 import { CLUSTER_POINTS } from '../../../tree/cluster';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
 import { PROFILE_SHAPES } from '../../../tree/shapeProfile';
+import { rebaseTabOffset } from '../../../tree/finPlanform';
 
 /** `BooleanSetter` ignores case. */
 export function isTrueTag(el: Element, tag: string): boolean {
@@ -33,6 +34,12 @@ export function nonNegTag(el: Element, tag: string, fallback: number): number {
   return Math.max(0, numTag(el, tag, fallback));
 }
 
+/** `undefined` when unreadable, so the earlier value stands, as desktop's `parseDouble` NaN leaves it. */
+export function optNonNegTag(el: Element, tag: string): number | undefined {
+  const v = numTag(el, tag, NaN);
+  return Number.isFinite(v) ? Math.max(0, v) : undefined;
+}
+
 /** `undefined` means automatic; `numTag` would lose the flag. */
 export function autoRadiusTag(el: Element, tag: string): number | undefined {
   const t = text(el, `:scope > ${tag}`)?.trim();
@@ -40,10 +47,6 @@ export function autoRadiusTag(el: Element, tag: string): number | undefined {
   // A stated 0 is kept: desktop's phantom tubes carry fins on a pod at its own axis.
   const v = finiteNum(t);
   return v !== undefined && v >= 0 ? v : undefined;
-}
-
-export function isDrogueTag(el: Element): boolean {
-  return (text(el, ':scope > isdrogue') ?? '').trim().toLowerCase() === 'true';
 }
 
 export function finCountTag(el: Element, fallback: number = COMPONENT_DEFAULTS.finset.finCount): number {
@@ -68,10 +71,7 @@ export function readPackedSize(el: Element, node: ComponentNode): void {
 }
 
 export function readAutoValue(el: Element, node: ComponentNode, tag: string, flag: string): boolean {
-  if (
-    (text(el, `:scope > ${tag}`)?.trim().toLowerCase() ?? '') === 'auto' ||
-    (text(el, `:scope > ${tag}auto`)?.trim().toLowerCase() ?? '') === 'true'
-  ) {
+  if ((text(el, `:scope > ${tag}`)?.trim().toLowerCase() ?? '') === 'auto' || isTrueTag(el, `${tag}auto`)) {
     node[flag] = true;
     return true;
   }
@@ -159,13 +159,16 @@ function readFillet(el: Element, node: ComponentNode): void {
   if (r > 0) node['filletRadius'] = r;
   // Kept at a 0 radius too, as desktop keeps it.
   const m = el.querySelector(':scope > filletmaterial');
-  if (!m) return;
+  // `MaterialSetter` refuses a stated type other than bulk.
+  if (!m || (m.getAttribute('type') ?? 'bulk') !== 'bulk') return;
   const d = positiveAttr(m, 'density');
   if (d !== undefined) node['filletDensity'] = d;
   const group = m.getAttribute('group');
   if (group) node['filletMaterialGroup'] = group;
   const name = (m.textContent ?? '').trim();
   if (name) node['filletMaterialName'] = name;
+  const shear = finiteNum(m.getAttribute('shearModulus'));
+  if (shear !== undefined && shear >= 0) node['filletShearModulus'] = shear;
 }
 
 export function readFinRotation(el: Element, node: ComponentNode): void {
@@ -173,21 +176,33 @@ export function readFinRotation(el: Element, node: ComponentNode): void {
   if (deg !== 0) node['rotation'] = degToRad(deg);
 }
 
-/** Desktop files carry two <tabposition>; the last wins, as on desktop. */
+/** `FinTabPositionSetter`: legacy names by substring, then the enum's exact lower-case name. */
+function tabMethod(relativeTo: string | null): string | undefined {
+  if (relativeTo === null) return undefined;
+  if (relativeTo.includes('front')) return 'top';
+  if (relativeTo.includes('center')) return 'middle';
+  if (relativeTo.includes('end')) return 'bottom';
+  const method = relativeTo.trim();
+  return method === 'top' || method === 'middle' || method === 'bottom' ? method : undefined;
+}
+
+/**
+ * Desktop files carry two <tabposition>, replayed in file order as desktop does: a valid one
+ * rebases the tab as `setTabOffsetMethod`, then sets its offset if readable. Read after the
+ * fin's geometry, which the rebase measures.
+ */
 export function readFinTabs(el: Element, node: ComponentNode): void {
   const h = numTag(el, 'tabheight', 0);
   const len = numTag(el, 'tablength', 0);
   if (h <= 0 || len <= 0) return;
   node['tabHeight'] = h;
   node['tabLength'] = len;
-  const positions = Array.from(el.querySelectorAll(':scope > tabposition'));
-  const last = positions[positions.length - 1];
-  if (last) {
-    const rel = (last.getAttribute('relativeto') ?? 'middle').toLowerCase();
-    const method =
-      rel.includes('front') || rel === 'top' ? 'top' : rel.includes('end') || rel === 'bottom' ? 'bottom' : 'middle';
-    node['tabOffsetMethod'] = method;
-    node['tabOffset'] = finiteNum(last.textContent) ?? 0;
+  for (const pos of Array.from(el.querySelectorAll(':scope > tabposition'))) {
+    const method = tabMethod(pos.getAttribute('relativeto'));
+    if (!method) continue;
+    Object.assign(node, rebaseTabOffset(node, method));
+    const offset = finiteNum(pos.textContent);
+    if (offset !== undefined) node['tabOffset'] = offset;
   }
 }
 
@@ -205,17 +220,7 @@ const enumToken = (raw: string): string => raw.trim().toLowerCase().replace(/_/g
 
 /** Includes `ComponentFactory.finishOf`'s `regular` alias for NORMAL. */
 const FINISHES: ReadonlyMap<string, string> = new Map([
-  ...[
-    'rough',
-    'roughunfinished',
-    'unfinished',
-    'normal',
-    'smooth',
-    'polished',
-    'finishpolished',
-    'optimum',
-    'mirror',
-  ].map((f): [string, string] => [f, f]),
+  ...KERNEL_FINISHES.map((f): [string, string] => [f, f]),
   ['regular', 'normal'],
 ]);
 
@@ -283,10 +288,10 @@ export function readDeploymentTags(
   const o: OrkDeployOverride = {};
   const event = enumTag(src, 'deployevent', DEPLOY_EVENT_NAMES, 'importNote.deployEventUnknown', node, notes);
   if (event) o.deployEvent = event;
-  if (text(src, ':scope > deployaltitude') !== null)
-    o.deployAltitude = nonNegTag(src, 'deployaltitude', KERNEL_DEPLOYMENT.deployAltitude);
-  if (text(src, ':scope > deploydelay') !== null)
-    o.deployDelay = nonNegTag(src, 'deploydelay', KERNEL_DEPLOYMENT.deployDelay);
+  const altitude = optNonNegTag(src, 'deployaltitude');
+  if (altitude !== undefined) o.deployAltitude = altitude;
+  const delay = optNonNegTag(src, 'deploydelay');
+  if (delay !== undefined) o.deployDelay = delay;
   return o;
 }
 
@@ -301,10 +306,10 @@ export function readSeparationTags(src: Element, node: ComponentNode, notes: Imp
     notes,
   );
   if (event) o.separationEvent = event;
-  if (text(src, ':scope > separationdelay') !== null)
-    o.separationDelay = nonNegTag(src, 'separationdelay', KERNEL_SEPARATION.separationDelay);
-  if (text(src, ':scope > separationaltitude') !== null)
-    o.separationAltitude = nonNegTag(src, 'separationaltitude', KERNEL_SEPARATION.separationAltitude);
+  const delay = optNonNegTag(src, 'separationdelay');
+  if (delay !== undefined) o.separationDelay = delay;
+  const altitude = optNonNegTag(src, 'separationaltitude');
+  if (altitude !== undefined) o.separationAltitude = altitude;
   return o;
 }
 
@@ -383,7 +388,7 @@ function readAppearanceBlock(el: Element): PartAppearance {
   const shine = Number(text(el, ':scope > shine')?.trim() ?? NaN);
   // The `Appearance` constructor clamps the shine to 0-1.
   if (Number.isFinite(shine)) out.shine = Math.min(1, Math.max(0, shine));
-  if (text(el, ':scope > opacityaffectstexture')?.trim().toLowerCase() === 'true') out.opacityAffectsTexture = true;
+  if (isTrueTag(el, 'opacityaffectstexture')) out.opacityAffectsTexture = true;
   return out;
 }
 

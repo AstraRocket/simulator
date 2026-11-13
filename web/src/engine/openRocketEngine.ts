@@ -3,6 +3,7 @@
 import './kernelLogSink.js';
 import { declaredLength, readStreamWithProgress } from '../services/app/fetchProgress';
 import { nsKey } from '../services/storage/storageKeys';
+import { readLocalText } from '../services/storage/localPref';
 import { errorMessage } from '../services/app/errorMessage';
 import { KeyedError } from '../i18n/keyedError';
 import type { DocumentMaterial } from '../services/materials/documentMaterials';
@@ -45,8 +46,11 @@ export class StaleDesignError extends KeyedError {
   }
 }
 
-/** Void and primitive exports throw raw, in a different shape per target (JS wraps, WASM-GC traps). */
-export class EngineCallError extends Error {
+/**
+ * Void and primitive exports throw a raw `JavaError` on both targets (JS and WASM-GC).
+ * Keyed so the wrapper sentence is in the user's language; the engine's own detail stays as written.
+ */
+export class EngineCallError extends KeyedError {
   readonly engineCause: unknown;
   readonly cause: unknown;
 
@@ -55,7 +59,7 @@ export class EngineCallError extends Error {
     engineCause: unknown,
   ) {
     const detail = errorMessage(engineCause);
-    super(`engine ${operation} failed: ${detail || '(no message)'}`);
+    super('errors.engine.callFailed', { operation, detail: detail || '(no message)' });
     this.name = 'EngineCallError';
     this.engineCause = engineCause;
     // Not `{ cause }`: the ES2020 lib has no Error options bag.
@@ -240,12 +244,11 @@ export function backendPref(): BackendPref {
   try {
     const q = new URLSearchParams(location.search).get('engine');
     if (q === 'wasm' || q === 'js') return q;
-    const ls = localStorage.getItem(ENGINE_PREF_KEY);
-    if (ls === 'wasm' || ls === 'js') return ls;
   } catch {
-    /* no location/localStorage (SSR/tests/workers) → auto */
+    /* no location (SSR/tests/workers) → auto */
   }
-  return 'auto';
+  const ls = readLocalText(ENGINE_PREF_KEY);
+  return ls === 'wasm' || ls === 'js' ? ls : 'auto';
 }
 
 /** Bumped by {@link resetEngineInit} so an abandoned load cannot install itself later. */
@@ -495,8 +498,27 @@ export interface FlightSummary {
   railLengthNeeded?: number | null;
 }
 
+/** `FlightEvent.Type` names, so a misspelled event fails to compile. */
+export type FlightEventType =
+  | 'LAUNCH'
+  | 'IGNITION'
+  | 'LIFTOFF'
+  | 'LAUNCHROD'
+  | 'BURNOUT'
+  | 'EJECTION_CHARGE'
+  | 'STAGE_SEPARATION'
+  | 'APOGEE'
+  | 'RECOVERY_DEVICE_DEPLOYMENT'
+  | 'GROUND_HIT'
+  | 'SIMULATION_END'
+  | 'ALTITUDE'
+  | 'TUMBLE'
+  | 'SIM_WARN'
+  | 'SIM_ABORT'
+  | 'EXCEPTION';
+
 export interface FlightEvent {
-  type: string;
+  type: FlightEventType;
   time: number;
   /** Not unique: unnamed parts share a default name. */
   source?: string;
@@ -677,6 +699,12 @@ export class OpenRocketDesign {
       throw new EngineCallError('setMotorIgnitionById', new Error(`delayS must be finite, got ${delayS}`));
     }
     callEngine('setMotorIgnitionById', () => eng().setMotorIgnitionById(this.handle, componentId, event, delayS));
+  }
+
+  /** Each of the first three stages weighed alone, and its stack's CG, as `RockSimSaver.setStageOverrides` does. */
+  rockSimStageFigures(): { mass: number; stackCg: number }[] {
+    const raw = callEngine('rockSimStageFigures', () => eng().getRockSimStageFigures(this.handle));
+    return parseEnvelope<{ stages: { mass: number; stackCg: number }[] }>('rockSimStageFigures', raw).stages;
   }
 
   staticInfo(): StaticInfo {

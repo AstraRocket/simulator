@@ -6,7 +6,7 @@ import { workInProgress } from '../../src/state/workInProgress';
 
 describe('workInProgress', () => {
   beforeEach(() => {
-    useWorkspaceStore.setState({ simBusy: false, driftSweepRun: null });
+    useWorkspaceStore.setState({ simBusy: false, driftSweepRun: null, motorGuideRun: null });
     useConfirmStore.getState().settle(false);
     usePromptStore.getState().settle(null);
   });
@@ -22,6 +22,11 @@ describe('workInProgress', () => {
 
   it('is true while a drift sweep flies', () => {
     useWorkspaceStore.setState({ driftSweepRun: { simId: 's', done: 0, total: 4 } });
+    expect(workInProgress()).toBe(true);
+  });
+
+  it('is true while a motor guide flies', () => {
+    useWorkspaceStore.setState({ motorGuideRun: { simId: 's', done: 0, total: 40 } });
     expect(workInProgress()).toBe(true);
   });
 

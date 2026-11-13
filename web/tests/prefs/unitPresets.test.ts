@@ -19,6 +19,7 @@ const DESKTOP_METRIC: Partial<Record<Quantity, string>> = {
   temperature: '°C',
   windspeed: 'm/s',
   rollRate: 'r/s',
+  shearModulus: 'GPa',
 };
 
 const DESKTOP_IMPERIAL: Partial<Record<Quantity, string>> = {
@@ -36,6 +37,7 @@ const DESKTOP_IMPERIAL: Partial<Record<Quantity, string>> = {
   temperature: '°F',
   windspeed: 'mph',
   rollRate: 'r/s',
+  shearModulus: 'ksi',
 };
 
 const DEVIATIONS: Partial<Record<Quantity, { metric?: string; imperial?: string; why: string }>> = {

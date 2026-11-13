@@ -85,7 +85,7 @@ describe('the seconds symbol in the configuration editor', () => {
     ];
     for (const cell of cells) {
       const text = render(<>{cell}</>).container.textContent ?? '';
-      expect(text).toMatch(new RegExp(`\\+[\\d.,]+${secondsIn(lang)}`));
+      expect(text).toMatch(new RegExp(`\\+[\\d.,]+ ${secondsIn(lang)}`));
       cleanup();
     }
   });

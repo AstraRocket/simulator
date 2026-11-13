@@ -25,6 +25,9 @@ export const MAX_WIND_SPEED_MS = MAX_WIND_SPEED_MPH * MPH_TO_MS;
 // A field ceiling, not a code limit.
 export const MAX_TURBULENCE_PERCENT = 100;
 
+// m/s². The kernel takes 0 unchecked, and a flight under it never comes down.
+export const MIN_CONSTANT_GRAVITY = 0.1;
+
 export interface LimitViolation {
   field: 'rodAngle' | 'windSpeed';
   // SI: radians for rodAngle, m/s for windSpeed; `limit` likewise.

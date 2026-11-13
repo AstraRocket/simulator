@@ -9,6 +9,9 @@ import {
   tickDigits,
   fmtPercent,
   withUnit,
+  colWithUnit,
+  fmtDateTime,
+  fmtRelativeAge,
 } from '../../src/i18n/format';
 import { NO_VALUE } from '../../src/i18n/noValue';
 import i18n from '../../src/i18n';
@@ -205,5 +208,29 @@ describe('fmtPercent', () => {
 
   it('reads the no-value dash for a figure it cannot show', () => {
     expect(fmtPercent(Number.NaN)).toBe(NO_VALUE);
+  });
+});
+
+describe('colWithUnit', () => {
+  it('puts the unit in parentheses after the heading', () => {
+    expect(colWithUnit('Impulse', 'N·s')).toBe('Impulse (N·s)');
+  });
+});
+
+describe('fmtDateTime', () => {
+  it('formats a stamp in the app language', () => {
+    expect(fmtDateTime(Date.UTC(2026, 10, 11, 12), { dateStyle: 'medium', timeZone: 'UTC' })).toBe('Nov 11, 2026');
+  });
+
+  it('reads a stamp that is not a date as the no-value dash instead of throwing', () => {
+    expect(fmtDateTime(Number.NaN)).toBe(NO_VALUE);
+  });
+});
+
+describe('fmtRelativeAge', () => {
+  it('says just now under a minute, then minutes, then hours', () => {
+    expect(fmtRelativeAge(30_000, 'just now')).toBe('just now');
+    expect(fmtRelativeAge(5 * 60_000, 'just now')).toBe('5 minutes ago');
+    expect(fmtRelativeAge(2 * 3_600_000, 'just now')).toBe('2 hours ago');
   });
 });

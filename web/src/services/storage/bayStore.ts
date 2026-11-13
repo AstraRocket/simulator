@@ -3,16 +3,30 @@ import { walkNodes } from '../../tree/treeWalk';
 import { BAYS_KEY, baysOf, hasBayRecords, isTubeBays, type TubeBays } from '../flight/recoveryBays';
 import { IndexedDbKeyValueStore } from './idbKeyValueStore';
 import type { KeyValueStore } from './keyValueStore';
+import { nsKey } from './storageKeys';
+import { bodyTubeRadius, str } from '../../tree/nodeProps';
+import { partLength } from '../../tree/position';
+import { isRecord } from '../app/numbers';
 
 // Desktop drops the unknown bay element when it saves the .ork, so the browser keeps a copy.
 
-const PREFIX = 'recoveryBays:';
+const PREFIX = nsKey('recoveryBays:');
 
-type BayCopy = Record<string, TubeBays>;
+/** A tube's records with the size they were kept for. */
+interface KeptBays {
+  size: string;
+  bays: TubeBays;
+}
+type BayCopy = Record<string, KeptBays>;
+
+// Default names repeat across designs, so a tube takes records only at the size they were kept for;
+// charges sized for one bay are wrong for another anyway.
+const sizeOf = (tube: ComponentNode): string =>
+  `${(bodyTubeRadius(tube) * 2000).toFixed(1)}x${(partLength(tube) * 1000).toFixed(1)}`;
 
 // Not the part id: ids are new on every load.
 function tubeKey(index: number, tube: ComponentNode): string {
-  return `${index}:${typeof tube.name === 'string' ? tube.name : ''}`;
+  return `${index}:${str(tube, 'name')}`;
 }
 
 const bodyTubes = (tree: RocketTree): ComponentNode[] =>
@@ -22,7 +36,7 @@ export function bayCopyOf(tree: RocketTree): BayCopy {
   const out: BayCopy = {};
   bodyTubes(tree).forEach((tube, i) => {
     const bays = baysOf(tube);
-    if (Object.keys(bays).length) out[tubeKey(i, tube)] = bays;
+    if (Object.keys(bays).length) out[tubeKey(i, tube)] = { size: sizeOf(tube), bays };
   });
   return out;
 }
@@ -30,8 +44,8 @@ export function bayCopyOf(tree: RocketTree): BayCopy {
 export function restoreBays(tree: RocketTree, copy: BayCopy): { tree: RocketTree; restored: number } {
   const wanted = new Map<ComponentNode, TubeBays>();
   bodyTubes(tree).forEach((tube, i) => {
-    const bays = copy[tubeKey(i, tube)];
-    if (bays && !Object.keys(baysOf(tube)).length) wanted.set(tube, bays);
+    const kept = copy[tubeKey(i, tube)];
+    if (kept && kept.size === sizeOf(tube) && !Object.keys(baysOf(tube)).length) wanted.set(tube, kept.bays);
   });
   if (!wanted.size) return { tree, restored: 0 };
   const put = (nodes: ComponentNode[]): ComponentNode[] =>
@@ -43,6 +57,8 @@ export function restoreBays(tree: RocketTree, copy: BayCopy): { tree: RocketTree
     });
   return { tree: { ...tree, components: put(tree.components) }, restored: wanted.size };
 }
+
+const isKept = (v: unknown): v is KeptBays => isRecord(v) && typeof v['size'] === 'string' && isTubeBays(v['bays']);
 
 let kv: KeyValueStore = new IndexedDbKeyValueStore();
 
@@ -61,8 +77,8 @@ export async function savedBays(designName: string): Promise<BayCopy | null> {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
-    const entries = Object.entries(parsed).filter((e): e is [string, TubeBays] => isTubeBays(e[1]));
+    if (!isRecord(parsed)) return null;
+    const entries = Object.entries(parsed).filter((e): e is [string, KeptBays] => isKept(e[1]));
     return entries.length ? Object.fromEntries(entries) : null;
   } catch {
     return null;

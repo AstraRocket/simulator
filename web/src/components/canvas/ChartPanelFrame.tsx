@@ -45,6 +45,16 @@ export function ChartPanelFrame({
 }
 
 /** Goes in `<defs>`. */
+/** A panel's one reading: the figure, then its unit dimmed. */
+export function PanelReading({ text, unit }: { text: string; unit: string }) {
+  return (
+    <>
+      {text}
+      {unit && <span className="ml-0.5 text-[10px] text-ink-faint">{unit}</span>}
+    </>
+  );
+}
+
 export function PanelClip({ id, w, height }: { id: string; w: number; height: number }) {
   return (
     <clipPath id={id}>

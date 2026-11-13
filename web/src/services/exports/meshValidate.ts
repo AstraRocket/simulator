@@ -47,13 +47,19 @@ function countNonFinite(pos: Positions): number {
   return nonFinite;
 }
 
+const scratchAb = new THREE.Vector3();
+const scratchAc = new THREE.Vector3();
+
+export function triangleArea(a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3): number {
+  return scratchAb.subVectors(b, a).cross(scratchAc.subVectors(c, a)).length() * 0.5;
+}
+
 /** One pass over the triangles, gathering what the checks in `validateSolid` need. */
 function surveyTriangles(pos: Positions, idx: THREE.BufferAttribute, areaTol: number) {
   const a = new THREE.Vector3(),
     b = new THREE.Vector3(),
     c = new THREE.Vector3();
-  const ab = new THREE.Vector3(),
-    ac = new THREE.Vector3();
+  const ab = new THREE.Vector3();
 
   let degenerate = 0;
   let repeated = 0;
@@ -74,9 +80,7 @@ function surveyTriangles(pos: Positions, idx: THREE.BufferAttribute, areaTol: nu
     a.fromBufferAttribute(pos, ia);
     b.fromBufferAttribute(pos, ib);
     c.fromBufferAttribute(pos, ic);
-    const area = ab.subVectors(b, a).cross(ac.subVectors(c, a)).length() * 0.5;
-    if (!(area > areaTol)) degenerate++;
-    // `ab` is reused scratch, safe only after the area is taken.
+    if (!(triangleArea(a, b, c) > areaTol)) degenerate++;
     volume6 += a.dot(ab.copy(b).cross(c));
 
     for (const [u, v] of [

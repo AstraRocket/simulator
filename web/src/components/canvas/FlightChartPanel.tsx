@@ -17,7 +17,7 @@ import { PanelHover } from './FlightChartHover';
 import { hoverValue } from './flightChartHoverValue';
 import { NO_VALUE } from '../../i18n/noValue';
 import { polylinePath, areaPath } from '../common/svgPath';
-import { ChartPanelFrame, PanelClip, PanelLines, YEnds } from './ChartPanelFrame';
+import { ChartPanelFrame, PanelClip, PanelLines, PanelReading, YEnds } from './ChartPanelFrame';
 import { token } from '../common/colorTokens';
 import { timeSeriesSummary, peakAcross } from './chartSummary';
 
@@ -113,14 +113,7 @@ export function FlightChartPanel({
         <>
           {showsPeak && <span className="text-[10px] text-ink-faint">{t('flight.peakTag')}</span>}
           <span className="text-xs font-semibold tabular-nums text-ink-strong">
-            {shown == null ? (
-              NO_VALUE
-            ) : (
-              <>
-                {fmtNum(shown, digits)}
-                {unit && <span className="ml-0.5 text-[10px] text-ink-faint">{unit}</span>}
-              </>
-            )}
+            {shown == null ? NO_VALUE : <PanelReading text={fmtNum(shown, digits)} unit={unit} />}
           </span>
         </>
       }

@@ -166,6 +166,8 @@ export function TreeSchematic({
     bottom: rulers.bottom ? RULER_H + 4 : 8,
   };
 
+  const rulerFrame = { rulers, w, h, zoom, ctxX0: ctx.x0, viewScale, rTop, rBot };
+
   const surface = zoomSurfaceProps(zoom, setZoom, w, t('schematic.sideAria'), t('schematic.panHint'));
   return (
     <div ref={wrapRef} style={{ position: 'relative', ...(fillHeight ? { height: '100%' } : null) }}>
@@ -183,33 +185,13 @@ export function TreeSchematic({
         onPointerCancel={endDrag}
       >
         <SchematicDefs clipDefs={clipDefs} />
-        {showGrid && (
-          <SchematicGrid
-            rulers={rulers}
-            w={w}
-            h={h}
-            zoom={zoom}
-            ctxX0={ctx.x0}
-            viewScale={viewScale}
-            rTop={rTop}
-            rBot={rBot}
-          />
-        )}
+        {showGrid && <SchematicGrid {...rulerFrame} />}
         <g transform={`translate(${zoom.x} ${zoom.y}) scale(${zoom.k})`}>
           {shapes}
           {overlay}
           {wires}
         </g>
-        <SchematicRulerLayer
-          rulers={rulers}
-          w={w}
-          h={h}
-          zoom={zoom}
-          ctxX0={ctx.x0}
-          viewScale={viewScale}
-          rTop={rTop}
-          rBot={rBot}
-        />
+        <SchematicRulerLayer {...rulerFrame} />
         {/* After the rulers, so a ruler backing never covers them. */}
         <StabilityOverlay
           info={info}

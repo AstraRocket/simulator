@@ -3,20 +3,9 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Dialog } from '../common/Dialog';
-import { CatalogLoading, CatalogError } from '../common/CatalogLoading';
+import { MotorCatalogGate } from './MotorCatalogGate';
 import { useCatalog } from './useCatalog';
-import {
-  ClassChips,
-  FitsMount,
-  ImpulseRange,
-  ManufacturerMenu,
-  OopFilter,
-  PerfFilters,
-  PluggedFilter,
-  SparkyFilter,
-} from './MotorFilterBar';
 import { useMotorFilter } from './useMotorFilter';
-import { MotorSearch } from './MotorPanelParts';
 import { useUnits } from '../../prefs/useUnits';
 import { useLauncherT } from '../common/useLauncher';
 import { useSettings } from '../../state/useSettings';
@@ -43,14 +32,22 @@ import { warningText } from '../../services/app/warningText';
 import { partName } from '../config/partName';
 import { useLiftoffFields } from './useLiftoffFields';
 import { guideVerdict, verdictRank, type GuideIssue, type GuideVerdict } from './motorGuideIssues';
-import { fmtNum } from '../../i18n/format';
+import { colWithUnit, fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { motorGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
 import { useIsDesktop } from '../common/useMediaQuery';
-import { GuideResults, GuideToolbar, GuideUseButton, type GuideCol, type GuideSort } from './GuideResults';
+import {
+  GuideFilterPanel,
+  GuideResults,
+  GuideToolbar,
+  GuideUseButton,
+  type GuideCol,
+  type GuideSort,
+} from './GuideResults';
 import { motorCols, sortGuideRows, useGuideCandidates } from './guideRows';
+import { toggled } from '../../services/app/collections';
 
 export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: () => void }) {
   const { t } = useTranslation();
@@ -110,9 +107,6 @@ export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: (
   );
 }
 
-const btn =
-  'rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-line/10 disabled:cursor-not-allowed disabled:opacity-40';
-
 function GuideBody({
   simId,
   mountId,
@@ -148,69 +142,27 @@ function GuideBody({
   const runMotorGuide = useWorkspaceStore((s) => s.runMotorGuide);
   const cancelMotorGuide = useWorkspaceStore((s) => s.cancelMotorGuide);
   const busy = run !== null;
-  const tooMany = flying.length > MAX_GUIDE_MOTORS;
   const desktop = useIsDesktop();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={`space-y-2 border-b border-line/10 p-3 ${shown && !desktop ? 'hidden' : ''}`}>
-        <div className="flex flex-wrap items-center gap-2">
-          {mountPicker}
-          <MotorSearch value={f.text} onChange={f.setText} className="min-w-[140px] py-1.5" />
-          <ManufacturerMenu manufacturers={f.manufacturers} mfrs={f.mfrs} onChange={f.setMfrs} />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <ClassChips classes={f.classes} cls={f.cls} onChange={f.setCls} />
-          <ImpulseRange imp={f.imp} onChange={f.setImp} />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {f.mount && <FitsMount mount={f.mount} fits={f.fits} onChange={f.setFits} />}
-          <PluggedFilter plugged={f.plugged} onChange={f.setPlugged} />
-          <SparkyFilter value={f.sparky} onChange={f.setSparky} />
-          <OopFilter on={f.hideOop} onChange={f.setHideOop} />
-        </div>
-        <PerfFilters perf={f.perf} onChange={f.setPerf} onClear={f.clearPerf} fields={f.perfFields} />
+      <GuideFilterPanel
+        filter={f}
+        lead={mountPicker}
+        hidden={shown !== null && !desktop}
+        run={run}
+        onFly={() => fireAction(runMotorGuide(simId, mountId, flying))}
+        onCancel={cancelMotorGuide}
+        flying={flying.length}
+        max={MAX_GUIDE_MOTORS}
+        costText={t('guide.cost')}
+        leftOut={leftOut}
+        loading={loading}
+        failed={!!error}
+      />
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {busy ? (
-            <>
-              <button onClick={cancelMotorGuide} className={`${btn} bg-raised text-ink hover:bg-elevated`}>
-                {t('common.cancel')}
-              </button>
-              <span className="text-xs tabular-nums text-ink-muted" role="status">
-                {t('guide.progress', { done: run.done, total: run.total })}
-              </span>
-            </>
-          ) : (
-            <button
-              onClick={() => fireAction(runMotorGuide(simId, mountId, flying))}
-              disabled={loading || !!error || flying.length === 0 || tooMany}
-              className={`${btn} bg-accent-600 text-on-accent hover:bg-accent-700`}
-            >
-              {tooMany || flying.length === 0 ? t('guide.flyIdle') : t('guide.fly', { count: flying.length })}
-            </button>
-          )}
-          {!busy && !loading && (
-            <span className="text-xs">
-              <span className={tooMany ? 'text-warn-400' : 'text-ink-faint'}>
-                {tooMany ? t('guide.tooMany', { count: flying.length, max: MAX_GUIDE_MOTORS }) : t('guide.cost')}
-              </span>
-              {leftOut > 0 && (
-                <span className="text-ink-faint">{` ${t('guide.noCurveLeftOut', { count: leftOut })}`}</span>
-              )}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {error ? (
-        <div className="grid min-h-0 flex-1 place-items-center p-6">
-          <CatalogError message={`${t('catalog.failedMotors')} ${error}`} onRetry={retry} />
-        </div>
-      ) : loading ? (
-        <div className="grid min-h-0 flex-1 place-items-center p-6">
-          <CatalogLoading name="motors" label={t('motorDlg.loadingCatalog')} />
-        </div>
+      {error || loading ? (
+        <MotorCatalogGate loading={loading} error={error} onRetry={retry} centered />
       ) : shown ? (
         <GuideTable simId={simId} guide={shown} stale={stale} cards={!desktop} onClose={onClose} />
       ) : (
@@ -245,13 +197,7 @@ export function CandidateList({
   const u = useUnits();
   const ticked = candidates.filter((m) => !dropped.has(keyOf(m))).length;
   const all = candidates.length > 0 && ticked === candidates.length;
-  const toggle = (m: CatalogMotor) => {
-    const next = new Set(dropped);
-    const k = keyOf(m);
-    if (next.has(k)) next.delete(k);
-    else next.add(k);
-    onDropped(next);
-  };
+  const toggle = (m: CatalogMotor) => onDropped(toggled(dropped, keyOf(m)));
   const toggleAll = () => onDropped(all ? new Set(candidates.map(keyOf)) : new Set());
   const box = 'accent-accent-500 disabled:opacity-30';
   const pick = 'rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-elevated disabled:opacity-40';
@@ -346,16 +292,14 @@ export function CandidateList({
             <th scope="col" className="px-2 py-1.5 text-center font-medium">
               {t('dash.colClass')}
             </th>
-            <th
-              scope="col"
-              className="px-2 py-1.5 text-right font-medium"
-            >{`${t('dash.colImpulse')} ${u.sym('impulse')}`}</th>
-            <th
-              scope="col"
-              className="hidden px-2 py-1.5 text-right font-medium sm:table-cell"
-            >{`${t('dash.colAvg')} ${u.sym('force')}`}</th>
+            <th scope="col" className="px-2 py-1.5 text-right font-medium">
+              {colWithUnit(t('dash.colImpulse'), u.sym('impulse'))}
+            </th>
             <th scope="col" className="hidden px-2 py-1.5 text-right font-medium sm:table-cell">
-              {t('dash.colBurn')}
+              {colWithUnit(t('dash.colAvg'), u.sym('force'))}
+            </th>
+            <th scope="col" className="hidden px-2 py-1.5 text-right font-medium sm:table-cell">
+              {t('guide.colBurn')}
             </th>
             <th scope="col" className="px-2 py-1.5 text-center font-medium">
               {t('dash.colDelays')}
@@ -448,7 +392,7 @@ function GuideTable({
     return sortGuideRows(guide.rows, val, sort.desc);
   }, [guide.rows, sort, verdicts]);
 
-  const colLabel = (c: GuideCol<GuideRow>) => (c.quantity ? `${lt(c.label)} (${u.sym(c.quantity)})` : lt(c.label));
+  const colLabel = (c: GuideCol<GuideRow>) => (c.quantity ? colWithUnit(lt(c.label), u.sym(c.quantity)) : lt(c.label));
   const pickButton = (r: GuideRow, name: string, size: string) => (
     <GuideUseButton
       name={name}
@@ -466,7 +410,7 @@ function GuideTable({
     return (
       <span
         className={clean ? 'text-ok-400' : 'text-warn-400'}
-        title={r.warnings.map((w) => warningText(w.message, lt)).join('\n') || undefined}
+        title={r.warnings.map((w) => warningText(w.message, lt, (q, si) => u.fmtSym(q, si))).join('\n') || undefined}
       >
         {clean ? t('guide.ok') : verdictText(v, t)}
       </span>

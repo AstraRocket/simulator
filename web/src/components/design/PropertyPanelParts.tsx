@@ -7,23 +7,18 @@ const ComponentPicker = lazyNamed(() => import('./ComponentPicker'), 'ComponentP
 const SavePartButton = lazyNamed(() => import('./SavePartButton'), 'SavePartButton');
 import { LazyBoundary } from '../common/ErrorBoundary';
 import { lazyNamed } from '../common/lazyNamed';
+import { Notice } from '../common/Notice';
 import { useUnits } from '../../prefs/useUnits';
-import { num } from '../../tree/nodeProps';
-import { tubeFinMaxCount, tubeFinMaxRadius } from '../../tree/tubefins';
+import { tubeFinCollision } from '../../tree/tubefins';
 import { FieldSection } from './DimensionFields';
 import { sectionFields } from './fieldHelpers';
-import { MaterialPicker } from './MaterialPicker';
+import { MaterialSlotPicker } from './MaterialSection';
+import { FILLET_MATERIAL_KEYS } from '../../services/design/materialSlots';
 import { PropSection } from './PropSection';
 import { PanelButton } from './PanelButton';
+import { str } from '../../tree/nodeProps';
 
 type NodePatch = Partial<ComponentNode>;
-
-// The 1e-9 lets an exactly-touching (legal) set through.
-function tubeFinsCollide(node: ComponentNode, parentRadius: number): boolean {
-  if (!(parentRadius > 0)) return false;
-  const max = tubeFinMaxRadius(num(node, 'finCount'), parentRadius);
-  return max !== null && num(node, 'outerRadius') > max + 1e-9;
-}
 
 export function PanelHeader({
   label,
@@ -101,7 +96,7 @@ export function PartSection({
         <span className="shrink-0 text-xs text-ink-muted">{t('prop.name')}</span>
         <input
           type="text"
-          value={typeof node.name === 'string' ? node.name : ''}
+          value={str(node, 'name')}
           placeholder={label}
           onChange={(e) => onChange({ name: e.target.value })}
           onBlur={onCommit}
@@ -160,19 +155,12 @@ export function FilletSection({
       onChange={onChange}
       onCommit={onCommit}
     >
-      <MaterialPicker
+      <MaterialSlotPicker
+        node={node}
+        keys={FILLET_MATERIAL_KEYS}
         use="fillet"
         label={t('material.fillet')}
-        value={typeof node['filletMaterialName'] === 'string' ? node['filletMaterialName'] : undefined}
-        density={typeof node['filletDensity'] === 'number' ? node['filletDensity'] : undefined}
-        onChange={(name, d, group) =>
-          commitChange({
-            filletMaterialName: name,
-            filletDensity: d || undefined,
-            // Without the group the .ork writer files it under PaperProducts (the Cardboard fallback).
-            filletMaterialGroup: (name && group) || undefined,
-          })
-        }
+        onCommitChange={commitChange}
       />
     </FieldSection>
   );
@@ -182,15 +170,16 @@ export function FilletSection({
 export function TubeFinCollision({ node, parentRadius }: { node: ComponentNode; parentRadius: number }) {
   const { t } = useTranslation();
   const u = useUnits();
-  if (node.type !== 'tubefinset' || !tubeFinsCollide(node, parentRadius)) return null;
+  const collision = node.type === 'tubefinset' ? tubeFinCollision(node, parentRadius) : null;
+  if (!collision) return null;
   return (
-    <p className="rounded-md bg-warn-500/10 px-2 py-1.5 text-[11px] leading-snug text-warn-300 ring-1 ring-warn-500/30">
+    <Notice tone="warn" size="fine">
       {t('prop.tubeFinsCollide', {
-        max: tubeFinMaxCount(num(node, 'outerRadius'), parentRadius),
+        max: collision.maxCount,
         // Doubled: the field shows a diameter.
-        diameter: u.fmt('length', 2 * (tubeFinMaxRadius(num(node, 'finCount'), parentRadius) ?? 0)),
+        diameter: u.fmt('length', 2 * collision.maxRadius),
         unit: u.sym('length'),
       })}
-    </p>
+    </Notice>
   );
 }

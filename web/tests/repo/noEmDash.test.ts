@@ -28,6 +28,7 @@ const skipped = [
   '/engine-java/build',
   '/engine-java/reference/build',
   '/engine-java/.gradle',
+  '/engine-java/bin',
 ];
 
 const walk = (dir: string, keep: (path: string) => boolean, out: string[] = []): string[] => {
@@ -43,6 +44,8 @@ const walk = (dir: string, keep: (path: string) => boolean, out: string[] = []):
 
 const anyFile = (path: string): boolean => !isForeignLocale(path);
 const markdown = (path: string): boolean => path.endsWith('.md');
+// Images and the exported PDF are not authored text.
+const authored = (path: string): boolean => !/\.(?:png|ico|xcf|pdf)$/.test(path);
 
 const shallow = (dir: string, keep: (path: string) => boolean): string[] =>
   readdirSync(dir)
@@ -67,7 +70,9 @@ const files = [
   ...tree(`${repo}.github`, anyFile),
   ...tree(`${repo}engine-java`, anyFile),
   ...tree(`${repo}docs`, markdown),
-  ...top(repo.slice(0, -1), (f) => markdown(f) || /\/(\.[^/]+|cspell\.json)$/.test(f)),
+  ...tree(`${repo}onshape`, anyFile),
+  ...tree(`${repo}design`, authored),
+  ...top(repo.slice(0, -1), (f) => markdown(f) || /\/(\.[^/]+|cspell\.json|[^/]+\.(?:sh|bat))$/.test(f)),
   ...tree(`${repo}.cspell`, anyFile),
 ];
 
@@ -111,6 +116,12 @@ describe('the em dash', () => {
     expect(files.some((f) => f.endsWith('/web/vitest.config.ts'))).toBe(true);
     expect(files.some((f) => f.endsWith('/.gitattributes'))).toBe(true);
     expect(files.some((f) => f.endsWith('/CODE_OF_CONDUCT.md'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/onshape/converter/component_sketches.fs'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/design/onshape-sheet/build.mjs'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/design/icon.svg'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/design/icon.png'))).toBe(false);
+    expect(files.some((f) => f.endsWith('/push.sh'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/version.bat'))).toBe(true);
   });
 
   it('is caught written as an entity, outside a Markdown code span', () => {

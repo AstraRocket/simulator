@@ -117,11 +117,12 @@ describe('humidity, gravity and the Earth model round-trip through .ork', () => 
     expect(exportOrk({ name: 'Opts', tree, launch: base })).not.toContain('<gravity');
   });
 
-  // 24.12 misreads upstream's <gravity><value> but silently skips unknown <conditions> children.
-  it('writes constant gravity as the bare pair desktop skips', () => {
+  // OpenRocketSaver.java:402-409 writes this element, and GravityHandler reads only it.
+  it('writes constant gravity as the element desktop writes and reads', () => {
     const xml = exportOrk({ name: 'Opts', tree, launch: { ...base, gravityModel: 'constant', constantGravity: 9.81 } });
-    expect(xml).toMatch(/<gravitymodel>constant<\/gravitymodel>\s*<constantgravity>9\.81<\/constantgravity>/);
-    expect(xml).not.toContain('<gravity ');
+    expect(xml).toMatch(/<gravity model="constant">\s*<value>9\.81<\/value>\s*<\/gravity>/);
+    expect(xml).not.toContain('<gravitymodel>');
+    expect(xml).not.toContain('<constantgravity>');
   });
 
   it("reads a desktop file's gravity element (GravityHandler)", () => {

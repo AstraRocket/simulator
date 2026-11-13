@@ -2,12 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18nGlobal, { isLanguageReady, languageReady } from '../i18n';
 import { useWorkspaceStore, selectConfig, saveFailure, workspaceSnapshot, type WorkspaceState } from './store';
-import { simPrefsOf } from './workspaceSelectors';
-import { currentAutosaveToken, markWritten, recordWrite, savesHeld, unchangedSinceWrite } from './writtenWorkspace';
+import { firstSimName, simPrefsOf } from './workspaceSelectors';
+import {
+  currentAutosaveToken,
+  markWritten,
+  nothingToWrite,
+  savesHeld,
+  unchangedSinceWrite,
+  writeWorkspace,
+} from './writtenWorkspace';
 import { setKernelLengthUnit, type RocketTree } from '../engine/openRocketEngine';
 
 import { useEngineStore } from './engineStore';
-import { getWorkspaceStore } from '../services/storage/workspaceStore';
+import { getWorkspaceStore, pickWorkspace } from '../services/storage/workspaceStore';
+import { useShallow } from 'zustand/react/shallow';
 import { onStorageDegraded } from '../services/storage/idbKeyValueStore';
 import { requestPersistentStorage } from '../services/storage/persistStorage';
 import { computeStaticInfo, buildKey } from '../services/design/buildRocket';
@@ -36,7 +44,7 @@ function nameDefaultDesign(boot: Boot): void {
   if (!stage || !sim) return;
   const name = defaultDesignName();
   const stageName = defaultStageName(0);
-  const simName = i18nGlobal.t('sims.untitled', { n: 1 });
+  const simName = firstSimName();
   if (s.tree.name === name && stage.name === stageName && sim.name === simName) return;
   useWorkspaceStore.setState({
     tree: { ...s.tree, name, components: [{ ...stage, name: stageName }, ...rest] },
@@ -46,12 +54,8 @@ function nameDefaultDesign(boot: Boot): void {
 }
 
 function persist(fields: Parameters<typeof workspaceSnapshot>[0]): void {
-  getWorkspaceStore()
-    .save(workspaceSnapshot(fields))
-    .then(() => {
-      recordWrite(fields, useWorkspaceStore.getState());
-      void requestPersistentStorage();
-    })
+  writeWorkspace(fields, useWorkspaceStore.getState)
+    .then(() => void requestPersistentStorage())
     .catch((e: unknown) => {
       const { msg, kind } = saveFailure(e);
       useWorkspaceStore.getState().setStorageWarning(msg, kind);
@@ -115,10 +119,7 @@ export function useWorkspaceEffects() {
   }, []);
 
   const tree = useWorkspaceStore((s) => s.tree);
-  const sims = useWorkspaceStore((s) => s.sims);
-  const activeId = useWorkspaceStore((s) => s.activeId);
-  const configs = useWorkspaceStore((s) => s.configs);
-  const loadedMeta = useWorkspaceStore((s) => s.loadedMeta);
+  const written = useWorkspaceStore(useShallow(pickWorkspace));
   const quietReplace = useWorkspaceStore((s) => s.quietReplace);
   // A string because zustand v5 compares selector results by identity.
   const buildInputs = useWorkspaceStore((s) => buildKey(s.tree, selectConfig(s)));
@@ -136,10 +137,10 @@ export function useWorkspaceEffects() {
     const token = currentAutosaveToken();
     const id = setTimeout(() => {
       if (token !== currentAutosaveToken() || savesHeld()) return;
-      persist({ tree, sims, configs, activeId, loadedMeta });
+      persist(written);
     }, 500);
     return () => clearTimeout(id);
-  }, [tree, sims, configs, activeId, loadedMeta, quietReplace]);
+  }, [written, quietReplace]);
 
   // IndexedDB blocked means the 5 MB localStorage cap.
   useEffect(
@@ -157,19 +158,16 @@ export function useWorkspaceEffects() {
   useEffect(() => {
     const snapshot = () => workspaceSnapshot(useWorkspaceStore.getState());
     const flush = () => {
-      if (!hydrated.current || savesHeld() || unchangedSinceWrite(useWorkspaceStore.getState())) return;
+      if (!hydrated.current || nothingToWrite(useWorkspaceStore.getState())) return;
       const store = getWorkspaceStore();
       if (store.saveSync) store.saveSync(snapshot());
       else store.save(snapshot()).catch(() => {});
     };
     const onHidden = () => {
-      if (!hydrated.current || savesHeld() || document.visibilityState !== 'hidden') return;
+      if (!hydrated.current || document.visibilityState !== 'hidden') return;
       const fields = useWorkspaceStore.getState();
-      if (unchangedSinceWrite(fields)) return;
-      getWorkspaceStore()
-        .save(workspaceSnapshot(fields))
-        .then(() => recordWrite(fields, useWorkspaceStore.getState()))
-        .catch(() => {});
+      if (nothingToWrite(fields)) return;
+      writeWorkspace(fields, useWorkspaceStore.getState).catch(() => {});
       flush();
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {

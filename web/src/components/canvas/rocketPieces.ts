@@ -1,36 +1,20 @@
 import * as THREE from 'three';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { bodyTubeRadius, countOf, finCant, noseConeAftRadius, num, numOpt } from '../../tree/nodeProps';
-import { axialChain, motorSeatStart, partLength } from '../../tree/position';
+import { bodyTubeRadius, countOf, finCant, noseConeAftRadius, num } from '../../tree/nodeProps';
+import { axialChain, motorSeatStart, partLength, podPlacement } from '../../tree/position';
 import { FIN_DEFAULTS, KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import {
   FREEFORM_FALLBACK,
   bodyRadiusAt,
-  finMount,
+  finPlacement,
   finPointsWithRoot,
   finRootChord,
   finSpan,
-  mountRadius,
-  type FinParent,
 } from '../../tree/finPlanform';
-import {
-  assemblyBoundingRadius,
-  assemblyChainLength,
-  assemblyParentRadius,
-  isAssembly,
-  resolveAssemblyRadius,
-  ringInstanceOffsets,
-} from '../../tree/assembly.js';
+import { assemblyBoundingRadius, isAssembly, ringInstanceOffsets } from '../../tree/assembly.js';
 import { lineInstances, placementOffsets } from '../../tree/placement';
-import { isPlanarFinSet, tubeFinRadius } from '../../tree/tubefins.js';
-import {
-  hasShoulder,
-  nodeShape,
-  outerProfile,
-  profileEnds,
-  shouldersOf,
-  type Shoulder,
-} from '../../tree/shapeProfile.js';
+import { isPlanarFinSet, tubeFinSeat } from '../../tree/tubefins.js';
+import { hasShoulder, nodeOuterProfile, profileEnds, shouldersOf } from '../../tree/shapeProfile.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DEFAULT_PART_COLORS, type PartPalette } from '../../services/design/partColors';
 import { figureLooks, partLooks, type Look } from '../../services/design/appearance';
@@ -94,29 +78,9 @@ const lathe = (pts: THREE.Vector2[]): THREE.BufferGeometry | null =>
 
 const PACKED_TYPES = MASS_OBJECT_TYPES as ReadonlySet<string>;
 
-const present = (s: Shoulder): Shoulder | undefined => (hasShoulder(s) ? s : undefined);
-
 /** Lathe revolves around +Y; the radius floor keeps the tip from degenerating. */
-function lathePoints(
-  shape: string,
-  param: number | undefined,
-  length: number,
-  foreR: number,
-  aftR: number,
-  clipped?: boolean,
-  fore?: Shoulder,
-  aft?: Shoulder,
-): THREE.Vector2[] {
-  const profile = outerProfile(shape, param, length, foreR, aftR, undefined, undefined, clipped);
-  // Clamped: a shoulder wider than its part would draw as a flange.
-  if (fore) {
-    const r = Math.min(fore.radius, foreR);
-    profile.unshift([-fore.length, r], [0, r]);
-  }
-  if (aft) {
-    const r = Math.min(aft.radius, aftR);
-    profile.push([length, r], [length + aft.length, r]);
-  }
+function lathePoints(n: ComponentNode, length: number, foreR: number, aftR: number): THREE.Vector2[] {
+  const profile = nodeOuterProfile(n, length, foreR, aftR);
   return profile.map(([x, r]) => new THREE.Vector2(Math.max(0.0001, r), x));
 }
 
@@ -275,8 +239,7 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
   const count = countOf(child, 'finCount', 3);
   const thickness = num(child, 'thickness', FIN_DEFAULTS.thickness);
   // Body radius under the fin front (`FinSet.getFinFront`), not the widest.
-  const fp: FinParent = finMount(child, parent, pStart) ?? pRadius;
-  const R = mountRadius(fp) ?? pRadius;
+  const { fp, R } = finPlacement(child, parent, pStart, pRadius);
   // A freeform fin's span reads its parent (`FreeformFinSet.getSpan`).
   const height = finSpan(child, fp);
   const chord = finRootChord(child);
@@ -338,10 +301,8 @@ const surfaceAt = ({ parent, pStart, pRadius }: PieceParent, x: number): number 
 
 function addTubeFins(b: PieceBuild, child: ComponentNode, at: PieceParent) {
   const count = countOf(child, 'finCount', 6);
-  const len = num(child, 'length', KERNEL_DEFAULTS.tubefinset.length);
-  const start = axialStart(child, len, at.pStart, at.pLen);
-  const R = surfaceAt(at, start);
-  const rt = tubeFinRadius(child, R);
+  const seat = tubeFinSeat(child, at.pStart, at.pLen, (o) => surfaceAt(at, at.pStart + o));
+  const { length: len, start, bodyRadius: R, tubeRadius: rt } = seat;
   const wall = Math.min(num(child, 'thickness', 0.0005), rt * 0.45);
   b.maxR = Math.max(b.maxR, R + 2 * rt);
   for (const { angle } of ringInstanceOffsets(count, 0, num(child, 'rotation', 0))) {
@@ -367,7 +328,7 @@ function addFairing(b: PieceBuild, child: ComponentNode, at: PieceParent) {
 function addLaunchLug(b: PieceBuild, child: ComponentNode, at: PieceParent) {
   const len = num(child, 'length', KERNEL_DEFAULTS.launchlug.length);
   const r = num(child, 'outerRadius', KERNEL_DEFAULTS.launchlug.outerRadius);
-  const ang = num(child, 'angleOffset', Math.PI);
+  const ang = num(child, 'angleOffset', KERNEL_DEFAULTS.launchlug.angleOffset);
   const start = axialStart(child, len, at.pStart, at.pLen);
   const rad = surfaceAt(at, start) + r;
   const wall = num(child, 'thickness', KERNEL_DEFAULTS.launchlug.thickness);
@@ -385,7 +346,7 @@ function addLaunchLug(b: PieceBuild, child: ComponentNode, at: PieceParent) {
 function addRailButton(b: PieceBuild, child: ComponentNode, at: PieceParent) {
   // The kernel treats it as 0-long, so the cylinder is centered on the station.
   const { diameter: dia, reach } = railButtonSize(child);
-  const ang = num(child, 'angleOffset', Math.PI);
+  const ang = num(child, 'angleOffset', KERNEL_DEFAULTS.railbutton.angleOffset);
   const station = axialStart(child, 0, at.pStart, at.pLen);
   const R = surfaceAt(at, station);
   const rad = R + reach / 2;
@@ -424,18 +385,13 @@ function addInnerTube(b: PieceBuild, child: ComponentNode, { pStart, pLen, xform
 }
 
 function addAssembly(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, xform }: PieceParent) {
-  const podChain = child.children ?? [];
-  const podLen = assemblyChainLength(child);
-  const podRadius = resolveAssemblyRadius(child, assemblyParentRadius(parent));
-  const podStart = axialStart(child, podLen, pStart, pLen);
-  const count = countOf(child, 'instanceCount', 2);
-  const angleOffset = num(child, 'angleOffset', 0);
-  b.maxR = Math.max(b.maxR, podRadius + assemblyBoundingRadius(child));
-  for (const off of ringInstanceOffsets(count, podRadius, angleOffset)) {
+  const pod = podPlacement(child, parent, pStart, pLen);
+  b.maxR = Math.max(b.maxR, pod.radius + assemblyBoundingRadius(child));
+  for (const off of pod.copies) {
     const m = new THREE.Matrix4()
       .makeRotationX(off.angle)
-      .multiply(new THREE.Matrix4().makeTranslation(0, podRadius, 0));
-    addChain(b, podChain, xform ? new THREE.Matrix4().copy(xform).multiply(m) : m, podStart);
+      .multiply(new THREE.Matrix4().makeTranslation(0, pod.radius, 0));
+    addChain(b, child.children ?? [], xform ? new THREE.Matrix4().copy(xform).multiply(m) : m, pod.start);
   }
 }
 
@@ -516,22 +472,43 @@ function placeLathe(
   );
 }
 
+/**
+ * Each shoulder is its own tube with its own wall, and a capped one is closed by a disc of that wall at
+ * its free end, where the kernel weighs the cap. As desktop's `TransitionExporter.addShoulder`, a filled
+ * part's shoulder is solid.
+ */
+function addShoulders(
+  b: PieceBuild,
+  n: ComponentNode,
+  x: number,
+  len: number,
+  ends: { fore: number; aft: number },
+  xform: THREE.Matrix4 | undefined,
+) {
+  const sides = shouldersOf(n);
+  for (const side of ['fore', 'aft'] as const) {
+    const sh = sides[side];
+    if (!hasShoulder(sh)) continue;
+    // Clamped: a shoulder wider than its part would draw as a flange.
+    const r = Math.min(sh.radius, ends[side]);
+    const bore = n['filled'] === true ? 0 : Math.max(0, r - sh.thickness);
+    const start = side === 'fore' ? x - sh.length : x + len;
+    const looks = nodeLooks(n, b.palette);
+    place(b, `shoulder${b.k++}`, annulusGeometry(r, bore, sh.length), looks, [start, 0, 0], undefined, xform, true);
+    if (sh.capped && bore > 0) {
+      const cap = Math.min(sh.thickness, sh.length);
+      const at = side === 'fore' ? start : start + sh.length - cap;
+      place(b, `cap${b.k++}`, annulusGeometry(bore, 0, cap), looks, [at, 0, 0], undefined, xform, true);
+    }
+  }
+}
+
 function addNoseCone(b: PieceBuild, n: ComponentNode, x: number, len: number, xform: THREE.Matrix4 | undefined) {
   const R = noseConeAftRadius(n);
-  const shapeName = nodeShape(n);
   const ends = profileEnds(n);
-  const shoulders = shouldersOf(n);
-  const pts = lathePoints(
-    shapeName,
-    numOpt(n, 'shapeParameter'),
-    len,
-    ends.fore,
-    ends.aft,
-    undefined,
-    present(shoulders.fore),
-    present(shoulders.aft),
-  );
+  const pts = lathePoints(n, len, ends.fore, ends.aft);
   placeLathe(b, `nose${b.k++}`, pts, n, x, xform);
+  addShoulders(b, n, x, len, ends, xform);
   b.maxR = Math.max(b.maxR, R);
   addChildren(b, { parent: n, pStart: x, pLen: len, pRadius: R, xform });
 }
@@ -549,18 +526,9 @@ function addBodyTube(b: PieceBuild, n: ComponentNode, x: number, len: number, xf
 
 function addTransition(b: PieceBuild, n: ComponentNode, x: number, len: number, xform: THREE.Matrix4 | undefined) {
   const { fore: rf, aft: ra } = profileEnds(n);
-  const shapeName = nodeShape(n);
-  const pts = lathePoints(
-    shapeName,
-    numOpt(n, 'shapeParameter'),
-    len,
-    rf,
-    ra,
-    typeof n['clipped'] === 'boolean' ? n['clipped'] : undefined,
-    present(shouldersOf(n).fore),
-    present(shouldersOf(n).aft),
-  );
+  const pts = lathePoints(n, len, rf, ra);
   placeLathe(b, `trans${b.k++}`, pts, n, x, xform);
+  addShoulders(b, n, x, len, { fore: rf, aft: ra }, xform);
   b.maxR = Math.max(b.maxR, rf, ra);
   addChildren(b, { parent: n, pStart: x, pLen: len, pRadius: Math.max(rf, ra), xform });
 }

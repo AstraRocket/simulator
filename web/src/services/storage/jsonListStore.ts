@@ -1,12 +1,5 @@
 import type { KeyValueStore } from './keyValueStore';
-import { errorText, type Translate } from '../../i18n/keyedError';
-
-/** A token for the UI to map, not a message. */
-const WRITE_REFUSED = 'storage-full';
-
-export function listWriteErrorText(e: unknown, t: Translate): string {
-  return e instanceof Error && e.message === WRITE_REFUSED ? t('storage.writeRefused') : errorText(e, t);
-}
+import { KeyedError } from '../../i18n/keyedError';
 
 export function parseJsonList<T>(raw: string | null, isItem: (v: unknown) => v is T): T[] {
   if (!raw) return [];
@@ -42,7 +35,8 @@ export class JsonListStore<T> {
       });
       return JSON.stringify([...next, ...others]);
     });
-    if (!ok) throw new Error(WRITE_REFUSED);
+    // Keyed, so every dialog that shows it through `errorText` gets the user's language.
+    if (!ok) throw new KeyedError('storage.writeRefused');
   }
 
   private foreignRows(raw: string | null): unknown[] {

@@ -32,7 +32,7 @@ import java.util.List;
  * every simulation's conditions.
  *
  * The part fields are read by the bridge's own `api.ComponentFields`, compiled
- * against this release, so the desktop and the app's kernel are asked the same
+ * against this build, so the desktop and the app's kernel are asked the same
  * questions through the same getters. `scripts/check-desktop-fields.mjs`
  * compares the two.
  *
@@ -188,6 +188,8 @@ public class OrkFields {
                     .append(",\"pressure\":").append(num(o.getLaunchPressure()))
                     .append(",\"timeStep\":").append(num(o.getTimeStep()))
                     .append(",\"maxTime\":").append(num(o.getMaxSimulationTime()))
+                    .append(",\"gravityModel\":").append(quote(o.getGravityModelType().name()))
+                    .append(",\"constantGravity\":").append(num(o.getConstantGravity()))
                     .append(",\"windModel\":").append(quote(o.getWindModelType().name()))
                     .append(",\"windAverage\":").append(num(avg.getAverage()))
                     .append(",\"windStdDev\":").append(num(avg.getStandardDeviation()))

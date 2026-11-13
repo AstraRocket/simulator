@@ -1,10 +1,12 @@
 import { useTranslation, Trans } from 'react-i18next';
-import { appName, APP_VERSION, CONTRIBUTORS_URL, isPreRelease, UPSTREAM } from '../../services/app/appInfo';
-import { catalogInfo, fetchCatalog, type CatalogInfo } from '../../services/app/remoteData';
+import { appName, APP_VERSION, CONTRIBUTORS_URL, isPreRelease, LOGO_URL, UPSTREAM } from '../../services/app/appInfo';
+import { fetchCatalog } from '../../services/app/remoteData';
+import { useCatalogInfo } from '../sim/useCatalogInfo';
 import { fmtNum } from '../../i18n/format';
 import { Dialog } from '../common/Dialog';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { useAsyncLoad } from '../common/useAsyncLoad';
+import { Notice } from '../common/Notice';
 
 interface Contributor {
   login: string;
@@ -32,14 +34,6 @@ function useContributors(): Contributor[] {
   return data?.contributors ?? [];
 }
 
-function useCatalogInfo(): { motors?: CatalogInfo; components?: CatalogInfo } {
-  const { data } = useAsyncLoad(
-    async () => ({ motors: await catalogInfo('motors'), components: await catalogInfo('components') }),
-    'catalogInfo',
-  );
-  return data ?? {};
-}
-
 const LINKS: [string, string][] = [
   ['OpenRocket', 'https://openrocket.info'],
   ['TeaVM', 'https://teavm.org'],
@@ -55,11 +49,11 @@ const LINKS: [string, string][] = [
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const CONTRIBUTORS = useContributors();
-  const catalogs = useCatalogInfo();
+  const catalogs = { motors: useCatalogInfo('motors'), components: useCatalogInfo('components') };
   return (
     <Dialog id="about" title={appName()} onClose={onClose} layout="pad" size="lg">
       <div className="mb-4 flex flex-col items-center gap-2">
-        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" aria-hidden="true" className="h-32 w-32" />
+        <img src={LOGO_URL} alt="" aria-hidden="true" className="h-32 w-32" />
         <p className="text-center text-xs text-ink-muted">
           {t('about.tagline')} · v{APP_VERSION}
         </p>
@@ -67,7 +61,9 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 
       <div className="mt-4 space-y-3 text-sm leading-relaxed text-ink-soft">
         {isPreRelease() && (
-          <p className="rounded-lg bg-warn-500/10 px-3 py-2 text-warn-300 ring-1 ring-warn-400/30">{t('about.wip')}</p>
+          <Notice tone="warn" size="sm">
+            {t('about.wip')}
+          </Notice>
         )}
         <p>{t('about.body', { name: appName() })}</p>
         <p>{t('about.ork')}</p>

@@ -108,17 +108,16 @@ describe('exportOrk - a blank launch field', () => {
     expect(xml()).not.toContain('>null<');
   });
 
-  it('writes zero for each of the six nullable conditions', () => {
+  it('writes zero for each of the five nullable conditions', () => {
     const out = xml();
-    for (const tag of [
-      'launchrodlength',
-      'launchrodangle',
-      'launchaltitude',
-      'launchlatitude',
-      'speed',
-      'standarddeviation',
-    ]) {
+    for (const tag of ['launchrodlength', 'launchrodangle', 'launchaltitude', 'speed', 'standarddeviation']) {
       expect(out).toContain(`<${tag}>0</${tag}>`);
     }
+  });
+
+  it('writes a cleared site as the default site, not 0 (a point off Ecuador)', () => {
+    const out = xml();
+    expect(out).toContain('<launchlatitude>28.61</launchlatitude>');
+    expect(out).toContain('<launchlongitude>-80.6</launchlongitude>');
   });
 });

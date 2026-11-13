@@ -1,7 +1,7 @@
 /** Port of Transition.Shape.getRadius() and Transition.getRadius(); a nose cone is never clipped. */
 import type { ComponentNode, NoseShape } from '../engine/openRocketEngine';
-import { KERNEL_AUTO_RADIUS, KERNEL_SHAPES } from './kernelDefaults';
-import { bodyTubeRadius, noseConeAftRadius, num, numOpt } from './nodeProps';
+import { KERNEL_SHAPES } from './kernelDefaults';
+import { bodyTubeRadius, noseConeAftRadius, num, numOpt, transitionRadii } from './nodeProps';
 import { partLength } from './position';
 
 const MINFEATURE = 0.001;
@@ -202,13 +202,26 @@ export function nodeShape(node: ComponentNode): string {
   return node.type === 'nosecone' ? KERNEL_SHAPES.nosecone : KERNEL_SHAPES.transition;
 }
 
+/** A nose cone or transition's own outer profile: its shape, shape parameter and `clipped` setting. */
+export function nodeOuterProfile(
+  node: ComponentNode,
+  length: number,
+  foreR: number,
+  aftR: number,
+  steps?: number,
+  extraX?: readonly number[],
+): [number, number][] {
+  const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
+  return outerProfile(nodeShape(node), numOpt(node, 'shapeParameter'), length, foreR, aftR, steps, extraX, clipped);
+}
+
 /** A flipped nose cone has its base fore (`NoseCone.setFlipped`). */
 export function profileEnds(node: ComponentNode): { fore: number; aft: number } {
   if (node.type === 'nosecone') {
     const base = noseConeAftRadius(node);
     return node['flipped'] === true ? { fore: base, aft: 0 } : { fore: 0, aft: base };
   }
-  return { fore: num(node, 'foreRadius', KERNEL_AUTO_RADIUS), aft: num(node, 'aftRadius', KERNEL_AUTO_RADIUS) };
+  return transitionRadii(node);
 }
 
 export interface Shoulder {
@@ -245,9 +258,8 @@ export function stationRadius(node: ComponentNode, x: number): number {
       const { fore: foreR, aft: aftR } = profileEnds(node);
       // As `Transition.getRadius`: with no length the aft end wins at x = 0.
       if (!(length > 0)) return x < 0 ? foreR : aftR;
-      const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
       const at = Math.max(0, Math.min(length, x));
-      const pts = outerProfile(nodeShape(node), numOpt(node, 'shapeParameter'), length, foreR, aftR, 1, [at], clipped);
+      const pts = nodeOuterProfile(node, length, foreR, aftR, 1, [at]);
       return pts.find(([px]) => Math.abs(px - at) < 1e-9)?.[1] ?? aftR;
     }
     case 'bodytube':

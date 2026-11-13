@@ -1,8 +1,8 @@
 import type { StaticInfo } from '../../engine/openRocketEngine';
+import { fmtDateTime } from '../../i18n/format';
 import { siToUi, type UnitSelection } from '../../prefs/units.js';
 import { appName } from '../app/appInfo.js';
 import { escapeXml } from '../files/xmlUtil.js';
-import i18n from '../../i18n';
 import { KeyedError } from '../../i18n/keyedError';
 import { fmtList, fmtNum, fmtUpTo, ladderDigits, withUnit } from '../../i18n/format';
 import { staticInfoRows } from '../report/designInfo';
@@ -55,8 +55,7 @@ export function dataHeaderLines(d: ExportData): string[] {
 const headerFontPx = (widthPx: number): number => Math.max(12, Math.round(widthPx * 0.016));
 
 /** Local date, not UTC: UTC is a day off for evening exports in the Americas. */
-const exportDate = (at: Date): string =>
-  new Intl.DateTimeFormat(i18n.resolvedLanguage || 'en', { dateStyle: 'medium' }).format(at);
+const exportDate = (at: Date): string => fmtDateTime(at.getTime(), { dateStyle: 'medium' });
 
 const EXPORT_VARS: [string, string][] = [
   ['var(--surface-1)', '#ffffff'],

@@ -1,6 +1,7 @@
 import type { ComponentNode, ComponentPosition } from '../../../engine/openRocketEngine';
 import { nodeShape, shapeParamDefault } from '../../../tree/shapeProfile';
 import { num, str } from '../../../tree/nodeProps';
+import { radToDeg } from '../../../prefs/units';
 import { kernelPresetType } from './presetTypes';
 import { escapeXml } from '../xmlUtil';
 import { uuid } from '../../app/uuid';
@@ -13,7 +14,9 @@ import { baysXml, mainDeviceXml } from './orkBays';
 import { parseHexColor, rgbChannels } from '../../design/colorHex';
 import { INSIDE_COLOR_TYPES, readAppearance, type PartAppearance } from '../../design/appearance';
 import { designSeparation } from '../../flight/flightConfigs';
-import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, statedMaterial } from '../../design/materialSlots';
+import { FILLET_MATERIAL_KEYS, resolvedMaterial, type ResolvedMaterial } from '../../design/materialSlots';
+import type { MaterialType } from '../../materials/materialTypes';
+import { DESKTOP_PART_NAMES } from '../desktopPartNames';
 
 const CARDBOARD = KERNEL_MATERIALS.bulk;
 
@@ -48,55 +51,19 @@ function groupAttr(group: unknown): string {
 }
 
 /** Absent stays absent: desktop's `MaterialSetter` treats presence as the modulus being set. */
-function shearModulusAttr(node: ComponentNode): string {
-  const v = node['shearModulus'];
+function shearModulusAttr(v: unknown): string {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? ` shearModulus="${v}"` : '';
 }
 
-export function material(
-  w: OrkWriter,
-  depth: number,
-  node: ComponentNode,
-  kind: 'bulk' | 'surface' | 'line' = 'bulk',
-  bulkFallback: { name: string; density: number; group: string } = CARDBOARD,
-): void {
-  const { emit } = w;
-  const stated = statedMaterial(node, MATERIAL_KEYS[kind], kind === 'bulk');
-  if (kind === 'bulk') {
-    if (stated) {
-      const group = groupAttr(node['materialGroup']);
-      emit(
-        depth,
-        `<material type="bulk" density="${stated.density}"${shearModulusAttr(node)}${group}>${escapeXml(stated.name)}</material>`,
-      );
-    } else {
-      emit(
-        depth,
-        `<material type="bulk" density="${bulkFallback.density}" group="${escapeXml(bulkFallback.group)}">` +
-          `${escapeXml(bulkFallback.name)}</material>`,
-      );
-    }
-  } else if (kind === 'surface') {
-    if (stated) {
-      emit(depth, `<material type="surface" density="${stated.density}">${escapeXml(stated.name)}</material>`);
-    } else {
-      emit(
-        depth,
-        `<material type="surface" density="${KERNEL_MATERIALS.surface.density}" ` +
-          `group="${KERNEL_MATERIALS.surface.group}">${escapeXml(KERNEL_MATERIALS.surface.name)}</material>`,
-      );
-    }
-  } else {
-    if (stated) {
-      emit(depth, `<material type="line" density="${stated.density}">${escapeXml(stated.name)}</material>`);
-    } else {
-      emit(
-        depth,
-        `<material type="line" density="${KERNEL_MATERIALS.line.density}" ` +
-          `group="${KERNEL_MATERIALS.line.group}">${escapeXml(KERNEL_MATERIALS.line.name)}</material>`,
-      );
-    }
-  }
+/** A stated material's group is mapped to desktop's; the kernel defaults' groups are desktop's already. */
+function materialXml(tag: string, kind: MaterialType, m: ResolvedMaterial): string {
+  const shear = kind === 'bulk' ? shearModulusAttr(m.shearModulus) : '';
+  const group = m.stated ? (kind === 'bulk' ? groupAttr(m.group) : '') : ` group="${escapeXml(m.group ?? '')}"`;
+  return `<${tag} type="${kind}" density="${m.density}"${shear}${group}>${escapeXml(m.name)}</${tag}>`;
+}
+
+export function material(w: OrkWriter, depth: number, node: ComponentNode, kind: MaterialType = 'bulk'): void {
+  w.emit(depth, materialXml('material', kind, resolvedMaterial(node, kind)));
 }
 
 export function position(
@@ -112,7 +79,12 @@ export function position(
   w.emit(depth, `<position type="${src.method}">${src.offset}</position>`);
 }
 
-export function header(w: OrkWriter, depth: number, node: ComponentNode, fallback: string): void {
+export function header(
+  w: OrkWriter,
+  depth: number,
+  node: ComponentNode,
+  fallback = DESKTOP_PART_NAMES[node.type] ?? '',
+): void {
   w.emit(depth, `<name>${escapeXml(node.name ?? fallback)}</name>`);
   w.emit(depth, `<id>${uuid()}</id>`);
   if (typeof node['comment'] === 'string' && node['comment']) {
@@ -150,8 +122,8 @@ function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
     const [r, g, b] = rgbChannels(parseHexColor(a.paint) ?? 0);
     w.emit(depth + 1, `<paint red="${r}" green="${g}" blue="${b}" alpha="${a.alpha}"/>`);
     w.emit(depth + 1, `<shine>${a.shine}</shine>`);
-    // Unknown to 24.12, so written only when set to avoid its warning.
-    if (a.opacityAffectsTexture === true) w.emit(depth + 1, '<opacityaffectstexture>true</opacityaffectstexture>');
+    // Written every time, as `RocketComponentSaver` does; absent, desktop reads false.
+    w.emit(depth + 1, `<opacityaffectstexture>${a.opacityAffectsTexture === true}</opacityaffectstexture>`);
   };
   const outside = readAppearance(node['appearance']);
   if (outside) {
@@ -232,24 +204,13 @@ export function deploymentConfigs(w: OrkWriter, depth: number, node: ComponentNo
 /** Cardboard is the kernel's default fillet material (ApplicationPreferences.getDefaultComponentMaterial). */
 export function filletXml(w: OrkWriter, depth: number, node: ComponentNode): void {
   w.emit(depth, `<filletradius>${num(node, 'filletRadius', 0)}</filletradius>`);
-  const stated = statedMaterial(node, FILLET_MATERIAL_KEYS, true);
-  if (!stated) {
-    w.emit(
-      depth,
-      `<filletmaterial type="bulk" density="${CARDBOARD.density}" group="${CARDBOARD.group}">${CARDBOARD.name}</filletmaterial>`,
-    );
-    return;
-  }
   // An empty name goes out as custom: desktop refuses an empty <filletmaterial>.
-  const group = groupAttr(node['filletMaterialGroup']);
-  w.emit(
-    depth,
-    `<filletmaterial type="bulk" density="${stated.density}"${group}>` + `${escapeXml(stated.name)}</filletmaterial>`,
-  );
+  const m = resolvedMaterial(node, 'bulk', FILLET_MATERIAL_KEYS, CARDBOARD);
+  w.emit(depth, materialXml('filletmaterial', 'bulk', m));
 }
 
 export function finAngleXml(w: OrkWriter, depth: number, node: ComponentNode, method: 'relative' | 'fixed'): void {
-  const deg = (num(node, 'rotation', 0) * 180) / Math.PI;
+  const deg = radToDeg(num(node, 'rotation', 0));
   w.emit(depth, `<angleoffset method="${method}">${deg}</angleoffset>`);
   w.emit(depth, `<rotation>${deg}</rotation>`);
 }

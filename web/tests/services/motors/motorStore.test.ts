@@ -79,7 +79,7 @@ describe('custom motors report refused writes', () => {
     const kv = new FakeKv();
     const store = new KeyValueMotorStore(kv);
     kv.full = true;
-    await expect(store.addCustomMotor(custom('m1'))).rejects.toThrow(/storage-full/);
+    await expect(store.addCustomMotor(custom('m1'))).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 
   it('throws when a removal cannot be stored', async () => {
@@ -87,7 +87,7 @@ describe('custom motors report refused writes', () => {
     const store = new KeyValueMotorStore(kv);
     await store.addCustomMotor(custom('m1'));
     kv.full = true;
-    await expect(store.removeCustomMotor('m1')).rejects.toThrow(/storage-full/);
+    await expect(store.removeCustomMotor('m1')).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 });
 describe('isCustomMotor rejects what would reach the kernel broken', () => {

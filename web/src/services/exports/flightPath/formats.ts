@@ -1,6 +1,5 @@
-import { CSV_MIME } from '../csvExport';
 import type { FlightPathModel } from './model';
-import { renderUserTemplate } from './userTemplate';
+import { mimeForExtension, renderUserTemplate } from './userTemplate';
 
 export function renderKml(model: FlightPathModel): string {
   return renderUserTemplate(KML_TEMPLATE_SOURCE, 'kml', model);
@@ -160,7 +159,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   {
     id: 'kml',
     extension: 'kml',
-    mime: 'application/vnd.google-earth.kml+xml',
+    mime: mimeForExtension('kml'),
     render: renderKml,
     source: KML_TEMPLATE_SOURCE,
     templateFilename: 'flightpath.kml.mustache',
@@ -168,7 +167,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   {
     id: 'gpx',
     extension: 'gpx',
-    mime: 'application/gpx+xml',
+    mime: mimeForExtension('gpx'),
     render: renderGpx,
     source: GPX_TEMPLATE_SOURCE,
     templateFilename: 'flightpath.gpx.mustache',
@@ -176,7 +175,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
   {
     id: 'waypoints-csv',
     extension: 'csv',
-    mime: CSV_MIME,
+    mime: mimeForExtension('csv'),
     render: renderWaypointCsv,
     source: WAYPOINTS_CSV_TEMPLATE_SOURCE,
     templateFilename: 'waypoints.csv.mustache',

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { repairedText, repairValues } from '../../../src/services/design/repairValues';
+import { fmtSymIn } from '../../../src/prefs/useUnits';
 import i18n from '../../../src/i18n';
 import { SI_LIMITS } from '../../../src/prefs/entryValue';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
@@ -77,13 +78,29 @@ describe('repairValues', () => {
 });
 
 describe('repairedText', () => {
+  const raw = (_q: string, si: number) => String(si);
+
   it('translates the type of an unnamed part', () => {
     const t = i18n.getFixedT('en');
-    const line = repairedText({ type: 'bodytube', name: '', field: 'density', was: 1e9, now: MAX }, t);
+    const line = repairedText({ type: 'bodytube', name: '', field: 'density', was: 1e9, now: MAX }, t, raw);
     expect(line.startsWith(`${t('part.bodytube')}:`)).toBe(true);
     expect(
-      repairedText({ type: 'bodytube', name: 'Body', field: 'density', was: 1e9, now: MAX }, t).startsWith('Body:'),
+      repairedText({ type: 'bodytube', name: 'Body', field: 'density', was: 1e9, now: MAX }, t, raw).startsWith(
+        'Body:',
+      ),
     ).toBe(true);
+  });
+
+  it("quotes the densities in the user's unit, as the panel shows them", () => {
+    const t = i18n.getFixedT('en');
+    const line = repairedText(
+      { type: 'bodytube', name: 'Body', field: 'density', was: 45000, now: 30000 },
+      t,
+      (q, si) => fmtSymIn(q, 'g/cm³', si),
+    );
+    expect(line).toMatch(/45(\.0)? g\/cm³/);
+    expect(line).toMatch(/30(\.0)? g\/cm³/);
+    expect(line).not.toContain('30000');
   });
 });
 
@@ -138,7 +155,7 @@ describe('repairValues on a fillet', () => {
       };
       for (const field of ['density', 'filletDensity']) {
         labels.length = 0;
-        repairedText({ type: 'trapezoidfinset', name: 'Fins', field, was: 1e9, now: MAX }, t);
+        repairedText({ type: 'trapezoidfinset', name: 'Fins', field, was: 1e9, now: MAX }, t, (_q, si) => String(si));
         for (const key of labels) expect(typeof lookup(key), `${file} ${key}`).toBe('string');
       }
     }

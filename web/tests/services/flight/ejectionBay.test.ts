@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PINS, ejectionBay, parseShearPins, PIN_STRENGTH_N } from '../../../src/services/flight/ejectionBay';
 import { uiToSi } from '../../../src/prefs/units';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
+import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 
 const LBF = uiToSi('force', 'lbf', 1);
 const at = (offset: number) => ({ method: 'top', offset });
@@ -13,7 +14,14 @@ function rocket(inside: ComponentNode[] = [], noseShoulder = 0.05): RocketTree {
         id: 'st',
         type: 'stage',
         children: [
-          { id: 'nose', type: 'nosecone', length: 0.2, aftRadius: 0.04, shoulderLength: noseShoulder },
+          {
+            id: 'nose',
+            type: 'nosecone',
+            length: 0.2,
+            aftRadius: 0.04,
+            shoulderLength: noseShoulder,
+            shoulderRadius: 0.039,
+          },
           {
             id: 'tube',
             type: 'bodytube',
@@ -116,6 +124,64 @@ describe("a recovery device's bay", () => {
     const bay = ejectionBay(rocket([], 0), 'chute')!;
     expect(bay.lengthM).toBeCloseTo(0.6, 12);
     expect(bay.wholeTube).toBe(true);
+  });
+
+  it('reads the bore as the kernel builds the tube', () => {
+    const tube = (t: RocketTree) => (t.components[0]!.children ?? [])[1] as Record<string, unknown>;
+    const keyless = rocket();
+    delete tube(keyless)['thickness'];
+    expect(ejectionBay(keyless, 'chute')!.boreM).toBeCloseTo(2 * (0.04 - KERNEL_DEFAULTS.bodytube.thickness), 12);
+    const filled = rocket();
+    tube(filled)['filled'] = true;
+    expect(ejectionBay(filled, 'chute')!.boreM).toBe(0);
+  });
+
+  it('is not closed by a shoulder with no radius', () => {
+    const tree = rocket();
+    delete ((tree.components[0]!.children ?? [])[0] as Record<string, unknown>)['shoulderRadius'];
+    expect(ejectionBay(tree, 'chute')!.wholeTube).toBe(true);
+  });
+
+  // A flipped nose cone's shoulder is on its fore end (NoseCone.java).
+  it("takes a flipped nose cone's shoulder on the tube in front of it, not the one behind", () => {
+    const tree = rocket();
+    const parts = tree.components[0]!.children!;
+    const nose = { ...parts[0]!, flipped: true };
+    expect(
+      ejectionBay({ components: [{ ...tree.components[0]!, children: [nose, parts[1]!] }] }, 'chute')!.wholeTube,
+    ).toBe(true);
+    const tail = { ...nose, id: 'tail' };
+    const bay = ejectionBay(
+      { components: [{ ...tree.components[0]!, children: [{ ...parts[0]!, shoulderLength: 0 }, parts[1]!, tail] }] },
+      'chute',
+    )!;
+    // The tube runs 20 to 80 cm from the tip; the tail cone's 5 cm shoulder reaches forward to 75.
+    expect(bay.lengthM).toBeCloseTo(0.55, 12);
+  });
+
+  it('is closed by the shoulder of a nose cone in the same pod', () => {
+    const pod = rocket().components[0]!.children!;
+    const tree = {
+      components: [
+        {
+          id: 'st',
+          type: 'stage',
+          children: [
+            {
+              id: 'main',
+              type: 'bodytube',
+              length: 1,
+              outerRadius: 0.05,
+              thickness: 0.001,
+              children: [
+                { id: 'pods', type: 'podset', instanceCount: 2, radiusOffset: 0.1, position: at(0), children: pod },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree;
+    expect(ejectionBay(tree, 'chute')!.lengthM).toBeCloseTo(0.55, 12);
   });
 
   it('is null for a device that is not in a body tube', () => {

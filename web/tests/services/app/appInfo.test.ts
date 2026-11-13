@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { defaultDesignName, designNameOf, isPreRelease } from '../../../src/services/app/appInfo';
+import { defaultDesignName, designNameOf, isPreRelease, LOGO_URL } from '../../../src/services/app/appInfo';
 
 describe('isPreRelease', () => {
   it('is true for pre-1.0 (major 0) versions', () => {
@@ -76,5 +76,12 @@ describe('designNameOf', () => {
     };
     walk(src);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('LOGO_URL', () => {
+  it('sits under the base path with one slash', () => {
+    expect(LOGO_URL).toMatch(/[^/]\/favicon\.svg$|^\/favicon\.svg$/);
+    expect(LOGO_URL).not.toContain('//');
   });
 });

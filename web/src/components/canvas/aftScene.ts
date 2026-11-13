@@ -6,26 +6,20 @@ import { railButtonSize } from './railButton';
 import {
   bodyRadiusAt,
   finBodyPoint,
-  finMount,
+  finPlacement,
   finOutlinePoints,
   finPointsWithRoot,
   finRootChord,
   finSpan,
-  mountRadius,
   type FinPose,
 } from '../../tree/finPlanform.js';
 import { placementOffsets, turnedOffset } from '../../tree/placement';
-import { isPlanarFinSet, tubeFinRadius } from '../../tree/tubefins.js';
-import {
-  assemblyChainLength,
-  assemblyParentRadius,
-  isAssembly,
-  resolveAssemblyRadius,
-  ringInstanceOffsets,
-} from '../../tree/assembly.js';
+import { isPlanarFinSet, tubeFinSeat } from '../../tree/tubefins.js';
+import { isAssembly, ringInstanceOffsets } from '../../tree/assembly.js';
 import { isChainType } from '../../tree/componentKinds.js';
-import { axialStart, partLength } from '../../tree/position.js';
-import { colorOf, figureToken, innerTubeExtent, internalExtent, type MotorDims } from '../../tree/schematicGeometry';
+import { axialStart, partLength, podPlacement } from '../../tree/position.js';
+import { innerTubeExtent, internalExtent, type MotorDims } from '../../tree/schematicGeometry';
+import { figureInk } from './schematicPainter';
 import { discDims, tubeRadii } from '../../services/design/discGeometry';
 import { DISC_TYPES } from '../../services/files/componentFormats';
 import { withKernelEnds } from '../../services/design/autoRadius';
@@ -128,7 +122,7 @@ const toAftFrame = (raw: { y: number; z: number }, turn: number) => {
 };
 
 const partInk = (b: AftBuild, child: ComponentNode) => ({
-  fill: colorOf(child, token(figureToken(child.type))),
+  fill: figureInk(child),
   stroke: token('sch-line'),
   dash: dashOf(child),
   title: nameOf(b, child),
@@ -142,7 +136,7 @@ const dashedCircle = (b: AftBuild, child: ComponentNode, i: number, y: number, z
     z,
     r,
     fill: 'none',
-    stroke: colorOf(child, token(figureToken(child.type))),
+    stroke: figureInk(child),
     dash: dashOf(child, dash),
     title: nameOf(b, child),
   });
@@ -151,14 +145,12 @@ const surfaceUnder = ({ parent, pRadius, pStart, pLen }: AftParent, child: Compo
   bodyRadiusAt(parent, axialStart(child, len, pStart, pLen) - pStart) ?? pRadius;
 
 function drawAssembly(b: AftBuild, child: ComponentNode, { parent, cy, cz, pStart, pLen, turn }: AftParent) {
-  const podRadius = resolveAssemblyRadius(child, assemblyParentRadius(parent));
-  const podStart = axialStart(child, assemblyChainLength(child), pStart, pLen);
-  const count = countOf(child, 'instanceCount', 2);
   // +π/2 so 0° is straight up, as for the fins and the 3D view.
-  ringInstanceOffsets(count, podRadius, Math.PI / 2 + num(child, 'angleOffset', 0) + turn).forEach((off, i) => {
+  const pod = podPlacement(child, parent, pStart, pLen, Math.PI / 2 + turn);
+  pod.copies.forEach((off, i) => {
     const outerCopy = b.copy;
     b.copy = `${outerCopy}/${child.id ?? child.type}#${i}`;
-    walkChain(b, child.children ?? [], cy + off.y, cz + off.z, podStart, off.angle - Math.PI / 2);
+    walkChain(b, child.children ?? [], cy + off.y, cz + off.z, pod.start, off.angle - Math.PI / 2);
     b.copy = outerCopy;
   });
 }
@@ -166,15 +158,13 @@ function drawAssembly(b: AftBuild, child: ComponentNode, { parent, cy, cz, pStar
 function drawPlanarFins(b: AftBuild, child: ComponentNode, { parent, pRadius, cy, cz, pStart, turn }: AftParent) {
   const count = countOf(child, 'finCount', 3);
   // On the body radius under its own front (`FinSet.getBodyRadius`), not the parent's widest.
-  const mount = finMount(child, parent, pStart);
-  const fp = mount ?? pRadius;
-  const R = mountRadius(fp) ?? pRadius;
+  const { fp, R } = finPlacement(child, parent, pStart, pRadius);
   const span = finSpan(child, fp);
   const thick = num(child, 'thickness', FIN_DEFAULTS.thickness);
   const cant = finCant(child);
   // First fin straight up (desktop rear-view convention).
   const ring = ringInstanceOffsets(count, 0, Math.PI / 2 + num(child, 'rotation', 0) + turn);
-  const fill = colorOf(child, token(figureToken(child.type)));
+  const fill = figureInk(child);
   const title = `${nameOf(b, child)} ×${count}`;
   const outline = cant === 0 ? null : finOutlinePoints(child, fp);
   const closed = cant === 0 ? null : finPointsWithRoot(child, fp);
@@ -238,8 +228,12 @@ function drawPlanarFins(b: AftBuild, child: ComponentNode, { parent, pRadius, cy
 function drawTubeFins(b: AftBuild, child: ComponentNode, at: AftParent) {
   const { cy, cz, turn } = at;
   const count = countOf(child, 'finCount', 6);
-  const R = surfaceUnder(at, child, num(child, 'length', KERNEL_DEFAULTS.tubefinset.length));
-  const rt = tubeFinRadius(child, R);
+  const { bodyRadius: R, tubeRadius: rt } = tubeFinSeat(
+    child,
+    at.pStart,
+    at.pLen,
+    (o) => bodyRadiusAt(at.parent, o) ?? at.pRadius,
+  );
   const ring = ringInstanceOffsets(count, R + rt, Math.PI / 2 + num(child, 'rotation', 0) + turn);
   for (const [i, off] of ring.entries()) {
     b.outer.push({
@@ -278,7 +272,7 @@ function drawFairing(b: AftBuild, child: ComponentNode, at: AftParent) {
 
 function drawRailButton(b: AftBuild, child: ComponentNode, at: AftParent) {
   const { cy, cz, turn } = at;
-  // Length 0: RailButton never sets RocketComponent.length. Kernel default angle is 180°.
+  // Length 0: RailButton never sets RocketComponent.length.
   const { diameter, reach: out } = railButtonSize(child);
   const R = surfaceUnder(at, child, 0);
   b.outer.push({
@@ -286,7 +280,7 @@ function drawRailButton(b: AftBuild, child: ComponentNode, at: AftParent) {
     key: keyOf(b, child, 0),
     y: cy,
     z: cz,
-    angle: Math.PI / 2 + num(child, 'angleOffset', Math.PI) + turn,
+    angle: Math.PI / 2 + num(child, 'angleOffset', KERNEL_DEFAULTS.railbutton.angleOffset) + turn,
     from: R,
     to: R + out,
     thick: diameter,
@@ -298,8 +292,7 @@ function drawRailButton(b: AftBuild, child: ComponentNode, at: AftParent) {
 function drawLaunchLug(b: AftBuild, child: ComponentNode, at: AftParent) {
   const { cy, cz, turn } = at;
   const r = num(child, 'outerRadius', KERNEL_DEFAULTS.launchlug.outerRadius);
-  // Kernel default angle is 180°.
-  const ang = Math.PI / 2 + num(child, 'angleOffset', Math.PI) + turn;
+  const ang = Math.PI / 2 + num(child, 'angleOffset', KERNEL_DEFAULTS.launchlug.angleOffset) + turn;
   const R = surfaceUnder(at, child, num(child, 'length', KERNEL_DEFAULTS.launchlug.length));
   const rad = R + r;
   b.outer.push({
@@ -335,7 +328,7 @@ function drawInnerTube(b: AftBuild, child: ComponentNode, { cy, cz, pStart, pLen
 }
 
 function drawDisc(b: AftBuild, child: ComponentNode, { parent, cy, cz, pStart, pLen, turn }: AftParent) {
-  const disc = discDims(child, tubeRadii(parent), parent.children ?? []);
+  const disc = discDims(child, tubeRadii(parent), parent, pStart);
   const len = disc?.length ?? partLength(child);
   const outerR = disc?.outerR ?? 0;
   const off = toAftFrame(placementOffsets(child, outerR)[0]!, turn);
@@ -397,7 +390,7 @@ function walkChain(b: AftBuild, nodes: ComponentNode[], cy: number, cz: number, 
       y: cy,
       z: cz,
       r,
-      fill: colorOf(n, token(figureToken(n.type))),
+      fill: figureInk(n),
       stroke: token('sch-line'),
       dash: dashOf(n),
       title: nameOf(b, n),

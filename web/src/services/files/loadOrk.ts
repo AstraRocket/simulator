@@ -15,17 +15,16 @@ import type { OrkExportMotor } from './orkFile';
 import type { LaunchConditions } from '../design/orkTree';
 import { loadCatalog, matchCatalogMotor, type CatalogMotor, type MotorMatchDoubt } from '../motors/motorDb';
 import { customMotorToSpec, catalogMotorSpec } from '../motors/motorSpec';
-import { parseRse, removeDelay } from '../motors/rseParser';
+import { parseRseWithDigests, removeDelay } from '../motors/rseParser';
 import type { CustomMotor } from '../motors/motorStore';
 import { type OrkMotorRef, defaultOrkConfig } from './orkTypes';
 import { findMounts } from '../design/treeEdit';
 import { IGNITION_EVENTS } from '../design/componentFields';
 import { motorFitsMount, mountFit } from '../motors/motorPicker';
-import { hasUsableCurve } from '../motors/motorCurve';
+import { emptyMotorSpec, hasUsableCurve } from '../motors/motorCurve';
 import { mountIgnition, type FlightConfig, type MountMotor } from '../flight/flightConfigs';
 import { errorReason } from '../../i18n/keyedError';
 import { roundTo } from '../app/numbers';
-import { rseDigest } from './ork/embeddedMotors';
 import { keyedNote, noteList, notePartName, type ImportNote } from './importNote';
 import { toCatalogMm } from '../motors/catalogUnits';
 
@@ -72,20 +71,6 @@ function unresolvedMotor(ref: {
   };
 }
 
-// A mount with no entry at all is seeded a default C6 (`flightConfigs.reconcileConfig`).
-export function emptyMountMotor(): MotorSpec {
-  return {
-    designation: '',
-    diameter: 0,
-    length: 0,
-    times: [],
-    thrusts: [],
-    masses: [],
-    cgX: 0,
-    ejectionDelay: 0,
-  };
-}
-
 function mountMotor(ref: OrkMotorRef, spec: MotorSpec): MountMotor {
   const entry: MountMotor = { spec };
   if (ref.ignitionEvent && IGNITION_EVENT_NAMES.has(ref.ignitionEvent)) {
@@ -104,14 +89,13 @@ function embeddedCurves(
   const byDigest = new Map<string, CustomMotor>();
   for (const text of files ?? []) {
     try {
-      const motors = parseRse(text);
-      for (const motor of motors) {
+      const motors = parseRseWithDigests(text);
+      for (const { motor } of motors) {
         const key = removeDelay(motor.designation).toUpperCase();
         if (!byName.has(key)) byName.set(key, motor);
       }
       // A `.ork` names an embedded motor by desktop's digest; one motor per file.
-      const digest = motors.length === 1 ? rseDigest(text) : null;
-      if (digest) byDigest.set(digest, motors[0]!);
+      if (motors.length === 1) byDigest.set(motors[0]!.digest, motors[0]!.motor);
     } catch {
       notes.push(keyedNote('importNote.embeddedCurveUnreadable'));
     }
@@ -275,7 +259,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
     // Empty mounts carry the mount's own ignition, as desktop does.
     for (const node of mountNodes) {
       const id = node.id as string;
-      if (!motors[id]) motors[id] = { spec: emptyMountMotor(), ...mountIgnition(node) };
+      if (!motors[id]) motors[id] = { spec: emptyMotorSpec(), ...mountIgnition(node) };
     }
     configs.push({
       id: cfg.id,

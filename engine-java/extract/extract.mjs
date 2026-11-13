@@ -385,7 +385,8 @@ if (!hasBaseline) {
 
 // Escapes allowed: `"([^"]*)"` would drop `Styrofoam \"Blue foam\" (XPS)` from both sides and still balance.
 const MATERIALS_JSON = join(engineRoot, '..', 'web', 'public', 'data', 'materials.generated.json');
-const JAVA_MATERIAL = /newMaterial\(Type\.(BULK|SURFACE|LINE),\s*"((?:[^"\\]|\\.)*)",\s*([0-9.eE+-]+)/g;
+// The optional fourth number is the shear modulus; a call without one means 0.
+const JAVA_MATERIAL = /newMaterial\(Type\.(BULK|SURFACE|LINE),\s*"((?:[^"\\]|\\.)*)",\s*([0-9.eE+-]+)(?:,\s*([0-9.eE+-]+))?/g;
 // Java literals escape non-ASCII ("Cr\u00eape paper") and inner quotes; the JSON does not.
 const unescapeJava = (t) => t
   .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
@@ -403,7 +404,7 @@ const materialDrift = (() => {
   const java = readFileSync(javaPath, 'utf8');
   const upstream = new Map();
   for (const m of java.matchAll(JAVA_MATERIAL)) {
-    upstream.set(materialKey(m[1], unescapeJava(m[2])), Number(m[3]));
+    upstream.set(materialKey(m[1], unescapeJava(m[2])), { density: Number(m[3]), shear: Number(m[4] ?? 0) });
   }
   const javaCalls = java.split('newMaterial(Type.').length - 1;
   if (javaCalls !== upstream.size) {
@@ -418,7 +419,7 @@ const materialDrift = (() => {
   }
   // A row with no `kind` is a hand-edit; treat it as upstream's so the Java must back it.
   const rows = all.filter((r) => (r.kind ?? 'upstream') === 'upstream');
-  const ours = new Map(rows.map((r) => [materialKey(r.type, r.name), r.density]));
+  const ours = new Map(rows.map((r) => [materialKey(r.type, r.name), { density: r.density, shear: r.shearModulus ?? 0 }]));
   if (ours.size !== rows.length) out.push(`the app's list has ${rows.length - ours.size} duplicate material(s)`);
 
   // App rows may add, not replace: shadowing an upstream name re-weighs every saved design.
@@ -428,9 +429,11 @@ const materialDrift = (() => {
   }
 
   const say = (k) => JSON.parse(k).join(' ');
-  for (const [k, d] of upstream) {
-    if (!ours.has(k)) out.push(`missing from the app: ${say(k)} (${d})`);
-    else if (ours.get(k) !== d) out.push(`density differs: ${say(k)} - upstream ${d}, app ${ours.get(k)}`);
+  for (const [k, u] of upstream) {
+    const a = ours.get(k);
+    if (!a) out.push(`missing from the app: ${say(k)} (${u.density})`);
+    else if (a.density !== u.density) out.push(`density differs: ${say(k)} - upstream ${u.density}, app ${a.density}`);
+    else if (a.shear !== u.shear) out.push(`shear modulus differs: ${say(k)} - upstream ${u.shear}, app ${a.shear}`);
   }
   for (const k of ours.keys()) if (!upstream.has(k)) out.push(`not in upstream: ${say(k)}`);
   return out;

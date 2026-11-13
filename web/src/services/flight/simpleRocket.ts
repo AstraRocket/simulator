@@ -10,8 +10,10 @@ import { toCatalogMm } from '../motors/catalogUnits';
 import type { CatalogMotor } from '../motors/motorDb';
 import type { MountFit } from '../motors/motorPicker';
 import type { FlightConfig } from './flightConfigs';
-import { seriesAt } from './flightEvents';
+import { seriesAtEvent, summaryFigures } from './flightEvents';
 import { MAIN_BAND, canopyDiameter, siteAirDensity } from './recoverySizing';
+import { finiteOr } from '../app/numbers';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
 // Calm air off a vertical rod: at zero angle of attack the stand-in fins and nose never steer it.
 
@@ -31,7 +33,7 @@ export interface SimpleChute {
   cd: number;
 }
 
-export const SIMPLE_CHUTE_CD = 0.8;
+export const SIMPLE_CHUTE_CD = KERNEL_DEFAULTS.parachute.cd;
 
 export function simpleChuteDiameter(
   dryMassKg: number,
@@ -208,10 +210,10 @@ function chuteNode(i: SimpleInputs, innerR: number): Record<string, unknown>[] {
       id: 'chute',
       diameter: i.chute.diameterM,
       cd: i.chute.cd,
-      lineCount: 6,
+      lineCount: KERNEL_DEFAULTS.parachute.lineCount,
       lineLength: 1.5 * i.chute.diameterM,
-      radius: Math.min(0.0125, innerR * 0.9),
-      length: 0.025,
+      radius: Math.min(KERNEL_DEFAULTS.parachute.radius, innerR * 0.9),
+      length: KERNEL_DEFAULTS.parachute.length,
       deployEvent: 'ejection',
       deployDelay: 0,
       position: { method: 'top', offset: 0 },
@@ -287,6 +289,25 @@ export interface SimpleFigures {
 // Calibers.
 export const SIMPLE_STABILITY_MIN = 1;
 
+export type SimpleIssue = 'slowExit' | 'mach' | 'stability' | 'deployFast' | 'hardLanding';
+
+/** The user's settings the issue rules read, SI. */
+export interface SimpleLimits {
+  railExitMin: number;
+  deployWarn: number;
+}
+
+/** In display order; a figure the flight did not produce raises nothing. */
+export function simpleIssues(f: SimpleFigures, limits: SimpleLimits): Set<SimpleIssue> {
+  const issues = new Set<SimpleIssue>();
+  if (f.railExit < limits.railExitMin) issues.add('slowExit');
+  if (f.maxMach > SIMPLE_MACH_CAUTION) issues.add('mach');
+  if (f.railStability != null && f.railStability < SIMPLE_STABILITY_MIN) issues.add('stability');
+  if (f.deployVelocity != null && f.deployVelocity > limits.deployWarn) issues.add('deployFast');
+  if (f.landingVelocity != null && f.landingVelocity > MAIN_BAND.max) issues.add('hardLanding');
+  return issues;
+}
+
 export const SIMPLE_GUIDE_MAX = 16;
 
 export interface SimpleGuideRow {
@@ -311,29 +332,17 @@ export interface SimpleGuide {
   failed: SimpleGuideFailure[];
 }
 
-const finite = (v: number | null | undefined): number | null => (v != null && Number.isFinite(v) ? v : null);
-
 // Without a parachute nothing after apogee is read: the descent is a meaningless tumble.
 export function simpleFigures(result: FlightResult, chute = false): SimpleFigures {
-  const s = result.summary;
-  const at = (series: string, time: number | undefined) =>
-    time == null ? null : finite(seriesAt(result.series, series, time));
-  const rodTime = result.events.find((e) => e.type === 'LAUNCHROD')?.time;
-  const burnout = result.events.filter((e) => e.type === 'BURNOUT').pop()?.time;
+  const figures = summaryFigures(result);
   return {
-    railExit: s.launchRodVelocity,
-    railTwr: at('Twr', rodTime),
-    maxAcceleration: s.maxAcceleration,
-    burnoutTime: burnout ?? null,
-    burnoutAltitude: at('altitude', burnout),
-    apogee: s.maxAltitude,
-    maxVelocity: s.maxVelocity,
-    maxMach: s.maxMachNumber,
-    timeToApogee: s.timeToApogee,
-    optimumDelay: finite(s.optimumDelay),
-    railStability: at('stability', rodTime),
-    deployVelocity: chute ? finite(s.deploymentVelocity) : null,
-    landingVelocity: chute ? finite(s.groundHitVelocity) : null,
-    flightTime: chute ? finite(s.flightTime) : null,
+    ...figures,
+    railTwr: seriesAtEvent(result, 'LAUNCHROD', 'Twr'),
+    burnoutTime: result.events.filter((e) => e.type === 'BURNOUT').pop()?.time ?? null,
+    burnoutAltitude: seriesAtEvent(result, 'BURNOUT', 'altitude', true),
+    railStability: seriesAtEvent(result, 'LAUNCHROD', 'stability'),
+    deployVelocity: chute ? figures.deployVelocity : null,
+    landingVelocity: chute ? figures.landingVelocity : null,
+    flightTime: chute ? finiteOr(result.summary.flightTime, null) : null,
   };
 }

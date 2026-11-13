@@ -39,9 +39,17 @@ export async function addCustom(
   type: MaterialType,
   density: number,
   group: string = DEFAULT_CUSTOM_GROUP,
+  shearModulus?: number,
 ): Promise<Material[]> {
   const trimmed = checkedMaterialName(name, density);
-  await getMaterialStore().add({ name: trimmed, type, density, group: group || DEFAULT_CUSTOM_GROUP, custom: true });
+  await getMaterialStore().add({
+    name: trimmed,
+    type,
+    density,
+    ...(shearModulus ? { shearModulus } : {}),
+    group: group || DEFAULT_CUSTOM_GROUP,
+    custom: true,
+  });
   bump();
   return getMaterialStore().list();
 }

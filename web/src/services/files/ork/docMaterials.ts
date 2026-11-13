@@ -5,7 +5,8 @@ import { escapeXml } from '../xmlUtil';
 import { desktopGroup } from './exportParts';
 import { MAX_PASSTHROUGH } from './importLimits';
 
-// Writes the 24.12 form `TYPE|name|density|group`; the desktop release cannot open upstream's shear-modulus form.
+// As `Material.toStorableString`: `TYPE|name|density|shear modulus|group`. `fromStorableString` also
+// reads the older four-field form, `TYPE|name|density|group`.
 
 const FILE_TYPES: Readonly<Record<string, MaterialType>> = { BULK: 'bulk', SURFACE: 'surface', LINE: 'line' };
 
@@ -18,13 +19,22 @@ function parseStorable(text: string): DocumentMaterial | null {
   if (!type) return null;
   const density = Number(split[2]!.trim());
   let group: string | undefined;
+  let shearModulus = 0;
   if (split.length >= 4) {
     // A numeric fourth piece is the shear modulus; otherwise it is the group.
     const fourth = split[3]!.trim();
-    if (fourth !== '' && Number.isFinite(Number(fourth))) group = split[4];
-    else group = split[3];
+    if (fourth !== '' && Number.isFinite(Number(fourth))) {
+      shearModulus = Number(fourth);
+      group = split[4];
+    } else group = split[3];
   }
-  const m: DocumentMaterial = { name: split[1]!, type, density, ...(group ? { group } : {}) };
+  const m: DocumentMaterial = {
+    name: split[1]!,
+    type,
+    density,
+    ...(shearModulus !== 0 ? { shearModulus } : {}),
+    ...(group ? { group } : {}),
+  };
   return isDocumentMaterial(m) ? m : null;
 }
 
@@ -50,7 +60,7 @@ function docMaterialsXml(materials: DocumentMaterial[]): string {
     // Desktop's own substitution: a bar would split the name.
     const name = m.name.replaceAll('|', ' ');
     const group = desktopGroup(m.group) ?? 'Other';
-    return `<material>${escapeXml(`${m.type.toUpperCase()}|${name}|${m.density}|${group}`)}</material>`;
+    return `<material>${escapeXml(`${m.type.toUpperCase()}|${name}|${m.density}|${m.shearModulus ?? 0}|${group}`)}</material>`;
   });
   return `<docmaterials>${lines.join('')}</docmaterials>`;
 }

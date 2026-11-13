@@ -4,6 +4,7 @@ import { importRkt } from './rktImport';
 import { assertImportSize, decodeFileText } from './decodeText';
 import { KeyedError } from '../../i18n/keyedError';
 import { isGzip, isZip, unpackOrk } from './ork/importUnpack';
+import { checkBuildSize } from './ork/importLimits';
 
 const SNIFF_BYTES = 512;
 
@@ -33,7 +34,8 @@ export function parseDesignFile(data: ArrayBuffer | string): OrkImportResult {
   // Bytes are capped as they are decoded.
   if (typeof data === 'string') assertImportSize(data.length);
   const format = sniffDesignFormat(data);
-  if (format === 'rkt') return { ...importRkt(data), format };
-  if (format === 'ork') return { ...importOrk(data), format };
-  throw new KeyedError('errors.file.notDesign');
+  if (!format) throw new KeyedError('errors.file.notDesign');
+  const res = format === 'rkt' ? importRkt(data) : importOrk(data);
+  checkBuildSize(res.tree.components, `.${format}`);
+  return { ...res, format };
 }

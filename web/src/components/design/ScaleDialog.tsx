@@ -17,7 +17,8 @@ import {
 } from '../../tree/scaleRocket';
 import { findNode } from '../../services/design/treeEdit';
 import { isChainType } from '../../tree/componentKinds';
-import { num } from '../../tree/nodeProps';
+import { chainOuterRadius, num } from '../../tree/nodeProps';
+import { partLength } from '../../tree/position';
 import { finRootChord } from '../../tree/finPlanform';
 import { isPlanarFinSet } from '../../tree/tubefins';
 import type { ComponentNode } from '../../engine/openRocketEngine';
@@ -28,14 +29,15 @@ import { smallButton } from '../common/smallButton';
 
 function initialSize(node: ComponentNode | null, widest: number): number {
   if (!node) return widest;
+  // With the kernel's defaults, so a part with no radius key reads the size it flies at.
   if (isChainType(node.type)) {
-    const ends = ['foreRadius', 'aftRadius', 'outerRadius'].map((k) => num(node, k)).filter((r) => r > 0);
-    return ends.length ? Math.max(...ends) * 2 : widest;
+    const r = chainOuterRadius(node);
+    return r > 0 ? r * 2 : widest;
   }
   if (node.type === 'podset' || node.type === 'parallelstage') return num(node, 'radiusOffset');
   // `FinSet.getLength()` is the root chord (from the outline on a freeform fin).
   if (isPlanarFinSet(node.type)) return finRootChord(node);
-  return num(node, 'length');
+  return partLength(node);
 }
 
 export function ScaleDialog({ onClose }: { onClose: () => void }) {
@@ -58,10 +60,11 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
   ];
   const [what, setWhat] = useState<ScaleScope>(scopes.length > 1 && node?.type !== 'stage' ? scopes[1]! : 'rocket');
   const [factor, setFactor] = useState(2);
-  const [from, setFrom] = useState(() => {
-    const size = what === 'rocket' ? baseD : initialSize(node, baseD);
+  const seed = (scale: ScaleScope): number => {
+    const size = scale === 'rocket' ? baseD : initialSize(node, baseD);
     return size > 0 ? size : baseD;
-  });
+  };
+  const [from, setFrom] = useState(() => seed(what));
   const explicitMass = hasExplicitMass(tree);
   const [masses, setMasses] = useState(true);
   const [offsets, setOffsets] = useState(what !== 'part');
@@ -108,6 +111,7 @@ export function ScaleDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) => {
                   const next = e.target.value as ScaleScope;
                   setWhat(next);
+                  setFrom(seed(next));
                   setOffsets(next !== 'part');
                 }}
                 className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1.5 text-sm text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"

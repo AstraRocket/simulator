@@ -12,7 +12,8 @@ import { partLabel } from '../../i18n/format';
 import { chargeName } from '../flight/recoveryCharges';
 import { effectiveBay } from '../flight/recoveryBays';
 
-// Field names are stable English identifiers, never localized; values use '.' regardless of locale.
+// Field names are English, apart from a part named in one: its own name, or its type in the UI language.
+// Values use '.' regardless of locale.
 
 const round = (v: number, d: number): string => plainDecimal(v, d);
 
@@ -113,8 +114,7 @@ export function buildDesignCsv(model: ReportModel, units: UnitSelection): string
     push(scope, 'Target pressure', fig('pressure', units.pressure, s.pressurePa), units.pressure);
     push(scope, 'Shear pins', String(s.pins.count), '');
     if (s.pins.count > 0) push(scope, 'Shear pin strength', fig('force', units.force, s.pins.forceN), units.force);
-    const tests = [...bay.record.tests].sort((a, b) => a.date.localeCompare(b.date));
-    tests.forEach((x, i) => {
+    bay.record.tests.forEach((x, i) => {
       const n = `Test ${i + 1}`;
       push(scope, `${n} date`, x.date, '');
       push(scope, `${n} charge`, fig('mass', units.mass, x.chargeKg), units.mass);

@@ -1,4 +1,3 @@
-import { NO_VALUE } from '../i18n/noValue';
 import { G0 } from '../services/motors/motorMath';
 
 export const M_TO_MM = 1000;
@@ -27,7 +26,8 @@ export type Quantity =
   | 'pressure'
   | 'force'
   | 'impulse'
-  | 'rollRate';
+  | 'rollRate'
+  | 'shearModulus';
 
 export interface UnitDef {
   symbol: string;
@@ -142,9 +142,19 @@ export const UNITS: Record<Quantity, UnitDef[]> = {
     { symbol: 'Hz', toSI: 2 * Math.PI },
     { symbol: 'rpm', toSI: (2 * Math.PI) / 60 },
   ],
+  // Desktop UnitGroup.UNITS_SHEAR_MODULUS; SI is Pa.
+  shearModulus: [
+    { symbol: 'Pa', toSI: 1 },
+    { symbol: 'GPa', toSI: 1.0e9 },
+    { symbol: 'ksi', toSI: 6.89475729e6 },
+  ],
 };
 
 export const QUANTITIES = Object.keys(UNITS) as Quantity[];
+
+/** For a distance chosen as `distance`: the unit a long span reads in, and the one a short span falls back to. */
+export const FAR_DISTANCE_UNIT: Readonly<Record<string, string>> = { m: 'km', km: 'km', ft: 'mi', yd: 'mi', mi: 'mi' };
+export const NEAR_DISTANCE_UNIT: Readonly<Record<string, string>> = { m: 'm', km: 'm', ft: 'ft', yd: 'yd', mi: 'ft' };
 
 export type UnitSelection = Record<Quantity, string>;
 
@@ -175,6 +185,7 @@ export const METRIC_UNITS: UnitSelection = {
   force: 'N',
   impulse: 'N·s',
   rollRate: 'r/s',
+  shearModulus: 'GPa',
 };
 
 /** Desktop UnitGroup.setDefaultImperialUnits(). */
@@ -197,6 +208,7 @@ export const IMPERIAL_UNITS: UnitSelection = {
   force: 'lbf',
   impulse: 'lbf·s',
   rollRate: 'r/s',
+  shearModulus: 'ksi',
 };
 
 export type UnitChoice = 'current' | 'metric' | 'imperial';
@@ -241,13 +253,6 @@ export function niceStep(x: number): number {
 export function ladderDigits(v: number): number {
   const a = Math.abs(v);
   return a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3;
-}
-
-export function fmtSi(quantity: Quantity, symbol: string, si: number, digits?: number): string {
-  if (si === null || si === undefined || !Number.isFinite(si)) return NO_VALUE;
-  const v = siToUi(quantity, symbol, si);
-  if (digits !== undefined) return String(Number(v.toFixed(digits)));
-  return v.toFixed(ladderDigits(v));
 }
 
 export function normalizeUnits(raw: unknown): UnitSelection {

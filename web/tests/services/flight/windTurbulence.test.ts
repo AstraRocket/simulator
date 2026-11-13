@@ -3,6 +3,8 @@ import {
   retuneStdDev,
   hasIntensity,
   stdDevForIntensity,
+  stdDevForPercent,
+  turbulencePercent,
   turbulenceIntensity,
   turbulenceLevel,
 } from '../../../src/services/flight/windTurbulence';
@@ -75,5 +77,13 @@ describe('hasIntensity', () => {
     expect(hasIntensity(0)).toBe(false);
     expect(hasIntensity(1e-12)).toBe(false);
     expect(hasIntensity(0.5)).toBe(true);
+  });
+});
+
+describe('turbulence percent', () => {
+  it('shows whole percent and reads a cleared field as none', () => {
+    expect(turbulencePercent(0.126)).toBe(13);
+    expect(stdDevForPercent(10, 20)).toBeCloseTo(2, 12);
+    expect(stdDevForPercent(10, null)).toBe(0);
   });
 });

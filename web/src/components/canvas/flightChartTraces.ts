@@ -105,6 +105,22 @@ export interface PanelLine {
   t1?: number;
 }
 
+/**
+ * A chart axis over the data's [min, max]. A `level` quantity pads both ends by `pad` of its span;
+ * any other is anchored at zero and gets `headroom` above. Never empty.
+ */
+export function axisRange(
+  min: number,
+  max: number,
+  level: boolean,
+  { pad = 0.1, headroom = 0.08 }: { pad?: number; headroom?: number } = {},
+): [number, number] {
+  const span = (lo: number, hi: number) => hi - lo || Math.abs(hi) || 1;
+  const lo = level ? min - span(min, max) * pad : Math.min(0, min);
+  const hi = level ? max + span(min, max) * pad : Math.max(0, max) + span(lo, max) * headroom;
+  return [lo, hi > lo ? hi : lo + 1];
+}
+
 export function panelSeries(
   branches: readonly Branch[],
   meta: Meta,
@@ -139,17 +155,8 @@ export function panelSeries(
     dMin = 0;
     dMax = 1;
   }
-  let l: number;
-  let h: number;
-  if (meta.level) {
-    const r = dMax - dMin || Math.abs(dMax) || 1;
-    l = dMin - r * 0.1;
-    h = dMax + r * 0.1;
-  } else {
-    l = Math.min(0, dMin);
-    h = dMax + (dMax - l || 1) * 0.08;
-  }
-  return { list: out, lo: l, hi: h === l ? l + 1 : h };
+  const [lo, hi] = axisRange(dMin, dMax, !!meta.level);
+  return { list: out, lo, hi };
 }
 
 export const panelDigits = (meta: Meta, lo: number, hi: number): number =>

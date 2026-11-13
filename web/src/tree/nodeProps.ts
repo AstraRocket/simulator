@@ -1,8 +1,12 @@
 import type { ComponentNode, ComponentPosition } from '../engine/openRocketEngine';
-import { KERNEL_BODYTUBE_OUTER_RADIUS, KERNEL_DEFAULTS } from './kernelDefaults';
+import { KERNEL_AUTO_RADIUS, KERNEL_BODYTUBE_OUTER_RADIUS, KERNEL_DEFAULTS } from './kernelDefaults';
 import { degToRad } from '../prefs/units';
 
 /** Rejects non-finite values: a malformed file's NaN would reach every geometry path. */
+/** An inner tube's outer radius; keyless, `InnerTube()`'s 19 mm tube. */
+export const innerTubeRadius = (n: ComponentNode): number =>
+  num(n, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
+
 export const num = (n: ComponentNode, key: string, fb = 0): number =>
   typeof n[key] === 'number' && Number.isFinite(n[key]) ? n[key] : fb;
 
@@ -33,20 +37,33 @@ export const bool = (n: ComponentNode, key: string, fb = false): boolean => (typ
 export const chainOuterRadius = (n: ComponentNode): number => {
   if (n.type === 'nosecone') return noseConeAftRadius(n);
   if (n.type === 'bodytube') return bodyTubeRadius(n);
-  if (n.type === 'transition') return Math.max(num(n, 'foreRadius', 0), num(n, 'aftRadius', 0));
+  if (n.type === 'transition') return transitionOuterRadius(n);
   return 0;
+};
+
+/** `Transition()` starts both ends at 25 mm. */
+export const transitionRadii = (n: ComponentNode): { fore: number; aft: number } => ({
+  fore: num(n, 'foreRadius', KERNEL_AUTO_RADIUS),
+  aft: num(n, 'aftRadius', KERNEL_AUTO_RADIUS),
+});
+
+export const transitionOuterRadius = (n: ComponentNode): number => {
+  const { fore, aft } = transitionRadii(n);
+  return Math.max(fore, aft);
 };
 
 export const bodyTubeRadius = (n: ComponentNode): number => num(n, 'outerRadius', KERNEL_BODYTUBE_OUTER_RADIUS);
 
 export const noseConeAftRadius = (n: ComponentNode): number => num(n, 'aftRadius', KERNEL_DEFAULTS.nosecone.aftRadius);
 
-export const anyOuterRadius = (n: ComponentNode): number =>
-  Math.max(
+export const anyOuterRadius = (n: ComponentNode): number => {
+  if (n.type === 'transition') return Math.max(transitionOuterRadius(n), num(n, 'outerRadius', 0));
+  return Math.max(
     n.type === 'nosecone' ? noseConeAftRadius(n) : num(n, 'aftRadius', 0),
     num(n, 'outerRadius', 0),
     num(n, 'foreRadius', 0),
   );
+};
 
 const AXIAL_METHODS: ReadonlySet<string> = new Set<ComponentPosition['method']>([
   'top',
@@ -81,7 +98,9 @@ const statedMethodDefault = (type: string): ComponentPosition['method'] =>
 export const positionOf = (n: ComponentNode): ComponentPosition => {
   const raw = n.position as Partial<ComponentPosition> | null | undefined;
   const fallback = raw ? statedMethodDefault(n.type) : (CONSTRUCTOR_METHOD[n.type] ?? 'top');
-  const method = raw && typeof raw.method === 'string' && AXIAL_METHODS.has(raw.method) ? raw.method : fallback;
+  // Lowercased: desktop's AxialMethod names read either way.
+  const stated = raw && typeof raw.method === 'string' ? raw.method.toLowerCase() : '';
+  const method = AXIAL_METHODS.has(stated) ? (stated as ComponentPosition['method']) : fallback;
   const offset = raw && typeof raw.offset === 'number' && Number.isFinite(raw.offset) ? raw.offset : 0;
   return raw?.ork ? { method, offset, ork: raw.ork } : { method, offset };
 };

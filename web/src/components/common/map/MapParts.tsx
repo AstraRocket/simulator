@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { TILE_SIZE, TILE_SOURCES, visibleTiles, type TileSourceId } from '../../../services/map/slippyMap';
 import { useEsriKey } from '../../../services/map/esriKey';
 import { useHelpStore } from '../../../state/helpStore';
+import { mapButtonClass } from './mapButton';
 
 export function TileLayerButtons<Id extends string>({
   layers,
@@ -26,9 +27,7 @@ export function TileLayerButtons<Id extends string>({
             key={l.id}
             onClick={() => onPick(l.id)}
             aria-pressed={value === l.id}
-            className={`px-2 py-1 text-[11px] font-medium ${
-              value === l.id ? 'bg-accent-600 text-on-accent' : 'bg-surface/80 text-ink-soft hover:bg-raised'
-            }`}
+            className={mapButtonClass(value === l.id)}
           >
             {t(l.labelKey)}
           </button>

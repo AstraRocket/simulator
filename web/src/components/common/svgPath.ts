@@ -1,5 +1,11 @@
 export type ScreenPoint = readonly [x: number, y: number];
 
+/** A `points` attribute; leave `digits` off for a view drawn in meters, where rounding would show. */
+export function pointsAttr(pts: readonly ScreenPoint[], digits?: number): string {
+  const f = (v: number) => (digits == null ? String(v) : v.toFixed(digits));
+  return pts.map(([x, y]) => `${f(x)},${f(y)}`).join(' ');
+}
+
 // The command letter tracks what was emitted, not the index: the browser silently drops a `d` starting with `L`.
 export function polylinePath(
   pts: readonly ScreenPoint[],

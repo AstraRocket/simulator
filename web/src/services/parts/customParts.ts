@@ -4,6 +4,7 @@ import { getPresetStore, type CustomPart } from './presetStore';
 import { KeyedError } from '../../i18n/keyedError';
 import { changeSignal } from '../app/changeSignal';
 import { shortId } from '../app/uuid';
+import { finiteOr } from '../app/numbers';
 
 export const DEFAULT_CUSTOM_MFR = 'Custom';
 
@@ -16,9 +17,31 @@ export function presetNode(node: Partial<ComponentNode>): Partial<ComponentNode>
   return out;
 }
 
+/** The radii a saved part states for each type, as `rowGeometry` reads them. */
+const STATED_RADII: Partial<Record<string, readonly string[]>> = {
+  bodytube: ['outerRadius'],
+  tubecoupler: ['outerRadius'],
+  engineblock: ['outerRadius'],
+  launchlug: ['outerRadius'],
+  centeringring: ['outerRadius', 'innerRadius'],
+  bulkhead: ['outerRadius'],
+  nosecone: ['aftRadius'],
+  transition: ['foreRadius', 'aftRadius'],
+};
+
+/**
+ * A saved part is the size it was saved at: each radius it states loses its automatic flag, or
+ * `syncAutoRadii` would give it the neighbor's size while the picker lists it by its own.
+ */
+export function pinSavedSize(node: Partial<ComponentNode>, type: string): Partial<ComponentNode> {
+  const out: Record<string, unknown> = { ...node };
+  for (const key of STATED_RADII[type] ?? []) if (n(node, key) !== null) out[`${key}Auto`] = false;
+  return out;
+}
+
 function n(node: Partial<ComponentNode>, key: string): number | null {
   const v = node[key];
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+  return finiteOr(v, null);
 }
 
 function dia(node: Partial<ComponentNode>, key: string): number | null {
@@ -47,7 +70,8 @@ function rowGeometry(node: Partial<ComponentNode>, type: string): Record<string,
         material,
         materialDensity,
         outerDiameter,
-        innerDiameter: wall === null ? null : Math.max(0, outerDiameter - 2 * wall),
+        // A filled tube is solid, as `tubeRadii` reads it (`BodyTube.getInnerRadius`).
+        innerDiameter: node.filled === true ? 0 : wall === null ? null : Math.max(0, outerDiameter - 2 * wall),
         length,
       };
     case 'centeringring':
@@ -155,16 +179,15 @@ export const onSavedPartsChanged = signal.subscribe;
 export async function saveCustomPart(node: ComponentNode, type: PickerType, meta: PartMeta): Promise<CustomPart> {
   const { mfr, partNo, desc } = cleanMeta(meta);
   const catalogType = catalogTypeFor(type);
-  const existing = (await getPresetStore().list()).find(
-    (p) => p.type === catalogType && p.mfr === mfr && p.partNo === partNo,
-  );
+  const key = savedPartKey({ type: catalogType, mfr, partNo });
+  const existing = (await getPresetStore().list()).find((p) => savedPartKey(p) === key);
   return write({
     id: existing?.id ?? newPartId(),
     type: catalogType,
     mfr,
     partNo,
     desc,
-    node: presetNode(node),
+    node: pinSavedSize(presetNode(node), catalogType),
   });
 }
 
@@ -197,9 +220,8 @@ export async function updateCustomPart(id: string, meta: PartMeta, node: Partial
   const saved = await getPresetStore().list();
   const current = saved.find((p) => p.id === id);
   if (!current) throw new KeyedError('errors.savedPart.gone');
-  const clash = saved.some(
-    (p) => p.id !== id && p.type === current.type && p.mfr === clean.mfr && p.partNo === clean.partNo,
-  );
+  const key = savedPartKey({ ...current, ...clean });
+  const clash = saved.some((p) => p.id !== id && savedPartKey(p) === key);
   if (clash) throw new KeyedError('errors.savedPart.nameTaken');
   return write({ ...current, ...clean, node });
 }

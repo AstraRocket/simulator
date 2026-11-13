@@ -28,26 +28,6 @@ export function rowsDigest(rows: readonly Row[]): string {
   return motorDigest({ times, masses, cgs, thrusts });
 }
 
-const attrOf = (attrs: string, key: string): number | null => {
-  const m = new RegExp(`(?:^|\\s)${key}="([^"]*)"`).exec(attrs);
-  const v = m ? Number(m[1]) : NaN;
-  return Number.isFinite(v) ? v : null;
-};
-
-/** Null unless every row states mass and CG: desktop hashes other data under auto-calc (`RockSimMotorLoader.getMotor`). */
-export function rseDigest(text: string): string | null {
-  const rows: Row[] = [];
-  for (const [, attrs = ''] of text.matchAll(/<eng-data\s([^>]*?)\/?>/g)) {
-    const t = attrOf(attrs, 't');
-    const f = attrOf(attrs, 'f');
-    const m = attrOf(attrs, 'm');
-    const cg = attrOf(attrs, 'cg');
-    if (t === null || f === null || m === null || cg === null) return null;
-    rows.push({ t, f, m: m / 1000, cg: cg / 1000 });
-  }
-  return rows.length ? rowsDigest(rows) : null;
-}
-
 /** Shortest round-trip form, which Java's `Double.parseDouble` reads back exactly. */
 const num = (v: number) => String(v);
 

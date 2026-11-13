@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { offsetToLatLon, KERNEL_EARTH_RADIUS_M } from '../../../src/services/map/geodesy';
+import { isLatLon, offsetToLatLon, KERNEL_EARTH_RADIUS_M } from '../../../src/services/map/geodesy';
 
 const DEG = 180 / Math.PI;
 
@@ -71,5 +71,16 @@ describe('offsetToLatLon (kernel spherical)', () => {
 
   it('returns the site for no movement', () => {
     expect(offsetToLatLon(39.7, -104.9, { east: 0, north: 0 })).toEqual({ lat: 39.7, lon: -104.9 });
+  });
+});
+
+describe('isLatLon', () => {
+  it('takes the poles and the date line, and refuses past them or a non-number', () => {
+    expect(isLatLon(90, -180)).toBe(true);
+    expect(isLatLon(-90, 180)).toBe(true);
+    expect(isLatLon(90.1, 0)).toBe(false);
+    expect(isLatLon(0, 180.1)).toBe(false);
+    expect(isLatLon(Number.NaN, 0)).toBe(false);
+    expect(isLatLon(0, Infinity)).toBe(false);
   });
 });

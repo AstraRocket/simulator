@@ -43,6 +43,17 @@ const tube = (children: ComponentNode[]): RocketTree =>
   }) as RocketTree;
 
 const after = (offset = 0) => ({ method: 'after', offset });
+// Each copy's children get their own ids.
+const copy = (part: object, id: string, position: object): ComponentNode => {
+  const kids = (part as { children?: ComponentNode[] }).children;
+  return {
+    ...part,
+    id,
+    length: 0.03,
+    position,
+    ...(kids ? { children: kids.map((c) => ({ ...c, id: `${id}-${c.id}` })) } : {}),
+  } as unknown as ComponentNode;
+};
 
 describe('an after position', () => {
   it.each([
@@ -52,7 +63,29 @@ describe('an after position', () => {
     ['an inner tube', { type: 'innertube', outerRadius: 0.01, thickness: 0.0005 }],
     ['a mass component', { type: 'masscomponent', mass: 0.01, radius: 0.01 }],
     ['a parachute', { type: 'parachute', diameter: 0.3 }],
+    ['a streamer', { type: 'streamer', stripLength: 0.5, stripWidth: 0.05 }],
+    ['a shock cord', { type: 'shockcord', cordLength: 1 }],
     ['a launch lug', { type: 'launchlug', outerRadius: 0.003, thickness: 0.0005 }],
+    ['a tube fin set', { type: 'tubefinset', finCount: 6, outerRadius: 0.01, thickness: 0.0005 }],
+    // ComponentAssembly.setAxialMethod turns AFTER into TOP for both and keeps the offset.
+    [
+      'a pod set',
+      {
+        type: 'podset',
+        instanceCount: 2,
+        radiusOffset: 0.05,
+        children: [{ type: 'bodytube', id: 'podTube', length: 0.1, outerRadius: 0.01, thickness: 0.0005 }],
+      },
+    ],
+    [
+      'a booster',
+      {
+        type: 'parallelstage',
+        instanceCount: 2,
+        radiusOffset: 0.05,
+        children: [{ type: 'bodytube', id: 'boosterTube', length: 0.1, outerRadius: 0.01, thickness: 0.0005 }],
+      },
+    ],
     [
       'a fin set',
       {
@@ -75,8 +108,8 @@ describe('an after position', () => {
         thickness: 0.0005,
         position: { method: 'top', offset: 0.05 },
       },
-      { ...part, id: 'p0', length: 0.03, position: after(0) } as ComponentNode,
-      { ...part, id: 'p1', length: 0.03, position: after(-0.1) } as ComponentNode,
+      copy(part, 'p0', after(0)),
+      copy(part, 'p1', after(-0.1)),
     ]);
     const kernel = kernelStations(tree, ['p0', 'p1']);
     const resolved = resolveFilePositions(tree);

@@ -14,13 +14,11 @@ import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import type { SimPrefs, Simulation } from '../../services/flight/simulations';
 import { clampMaxAngleStep, seedFromInput, stepperOf } from '../../services/flight/simulations';
-import { FieldLabel } from '../common/FieldMark';
-import { markRing } from '../common/markRing';
 import { NumberRow } from '../common/NumberRow';
 import { fmtUpTo } from '../../i18n/format';
 import { SPEED_WARNINGS } from './speedWarnings';
-import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from './simOptionFields';
-import { StepperOptions } from './StepperOptions';
+import { SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from './simOptionFields';
+import { KernelMethodRows, StepperSelect } from './SimOptionRows';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
 
@@ -185,33 +183,19 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
 
   return (
     <CardGroup title={t('sims.options')}>
-      <dl className="mb-3 space-y-1">
-        {KERNEL_METHOD_ROWS.map((r) => (
-          <div key={r.label} className="flex items-baseline justify-between gap-3">
-            <dt className="text-xs text-ink-muted">{t(r.label)}</dt>
-            <dd className="text-xs text-ink-soft">{t(r.value)}</dd>
-          </div>
-        ))}
-      </dl>
+      <KernelMethodRows size="xs" className="mb-3 space-y-1" />
 
-      <label className="mb-2 flex items-center justify-between gap-3">
-        <FieldLabel text={t('settings.simMethod')} mixed={mixed('stepper')} />
-        <select
-          value={prefs?.stepper ?? ''}
-          onChange={(e) => {
-            setSimPref('stepper', e.target.value ? stepperOf(e.target.value, g.stepper) : null);
-            onCommit();
-          }}
-          className={markRing(
-            'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500',
-            false,
-            mixed('stepper'),
-          )}
-        >
-          <option value="">{t('sims.stepperDefault', { method: t(STEPPER_LABELS[g.stepper]) })}</option>
-          <StepperOptions />
-        </select>
-      </label>
+      <StepperSelect
+        defaultLabel={t('sims.stepperDefault', { method: t(STEPPER_LABELS[g.stepper]) })}
+        mixed={mixed('stepper')}
+        value={prefs?.stepper ?? ''}
+        onChange={(v) => {
+          setSimPref('stepper', v ? stepperOf(v, g.stepper) : null);
+          onCommit();
+        }}
+        size="xs"
+        className="mb-2"
+      />
 
       <div className="space-y-2">
         {SIM_OPTION_FIELDS.map((f) => {

@@ -6,11 +6,9 @@ import { ImageExportMenu } from './ImageExportMenu.js';
 import type { RenderMode } from './rocketPieces';
 import type { rocketSvg } from './rocketSvgExport';
 import type { useRocketExport } from './useRocketExport';
-import { ToolDivider, ViewBtn } from './ViewBtn';
+import { SideAftPresets, ViewBtn } from './ViewBtn';
 import { Segmented } from '../common/Segmented';
 import { SvgExportButton } from './SvgExportButton';
-
-const CAMERA_VIEWS = ['side', 'aft'] as const;
 
 export function Rocket3DToolbar({
   presetSlot,
@@ -43,20 +41,7 @@ export function Rocket3DToolbar({
 }) {
   const { t } = useTranslation();
   const presets = (
-    <>
-      <ViewBtn onClick={resetView} title={t('view.reset3dTitle')}>
-        {t('view.reset')}
-      </ViewBtn>
-      <Segmented
-        size="bar"
-        options={CAMERA_VIEWS}
-        value={preset}
-        onChange={showView}
-        fmt={(v) => t(`view.${v}`)}
-        title={(v) => t(`view.${v}Title`)}
-      />
-      <ToolDivider />
-    </>
+    <SideAftPresets value={preset} onChange={showView} onReset={resetView} resetTitle={t('view.reset3dTitle')} />
   );
   const tools = (
     <>

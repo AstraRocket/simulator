@@ -2,6 +2,7 @@
 import type { ComponentNode, RocketTree } from '../../../engine/openRocketEngine';
 import { KeyedError } from '../../../i18n/keyedError';
 import { MAX_PASSTHROUGH } from './importLimits';
+import { BAYS_TAG, MAIN_TAG, NOTES_TAG } from './appTags';
 
 /** A tag we write but leave out here is emitted twice. */
 export const KNOWN_COMPONENT_TAGS: ReadonlySet<string> = new Set([
@@ -11,8 +12,8 @@ export const KNOWN_COMPONENT_TAGS: ReadonlySet<string> = new Set([
   'linestyle',
   'preset',
   'color',
-  'astrarocketbays',
-  'astrarocketmain',
+  BAYS_TAG,
+  MAIN_TAG,
   'appearance',
   'insideappearance',
   'finish',
@@ -120,7 +121,7 @@ export const KNOWN_ROCKET_TAGS: ReadonlySet<string> = new Set([
   'designer',
   'kitname',
   'revision',
-  'astrarocketnotes',
+  NOTES_TAG,
   'designtype',
   'referencetype',
   'customreference',

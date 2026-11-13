@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Dialog } from '../common/Dialog';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 
+import { nameTaken } from '../../services/app/names';
+import { StackedField } from '../common/StackedField';
 export function DesignPropertiesDialog({
   title,
   confirmLabel,
@@ -31,7 +33,7 @@ export function DesignPropertiesDialog({
   }, []);
 
   const trimmed = name.trim();
-  const duplicate = trimmed !== '' && takenNames.some((n) => n.toLowerCase() === trimmed.toLowerCase());
+  const duplicate = nameTaken(trimmed, takenNames);
   const submit = () => {
     if (trimmed === '') return;
     onConfirm(trimmed);
@@ -39,11 +41,9 @@ export function DesignPropertiesDialog({
 
   return (
     <Dialog id="designProperties" title={title} onClose={onCancel} layer="top" layout="pad" expandable={false}>
-      <label htmlFor="design-name" className="mt-4 block text-xs font-medium text-ink-muted">
-        {t('library.name')}
-      </label>
-      <input
+      <StackedField
         id="design-name"
+        label={t('library.name')}
         ref={inputRef}
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -51,7 +51,6 @@ export function DesignPropertiesDialog({
           if (e.key === 'Enter') submit();
         }}
         maxLength={80}
-        className="mt-1 w-full rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500"
       />
 
       {duplicate && <p className="mt-2 text-xs text-warn-300">{duplicateText ?? t('library.duplicateName')}</p>}

@@ -225,6 +225,17 @@ function resolveMount(parent: FinParent): { mount: FinMount; clamp: boolean } {
   return { mount: { radiusAt: () => r, length: Infinity, front: 0, curved: false }, clamp: finite };
 }
 
+/** A fin set on its parent: the body under its own front (`FinSet.getFinFront`), else the parent's radius. */
+export function finPlacement(
+  fin: ComponentNode,
+  parent: ComponentNode,
+  parentStart: number,
+  parentRadius: number,
+): { fp: FinMount | number; R: number } {
+  const fp = finMount(fin, parent, parentStart) ?? parentRadius;
+  return { fp, R: mountRadius(fp) ?? parentRadius };
+}
+
 export function mountRadius(parent: FinParent): number | null {
   if (parent === null) return null;
   return typeof parent === 'number' ? parent : parent.radiusAt(parent.front);
@@ -357,7 +368,7 @@ export function finBodyPoint(x: number, y: number, z: number, pose: FinPose): [n
   return [pose.front + mid + (x - mid) * cc + z * sc, r * ca - across * sa, r * sa + across * ca];
 }
 
-/** `FinSet.getTabPointsWithRoot` and `generateContinuousFinAndTabShape`. */
+/** `FinSet.getTabPointsWithRoot` and `generateContinuousFinAndTabShape`, matched only where the root is one segment. */
 export function finCutContour(node: ComponentNode, parent: FinParent): Pt[] | null {
   const outline = finOutlinePoints(node, parent);
   if (!outline) return null;

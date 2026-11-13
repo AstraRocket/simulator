@@ -4,6 +4,8 @@ import { findNode, findRecoveryDevices, recoveryDevices, updateNode } from '../d
 import { DEFAULT_BAY_PRESSURE_PA } from './ejectionCharge';
 import { ejectionBay, PIN_SIZES, type EjectionBay, type PinSize, type ShearPins } from './ejectionBay';
 import { deviceRoles, recoveryCharges, stageNamesById, withCharges, type ChargeRole } from './recoveryCharges';
+import { isFiniteNumber, isRecord } from '../app/numbers';
+import { str } from '../../tree/nodeProps';
 
 // The `.ork` stores BAYS_KEY inside the tube's element (`orkBays`) because part ids are minted fresh on every load.
 
@@ -92,7 +94,7 @@ export function designBays(tree: RocketTree): DesignBay[] {
     if (!id || !role) continue;
     const drawn = ejectionBay(tree, id);
     if (!drawn) continue;
-    const name = typeof device.name === 'string' ? device.name : '';
+    const name = str(device, 'name');
     const held = out.find((b) => b.tubeId === drawn.tubeId && b.role === role);
     if (held) {
       if (name) held.devices.push(name);
@@ -155,35 +157,33 @@ export function hasBayRecords(tree: RocketTree): boolean {
   return false;
 }
 
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const optNum = (v: unknown) => v === undefined || (isNum(v) && v > 0);
+const optNum = (v: unknown) => v === undefined || (isFiniteNumber(v) && v > 0);
 
 function isPins(v: unknown): v is BayPins {
   return (
-    isObj(v) &&
-    isNum(v['count']) &&
+    isRecord(v) &&
+    isFiniteNumber(v['count']) &&
     v['count'] >= 0 &&
-    isNum(v['forceN']) &&
+    isFiniteNumber(v['forceN']) &&
     (v['size'] === null || (PIN_SIZES as readonly unknown[]).includes(v['size']))
   );
 }
 
 function isTest(v: unknown): v is GroundTest {
   return (
-    isObj(v) &&
+    isRecord(v) &&
     typeof v['id'] === 'string' &&
     typeof v['date'] === 'string' &&
-    isNum(v['chargeKg']) &&
+    isFiniteNumber(v['chargeKg']) &&
     (v['pins'] === null || isPins(v['pins'])) &&
     (TEST_RESULTS as readonly unknown[]).includes(v['result']) &&
     typeof v['notes'] === 'string'
   );
 }
 
-function isRecord(v: unknown): v is BayRecord {
+function isBayRecord(v: unknown): v is BayRecord {
   return (
-    isObj(v) &&
+    isRecord(v) &&
     (v['pins'] === undefined || isPins(v['pins'])) &&
     ['pressurePa', 'boreM', 'lengthM', 'primaryKg', 'backupKg'].every((k) => optNum(v[k])) &&
     (v['flownTestId'] === undefined || typeof v['flownTestId'] === 'string') &&
@@ -193,5 +193,5 @@ function isRecord(v: unknown): v is BayRecord {
 }
 
 export function isTubeBays(v: unknown): v is TubeBays {
-  return isObj(v) && Object.entries(v).every(([k, r]) => (k === 'drogue' || k === 'main') && isRecord(r));
+  return isRecord(v) && Object.entries(v).every(([k, r]) => (k === 'drogue' || k === 'main') && isBayRecord(r));
 }

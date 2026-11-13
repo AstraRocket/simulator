@@ -5,7 +5,7 @@ import { DIALOG_SURFACES, type DialogSurface } from './dialogSurfaces';
 import { POPUP_SURFACES, type PopupSurface } from './popupSurfaces';
 import { eachEditor } from './editors';
 import { answer } from '../tests/testing/openMeteoFixture';
-import { DESIGN_VIEWS, RESULT_VIEWS, type ViewMode } from '../src/state/tabs';
+import { DESIGN_VIEWS, RESULT_VIEWS, type Tab, type ViewMode } from '../src/state/tabs';
 import { STORAGE_PREFIX, nsKey } from '../src/services/storage/storageKeys';
 import type { HeaderDialog, LibraryTab, SettingsTab } from '../src/components/layout/dialogKeys';
 
@@ -189,40 +189,52 @@ const BOOT: Scan[] = [
   { name: 'View fallback', boot: true, open: viewFallback },
 ];
 
-const SCREENS: Scan[] = [
-  ...keys(TWO_D).map((side): Scan => ({
-    name: `Design / 2D / ${TWO_D[side]}`,
-    open: async (page) => {
-      await openTab(page, 'Design');
-      await openView(page, '2d');
-      await press(page, TWO_D[side]);
-    },
-  })),
-  ...DESIGN_VIEWS.filter((v) => v !== '2d' && v !== 'drag').map((view): Scan => ({
-    name: `Design / ${VIEW[view]}`,
-    open: async (page) => {
-      await openTab(page, 'Design');
-      await openView(page, view);
-    },
-  })),
-  ...keys(AERO_PANE)
-    .filter((pane) => pane !== 'components')
-    .map((pane): Scan => ({
-      name: `Design / Aero / ${AERO_PANE[pane]}`,
+// Keyed by tab, so a tab with no scan is a type error.
+const TAB_SCANS: Record<Tab, Scan[]> = {
+  design: [
+    ...keys(TWO_D).map((side): Scan => ({
+      name: `Design / 2D / ${TWO_D[side]}`,
       open: async (page) => {
-        await openAero(page);
-        await press(page, AERO_PANE[pane]);
+        await openTab(page, 'Design');
+        await openView(page, '2d');
+        await press(page, TWO_D[side]);
       },
     })),
-  ...['By magnitude', 'By heat'].map((shading): Scan => ({
-    name: `Design / Aero / Per component, ${shading}`,
-    open: async (page) => {
-      await openAero(page);
-      await press(page, AERO_PANE.components);
-      await press(page, shading);
+    ...DESIGN_VIEWS.filter((v) => v !== '2d' && v !== 'drag').map((view): Scan => ({
+      name: `Design / ${VIEW[view]}`,
+      open: async (page) => {
+        await openTab(page, 'Design');
+        await openView(page, view);
+      },
+    })),
+    ...keys(AERO_PANE)
+      .filter((pane) => pane !== 'components')
+      .map((pane): Scan => ({
+        name: `Design / Aero / ${AERO_PANE[pane]}`,
+        open: async (page) => {
+          await openAero(page);
+          await press(page, AERO_PANE[pane]);
+        },
+      })),
+    ...['By magnitude', 'By heat'].map((shading): Scan => ({
+      name: `Design / Aero / Per component, ${shading}`,
+      open: async (page) => {
+        await openAero(page);
+        await press(page, AERO_PANE.components);
+        await press(page, shading);
+      },
+    })),
+    {
+      name: 'Design / whole window',
+      open: async (page) => {
+        await openTab(page, 'Design');
+        const toggle = page.getByRole('button', { name: 'Expand the drawing to the whole window' });
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      },
     },
-  })),
-  ...keys(CONFIGS).map((sub): Scan => ({
+  ],
+  configs: keys(CONFIGS).map((sub): Scan => ({
     name: `Configurations / ${CONFIGS[sub]}`,
     open: async (page) => {
       await openTab(page, 'Configurations');
@@ -233,69 +245,105 @@ const SCREENS: Scan[] = [
       await expect(toggle).toHaveAttribute('aria-current', 'true');
     },
   })),
-  {
-    name: 'Simulations',
-    open: async (page) => {
-      await runFlight(page);
-      await openTab(page, 'Simulations');
+  sim: [
+    {
+      name: 'Simulations',
+      open: async (page) => {
+        await runFlight(page);
+        await openTab(page, 'Simulations');
+      },
     },
-  },
-  {
-    name: 'Simulations / two ticked',
-    open: ticked,
-  },
-  {
-    name: 'Results / outdated',
-    open: async (page) => {
-      await runFlight(page);
-      await openTab(page, 'Design');
-      await page.locator('div[title="Body tube"]').first().click();
-      await page.getByLabel('Length', { exact: true }).first().fill('45');
-      await openTab(page, 'Results');
-      await expect(page.getByText('Outdated', { exact: true }).first()).toBeVisible();
+    {
+      name: 'Simulations / two ticked',
+      open: ticked,
     },
-  },
-  ...RESULT_VIEWS.map((view): Scan => ({
-    name: `Results / ${VIEW[view]}`,
-    open: (page) => resultView(page, view),
-  })),
-  {
-    name: 'Design / whole window',
-    open: async (page) => {
-      await openTab(page, 'Design');
-      const toggle = page.getByRole('button', { name: 'Expand the drawing to the whole window' });
-      await toggle.click();
-      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  ],
+  results: [
+    {
+      name: 'Results / outdated',
+      open: async (page) => {
+        await runFlight(page);
+        await openTab(page, 'Design');
+        await page.locator('div[title="Body tube"]').first().click();
+        await page.getByLabel('Length', { exact: true }).first().fill('45');
+        await openTab(page, 'Results');
+        await expect(page.getByText('Outdated', { exact: true }).first()).toBeVisible();
+      },
     },
-  },
-  {
-    name: 'Results / Flight / one panel',
-    open: async (page) => {
-      await resultView(page, 'flight');
-      await page.getByRole('button', { name: 'Show only this panel' }).first().click();
+    ...RESULT_VIEWS.map((view): Scan => ({
+      name: `Results / ${VIEW[view]}`,
+      open: (page) => resultView(page, view),
+    })),
+    {
+      name: 'Results / Flight / one panel',
+      open: async (page) => {
+        await resultView(page, 'flight');
+        await page.getByRole('button', { name: 'Show only this panel' }).first().click();
+      },
     },
-  },
-  {
-    name: 'Settings / widened',
-    open: async (page) => {
-      await dialogTab(page, 'Settings', SETTINGS.general);
-      await page.getByRole('button', { name: 'Make this dialog wider' }).click();
+  ],
+  simple: [
+    { name: 'Benchtop', open: (page) => openTab(page, 'Benchtop') },
+    {
+      name: 'Benchtop / too short',
+      open: async (page) => {
+        await benchtop(page, { 'Overall length': '5' });
+        await expect(page.getByText(/must be longer than its/)).toBeVisible();
+      },
     },
-  },
-  ...keys(TOOL).map((tool): Scan => ({
-    name: `Tools / ${TOOL[tool]}`,
-    open: (page) => openTool(page, TOOL[tool]),
-  })),
-  {
-    name: 'Tools / Landing estimator / estimate',
-    open: async (page) => {
-      await answerOpenMeteo(page);
-      await openTool(page, TOOL.landing);
-      await page.getByRole('button', { name: 'Estimate landing' }).click();
-      await expect(page.getByText('Lands at')).toBeVisible({ timeout: 20_000 });
+    {
+      // Heavy for a C6, so the rail exit and stability figures carry their warnings.
+      name: 'Benchtop / flown',
+      open: async (page) => {
+        await benchtop(page, { 'Dry mass': '150' });
+        await page.getByRole('button', { name: 'Choose…', exact: true }).click();
+        const dialog = await dialogOpen(page);
+        await dialog.getByPlaceholder(/Search by code/i).fill('C6');
+        await dialog.locator('ul li button[aria-pressed]').first().click();
+        await dialog.getByRole('button', { name: 'Select', exact: true }).click();
+        await expect(dialog).toBeHidden();
+        await page.getByRole('button', { name: 'Run flight simulation', exact: true }).click();
+        await expect(page.getByText('Launcher exit speed', { exact: true })).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByText(/Below the minimum exit speed/)).toBeVisible();
+      },
     },
-  },
-];
+  ],
+  tools: [
+    ...keys(TOOL).map((tool): Scan => ({
+      name: `Tools / ${TOOL[tool]}`,
+      open: (page) => openTool(page, TOOL[tool]),
+    })),
+    {
+      name: 'Tools / Landing estimator / estimate',
+      open: async (page) => {
+        await answerOpenMeteo(page);
+        await openTool(page, TOOL.landing);
+        await page.getByRole('button', { name: 'Estimate landing' }).click();
+        await expect(page.getByText('Lands at')).toBeVisible({ timeout: 20_000 });
+      },
+    },
+  ],
+};
+
+const SCREENS: Scan[] = Object.values(TAB_SCANS).flat();
+
+/** The Benchtop tab with a small rocket entered, `over` replacing any of its values. */
+async function benchtop(page: Page, over: Record<string, string> = {}): Promise<void> {
+  await openTab(page, 'Benchtop');
+  const values: Record<string, string> = {
+    'Body diameter': '2.48',
+    'Overall length': '45',
+    'Dry mass': '40',
+    'CG, no motor': '25',
+    'Motor mount diameter': '18',
+    ...over,
+  };
+  for (const [label, value] of Object.entries(values)) {
+    const box = page.getByLabel(label, { exact: true });
+    await box.fill(value);
+    await box.blur();
+  }
+}
 
 async function ticked(page: Page): Promise<void> {
   await openTab(page, 'Simulations');
@@ -427,10 +475,19 @@ async function saveLocation(page: Page): Promise<void> {
 }
 
 const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
-  SettingsDialog: keys(SETTINGS).map((tab): Scan => ({
-    name: `Settings / ${SETTINGS[tab]}`,
-    open: (page) => dialogTab(page, 'Settings', SETTINGS[tab]),
-  })),
+  SettingsDialog: [
+    ...keys(SETTINGS).map((tab): Scan => ({
+      name: `Settings / ${SETTINGS[tab]}`,
+      open: (page) => dialogTab(page, 'Settings', SETTINGS[tab]),
+    })),
+    {
+      name: 'Settings / widened',
+      open: async (page) => {
+        await dialogTab(page, 'Settings', SETTINGS.general);
+        await page.getByRole('button', { name: 'Make this dialog wider' }).click();
+      },
+    },
+  ],
   DesignLibraryDialog: [
     ...keys(LIBRARY).map((tab): Scan => ({
       name: `Open / ${LIBRARY[tab]}`,
@@ -658,16 +715,6 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
-  RocketConfigDialog: [
-    {
-      name: 'Rocket configuration',
-      open: async (page) => {
-        await openTab(page, 'Design');
-        await page.getByRole('button', { name: 'Edit rocket configuration' }).click();
-        await dialogOpen(page, 'Rocket configuration');
-      },
-    },
-  ],
   ScaleDialog: [
     {
       name: 'Scale',
@@ -693,18 +740,7 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
     {
       name: 'Benchtop motor guide',
       open: async (page) => {
-        await openTab(page, 'Benchtop');
-        for (const [label, value] of [
-          ['Body diameter', '2.48'],
-          ['Overall length', '45'],
-          ['Dry mass', '40'],
-          ['CG, no motor', '25'],
-          ['Motor mount diameter', '18'],
-        ] as const) {
-          const box = page.getByLabel(label, { exact: true });
-          await box.fill(value);
-          await box.blur();
-        }
+        await benchtop(page);
         await page.getByRole('button', { name: 'Motor guide' }).click();
         const dialog = await dialogOpen(page);
         await expect(dialog.getByRole('button', { name: /^Fly\b/ })).toBeVisible();
@@ -862,13 +898,6 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
   ],
   ComponentTree: [
     {
-      name: 'Popup / component list folded',
-      open: async (page) => {
-        await openTab(page, 'Design');
-        await toggle(page.getByTitle(/the component list/));
-      },
-    },
-    {
       name: 'Popup / component row folded',
       open: async (page) => {
         await openTab(page, 'Design');
@@ -879,12 +908,43 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
-  DesignNotesSection: [
+  // One shared heading, scanned at each of its four sites.
+  Disclosure: [
+    {
+      name: 'Popup / component list folded',
+      open: async (page) => {
+        await openTab(page, 'Design');
+        await toggle(page.getByTitle(/the component list/));
+      },
+    },
     {
       name: 'Popup / design notes',
       open: async (page) => {
         await openTab(page, 'Design');
         await toggle(page.getByRole('button', { name: 'Design notes', exact: true }));
+      },
+    },
+    {
+      name: 'Popup / stage bays folded',
+      open: async (page) => {
+        await openTab(page, 'Configurations');
+        await page
+          .getByRole('navigation', { name: 'Flight configurations' })
+          .getByRole('button', { name: CONFIGS.bays, exact: true })
+          .click();
+        await toggle(page.locator('h3 > button[aria-expanded]').first());
+      },
+    },
+    {
+      name: 'Popup / statistics folded',
+      open: async (page) => {
+        await openTab(page, 'Design');
+        await toggle(
+          page
+            .getByRole('button')
+            .filter({ has: page.getByText('Information', { exact: true }) })
+            .first(),
+        );
       },
     },
   ],
@@ -957,19 +1017,6 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
       },
     },
   ],
-  RecoveryBaysPane: [
-    {
-      name: 'Popup / stage bays folded',
-      open: async (page) => {
-        await openTab(page, 'Configurations');
-        await page
-          .getByRole('navigation', { name: 'Flight configurations' })
-          .getByRole('button', { name: CONFIGS.bays, exact: true })
-          .click();
-        await toggle(page.locator('h3 > button[aria-expanded]').first());
-      },
-    },
-  ],
   ResultPicker: [
     {
       name: 'Popup / flight picker',
@@ -1006,20 +1053,6 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
         const help = page.locator('details').filter({ hasText: 'How it works' });
         await help.locator('summary').click();
         await expect(help).toHaveAttribute('open', '');
-      },
-    },
-  ],
-  StabilityBadge: [
-    {
-      name: 'Popup / statistics folded',
-      open: async (page) => {
-        await openTab(page, 'Design');
-        await toggle(
-          page
-            .getByRole('button')
-            .filter({ has: page.getByText('Information', { exact: true }) })
-            .first(),
-        );
       },
     },
   ],

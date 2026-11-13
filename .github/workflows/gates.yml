@@ -51,8 +51,8 @@ jobs:
       - if: steps.web-modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      # The three parts of `npm run build`, one per runner. `verify` runs the same
-      # three locally and adds the unit suite, which is the unit job below:
+      # The three parts of `npm run build`, one per runner. `npm run test:quick` runs
+      # typecheck and lint locally and adds the unit suite, which is the unit job below:
       #
       #   typecheck     All four tsconfig projects: src and tests, the app,
       #                 e2e, and the build config files (tsconfig.node.json).

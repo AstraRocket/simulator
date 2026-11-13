@@ -52,6 +52,7 @@ import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import type { OrkExportMotor, OrkTreeExportInput } from '../../../src/services/files/orkTypes';
 import { selectConfig } from '../../../src/state/workspaceSelectors';
 import { DEFAULT_HEADING_DEG } from '../../../src/services/flight/windLevels';
+import { G0 } from '../../../src/services/motors/motorMath';
 
 const EXAMPLES = join(__dirname, '../../../public/examples');
 const OUT = process.env.ORK_SAMPLES_DIR;
@@ -167,6 +168,9 @@ function conditionsView(l: LaunchConditions, prefs: Partial<SimPrefs> | undefine
     ...(isa ? {} : { temperature: (l.temperatureC ?? 15) + 273.15, pressure: (l.pressureHPa ?? 1013.25) * 100 }),
     ...(prefs?.timeStep !== undefined ? { timeStep: prefs.timeStep } : {}),
     ...(prefs?.maxTime !== undefined ? { maxTime: prefs.maxTime } : {}),
+    gravityModel: l.gravityModel ?? 'wgs',
+    // Under WGS desktop keeps the user's own constant, which it does not fly.
+    ...(l.gravityModel === 'constant' ? { constantGravity: l.constantGravity ?? G0 } : {}),
     windModel: flown.length ? 'multilevel' : 'average',
     windAverage: l.windAverage ?? 0,
     windStdDev: l.windStdDev ?? 0,

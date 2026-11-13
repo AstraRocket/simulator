@@ -54,7 +54,8 @@ vi.mock('../../../src/services/motors/motorDb', () => ({
   matchCatalogMotor: () => undefined,
 }));
 
-const { loadOrk, emptyMountMotor } = await import('../../../src/services/files/loadOrk');
+const { loadOrk } = await import('../../../src/services/files/loadOrk');
+const { emptyMotorSpec } = await import('../../../src/services/motors/motorCurve');
 
 describe('loadOrk with mounts the file gave no motor', () => {
   it('seats a curve-less placeholder in every empty mount', async () => {
@@ -96,6 +97,6 @@ describe('loadOrk with mounts the file gave no motor', () => {
   });
 
   it('the placeholder itself has no curve', () => {
-    expect(hasThrustCurve(emptyMountMotor())).toBe(false);
+    expect(hasThrustCurve(emptyMotorSpec())).toBe(false);
   });
 });

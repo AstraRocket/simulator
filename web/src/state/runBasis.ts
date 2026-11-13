@@ -39,6 +39,45 @@ export function flownStill(
   return from.key === undefined || resultKey(s.tree, config, sim, s.simPrefs) === from.key;
 }
 
+type JobRun = 'driftSweepRun' | 'motorGuideRun';
+type SetState = (patch: Partial<WorkspaceState> | ((s: WorkspaceState) => Partial<WorkspaceState>)) => void;
+
+/** One batch job at a time in `run`: a new claim aborts the last, and only the current job moves or clears the counter. */
+export function jobSlot(run: JobRun) {
+  let current: AbortController | null = null;
+  const patch = (v: WorkspaceState[JobRun]) => ({ [run]: v }) as Partial<WorkspaceState>;
+  return {
+    abort(): void {
+      current?.abort();
+      current = null;
+    },
+    /** Stops the job; its own `release` clears the counter. */
+    cancel(): void {
+      current?.abort();
+    },
+    claim(set: SetState, simId: string, total: number, reset: Partial<WorkspaceState>) {
+      current?.abort();
+      const abort = new AbortController();
+      current = abort;
+      set({ ...reset, ...patch({ simId, done: 0, total }), err: null });
+      const mine = () => current === abort;
+      return {
+        signal: abort.signal,
+        mine,
+        // A replacing job's counter must not be ticked by this one's stragglers.
+        tick(): void {
+          if (mine()) set((st) => (st[run] ? patch({ ...st[run], done: st[run].done + 1 }) : {}));
+        },
+        release(): void {
+          if (!mine()) return;
+          current = null;
+          set(patch(null));
+        },
+      };
+    },
+  };
+}
+
 // Capture before any await: the state can change underneath it.
 export function batchBasis(s: WorkspaceState, sim: Simulation, config: FlightConfig) {
   const runPrefs = effectivePrefs(s.simPrefs, sim.prefs);

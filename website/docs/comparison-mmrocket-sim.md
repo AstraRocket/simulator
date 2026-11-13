@@ -8,7 +8,7 @@ import UpstreamPin from '@site/src/components/UpstreamPin';
 
 :::info About this snapshot
 
-Checked **2026-11-05**, comparing **AstraRocket <AppVersion />** (engine built from OpenRocket <UpstreamPin />) against **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** at v0.197 (2026-11-03), read from its user guide and API README.
+Checked **2026-11-09**, comparing **AstraRocket <AppVersion />** (engine built from OpenRocket <UpstreamPin />) against **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** at v0.198 (2026-11-09), read from its user guide and API README.
 
 :::
 

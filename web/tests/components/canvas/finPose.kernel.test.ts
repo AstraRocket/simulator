@@ -10,6 +10,7 @@ import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, walkTree, type KernelGeometry } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
@@ -309,6 +310,7 @@ describe('the side view projects every fin as the kernel places it', () => {
       roll: ROLL,
       uid: 't',
       setHoverId: () => {},
+      ...ENGLISH_LABELS,
     });
 
   it.each(FIN_SETS)('%s', async (id) => {

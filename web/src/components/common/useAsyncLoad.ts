@@ -9,13 +9,15 @@ type Landed<T> = { key: string; attempt: number } & ({ ok: true; data: T } | { o
 export function useAsyncLoad<T>(
   load: () => Promise<T>,
   key: string,
-  { refresh, onLoaded }: { refresh?: unknown; onLoaded?: (data: T) => void } = {},
+  // `enabled` off starts no load and keeps what already landed.
+  { refresh, onLoaded, enabled = true }: { refresh?: unknown; onLoaded?: (data: T) => void; enabled?: boolean } = {},
 ): { data: T | undefined; error: string | null; loading: boolean; retry: () => void } {
   const [attempt, setAttempt] = useState(0);
   const [landed, setLanded] = useState<Landed<T> | null>(null);
   // Callers pass inline closures; as deps they would reload on every render.
   const latest = useLatestRef({ load, onLoaded });
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     latest.current
       .load()
@@ -30,7 +32,7 @@ export function useAsyncLoad<T>(
     return () => {
       live = false;
     };
-  }, [key, attempt, refresh, latest]);
+  }, [key, attempt, refresh, enabled, latest]);
   const current = landed !== null && landed.key === key && landed.attempt === attempt ? landed : null;
   return {
     data: current?.ok ? current.data : undefined,

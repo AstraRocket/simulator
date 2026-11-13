@@ -2,19 +2,17 @@
 export const POPUP_SURFACES = {
   CheckMenu: 1,
   ComponentExportButton: 1,
-  ComponentTree: 2,
-  DesignNotesSection: 1,
+  ComponentTree: 1,
+  Disclosure: 1,
   FileMenu: 2,
   GroundTrack: 1,
   HelpDialog: 1,
   ImageExportMenu: 1,
   LoadedBanner: 1,
   MotorFilterBar: 1,
-  RecoveryBaysPane: 1,
   ResultPicker: 1,
   SafetyCard: 1,
   SimpleHelp: 1,
-  StabilityBadge: 1,
 } as const;
 
 export type PopupSurface = keyof typeof POPUP_SURFACES;

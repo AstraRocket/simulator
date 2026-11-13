@@ -204,7 +204,9 @@ describe('rail button geometry and material', () => {
 
   it('writes the desktop constructor values for a button that never set them', () => {
     const plain = exportOrk({ name: 'B', tree: wrap([node({ type: 'railbutton', id: 'rb' })]) });
-    expect(plain).toContain('<material type="bulk" density="1420" group="Plastics">Delrin</material>');
+    expect(plain).toContain(
+      '<material type="bulk" density="1420" shearModulus="946000000" group="Plastics">Delrin</material>',
+    );
     expect(plain).toContain('<innerdiameter>0.008</innerdiameter>');
     expect(plain).toContain('<height>0.0097</height>');
     expect(plain).toContain('<screwheight>0</screwheight>');

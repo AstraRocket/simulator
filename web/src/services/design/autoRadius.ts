@@ -1,7 +1,7 @@
 import { must } from '../app/must';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { KERNEL_AUTO_RADIUS, KERNEL_DEFAULTS, kernelLength } from '../../tree/kernelDefaults';
-import { bodyTubeRadius, noseConeAftRadius, num, str } from '../../tree/nodeProps';
+import { bodyTubeRadius, noseConeAftRadius, num, str, transitionOuterRadius } from '../../tree/nodeProps';
 import { tubeFinRadius } from '../../tree/tubefins';
 import { DISC_TYPES } from '../files/componentFormats';
 import { COMPONENT_DEFAULTS } from './componentDefaults';
@@ -104,7 +104,7 @@ function partOf(node: ComponentNode | null, type: string): Part {
     x: !ring && placed ? snap(offset) : 0,
     radiusMethod: ring ? str(n, 'radiusMethod', 'relative').toLowerCase().replace(/_/g, '') : 'coaxial',
     radiusOffset: 0,
-    instances: ring ? Math.max(1, Math.floor(num(n, 'instanceCount', 2))) : 1,
+    instances: ring ? Math.max(1, Math.floor(num(n, 'instanceCount', KERNEL_DEFAULTS.podset.instanceCount))) : 1,
   };
   // PodSet.setRadiusOffset zeroes it except for RELATIVE and FREE.
   if (p.radiusMethod === 'relative' || p.radiusMethod === 'free') p.radiusOffset = num(n, 'radiusOffset', 0);
@@ -651,9 +651,9 @@ function parentDerived(node: ComponentNode, parent: ComponentNode | null, parent
   if (node['radiusAuto'] === true) {
     const r =
       parent.type === 'nosecone'
-        ? num(parent, 'aftRadius', 0)
+        ? noseConeAftRadius(parent)
         : parent.type === 'transition'
-          ? Math.max(num(parent, 'foreRadius', 0), num(parent, 'aftRadius', 0))
+          ? transitionOuterRadius(parent)
           : (tubeRadii(parent)?.innerR ?? 0);
     if (r > 0) Object.assign(node, packedAtRadius(node, r));
   }

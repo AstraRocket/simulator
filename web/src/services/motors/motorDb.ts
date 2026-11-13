@@ -6,7 +6,7 @@ import { parseRse } from './rseParser';
 import { finalizeCurve } from './curveFinalize';
 import { motorStatistics } from '../../engine/openRocketEngine';
 import { impulseClass } from './motorCombine';
-import { motorFitsMount, offersPlugged, parseDelays, type MountFit } from './motorPicker';
+import { formatDelays, motorFitsMount, offersPlugged, parseDelays, type MountFit } from './motorPicker';
 import { fetchCatalog } from '../app/remoteData';
 import { noteCatalogLoad } from '../app/catalogUpdates';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
@@ -86,6 +86,8 @@ function customToRow(cm: CustomMotor): CatalogMotor {
     propWeightG: cm.propWeightG,
     type: cm.type,
     delays: cm.delayList,
+    // For the dashboard and compare pane; a flight reads the stored motor (`customMotorToSpec`).
+    curves: [{ src: 'custom', samples: samples.map((p) => [p.time, p.thrust]) }],
   };
 }
 
@@ -183,9 +185,8 @@ function mergeByDelay(motors: readonly CustomMotor[]): CustomMotor[] {
 function unionDelays(a: string | undefined, b: string | undefined): string | undefined {
   const pa = parseDelays(a);
   const pb = parseDelays(b);
-  const parts = [...new Set([...pa.delays, ...pb.delays])].sort((x, y) => x - y).map(String);
-  if (pa.plugged || pb.plugged) parts.push('P');
-  return parts.length ? parts.join(',') : undefined;
+  const delays = [...new Set([...pa.delays, ...pb.delays])].sort((x, y) => x - y);
+  return formatDelays(delays, pa.plugged || pb.plugged);
 }
 
 export async function deleteCustomMotor(id: string): Promise<CatalogMotor[]> {
@@ -273,8 +274,7 @@ export function matchCatalogMotor(
   // Never let the manufacturer preference empty a non-empty set.
   const byMfr = (cands: CatalogMotor[]): CatalogMotor[] => {
     if (!manufacturer || cands.length <= 1) return cands;
-    const mf = manufacturer.trim().toLowerCase();
-    const hit = cands.filter((m) => sameMaker(m.manufacturer, mf));
+    const hit = cands.filter((m) => sameMaker(m.manufacturer, manufacturer));
     return hit.length ? hit : cands;
   };
 
@@ -309,10 +309,11 @@ export function matchCatalogMotor(
   return undefined;
 }
 
-/** `asked` already trimmed and lowercased. */
+/** Either name may hold the other ("Estes" and "Estes Industries"); case and padding are ignored. */
 export function sameMaker(catalogMaker: string, asked: string): boolean {
   const got = catalogMaker.toLowerCase();
-  return got === asked || got.includes(asked) || asked.includes(got);
+  const want = asked.trim().toLowerCase();
+  return got === want || got.includes(want) || want.includes(got);
 }
 
 function doubtAbout(
@@ -321,9 +322,8 @@ function doubtAbout(
   shortened: boolean,
   manufacturer?: string,
 ): { doubt: MotorMatchDoubt } | undefined {
-  const asked = manufacturer?.trim().toLowerCase();
   // Same test `byMfr` prefers by.
-  if (asked && !sameMaker(motor.manufacturer, asked)) return { doubt: 'maker' };
+  if (manufacturer?.trim() && !sameMaker(motor.manufacturer, manufacturer)) return { doubt: 'maker' };
   if (shortened) return { doubt: 'shortened' };
   if (candidates > 1) return { doubt: 'several' };
   return undefined;

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { useShowResultsTab } from './useShowResultsTab';
 import { taskTabs } from './tabTable';
+import { LOGO_URL } from '../../services/app/appInfo';
 
 /** The bottom padding is the home-indicator inset, needed because `index.html` sets `viewport-fit=cover`. */
 export function TabBar() {
@@ -21,7 +22,7 @@ export function TabBar() {
         active={tab === 'design' && pane === 'stats'}
         onClick={() => onPane('stats')}
         label={t('tabs.rocket')}
-        icon={<img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-5 w-5" />}
+        icon={<img src={LOGO_URL} alt="" className="h-5 w-5" />}
       />
       <TabButton
         active={tab === 'design' && pane === 'sketch'}

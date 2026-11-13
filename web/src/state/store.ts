@@ -1,13 +1,12 @@
 import { create } from 'zustand';
+import type { WorkspaceFields } from '../services/storage/workspaceStore';
 import i18n from '../i18n';
-import { defaultRocketTree } from '../services/design/defaultRocket';
 import { buildRocketTree, type StaticInfo } from '../engine/api';
 import type { RocketTree, ComponentNode } from '../engine/openRocketEngine';
 import { carryToCopies, reconcileConfigs, type FlightConfig } from '../services/flight/flightConfigs';
 import { repairValues } from '../services/design/repairValues';
 import { withKernelEnds } from '../services/design/autoRadius';
-import { newSimulation, resultKey, type Simulation, withoutResults } from '../services/flight/simulations';
-import { loadSettings } from '../services/storage/settings';
+import { resultKey, type Simulation, withoutResults } from '../services/flight/simulations';
 import { createEditSlice, type EditSlice } from './editSlice';
 import { createViewSlice, type ViewSlice } from './viewSlice';
 import { createFileSlice, type FileSlice } from './fileSlice';
@@ -19,7 +18,7 @@ import { abortRunWork, createRunSlice, type RunSlice } from './runSlice';
 import { createDriftSweepSlice, type DriftSweepSlice } from './driftSweepSlice';
 import { createMotorGuideSlice, type MotorGuideSlice } from './motorGuideSlice';
 import { markWritten, voidPendingAutosave } from './writtenWorkspace';
-import { configOf, defaultConfig, repairNotes, type StorageWarningKind } from './workspaceSelectors';
+import { configOf, freshWorkspace, repairNotes, type StorageWarningKind } from './workspaceSelectors';
 
 // Defined in a leaf module so the slices can import them without a run-time cycle.
 export {
@@ -94,13 +93,7 @@ export interface WorkspaceState
   quietReplace: number;
   markSaved: () => void;
   applyBuild: (info: StaticInfo | null, rocket: Rocket | null) => void;
-  hydrate: (w: {
-    tree: RocketTree;
-    sims: Simulation[];
-    configs: FlightConfig[];
-    activeId: string;
-    loadedMeta: LoadedMeta;
-  }) => void;
+  hydrate: (w: WorkspaceFields) => void;
 
   commitEdit: () => void;
   undo: () => void;
@@ -136,7 +129,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     };
   };
   // Live results carry across with their `resultKey`, so they read outdated unless inputs match.
-  const restore = (e: HistoryEntry) => {
+  const restore = (e: HistoryEntry): HistoryEntry => {
     const live = new Map(get().sims.map((x) => [x.id, x]));
     return {
       tree: e.tree,
@@ -216,9 +209,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
   };
 
   // The app mounts before hydration, so the default must be a complete workspace.
-  const tree0 = defaultRocketTree();
-  const config0 = defaultConfig(tree0);
-  const sim0 = newSimulation(i18n.t('sims.untitled', { n: 1 }), config0.id, loadSettings().launchDefaults);
+  const { tree: tree0, config: config0, sim: sim0 } = freshWorkspace();
   const steps = { beginEdit, commitEdit, recordStep };
 
   return {

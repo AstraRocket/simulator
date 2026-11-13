@@ -11,10 +11,14 @@ const setNeedRefresh = vi.fn((v: boolean) => {
   needRefresh = v;
 });
 const updateServiceWorker = vi.fn();
-let hookOptions: { onNeedRefresh?: () => void } = {};
+type HookOptions = {
+  onNeedRefresh?: () => void;
+  onRegisteredSW?: (url: string, reg: ServiceWorkerRegistration | undefined) => void;
+};
+let hookOptions: HookOptions = {};
 
 vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: (options: { onNeedRefresh?: () => void }) => {
+  useRegisterSW: (options: HookOptions) => {
     hookOptions = options;
     return {
       needRefresh: [needRefresh, setNeedRefresh],
@@ -179,5 +183,39 @@ describe('applying while the tab is hidden', () => {
       await vi.advanceTimersByTimeAsync(6_000);
     });
     expect(updateServiceWorker).toHaveBeenCalledWith(true);
+  });
+});
+
+// Last: the page reloads only once per load, so a second reload test would see nothing.
+describe('reloading after Reload', () => {
+  const realLocation = window.location;
+  afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+  });
+
+  it('waits until the new worker leaves the waiting slot', async () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+    const reg = { waiting: workerOf(NEWER), active: workerOf(ACTIVE), update: vi.fn(() => Promise.resolve()) };
+    render(<UpdateToast />);
+    act(() => hookOptions.onRegisteredSW?.('', reg as unknown as ServiceWorkerRegistration));
+    await offer(NEWER);
+    // `vi.waitFor` keeps real timers; Testing Library's would stall.
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+    await vi.waitFor(() => expect(updateServiceWorker).toHaveBeenCalledWith(true));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    // A reload now would load the old page through the old worker.
+    expect(reload).not.toHaveBeenCalled();
+
+    reg.waiting = undefined as unknown as ServiceWorker;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(reload).toHaveBeenCalledOnce();
   });
 });

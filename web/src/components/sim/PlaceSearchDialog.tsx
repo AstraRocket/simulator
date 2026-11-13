@@ -13,6 +13,7 @@ import { fetchElevation, searchPlaces, type PlaceMatch } from '../../services/we
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { weatherErrorText } from '../../services/weather/weatherErrorText';
 import { useOnline } from '../common/useOnline';
+import { STACKED_INPUT, STACKED_LABEL } from '../common/StackedField';
 import { baseLanguage } from '../../i18n/language';
 
 export interface PlacePick {
@@ -111,7 +112,7 @@ export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePic
 
   return (
     <Dialog id="placeSearch" title={t('placeSearch.title')} onClose={onClose} layout="pad" size="md">
-      <label htmlFor="place-search" className="mt-4 block text-xs font-medium text-ink-muted">
+      <label htmlFor="place-search" className={STACKED_LABEL}>
         {t('placeSearch.label')}
       </label>
       <div className="mt-1 flex gap-2">
@@ -125,7 +126,7 @@ export function PlaceSearchDialog({ onPick, onClose }: { onPick: (pick: PlacePic
           }}
           placeholder={t('placeSearch.placeholder')}
           maxLength={2000}
-          className="min-w-0 flex-1 rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500"
+          className={`min-w-0 flex-1 ${STACKED_INPUT}`}
         />
         <DialogButton
           onClick={() => void search()}

@@ -29,8 +29,9 @@ export function useBayBackup(): void {
       if (now.loadedMeta !== loadedMeta || hasBayRecords(now.tree)) return;
       const { tree: restored, restored: count } = restoreBays(now.tree, copy);
       if (!count) return;
-      now.applyTreeAction(() => restored);
+      // Not an undo step: it completes the load, as the file would have had desktop kept it.
       useWorkspaceStore.setState({
+        tree: restored,
         loadedMeta: {
           ...loadedMeta,
           notes: [...loadedMeta.notes, { key: 'recoveryBays.restored', values: { n: count } }],

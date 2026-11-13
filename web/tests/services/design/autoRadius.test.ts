@@ -654,18 +654,11 @@ describe('the values the kernel works out, through a file', () => {
     expect(find(importOrk(xml).tree, 'parachute')['cdAuto']).toBe(true);
   });
 
-  // Desktop 24.12 reads `<linelength>auto` as its 0.3 m default, so the tag carries the flown length.
-  it('keeps an automatic shroud-line length, writing the length that flies', () => {
-    const tree = chute({ lineLengthAuto: true, lineLength: 0.3 });
-    const id = find(tree, 'parachute').id as string;
-    const xml = exportOrk({
-      name: 'R',
-      tree,
-      componentInfo: (i) => (i === id ? { mass: 0.01, cgX: 0, lineLength: 0.45 } : undefined),
-    });
-    expect(xml).toContain('<linelength>0.45</linelength>');
-    expect(xml).toContain('<linelengthauto>true</linelengthauto>');
-    expect(xml).not.toContain('<linelength>auto</linelength>');
+  // ParachuteSaver.java:29-32 writes `auto`, and DocumentConfig.java:465-468 reads it back as automatic.
+  it('keeps an automatic shroud-line length as desktop writes it', () => {
+    const xml = exportOrk({ name: 'R', tree: chute({ lineLengthAuto: true, lineLength: 0.3 }) });
+    expect(xml).toContain('<linelength>auto</linelength>');
+    expect(xml).not.toContain('<linelengthauto>');
     expect(find(importOrk(xml).tree, 'parachute')['lineLengthAuto']).toBe(true);
   });
 

@@ -88,22 +88,19 @@ describe('LoadedBanner note text', () => {
 });
 
 describe('LoadedBanner design name', () => {
-  it('keeps the visible name in the button name, followed by the action', () => {
+  it('shows the design name as text; the Notes section edits it', () => {
     const st = useWorkspaceStore.getState();
     useWorkspaceStore.setState({ tree: { ...st.tree, name: 'Alpha Rocket' } });
     renderWithProviders(<LoadedBanner loaded={null} onClose={() => {}} />);
-    const btn = screen.getByRole('button', { name: /Alpha Rocket/ });
-    expect(btn.textContent).toContain('Alpha Rocket');
-    expect(screen.getByRole('button', { name: /Edit rocket configuration/ })).toBe(btn);
+    expect(screen.getByText('Alpha Rocket')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Alpha Rocket/ })).toBeNull();
   });
 
   it('names an unnamed design as its exports do', () => {
     const st = useWorkspaceStore.getState();
     useWorkspaceStore.setState({ tree: { ...st.tree, name: '   ' } });
     renderWithProviders(<LoadedBanner loaded={null} onClose={() => {}} />);
-    const btn = screen.getByRole('button', { name: /Edit rocket configuration/ });
-    expect(btn.textContent).toContain(designNameOf({ name: '' }, null));
-    expect(btn.textContent).not.toMatch(/^\s*Rocket/);
+    expect(screen.getByText(designNameOf({ name: '' }, null))).toBeTruthy();
   });
 });
 

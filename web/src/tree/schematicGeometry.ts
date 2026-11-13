@@ -1,15 +1,16 @@
 import type { ComponentNode, RocketTree, StaticInfo } from '../engine/openRocketEngine';
-import { anyOuterRadius, num, numOpt } from './nodeProps';
+import { anyOuterRadius, innerTubeRadius, num, numOpt } from './nodeProps';
 import { axialChain, axialLength, axialStart, partLength } from './position.js';
 import { finSpan } from './finPlanform.js';
 import { walkNodes } from './treeWalk.js';
-import { nodeShape, outerProfile } from './shapeProfile.js';
+import { nodeOuterProfile } from './shapeProfile.js';
 import { isFinSet, tubeFinRadius } from './tubefins.js';
 import { isChainType } from './componentKinds.js';
-import { KERNEL_DEFAULTS, KERNEL_MASSCOMPONENT_RADIUS } from './kernelDefaults.js';
+import { KERNEL_DEFAULTS, kernelDefault } from './kernelDefaults.js';
 import { assemblyBoundingRadius, assemblyParentRadius, isAssembly, resolveAssemblyRadius } from './assembly.js';
 import { stabilityState, stabilityVerdictKey, type StabilityState } from '../services/flight/simReport.js';
-import { fmtNum } from '../i18n/format';
+import { fmtNum, fmtPercent } from '../i18n/format';
+import type { Units } from '../prefs/useUnits';
 
 export interface Ctx {
   scale: number;
@@ -98,18 +99,7 @@ export function profilePath(
   aftR: number,
   baseY: number,
 ): string {
-  const shape = nodeShape(n);
-  const param = numOpt(n, 'shapeParameter');
-  const pts = outerProfile(
-    shape,
-    param,
-    len,
-    foreR,
-    aftR,
-    24,
-    undefined,
-    typeof n['clipped'] === 'boolean' ? n['clipped'] : undefined,
-  );
+  const pts = nodeOuterProfile(n, len, foreR, aftR, 24);
   const px = (xi: number) => ctx.x0 + (x + xi) * ctx.scale;
   const top = pts.map(([xi, r]) => `${px(xi)} ${baseY - r * ctx.scale}`);
   const bottom = pts
@@ -247,18 +237,17 @@ export function computeSchematicLayout(
   return { chain, totalLen, maxR, vHalf, snapXs, radialSnaps, rTop, rBot, rLeft, rRight, w, h, scale, ctx };
 }
 
-/** The 85% cap applies to the fallback only: a stated radius flies unchanged (`MassObject.setRadius`). */
+/** A mass object with no radius flies `MassObject`'s 12.5 mm, whatever the tube around it. */
 export function internalExtent(node: ComponentNode, parentRadius: number): { length: number; radius: number } {
-  const dflt = node.type === 'masscomponent' ? KERNEL_MASSCOMPONENT_RADIUS : parentRadius * 0.7;
   const stated = numOpt(node, 'outerRadius') ?? numOpt(node, 'radius');
   return {
     length: partLength(node),
-    radius: stated ?? Math.min(parentRadius * 0.85, dflt),
+    radius: stated ?? kernelDefault(node.type, 'radius') ?? parentRadius * 0.7,
   };
 }
 
 export function innerTubeExtent(node: ComponentNode): { length: number; radius: number } {
-  return { length: axialLength(node), radius: num(node, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius) };
+  return { length: axialLength(node), radius: innerTubeRadius(node) };
 }
 
 export const colorOf = (n: ComponentNode, dflt: string): string => (typeof n['color'] === 'string' ? n['color'] : dflt);
@@ -304,8 +293,18 @@ export function marginText(
   const state = stabilityState(cal);
   if (!state || pct == null || !Number.isFinite(pct)) return null;
   const glyph = STABILITY_GLYPH[state];
-  const figures = `${fmtNum(cal, 2)} ${t('stability.caliber')} · ${fmtNum(pct, 1)}%`;
+  const figures = `${fmtNum(cal, 2)} ${t('stability.caliber')} · ${fmtPercent(pct, 1)}`;
   return { state, glyph, figures, text: `${glyph} ${figures} (${t(stabilityVerdictKey(cal))})` };
+}
+
+/** "CG · 412 mm": the marker's name and its station from the nose tip. */
+export function stationLabel(
+  t: (key: string) => string,
+  u: Pick<Units, 'fmtSym'>,
+  which: 'cg' | 'cp',
+  x: number,
+): string {
+  return `${t(`schematic.${which}`)} · ${u.fmtSym('length', x)}`;
 }
 
 /** Scale `k` about the origin, then translate (viewBox units). */

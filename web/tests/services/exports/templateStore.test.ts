@@ -108,7 +108,7 @@ describe('writes go through kv.update', () => {
     expect(await store.list()).toEqual([]);
 
     kv.update = async () => false;
-    await expect(store.add(tpl('b.kml.mustache'))).rejects.toThrow('storage-full');
+    await expect(store.add(tpl('b.kml.mustache'))).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 
   it('setTemplateStore swaps the active store', async () => {

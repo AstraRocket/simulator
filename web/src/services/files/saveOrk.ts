@@ -1,6 +1,6 @@
 import { zipSync, strToU8 } from 'fflate';
 import { exportOrk, type OrkTreeExportInput } from './orkFile';
-import { saveBlob, exportFilename } from './saveFile';
+import { saveBlob, saveText, exportFilename } from './saveFile';
 import type { RocketTree } from '../../engine/openRocketEngine';
 import type { Keyed } from '../../i18n/keyedError';
 import type { ComponentFigures, StageFigures } from './rktExport';
@@ -35,6 +35,6 @@ export async function downloadRkt(
 ): Promise<Keyed[]> {
   const { exportRkt } = await import('./rktExport');
   const { xml, skipped } = exportRkt(name, tree, componentInfo, stageFigures);
-  await saveBlob(new Blob([xml], { type: 'application/xml' }), exportFilename([name, 'design'], 'rkt'));
+  await saveText(xml, exportFilename([name, 'design'], 'rkt'), 'application/xml');
   return skipped;
 }

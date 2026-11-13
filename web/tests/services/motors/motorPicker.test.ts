@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   STD_DIAMS,
+  formatDelays,
   fitIdx,
   motorFitsMount,
   mountFit,
@@ -123,5 +124,16 @@ describe('mountFit', () => {
 
   it('never reports a negative bore', () => {
     expect(mountFit({ type: 'innertube', outerRadius: 0.01, thickness: 0.02 })!.bore).toBe(0);
+  });
+});
+
+describe('formatDelays', () => {
+  it('writes the delays in the order given, then P, and reads back through parseDelays', () => {
+    expect(formatDelays([5, 3], true)).toBe('5,3,P');
+    expect(parseDelays(formatDelays([3, 5], true))).toEqual({ delays: [3, 5], plugged: true });
+  });
+
+  it('is undefined with nothing to list', () => {
+    expect(formatDelays([], false)).toBeUndefined();
   });
 });

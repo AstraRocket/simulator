@@ -75,7 +75,7 @@ describe('Custom Materials', () => {
     fireEvent.click(await within(dialog()).findByRole('button', { name: 'New material' }));
     expect((within(dialog()).getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
     fireEvent.change(within(dialog()).getByLabelText('Name'), { target: { value: 'G10' } });
-    fireEvent.change(within(dialog()).getByRole('spinbutton'), { target: { value: '1.8' } });
+    fireEvent.change(within(dialog()).getByRole('spinbutton', { name: /density/i }), { target: { value: '1.8' } });
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(library.map((m) => m.name)).toContain('G10'));
     expect(library.find((m) => m.name === 'G10')?.density).toBeCloseTo(1800);
@@ -101,5 +101,36 @@ describe('Custom Materials', () => {
     await waitFor(() => expect(useConfirmStore.getState().request?.message).toBe('Delete the material Moon Cheese?'));
     act(() => useConfirmStore.getState().settle(true));
     await waitFor(() => expect(library).toEqual([]));
+  });
+
+  it('keeps the shear modulus typed for a bulk material, in GPa as desktop shows it', async () => {
+    renderWithProviders(<MyMaterialsDialog onClose={() => {}} />);
+    fireEvent.click(await within(dialog()).findByRole('button', { name: 'New material' }));
+    fireEvent.change(within(dialog()).getByLabelText('Name'), { target: { value: 'G10' } });
+    fireEvent.change(within(dialog()).getByRole('spinbutton', { name: /density/i }), { target: { value: '1.8' } });
+    fireEvent.change(within(dialog()).getByRole('spinbutton', { name: 'Shear modulus (GPa)' }), {
+      target: { value: '2.9' },
+    });
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(library.find((m) => m.name === 'G10')?.shearModulus).toBeCloseTo(2.9e9));
+  });
+
+  it('offers no shear modulus for a fabric or a cord, as desktop does not', async () => {
+    renderWithProviders(<MyMaterialsDialog onClose={() => {}} />);
+    fireEvent.click(await within(dialog()).findByRole('button', { name: 'New material' }));
+    fireEvent.change(within(dialog()).getByLabelText('Type'), { target: { value: 'surface' } });
+    expect(within(dialog()).queryByRole('spinbutton', { name: /Shear modulus/ })).toBeNull();
+  });
+
+  it('gives the parts made of a design material the shear modulus an edit sets', async () => {
+    renderWithProviders(<MyMaterialsDialog onClose={() => {}} />);
+    fireEvent.click(await within(dialog()).findByRole('button', { name: /Birch ply/ }));
+    fireEvent.change(within(dialog()).getByRole('spinbutton', { name: 'Shear modulus (GPa)' }), {
+      target: { value: '0.6' },
+    });
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Save' }));
+    const part = () => (useWorkspaceStore.getState().tree.components[0]!.children as ComponentNode[])[0]!;
+    await waitFor(() => expect(part()['shearModulus']).toBeCloseTo(0.6e9));
+    expect(useWorkspaceStore.getState().tree.documentMaterials?.[0]?.shearModulus).toBeCloseTo(0.6e9);
   });
 });

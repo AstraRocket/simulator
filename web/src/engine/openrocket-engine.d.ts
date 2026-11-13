@@ -69,6 +69,7 @@ declare module '*openrocket-engine.mjs' {
     ejectionDelay: number,
   ): void;
   export function getStaticInfo(rocket: number): string;
+  export function getRockSimStageFigures(rocket: number): string;
   export function getComponentInfo(rocket: number, componentId: string): string;
   export function getComponentGeometry(rocket: number, componentId: string): string;
   export function getComponentFields(rocket: number, componentId: string): string;

@@ -105,7 +105,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   };
 }
 
-/** Desktop 24.12's DocumentConfig.SUPPORTED_VERSIONS plus upstream's 1.11. */
+/** Desktop's `DocumentConfig.SUPPORTED_VERSIONS`. */
 const SUPPORTED_ORK_VERSIONS: ReadonlySet<string> = new Set([
   '1.0',
   '1.1',

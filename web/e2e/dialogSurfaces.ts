@@ -22,7 +22,6 @@ export const DIALOG_SURFACES = {
   PrintExportDialog: 1,
   PrivacyDialog: 1,
   RecoverySizingReadout: 1,
-  RocketConfigDialog: 1,
   SavePartButton: 1,
   SavedPartsDialog: 1,
   ReportPrintSettings: 1,

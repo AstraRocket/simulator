@@ -5,6 +5,7 @@ import { DesignTypeOptions } from './DesignTypeOptions';
 import { NOTE_FIELD as FIELD, NOTE_LABEL as LABEL } from './designNotesStyles';
 import { RevisionLog } from './RevisionLog';
 import { useCanBuildDesign } from './useCanBuildDesign';
+import { Disclosure } from '../common/Disclosure';
 
 // Commits on blur, one undo step per field. Keyed on the value so undo or another file reseeds it.
 function NoteField({
@@ -52,23 +53,10 @@ export function DesignNotesSection() {
   const designType = tree.designType ?? 'original';
   return (
     <section className="rounded-xl bg-surface p-2 ring-1 ring-line/10">
-      <h2 className="flex min-w-0">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 hover:bg-raised"
-        >
-          <span className="text-base leading-none text-accent-400" aria-hidden="true">
-            {open ? '▾' : '▸'}
-          </span>
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            {t('config.notes')}
-          </span>
-        </button>
-      </h2>
+      <Disclosure open={open} onToggle={() => setOpen((o) => !o)} label={t('config.notes')} />
       {open && (
         <div className="space-y-2 p-1 pt-2">
+          <NoteField label={t('config.name')} value={tree.name} onCommit={(name) => updateDesignMeta({ name })} />
           <NoteField
             label={t('config.designer')}
             value={tree.designer}

@@ -47,6 +47,8 @@
       "archiveEmpty": "El archivo comprimido .ork está vacío.",
       "archiveCorrupt": "El archivo comprimido .ork está dañado o no se puede leer.",
       "tooManyComponents": "Este {{format}} declara demasiados componentes para abrirlo (posiblemente esté dañado).",
+      "tooManyInstances": "Este {{format}} anida pods, clústeres y cantidades en demasiadas piezas para abrirlo (posiblemente esté dañado).",
+      "autoRadiusRunTooLong": "Este {{format}} tiene demasiadas piezas seguidas con radio automático para abrirlo (posiblemente esté dañado).",
       "tooManySimulations": "Este .ork declara demasiadas simulaciones para abrirlo (posiblemente esté dañado).",
       "tooManyUnknownElements": "Este .ork lleva demasiados elementos no reconocidos para abrirlo (posiblemente esté dañado).",
       "tooManyConfigs": "Este .ork declara demasiadas configuraciones de vuelo para abrirlo (posiblemente esté dañado).",
@@ -158,6 +160,7 @@
       "nothing": "No hay nada que exportar."
     },
     "engine": {
+      "callFailed": "El motor de física de OpenRocket falló en {{operation}}: {{detail}}",
       "notReady": "El motor de física de OpenRocket aún no ha terminado de cargarse. Espera a que termine y vuelve a intentarlo.",
       "staleDesign": "Este diseño se construyó antes de reiniciar el motor de física. Vuelve a construirlo antes de usarlo."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Deshacer",
-    "redo": "Rehacer"
+    "redo": "Rehacer",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Mayús+Z"
   },
   "scale": {
     "title": "Escalar cohete",
@@ -535,7 +540,8 @@
       "pressure": "Presión",
       "force": "Empuje / fuerza",
       "impulse": "Impulso",
-      "rollRate": "Velocidad de alabeo"
+      "rollRate": "Velocidad de alabeo",
+      "shearModulus": "Módulo de corte"
     }
   },
   "settings": {
@@ -663,8 +669,6 @@
     "removeMembership": "Quitar la membresía de {{org}}"
   },
   "config": {
-    "title": "Configuración del cohete",
-    "edit": "Editar la configuración del cohete",
     "notes": "Notas del diseño",
     "name": "Nombre del diseño",
     "designer": "Diseñador",
@@ -682,7 +686,6 @@
     "removeRevision": "Quitar la revisión del {{date}}",
     "removeRevisionConfirm": "¿Quitar esta revisión?",
     "appOnlyNotes": "Al guardar en .ork se conservan todas estas notas. El fabricante del kit, la referencia del kit y las revisiones con fecha son propios de esta aplicación: OpenRocket de escritorio los descarta si guarda el archivo. .rkt no guarda estos tres ni el nombre del kit.",
-    "save": "Aceptar",
     "type_original": "Diseño original / otro",
     "type_commercial_kit": "Kit comercial",
     "type_clone_kit": "Clon de un kit",
@@ -936,6 +939,7 @@
     "stdDev": "Desviación estándar",
     "stdDevName": "Desviación estándar del viento",
     "turbulenceIntensity": "Intensidad de turbulencia",
+    "turbulenceNeedsWind": "Indica primero un viento medio: el porcentaje expresa las ráfagas como fracción de él.",
     "levelCount_one": "{{count}} nivel de viento",
     "levelCount_many": "{{count}} niveles de viento",
     "levelCount_other": "{{count}} niveles de viento",
@@ -1504,6 +1508,7 @@
     "collapseAll": "Contraer todo",
     "collapseTree": "Ocultar la lista de componentes",
     "hidePart": "Ocultar en las vistas",
+    "hiddenByParent": "Oculto en las vistas junto con la pieza que lo contiene",
     "showPart": "Mostrar en las vistas",
     "showAll": "Mostrar todo",
     "hiddenNote": "Las piezas ocultas siguen contando en la masa, el CG, la aerodinámica y todos los datos de vuelo. Solo las vistas 2D y 3D las omiten.",
@@ -1910,6 +1915,7 @@
     "densityBulk": "Densidad volumétrica",
     "densitySurface": "Densidad superficial",
     "densityLine": "Densidad lineal",
+    "shearModulus": "Módulo de corte",
     "save": "Guardar",
     "cancel": "Cancelar",
     "addToLibrary": "Añadir a mis materiales personalizados, para todos los diseños",
@@ -2098,7 +2104,6 @@
     "searchCode": "Buscar por código (p. ej. C6)…",
     "select": "Seleccionar",
     "loading": "Cargando…",
-    "loadingCatalog": "Cargando catálogo de motores…",
     "pickHint": "Selecciona un motor para ver su curva de empuje y especificaciones.",
     "backToList": "Volver a la lista",
     "curve": "Curva",

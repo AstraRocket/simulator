@@ -12,7 +12,8 @@ import {
   savedPartsVersion,
 } from '../../../src/services/parts/customParts';
 import { setPresetStore, type CustomPart, type PresetStore } from '../../../src/services/parts/presetStore';
-import { catalogPatch } from '../../../src/services/design/treeEdit';
+import { catalogPatch, findNode, syncDerived, updateNode } from '../../../src/services/design/treeEdit';
+import type { RocketTree } from '../../../src/engine/openRocketEngine';
 class MemoryPresetStore implements PresetStore {
   parts: CustomPart[] = [];
   async list() {
@@ -91,6 +92,18 @@ describe('a saved part as a picker row', () => {
     expect((customPartToRow(part) as { innerDiameter: number | null }).innerDiameter).toBeNull();
   });
 
+  it('publishes no bore for a filled tube, which flies solid', () => {
+    const part: CustomPart = {
+      id: 'x',
+      type: 'bodytube',
+      mfr: 'm',
+      partNo: 'p',
+      desc: '',
+      node: { length: 0.2, outerRadius: 0.013, thickness: 0.0005, filled: true },
+    };
+    expect((customPartToRow(part) as { innerDiameter: number | null }).innerDiameter).toBe(0);
+  });
+
   it('marks a nose cone filled by its flag, the way catalogPatch writes one', () => {
     const solid: CustomPart = {
       id: 'x',
@@ -160,6 +173,38 @@ describe('applying a saved part', () => {
       shoulderRadius: 0.0125,
       shoulderCapped: true,
     });
+  });
+
+  it('keeps the diameter it was saved at, where the tube was automatic', async () => {
+    const auto = { ...tube(), outerRadiusAuto: true } as ComponentNode;
+    const part = await saveCustomPart(auto, 'bodytube', meta);
+    expect(part.node['outerRadiusAuto']).toBe(false);
+    const tree = {
+      components: [
+        {
+          id: 'st',
+          type: 'stage',
+          children: [
+            { id: 'nose', type: 'nosecone', length: 0.1, aftRadius: 0.03 },
+            { id: 't', type: 'bodytube', length: 0.3, outerRadius: 0.03 },
+          ],
+        },
+      ],
+    } as unknown as RocketTree;
+    const picked = syncDerived(updateNode(tree, 't', catalogPatch(customPartToRow(part)!)));
+    expect(findNode(picked, 't')!['outerRadius']).toBe(0.013);
+  });
+
+  it('pins a part saved before the save pinned it, when it is applied', () => {
+    const old: CustomPart = {
+      id: 'custom:old',
+      type: 'bodytube',
+      mfr: 'Mine',
+      partNo: 'old',
+      desc: '',
+      node: { ...presetNode(tube()), outerRadiusAuto: true },
+    };
+    expect(catalogPatch(customPartToRow(old)!)['outerRadiusAuto']).toBe(false);
   });
 
   it('hands back a copy, so applying a part cannot mutate the stored one', async () => {

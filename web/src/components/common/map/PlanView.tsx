@@ -5,6 +5,7 @@ import { TILE_SOURCES, metersPerPixel, visibleTiles, zoomForMetersPerPixel } fro
 import { HALO, LAYERS, MAX_MAGNIFICATION } from './mapStyle';
 import { MapCredit, TileImg, TileLayerButtons } from './MapParts';
 import type { useGroundLayer } from './useTileVerdict';
+import { pointsAttr } from '../svgPath';
 
 export interface PlanGeometry {
   half: number;
@@ -44,7 +45,10 @@ export function PlanView({
   const X = (east: number) => half + east * scale;
   const Y = (north: number) => half - north * scale;
   const poly = (points: readonly GroundPoint[]) =>
-    points.map((p) => `${X(p.east).toFixed(1)},${Y(p.north).toFixed(1)}`).join(' ');
+    pointsAttr(
+      points.map((p) => [X(p.east), Y(p.north)]),
+      1,
+    );
   const rings = rangeRings(extent);
 
   const { source, imagery } = ground;

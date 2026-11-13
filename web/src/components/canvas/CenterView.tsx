@@ -23,7 +23,7 @@ export function CenterView() {
   const { t } = useTranslation();
   const tab = useWorkspaceStore((s) => s.tab);
   const designPane = useWorkspaceStore((s) => s.designPane);
-  // Flight warnings render once: here on a phone, in the Results column at lg+ (App.tsx).
+  // Flight warnings render once: here on a phone, in the Results column at lg+ (AppPanes.tsx).
   const desktop = useIsDesktop();
   const loadedMeta = useWorkspaceStore((s) => s.loadedMeta);
   const leaveForNew = useWorkspaceStore((s) => s.leaveForNew);

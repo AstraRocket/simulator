@@ -1,8 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { useHelpFrame } from '../../../src/components/layout/useHelpFrame';
 import { helpTarget } from '../../../src/services/app/helpDocs';
+
+describe('useHelpFrame anchor', () => {
+  it('reports the anchor a move within the open page goes to, which the target does not carry', () => {
+    const target = helpTarget('index#first', 'en');
+    const { result } = renderHook(() => useHelpFrame(target, 'en', () => {}));
+    expect(result.current.anchorHash).toBe('#first');
+    act(() => result.current.navigate('index#second'));
+    expect(result.current.anchorHash).toBe('#second');
+  });
+});
 
 // Docusaurus has light and dark only, so daylight maps to light.
 describe('useHelpFrame theme', () => {

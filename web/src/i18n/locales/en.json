@@ -47,6 +47,8 @@
       "archiveEmpty": "The .ork archive is empty.",
       "archiveCorrupt": "The .ork archive is damaged or cannot be read.",
       "tooManyComponents": "This {{format}} declares too many components to open (possibly malformed).",
+      "tooManyInstances": "This {{format}} nests pods, clusters and counts into too many parts to open (possibly malformed).",
+      "autoRadiusRunTooLong": "This {{format}} has too many automatic-radius parts in a row to open (possibly malformed).",
       "tooManySimulations": "This .ork declares too many simulations to open (possibly malformed).",
       "tooManyUnknownElements": "This .ork carries too many unrecognized elements to open (possibly malformed).",
       "tooManyConfigs": "This .ork declares too many flight configurations to open (possibly malformed).",
@@ -158,6 +160,7 @@
       "nothing": "Nothing to export."
     },
     "engine": {
+      "callFailed": "The OpenRocket engine failed at {{operation}}: {{detail}}",
       "notReady": "The OpenRocket engine has not finished loading. Wait for it to load, then try again.",
       "staleDesign": "This design was built before the engine was reset. Rebuild it before use."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Scale rocket",
@@ -535,7 +540,8 @@
       "pressure": "Pressure",
       "force": "Thrust / force",
       "impulse": "Impulse",
-      "rollRate": "Roll rate"
+      "rollRate": "Roll rate",
+      "shearModulus": "Shear modulus"
     }
   },
   "settings": {
@@ -662,8 +668,6 @@
     "removeMembership": "Remove the {{org}} membership"
   },
   "config": {
-    "title": "Rocket configuration",
-    "edit": "Edit rocket configuration",
     "notes": "Design notes",
     "name": "Design name",
     "designer": "Designer",
@@ -681,7 +685,6 @@
     "removeRevision": "Remove the revision from {{date}}",
     "removeRevisionConfirm": "Remove this revision?",
     "appOnlyNotes": "Saving .ork keeps every note here. Kit manufacturer, kit part number and the dated revisions are this app’s own: desktop OpenRocket drops them if it saves the file. .rkt keeps neither these three nor the kit name.",
-    "save": "OK",
     "type_original": "Original design / other",
     "type_commercial_kit": "Commercial kit",
     "type_clone_kit": "Clone of a kit",
@@ -934,6 +937,7 @@
     "stdDev": "Standard deviation",
     "stdDevName": "Wind standard deviation",
     "turbulenceIntensity": "Turbulence intensity",
+    "turbulenceNeedsWind": "Set an average wind first: the percentage is the gusts as a share of it.",
     "levelCount_one": "{{count}} wind level",
     "levelCount_other": "{{count}} wind levels",
     "editProfile": "Edit wind profile…",
@@ -1499,6 +1503,7 @@
     "collapseAll": "Collapse all",
     "collapseTree": "Hide the component list",
     "hidePart": "Hide in the views",
+    "hiddenByParent": "Hidden in the views with the part it is in",
     "showPart": "Show in the views",
     "showAll": "Show all",
     "hiddenNote": "Hidden parts still count in mass, CG, aerodynamics and every flight number. Only the 2D and 3D views leave them out.",
@@ -1903,6 +1908,7 @@
     "densityBulk": "Bulk density",
     "densitySurface": "Surface density",
     "densityLine": "Line density",
+    "shearModulus": "Shear modulus",
     "save": "Save",
     "cancel": "Cancel",
     "addToLibrary": "Add to my custom materials, for every design",
@@ -2090,7 +2096,6 @@
     "searchCode": "Search by code (e.g. C6)…",
     "select": "Select",
     "loading": "Loading…",
-    "loadingCatalog": "Loading motor catalog…",
     "pickHint": "Select a motor to see its thrust curve and specifications.",
     "backToList": "Back to list",
     "curve": "Curve",

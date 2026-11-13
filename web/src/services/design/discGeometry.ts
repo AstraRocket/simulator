@@ -1,5 +1,5 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { noseConeAftRadius, num, positionOf } from '../../tree/nodeProps';
+import { innerTubeRadius, noseConeAftRadius, num, positionOf, transitionOuterRadius } from '../../tree/nodeProps';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { partLength, startFromPosition } from '../../tree/position';
 import { stationRadius } from '../../tree/shapeProfile';
@@ -35,7 +35,7 @@ export function tubeRadii(node: ComponentNode): Tube | null {
     const ar = noseConeAftRadius(node);
     return { outerR: ar, innerR: Math.max(0, ar - num(node, 'thickness', COMPONENT_DEFAULTS.nosecone.thickness)) };
   } else if (t === 'transition') {
-    const or = Math.max(num(node, 'aftRadius', 0), num(node, 'foreRadius', 0));
+    const or = transitionOuterRadius(node);
     if (or > 0) {
       return { outerR: or, innerR: Math.max(0, or - num(node, 'thickness', COMPONENT_DEFAULTS.transition.thickness)) };
     }
@@ -48,13 +48,6 @@ export function plateOuter(node: ComponentNode, enclosing: Tube | null): number 
   if (!Number.isNaN(explicit)) return explicit;
   if (enclosing && enclosing.innerR > 0) return enclosing.innerR;
   return FALLBACK_RADIUS;
-}
-
-export function mountBore(siblings: ComponentNode[]): number | null {
-  const mount = siblings.find((s) => s.type === 'innertube');
-  if (!mount) return null;
-  const or = num(mount, 'outerRadius', NaN);
-  return Number.isNaN(or) ? null : or;
 }
 
 /** `parentStart` is the parent's rocket-frame start, which an `absolute` child is measured against. */
@@ -86,9 +79,21 @@ export function boreAround(child: ComponentNode, parent: ComponentNode, parentSt
   return a === null || b === null ? null : Math.min(a, b);
 }
 
+/** A ring's stated bore, else the mounts that pass through it (a tree not yet through `syncDerived`). */
+export function statedOrRingBore(
+  ring: ComponentNode,
+  parent: ComponentNode | null,
+  ringOuter: number,
+  parentStart: number,
+): number {
+  const bore = num(ring, 'innerRadius', NaN);
+  if (!Number.isNaN(bore)) return bore;
+  return parent ? ringBore(ring, parent, ringOuter, parentStart) : 0;
+}
+
 export function ringBore(ring: ComponentNode, parent: ComponentNode, ringOuter: number, parentStart: number): number {
   let bore = 0;
-  for (const tube of tubesThrough(ring, parent, parentStart)) bore = Math.max(bore, num(tube, 'outerRadius', 0));
+  for (const tube of tubesThrough(ring, parent, parentStart)) bore = Math.max(bore, innerTubeRadius(tube));
   return Math.min(bore, ringOuter);
 }
 
@@ -115,7 +120,7 @@ function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: numb
   if (ring['innerRadiusAuto'] !== true && typeof ring['innerRadius'] === 'number') return null;
   const holes: Hole[] = [];
   for (const tube of tubesThrough(ring, parent, parentStart)) {
-    const r = num(tube, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
+    const r = innerTubeRadius(tube);
     for (const { radialPosition: d, radialDirection: dir } of clusterPlacesOf(tube)) {
       holes.push({ y: d * Math.cos(dir), z: d * Math.sin(dir), r });
     }
@@ -169,22 +174,24 @@ export function resolveDisc(
   nodeId: string,
 ): { outerR: number; innerR: number; length: number; holes: Hole[] | null } | null {
   const ctx = nodeContext(tree, nodeId);
-  const dims = ctx ? discDims(ctx.node, ctx.enclosing, ctx.siblings) : null;
+  const dims = ctx
+    ? discDims(ctx.node, ctx.enclosing, ctx.parent, ctx.parent ? parentStartOf(tree, ctx.parent) : 0)
+    : null;
   return ctx && dims ? { ...dims, holes: ringHolesIn(tree, ctx) } : null;
 }
 
 export function discDims(
   node: ComponentNode,
   enclosing: Tube | null,
-  siblings: ComponentNode[],
+  parent: ComponentNode | null,
+  parentStart: number,
 ): { outerR: number; innerR: number; length: number } | null {
   const outerR = plateOuter(node, enclosing);
   if (node.type === 'bulkhead') {
     return { outerR, innerR: 0, length: num(node, 'length', COMPONENT_DEFAULTS.bulkhead.length) };
   }
   if (node.type === 'centeringring') {
-    const bore = num(node, 'innerRadius', NaN);
-    const innerR = Number.isNaN(bore) ? (mountBore(siblings) ?? 0) : bore;
+    const innerR = statedOrRingBore(node, parent, outerR, parentStart);
     return { outerR, innerR, length: num(node, 'length', COMPONENT_DEFAULTS.centeringring.length) };
   }
   if (node.type === 'tubecoupler' || node.type === 'engineblock') {

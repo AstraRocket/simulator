@@ -1,59 +1,16 @@
-import { useState, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUnits } from '../../prefs/useUnits';
-import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { LocationPicker } from '../sim/LocationPicker';
 import { loadSettings } from '../../services/storage/settings';
 import { defaultToolSite } from './remembered';
-import { SiteMapDialog } from '../sim/SiteMapDialog';
-import { QNum } from '../sim/QNum';
+import { SiteMapButton } from '../sim/SiteMapDialog';
+import { SiteElevationField } from '../sim/SiteQNum';
 import { LatLonRows } from '../sim/LatLonRows';
-import { LAUNCH_SI, SITE_ALTITUDE_FIELD } from '../../prefs/launchUnits';
 import { smallButton } from '../common/smallButton';
-
-const toolBtn = smallButton('sm', 'soft');
 
 export interface ToolSite {
   latitudeDeg: number | null;
   longitudeDeg: number | null;
   launchAltitudeM: number | null;
-}
-
-export function SiteElevationField(
-  props: Omit<ComponentProps<typeof QNum>, 'label' | 'field' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
-) {
-  const { t } = useTranslation();
-  const u = useUnits();
-  return (
-    <QNum
-      label={t('landing.siteElevation')}
-      field={SITE_ALTITUDE_FIELD}
-      kind="distance"
-      u={u}
-      stepSi={10}
-      minSi={LAUNCH_SITE_LIMITS.launchAltitudeM.min}
-      maxSi={LAUNCH_SITE_LIMITS.launchAltitudeM.max}
-      {...props}
-    />
-  );
-}
-
-export function SiteTemperatureField(
-  props: Omit<ComponentProps<typeof QNum>, 'label' | 'kind' | 'u' | 'stepSi' | 'minSi' | 'maxSi'>,
-) {
-  const { t } = useTranslation();
-  const u = useUnits();
-  return (
-    <QNum
-      label={t('launch.temperature')}
-      kind="degC"
-      u={u}
-      stepSi={1}
-      minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
-      maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
-      {...props}
-    />
-  );
 }
 
 /** With `elevation`, a blank height means the terrain model's. */
@@ -67,7 +24,6 @@ export function SiteFields({
   elevation?: boolean;
 }) {
   const { t } = useTranslation();
-  const [mapOpen, setMapOpen] = useState(false);
   return (
     <>
       <LocationPicker
@@ -94,17 +50,12 @@ export function SiteFields({
           onChange={(v) => onChange((s) => ({ ...s, launchAltitudeM: v }))}
         />
       )}
-      <button className={`${toolBtn} w-full`} onClick={() => setMapOpen(true)}>
-        <span aria-hidden="true">🗺</span> {t('map.show')}
-      </button>
-      {mapOpen && (
-        <SiteMapDialog
-          latitudeDeg={site.latitudeDeg}
-          longitudeDeg={site.longitudeDeg}
-          onPick={(la, lo) => onChange((s) => ({ ...s, latitudeDeg: la, longitudeDeg: lo, launchAltitudeM: null }))}
-          onClose={() => setMapOpen(false)}
-        />
-      )}
+      <SiteMapButton
+        latitudeDeg={site.latitudeDeg}
+        longitudeDeg={site.longitudeDeg}
+        onPick={(la, lo) => onChange((s) => ({ ...s, latitudeDeg: la, longitudeDeg: lo, launchAltitudeM: null }))}
+        className={smallButton('sm', 'soft', 'w-full')}
+      />
     </>
   );
 }

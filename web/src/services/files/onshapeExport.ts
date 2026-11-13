@@ -9,7 +9,7 @@ import { stageFileName } from '../design/orkTree';
 import { designSeparation } from '../flight/flightConfigs';
 import { axialFrames, type AxialFrame } from '../../tree/axialRebase';
 import { assemblyChainLength, assemblyParentRadius, isAssembly, resolveAssemblyRadius } from '../../tree/assembly';
-import { clusterPoints } from '../../tree/cluster';
+import { clusterPlacesOf } from '../../tree/cluster';
 import { MASS_OBJECT_TYPES, isChainType } from '../../tree/componentKinds';
 import {
   bodyRadiusAt,
@@ -34,10 +34,11 @@ import { isFinSet, tubeFinRadius } from '../../tree/tubefins';
 import { symmetricSections, type Pt, type Section } from './onshape/meridian';
 import { shouldersOf } from '../../tree/shapeProfile';
 import type { OrkExportMotor } from './orkTypes';
-import { exportFilename, saveBlob } from './saveFile';
-import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, kernelPartMaterial, statedMaterial } from '../design/materialSlots';
+import { exportFilename, saveText } from './saveFile';
+import { FILLET_MATERIAL_KEYS, resolvedMaterial, type ResolvedMaterial } from '../design/materialSlots';
 import { stageNodes } from '../../tree/treeWalk';
 import { radToDeg } from '../../prefs/units';
+import { DESKTOP_PART_NAMES } from './desktopPartNames';
 
 // The feature's `resolveTransform` stacks `after` parts and lays the rest from the parent's front.
 
@@ -127,29 +128,6 @@ export interface OnshapeExport {
   skipped: SkippedPart[];
 }
 
-const DESKTOP_NAMES: Partial<Record<ComponentType, string>> = {
-  nosecone: 'Nose Cone',
-  transition: 'Transition',
-  bodytube: 'Body Tube',
-  trapezoidfinset: 'Trapezoidal Fin Set',
-  ellipticalfinset: 'Elliptical Fin Set',
-  freeformfinset: 'Freeform Fin Set',
-  tubefinset: 'Tube Fin Set',
-  innertube: 'Inner Tube',
-  tubecoupler: 'Tube Coupler',
-  centeringring: 'Centering Ring',
-  bulkhead: 'Bulkhead',
-  engineblock: 'Engine Block',
-  launchlug: 'Launch Lug',
-  railbutton: 'Rail Button',
-  parachute: 'Parachute',
-  streamer: 'Streamer',
-  shockcord: 'Shock Cord',
-  masscomponent: 'Mass Component',
-  podset: 'Pod set',
-  parallelstage: 'Booster',
-};
-
 const UNSUPPORTED: ReadonlySet<ComponentType> = new Set(['fairing']);
 
 const LINE_TYPES: ReadonlySet<string> = new Set(['centeringring', 'bulkhead', 'launchlug', 'railbutton']);
@@ -198,28 +176,27 @@ function colorOf(a: PartAppearance): OnshapeColor | undefined {
   return { red: r / 255, green: g / 255, blue: b / 255, alpha: a.alpha / 255 };
 }
 
+const shearOf = (v: unknown): { shearModulus?: number } =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 0 ? { shearModulus: v } : {};
+
+/** Only a bulk material carries a group and a shear modulus into the feature. */
+function onshapeMaterial(m: ResolvedMaterial, type: 'bulk' | 'surface' | 'line'): OnshapeMaterial {
+  const { stated: _stated, shearModulus, group, ...rest } = m;
+  if (type !== 'bulk') return { ...rest, type, group: m.stated ? '' : (group ?? '') };
+  return { ...rest, type, ...shearOf(shearModulus), group: group ?? '' };
+}
+
 function filletMaterialOf(node: ComponentNode): OnshapeMaterial {
-  const m = statedMaterial(node, FILLET_MATERIAL_KEYS, true);
-  return m
-    ? { name: m.name, type: 'bulk', density: m.density, group: m.group ?? '' }
-    : { ...KERNEL_MATERIALS.bulk, type: 'bulk' };
+  return onshapeMaterial(resolvedMaterial(node, 'bulk', FILLET_MATERIAL_KEYS, KERNEL_MATERIALS.bulk), 'bulk');
 }
 
 function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
   switch (node.type) {
     case 'parachute':
-    case 'streamer': {
-      const m = statedMaterial(node, MATERIAL_KEYS.surface, false);
-      return m
-        ? { name: m.name, type: 'surface', density: m.density, group: '' }
-        : { ...KERNEL_MATERIALS.surface, type: 'surface' };
-    }
-    case 'shockcord': {
-      const m = statedMaterial(node, MATERIAL_KEYS.line, false);
-      return m
-        ? { name: m.name, type: 'line', density: m.density, group: '' }
-        : { ...KERNEL_MATERIALS.line, type: 'line' };
-    }
+    case 'streamer':
+      return onshapeMaterial(resolvedMaterial(node, 'surface'), 'surface');
+    case 'shockcord':
+      return onshapeMaterial(resolvedMaterial(node, 'line'), 'line');
     case 'masscomponent':
     case 'stage':
     case 'podset':
@@ -228,18 +205,7 @@ function materialOf(node: ComponentNode): OnshapeMaterial | undefined {
     default:
       break;
   }
-  const bulk = statedMaterial(node, MATERIAL_KEYS.bulk, true);
-  if (bulk) {
-    const shear = node['shearModulus'];
-    return {
-      name: bulk.name,
-      type: 'bulk',
-      density: bulk.density,
-      ...(typeof shear === 'number' && Number.isFinite(shear) && shear >= 0 ? { shearModulus: shear } : {}),
-      group: bulk.group ?? '',
-    };
-  }
-  return { ...(kernelPartMaterial(node.type, 'bulk') ?? KERNEL_MATERIALS.bulk), type: 'bulk' };
+  return onshapeMaterial(resolvedMaterial(node, 'bulk'), 'bulk');
 }
 
 /** Tube fins fly `fixed` (`TubeFinSet.getInstanceAngles`), but the feature drops a `fixed` angle. */
@@ -539,7 +505,7 @@ function componentOf(ctx: Ctx, node: ComponentNode, parent: ComponentNode): Onsh
   const color = colorOf(outsideAppearance(node, ctx.palette));
   const out: OnshapeComponent = {
     type: node.type,
-    name: node.name ?? DESKTOP_NAMES[node.type] ?? node.type,
+    name: node.name ?? DESKTOP_PART_NAMES[node.type] ?? node.type,
     id: node.id ?? '',
     ...(info ? { mass: info.mass } : {}),
     ...(overrideMass !== undefined ? { overrideMass } : {}),
@@ -566,21 +532,12 @@ function packedMaterial(
   const radius = params['packedRadius'] as number;
   const volume = Math.PI * radius * radius * length;
   if (!info || !(volume > 0)) return undefined;
-  const name = materialOf(node)?.name ?? DESKTOP_NAMES[node.type] ?? node.type;
+  const name = materialOf(node)?.name ?? DESKTOP_PART_NAMES[node.type] ?? node.type;
   return { name, type: 'bulk', density: info.mass / volume, group: '' };
 }
 
 function splitCluster(node: ComponentNode, tube: OnshapeComponent): OnshapeComponent[] {
-  const cluster = str(node, 'cluster', 'single');
-  const outerRadius = tube.params['outerRadius'] as number;
-  const places = clusterPoints(
-    cluster,
-    outerRadius,
-    num(node, 'clusterScale', 1),
-    num(node, 'clusterRotation', 0),
-    num(node, 'radialPosition', 0),
-    num(node, 'radialDirection', 0),
-  );
+  const places = clusterPlacesOf(node, tube.params['outerRadius'] as number);
   if (places.length <= 1) return [tube];
   const clone = (c: OnshapeComponent, tag: string): OnshapeComponent => ({
     ...c,
@@ -599,7 +556,7 @@ function splitCluster(node: ComponentNode, tube: OnshapeComponent): OnshapeCompo
 }
 
 function stageOf(ctx: Ctx, stage: ComponentNode, i: number): OnshapeComponent {
-  const length = (stage.children ?? []).reduce((s, c) => s + (isChainType(c.type) ? partLength(c) : 0), 0);
+  const length = assemblyChainLength(stage);
   const sep = designSeparation(stage);
   return {
     type: 'stage',
@@ -663,7 +620,10 @@ export function exportOnshape(input: OnshapeExportInput): OnshapeExport {
 
 export async function downloadOnshapeJson(input: OnshapeExportInput): Promise<OnshapeExport> {
   const result = exportOnshape(input);
-  const blob = new Blob([JSON.stringify(result.payload, null, 2)], { type: 'application/json' });
-  await saveBlob(blob, exportFilename([input.name, 'design'], 'json'));
+  await saveText(
+    JSON.stringify(result.payload, null, 2),
+    exportFilename([input.name, 'design'], 'json'),
+    'application/json',
+  );
   return result;
 }

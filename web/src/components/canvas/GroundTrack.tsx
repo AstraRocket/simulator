@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDegrees, fmtGroundDistance, groundDistanceNumber, useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { stageLabel } from '../../i18n/format';
 import {
   groundTrackLine,
   trackExtent,
@@ -14,8 +13,10 @@ import { useWorkspaceStore, selectDriftSweepFor } from '../../state/store';
 import type { LaunchConditions } from '../../services/design/orkTree';
 import { DriftSweepPanel } from './DriftSweepPanel';
 import { PlanView } from '../common/map/PlanView';
-import { useGroundLayer } from '../common/map/useTileVerdict';
-import { buildTraces, type ChartFlight } from './flightChartTraces';
+import { mapButtonClass } from '../common/map/mapButton';
+import { useSiteGround } from '../common/map/useTileVerdict';
+import type { ChartFlight } from './flightChartTraces';
+import { useStageTraces } from './useChartSeries';
 import { useElementResize } from '../common/useElementResize';
 import { token } from '../common/colorTokens';
 import { LandingRing, LinedTrack, SampleDots, ZoneEllipse } from '../common/map/PlanMarks';
@@ -35,18 +36,15 @@ export function GroundTrack({
   const u = useUnits();
   const fitRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(420);
-  const site = latitudeDeg != null && longitudeDeg != null ? { lat: latitudeDeg, lon: longitudeDeg } : null;
-  const ground = useGroundLayer(site !== null);
+  const { site, ground } = useSiteGround(latitudeDeg, longitudeDeg);
 
   // The Downrange tile's unit scope, so the summary, this and the hourly landings agree.
   const dist = u.at(unitScope('sim', 'downrange'), 'distance');
 
+  const traces = useStageTraces(flight);
   const lines = useMemo<GroundTrackLine[]>(
-    () =>
-      buildTraces(flight, (i, name) => stageLabel(t, i, name)).map((tr) =>
-        groundTrackLine(tr.key, tr.name, tr.color, tr.series),
-      ),
-    [flight, t],
+    () => traces.map((tr) => groundTrackLine(tr.key, tr.name, tr.color, tr.series)),
+    [traces],
   );
   const drawn = lines.filter((l) => l.points.length >= 2);
 
@@ -140,9 +138,7 @@ export function GroundTrack({
                 <button
                   onClick={() => setSweepOpen((v) => !v)}
                   aria-expanded={sweepOpen}
-                  className={`rounded-md px-2 py-1 text-[11px] font-medium ring-1 ring-shade/40 ${
-                    sweepOpen || mine ? 'bg-accent-600 text-on-accent' : 'bg-surface/80 text-ink-soft hover:bg-raised'
-                  }`}
+                  className={`rounded-md ring-1 ring-shade/40 ${mapButtonClass(sweepOpen || !!mine)}`}
                 >
                   {t('sweep.button')}
                   {mine && (

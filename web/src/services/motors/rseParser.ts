@@ -1,11 +1,12 @@
 // Port of OpenRocket's `file/motor/RockSimMotorLoader.java`; `rseParser.test.ts` holds its mass math to `samplesToMotorSpec`.
-import type { CustomMotor } from './motorStore';
+import { customMotorId, motorHeaderProblem, type CustomMotor } from './motorStore';
 import { impulseClass } from './motorCombine';
 import { delayList } from './motorPicker';
 import { totalImpulse } from './motorMath';
 import { parseXmlText } from '../files/xmlUtil';
 import { readDecimal } from '../files/numberText';
-import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve } from './curveFinalize';
+import { MAX_CURVE_SAMPLES, MAX_THRUST_N, finalizeCurve, finalizeThrustCurve, sortLists } from './curveFinalize';
+import { rseMotorDigest } from './motorDigest';
 import { KeyedError } from '../../i18n/keyedError';
 
 const TYPES: Record<string, NonNullable<CustomMotor['type']>> = {
@@ -47,7 +48,7 @@ function optNum(el: Element, name: string): number {
   return Number.isFinite(v) ? v : NaN;
 }
 
-function parseEngine(el: Element): CustomMotor {
+function parseEngine(el: Element): { motor: CustomMotor; digest: string } {
   const manufacturer = el.getAttribute('mfg')?.trim();
   if (!manufacturer) throw new KeyedError('errors.motorFile.rseNoMaker');
   const code = el.getAttribute('code')?.trim();
@@ -60,12 +61,11 @@ function parseEngine(el: Element): CustomMotor {
   const totalWeightG = num(el, 'initWt', 'errors.motorFile.attrInitialMass');
   const propWeightG = num(el, 'propWt', 'errors.motorFile.attrPropellantMass');
 
-  if (!(diameter > 0) || !(length > 0)) {
+  // `num` has refused a non-number already.
+  const problem = motorHeaderProblem({ diameter, length, totalWeightG, propWeightG });
+  if (problem === 'numbers' || problem === 'size')
     throw new KeyedError('errors.motorFile.rseSize', { motor: designation });
-  }
-  if (!(propWeightG >= 0) || !(totalWeightG > 0) || propWeightG > totalWeightG) {
-    throw new KeyedError('errors.motorFile.rseMass', { motor: designation });
-  }
+  if (problem) throw new KeyedError('errors.motorFile.rseMass', { motor: designation });
 
   const sampleEls = el.querySelectorAll('data > eng-data');
   if (sampleEls.length > MAX_CURVE_SAMPLES) {
@@ -113,8 +113,8 @@ function parseEngine(el: Element): CustomMotor {
 
   const type = TYPES[(el.getAttribute('Type') ?? '').trim().toLowerCase()];
 
-  return {
-    id: `custom:${manufacturer}:${designation}`,
+  const motor: CustomMotor = {
+    id: customMotorId(manufacturer, designation),
     designation,
     manufacturer,
     class: impulseClass(totalImpulse(samples)),
@@ -130,12 +130,39 @@ function parseEngine(el: Element): CustomMotor {
     samples,
     source: 'rse',
   };
+  return { motor, digest: desktopDigest(rows, autoMass, autoCg, totalWeightG, propWeightG) };
+}
+
+/**
+ * The digest desktop gives this motor (`RockSimMotorLoader.getMotor`), from the rows as read: a missing or
+ * unreadable mass or CG anywhere turns that series to calculated, as the flags do.
+ */
+function desktopDigest(rows: readonly Point[], autoMass: boolean, autoCg: boolean, initG: number, propG: number) {
+  const times = rows.map((r) => r.time);
+  const thrusts = rows.map((r) => r.thrust);
+  const masses = rows.map((r) => r.mass / 1000);
+  const cgs = rows.map((r) => r.cg / 1000);
+  sortLists(times, thrusts, masses, cgs);
+  finalizeThrustCurve(times, thrusts, [masses, cgs]);
+  const calcMass = autoMass || !masses.every(Number.isFinite);
+  const calcCg = autoCg || !cgs.every(Number.isFinite);
+  return rseMotorDigest({
+    times,
+    thrusts,
+    masses: calcMass ? { launch: initG / 1000, burnout: initG / 1000 - propG / 1000 } : masses,
+    cgs: calcCg ? null : cgs,
+  });
 }
 
 /** Off only when the file says so explicitly, as upstream. */
 const isFalse = (v: string | null) => v === '0' || v?.toLowerCase() === 'false';
 
 export function parseRse(text: string): CustomMotor[] {
+  return parseRseWithDigests(text).map((e) => e.motor);
+}
+
+/** Each motor with the digest desktop names it by in a `.ork`. */
+export function parseRseWithDigests(text: string): { motor: CustomMotor; digest: string }[] {
   const doc = parseXmlText(text, '.rse');
   const engineEls = doc.querySelectorAll('engine');
   if (engineEls.length === 0) throw new KeyedError('errors.motorFile.rseNoEngine');

@@ -47,6 +47,8 @@
       "archiveEmpty": ".ork アーカイブが空です。",
       "archiveCorrupt": ".ork アーカイブが破損しているか、読み取れません。",
       "tooManyComponents": "この {{format}} は部品数が多すぎるため開けません（壊れている可能性があります）。",
+      "tooManyInstances": "この {{format}} はポッド、クラスター、個数の入れ子で部品数が多くなりすぎるため開けません（壊れている可能性があります）。",
+      "autoRadiusRunTooLong": "この {{format}} は自動半径の部品が続きすぎているため開けません（壊れている可能性があります）。",
       "tooManySimulations": "この .ork はシミュレーション数が多すぎるため開けません（壊れている可能性があります）。",
       "tooManyUnknownElements": "この .ork は認識できない要素が多すぎるため開けません（壊れている可能性があります）。",
       "tooManyConfigs": "この .ork は飛行構成の数が多すぎるため開けません（壊れている可能性があります）。",
@@ -158,6 +160,7 @@
       "nothing": "エクスポートするものがありません。"
     },
     "engine": {
+      "callFailed": "OpenRocket の物理エンジンが {{operation}} で失敗しました: {{detail}}",
       "notReady": "OpenRocket の物理エンジンの読み込みがまだ終わっていません。読み込みが終わってから、もう一度お試しください。",
       "staleDesign": "この設計は物理エンジンのリセット前に構築されたものです。使う前に構築し直してください。"
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "取り消す",
-    "redo": "やり直す"
+    "redo": "やり直す",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "ロケットを拡大縮小",
@@ -535,7 +540,8 @@
       "pressure": "圧力",
       "force": "推力 / 力",
       "impulse": "インパルス",
-      "rollRate": "ロールレート"
+      "rollRate": "ロールレート",
+      "shearModulus": "せん断弾性係数"
     }
   },
   "settings": {
@@ -661,8 +667,6 @@
     "removeMembership": "{{org}} の会員を削除"
   },
   "config": {
-    "title": "ロケットの構成",
-    "edit": "ロケットの構成を編集",
     "notes": "設計メモ",
     "name": "設計名",
     "designer": "設計者",
@@ -680,7 +684,6 @@
     "removeRevision": "{{date}} の改訂を削除",
     "removeRevisionConfirm": "この改訂を削除しますか?",
     "appOnlyNotes": ".ork で保存するとここのメモはすべて残ります。キットのメーカー、キットの品番、日付付きの改訂はこのアプリ独自の項目で、デスクトップ版 OpenRocket でファイルを保存すると失われます。.rkt にはこの3つもキット名も保存されません。",
-    "save": "OK",
     "type_original": "独自設計 / その他",
     "type_commercial_kit": "市販キット",
     "type_clone_kit": "キットの複製",
@@ -932,6 +935,7 @@
     "stdDev": "標準偏差",
     "stdDevName": "風速の標準偏差",
     "turbulenceIntensity": "乱流強度",
+    "turbulenceNeedsWind": "先に平均風速を設定してください。この割合は平均風速に対する突風の大きさです。",
     "levelCount_other": "{{count}} 層の風",
     "editProfile": "風のプロファイルを編集…",
     "turbulenceLevel": {
@@ -1494,6 +1498,7 @@
     "collapseAll": "すべて折りたたむ",
     "collapseTree": "部品一覧を隠す",
     "hidePart": "ビューで隠す",
+    "hiddenByParent": "親の部品とともにビューで隠れています",
     "showPart": "ビューに表示",
     "showAll": "すべて表示",
     "hiddenNote": "隠した部品も質量、CG、空力、すべての飛行値に含まれます。2D と 3D のビューにだけ表示されません。",
@@ -1896,6 +1901,7 @@
     "densityBulk": "かさ密度",
     "densitySurface": "面密度",
     "densityLine": "線密度",
+    "shearModulus": "せん断弾性係数",
     "save": "保存",
     "cancel": "キャンセル",
     "addToLibrary": "カスタム材料に追加して、すべての設計で使う",
@@ -2082,7 +2088,6 @@
     "searchCode": "型式で検索（例：C6）…",
     "select": "選択",
     "loading": "読み込み中…",
-    "loadingCatalog": "モーターカタログを読み込み中…",
     "pickHint": "モーターを選ぶと推力曲線と仕様が表示されます。",
     "backToList": "一覧に戻る",
     "curve": "曲線",

@@ -8,6 +8,7 @@ import { useWheelZoom } from './useWheelZoom';
 import { zoomSurfaceProps } from './keyPan';
 import { radToDeg } from '../../prefs/units';
 import { token } from '../common/colorTokens';
+import { pointsAttr } from '../common/svgPath';
 import { buildAftScene, type Shape } from './aftScene';
 
 // Hoisted so the hook's options keep one identity.
@@ -103,7 +104,7 @@ export function AftView({
     }
     if (s.kind === 'poly') {
       return (
-        <polygon key={s.key} points={s.points.map(([y, z]) => `${toSvg(y)},${-toSvg(z)}`).join(' ')} {...ink(s)}>
+        <polygon key={s.key} points={pointsAttr(s.points.map(([y, z]) => [toSvg(y), -toSvg(z)]))} {...ink(s)}>
           {s.title ? <title>{s.title}</title> : null}
         </polygon>
       );
@@ -120,7 +121,7 @@ export function AftView({
       [s.y + s.from * cos - ny * h, s.z + s.from * sin - nz * h],
     ];
     return (
-      <polygon key={s.key} points={pts.map(([y, z]) => `${toSvg(y)},${-toSvg(z)}`).join(' ')} {...ink(s)}>
+      <polygon key={s.key} points={pointsAttr(pts.map(([y, z]) => [toSvg(y), -toSvg(z)]))} {...ink(s)}>
         {s.title ? <title>{s.title}</title> : null}
       </polygon>
     );

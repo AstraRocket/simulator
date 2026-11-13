@@ -1,4 +1,5 @@
-import type { FlightResult, FlightSeries } from '../../engine/openRocketEngine';
+import type { FlightEventType, FlightResult, FlightSeries } from '../../engine/openRocketEngine';
+import { finiteOr } from '../app/numbers';
 import { lerpAt } from './interpolate';
 import { flightBranches } from './flightColumns';
 
@@ -67,6 +68,42 @@ export function seriesAt(series: FlightSeries, key: string, t: number): number |
   return lerpAt(series.time, ys, t);
 }
 
+/** The first `type` event's time. */
+export function eventTime(
+  events: readonly { type: string; time: number }[] | undefined,
+  type: FlightEventType,
+): number | undefined {
+  return events?.find((e) => e.type === type)?.time;
+}
+
+/** A series read at the first `type` event, or at the last (a cluster's burnouts); null when either is missing. */
+export function seriesAtEvent(
+  result: Pick<FlightResult, 'events' | 'series'>,
+  type: FlightEventType,
+  key: string,
+  last = false,
+): number | null {
+  const hits = result.events.filter((e) => e.type === type);
+  const t = (last ? hits[hits.length - 1] : hits[0])?.time;
+  return t == null ? null : finiteOr(seriesAt(result.series, key, t), null);
+}
+
+/** The summary figures a motor guide row reads; the descent ones are null when the flight has none. */
+export function summaryFigures(result: FlightResult) {
+  const s = result.summary;
+  return {
+    railExit: s.launchRodVelocity,
+    apogee: s.maxAltitude,
+    maxVelocity: s.maxVelocity,
+    maxAcceleration: s.maxAcceleration,
+    maxMach: s.maxMachNumber,
+    timeToApogee: s.timeToApogee,
+    optimumDelay: finiteOr(s.optimumDelay, null),
+    deployVelocity: finiteOr(s.deploymentVelocity, null),
+    landingVelocity: finiteOr(s.groundHitVelocity, null),
+  };
+}
+
 // Pa. v is `mach * Vs` (airspeed, AbstractSimulationStepper:460), not `velocity`, which is ground speed.
 export function dynamicPressure(series: FlightSeries | undefined): (number | null)[] | null {
   if (!series) return null;
@@ -91,8 +128,8 @@ export function forwardFlightEnd(result: {
   summary?: { timeToApogee?: number };
 }): number {
   return (
-    result.events.find((e) => e.type === 'RECOVERY_DEVICE_DEPLOYMENT')?.time ??
-    result.events.find((e) => e.type === 'APOGEE')?.time ??
+    eventTime(result.events, 'RECOVERY_DEVICE_DEPLOYMENT') ??
+    eventTime(result.events, 'APOGEE') ??
     result.summary?.timeToApogee ??
     Infinity
   );
@@ -169,8 +206,7 @@ export function eventRows(result: FlightResult | null | undefined): EventRow[] {
   const eventKey = (e: { type: string; time: number; source?: string }) => `${e.type}|${e.time}|${e.source ?? ''}`;
   const shared = new Set((branches[0]?.events ?? []).map(eventKey));
   branches.forEach((b, i) => {
-    const separated =
-      i === 0 ? -Infinity : ((b.events ?? []).find((e) => e.type === 'STAGE_SEPARATION')?.time ?? -Infinity);
+    const separated = i === 0 ? -Infinity : (eventTime(b.events, 'STAGE_SEPARATION') ?? -Infinity);
     const series = b.series;
     const push = (type: string, time: number, source: string | undefined, q: number | null) => {
       rows.push({

@@ -47,6 +47,8 @@
       "archiveEmpty": "O arquivo .ork está vazio.",
       "archiveCorrupt": "O arquivo .ork está danificado ou não pode ser lido.",
       "tooManyComponents": "Este {{format}} declara demasiados componentes para ser aberto (pode estar danificado).",
+      "tooManyInstances": "Este {{format}} aninha pods, clusters e quantidades em demasiadas peças para ser aberto (pode estar danificado).",
+      "autoRadiusRunTooLong": "Este {{format}} tem demasiadas peças seguidas com raio automático para ser aberto (pode estar danificado).",
       "tooManySimulations": "Este .ork declara demasiadas simulações para ser aberto (pode estar danificado).",
       "tooManyUnknownElements": "Este .ork contém demasiados elementos não reconhecidos para ser aberto (pode estar danificado).",
       "tooManyConfigs": "Este .ork declara demasiadas configurações de voo para ser aberto (pode estar danificado).",
@@ -158,6 +160,7 @@
       "nothing": "Nada para exportar."
     },
     "engine": {
+      "callFailed": "O motor de física do OpenRocket falhou em {{operation}}: {{detail}}",
       "notReady": "O motor de física do OpenRocket ainda não acabou de carregar. Aguarde que carregue e tente novamente.",
       "staleDesign": "Este projeto foi construído antes de o motor de física ser reiniciado. Construa-o novamente antes de o usar."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Desfazer",
-    "redo": "Refazer"
+    "redo": "Refazer",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Redimensionar o foguetão",
@@ -535,7 +540,8 @@
       "pressure": "Pressão",
       "force": "Impulsão / força",
       "impulse": "Impulso",
-      "rollRate": "Taxa de rolamento"
+      "rollRate": "Taxa de rolamento",
+      "shearModulus": "Módulo de corte"
     }
   },
   "settings": {
@@ -663,8 +669,6 @@
     "removeMembership": "Remover a associação {{org}}"
   },
   "config": {
-    "title": "Configuração do foguetão",
-    "edit": "Editar a configuração do foguetão",
     "notes": "Notas do projeto",
     "name": "Nome do projeto",
     "designer": "Projetista",
@@ -682,7 +686,6 @@
     "removeRevision": "Remover a revisão de {{date}}",
     "removeRevisionConfirm": "Remover esta revisão?",
     "appOnlyNotes": "Guardar em .ork mantém todas estas notas. O fabricante do kit, a referência do kit e as revisões com data são próprios desta aplicação: o OpenRocket para computador descarta-os se guardar o ficheiro. O .rkt não guarda estes três nem o nome do kit.",
-    "save": "OK",
     "type_original": "Projeto original / outro",
     "type_commercial_kit": "Kit comercial",
     "type_clone_kit": "Clone de um kit",
@@ -936,6 +939,7 @@
     "stdDev": "Desvio padrão",
     "stdDevName": "Desvio padrão do vento",
     "turbulenceIntensity": "Intensidade da turbulência",
+    "turbulenceNeedsWind": "Defina primeiro um vento médio: a percentagem exprime as rajadas como fração dele.",
     "levelCount_one": "{{count}} nível de vento",
     "levelCount_many": "{{count}} níveis de vento",
     "levelCount_other": "{{count}} níveis de vento",
@@ -1504,6 +1508,7 @@
     "collapseAll": "Recolher tudo",
     "collapseTree": "Ocultar a lista de componentes",
     "hidePart": "Ocultar nas vistas",
+    "hiddenByParent": "Oculto nas vistas juntamente com a peça em que está",
     "showPart": "Mostrar nas vistas",
     "showAll": "Mostrar tudo",
     "hiddenNote": "As peças ocultas continuam a contar para a massa, o CG, a aerodinâmica e todos os dados de voo. Só as vistas 2D e 3D as omitem.",
@@ -1910,6 +1915,7 @@
     "densityBulk": "Densidade volúmica",
     "densitySurface": "Densidade superficial",
     "densityLine": "Densidade linear",
+    "shearModulus": "Módulo de corte",
     "save": "Guardar",
     "cancel": "Cancelar",
     "addToLibrary": "Adicionar aos meus materiais personalizados, para todos os projetos",
@@ -2098,7 +2104,6 @@
     "searchCode": "Procurar por código (p. ex. C6)…",
     "select": "Selecionar",
     "loading": "A carregar…",
-    "loadingCatalog": "A carregar o catálogo de motores…",
     "pickHint": "Selecione um motor para ver a curva de impulsão e as especificações dele.",
     "backToList": "Voltar à lista",
     "curve": "Curva",

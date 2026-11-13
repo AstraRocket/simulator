@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { RecoveryBaysPane } from '../../../src/components/config/RecoveryBaysPane';
-import { renderWithProviders } from '../../testing/renderWithProviders';
+import { renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { bayRecord, updateBay } from '../../../src/services/flight/recoveryBays';
 import { recoveryCharges } from '../../../src/services/flight/recoveryCharges';
-import { __setBayStoreForTests, rememberBays, savedBays } from '../../../src/services/storage/bayStore';
+import { __setBayStoreForTests, rememberBays, restoreBays, savedBays } from '../../../src/services/storage/bayStore';
+import { useBayBackup } from '../../../src/state/useBayBackup';
 import type { KeyValueStore } from '../../../src/services/storage/keyValueStore';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
@@ -46,6 +47,19 @@ describe('the Bays view', () => {
     expect((card.getByLabelText('Bay length') as HTMLInputElement).placeholder).toBe('60.0');
     expect(bay().textContent).toMatch(/3 × #2-56 nylon pins are assumed/);
     expect(bay().textContent).toMatch(/No ground tests logged yet/);
+  });
+
+  it('writes each placeholder in its own field’s unit', () => {
+    seedSettings({ unitOverrides: { 'launch.bayBore': 'mm', 'launch.bayLength': 'm' } });
+    try {
+      renderWithProviders(<RecoveryBaysPane />);
+      const card = within(bay());
+      expect((card.getByLabelText('Bay length') as HTMLInputElement).placeholder).toBe('0.600');
+      // 78 mm: the 80 mm tube less two 1 mm walls.
+      expect((card.getByLabelText('Inside diameter') as HTMLInputElement).placeholder).toBe('78.0');
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it('sets the pins on the bay, and resets them to the design’s', () => {
@@ -192,8 +206,30 @@ describe("the browser's copy of the records", () => {
     __setBayStoreForTests(memory());
     const kept = updateBay(tree(), 'upper', 'main', { pressurePa: 90000 });
     await rememberBays('R', kept);
-    expect(await savedBays('R')).toEqual({ '0:Upper': { main: { pressurePa: 90000, tests: [] } } });
+    expect(await savedBays('R')).toEqual({
+      '0:Upper': { size: '80.0x600.0', bays: { main: { pressurePa: 90000, tests: [] } } },
+    });
     expect(await savedBays('Other')).toBeNull();
+  });
+
+  it('gives a tube the records only at the size they were kept for', async () => {
+    __setBayStoreForTests(memory());
+    await rememberBays('R', updateBay(tree(), 'upper', 'main', { pressurePa: 90000 }));
+    const copy = (await savedBays('R'))!;
+    expect(restoreBays(tree(), copy).restored).toBe(1);
+    const wider = tree();
+    (wider.components[0]!.children![0] as Record<string, unknown>)['outerRadius'] = 0.05;
+    expect(restoreBays(wider, copy).restored).toBe(0);
+  });
+
+  it('restores them on load without an undo step', async () => {
+    __setBayStoreForTests(memory());
+    await rememberBays('R', updateBay(tree(), 'upper', 'main', { pressurePa: 90000 }));
+    useWorkspaceStore.setState({ tree: tree(), past: [], future: [], loadedMeta: null });
+    renderHook(() => useBayBackup());
+    useWorkspaceStore.setState({ loadedMeta: { notes: [] } as never });
+    await waitFor(() => expect(bayRecord(state(), 'upper', 'main').pressurePa).toBe(90000));
+    expect(useWorkspaceStore.getState().past).toEqual([]);
   });
 
   it('keeps nothing for a design with no records', async () => {

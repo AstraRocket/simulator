@@ -10,14 +10,14 @@ name: Sync Catalogs
 # fails). The deployed app reads the motors and components from this branch and
 # nowhere else; offline it uses its cached download. The copy committed under
 # web/public/data is for dev builds and the tests, and the deployed build leaves
-# it out (vite.config.ts); refresh it by hand (`npm run sync:motors && npm run
-# sync:motor-digests && npm run sync:database && npm run sync:components && npm
+# it out (vite.config.ts); refresh it by hand (`npm run openrocket:build && npm
+# run sync:motors && npm run sync:motor-digests && npm run sync:components && npm
 # run sync:preset-digests && npm run check:digests`, then commit). This workflow
 # deliberately does not touch it.
 #
 # The materials and contributors files are NOT published here: materials is
-# held to the pinned OpenRocket source by the extraction gate, so it changes
-# with a commit, and contributors is refreshed by the Pages deploy. The app reads
+# held to the pinned OpenRocket source by the extraction gate (run by hand), so
+# it changes with a commit, and contributors is refreshed by the Pages deploy. The app reads
 # both from its own build (remoteData.ts), so a deploy's copy is the one users
 # get. The branch holds the two catalogs and a manifest that names only them.
 #
@@ -25,10 +25,12 @@ name: Sync Catalogs
 # has to exist: the deployed app has no other copy of the two catalogs.
 #
 # It runs on the Monday schedule, by hand, and on a push to master that changes
-# web/scripts/**, this file or the vendored engine, so a pipeline change
-# republishes the catalogs when it lands instead of waiting out the schedule.
-# The engine is one of its inputs: the density of every part that states a mass
-# is that mass over the volume the engine measures (scripts/lib/presetVolume.mjs).
+# web/scripts/**, this file, the vendored engine or the OpenRocket pin, so a
+# pipeline change republishes the catalogs when it lands instead of waiting out
+# the schedule. The engine is one of its inputs: the density of every part that
+# states a mass is that mass over the volume the engine measures
+# (scripts/lib/presetVolume.mjs). The pin is another: the digests and the parts
+# library come from a build of the commit it names.
 
 on:
   push:
@@ -37,6 +39,7 @@ on:
       - 'web/scripts/**'
       - '.github/workflows/sync-catalogs.yml'
       - 'web/src/engine/vendor/**'
+      - 'engine-java/extract/UPSTREAM'
   schedule:
     # Mondays 06:00 UTC. Scheduled runs always use the default branch (master).
     - cron: '0 6 * * 1'
@@ -62,8 +65,9 @@ jobs:
     runs-on: ubuntu-latest
     # This job holds `contents: write` against the `data` branch the live app
     # reads, and it fetches from an upstream API. Without a cap a hung fetch sits
-    # on a write token for the 360-minute default.
-    timeout-minutes: 15
+    # on a write token for the 360-minute default. The OpenRocket build is the
+    # longest step: a clone, the parts database submodule and a Gradle build.
+    timeout-minutes: 30
     env:
       TARGET: ${{ inputs.target || 'both' }}
     # Actions are pinned by commit SHA, the tag in the comment beside it: this
@@ -115,65 +119,28 @@ jobs:
           if [ -f "$tmp/motors.generated.json" ]; then cp "$tmp/motors.generated.json" "$RUNNER_TEMP/motors.published.json"; fi
           echo "Seeded from the data branch."
 
-      # The OpenRocket release and the parts database commit, read from the one
-      # file the sync scripts also check against, so the workflow and a local
-      # refresh cannot pin different builds.
-      - name: Read the pinned OpenRocket release
-        id: pins
-        working-directory: web
-        run: |
-          set -euo pipefail
-          node -e '
-            const p = require("./scripts/data/openrocket-release.json");
-            console.log(`release=${p.release}`);
-            console.log(`jar_url=${p.jar.url}`);
-            console.log(`jar_sha256=${p.jar.sha256}`);
-            console.log(`database_ref=${p.database.ref}`);
-          ' >> "$GITHUB_OUTPUT"
-          cat "$GITHUB_OUTPUT"
-
-      # The component presets come from the parts database OpenRocket builds its
-      # own library from, at the commit whose `.orc` files the pinned release
-      # ships (sync-components refuses any other). sync-components.mjs defaults
-      # to a local path, so point it at this checkout via OPENROCKET_PRESETS.
-      - name: Check out the OpenRocket components database
-        if: env.TARGET != 'motors'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: openrocket/openrocket-database
-          path: .openrocket-database
-          # PINNED, in web/scripts/data/openrocket-release.json. This job holds
-          # contents: write and pushes to the data branch the live app reads, so
-          # a third-party ref must not float: master pulls whatever landed
-          # upstream since the last run.
-          ref: ${{ steps.pins.outputs.database_ref }}
-
-      # Both catalogs need the OpenRocket release people use. A motor's digest
-      # names which of the desktop's same-named entries a saved .ork means (Estes
-      # C6 is three), and without it the desktop picks one arbitrarily. Desktop's
-      # parts library is the database above plus the files OpenRocket ships
-      # inside its jar (legacy manufacturer files, parachute makers, rail
-      # buttons), and each part's digest, without which a saved .ork drops its
-      # link to the part, and a stated mass, which becomes the part's density so
-      # it weighs what the catalog says, come from its loader. The digests
-      # depend on the build.
+      # Both catalogs need the OpenRocket the engine is extracted from. A motor's
+      # digest names which of the desktop's same-named entries a saved .ork means
+      # (Estes C6 is three), and without it the desktop picks one arbitrarily.
+      # Desktop's parts library is the parts database that commit pins as its
+      # submodule plus the files it packs as `internal` (legacy manufacturer
+      # files, parachute makers, rail buttons), and each part's digest, without
+      # which a saved .ork drops its link to the part, and a stated mass, which
+      # becomes the part's density so it weighs what the catalog says, come from
+      # its loader. The digests depend on the build, so the scripts refuse any
+      # build but the commit in engine-java/extract/UPSTREAM.
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21.0.12'
 
-      - name: Download OpenRocket
-        env:
-          # PINNED by SHA-256, for the reason the database checkout above is:
-          # this job pushes to the branch the live app reads.
-          OR_JAR_URL: ${{ steps.pins.outputs.jar_url }}
-          OR_JAR_SHA256: ${{ steps.pins.outputs.jar_sha256 }}
-        run: |
-          set -euo pipefail
-          jar="$RUNNER_TEMP/OpenRocket-${{ steps.pins.outputs.release }}.jar"
-          curl -fsSL -o "$jar" "$OR_JAR_URL"
-          echo "$OR_JAR_SHA256  $jar" | sha256sum -c -
-          echo "OPENROCKET_JAR=$jar" >> "$GITHUB_ENV"
+      # PINNED by commit: build-openrocket.mjs clones the repo and ref in
+      # extract/UPSTREAM, and the parts database comes in at the commit that
+      # ref pins as its submodule. This job pushes to the branch the live app
+      # reads, so neither input floats.
+      - name: Build the engine's OpenRocket
+        working-directory: web
+        run: npm run openrocket:build
 
       - name: Regenerate motors
         if: env.TARGET != 'components'
@@ -183,7 +150,7 @@ jobs:
       - name: Add motor digests from OpenRocket
         if: env.TARGET != 'components'
         working-directory: web
-        run: npm run sync:motor-digests -- --jar "$OPENROCKET_JAR"
+        run: npm run sync:motor-digests
 
       # Which motors ThrustCurve added, removed or changed since the published
       # catalog, into the job summary, plus a notice on the run when there are
@@ -199,14 +166,12 @@ jobs:
       - name: Regenerate components
         if: env.TARGET != 'motors'
         working-directory: web
-        env:
-          OPENROCKET_PRESETS: ${{ github.workspace }}/.openrocket-database/orc
         run: npm run sync:components
 
       - name: Add digests and stated masses from OpenRocket
         if: env.TARGET != 'motors'
         working-directory: web
-        run: npm run sync:preset-digests -- --jar "$OPENROCKET_JAR"
+        run: npm run sync:preset-digests
 
       # Every catalog the publish step copies, refreshed this run or seeded from
       # the data branch: a parts or motor catalog without digests makes saved

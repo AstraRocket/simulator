@@ -49,6 +49,28 @@ describe('ScaleDialog from/to', () => {
     expect((screen.getByLabelText('Scale to') as HTMLInputElement).disabled).toBe(false);
   });
 
+  it('starts From again at the size of the scope picked', () => {
+    open({ id: 'f', type: 'trapezoidfinset', rootChord: 0.08 }, 'f');
+    const from = screen.getByLabelText('Scale from') as HTMLInputElement;
+    expect(from.value).toBe('8');
+    fireEvent.change(document.getElementById('scale-what')!, { target: { value: 'rocket' } });
+    expect(from.value).toBe('4');
+    fireEvent.change(document.getElementById('scale-what')!, { target: { value: 'part' } });
+    expect(from.value).toBe('8');
+  });
+
+  it("starts From at the kernel's diameter for a tube with no radius", () => {
+    useWorkspaceStore.setState({
+      tree: {
+        name: 'T',
+        components: [{ id: 's', type: 'stage', children: [{ id: 'b', type: 'bodytube', length: 0.3 }] }],
+      } as unknown as RocketTree,
+      selectedId: 'b',
+    });
+    renderWithProviders(<ScaleDialog onClose={() => {}} />);
+    expect((screen.getByLabelText('Scale from') as HTMLInputElement).value).toBe('5');
+  });
+
   it('disables To while From has no size to divide by', () => {
     const tree = {
       name: 'T',

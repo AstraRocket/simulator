@@ -1,16 +1,14 @@
 // Workbox keys the precache without `?v=<hash>`, so vite.config.ts must list `v` in `ignoreURLParametersMatching`.
 // HOST must match the `astra-catalogs` worker rule's urlPattern.
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { acknowledgeWip, servePreview, VITE, WEB } from './lib/previewCheck.mjs';
 import { catalogHash, rowCount } from './lib/dataManifest.mjs';
 
 /* global caches */
 
-const WEB = fileURLToPath(new URL('..', import.meta.url));
-const VITE = resolve(WEB, 'node_modules/vite/bin/vite.js');
 const DATA = resolve(WEB, 'public/data');
 const OUT = 'dist-offline-data-check';
 const OUT_HOSTED = 'dist-offline-data-check-hosted';
@@ -26,8 +24,6 @@ const CATALOG_CACHE = 'astra-catalogs';
 const MAP_TILE_CACHE = 'astra-map-tiles-v2';
 const NO_AGE_CACHES = [CATALOG_CACHE, MAP_TILE_CACHE];
 // Must match services/storage/settings.ts; this .mjs cannot import TS.
-const SETTINGS_KEY = 'astrarocket:settings:v1';
-
 const log = (...a) => console.log('[offline-data]', ...a);
 
 function build(outDir, env = {}) {
@@ -38,39 +34,11 @@ function build(outDir, env = {}) {
   });
 }
 
-async function serve(outDir) {
-  const child = spawn(process.execPath, [VITE, 'preview', '--outDir', outDir, '--port', String(PORT), '--strictPort'], {
-    cwd: WEB,
-    stdio: ['ignore', 'ignore', 'inherit'],
-  });
-  for (let i = 0; i < 100; i++) {
-    try {
-      const res = await fetch(URL_);
-      if (res.ok) return child;
-    } catch {
-      // not up yet
-    }
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  child.kill();
-  throw new Error('preview server did not come up');
-}
+const serve = (outDir) => servePreview(outDir, PORT, URL_);
 
 async function openPage(context) {
   const page = await context.newPage();
-  await page.addInitScript((key) => {
-    let stored = {};
-    try {
-      stored = JSON.parse(localStorage.getItem(key) || '{}') ?? {};
-    } catch {
-      // a corrupt blob; the app discards it too, so start clean
-    }
-    try {
-      localStorage.setItem(key, JSON.stringify({ ...stored, wipAcknowledged: true }));
-    } catch {
-      // about:blank has no storage; the real navigation runs this again
-    }
-  }, SETTINGS_KEY);
+  await acknowledgeWip(page);
   return page;
 }
 

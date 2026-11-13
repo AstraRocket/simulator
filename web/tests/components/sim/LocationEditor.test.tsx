@@ -84,6 +84,16 @@ describe('LocationEditor, the map', () => {
     expect(onSave.mock.calls[0]![0]).toMatchObject({ latitudeDeg: 0, longitudeDeg: 0 });
   });
 
+  it('drops the old elevation when the map moves the location, as the launch panel does', () => {
+    const { onSave } = render(HOME);
+    const map = screen.getByRole('group', { name: /Launch site map/ });
+    fireEvent.pointerDown(map, { pointerId: 1, clientX: 160, clientY: 128 });
+    fireEvent.pointerUp(map, { pointerId: 1, clientX: 160, clientY: 128 });
+    expect(field('Altitude').value).toBe('');
+    fireEvent.click(save());
+    expect(onSave.mock.calls[0]![0].launchAltitudeM ?? null).toBeNull();
+  });
+
   it('moves the pin when a coordinate is typed', () => {
     render(HOME);
     fireEvent.change(field('Latitude'), { target: { value: '51.5' } });

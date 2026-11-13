@@ -63,6 +63,11 @@ export function withUnit(text: string, sym: string): string {
   return sym === '°' ? `${text}${sym}` : `${text} ${sym}`;
 }
 
+/** A table column's heading with its unit, as every sortable table writes it. */
+export function colWithUnit(label: string, sym: string): string {
+  return `${label} (${sym})`;
+}
+
 /** Pass the translated symbol. */
 export const withFixedUnit = (v: number | null | undefined, unit: string, digits = 1): string =>
   v == null || !Number.isFinite(v) ? NO_VALUE : withUnit(fmtNum(v, digits), unit);
@@ -92,6 +97,24 @@ export function stagePrefixed(
   text: string,
 ): string {
   return stageName === undefined ? text : `${partLabel(t, { name: stageName, type: 'stage' })} · ${text}`;
+}
+
+/** A stamp in the app's language; a stamp that is not a date reads as the no-value dash, not a thrown RangeError. */
+export function fmtDateTime(
+  ms: number,
+  opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' },
+): string {
+  const at = new Date(ms);
+  if (Number.isNaN(at.getTime())) return NO_VALUE;
+  return new Intl.DateTimeFormat(i18n.resolvedLanguage || 'en', opts).format(at);
+}
+
+/** "just now", then minutes, then hours ago. */
+export function fmtRelativeAge(ms: number, justNow: string): string {
+  const mins = Math.floor(Math.max(0, ms) / 60_000);
+  if (mins < 1) return justNow;
+  const rtf = new Intl.RelativeTimeFormat(i18n.resolvedLanguage || 'en', { numeric: 'auto' });
+  return mins < 60 ? rtf.format(-mins, 'minute') : rtf.format(-Math.floor(mins / 60), 'hour');
 }
 
 export function fmtSiteTime(

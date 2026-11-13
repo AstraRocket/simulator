@@ -47,7 +47,8 @@ const enter = (name: string, value: string) => {
   fireEvent.blur(el);
 };
 const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name });
-const notice = () => screen.queryByRole('status')?.textContent;
+// Always mounted, so an empty region means no notice.
+const notice = () => screen.queryByRole('status')?.textContent || undefined;
 
 const enterRocket = () => {
   enter('Body diameter', '5');

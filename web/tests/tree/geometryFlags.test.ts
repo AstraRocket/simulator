@@ -22,6 +22,9 @@ import { syncDerived } from '../../src/services/design/treeEdit';
 import { exportOnshape } from '../../src/services/files/onshapeExport';
 import { exportCdx1 } from '../../src/services/files/rasaeroExport';
 import { fitContextFor } from '../../src/services/parts/componentFit';
+import { flutterFin } from '../../src/services/flight/finFlutter';
+import { ejectionBay } from '../../src/services/flight/ejectionBay';
+import { ENGLISH_LABELS } from '../testing/schematicLabels';
 
 type Reader = (tree: RocketTree, node: ComponentNode) => unknown;
 
@@ -84,6 +87,30 @@ function recordingPage(): { page: PdfPage; calls: unknown[] } {
 const walkIds = (nodes: ComponentNode[]): string[] =>
   nodes.flatMap((n) => [String(n.id), ...walkIds(n.children ?? [])]);
 
+/**
+ * A parachute in the tube the part is, or the one its shoulder plugs (behind a nose cone, behind a
+ * transition). A shoulder is given where the part has none, so turning the part round has one to move.
+ */
+function bayFor(tree: RocketTree, partId = 'part'): [RocketTree, string] {
+  const chute = { type: 'parachute', id: 'bay-chute', length: 0.03, position: { method: 'top', offset: 0.05 } };
+  const shouldered = (n: ComponentNode): ComponentNode =>
+    n.type === 'nosecone' && !(Number(n['shoulderLength']) > 0)
+      ? ({ ...n, shoulderLength: 0.03, shoulderRadius: 0.014 } as ComponentNode)
+      : n.type === 'transition' && !(Number(n['aftShoulderLength']) > 0)
+        ? ({ ...n, aftShoulderLength: 0.03, aftShoulderRadius: 0.024 } as ComponentNode)
+        : n;
+  const visit = (nodes: ComponentNode[]): ComponentNode[] => {
+    const at = nodes.findIndex((n) => n.id === partId);
+    return nodes.map((n, i) => {
+      const kids = n.children ? { children: visit(n.children) } : {};
+      const holds = at >= 0 && n.type === 'bodytube' && (i === at || i === at + 1);
+      const out = { ...(i === at ? shouldered(n) : n), ...kids } as ComponentNode;
+      return holds ? ({ ...out, children: [...(out.children ?? []), chute] } as ComponentNode) : out;
+    });
+  };
+  return [{ ...tree, components: visit(tree.components) }, chute.id];
+}
+
 const READERS: Record<string, Reader> = {
   'station radius': (_tree, node) =>
     [0, 0.25, 0.5, 0.75, 1].map((f) => round(stationRadius(node, f * (node['length'] as number)))),
@@ -98,6 +125,7 @@ const READERS: Record<string, Reader> = {
       roll: 0,
       uid: 't',
       setHoverId: () => {},
+      ...ENGLISH_LABELS,
     });
     return round(svgProps([...shapes, ...overlay]));
   },
@@ -137,6 +165,7 @@ const READERS: Record<string, Reader> = {
     }
   },
   'part fitting': (tree, node) => round(fitContextFor(tree, node.id ?? null)),
+  'ejection bay': (tree) => round(ejectionBay(...bayFor(tree))),
 };
 
 interface Flag {
@@ -187,6 +216,31 @@ const RING: ComponentNode = {
 // `filled` keeps the wall thickness, as the Filled checkbox does.
 const FLAGS: Flag[] = [
   { name: 'flipped nose cone', part: NOSE, on: { flipped: true } },
+  {
+    name: 'capped nose cone shoulder',
+    part: { ...NOSE, shoulderLength: 0.03, shoulderRadius: 0.023, shoulderThickness: 0.002 } as ComponentNode,
+    on: { shoulderCapped: true },
+  },
+  {
+    name: 'capped transition fore shoulder',
+    part: {
+      ...TRANSITION,
+      foreShoulderLength: 0.02,
+      foreShoulderRadius: 0.013,
+      foreShoulderThickness: 0.002,
+    } as ComponentNode,
+    on: { foreShoulderCapped: true },
+  },
+  {
+    name: 'capped transition aft shoulder',
+    part: {
+      ...TRANSITION,
+      aftShoulderLength: 0.02,
+      aftShoulderRadius: 0.023,
+      aftShoulderThickness: 0.002,
+    } as ComponentNode,
+    on: { aftShoulderCapped: true },
+  },
   { name: 'filled nose cone', part: NOSE, on: { filled: true } },
   { name: 'filled transition', part: TRANSITION, on: { filled: true } },
   { name: 'filled body tube', part: TUBE, on: { filled: true } },
@@ -304,6 +358,36 @@ const UNAFFECTED: Record<string, string> = {
   'unclipped transition / disc geometry': 'the ends and the wall, which clipping does not change',
   'unclipped transition / PDF parts table': 'lists the ends and the length, which clipping does not change',
   'flipped filled nose cone / disc geometry': 'a filled part has no bore at either end',
+  // The bay runs from shoulder to shoulder inside the tube, which none of these move.
+  'filled nose cone / ejection bay': 'a filled cone still has the same shoulder',
+  'filled transition / ejection bay': 'a filled transition still has the same shoulder',
+  'unclipped transition / ejection bay': 'the outside shape only',
+  'shape parameter on a nose cone / ejection bay': 'the outside shape only',
+  'shape parameter on a transition / ejection bay': 'the outside shape only',
+  // A cap only adds the disc's mass (`Transition.calculateProperties`); nothing is sized to it.
+  ...Object.fromEntries(
+    ['capped nose cone shoulder', 'capped transition fore shoulder', 'capped transition aft shoulder'].flatMap(
+      (flag) => [
+        [`${flag} / station radius`, 'outer radius only'],
+        [`${flag} / schematic`, 'side outline only; the cap is inside the shoulder'],
+        [`${flag} / report side view`, 'outline only'],
+        [`${flag} / report template`, 'a wrap template is the outside surface'],
+        [`${flag} / printable solid`, 'printed as a solid of revolution, so the shoulder is solid capped or not'],
+        [`${flag} / print export solid`, 'printed as a solid of revolution, so the shoulder is solid capped or not'],
+        [`${flag} / disc geometry`, 'the kernel sizes inner parts to the open bore, capped or not'],
+        [
+          `${flag} / PDF parts table`,
+          'lists sizes; a cap changes only the mass, which the table takes from the kernel',
+        ],
+        [`${flag} / aft view`, 'drawn end on as an opaque disc at its largest radius, which the cap does not change'],
+        [`${flag} / DXF`, 'a DXF cuts the plate parts in the tree, and a cap is not one'],
+        [`${flag} / RockSim export`, "desktop's RockSim writer has no shoulder cap"],
+        [`${flag} / RASAero export`, 'RASAero describes the outside shape only'],
+        [`${flag} / part fitting`, 'matches the end diameters, which the cap does not move'],
+        [`${flag} / ejection bay`, 'a shoulder closes the bay, capped or not'],
+      ],
+    ),
+  ),
   // Desktop's TransitionDTO refuses any non-conical transition.
   ...Object.fromEntries(
     ['filled nose cone', 'filled transition', 'filled body tube', 'filled body tube holding a ring'].map((flag) => [
@@ -457,6 +541,7 @@ const schematicOf = (tree: RocketTree) =>
     roll: 0,
     uid: 't',
     setHoverId: () => {},
+    ...ENGLISH_LABELS,
   });
 
 const polygonPoints = (nodes: ReactNode[]): unknown[] =>
@@ -491,10 +576,67 @@ const FIN_READERS: Record<string, Reader> = {
   'fin tab limit': (tree) => round(parentRadiusOf(tree, String(FIN.id))),
   'fin tab auto': (tree) => round(autoFinTab(tree, String(FIN.id))),
   'fin parts table': (tree) =>
-    round(stageParts(tree.components[0]!, { componentInfo: () => ({ mass: 0 }) }).filter((r) => r.type === FIN.type)),
+    round(
+      stageParts(tree.components[0]!, { componentInfo: () => ({ mass: 0 }) }).filter(
+        (r) => r.type === finIn(tree).type,
+      ),
+    ),
+  'fin flutter': (tree) => round(flutterFin(finIn(tree), finMountOf(tree, String(FIN.id)))),
+  // Each file reader keeps only the fin's own entry: the parent's flag is in the file too.
+  'fin RockSim export': (tree) => exportRkt('t', tree).xml.match(/<(Custom)?FinSet>[\s\S]*?<\/(Custom)?FinSet>/g),
+  'fin Onshape export': (tree) => round(onshapeEntry(exportOnshape({ name: 't', tree }).payload, String(FIN.id))),
+  'fin RASAero export': (tree, node) => {
+    const xml = READERS['RASAero export']!(tree, node) as string;
+    // RASAero carries fins on body tubes only, so a fin on a cone is left out.
+    return xml.startsWith('refused') ? xml : (xml.match(/<Fin>[\s\S]*?<\/Fin>/g) ?? 'no fin');
+  },
 };
 
+function onshapeEntry(v: unknown, id: string): unknown {
+  if (Array.isArray(v)) {
+    for (const x of v) {
+      const hit = onshapeEntry(x, id);
+      if (hit) return hit;
+    }
+  } else if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    if (o['id'] === id) return o;
+    for (const x of Object.values(o)) {
+      const hit = onshapeEntry(x, id);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+const FIN_SHAPE = {
+  id: FIN.id,
+  finCount: 3,
+  thickness: 0.003,
+  rootChord: 0.04,
+  height: 0.02,
+  tabHeight: 0.004,
+  tabLength: 0.02,
+  tabOffsetMethod: 'middle',
+  tabOffset: 0,
+  position: { method: 'top', offset: 0.01 },
+};
+const TRAPEZOID = { ...FIN_SHAPE, type: 'trapezoidfinset', tipChord: 0.02, sweep: 0.015 } as unknown as ComponentNode;
+const ELLIPSE = { ...FIN_SHAPE, type: 'ellipticalfinset' } as unknown as ComponentNode;
+
 const FIN_FLAGS: Flag[] = [
+  {
+    name: 'canted trapezoidal fins on a body tube',
+    part: { ...TUBE, children: [TRAPEZOID] } as ComponentNode,
+    on: { children: [{ ...TRAPEZOID, cant: 0.1 }] },
+    like: 'canted fins on a body tube',
+  },
+  {
+    name: 'canted elliptical fins on a body tube',
+    part: { ...TUBE, children: [ELLIPSE] } as ComponentNode,
+    on: { children: [{ ...ELLIPSE, cant: 0.1 }] },
+    like: 'canted fins on a body tube',
+  },
   { name: 'fins on a flipped nose cone', part: { ...NOSE, children: [FIN] } as ComponentNode, on: { flipped: true } },
   {
     name: 'fins on an unclipped transition',
@@ -561,6 +703,14 @@ const FIN_UNAFFECTED: Record<string, string> = {
   'canted fins on a body tube / fin tab limit': "the parent's radius at the tab ends, which the cant does not move",
   'canted fins on a body tube / fin tab auto': 'sized from the mount and its rings, which the cant does not move',
   'canted fins on a body tube / fin parts table': "lists the fin's dimensions, which the cant does not change",
+  'canted fins on a body tube / fin flutter': 'reads the planform and thickness, which the cant does not change',
+  'canted fins on a body tube / fin RASAero export': "RASAero's fin has no cant (`FinDTO`)",
+  'fins on an unclipped transition / fin flutter': 'the trailing point stays above the root on a widening transition',
+  // Both store the fin's own points and its place from the parent's front.
+  'fins on a flipped nose cone / fin RockSim export': 'turning the parent round moves neither the points nor the place',
+  'fins on an unclipped transition / fin RockSim export':
+    'RockSim has no clip flag, and the points are stored as drawn',
+  'fins on an unclipped transition / fin RASAero export': 'a transition that is not conical is refused, clipped or not',
 };
 
 const FIN_KNOWN: Record<string, string> = {};
