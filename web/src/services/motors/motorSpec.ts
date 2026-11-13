@@ -3,7 +3,7 @@ import { fromCatalog } from './catalogUnits';
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import type { CatalogMotor } from './motorDb';
 import { cumulativeImpulse } from './motorMath';
-import { getMotorStore, isMotorType, motorHeaderProblem, type CustomMotor } from './motorStore';
+import { getMotorStore, isMotorType, MAX_MOTOR_MASS_G, motorHeaderProblem, type CustomMotor } from './motorStore';
 import { finalizeCurve } from './curveFinalize';
 import { KeyedError } from '../../i18n/keyedError';
 
@@ -48,6 +48,9 @@ export function samplesToMotorSpec(
       diameter: motor.diameter,
       length: motor.length,
     });
+  }
+  if (problem === 'oversize' || measured?.some((kg) => kg * 1000 > MAX_MOTOR_MASS_G)) {
+    throw new KeyedError('errors.thrustcurve.oversize', { motor: motor.designation });
   }
   if (problem === 'mass') throw new KeyedError('errors.thrustcurve.badWeight', { motor: motor.designation });
   if (problem === 'propOverTotal') {

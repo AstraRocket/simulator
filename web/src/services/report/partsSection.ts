@@ -50,6 +50,7 @@ function partRow(p: PdfPage, r: PartRow): string[] {
     r.length > 0 ? t('report.dimLength', { value: len(p, r.length) }) : '',
     r.span != null && r.span > 0 ? t('export.headerSpan', { value: len(p, r.span) }) : '',
     r.thickness != null ? t('report.dimWall', { value: `${qv(p, 'length', r.thickness)} ${units.length}` }) : '',
+    r.boreNeed != null ? t('report.boreTooSmall', { value: `${qv(p, 'length', r.boreNeed * 2)} ${units.length}` }) : '',
   ]
     .filter(Boolean)
     .join(' · ');

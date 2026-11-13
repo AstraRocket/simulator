@@ -17,6 +17,8 @@ import { FILLET_MATERIAL_KEYS } from '../../services/design/materialSlots';
 import { PropSection } from './PropSection';
 import { PanelButton } from './PanelButton';
 import { str } from '../../tree/nodeProps';
+import { ringBoreNeedIn } from '../../services/design/discGeometry';
+import { useWorkspaceStore } from '../../state/store';
 
 type NodePatch = Partial<ComponentNode>;
 
@@ -180,6 +182,19 @@ export function TubeFinCollision({ node, parentRadius }: { node: ComponentNode; 
         diameter: u.fmt('length', 2 * collision.maxRadius),
         unit: u.sym('length'),
       })}
+    </Notice>
+  );
+}
+
+export function RingBoreTooSmall({ node }: { node: ComponentNode }) {
+  const { t } = useTranslation();
+  const u = useUnits();
+  const id = node.type === 'centeringring' && typeof node.id === 'string' ? node.id : null;
+  const need = useWorkspaceStore((s) => (id === null ? null : ringBoreNeedIn(s.tree, id)));
+  if (need === null) return null;
+  return (
+    <Notice tone="warn" size="fine">
+      {t('prop.ringBoreTooSmall', { diameter: u.fmt('length', 2 * need), unit: u.sym('length') })}
     </Notice>
   );
 }

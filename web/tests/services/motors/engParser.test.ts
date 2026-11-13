@@ -224,6 +224,14 @@ describe('a .eng header that is finite but impossible', () => {
     expect(() => parseEng(eng('0.5', '1.0', '54', '-10'))).toThrow(/diameter|length/i);
   });
 
+  it('refuses a motor past the size and mass limits, naming it, rather than flying a reduced one', () => {
+    const oversize = expect.objectContaining({ key: 'errors.motorFile.oversize', values: { motor: 'M1500' } });
+    expect(() => parseEng(eng('0.5', '2e15'))).toThrow(oversize);
+    expect(() => parseEng(eng('0.5', '1.0', '2e6'))).toThrow(oversize);
+    expect(() => parseEng(eng('0.5', '1.0', '54', '2e6'))).toThrow(oversize);
+    expect(() => parseEng(eng('0.5', '1e15'))).not.toThrow();
+  });
+
   it('rejects a weight whose grams are not finite, which would vanish from the store on reload', () => {
     expect(() => parseEng(eng('1e306', '1e306'))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.engHeaderNumbers' }),

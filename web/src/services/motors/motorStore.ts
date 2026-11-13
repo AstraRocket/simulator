@@ -55,7 +55,12 @@ export const isThrustSampleArray = (v: unknown): boolean =>
     );
   });
 
-export type MotorHeaderProblem = 'numbers' | 'size' | 'mass' | 'propOverTotal';
+export type MotorHeaderProblem = 'numbers' | 'size' | 'oversize' | 'mass' | 'propOverTotal';
+
+/** 1000 m: far past any motor, and below where the kernel's inertia sums overflow. */
+const MAX_MOTOR_SIZE_MM = 1e6;
+/** 10¹⁵ kg, for the same reason. */
+export const MAX_MOTOR_MASS_G = 1e18;
 
 /** What is wrong with a motor's sizes and weights, checked in this order; null when they are sound. */
 export function motorHeaderProblem(
@@ -63,6 +68,10 @@ export function motorHeaderProblem(
 ): MotorHeaderProblem | null {
   if (![m.diameter, m.length, m.totalWeightG, m.propWeightG].every(Number.isFinite)) return 'numbers';
   if (!(m.diameter > 0) || !(m.length > 0)) return 'size';
+  // Left off rather than reduced: a lighter motor would be a different motor.
+  if (m.diameter > MAX_MOTOR_SIZE_MM || m.length > MAX_MOTOR_SIZE_MM || m.totalWeightG > MAX_MOTOR_MASS_G) {
+    return 'oversize';
+  }
   // The kernel accepts negative propellant, which makes mass rise over the burn.
   if (m.propWeightG < 0 || !(m.totalWeightG > 0)) return 'mass';
   if (m.propWeightG > m.totalWeightG) return 'propOverTotal';
@@ -93,7 +102,8 @@ const MOTOR_TYPES: ReadonlySet<unknown> = new Set<MotorType>(['SU', 'reload', 'h
 export const isMotorType = (v: unknown): v is MotorType => MOTOR_TYPES.has(v);
 
 const isMassArray = (v: unknown, samples: number): boolean =>
-  v === undefined || (Array.isArray(v) && v.length === samples && v.every((x) => Number.isFinite(x) && x >= 0));
+  v === undefined ||
+  (Array.isArray(v) && v.length === samples && v.every((x) => Number.isFinite(x) && x >= 0 && x <= MAX_MOTOR_MASS_G));
 
 export class KeyValueMotorStore implements MotorStore {
   private readonly custom: JsonListStore<CustomMotor>;
