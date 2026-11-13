@@ -1,5 +1,5 @@
 // Port of OpenRocket's `file/motor/RockSimMotorLoader.java`; `rseParser.test.ts` holds its mass math to `samplesToMotorSpec`.
-import { customMotorId, motorHeaderProblem, type CustomMotor } from './motorStore';
+import { customMotorId, MAX_MOTOR_MASS_G, motorHeaderProblem, type CustomMotor } from './motorStore';
 import { impulseClass } from './motorCombine';
 import { delayList } from './motorPicker';
 import { totalImpulse } from './motorMath';
@@ -65,6 +65,7 @@ function parseEngine(el: Element): { motor: CustomMotor; digest: string } {
   const problem = motorHeaderProblem({ diameter, length, totalWeightG, propWeightG });
   if (problem === 'numbers' || problem === 'size')
     throw new KeyedError('errors.motorFile.rseSize', { motor: designation });
+  if (problem === 'oversize') throw new KeyedError('errors.motorFile.oversize', { motor: designation });
   if (problem) throw new KeyedError('errors.motorFile.rseMass', { motor: designation });
 
   const sampleEls = el.querySelectorAll('data > eng-data');
@@ -106,6 +107,9 @@ function parseEngine(el: Element): { motor: CustomMotor; digest: string } {
   // `isMassArray` would otherwise silently drop the motor later.
   if (haveMass && points.some((p) => p.mass < 0)) {
     throw new KeyedError('errors.motorFile.rseNegativeMass', { motor: designation });
+  }
+  if (haveMass && points.some((p) => p.mass > MAX_MOTOR_MASS_G)) {
+    throw new KeyedError('errors.motorFile.oversize', { motor: designation });
   }
   if (haveCg && points.some((p) => p.cg < 0 || p.cg > length)) {
     throw new KeyedError('errors.motorFile.rseCgOutside', { motor: designation, length });

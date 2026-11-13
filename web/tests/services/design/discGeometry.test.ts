@@ -5,6 +5,7 @@ import {
   plateOuter,
   resolveDisc,
   ringBore,
+  ringBoreNeedIn,
   tubeRadii,
   type Tube,
 } from '../../../src/services/design/discGeometry';
@@ -201,5 +202,67 @@ describe('a centering ring with no bore on record', () => {
 
   it('takes the bore of the mount it actually rings', () => {
     expect(resolveDisc(withKernelEnds(tree), 'ring')!.innerR).toBeCloseTo(0.015, 12);
+  });
+});
+
+describe('ringBoreNeedIn', () => {
+  const tree = (ring: object, mount: object = {}) =>
+    ({
+      name: 'R',
+      components: [
+        {
+          type: 'stage',
+          id: 'st',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'tube',
+              length: 0.3,
+              outerRadius: 0.025,
+              thickness: 0.001,
+              children: [
+                {
+                  type: 'innertube',
+                  id: 'mount',
+                  length: 0.07,
+                  outerRadius: 0.009,
+                  position: { method: 'top', offset: 0 },
+                  ...mount,
+                },
+                {
+                  type: 'centeringring',
+                  id: 'ring',
+                  length: 0.002,
+                  outerRadius: 0.024,
+                  position: { method: 'top', offset: 0.01 },
+                  ...ring,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }) as unknown as RocketTree;
+
+  it('gives the hole a stated bore too small for the mount needs', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.0085 }), 'ring')).toBeCloseTo(0.009, 12);
+  });
+
+  it('passes a stated bore the mount fits, and one off by unit rounding', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.009 }), 'ring')).toBeNull();
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.009 - 1e-6 }), 'ring')).toBeNull();
+  });
+
+  it('leaves an automatic bore alone, since it is sized from the mounts', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.001, innerRadiusAuto: true }), 'ring')).toBeNull();
+  });
+
+  it('adds an off-axis mount its offset, since the stated hole is centered', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.009 }, { radialPosition: 0.005 }), 'ring')).toBeCloseTo(0.014, 12);
+  });
+
+  it('ignores a mount the ring does not overlap', () => {
+    const t = tree({ innerRadius: 0.001, position: { method: 'top', offset: 0.2 } });
+    expect(ringBoreNeedIn(t, 'ring')).toBeNull();
   });
 });

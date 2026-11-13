@@ -237,7 +237,34 @@
 # we do).
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-11-13: reviewed f6a59fae through 779a4342 (v0.199 of 2026-11-10, then
+# tooling through 2026-11-13), in two pulls: 78ac8bf1 and 779a4342. No
+# engine-java source changed, only their carve and build scripts.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND DONE HERE: a caution when a ring's
+# hand-set bore is smaller than an inner tube through it, in the ring's editor,
+# the PDF design report and the DXF label (discGeometry.ts `ringBoreNeedIn`).
+# Ours warns on any shortfall, with an off-axis tube counting its offset; theirs
+# is scoped to their coupler-held tubes within a 0.25 mm tolerance.
+#
+# TAKEN, AS A CHEAP GUARD: their number limits, where they were not already
+# here. The bridge's 1e6 MAX_MAGNITUDE already bounds every component number
+# (masses, densities, cluster scale), so the gaps were motors and freeform
+# points. A motor over 1000 m or 10^15 kg is refused at import and at install
+# (motorStore.ts `motorHeaderProblem`, 'oversize'), not reduced, as theirs. A
+# freeform point past MAX_MAGNITUDE is refused by the bridge (ComponentFactory),
+# since the kernel snaps only past +2.5 m. Crafted files only.
+#
+# ALREADY COVERED: embedded motors refused one by one (loadOrk.ts reads each
+# embedded .rse on its own); angle displays following the Angle unit.
+#
+# NOT APPLICABLE: RockSim motor evidence across simulations (desktop imports
+# no RockSim simulations); .CDX1 recovery read notes (we only export RASAero);
+# their machine-path, OpenRocket-source and catalog tooling.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = f6a59faef7867ea4b31e977a091e495a5659a199
-version = 0.198
-dated   = 2026-11-09
+ref     = 779a4342caaacbb048253c0fe69e2a6ae7848d11
+version = 0.199
+dated   = 2026-11-13

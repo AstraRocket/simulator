@@ -49,6 +49,7 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
   const problem = motorHeaderProblem({ diameter, length, totalWeightG: totalKg * 1000, propWeightG: propKg * 1000 });
   if (problem === 'numbers') throw new KeyedError('errors.motorFile.engHeaderNumbers');
   if (problem === 'size') throw new KeyedError('errors.motorFile.engHeaderSize');
+  if (problem === 'oversize') throw new KeyedError('errors.motorFile.oversize', { motor: designation });
   if (problem) throw new KeyedError('errors.motorFile.engHeaderMass');
 
   // `customToRow` reads only `delayList`, so the delays must go through it here.

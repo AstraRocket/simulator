@@ -382,6 +382,27 @@ describe('the import ceilings match the kernel', () => {
     expect(() => OpenRocketDesign.buildTree(tree as unknown as RocketTree).staticInfo()).toThrow(/points/);
   });
 
+  it('refuses a freeform point past the size limit every other number has', () => {
+    // The kernel snaps only past +2.5 m; a far negative point reached the area sums unchecked.
+    const tree = structuredClone(TREE) as unknown as { components: Record<string, unknown>[] };
+    const tube = (tree.components[0]!['children'] as Record<string, unknown>[])[1]!;
+    const fin = (y: number) => ({
+      id: 'ff',
+      type: 'freeformfinset',
+      finCount: 3,
+      thickness: 0.002,
+      points: [
+        [0, 0],
+        [0.02, y],
+        [0.03, 0],
+      ],
+    });
+    tube['children'] = [fin(-1e300)];
+    expect(() => OpenRocketDesign.buildTree(tree as unknown as RocketTree).staticInfo()).toThrow(/point 1.*range/);
+    tube['children'] = [fin(0.02)];
+    expect(() => OpenRocketDesign.buildTree(tree as unknown as RocketTree).staticInfo()).not.toThrow();
+  });
+
   it('refuses nested counts that multiply out past the browser ceiling, before building', () => {
     const tube = (children?: unknown[]) => ({
       type: 'bodytube',

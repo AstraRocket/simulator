@@ -10,6 +10,7 @@ import type { Simulation } from '../flight/simulations';
 import type { LoadedMeta } from '../files/wireLoadedOrk';
 import { motorStats, type MotorStats } from './rocketReport';
 import { numOpt } from '../../tree/nodeProps';
+import { ringBoreNeedIn } from '../design/discGeometry';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
 import { cantFrontShift, finMount, finSpan } from '../../tree/finPlanform';
 import { parentStartOf } from '../../tree/axialRebase';
@@ -37,6 +38,8 @@ export interface PartRow {
   aftR?: number;
   thickness?: number;
   span?: number;
+  /** A centering ring's stated bore radius is under this: the mounts through it need it. */
+  boreNeed?: number;
   mass: number;
 }
 
@@ -133,6 +136,7 @@ export function stageParts(
           /* a part the engine can't weigh: leave 0 */
         }
       }
+      const boreNeed = id && node.type === 'centeringring' ? ringBoreNeedIn(tree, id) : null;
       rows.push({
         depth,
         type: node.type,
@@ -145,6 +149,7 @@ export function stageParts(
         ...(isPlanarFinSet(node.type)
           ? { span: finSpan(node, parent && finMount(node, parent, parentStartOf(tree, parent))) }
           : {}),
+        ...(boreNeed !== null ? { boreNeed } : {}),
         mass,
       });
     }

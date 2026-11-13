@@ -129,6 +129,30 @@ function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: numb
   return holes.length === 0 || centered ? null : holes;
 }
 
+// Under this, a stated bore is the tube's own size typed through a unit conversion.
+const BORE_TOLERANCE = 1e-5;
+
+/**
+ * The bore radius a ring's stated hole needs to pass the mounts through it, or null when it
+ * already does. A stated bore is one centered hole, so an off-axis tube needs its offset too.
+ */
+function ringBoreNeed(ring: ComponentNode, parent: ComponentNode, parentStart: number): number | null {
+  if (ring.type !== 'centeringring' || ring['innerRadiusAuto'] === true) return null;
+  const bore = num(ring, 'innerRadius', NaN);
+  if (Number.isNaN(bore)) return null;
+  let need = 0;
+  for (const tube of tubesThrough(ring, parent, parentStart)) {
+    const r = innerTubeRadius(tube);
+    for (const { radialPosition: d } of clusterPlacesOf(tube)) need = Math.max(need, d + r);
+  }
+  return need - bore > BORE_TOLERANCE ? need : null;
+}
+
+export function ringBoreNeedIn(tree: RocketTree, nodeId: string): number | null {
+  const ctx = nodeContext(tree, nodeId);
+  return ctx?.parent ? ringBoreNeed(ctx.node, ctx.parent, parentStartOf(tree, ctx.parent)) : null;
+}
+
 export function nodeContext(
   tree: RocketTree,
   nodeId: string,

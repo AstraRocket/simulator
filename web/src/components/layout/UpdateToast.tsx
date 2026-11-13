@@ -56,7 +56,7 @@ export function UpdateToast() {
       return;
     }
     next?.addEventListener('statechange', () => next.state === 'activated' && reloadOnce());
-    if (swReg) reloadOnceLeft(swReg, next);
+    if (swReg && next) reloadOnceLeft(swReg, next);
     void updateServiceWorker(true);
   }, [swReg, updateServiceWorker]);
 
@@ -164,7 +164,7 @@ function reloadOnce(): void {
 }
 
 /** Not while `next` still waits: the old worker would serve the old page, whose files the new one deletes on activating. */
-function reloadOnceLeft(reg: ServiceWorkerRegistration, next: ServiceWorker | undefined): void {
+function reloadOnceLeft(reg: ServiceWorkerRegistration, next: ServiceWorker): void {
   const poll = setInterval(() => {
     if (reg.waiting === next) return;
     clearInterval(poll);

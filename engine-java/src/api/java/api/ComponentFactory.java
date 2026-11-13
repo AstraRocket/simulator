@@ -349,9 +349,15 @@ final class ComponentFactory {
                             throw new IllegalArgumentException(
                                     "freeformfinset points must be [[x,y],...] numbers");
                         }
-                        pts[i] = new Coordinate(
-                                (Double) ((List<?>) row).get(0),
-                                (Double) ((List<?>) row).get(1), 0);
+                        double x = (Double) ((List<?>) row).get(0);
+                        double y = (Double) ((List<?>) row).get(1);
+                        // As dbl: the kernel snaps only past +2.5 m, so a far negative point reached the
+                        // fin's area and inertia sums unchecked.
+                        if (Math.abs(x) > MAX_MAGNITUDE || Math.abs(y) > MAX_MAGNITUDE) {
+                            throw new IllegalArgumentException("freeformfinset point " + i
+                                    + " is out of range (the limit is " + MAX_MAGNITUDE + ")");
+                        }
+                        pts[i] = new Coordinate(x, y, 0);
                     }
                     if (pts.length < 3) {
                         throw new IllegalArgumentException(
