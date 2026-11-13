@@ -5,16 +5,17 @@ import { describe, expect, it } from 'vitest';
 import { exportOrk, importOrk } from '../../../src/services/files/orkFile';
 import { noteTexts } from '../../testing/importNotes';
 
-// As 24.12's `GeneralRocketSaver` writes it: sorted by name then density across all three types.
+// As `OpenRocketSaver.saveDocumentPreferences` writes it: `Material.toStorableString`, sorted by
+// name then density across all three types. One entry in the older four-field form.
 const DESKTOP_DOCPREFS = `  <docprefs>
     <docmaterials>
-      <material>BULK|Birch ply|650.0|Woods</material>
-      <material>BULK|Birch ply|700.0|Woods</material>
-      <material>BULK|Cardboard|680.0|Custom</material>
-      <material>LINE|Elastic cord (round 2mm, 1/16 in)|0.0018|Custom</material>
-      <material>LINE|Kev cord|0.002|ThreadsLines</material>
-      <material>BULK|Polystyrene|1050.0|Custom</material>
-      <material>SURFACE|Ripstop nylon|0.067|Custom</material>
+      <material>BULK|Birch ply|650.0|3.1E8|Woods</material>
+      <material>BULK|Birch ply|700.0|0.0|Woods</material>
+      <material>BULK|Cardboard|680.0|0.0|Custom</material>
+      <material>LINE|Elastic cord (round 2mm, 1/16 in)|0.0018|0.0|Custom</material>
+      <material>LINE|Kev cord|0.002|0.0|ThreadsLines</material>
+      <material>BULK|Polystyrene|1050.0|0.0|Custom</material>
+      <material>SURFACE|Ripstop nylon|0.067|0.0|Custom</material>
       <material>SURFACE|Silk|0.04|Fabrics</material>
     </docmaterials>
   </docprefs>`;
@@ -51,10 +52,10 @@ const written = (xml: string): string[] =>
   );
 
 describe('reading a desktop document material list', () => {
-  it('reads every entry 24.12 wrote, two of one name at two densities included', () => {
+  it('reads every entry desktop wrote, two of one name at two densities included', () => {
     const { tree } = importOrk(docWith(DESKTOP_DOCPREFS));
     expect(tree.documentMaterials).toEqual([
-      { name: 'Birch ply', type: 'bulk', density: 650, group: 'Woods' },
+      { name: 'Birch ply', type: 'bulk', density: 650, shearModulus: 3.1e8, group: 'Woods' },
       { name: 'Birch ply', type: 'bulk', density: 700, group: 'Woods' },
       { name: 'Cardboard', type: 'bulk', density: 680, group: 'Custom' },
       { name: 'Elastic cord (round 2mm, 1/16 in)', type: 'line', density: 0.0018, group: 'Custom' },
@@ -65,13 +66,15 @@ describe('reading a desktop document material list', () => {
     ]);
   });
 
-  it('reads the newer five-piece form, the shear modulus between density and group', () => {
+  it('reads the five-piece form, the shear modulus between density and group', () => {
     const { tree } = importOrk(
       docWith(
         '<docprefs><docmaterials><material>BULK|G10|1800.0|3.0E9|Composites</material></docmaterials></docprefs>',
       ),
     );
-    expect(tree.documentMaterials).toEqual([{ name: 'G10', type: 'bulk', density: 1800, group: 'Composites' }]);
+    expect(tree.documentMaterials).toEqual([
+      { name: 'G10', type: 'bulk', density: 1800, shearModulus: 3e9, group: 'Composites' },
+    ]);
   });
 
   it('leaves out an entry desktop could not build a material from, and says so', () => {
@@ -106,17 +109,17 @@ describe('reading a desktop document material list', () => {
 });
 
 describe('writing the design materials back', () => {
-  it('writes the list as 24.12 does: its storable form, by name then density across types', () => {
+  it('writes the list as desktop does: its storable form, by name then density across types', () => {
     const out = roundTrip(docWith(DESKTOP_DOCPREFS));
     expect(written(out)).toEqual([
-      'BULK|Birch ply|650|Woods',
-      'BULK|Birch ply|700|Woods',
-      'BULK|Cardboard|680|Custom',
-      'LINE|Elastic cord (round 2mm, 1/16 in)|0.0018|Custom',
-      'LINE|Kev cord|0.002|ThreadsLines',
-      'BULK|Polystyrene|1050|Custom',
-      'SURFACE|Ripstop nylon|0.067|Custom',
-      'SURFACE|Silk|0.04|Fabrics',
+      'BULK|Birch ply|650|310000000|Woods',
+      'BULK|Birch ply|700|0|Woods',
+      'BULK|Cardboard|680|0|Custom',
+      'LINE|Elastic cord (round 2mm, 1/16 in)|0.0018|0|Custom',
+      'LINE|Kev cord|0.002|0|ThreadsLines',
+      'BULK|Polystyrene|1050|0|Custom',
+      'SURFACE|Ripstop nylon|0.067|0|Custom',
+      'SURFACE|Silk|0.04|0|Fabrics',
     ]);
     expect(out.match(/<docmaterials>/g)).toHaveLength(1);
     expect(out.match(/<docprefs/g)).toHaveLength(1);
@@ -140,7 +143,7 @@ describe('writing the design materials back', () => {
     });
     // Desktop's saver writes a bar as a space; the catalog's Paper is desktop's PaperProducts.
     expect(out).toMatch(
-      /<docprefs><docmaterials><material>BULK\|Mine best\|420\|PaperProducts<\/material><\/docmaterials><\/docprefs>\s*<\/openrocket>/,
+      /<docprefs><docmaterials><material>BULK\|Mine best\|420\|0\|PaperProducts<\/material><\/docmaterials><\/docprefs>\s*<\/openrocket>/,
     );
   });
 

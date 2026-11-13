@@ -30,12 +30,11 @@ describe('part file order', () => {
     ]);
   });
 
-  it('is applied to both sets of part files sync-components reads', () => {
+  it('is applied to every set of part files sync-components reads, through its one reader', () => {
     const src = readFileSync(fileURLToPath(new URL('../../scripts/sync-components.mjs', import.meta.url)), 'utf8');
-    for (const reader of ['const orcFiles', 'function jarFiles']) {
-      const at = src.indexOf(reader);
-      expect(at, reader).toBeGreaterThanOrEqual(0);
-      expect(src.slice(at, at + 200), reader).toContain('byFileName(');
-    }
+    const at = src.indexOf('const orcFiles');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(src.slice(at, at + 200)).toContain('byFileName(');
+    expect(src.match(/readdirSync\(/g)).toHaveLength(1);
   });
 });

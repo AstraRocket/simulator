@@ -8,6 +8,7 @@ import { useUnits, type Units } from '../../prefs/useUnits';
 import { partLabel } from '../../i18n/format';
 import { isFinSet } from '../../tree/tubefins';
 import { token } from '../common/colorTokens';
+import { Disclosure } from '../common/Disclosure';
 import { toggled } from '../../services/app/collections';
 import { collectNodes } from '../../tree/treeWalk';
 import { useTreeNavigation, type TreeEdit } from './useTreeNavigation';
@@ -339,25 +340,16 @@ function TreeHeader({
   const { t } = useTranslation();
   return (
     <div className="mb-2 flex min-w-0 items-center gap-1.5">
-      {/* Button inside the heading: a heading inside a button is flattened. */}
-      <h2 className="flex min-w-0">
-        <button
-          onClick={onToggleList}
-          aria-expanded={listOpen}
-          title={listOpen ? t('tree.collapseTree') : t('tree.expandTree')}
-          className="flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 hover:bg-raised"
-        >
-          <span className="text-base leading-none text-accent-400" aria-hidden="true">
-            {listOpen ? '▾' : '▸'}
-          </span>
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            {t('tree.components')}
-          </span>
-          {!listOpen && selectedName && (
-            <span className="truncate text-xs font-medium text-accent-300">· {selectedName}</span>
-          )}
-        </button>
-      </h2>
+      <Disclosure
+        open={listOpen}
+        onToggle={onToggleList}
+        title={listOpen ? t('tree.collapseTree') : t('tree.expandTree')}
+        label={t('tree.components')}
+        after={
+          !listOpen &&
+          selectedName && <span className="truncate text-xs font-medium text-accent-300">· {selectedName}</span>
+        }
+      />
       {listOpen && hasBranches && (
         <button
           onClick={toggleAll}

@@ -16,6 +16,7 @@ import { PlaceSearchDialog } from './PlaceSearchDialog';
 import { StatusLine } from '../common/StatusLine';
 import { smallButton } from '../common/smallButton';
 
+import { sameName } from '../../services/app/names';
 type LocationSite = Pick<LaunchConditions, 'latitudeDeg' | 'longitudeDeg' | 'launchAltitudeM'>;
 
 const launchDefaultSite = (): LocationSite => {
@@ -66,8 +67,7 @@ export function LocationPicker({
   );
 
   const saveUnder = async (name: string) => {
-    const key = name.trim().toLowerCase();
-    const existing = locations.find((p) => p.name.toLowerCase() === key);
+    const existing = locations.find((p) => sameName(p.name, name));
     if (
       existing &&
       existing.id !== current?.id &&

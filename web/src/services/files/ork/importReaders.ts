@@ -12,7 +12,6 @@ import {
   clusterTag,
   crossSectionTag,
   finCountTag,
-  isDrogueTag,
   massComponentTypeTag,
   nonNegTag,
   numTag,
@@ -140,7 +139,7 @@ const readBodytube: NodeReader = (ctx, el) => {
   n['outerRadius'] = btR ?? bt.outerRadius;
   readThicknessOrFilled(el, n, bt.thickness);
   readMotor(ctx, el, n);
-  if (text(el, ':scope > caseairframe') === 'true') n['caseAirframe'] = true;
+  if (isTrueTag(el, 'caseairframe')) n['caseAirframe'] = true;
   return n;
 };
 
@@ -245,7 +244,7 @@ const readInnertube: NodeReader = (ctx, el) => {
   if (cluster && cluster !== 'single') {
     n['cluster'] = cluster;
     n['clusterScale'] = nonNegTag(el, 'clusterscale', 1);
-    n['clusterRotation'] = (numTag(el, 'clusterrotation', 0) * Math.PI) / 180;
+    n['clusterRotation'] = degToRad(numTag(el, 'clusterrotation', 0));
   }
   // A desktop split cluster puts each tube's offset here; without it they collapse onto the axis.
   readRadial(el, n);
@@ -355,7 +354,7 @@ const readFairing: NodeReader = (ctx, el) => {
 
 function readRecoveryDeployment(ctx: OrkImportContext, el: Element, n: ComponentNode): void {
   // Without it every flight takes the single-deployment branch.
-  if (isDrogueTag(el)) n['drogue'] = true;
+  if (isTrueTag(el, 'isdrogue')) n['drogue'] = true;
   readDeployment(el, n, ctx.notes);
   captureDeployments(ctx, el, n);
 }
@@ -435,7 +434,7 @@ const readAssembly =
     }
     const angEl = el.querySelector(':scope > angleoffset');
     if (angEl) {
-      n['angleOffset'] = ((finiteNum(angEl.textContent) ?? 0) * Math.PI) / 180; // deg to rad
+      n['angleOffset'] = degToRad(finiteNum(angEl.textContent) ?? 0);
       if (asmType === 'parallelstage') {
         n['angleMethod'] = methodOf(angEl, ANGLE_METHODS);
       }

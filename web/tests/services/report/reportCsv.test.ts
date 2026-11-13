@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { StaticInfo } from '../../../src/engine/openRocketEngine';
-import type { ReportModel } from '../../../src/services/report/reportModel';
+import { withTestsByDate, type ReportModel } from '../../../src/services/report/reportModel';
 import { buildComponentCsv, buildDesignCsv } from '../../../src/services/report/reportCsv';
 import { METRIC_UNITS, IMPERIAL_UNITS } from '../../../src/prefs/units';
 import { qv, summaryRows, type PdfPage } from '../../../src/services/report/pdfPage';
@@ -458,7 +458,7 @@ describe('the design CSV recovery bays', () => {
         ],
       },
     } as never;
-    const rows = buildDesignCsv({ ...model, bays: [bay] }, METRIC_UNITS)
+    const rows = buildDesignCsv({ ...model, bays: [withTestsByDate(bay)] }, METRIC_UNITS)
       .split('\r\n')
       .filter((l) => l.startsWith('Drogue bay'));
     expect(rows).toEqual([

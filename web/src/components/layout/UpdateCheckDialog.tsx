@@ -6,6 +6,7 @@ import { fireAction } from '../../state/fireAction';
 import { Dialog } from '../common/Dialog';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { useLatest } from '../common/useLatest';
+import { StatusLine } from '../common/StatusLine';
 
 export function UpdateCheckDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -36,13 +37,9 @@ export function UpdateCheckDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog id="updateCheck" title={t('update.check')} onClose={onClose} layout="pad" size="sm" expandable={false}>
       <p className="text-xs text-ink-muted">{t('update.running', { version: APP_VERSION })}</p>
-      <p
-        role="status"
-        aria-live="polite"
-        className={`mt-2 text-sm ${result === 'failed' ? 'text-warn-300' : 'text-ink-soft'}`}
-      >
+      <StatusLine tone={result === 'failed' ? 'warn' : 'soft'} size="sm" className="mt-2">
         {message[result]}
-      </p>
+      </StatusLine>
       <DialogActions>
         <DialogButton onClick={onClose} variant="primary">
           {t('common.close')}

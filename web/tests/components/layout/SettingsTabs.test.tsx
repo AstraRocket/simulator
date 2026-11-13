@@ -41,3 +41,15 @@ describe('a numeric setting', () => {
     expect(timeStep()).toBe(0.02);
   });
 });
+
+describe('a speed warning limit', () => {
+  it('takes a 0 as the smallest limit it keeps, not as the default it would come back as', () => {
+    renderWithProviders(<SimTab />);
+    const box = screen.getByRole('spinbutton', { name: 'Min launcher-exit velocity' });
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: '0' } });
+    fireEvent.blur(box);
+    const sim = readSettings()['simulation'] as Record<string, number>;
+    expect(sim['railExitVelocityMin']).toBeCloseTo(0.1, 9);
+  });
+});

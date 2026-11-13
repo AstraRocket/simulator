@@ -12,6 +12,7 @@ import type { PartVisibility } from '../../../src/components/design/PartVisibili
 import { schematicSvg } from '../../../src/services/exports/schematicExport';
 import { hiddenPartIds } from '../../../src/tree/partVisibility';
 import { renderWithProviders } from '../../testing/renderWithProviders';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 const lug = { id: 'lug', type: 'launchlug', outerRadius: 0.005, length: 0.03 } as ComponentNode;
 const front = { id: 'front', type: 'bodytube', name: 'Front', outerRadius: 0.02, length: 0.3, children: [lug] };
@@ -30,6 +31,7 @@ const shapesFor = (hiddenIds?: ReadonlySet<string>) =>
     uid: 't',
     hiddenIds,
     setHoverId: () => {},
+    ...ENGLISH_LABELS,
   });
 
 const rects = (nodes: ReactNode[]) =>
@@ -141,8 +143,10 @@ describe('tree eye button', () => {
     const pressed = screen.getByRole('button', { name: 'Show in the views' });
     expect(pressed.getAttribute('aria-pressed')).toBe('true');
     const hideButtons = screen.getAllByRole('button', { name: 'Hide in the views' }) as HTMLButtonElement[];
-    // Stage, the lug under Front (locked), and Rear.
-    expect(hideButtons.map((b) => b.disabled)).toEqual([false, true, false]);
+    // Stage and Rear; the lug under Front says why it is locked instead of offering to hide.
+    expect(hideButtons.map((b) => b.disabled)).toEqual([false, false]);
+    const lug = screen.getByRole('button', { name: 'Hidden in the views with the part it is in' }) as HTMLButtonElement;
+    expect(lug.disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
     expect(visibility.onShowAll).toHaveBeenCalled();
   });

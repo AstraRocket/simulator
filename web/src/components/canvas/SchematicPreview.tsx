@@ -1,5 +1,7 @@
-import { useId, useMemo, useRef, useState } from 'react';
-import type { RocketTree, StaticInfo } from '../../engine/openRocketEngine';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { ComponentNode, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
+import { partLabel } from '../../i18n/format';
 import { computeSchematicLayout, type MotorDims } from '../../tree/schematicGeometry';
 import { buildSchematicShapes } from './schematicShapes';
 import { SchematicDefs } from './SchematicDefs';
@@ -21,6 +23,7 @@ export function SchematicPreview({
   /** px */
   maxHeight?: number;
 }) {
+  const { t } = useTranslation();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [cw, setCw] = useState(360);
   useElementResize(wrapRef, (_r, el) => {
@@ -33,9 +36,12 @@ export function SchematicPreview({
   );
   const { chain, vHalf, w, h, scale, ctx } = layout;
   const uid = useId().replace(/:/g, '');
+  const partName = useCallback((n: ComponentNode) => partLabel(t, n), [t]);
+  const typeTag = useCallback((type: string) => t(`schematic.tag.${type}`), [t]);
   const { shapes, overlay, wires, clipDefs } = useMemo(
-    () => buildSchematicShapes({ chain, ctx, scale, w, h, roll: 0, uid, motors, setHoverId: noHover }),
-    [chain, ctx, scale, w, h, uid, motors],
+    () =>
+      buildSchematicShapes({ chain, ctx, scale, w, h, roll: 0, uid, motors, setHoverId: noHover, partName, typeTag }),
+    [chain, ctx, scale, w, h, uid, motors, partName, typeTag],
   );
 
   return (

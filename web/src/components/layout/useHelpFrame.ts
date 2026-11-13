@@ -55,6 +55,8 @@ export function useHelpFrame(
   frameRef: RefObject<HTMLIFrameElement | null>;
   ready: boolean;
   activeHash: string;
+  /** The anchor the page was last sent to: a move within the page keeps `target` and changes this. */
+  anchorHash: string;
   navigate: (next: string) => void;
   onFrameLoad: () => void;
 } {
@@ -69,6 +71,8 @@ export function useHelpFrame(
   const [frame, setFrame] = useState<string | null>(null);
   // '' above the first heading.
   const [activeHash, setActiveHash] = useState('');
+  const [moved, setMoved] = useState<{ src: string; hash: string } | null>(null);
+  const anchorHash = moved?.src === target.src ? moved.hash : target.hash;
 
   const ready = frame === target.src;
   // Set synchronously on load: `ready` lags a render, and a click in that gap would be lost.
@@ -80,6 +84,7 @@ export function useHelpFrame(
       if (to.slug === target.slug) {
         const doc = frameRef.current?.contentDocument;
         const id = to.hash ? decodeURIComponent(to.hash.slice(1)) : '';
+        setMoved({ src: target.src, hash: to.hash });
         if (loaded.current !== target.src) {
           pendingAnchor.current = id;
           return;
@@ -158,5 +163,5 @@ export function useHelpFrame(
     setFrame(target.src);
   }, [onFrameClick, target.src, target.hash, hold]);
 
-  return { frameRef, ready, activeHash, navigate, onFrameLoad };
+  return { frameRef, ready, activeHash, anchorHash, navigate, onFrameLoad };
 }

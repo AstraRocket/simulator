@@ -12,6 +12,11 @@ const SOURCES = [
   resolve(HERE, 'ork-check/OrkFields.java'),
   resolve(HERE, '../../engine-java/src/api/java/api/ComponentFields.java'),
 ];
+const CATALOG_DIGESTS = new Set(
+  JSON.parse(readFileSync(resolve(HERE, '../public/data/motors.generated.json'), 'utf8')).flatMap((m) =>
+    (m.digests ?? []).map((e) => e.digest),
+  ),
+);
 
 // `when(app, desktop, appFields, desktopFields)` must confirm this is the difference the entry names.
 const KNOWN = [
@@ -65,11 +70,6 @@ const KNOWN = [
     why: "RockSim's stage overrides are all or nothing (`RockSimSaver.setStageOverrides`), so one override states every stack's weighed CG",
     when: (a, d, af, df) => af.cgOverridden !== true && df.cgOverridden === true,
   })),
-  {
-    rule: 'rkt:stage.overrideCGX',
-    why: "OPEN: the sustainer mass and CG the app weighs for the file differ from desktop's (816.48 g, 635.02 mm against 818.10 g, 634.09 mm on every-part), which moves the booster's derived CG",
-    when: (a, d) => Math.abs(a - d) < 0.005,
-  },
   ...['nosecone.shoulderCapped', 'transition.foreShoulderCapped', 'transition.aftShoulderCapped'].map((key) => ({
     rule: `rkt:${key}`,
     why: 'RockSim has no capped shoulder; `Transition.setForeShoulderLength` and its aft twin cap a shoulder as they give it a length',
@@ -204,7 +204,8 @@ const KNOWN = [
   },
   {
     rule: 'ork:config.motor.digest',
-    why: "the catalog's motor digests are synced from the OpenRocket 24.12 release and the engine's own commit recomputes them; desktop still finds the same motor, since ork:config.motor agrees",
+    why: 'a file keeps the digest it was saved with on a motor the app did not change, and the bundled examples were saved against an older motor database; desktop finds the motor by name, since ork:config.motor agrees',
+    when: (a) => !CATALOG_DIGESTS.has(a),
   },
   {
     rule: 'rkt:nosecone.shoulderThickness',

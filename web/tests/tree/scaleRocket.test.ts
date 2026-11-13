@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import type { RocketTree } from '../../src/engine/openRocketEngine';
+import type { ComponentNode, ComponentType, RocketTree } from '../../src/engine/openRocketEngine';
 import { KERNEL_DEFAULTS } from '../../src/tree/kernelDefaults';
-import { scaleRocket, scalePart, hasExplicitMass, maxBodyDiameter, rocketLength } from '../../src/tree/scaleRocket';
+import {
+  scaleNode,
+  scaleRocket,
+  scalePart,
+  hasExplicitMass,
+  maxBodyDiameter,
+  rocketLength,
+} from '../../src/tree/scaleRocket';
 
 const tree = (): RocketTree => ({
   components: [
@@ -441,6 +448,78 @@ describe('scaling a key the part leaves to the kernel', () => {
     expect(kids[0]!['instanceSeparation']).toBeCloseTo(2 * KERNEL_DEFAULTS.railbutton.instanceSeparation, 12);
     expect(kids[1]!['radius']).toBeCloseTo(2 * KERNEL_DEFAULTS.parachute.radius, 12);
     expect(kids[1]!['length']).toBeCloseTo(2 * KERNEL_DEFAULTS.parachute.length, 12);
+  });
+});
+
+const FIN_TAB = ['thickness', 'tabHeight', 'tabLength', 'tabOffset'];
+const RING = ['length', 'radialPosition', 'outerRadius'];
+const MASS_OBJECT = ['length', 'radius', 'radialPosition'];
+
+/** Desktop's ScaleDialog scaler table (`SCALERS_NO_OFFSET` and `SCALERS_OFFSET`), in the app's keys. */
+const DESKTOP_SCALES: Record<ComponentType, readonly string[]> = {
+  nosecone: ['length', 'aftRadius', 'thickness', 'shoulderRadius', 'shoulderLength', 'shoulderThickness'],
+  transition: [
+    'length',
+    'thickness',
+    'foreRadius',
+    'aftRadius',
+    'foreShoulderRadius',
+    'foreShoulderLength',
+    'foreShoulderThickness',
+    'aftShoulderRadius',
+    'aftShoulderLength',
+    'aftShoulderThickness',
+  ],
+  bodytube: ['length', 'thickness', 'outerRadius', 'motorOverhang'],
+  trapezoidfinset: [...FIN_TAB, 'sweep', 'rootChord', 'tipChord', 'height'],
+  freeformfinset: FIN_TAB,
+  ellipticalfinset: [...FIN_TAB, 'rootChord', 'height'],
+  tubefinset: [],
+  innertube: [...RING, 'thickness', 'motorOverhang'],
+  tubecoupler: [...RING, 'thickness'],
+  centeringring: [...RING, 'innerRadius'],
+  // Desktop's InnerRadius scaler is a no-op on a bulkhead, whose inner radius is 0.
+  bulkhead: RING,
+  engineblock: [...RING, 'thickness'],
+  launchlug: ['outerRadius', 'thickness', 'length'],
+  railbutton: ['outerDiameter', 'innerDiameter', 'height', 'baseHeight', 'flangeHeight', 'instanceSeparation'],
+  parachute: [...MASS_OBJECT, 'diameter', 'lineLength'],
+  streamer: [...MASS_OBJECT, 'stripLength', 'stripWidth'],
+  shockcord: [...MASS_OBJECT, 'cordLength'],
+  masscomponent: MASS_OBJECT,
+  fairing: [],
+  podset: ['radiusOffset'],
+  parallelstage: ['radiusOffset'],
+  stage: [],
+};
+
+const FIN_SHAPE = ['airfoilLeDiamond', 'airfoilTeDiamond', 'finLeRadius', 'filletRadius'];
+
+/** Scaled beyond desktop by choice; `docs/CODE_QUALITY.md` "Where the app differs from desktop on purpose". */
+const BEYOND_DESKTOP: Partial<Record<ComponentType, readonly string[]>> = {
+  trapezoidfinset: FIN_SHAPE,
+  freeformfinset: FIN_SHAPE,
+  ellipticalfinset: FIN_SHAPE,
+  tubefinset: ['length', 'outerRadius', 'thickness'],
+  innertube: ['maxMotorLength'],
+  // The bridge builds a coupler from its wall; this keeps the stored bore in step.
+  tubecoupler: ['innerRadius'],
+};
+
+describe("the Scale tool's keys", () => {
+  const types = Object.keys(DESKTOP_SCALES) as ComponentType[];
+  const candidates = [
+    ...new Set([...Object.values(DESKTOP_SCALES), ...Object.values(BEYOND_DESKTOP)].flat()),
+    'spillHoleDiameter',
+    'deployAltitude',
+    'screwHeight',
+  ];
+
+  it.each(types)("scales a %s's keys from desktop's table and the named extras, and no others", (type) => {
+    const n = { type, ...Object.fromEntries(candidates.map((k) => [k, 0.01])) } as ComponentNode;
+    const out = scaleNode(n, 2);
+    const scaled = candidates.filter((k) => out[k] !== n[k]).sort();
+    expect(scaled).toEqual([...new Set([...DESKTOP_SCALES[type], ...(BEYOND_DESKTOP[type] ?? [])])].sort());
   });
 });
 

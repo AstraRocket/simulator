@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectEditedConfig } from '../../state/store';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 import { ConfigsTable } from './ConfigsTable';
 import { ConfigEditor } from './ConfigEditor';
-import { motorColumns, recoveryColumns, separationColumns } from './configColumns';
+import { motorColumns, propAltitudeUnit, recoveryColumns, separationColumns } from './configColumns';
 import { useIsDesktop } from '../common/useMediaQuery';
 import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
 import { ToolBtn } from '../common/ToolBtn';
 import type { ConfigsTab } from '../../state/tabs';
 import { ToggleButton } from '../common/ToggleButton';
@@ -31,9 +30,9 @@ export function ConfigsPane() {
   const columns = useMemo(() => {
     if (sub === 'motors' || sub === 'bays') return motorColumns(tree, t);
     if (sub === 'recovery') {
-      return recoveryColumns(tree, t, (device) => u.at(unitScope('prop', device.type, 'deployAltitude'), 'distance'));
+      return recoveryColumns(tree, t, (device) => propAltitudeUnit(u, device, 'deployAltitude'));
     }
-    return separationColumns(tree, t, (stage) => u.at(unitScope('prop', stage.type, 'separationAltitude'), 'distance'));
+    return separationColumns(tree, t, (stage) => propAltitudeUnit(u, stage, 'separationAltitude'));
   }, [sub, tree, t, u]);
 
   const hint = {
@@ -50,7 +49,7 @@ export function ConfigsPane() {
   }, [sims]);
 
   const onDelete = async () => {
-    if ((flights[selected.id] ?? 0) === 0 || (await confirm({ message: t('configs.deleteConfirm'), danger: true }))) {
+    if ((flights[selected.id] ?? 0) === 0 || (await confirmDelete(t('configs.deleteConfirm')))) {
       deleteConfig(selected.id);
     }
   };

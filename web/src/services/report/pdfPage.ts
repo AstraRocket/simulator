@@ -372,7 +372,7 @@ export function summaryRows(p: PdfPage, info: StaticInfo): [string, string][] {
       case 'fineness':
         return fmtNum(v, 2);
       case 'stabilityCal':
-        return `${fmtNum(v, 2)} cal`;
+        return `${fmtNum(v, 2)} ${t('stability.caliber')}`;
       case 'stabilityPct':
         return fmtPercent(v, 1);
       case 'cd':

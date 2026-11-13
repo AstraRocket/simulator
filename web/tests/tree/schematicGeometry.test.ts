@@ -20,6 +20,7 @@ import {
   internalExtent,
 } from '../../src/tree/schematicGeometry';
 import i18n from '../../src/i18n';
+import { fmtPercent } from '../../src/i18n/format';
 
 const node = (o: object): ComponentNode => o as unknown as ComponentNode;
 
@@ -292,6 +293,16 @@ describe('marginText', () => {
   it('hands back the glyph and figures without the word, for the info card', () => {
     const m = marginText(2, 8, t)!;
     expect(`${m.glyph} ${m.figures}`).toBe('✓ 2.00 cal · 8.0%');
+  });
+
+  it('writes the percentage as the report does, in the reader language', async () => {
+    await i18n.changeLanguage('de');
+    try {
+      expect(marginText(2, 12.3, t)!.figures).toBe(`2,00 ${t('stability.caliber')} · ${fmtPercent(12.3, 1)}`);
+      expect(fmtPercent(12.3, 1)).toBe('12,3 %');
+    } finally {
+      await i18n.changeLanguage('en');
+    }
   });
 
   it('prints nothing without a finite margin and percentage', () => {

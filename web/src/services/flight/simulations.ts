@@ -7,7 +7,7 @@ import { degToRad } from '../../prefs/units';
 import { LAUNCH_SI } from '../../prefs/launchUnits';
 import { stableJson } from '../app/stableJson';
 import { DEFAULT_HEADING_DEG, surfaceWind } from './windLevels';
-import { walkNodes } from '../../tree/treeWalk';
+import { collectNodes } from '../../tree/treeWalk';
 import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import { BAYS_KEY } from './recoveryBays';
@@ -67,7 +67,7 @@ const treeKeys = new WeakMap<RocketTree, string>();
 export function flightKey(tree: RocketTree): string {
   let key = treeKeys.get(tree);
   if (key === undefined) {
-    const deviceNames = [...walkNodes(tree.components)].filter((n) => isRecoveryDevice(n.type)).map((n) => n.name);
+    const deviceNames = collectNodes(tree.components, (n) => isRecoveryDevice(n.type)).map((n) => n.name);
     // Settled as the kernel builds them, so a settled and unsettled link key the same.
     key = stableJson([settleLinkedDimensions(tree).components, deviceNames], NOT_FLOWN);
     treeKeys.set(tree, key);
@@ -166,6 +166,14 @@ export const withoutResults = (sims: readonly Simulation[]): Simulation[] =>
 // A UUID, so ids minted after a reload cannot collide with persisted ones.
 function newSimId(): string {
   return uuid();
+}
+
+/** `base`, or `base 2`, `base 3` ... where it is taken. */
+export function nextFreeName(base: string, taken: Iterable<string>): string {
+  const used = new Set(taken);
+  let name = base;
+  for (let n = 2; used.has(name); n++) name = `${base} ${n}`;
+  return name;
 }
 
 export function newSimulation(name: string, configId: string, launch: LaunchConditions): Simulation {

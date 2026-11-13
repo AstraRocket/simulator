@@ -10,9 +10,7 @@ import {
   type TileSourceId,
 } from '../../services/map/slippyMap';
 import { rememberTileLayer, tileLayer } from '../../services/map/tileLayer';
-import { useUnits, type Units } from '../../prefs/useUnits';
-import { fmtNum, withUnit, shortDigits } from '../../i18n/format';
-import { siToUi } from '../../prefs/units';
+import { fmtSpan, useUnits, type Units } from '../../prefs/useUnits';
 import { useTileVerdict } from '../common/map/useTileVerdict';
 import { MapCredit, TileImg, TileLayerButtons } from '../common/map/MapParts';
 import { SOURCE_LAYERS } from '../common/map/mapStyle';
@@ -223,15 +221,8 @@ function MapFooter({
   );
 }
 
-const SCALE_PROMOTION: Record<string, string> = { m: 'km', ft: 'mi' };
-
 function scaleLabel(u: Units, lat: number, zoom: number): string {
-  const meters = metersPerPixel(lat, zoom) * 100;
-  const sym = u.sym('distance');
-  const up = SCALE_PROMOTION[sym];
-  const big = up ? siToUi('distance', up, meters) : 0;
-  if (up && big >= 1) return withUnit(fmtNum(big, shortDigits(big)), up);
-  return u.fmtSym('distance', meters, 0);
+  return fmtSpan(u.sym('distance'), metersPerPixel(lat, zoom) * 100);
 }
 
 /** Offline fallback; the stronger equator and prime meridian catch a flipped sign. */

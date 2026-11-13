@@ -41,3 +41,6 @@ function worldCoordinate(latDeg: number, lonDeg: number): { lat: number; lon: nu
 export function reduceLonDeg(lonDeg: number): number {
   return lonDeg - rint(lonDeg / 360) * 360;
 }
+
+export const isLatLon = (latDeg: number, lonDeg: number): boolean =>
+  Number.isFinite(latDeg) && Number.isFinite(lonDeg) && Math.abs(latDeg) <= 90 && Math.abs(lonDeg) <= 180;

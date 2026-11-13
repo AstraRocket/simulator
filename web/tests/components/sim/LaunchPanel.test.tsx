@@ -134,6 +134,13 @@ describe('launch site bounds', () => {
     fireEvent.change(screen.getByLabelText('Altitude'), { target: { value: '99999' } });
     expect(onChange).toHaveBeenLastCalledWith({ launchAltitudeM: 10000 });
   });
+
+  it('refuses a constant gravity of 0, under which a flight never comes down', () => {
+    const onChange = vi.fn();
+    renderWithProviders(<LaunchPanel launch={{ ...LAUNCH, gravityModel: 'constant' }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('g', { exact: true }), { target: { value: '0' } });
+    expect(onChange).toHaveBeenLastCalledWith({ constantGravity: 0.1 });
+  });
 });
 
 describe('the launcher angle limit', () => {
@@ -222,6 +229,13 @@ describe('wind speed edits keep the turbulence', () => {
     expect(last.windAverage).toBe(0.5);
     expect(last.windStdDev).toBeCloseTo(0.075, 9);
     expect((screen.getByRole('spinbutton', { name: /turbulence intensity/i }) as HTMLInputElement).value).toBe('15');
+  });
+
+  it('locks the % box with no average wind, where typing in it would wipe the gusts', () => {
+    renderWithProviders(<LaunchPanel launch={{ ...LAUNCH, windAverage: 0, windStdDev: 2 }} onChange={() => {}} />);
+    const pct = screen.getByRole('spinbutton', { name: /turbulence intensity/i }) as HTMLInputElement;
+    expect(pct.disabled).toBe(true);
+    expect(screen.getByText(/Set an average wind first/)).toBeTruthy();
   });
 });
 

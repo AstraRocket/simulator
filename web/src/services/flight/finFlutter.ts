@@ -1,8 +1,9 @@
 import { isaAt } from './recoverySizing';
 import { uiToSi } from '../../prefs/units';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { num } from '../../tree/nodeProps';
+import { num, str } from '../../tree/nodeProps';
 import { walkNodes } from '../../tree/treeWalk';
+import { isPlanarFinSet } from '../../tree/tubefins';
 import {
   finMountOf,
   finPlanformArea,
@@ -189,11 +190,7 @@ export function flutterFindings(
     if (!point) continue;
     const verdict = flutterVerdict(point.ratio);
     if (verdict === 'ok') continue;
-    out.push({ nodeId: node.id, name: typeof node.name === 'string' ? node.name : '', point, verdict });
+    out.push({ nodeId: node.id, name: str(node, 'name'), point, verdict });
   }
   return out.sort((a, b) => a.point.ratio - b.point.ratio);
-}
-
-function isPlanarFinSet(type: string): boolean {
-  return type === 'trapezoidfinset' || type === 'ellipticalfinset' || type === 'freeformfinset';
 }

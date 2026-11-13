@@ -35,7 +35,7 @@ export function useSimSummary(info: StaticInfo) {
   const flight = flightReadout({
     status,
     outdated,
-    value: summary ? `${apogee.fmt(summary.maxAltitude)} ${apogee.sym}` : null,
+    value: summary ? apogee.fmtSym(summary.maxAltitude) : null,
     onOpen: sim.result
       ? () => {
           setResultSimId(sim.id);
@@ -50,7 +50,7 @@ export function useSimSummary(info: StaticInfo) {
     busy,
     blocked,
     stability: stabilityReadout(info.stabilityCalibers, t),
-    mass: `${massUnit.fmt(info.mass)} ${massUnit.sym}`,
+    mass: massUnit.fmtSym(info.mass),
     config,
     configs,
     configName: (c: typeof config) => configLabel(tree, c) || t('configs.noMotors'),

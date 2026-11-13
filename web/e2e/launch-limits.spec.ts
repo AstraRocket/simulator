@@ -1,4 +1,4 @@
-import { test, expect, openTab, ready, runButton, runFlight, importOrk, autosaved } from './base';
+import { test, expect, openTab, ready, runButton, runFlight, importOrk, autosaved, designTitle } from './base';
 
 // out-of-limits.ork flies a C6, so the model code's 30° applies.
 test('an imported .ork outside the limits is flagged and refused', async ({ page }) => {
@@ -40,10 +40,10 @@ test('the import notes fold away, and the name is not repeated', async ({ page }
   await expect(note).toBeVisible();
 
   const card = toggle.locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
-  const title = card.getByRole('button', { name: 'Edit rocket configuration' });
+  const title = card.getByTestId('design-name');
   await expect(title).toBeVisible();
   await expect(title).toContainText('Two Stage');
-  await expect(page.getByRole('button', { name: 'Edit rocket configuration' })).toHaveCount(1);
+  await expect(designTitle(page)).toHaveCount(1);
 });
 
 test('folded notes stay folded across a reload, and a new import opens them', async ({ page }) => {

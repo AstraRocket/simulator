@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useLauncherT } from '../common/useLauncher';
+import { Notice } from '../common/Notice';
+import { RunToggleButton } from '../common/RunToggleButton';
 import { useWorkspaceStore, selectActive, configOf } from '../../state/store';
 import { primaryMotor } from '../../services/flight/flightConfigs';
 import { useUnits } from '../../prefs/useUnits';
@@ -49,21 +51,19 @@ export function RunButton({ className = '' }: { className?: string }) {
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <button
+      <RunToggleButton
+        busy={busy}
+        label={label}
         onClick={() => (busy ? cancelRun() : runSims(runIds))}
         disabled={!busy && (!info || blocked)}
-        className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50 ${
-          busy ? 'bg-prominent hover:bg-prominent-hover' : 'bg-accent-600 hover:bg-accent-700'
-        }`}
-      >
-        {label}
-      </button>
+        className="w-full"
+      />
       {notice && !busy && (
-        <p className="rounded-lg bg-warn-500/10 px-3 py-1.5 text-xs leading-snug text-warn-300 ring-1 ring-warn-400/30">
+        <Notice tone="warn">
           <span aria-hidden="true">⚠</span>{' '}
           {!blocked && refused.length ? `${t('sim.skipping', { count: refused.length })} ` : ''}
           {notice}
-        </p>
+        </Notice>
       )}
     </div>
   );

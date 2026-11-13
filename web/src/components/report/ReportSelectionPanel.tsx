@@ -2,15 +2,16 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/useSettings';
 import { UNIT_CHOICES, type UnitChoice } from '../../prefs/units';
 import { Check } from '../common/Check';
+import { SelectRow } from '../common/SelectRow';
 import type { ReportSelection, Sel } from './useReportDialog';
 
 const row = 'flex items-center gap-2 py-0.5 text-sm text-ink';
 
 export function ReportSelectionPanel({ name, sel, selection }: { name: string; sel: Sel; selection: ReportSelection }) {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
+  const { settings, updateSection } = useSettings();
   const { patch, patchStage, allOn, setAll, hasNoses, hasTransitions, hasMarkingGuides } = selection;
-  const setUnits = (units: UnitChoice) => update({ report: { ...settings.report, units } });
+  const setUnits = (units: UnitChoice) => updateSection('report', { units });
   return (
     <div className="p-4">
       <p className="mb-2 text-xs uppercase tracking-wide text-ink-muted">{t('export.select')}</p>
@@ -83,21 +84,19 @@ export function ReportSelectionPanel({ name, sel, selection }: { name: string; s
           onChange={(v) => patch({ showByStage: v })}
           label={t('export.showByStage')}
         />
-        <label className="flex items-center justify-between gap-3 pt-1 text-sm text-ink">
-          <span>{t('export.units')}</span>
-          <select
-            aria-label={t('export.units')}
-            value={settings.report.units}
-            onChange={(e) => setUnits(e.target.value as UnitChoice)}
-            className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-          >
-            {UNIT_CHOICES.map((c) => (
-              <option key={c} value={c}>
-                {t(`export.units_${c}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectRow<UnitChoice>
+          label={t('export.units')}
+          value={settings.report.units}
+          onChange={setUnits}
+          labelClassName="text-sm text-ink"
+          className="pt-1"
+        >
+          {UNIT_CHOICES.map((c) => (
+            <option key={c} value={c}>
+              {t(`export.units_${c}`)}
+            </option>
+          ))}
+        </SelectRow>
         <p className="text-[11px] leading-snug text-ink-faint">{t('export.unitsNote')}</p>
       </div>
     </div>

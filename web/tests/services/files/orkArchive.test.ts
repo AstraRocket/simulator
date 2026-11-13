@@ -69,6 +69,23 @@ describe('unpacking the archive', () => {
     expect(out.motorFiles).toHaveLength(1);
   });
 
+  it('refuses a file cut off after its first member, rather than open it with the curve missing', () => {
+    const whole = new Uint8Array(archive({ 'rocket.ork': XML, 'thrustcurves/abc123.rse': RSE }));
+    const view = new DataView(whole.buffer);
+    let second = 4;
+    while (view.getUint32(second, true) !== 0x04034b50) second++;
+    const quiet: number[] = [];
+    for (let cut = second; cut < whole.length; cut++) {
+      try {
+        const out = unpackOrk(whole.slice(0, cut).buffer as ArrayBuffer);
+        if (out.motorFiles.length === 0) quiet.push(cut);
+      } catch (e) {
+        expect((e as { key?: string }).key).toBe('errors.file.archiveCorrupt');
+      }
+    }
+    expect(quiet).toEqual([]);
+  });
+
   it('reads a bare-XML .ork as the whole file, with nothing else in it', () => {
     const out = unpackOrk(XML);
     expect(out.xml).toBe(XML);

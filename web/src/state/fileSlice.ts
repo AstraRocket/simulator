@@ -2,7 +2,6 @@ import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { confirm } from './confirmStore';
 import { prompt } from './promptStore';
-import { defaultRocketTree } from '../services/design/defaultRocket';
 import { launcherKind } from '../services/design/launcher';
 import type { RocketTree } from '../engine/openRocketEngine';
 import type { LaunchConditions } from '../services/design/orkTree';
@@ -11,7 +10,6 @@ import { wireLoadedOrk } from '../services/files/wireLoadedOrk';
 import { assertImportSize } from '../services/files/decodeText';
 // Static: a dynamic import here only triggers rolldown's ineffective-dynamic-import warning.
 import { fetchExample } from '../services/storage/exampleLibrary';
-import { newSimulation } from '../services/flight/simulations';
 import { loadSettings } from '../services/storage/settings';
 import { importNotes } from '../services/files/importBanner';
 import { configPowerClass } from '../services/flight/powerClass';
@@ -19,17 +17,18 @@ import { configFor, type FlightConfig } from '../services/flight/flightConfigs';
 import { defaultDesignName } from '../services/app/appInfo';
 import { getDesignLibrary } from '../services/storage/designLibrary';
 import { getWorkspaceStore } from '../services/storage/workspaceStore';
-import { errorText, KeyedError } from '../i18n/keyedError';
+import { actionError, KeyedError } from '../i18n/keyedError';
 import { hasCapability } from '../services/app/device';
-import { defaultConfig, displayUnits, repairNotes } from './workspaceSelectors';
+import { displayUnits, firstSim, freshWorkspace, repairNotes } from './workspaceSelectors';
 import type { WorkspaceState } from './store';
-import { showing } from './viewSlice';
+import { LAND_ON_DESIGN } from './viewSlice';
 import { claimWorkspace, observeWorkspace, workspaceHandoff } from './workspaceHandoff';
 import { markWritten } from './writtenWorkspace';
 
 // Only types from './store': store.ts calls `createFileSlice` while still loading.
 export interface FileSlice {
   openOrkFile: (file: Blob) => Promise<void>;
+  /** Claims the workspace before the fetch, so a slow first example cannot land after a later open. */
   openExample: (file: string) => Promise<void>;
   openNewDesign: (tree: RocketTree, config: FlightConfig, launch: Partial<LaunchConditions>) => Promise<void>;
   resetWorkspace: () => void;
@@ -162,16 +161,14 @@ export const createFileSlice =
             configs,
             activeId,
             selectedId: null,
-            tab: 'design',
-            designPane: 'stats',
-            view: '2d',
+            ...LAND_ON_DESIGN,
             activeDesignId: home.id,
             importSeq: get().importSeq + 1,
           });
           engineTouched = false;
         } catch (e) {
           if (stale()) return;
-          set({ err: i18n.t('errors.openOrk', { reason: errorText(e, i18n.t) }) });
+          set({ err: actionError('errors.openOrk', e, i18n.t) });
           await pointAtShown().catch(() => {});
         } finally {
           // The design still on screen holds a voided handle until rebuilt.
@@ -182,36 +179,31 @@ export const createFileSlice =
         const stale = claimWorkspace();
         const home = await enterHome(tree.name ?? '', stale);
         if (!home) return;
-        const s0 = newSimulation(i18n.t('sims.untitled', { n: 1 }), config.id, {
-          ...loadSettings().launchDefaults,
-          ...launch,
-        });
-        replaceWorkspace((s) => ({
+        const s0 = firstSim(config.id, launch);
+        replaceWorkspace(() => ({
           tree: { ...tree, name: home.name },
           loadedMeta: null,
           sims: [s0],
           configs: [config],
           activeId: s0.id,
           selectedId: null,
-          tab: 'design',
           activeDesignId: home.id,
-          ...showing(s, '2d'),
+          ...LAND_ON_DESIGN,
         }));
       },
       openExample: async (file) => {
+        const stale = claimWorkspace();
         try {
           const bytes = await fetchExample(file);
-          await get().openOrkFile(new Blob([bytes]));
+          if (!stale()) await get().openOrkFile(new Blob([bytes]));
         } catch (e) {
-          set({ err: i18n.t('errors.openExample', { reason: errorText(e, i18n.t) }) });
+          if (!stale()) set({ err: actionError('errors.openExample', e, i18n.t) });
         }
       },
 
       resetWorkspace: () => {
         claimWorkspace();
-        const tree = defaultRocketTree();
-        const config = defaultConfig(tree);
-        const s0 = newSimulation(i18n.t('sims.untitled', { n: 1 }), config.id, loadSettings().launchDefaults);
+        const { tree, config, sim: s0 } = freshWorkspace();
         clearHistory();
         // Detach, or the first autosave would write this blank design over the last one.
         getWorkspaceStore().setActiveId?.(null);
@@ -224,7 +216,7 @@ export const createFileSlice =
           configs: [config],
           activeId: s0.id,
           selectedId: null,
-          ...showing(s, '2d'),
+          ...LAND_ON_DESIGN,
         }));
         // Not worth storing until it is edited (see `writtenWorkspace`).
         markWritten(get());

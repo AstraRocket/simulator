@@ -129,9 +129,26 @@ export function liveMotors(tree: RocketTree, config: FlightConfig): [string, Mou
   return out;
 }
 
+/** Mounts outside every grounded stage: a grounded stage stays on the pad, motors and all. */
+function flyingMountIds(tree: RocketTree, config: FlightConfig): Set<string> {
+  const grounded = new Set(config.grounded ?? []);
+  const ids = new Set<string>();
+  const walk = (nodes: readonly ComponentNode[]) => {
+    for (const n of nodes) {
+      if ((n.type === 'stage' || n.type === 'parallelstage') && typeof n.id === 'string' && grounded.has(n.id))
+        continue;
+      if (n.motorMount === true && typeof n.id === 'string') ids.add(n.id);
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(tree.components);
+  return ids;
+}
+
 // The first mount alone would refuse a booster-only `.ork` (curve-less sustainer placeholder) that desktop flies.
 export function primaryMotor(tree: RocketTree, config: FlightConfig): MotorSpec | undefined {
-  const live = liveMotors(tree, config);
+  const flying = flyingMountIds(tree, config);
+  const live = liveMotors(tree, config).filter(([id]) => flying.has(id));
   return (live.find(([, m]) => hasUsableCurve(m.spec)) ?? live[0])?.[1].spec;
 }
 

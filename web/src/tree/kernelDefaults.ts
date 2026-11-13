@@ -41,22 +41,49 @@ export const KERNEL_DEFAULTS = {
   parallelstage: { instanceCount: 2 },
 } as const satisfies Record<ComponentType, Readonly<Record<string, number>>>;
 
+/** `FreeformFinSet()`'s outline, which the bridge flies when a fin set has no `points`. */
+export const KERNEL_FREEFORM_POINTS: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.025, 0.05],
+  [0.075, 0.05],
+  [0.05, 0],
+];
+
 export function defaultSeparation(type: string): number {
   const row = (KERNEL_DEFAULTS as Record<string, { instanceSeparation?: number }>)[type];
   return row?.instanceSeparation ?? 0;
 }
+
+/** Kennedy Space Center, the kernel's default site (`OpenRocketEngine.simulateJson`), in degrees. */
+export const KERNEL_LAUNCH_SITE = { latitudeDeg: 28.61, longitudeDeg: -80.6 } as const;
+
+/** Names `ComponentFactory.finishOf` accepts, in desktop's `Finish` enum order. */
+export const KERNEL_FINISHES: readonly string[] = [
+  'rough',
+  'roughunfinished',
+  'unfinished',
+  'normal',
+  'smooth',
+  'optimum',
+  'polished',
+  'finishpolished',
+  'mirror',
+];
 
 export const KERNEL_SHAPES = {
   nosecone: 'ogive',
   transition: 'conical',
 } as const;
 
-/** `group` is the `.ork` database string, not the catalog's display group (Cardboard is `PaperProducts`, not `Paper`). */
+/**
+ * `group` is the `.ork` database string, not the catalog's display group (Cardboard is `PaperProducts`, not `Paper`).
+ * `shearModulus` (Pa) is Cardboard's in `Databases.java`; the defaults come from that list, so they carry it.
+ */
 export const KERNEL_MATERIALS = {
-  bulk: { name: 'Cardboard', density: 680, group: 'PaperProducts' },
+  bulk: { name: 'Cardboard', density: 680, shearModulus: 0.4e9, group: 'PaperProducts' },
   surface: { name: 'Ripstop nylon', density: 0.067, group: 'Fabrics' },
   line: { name: 'Elastic cord (round 2 mm, 1/16 in)', density: 0.0018, group: 'ThreadsLines' },
-} as const satisfies Record<string, { name: string; density: number; group: string }>;
+} as const satisfies Record<string, { name: string; density: number; shearModulus?: number; group: string }>;
 
 export function kernelLength(type: ComponentType): number | undefined {
   return kernelDefault(type, 'length');
@@ -66,8 +93,6 @@ export function kernelDefault(type: string, key: string): number | undefined {
   const row = (KERNEL_DEFAULTS as Record<string, Readonly<Record<string, number>> | undefined>)[type];
   return row?.[key];
 }
-
-export const KERNEL_MASSCOMPONENT_RADIUS = KERNEL_DEFAULTS.masscomponent.radius;
 
 export const KERNEL_RAILBUTTON_OUTER_DIAMETER = KERNEL_DEFAULTS.railbutton.outerDiameter;
 

@@ -1,6 +1,6 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
-import { num, numOpt } from '../../../tree/nodeProps';
-import { nodeShape, outerProfile, profileEnds, shouldersOf, type Shoulder } from '../../../tree/shapeProfile';
+import { num } from '../../../tree/nodeProps';
+import { nodeOuterProfile, profileEnds, shouldersOf, type Shoulder } from '../../../tree/shapeProfile';
 import { partLength } from '../../../tree/position';
 import { kernelDefault } from '../../../tree/kernelDefaults';
 
@@ -43,17 +43,7 @@ function axisBore(fore: number, aft: number): Pt[] {
 
 function stations(node: ComponentNode, length: number): number[] {
   const { fore, aft } = profileEnds(node);
-  const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
-  return outerProfile(
-    nodeShape(node),
-    numOpt(node, 'shapeParameter'),
-    length,
-    fore,
-    aft,
-    DIVISIONS,
-    undefined,
-    clipped,
-  ).map(([, r]) => r);
+  return nodeOuterProfile(node, length, fore, aft, DIVISIONS).map(([, r]) => r);
 }
 
 /** A boundary takes the mean of its two slices' depths; an end takes its one slice's. */

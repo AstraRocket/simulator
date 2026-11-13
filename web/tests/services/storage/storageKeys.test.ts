@@ -11,10 +11,8 @@ const KEY_FORM = `${STORAGE_PREFIX}:`;
 
 const ALLOWED = new Set([
   'web/src/services/storage/storageKeys.ts',
-  // Plain .mjs harnesses cannot import the constant; a mismatch makes their check fail.
-  'web/scripts/check-offline-data.mjs',
-  'web/scripts/check-offline-help.mjs',
-  'web/scripts/check-update-flow.mjs',
+  // The plain .mjs check harnesses cannot import the constant; a mismatch makes their checks fail.
+  'web/scripts/lib/previewCheck.mjs',
   'docs/ARCHITECTURE.md',
 ]);
 

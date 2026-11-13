@@ -8,6 +8,7 @@ import { ChuteCard, FinsCard, LaunchCard, MotorCard, RocketCard } from './Simple
 import { SimpleProblem, SimpleResultCard } from './SimpleResults';
 import { useSimpleRocket } from './useSimpleRocket';
 import { MotorDialog } from '../sim/MotorDialog';
+import { RunToggleButton } from '../common/RunToggleButton';
 import { simpleMountFit } from '../../services/flight/simpleRocket';
 
 export function SimpleRocketTool() {
@@ -31,16 +32,13 @@ export function SimpleRocketTool() {
       <div className="h-fit space-y-3">
         <SimpleProblem rocket={rocket} />
         <div className="flex gap-2">
-          <button
-            type="button"
+          <RunToggleButton
+            busy={flying}
+            label={flying ? t('sim.cancel') : t('sim.run')}
             disabled={!flying && !ready}
             onClick={flying ? cancel : () => void fly()}
-            className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50 ${
-              flying ? 'bg-prominent hover:bg-prominent-hover' : 'bg-accent-600 hover:bg-accent-700'
-            }`}
-          >
-            {flying ? t('sim.cancel') : t('sim.run')}
-          </button>
+            className="flex-1"
+          />
           <button
             type="button"
             disabled={!ready}

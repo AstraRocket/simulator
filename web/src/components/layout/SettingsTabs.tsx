@@ -11,15 +11,16 @@ import {
   type SimulationSettings,
   type StatsLayout,
 } from '../../services/storage/settings';
-import { PART_KEYS, mergePalette } from '../../services/design/partColors';
+import { PART_KEYS } from '../../services/design/partColors';
+import { usePartPalette } from '../common/usePartPalette';
 import type { FigureStyle } from '../../services/design/figureStyle';
 import type { ComponentType } from '../../engine/openRocketEngine';
 import { LineStyleRow } from '../design/LineStyleRow';
 import { NumberRow } from '../common/NumberRow';
 import { DefaultMaterials } from './DefaultMaterials';
 import { LaunchPanel } from '../sim/LaunchPanel';
-import { KERNEL_METHOD_ROWS, SIM_OPTION_FIELDS, simOptionUnit } from '../sim/simOptionFields';
-import { StepperOptions } from '../sim/StepperOptions';
+import { SIM_OPTION_FIELDS, simOptionUnit } from '../sim/simOptionFields';
+import { KernelMethodRows, StepperSelect } from '../sim/SimOptionRows';
 import { withRequiredFrom, type CompleteLaunch } from '../../services/flight/requiredLaunch';
 import { launchPatchFor } from '../../services/design/orkTree';
 import { IMPERIAL_UNITS, METRIC_UNITS, QUANTITIES, UNITS, unitScope } from '../../prefs/units';
@@ -36,8 +37,12 @@ import { seedFromInput, stepperOf } from '../../services/flight/simulations';
 import { withKey } from '../../services/app/objectKeys';
 import { useLatestRef } from '../common/useLatestRef';
 import { smallButton } from '../common/smallButton';
+import { SelectRow } from '../common/SelectRow';
 
 const RULER_SIDES = ['top', 'bottom', 'left', 'right'] as const;
+
+// m/s. Above 0, as the load keeps only a positive limit: a 0 would come back as the default.
+const MIN_SPEED_LIMIT = 0.1;
 
 export function GeneralTab() {
   const { t } = useTranslation();
@@ -45,50 +50,44 @@ export function GeneralTab() {
   return (
     <>
       <p className="text-[11px] leading-snug text-ink-faint">{t('settings.generalNote')}</p>
-      <label className="flex items-center justify-between gap-3 text-sm text-ink">
-        <span>{t('settings.theme')}</span>
-        <select
-          value={settings.theme}
-          onChange={(e) => update({ theme: e.target.value as ThemePref })}
-          className="rounded-md bg-raised px-2 py-1 text-sm text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          {THEME_PREFS.map((p) => (
-            <option key={p} value={p}>
-              {t(`settings.themeOption.${p}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectRow<ThemePref>
+        label={t('settings.theme')}
+        value={settings.theme}
+        onChange={(theme) => update({ theme })}
+        labelClassName="text-sm text-ink"
+      >
+        {THEME_PREFS.map((p) => (
+          <option key={p} value={p}>
+            {t(`settings.themeOption.${p}`)}
+          </option>
+        ))}
+      </SelectRow>
       <p className="-mt-1 text-[11px] leading-snug text-ink-faint">{t('settings.themeHint')}</p>
-      <label className="flex items-center justify-between gap-3 text-sm text-ink">
-        <span>{t('settings.headerSummary')}</span>
-        <select
-          value={settings.headerSummary}
-          onChange={(e) => update({ headerSummary: e.target.value as HeaderSummaryPref })}
-          className="rounded-md bg-raised px-2 py-1 text-sm text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          {HEADER_SUMMARY_PREFS.map((p) => (
-            <option key={p} value={p}>
-              {t(`settings.headerSummaryOption.${p}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectRow<HeaderSummaryPref>
+        label={t('settings.headerSummary')}
+        value={settings.headerSummary}
+        onChange={(headerSummary) => update({ headerSummary })}
+        labelClassName="text-sm text-ink"
+      >
+        {HEADER_SUMMARY_PREFS.map((p) => (
+          <option key={p} value={p}>
+            {t(`settings.headerSummaryOption.${p}`)}
+          </option>
+        ))}
+      </SelectRow>
       <p className="-mt-1 text-[11px] leading-snug text-ink-faint">{t('settings.headerSummaryHint')}</p>
-      <label className="flex items-center justify-between gap-3 text-sm text-ink">
-        <span>{t('settings.statsLayout')}</span>
-        <select
-          value={settings.statsLayout}
-          onChange={(e) => update({ statsLayout: e.target.value as StatsLayout })}
-          className="rounded-md bg-raised px-2 py-1 text-sm text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          {STATS_LAYOUTS.map((p) => (
-            <option key={p} value={p}>
-              {t(`settings.statsLayoutOption.${p}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectRow<StatsLayout>
+        label={t('settings.statsLayout')}
+        value={settings.statsLayout}
+        onChange={(statsLayout) => update({ statsLayout })}
+        labelClassName="text-sm text-ink"
+      >
+        {STATS_LAYOUTS.map((p) => (
+          <option key={p} value={p}>
+            {t(`settings.statsLayoutOption.${p}`)}
+          </option>
+        ))}
+      </SelectRow>
       <p className="-mt-1 text-[11px] leading-snug text-ink-faint">{t('settings.statsLayoutHint')}</p>
       <Check
         label={t('settings.saveDesignInfo')}
@@ -109,7 +108,7 @@ export function GeneralTab() {
 
 export function UnitsTab() {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
+  const { settings, update, updateSection } = useSettings();
   const overriddenFields = Object.keys(settings.unitOverrides).length;
   return (
     <>
@@ -129,21 +128,20 @@ export function UnitsTab() {
         </button>
       </div>
       {QUANTITIES.map((q) => (
-        <label key={q} className="flex items-center justify-between gap-3">
-          <span className="text-sm text-ink-soft">{t(`units.q.${q}`)}</span>
-          <select
-            aria-label={t(`units.q.${q}`)}
-            value={settings.units[q]}
-            onChange={(e) => update({ units: { ...settings.units, [q]: e.target.value } })}
-            className="w-28 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-          >
-            {UNITS[q].map((u) => (
-              <option key={u.symbol} value={u.symbol}>
-                {u.symbol}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectRow
+          key={q}
+          label={t(`units.q.${q}`)}
+          value={settings.units[q]}
+          onChange={(v) => updateSection('units', { [q]: v })}
+          width="w-28"
+          labelClassName="text-sm text-ink-soft"
+        >
+          {UNITS[q].map((u) => (
+            <option key={u.symbol} value={u.symbol}>
+              {u.symbol}
+            </option>
+          ))}
+        </SelectRow>
       ))}
       {overriddenFields > 0 && (
         <button
@@ -159,13 +157,12 @@ export function UnitsTab() {
 
 export function ColorsTab() {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
-  const palette = mergePalette(settings.partColors);
-  const setPart = (key: string, color: string) => update({ partColors: { ...settings.partColors, [key]: color } });
+  const { settings, update, updateSection } = useSettings();
+  const palette = usePartPalette();
+  const setPart = (key: string, color: string) => updateSection('partColors', { [key]: color });
   const resetPart = (key: string) =>
     update({ partColors: withKey(settings.partColors, key as keyof typeof settings.partColors, null) });
-  const setPhase = (k: 'boost' | 'coast' | 'descent', c: string) =>
-    update({ phaseColors: { ...settings.phaseColors, [k]: c } });
+  const setPhase = (k: 'boost' | 'coast' | 'descent', c: string) => updateSection('phaseColors', { [k]: c });
   return (
     <>
       {/* Not gated on width: a phone reaches the 3D model through the Sketch tab. */}
@@ -182,17 +179,16 @@ export function ColorsTab() {
         />
       ))}
       <SubHeading>{t('settings.aeroHeat')}</SubHeading>
-      <label className="flex items-center justify-between gap-3 text-sm text-ink-soft">
-        {t('settings.aeroHeatLabel')}
-        <select
-          value={settings.aeroHeat}
-          onChange={(e) => update({ aeroHeat: e.target.value as 'sky' | 'openrocket' })}
-          className="w-44 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          <option value="sky">{t('settings.aeroHeatSky')}</option>
-          <option value="openrocket">{t('settings.aeroHeatOr')}</option>
-        </select>
-      </label>
+      <SelectRow<'sky' | 'openrocket'>
+        label={t('settings.aeroHeatLabel')}
+        value={settings.aeroHeat}
+        onChange={(aeroHeat) => update({ aeroHeat })}
+        width="w-44"
+        labelClassName="text-sm text-ink-soft"
+      >
+        <option value="sky">{t('settings.aeroHeatSky')}</option>
+        <option value="openrocket">{t('settings.aeroHeatOr')}</option>
+      </SelectRow>
       <p className="text-[11px] leading-snug text-ink-faint">{t('settings.aeroHeatNote')}</p>
 
       <FigureStyles />
@@ -211,10 +207,10 @@ export function ColorsTab() {
 
 function FigureStyles() {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
+  const { settings, update, updateSection } = useSettings();
   const types = Object.keys(settings.figureStyles) as ComponentType[];
   const set = (type: ComponentType, patch: Partial<FigureStyle>) =>
-    update({ figureStyles: { ...settings.figureStyles, [type]: { ...settings.figureStyles[type], ...patch } } });
+    updateSection('figureStyles', { [type]: { ...settings.figureStyles[type], ...patch } });
   const remove = (type: ComponentType) => update({ figureStyles: withKey(settings.figureStyles, type, null) });
   return (
     <>
@@ -274,26 +270,24 @@ export function PlaybackTab() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
   return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="text-sm text-ink-soft">{t('settings.defaultSpeed')}</span>
-      <select
-        value={settings.playbackSpeed}
-        onChange={(e) => update({ playbackSpeed: parseFloat(e.target.value) })}
-        className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-      >
-        {PLAYBACK_SPEEDS.map((s) => (
-          <option key={s} value={s}>
-            {playbackLabel(s)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SelectRow
+      label={t('settings.defaultSpeed')}
+      value={settings.playbackSpeed}
+      onChange={(v) => update({ playbackSpeed: parseFloat(v) })}
+      labelClassName="text-sm text-ink-soft"
+    >
+      {PLAYBACK_SPEEDS.map((s) => (
+        <option key={s} value={s}>
+          {playbackLabel(s)}
+        </option>
+      ))}
+    </SelectRow>
   );
 }
 
 export function SketchTab() {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
+  const { settings, update, updateSection } = useSettings();
   return (
     <>
       <p className="text-[11px] leading-snug text-ink-faint">{t('settings.sketchNote')}</p>
@@ -308,7 +302,7 @@ export function SketchTab() {
           key={side}
           label={t(`view.ruler_${side}`)}
           checked={settings.rulers[side]}
-          onChange={(v) => update({ rulers: { ...settings.rulers, [side]: v } })}
+          onChange={(v) => updateSection('rulers', { [side]: v })}
         />
       ))}
     </>
@@ -317,11 +311,11 @@ export function SketchTab() {
 
 export function SimTab() {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
+  const { settings, updateSection } = useSettings();
   const u = useUnits();
   // Stored in radians, edited in the user's angle unit.
   const angle = u.at(unitScope('settings', 'maxAngleStep'), 'angle');
-  const setSim = (patch: Partial<SimulationSettings>) => update({ simulation: { ...settings.simulation, ...patch } });
+  const setSim = (patch: Partial<SimulationSettings>) => updateSection('simulation', patch);
   return (
     <>
       <Check
@@ -335,19 +329,12 @@ export function SimTab() {
         onChange={(v) => setSim({ autoRunOutdated: v })}
       />
       <SubHeading>{t('settings.simOptions')}</SubHeading>
-      {KERNEL_METHOD_ROWS.map((r) => (
-        <InfoRow key={r.label} label={t(r.label)} value={t(r.value)} />
-      ))}
-      <label className="flex items-center justify-between gap-3">
-        <span className="text-sm text-ink-soft">{t('settings.simMethod')}</span>
-        <select
-          value={settings.simulation.stepper}
-          onChange={(e) => setSim({ stepper: stepperOf(e.target.value, DEFAULT_SETTINGS.simulation.stepper) })}
-          className="rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          <StepperOptions />
-        </select>
-      </label>
+      <KernelMethodRows />
+      <StepperSelect
+        value={settings.simulation.stepper}
+        onChange={(v) => setSim({ stepper: stepperOf(v, DEFAULT_SETTINGS.simulation.stepper) })}
+        labelClassName="text-sm text-ink-soft"
+      />
       {SIM_OPTION_FIELDS.map((f) => {
         const fu = simOptionUnit(f, angle, t('units.second'));
         return (
@@ -377,7 +364,7 @@ export function SimTab() {
         hint={t('settings.railExitMinHint')}
         unit={u.sym('velocity')}
         step={u.step('velocity', 1)}
-        min={0}
+        min={u.toUi('velocity', MIN_SPEED_LIMIT)}
         value={u.toUi('velocity', settings.simulation.railExitVelocityMin)}
         onChange={onSi(u.plain('velocity'), (si) =>
           setSim({ railExitVelocityMin: si ?? DEFAULT_SETTINGS.simulation.railExitVelocityMin }),
@@ -390,7 +377,7 @@ export function SimTab() {
           hint={t(w.hint)}
           unit={u.sym('velocity')}
           step={u.step('velocity', 1)}
-          min={0}
+          min={u.toUi('velocity', MIN_SPEED_LIMIT)}
           value={u.toUi('velocity', settings.simulation[w.key])}
           onChange={onSi(u.plain('velocity'), (si) => setSim({ [w.key]: si ?? DEFAULT_SETTINGS.simulation[w.key] }))}
         />
@@ -455,15 +442,6 @@ function LaunchDefaults({ launch, onSave }: { launch: CompleteLaunch; onSave: (l
       }}
       onCommit={flush}
     />
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-ink-muted">{label}</span>
-      <span className="text-sm text-ink-soft">{value}</span>
-    </div>
   );
 }
 

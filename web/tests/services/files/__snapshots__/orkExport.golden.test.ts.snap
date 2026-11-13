@@ -77,7 +77,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000005</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.06</length>
             <thickness>filled</thickness>
             <shape>ellipsoid</shape>
@@ -98,7 +98,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000006</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.04</length>
             <thickness>0.002</thickness>
             <shape>conical</shape>
@@ -118,7 +118,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
             <name>Airframe</name>
             <id>00000000-0000-4000-8000-000000000007</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.6</length>
             <thickness>0.001</thickness>
             <radius>0.03</radius>
@@ -151,7 +151,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <axialoffset method="bottom">-0.01</axialoffset>
                 <position type="bottom">-0.01</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>airfoil</crosssection>
                 <airfoilsection>doublewedge</airfoilsection>
@@ -181,7 +181,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <axialoffset method="absolute">0.31</axialoffset>
                 <position type="absolute">0.31</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -190,7 +190,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <tabposition relativeto="end">0</tabposition>
                 <tabposition relativeto="bottom">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <finpoints>
                   <point x="0" y="0"/>
                   <point x="0.02" y="0.05"/>
@@ -209,7 +209,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <axialoffset method="top">0.3</axialoffset>
                 <position type="top">0.3</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -218,7 +218,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <tabposition relativeto="center">0</tabposition>
                 <tabposition relativeto="middle">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <rootchord>0.07</rootchord>
                 <height>0.04</height>
               </ellipticalfinset>
@@ -233,7 +233,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.012</radius>
                 <length>0.08</length>
               </tubefinset>
@@ -242,7 +242,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <id>00000000-0000-4000-8000-000000000012</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.12</length>
                 <radialposition>0.01</radialposition>
                 <radialdirection>90</radialdirection>
@@ -285,7 +285,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                     <id>00000000-0000-4000-8000-000000000013</id>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.005</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -299,7 +299,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                     <instanceseparation>0.02</instanceseparation>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.002</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -313,7 +313,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <id>00000000-0000-4000-8000-000000000015</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.07</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -333,7 +333,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <id>00000000-0000-4000-8000-000000000016</id>
                 <axialoffset method="middle">0.05</axialoffset>
                 <position type="middle">0.05</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.06</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -347,7 +347,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <instanceseparation>0</instanceseparation>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.004</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -363,7 +363,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <axialoffset method="middle">0</axialoffset>
                 <position type="middle">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.0025</radius>
                 <length>0.04</length>
                 <thickness>0.001</thickness>
@@ -500,7 +500,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000027</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.1</length>
                     <thickness>0.002</thickness>
                     <radius>0.01</radius>
@@ -523,7 +523,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000029</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.2</length>
                     <thickness>0.002</thickness>
                     <radius>0.015</radius>
@@ -533,7 +533,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                         <id>00000000-0000-4000-8000-000000000030</id>
                         <axialoffset method="bottom">0</axialoffset>
                         <position type="bottom">0</position>
-                        <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                        <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                         <length>0.1</length>
                         <radialposition>0.0</radialposition>
                         <radialdirection>0.0</radialdirection>
@@ -572,7 +572,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
             <name>Body Tube</name>
             <id>00000000-0000-4000-8000-000000000032</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.3</length>
             <thickness>0.002</thickness>
             <radius>0.03</radius>
@@ -582,7 +582,7 @@ exports[`golden .ork export > falls back to the FIRST configuration as default w
                 <id>00000000-0000-4000-8000-000000000033</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.1</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -731,7 +731,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000006</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.06</length>
             <thickness>filled</thickness>
             <shape>ellipsoid</shape>
@@ -752,7 +752,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000007</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.04</length>
             <thickness>0.002</thickness>
             <shape>conical</shape>
@@ -772,7 +772,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
             <name>Airframe</name>
             <id>00000000-0000-4000-8000-000000000008</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.6</length>
             <thickness>0.001</thickness>
             <radius>0.03</radius>
@@ -794,7 +794,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <axialoffset method="bottom">-0.01</axialoffset>
                 <position type="bottom">-0.01</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>airfoil</crosssection>
                 <airfoilsection>doublewedge</airfoilsection>
@@ -824,7 +824,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <axialoffset method="absolute">0.31</axialoffset>
                 <position type="absolute">0.31</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -833,7 +833,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <tabposition relativeto="end">0</tabposition>
                 <tabposition relativeto="bottom">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <finpoints>
                   <point x="0" y="0"/>
                   <point x="0.02" y="0.05"/>
@@ -852,7 +852,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <axialoffset method="top">0.3</axialoffset>
                 <position type="top">0.3</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -861,7 +861,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <tabposition relativeto="center">0</tabposition>
                 <tabposition relativeto="middle">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <rootchord>0.07</rootchord>
                 <height>0.04</height>
               </ellipticalfinset>
@@ -876,7 +876,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.012</radius>
                 <length>0.08</length>
               </tubefinset>
@@ -885,7 +885,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <id>00000000-0000-4000-8000-000000000013</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.12</length>
                 <radialposition>0.01</radialposition>
                 <radialdirection>90</radialdirection>
@@ -901,7 +901,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                     <id>00000000-0000-4000-8000-000000000014</id>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.005</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -915,7 +915,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                     <instanceseparation>0.02</instanceseparation>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.002</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -929,7 +929,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <id>00000000-0000-4000-8000-000000000016</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.07</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -949,7 +949,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <id>00000000-0000-4000-8000-000000000017</id>
                 <axialoffset method="middle">0.05</axialoffset>
                 <position type="middle">0.05</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.06</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -963,7 +963,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <instanceseparation>0</instanceseparation>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.004</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -979,7 +979,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <axialoffset method="middle">0</axialoffset>
                 <position type="middle">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.0025</radius>
                 <length>0.04</length>
                 <thickness>0.001</thickness>
@@ -1108,7 +1108,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000028</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.1</length>
                     <thickness>0.002</thickness>
                     <radius>0.01</radius>
@@ -1131,7 +1131,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000030</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.2</length>
                     <thickness>0.002</thickness>
                     <radius>0.015</radius>
@@ -1141,7 +1141,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                         <id>00000000-0000-4000-8000-000000000031</id>
                         <axialoffset method="bottom">0</axialoffset>
                         <position type="bottom">0</position>
-                        <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                        <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                         <length>0.1</length>
                         <radialposition>0.0</radialposition>
                         <radialdirection>0.0</radialdirection>
@@ -1175,7 +1175,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
             <name>Body Tube</name>
             <id>00000000-0000-4000-8000-000000000033</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.3</length>
             <thickness>0.002</thickness>
             <radius>0.03</radius>
@@ -1185,7 +1185,7 @@ exports[`golden .ork export > mints one configuration for a design that declares
                 <id>00000000-0000-4000-8000-000000000034</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.1</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -1284,7 +1284,7 @@ exports[`golden .ork export > pins every configuration, block and component type
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000005</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.06</length>
             <thickness>filled</thickness>
             <shape>ellipsoid</shape>
@@ -1305,7 +1305,7 @@ exports[`golden .ork export > pins every configuration, block and component type
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000006</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.04</length>
             <thickness>0.002</thickness>
             <shape>conical</shape>
@@ -1325,7 +1325,7 @@ exports[`golden .ork export > pins every configuration, block and component type
             <name>Airframe</name>
             <id>00000000-0000-4000-8000-000000000007</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.6</length>
             <thickness>0.001</thickness>
             <radius>0.03</radius>
@@ -1358,7 +1358,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <axialoffset method="bottom">-0.01</axialoffset>
                 <position type="bottom">-0.01</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>airfoil</crosssection>
                 <airfoilsection>doublewedge</airfoilsection>
@@ -1388,7 +1388,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <axialoffset method="absolute">0.31</axialoffset>
                 <position type="absolute">0.31</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -1397,7 +1397,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <tabposition relativeto="end">0</tabposition>
                 <tabposition relativeto="bottom">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <finpoints>
                   <point x="0" y="0"/>
                   <point x="0.02" y="0.05"/>
@@ -1416,7 +1416,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <axialoffset method="top">0.3</axialoffset>
                 <position type="top">0.3</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -1425,7 +1425,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <tabposition relativeto="center">0</tabposition>
                 <tabposition relativeto="middle">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <rootchord>0.07</rootchord>
                 <height>0.04</height>
               </ellipticalfinset>
@@ -1440,7 +1440,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.012</radius>
                 <length>0.08</length>
               </tubefinset>
@@ -1449,7 +1449,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <id>00000000-0000-4000-8000-000000000012</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.12</length>
                 <radialposition>0.01</radialposition>
                 <radialdirection>90</radialdirection>
@@ -1492,7 +1492,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                     <id>00000000-0000-4000-8000-000000000013</id>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.005</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -1506,7 +1506,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                     <instanceseparation>0.02</instanceseparation>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.002</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -1520,7 +1520,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <id>00000000-0000-4000-8000-000000000015</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.07</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -1540,7 +1540,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <id>00000000-0000-4000-8000-000000000016</id>
                 <axialoffset method="middle">0.05</axialoffset>
                 <position type="middle">0.05</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.06</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -1554,7 +1554,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <instanceseparation>0</instanceseparation>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.004</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -1570,7 +1570,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <axialoffset method="middle">0</axialoffset>
                 <position type="middle">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.0025</radius>
                 <length>0.04</length>
                 <thickness>0.001</thickness>
@@ -1707,7 +1707,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000027</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.1</length>
                     <thickness>0.002</thickness>
                     <radius>0.01</radius>
@@ -1730,7 +1730,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000029</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.2</length>
                     <thickness>0.002</thickness>
                     <radius>0.015</radius>
@@ -1740,7 +1740,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                         <id>00000000-0000-4000-8000-000000000030</id>
                         <axialoffset method="bottom">0</axialoffset>
                         <position type="bottom">0</position>
-                        <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                        <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                         <length>0.1</length>
                         <radialposition>0.0</radialposition>
                         <radialdirection>0.0</radialdirection>
@@ -1779,7 +1779,7 @@ exports[`golden .ork export > pins every configuration, block and component type
             <name>Body Tube</name>
             <id>00000000-0000-4000-8000-000000000032</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.3</length>
             <thickness>0.002</thickness>
             <radius>0.03</radius>
@@ -1789,7 +1789,7 @@ exports[`golden .ork export > pins every configuration, block and component type
                 <id>00000000-0000-4000-8000-000000000033</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.1</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -1855,8 +1855,9 @@ exports[`golden .ork export > pins every configuration, block and component type
           <basepressure>101325</basepressure>
           <baserelativehumidity>0.4</baserelativehumidity>
         </atmosphere>
-        <gravitymodel>constant</gravitymodel>
-        <constantgravity>9.8</constantgravity>
+        <gravity model="constant">
+          <value>9.8</value>
+        </gravity>
         <timestep>0.05</timestep>
         <maxtime>1200</maxtime>
         <recoveryspeedwarning>20</recoveryspeedwarning>
@@ -1948,7 +1949,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000005</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.06</length>
             <thickness>filled</thickness>
             <shape>ellipsoid</shape>
@@ -1969,7 +1970,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
             <name>Transition</name>
             <id>00000000-0000-4000-8000-000000000006</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.04</length>
             <thickness>0.002</thickness>
             <shape>conical</shape>
@@ -1989,7 +1990,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
             <name>Airframe</name>
             <id>00000000-0000-4000-8000-000000000007</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.6</length>
             <thickness>0.001</thickness>
             <radius>0.03</radius>
@@ -2011,7 +2012,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <axialoffset method="bottom">-0.01</axialoffset>
                 <position type="bottom">-0.01</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>airfoil</crosssection>
                 <airfoilsection>doublewedge</airfoilsection>
@@ -2041,7 +2042,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <axialoffset method="absolute">0.31</axialoffset>
                 <position type="absolute">0.31</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -2050,7 +2051,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <tabposition relativeto="end">0</tabposition>
                 <tabposition relativeto="bottom">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <finpoints>
                   <point x="0" y="0"/>
                   <point x="0.02" y="0.05"/>
@@ -2069,7 +2070,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <axialoffset method="top">0.3</axialoffset>
                 <position type="top">0.3</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <thickness>0.003</thickness>
                 <crosssection>square</crosssection>
                 <cant>0</cant>
@@ -2078,7 +2079,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <tabposition relativeto="center">0</tabposition>
                 <tabposition relativeto="middle">0</tabposition>
                 <filletradius>0</filletradius>
-                <filletmaterial type="bulk" density="680" group="PaperProducts">Cardboard</filletmaterial>
+                <filletmaterial type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</filletmaterial>
                 <rootchord>0.07</rootchord>
                 <height>0.04</height>
               </ellipticalfinset>
@@ -2093,7 +2094,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.012</radius>
                 <length>0.08</length>
               </tubefinset>
@@ -2102,7 +2103,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <id>00000000-0000-4000-8000-000000000012</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.12</length>
                 <radialposition>0.01</radialposition>
                 <radialdirection>90</radialdirection>
@@ -2134,7 +2135,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                     <id>00000000-0000-4000-8000-000000000013</id>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.005</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -2148,7 +2149,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                     <instanceseparation>0.02</instanceseparation>
                     <axialoffset method="bottom">0</axialoffset>
                     <position type="bottom">0</position>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.002</length>
                     <radialposition>0.0</radialposition>
                     <radialdirection>0.0</radialdirection>
@@ -2162,7 +2163,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <id>00000000-0000-4000-8000-000000000015</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.07</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -2182,7 +2183,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <id>00000000-0000-4000-8000-000000000016</id>
                 <axialoffset method="middle">0.05</axialoffset>
                 <position type="middle">0.05</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.06</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -2196,7 +2197,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <instanceseparation>0</instanceseparation>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.004</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -2212,7 +2213,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <axialoffset method="middle">0</axialoffset>
                 <position type="middle">0</position>
                 <finish>normal</finish>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <radius>0.0025</radius>
                 <length>0.04</length>
                 <thickness>0.001</thickness>
@@ -2341,7 +2342,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000027</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.1</length>
                     <thickness>0.002</thickness>
                     <radius>0.01</radius>
@@ -2364,7 +2365,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                     <name>Body Tube</name>
                     <id>00000000-0000-4000-8000-000000000029</id>
                     <finish>normal</finish>
-                    <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                    <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                     <length>0.2</length>
                     <thickness>0.002</thickness>
                     <radius>0.015</radius>
@@ -2374,7 +2375,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                         <id>00000000-0000-4000-8000-000000000030</id>
                         <axialoffset method="bottom">0</axialoffset>
                         <position type="bottom">0</position>
-                        <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                        <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                         <length>0.1</length>
                         <radialposition>0.0</radialposition>
                         <radialdirection>0.0</radialdirection>
@@ -2408,7 +2409,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
             <name>Body Tube</name>
             <id>00000000-0000-4000-8000-000000000032</id>
             <finish>normal</finish>
-            <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+            <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
             <length>0.3</length>
             <thickness>0.002</thickness>
             <radius>0.03</radius>
@@ -2418,7 +2419,7 @@ exports[`golden .ork export > writes a lone configuration, and no launch block 1
                 <id>00000000-0000-4000-8000-000000000033</id>
                 <axialoffset method="bottom">0</axialoffset>
                 <position type="bottom">0</position>
-                <material type="bulk" density="680" group="PaperProducts">Cardboard</material>
+                <material type="bulk" density="680" shearModulus="400000000" group="PaperProducts">Cardboard</material>
                 <length>0.1</length>
                 <radialposition>0.0</radialposition>
                 <radialdirection>0.0</radialdirection>
@@ -2450,7 +2451,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
       "id": "cfg-a",
       "isDefault": true,
       "motors": {
-        "c11": {
+        "00000000-0000-4000-8000-000000000047": {
           "delay": 10,
           "designation": "H128W",
           "diameter": 0.029,
@@ -2458,9 +2459,9 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
           "ignitionEvent": "automatic",
           "length": 0.194,
           "manufacturer": "AeroTech",
-          "mountId": "c11",
+          "mountId": "00000000-0000-4000-8000-000000000047",
         },
-        "c32": {
+        "00000000-0000-4000-8000-000000000068": {
           "delay": 1000000000,
           "designation": "G80",
           "diameter": 0.029,
@@ -2468,7 +2469,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
           "ignitionEvent": "launch",
           "length": 0.124,
           "manufacturer": "AeroTech",
-          "mountId": "c32",
+          "mountId": "00000000-0000-4000-8000-000000000068",
         },
       },
       "name": "Two stage",
@@ -2476,12 +2477,12 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
     },
     {
       "deployments": {
-        "c19": {
+        "00000000-0000-4000-8000-000000000055": {
           "deployAltitude": 200,
           "deployDelay": 0,
           "deployEvent": "ejection",
         },
-        "c20": {
+        "00000000-0000-4000-8000-000000000056": {
           "deployAltitude": 120,
           "deployDelay": 0,
           "deployEvent": "altitude",
@@ -2491,17 +2492,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
       "id": "cfg-b",
       "isDefault": false,
       "motors": {
-        "c11": {
-          "delay": 6,
-          "designation": "F39",
-          "diameter": 0.029,
-          "ignitionDelay": 0,
-          "ignitionEvent": "automatic",
-          "length": 0.124,
-          "manufacturer": "AeroTech",
-          "mountId": "c11",
-        },
-        "c6": {
+        "00000000-0000-4000-8000-000000000042": {
           "delay": 4,
           "designation": "E12",
           "diameter": 0.024,
@@ -2509,12 +2500,22 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
           "ignitionEvent": "automatic",
           "length": 0.07,
           "manufacturer": "Estes",
-          "mountId": "c6",
+          "mountId": "00000000-0000-4000-8000-000000000042",
+        },
+        "00000000-0000-4000-8000-000000000047": {
+          "delay": 6,
+          "designation": "F39",
+          "diameter": 0.029,
+          "ignitionDelay": 0,
+          "ignitionEvent": "automatic",
+          "length": 0.124,
+          "manufacturer": "AeroTech",
+          "mountId": "00000000-0000-4000-8000-000000000047",
         },
       },
       "name": null,
       "separations": {
-        "c30": {
+        "00000000-0000-4000-8000-000000000066": {
           "separationAltitude": 100,
           "separationDelay": 3,
           "separationEvent": "launch",
@@ -2573,10 +2574,10 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
     "ignitionEvent": "automatic",
     "length": 0.194,
     "manufacturer": "AeroTech",
-    "mountId": "c11",
+    "mountId": "00000000-0000-4000-8000-000000000047",
   },
   "motors": {
-    "c11": {
+    "00000000-0000-4000-8000-000000000047": {
       "delay": 10,
       "designation": "H128W",
       "diameter": 0.029,
@@ -2584,9 +2585,9 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
       "ignitionEvent": "automatic",
       "length": 0.194,
       "manufacturer": "AeroTech",
-      "mountId": "c11",
+      "mountId": "00000000-0000-4000-8000-000000000047",
     },
-    "c32": {
+    "00000000-0000-4000-8000-000000000068": {
       "delay": 1000000000,
       "designation": "G80",
       "diameter": 0.029,
@@ -2594,7 +2595,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
       "ignitionEvent": "launch",
       "length": 0.124,
       "manufacturer": "AeroTech",
-      "mountId": "c32",
+      "mountId": "00000000-0000-4000-8000-000000000068",
     },
   },
   "name": "Kitchen sink",
@@ -2664,7 +2665,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
             "aftRadius": 0.025,
             "children": [
               {
-                "id": "c3",
+                "id": "00000000-0000-4000-8000-000000000039",
                 "length": 0.025,
                 "mass": 0.02,
                 "massComponentType": "tracker",
@@ -2679,7 +2680,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
             ],
             "density": 1050,
             "finish": "smooth",
-            "id": "c2",
+            "id": "00000000-0000-4000-8000-000000000038",
             "length": 0.15,
             "materialGroup": "Plastics",
             "materialName": "Polystyrene",
@@ -2706,13 +2707,14 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
             "foreRadius": 0.025,
             "foreShoulderLength": 0.02,
             "foreShoulderRadius": 0.024,
-            "id": "c4",
+            "id": "00000000-0000-4000-8000-000000000040",
             "length": 0.06,
             "materialGroup": "PaperProducts",
             "materialName": "Cardboard",
             "name": "Transition",
             "shape": "ellipsoid",
             "shapeParameter": 0,
+            "shearModulus": 400000000,
             "type": "transition",
           },
           {
@@ -2720,13 +2722,14 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
             "aftRadiusAuto": true,
             "density": 680,
             "foreRadius": 0.03,
-            "id": "c5",
+            "id": "00000000-0000-4000-8000-000000000041",
             "length": 0.04,
             "materialGroup": "PaperProducts",
             "materialName": "Cardboard",
             "name": "Transition",
             "shape": "conical",
             "shapeParameter": 0,
+            "shearModulus": 400000000,
             "thickness": 0.002,
             "type": "transition",
           },
@@ -2747,7 +2750,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "finCount": 4,
                 "finLeRadius": 0.001,
                 "height": 0.06,
-                "id": "c7",
+                "id": "00000000-0000-4000-8000-000000000043",
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
                 "name": "Fins",
@@ -2757,6 +2760,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 },
                 "rootChord": 0.1,
                 "rotation": 0.7853981633974483,
+                "shearModulus": 400000000,
                 "sweep": 0.04,
                 "tabHeight": 0.01,
                 "tabLength": 0.05,
@@ -2771,8 +2775,9 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "filletDensity": 680,
                 "filletMaterialGroup": "PaperProducts",
                 "filletMaterialName": "Cardboard",
+                "filletShearModulus": 400000000,
                 "finCount": 3,
-                "id": "c8",
+                "id": "00000000-0000-4000-8000-000000000044",
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
                 "name": "Freeform Fin Set",
@@ -2798,6 +2803,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "method": "absolute",
                   "offset": 0.31,
                 },
+                "shearModulus": 400000000,
                 "tabHeight": 0.01,
                 "tabLength": 0.02,
                 "tabOffset": 0,
@@ -2810,9 +2816,10 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "filletDensity": 680,
                 "filletMaterialGroup": "PaperProducts",
                 "filletMaterialName": "Cardboard",
+                "filletShearModulus": 400000000,
                 "finCount": 2,
                 "height": 0.04,
-                "id": "c9",
+                "id": "00000000-0000-4000-8000-000000000045",
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
                 "name": "Elliptical Fin Set",
@@ -2821,6 +2828,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "offset": 0.3,
                 },
                 "rootChord": 0.07,
+                "shearModulus": 400000000,
                 "tabHeight": 0.01,
                 "tabLength": 0.02,
                 "tabOffset": 0,
@@ -2831,7 +2839,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
               {
                 "density": 680,
                 "finCount": 6,
-                "id": "c10",
+                "id": "00000000-0000-4000-8000-000000000046",
                 "length": 0.08,
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
@@ -2842,6 +2850,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "offset": 0,
                 },
                 "rotation": 0.1,
+                "shearModulus": 400000000,
                 "thickness": 0.001,
                 "type": "tubefinset",
               },
@@ -2849,7 +2858,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "children": [
                   {
                     "density": 680,
-                    "id": "c12",
+                    "id": "00000000-0000-4000-8000-000000000048",
                     "length": 0.005,
                     "materialGroup": "PaperProducts",
                     "materialName": "Cardboard",
@@ -2859,12 +2868,13 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                       "method": "bottom",
                       "offset": 0,
                     },
+                    "shearModulus": 400000000,
                     "thickness": 0.002,
                     "type": "engineblock",
                   },
                   {
                     "density": 680,
-                    "id": "c13",
+                    "id": "00000000-0000-4000-8000-000000000049",
                     "innerRadius": 0.015,
                     "instanceCount": 3,
                     "instanceSeparation": 0.02,
@@ -2878,6 +2888,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                       "method": "bottom",
                       "offset": 0,
                     },
+                    "shearModulus": 400000000,
                     "type": "centeringring",
                   },
                 ],
@@ -2885,7 +2896,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "clusterRotation": 0.5235987755982988,
                 "clusterScale": 1.1,
                 "density": 680,
-                "id": "c11",
+                "id": "00000000-0000-4000-8000-000000000047",
                 "length": 0.12,
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
@@ -2899,12 +2910,13 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 },
                 "radialDirection": 1.5707963267948966,
                 "radialPosition": 0.01,
+                "shearModulus": 400000000,
                 "thickness": 0.0005,
                 "type": "innertube",
               },
               {
                 "density": 680,
-                "id": "c14",
+                "id": "00000000-0000-4000-8000-000000000050",
                 "length": 0.07,
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
@@ -2915,12 +2927,13 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "method": "bottom",
                   "offset": 0,
                 },
+                "shearModulus": 400000000,
                 "thickness": 0.0005,
                 "type": "innertube",
               },
               {
                 "density": 680,
-                "id": "c15",
+                "id": "00000000-0000-4000-8000-000000000051",
                 "length": 0.06,
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
@@ -2930,12 +2943,13 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "method": "middle",
                   "offset": 0.05,
                 },
+                "shearModulus": 400000000,
                 "thickness": 0.002,
                 "type": "tubecoupler",
               },
               {
                 "density": 680,
-                "id": "c16",
+                "id": "00000000-0000-4000-8000-000000000052",
                 "instanceSeparation": 0,
                 "length": 0.004,
                 "materialGroup": "PaperProducts",
@@ -2946,12 +2960,13 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "method": "bottom",
                   "offset": 0,
                 },
+                "shearModulus": 400000000,
                 "type": "bulkhead",
               },
               {
                 "angleOffset": 1.0471975511965976,
                 "density": 680,
-                "id": "c17",
+                "id": "00000000-0000-4000-8000-000000000053",
                 "instanceCount": 2,
                 "instanceSeparation": 0.06,
                 "length": 0.04,
@@ -2963,6 +2978,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "method": "middle",
                   "offset": 0,
                 },
+                "shearModulus": 400000000,
                 "thickness": 0.001,
                 "type": "launchlug",
               },
@@ -2971,7 +2987,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "baseHeight": 0.003,
                 "density": 1400,
                 "height": 0.011,
-                "id": "c18",
+                "id": "00000000-0000-4000-8000-000000000054",
                 "innerDiameter": 0.009,
                 "instanceSeparation": 0.0582,
                 "materialGroup": "Plastics",
@@ -2991,7 +3007,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "deployEvent": "apogee",
                 "diameter": 0.3,
                 "drogue": true,
-                "id": "c19",
+                "id": "00000000-0000-4000-8000-000000000055",
                 "length": 0.06,
                 "lineCount": 8,
                 "lineDensity": 0.002,
@@ -3014,7 +3030,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "deployDelay": 0,
                 "deployEvent": "altitude",
                 "diameter": 0.3,
-                "id": "c20",
+                "id": "00000000-0000-4000-8000-000000000056",
                 "length": 0.025,
                 "lineCount": 6,
                 "lineDensity": 0.0018,
@@ -3035,7 +3051,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "deployDelay": 0,
                 "deployEvent": "ejection",
                 "drogue": true,
-                "id": "c21",
+                "id": "00000000-0000-4000-8000-000000000057",
                 "length": 0.025,
                 "name": "Streamer",
                 "position": {
@@ -3050,7 +3066,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
               },
               {
                 "cordLength": 1.2,
-                "id": "c22",
+                "id": "00000000-0000-4000-8000-000000000058",
                 "length": 0.025,
                 "lineDensity": 0.003,
                 "lineMaterialName": "Elastic",
@@ -3062,7 +3078,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "type": "shockcord",
               },
               {
-                "id": "c23",
+                "id": "00000000-0000-4000-8000-000000000059",
                 "length": 0.05,
                 "mass": 0.1,
                 "massComponentType": "payload",
@@ -3080,7 +3096,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "fairingShape": "halfround",
                 "finish": "polished",
                 "height": 0.025,
-                "id": "c24",
+                "id": "00000000-0000-4000-8000-000000000060",
                 "length": 0.09,
                 "mass": 0.04,
                 "name": "Camera shroud",
@@ -3096,17 +3112,18 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                 "children": [
                   {
                     "density": 680,
-                    "id": "c26",
+                    "id": "00000000-0000-4000-8000-000000000062",
                     "length": 0.1,
                     "materialGroup": "PaperProducts",
                     "materialName": "Cardboard",
                     "name": "Body Tube",
                     "outerRadius": 0.01,
+                    "shearModulus": 400000000,
                     "thickness": 0.002,
                     "type": "bodytube",
                   },
                 ],
-                "id": "c25",
+                "id": "00000000-0000-4000-8000-000000000061",
                 "instanceCount": 3,
                 "name": "Pod set",
                 "position": {
@@ -3125,7 +3142,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                     "children": [
                       {
                         "density": 680,
-                        "id": "c29",
+                        "id": "00000000-0000-4000-8000-000000000065",
                         "length": 0.1,
                         "materialGroup": "PaperProducts",
                         "materialName": "Cardboard",
@@ -3136,22 +3153,24 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                           "method": "bottom",
                           "offset": 0,
                         },
+                        "shearModulus": 400000000,
                         "thickness": 0.0005,
                         "type": "innertube",
                       },
                     ],
                     "density": 680,
-                    "id": "c28",
+                    "id": "00000000-0000-4000-8000-000000000064",
                     "length": 0.2,
                     "materialGroup": "PaperProducts",
                     "materialName": "Cardboard",
                     "name": "Body Tube",
                     "outerRadius": 0.015,
+                    "shearModulus": 400000000,
                     "thickness": 0.002,
                     "type": "bodytube",
                   },
                 ],
-                "id": "c27",
+                "id": "00000000-0000-4000-8000-000000000063",
                 "instanceCount": 2,
                 "name": "Booster",
                 "position": {
@@ -3167,7 +3186,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
               },
             ],
             "density": 680,
-            "id": "c6",
+            "id": "00000000-0000-4000-8000-000000000042",
             "length": 0.6,
             "materialGroup": "PaperProducts",
             "materialName": "Cardboard",
@@ -3175,11 +3194,12 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
             "motorOverhang": 0.01,
             "name": "Airframe",
             "outerRadius": 0.03,
+            "shearModulus": 400000000,
             "thickness": 0.001,
             "type": "bodytube",
           },
         ],
-        "id": "c1",
+        "id": "00000000-0000-4000-8000-000000000037",
         "name": "Sustainer",
         "nozzleExitDiameter": 0.02,
         "type": "stage",
@@ -3190,7 +3210,7 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
             "children": [
               {
                 "density": 680,
-                "id": "c32",
+                "id": "00000000-0000-4000-8000-000000000068",
                 "length": 0.1,
                 "materialGroup": "PaperProducts",
                 "materialName": "Cardboard",
@@ -3201,22 +3221,24 @@ exports[`golden .ork import > pins what the kitchen-sink export reads back as 1`
                   "method": "bottom",
                   "offset": 0,
                 },
+                "shearModulus": 400000000,
                 "thickness": 0.0005,
                 "type": "innertube",
               },
             ],
             "density": 680,
-            "id": "c31",
+            "id": "00000000-0000-4000-8000-000000000067",
             "length": 0.3,
             "materialGroup": "PaperProducts",
             "materialName": "Cardboard",
             "name": "Body Tube",
             "outerRadius": 0.03,
+            "shearModulus": 400000000,
             "thickness": 0.002,
             "type": "bodytube",
           },
         ],
-        "id": "c30",
+        "id": "00000000-0000-4000-8000-000000000066",
         "name": "Booster",
         "separationAltitude": 100,
         "separationDelay": 2,

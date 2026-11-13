@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hasCurve, type CatalogMotor } from '../../services/motors/motorDb';
 import { useUnits } from '../../prefs/useUnits';
-import { CatalogLoading, CatalogError } from '../common/CatalogLoading';
+import { MotorCatalogGate } from './MotorCatalogGate';
 import { keyOf } from '../../services/motors/motorKey';
 import { ALIGN, COLUMNS, heading, type Col } from './motorColumns';
 import type { MotorSort } from './useMotorSort';
@@ -112,11 +112,7 @@ export function MotorGrid({
             {(catalogLoading || catalogError) && (
               <tr>
                 <td colSpan={cols.length + 1} className="p-4">
-                  {catalogError ? (
-                    <CatalogError message={`${t('catalog.failedMotors')} ${catalogError}`} onRetry={onRetry} />
-                  ) : (
-                    <CatalogLoading name="motors" label={t('catalog.loadingMotors')} />
-                  )}
+                  <MotorCatalogGate loading={catalogLoading} error={catalogError} onRetry={onRetry} />
                 </td>
               </tr>
             )}

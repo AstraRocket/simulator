@@ -218,7 +218,7 @@ describe("a published row that carries a saved part's fields", () => {
   });
 });
 
-// Counts from PresetDump on the 24.12 jar (`ComponentPreset.LEGACY`).
+// Counts from PresetDump on the engine build (`ComponentPreset.LEGACY`).
 describe('the legacy parts', () => {
   const LEGACY_BY_TYPE: Record<string, number> = {
     bodytube: 407,
@@ -233,7 +233,7 @@ describe('the legacy parts', () => {
     tubecoupler: 95,
   };
 
-  it('are the ones the release marks legacy, type by type', () => {
+  it('are the ones the build marks legacy, type by type', () => {
     const cat = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/components.generated.json'), 'utf8')) as {
       components: Component[];
     };

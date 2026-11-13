@@ -47,6 +47,8 @@
       "archiveEmpty": "O arquivo compactado .ork está vazio.",
       "archiveCorrupt": "O arquivo compactado .ork está danificado ou não pode ser lido.",
       "tooManyComponents": "Este {{format}} declara componentes demais para ser aberto (talvez esteja corrompido).",
+      "tooManyInstances": "Este {{format}} aninha pods, clusters e quantidades em peças demais para ser aberto (talvez esteja corrompido).",
+      "autoRadiusRunTooLong": "Este {{format}} tem peças demais seguidas com raio automático para ser aberto (talvez esteja corrompido).",
       "tooManySimulations": "Este .ork declara simulações demais para ser aberto (talvez esteja corrompido).",
       "tooManyUnknownElements": "Este .ork traz elementos não reconhecidos demais para ser aberto (talvez esteja corrompido).",
       "tooManyConfigs": "Este .ork declara configurações de voo demais para ser aberto (talvez esteja corrompido).",
@@ -158,6 +160,7 @@
       "nothing": "Nada para exportar."
     },
     "engine": {
+      "callFailed": "O motor de física do OpenRocket falhou em {{operation}}: {{detail}}",
       "notReady": "O motor de física do OpenRocket ainda não terminou de carregar. Aguarde o carregamento e tente novamente.",
       "staleDesign": "Este projeto foi montado antes de o motor de física ser reiniciado. Monte-o novamente antes de usar."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Desfazer",
-    "redo": "Refazer"
+    "redo": "Refazer",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Escalar o foguete",
@@ -535,7 +540,8 @@
       "pressure": "Pressão",
       "force": "Empuxo / força",
       "impulse": "Impulso",
-      "rollRate": "Taxa de rolagem"
+      "rollRate": "Taxa de rolagem",
+      "shearModulus": "Módulo de cisalhamento"
     }
   },
   "settings": {
@@ -663,8 +669,6 @@
     "removeMembership": "Remover a associação {{org}}"
   },
   "config": {
-    "title": "Configuração do foguete",
-    "edit": "Editar a configuração do foguete",
     "notes": "Notas do projeto",
     "name": "Nome do projeto",
     "designer": "Projetista",
@@ -682,7 +686,6 @@
     "removeRevision": "Remover a revisão de {{date}}",
     "removeRevisionConfirm": "Remover esta revisão?",
     "appOnlyNotes": "Salvar em .ork mantém todas estas notas. O fabricante do kit, o código do kit e as revisões com data são próprios deste aplicativo: o OpenRocket para desktop os descarta se salvar o arquivo. O .rkt não guarda esses três nem o nome do kit.",
-    "save": "OK",
     "type_original": "Projeto original / outro",
     "type_commercial_kit": "Kit comercial",
     "type_clone_kit": "Clone de um kit",
@@ -936,6 +939,7 @@
     "stdDev": "Desvio padrão",
     "stdDevName": "Desvio padrão do vento",
     "turbulenceIntensity": "Intensidade da turbulência",
+    "turbulenceNeedsWind": "Defina primeiro um vento médio: a porcentagem expressa as rajadas como fração dele.",
     "levelCount_one": "{{count}} nível de vento",
     "levelCount_many": "{{count}} níveis de vento",
     "levelCount_other": "{{count}} níveis de vento",
@@ -1504,6 +1508,7 @@
     "collapseAll": "Recolher tudo",
     "collapseTree": "Ocultar a lista de componentes",
     "hidePart": "Ocultar nas vistas",
+    "hiddenByParent": "Oculto nas vistas junto com a peça em que está",
     "showPart": "Mostrar nas vistas",
     "showAll": "Mostrar tudo",
     "hiddenNote": "As peças ocultas continuam contando na massa, no CG, na aerodinâmica e em todos os dados de voo. Só as vistas 2D e 3D as omitem.",
@@ -1910,6 +1915,7 @@
     "densityBulk": "Densidade volumétrica",
     "densitySurface": "Densidade superficial",
     "densityLine": "Densidade linear",
+    "shearModulus": "Módulo de cisalhamento",
     "save": "Salvar",
     "cancel": "Cancelar",
     "addToLibrary": "Adicionar aos meus materiais personalizados, para todos os projetos",
@@ -2098,7 +2104,6 @@
     "searchCode": "Buscar por código (ex.: C6)…",
     "select": "Selecionar",
     "loading": "Carregando…",
-    "loadingCatalog": "Carregando o catálogo de motores…",
     "pickHint": "Selecione um motor para ver a curva de empuxo e as especificações dele.",
     "backToList": "Voltar à lista",
     "curve": "Curva",

@@ -94,10 +94,13 @@ class GuardedInflate implements UnzipDecoder {
 /**
  * Caps count inflated bytes, not declared sizes. An unsigned data descriptor (APPNOTE 4.3.9.3)
  * throws fflate's streaming reader off, so a failed stream is reread via the central directory.
+ * A file cut off inside a later member streams without an error and without that member, so a
+ * streamed read counts only when the directory is there and names as many members.
  */
 function unzipCapped(bytes: Uint8Array): Map<string, Uint8Array> {
   try {
-    return unzipStreaming(bytes);
+    const streamed = unzipStreaming(bytes);
+    if (streamed.size === directoryCount(bytes)) return streamed;
   } catch (e) {
     if (e instanceof KeyedError && e.key !== 'errors.file.archiveCorrupt') throw e;
   }
@@ -156,17 +159,23 @@ const EOCD_SIG = 0x06054b50;
 const EOCD_SIZE = 22;
 const MAX_COMMENT = 0xffff;
 
+/** The end-of-central-directory record's offset; a file cut short has none. */
+function endOfDirectory(view: DataView): number {
+  for (let at = view.byteLength - EOCD_SIZE; at >= Math.max(0, view.byteLength - EOCD_SIZE - MAX_COMMENT); at--) {
+    if (view.getUint32(at, true) === EOCD_SIG) return at;
+  }
+  throw new KeyedError('errors.file.archiveCorrupt');
+}
+
+function directoryCount(bytes: Uint8Array): number {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return view.getUint16(endOfDirectory(view) + 10, true);
+}
+
 function unzipFromDirectory(bytes: Uint8Array): Map<string, Uint8Array> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const corrupt = () => new KeyedError('errors.file.archiveCorrupt');
-  let eocd = -1;
-  for (let at = bytes.length - EOCD_SIZE; at >= Math.max(0, bytes.length - EOCD_SIZE - MAX_COMMENT); at--) {
-    if (view.getUint32(at, true) === EOCD_SIG) {
-      eocd = at;
-      break;
-    }
-  }
-  if (eocd < 0) throw corrupt();
+  const eocd = endOfDirectory(view);
   const count = view.getUint16(eocd + 10, true);
   if (count > MAX_ARCHIVE_ENTRIES) throw new KeyedError('errors.file.archiveTooManyEntries');
   const members = new Map<string, Uint8Array>();
@@ -245,8 +254,7 @@ export function unpackOrk(data: ArrayBuffer | string, gunzipped = false): OrkArc
 }
 
 export function parseOrkXml(xml: string, format: '.ork' | '.rkt' = '.ork'): Document {
-  // OpenRocket writes a single-quoted XML declaration; some parsers reject it.
-  if (xml.charCodeAt(0) === 0xfeff) xml = xml.slice(1); // strip optional BOM
+  // OpenRocket writes a single-quoted XML declaration; some parsers reject it. `\s` takes a BOM too.
   xml = xml.replace(/^\s*<\?xml[^?]*\?>/, '');
   return parseXmlText(xml, format);
 }

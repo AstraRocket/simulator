@@ -2,9 +2,9 @@ import type { ComponentNode } from '../../../engine/openRocketEngine';
 import { BAYS_KEY, baysOf, isTubeBays } from '../../flight/recoveryBays';
 import { MAIN_DEVICE_KEY } from '../../design/treeEdit';
 import { escapeXml } from '../xmlUtil';
+import { BAYS_TAG, MAIN_TAG } from './appTags';
 
 /** Inside the tube's own element because part ids are fresh on every save and load. */
-const BAYS_TAG = 'astrarocketbays';
 
 export function readBays(el: Element): ComponentNode[string] {
   const child = Array.from(el.children).find((c) => c.tagName.toLowerCase() === BAYS_TAG);
@@ -24,8 +24,6 @@ export function baysXml(node: ComponentNode): string | null {
 }
 
 export { BAYS_KEY };
-
-const MAIN_TAG = 'astrarocketmain';
 
 export function readMainDevice(el: Element): boolean {
   const child = Array.from(el.children).find((c) => c.tagName.toLowerCase() === MAIN_TAG);

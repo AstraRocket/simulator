@@ -112,6 +112,7 @@ export interface ReportModel {
   partsByStage: { stage: string; rows: PartRow[] }[];
   finSetsByStage: { stage: string; sets: FinSetPosition[] }[];
   charges?: ChargeRow[];
+  /** Each bay's tests in date order. */
   bays?: DesignBay[];
 }
 
@@ -244,6 +245,11 @@ export interface ReportSource {
   setErr: (message: string) => void;
 }
 
+export const withTestsByDate = (bay: DesignBay): DesignBay => ({
+  ...bay,
+  record: { ...bay.record, tests: [...bay.record.tests].sort((a, b) => a.date.localeCompare(b.date)) },
+});
+
 // A caller inside render must pass `install`: the default store write updates subscribers mid-render.
 export function assembleReport(s: ReportSource, install?: (built: ReportBuild) => void): ReportModel | null {
   const { tree, info, rocket } = s;
@@ -320,7 +326,9 @@ export function assembleReport(s: ReportSource, install?: (built: ReportBuild) =
     partsByStage,
     finSetsByStage,
     charges: chargeRows(tree),
-    bays: designBays(tree).filter((b) => b.record.tests.length || Object.keys(b.record).length > 1),
+    bays: designBays(tree)
+      .filter((b) => b.record.tests.length || Object.keys(b.record).length > 1)
+      .map(withTestsByDate),
   };
 }
 

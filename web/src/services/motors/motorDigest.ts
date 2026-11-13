@@ -47,3 +47,24 @@ export function motorDigest(curve: DigestCurve): string {
     [DIGEST_TYPES.FORCE_PER_TIME, curve.thrusts],
   ]);
 }
+
+/**
+ * As `RockSimMotorLoader.getMotor`: a calculated mass hashes the launch and burnout masses (kg) in place of
+ * the series, and a calculated CG is left out.
+ */
+export function rseMotorDigest(curve: {
+  times: readonly number[];
+  thrusts: readonly number[];
+  masses: readonly number[] | { launch: number; burnout: number };
+  cgs: readonly number[] | null;
+}): string {
+  const { masses, cgs } = curve;
+  return digestBlocks([
+    [DIGEST_TYPES.TIME_ARRAY, curve.times],
+    'launch' in masses
+      ? [DIGEST_TYPES.MASS_SPECIFIC, [masses.launch, masses.burnout]]
+      : [DIGEST_TYPES.MASS_PER_TIME, masses],
+    ...(cgs ? [[DIGEST_TYPES.CG_PER_TIME, cgs] as const] : []),
+    [DIGEST_TYPES.FORCE_PER_TIME, curve.thrusts],
+  ]);
+}

@@ -30,8 +30,9 @@ if (!javaPath) {
 }
 
 // Allows \" inside: upstream has Styrofoam \"Blue foam\" (XPS), which a naive [^"]* silently drops.
+// The optional number after the density is the shear modulus in Pa.
 const MATERIAL =
-  /newMaterial\(Type\.(BULK|SURFACE|LINE),\s*"((?:[^"\\]|\\.)*)",\s*([0-9.eE+-]+)[^)]*?MaterialGroup\.(\w+)/g;
+  /newMaterial\(Type\.(BULK|SURFACE|LINE),\s*"((?:[^"\\]|\\.)*)",\s*([0-9.eE+-]+),\s*(?:([0-9.eE+-]+),\s*)?MaterialGroup\.(\w+)/g;
 const unescapeJava = (t) =>
   t.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\(["'\\])/g, '$1');
 const group = (g) => g.charAt(0) + g.slice(1).toLowerCase().replace(/_/g, ' ');
@@ -39,11 +40,13 @@ const group = (g) => g.charAt(0) + g.slice(1).toLowerCase().replace(/_/g, ' ');
 const java = readFileSync(javaPath, 'utf8');
 const rows = [];
 for (const m of java.matchAll(MATERIAL)) {
+  const shear = Number(m[4] ?? 0);
   rows.push({
     name: unescapeJava(m[2]),
     type: m[1].toLowerCase(),
     density: Number(m[3]),
-    group: group(m[4]),
+    ...(shear > 0 ? { shearModulus: shear } : {}),
+    group: group(m[5]),
     kind: 'upstream',
   });
 }

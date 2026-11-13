@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { importRkt } from '../../../src/services/files/rktImport';
+import { MAX_COMPONENTS } from '../../../src/services/files/ork/importLimits';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 import { noteTexts } from '../../testing/importNotes';
 
@@ -350,10 +351,9 @@ describe('importRkt, hostile input', () => {
     `<Stage3Parts>${parts}</Stage3Parts></RocketDesign></DesignInformation></RockSimDocument>`;
   const tube = '<BodyTube><Name>b</Name><Len>100</Len><OD>20</OD><ID>19</ID></BodyTube>';
 
-  // Long timeout: ten thousand parts parse slowly on a loaded CI runner.
   it('refuses more components than MAX_COMPONENTS with a clear error', () => {
-    expect(() => importRkt(rkt(tube.repeat(10_050)))).toThrow(/too many components/i);
-  }, 60_000);
+    expect(() => importRkt(rkt(tube.repeat(MAX_COMPONENTS)))).toThrow(/too many components/i);
+  });
 
   it('still accepts a component count a real design could plausibly use', () => {
     const res = importRkt(rkt(tube.repeat(200)));

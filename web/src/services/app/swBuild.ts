@@ -1,3 +1,4 @@
+import { finiteOr } from './numbers';
 // The CDN can serve an older sw.js as waiting, so only a higher build id than the
 // active worker's (not the page's) is taken up; otherwise it can reload-loop.
 
@@ -11,7 +12,7 @@ export function askBuild(sw: ServiceWorker, timeoutMs: number = ASK_TIMEOUT_MS):
     channel.port1.onmessage = (event: MessageEvent<unknown>) => {
       clearTimeout(timer);
       const build = (event.data as { build?: unknown } | null)?.build;
-      resolve(typeof build === 'number' && Number.isFinite(build) ? build : null);
+      resolve(finiteOr(build, null));
     };
     sw.postMessage({ type: 'GET_BUILD' }, [channel.port2]);
   });

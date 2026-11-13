@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useForecastFields, useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/useSettings';
-import { todayYmd } from '../../services/weather/openMeteo';
+import { localToday } from '../../services/app/localDate';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { runLandingEstimate } from '../../services/landing/landingEstimate';
 import type { DescentPlan } from '../../services/landing/descentDrift';
@@ -114,7 +114,7 @@ export function LandingEstimator() {
     const asked = inputs;
     const run = await forecast.run(
       setState,
-      (signal) => runLandingEstimate({ ...asked, today: todayYmd(), apiKey: readWeatherKey() }, { signal }),
+      (signal) => runLandingEstimate({ ...asked, today: localToday(), apiKey: readWeatherKey() }, { signal }),
       (r) => ({ run: r, inputs: asked }),
     );
     if (run) requestAnimationFrame(() => resultRef.current?.scrollIntoView?.({ block: 'nearest' }));

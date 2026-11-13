@@ -71,6 +71,19 @@ describe('primaryMotor', () => {
     expect(primaryMotor(tree, config)).toBe(C6);
   });
 
+  it("skips a grounded stage's motor, as power class and the launch documents do", () => {
+    const staged = {
+      components: [
+        node({ type: 'stage', id: 'sustainer', children: [node({ type: 'bodytube', id: 'aft', motorMount: true })] }),
+        node({ type: 'stage', id: 'booster', children: [node({ type: 'bodytube', id: 'b', motorMount: true })] }),
+      ],
+    } as unknown as RocketTree;
+    const empty = { ...spec(''), times: [], thrusts: [], masses: [] } as MotorSpec;
+    const config = { ...newFlightConfig({ aft: { spec: empty }, b: { spec: C6 } }), grounded: ['booster'] };
+    expect(primaryMotor(staged, config)).toBe(empty);
+    expect(primaryMotor(staged, { ...config, grounded: ['sustainer', 'booster'] })).toBeUndefined();
+  });
+
   it('is still the first mount when no motor anywhere can fly', () => {
     const empty = { ...spec(''), times: [], thrusts: [], masses: [] } as MotorSpec;
     const config = newFlightConfig({ aft: { spec: empty }, pod: { spec: { ...empty, designation: 'X' } } });

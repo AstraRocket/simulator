@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { fmtNum, shortDigits } from '../../i18n/format';
 import type { CatalogMotor } from '../../services/motors/motorDb';
 import { linePath, highestSample } from './chartScales';
+import { YGridRows } from '../common/chartAxes';
 
 export type XY = readonly [number, number];
 
@@ -38,17 +39,13 @@ export function ChartAxes({
 }) {
   return (
     <>
-      {levels.map((f) => {
-        const gy = Y(fMax * f);
-        return (
-          <g key={f}>
-            <line x1={dims.padL} y1={gy} x2={dims.width - dims.padR} y2={gy} className="stroke-line/10" />
-            <text x={dims.padL - 4} y={gy + 3} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
-              {fmtNum(fMax * f * fScale, fDigits)}
-            </text>
-          </g>
-        );
-      })}
+      <YGridRows
+        values={levels.map((f) => fMax * f)}
+        Y={Y}
+        x1={dims.padL}
+        x2={dims.width - dims.padR}
+        label={(f) => fmtNum(f * fScale, fDigits)}
+      />
       {[0, tMax / 2, tMax].map((tt, i) => (
         <text
           key={i}

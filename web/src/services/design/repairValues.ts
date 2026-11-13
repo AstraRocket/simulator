@@ -3,6 +3,7 @@ import { clampEntry, SI_LIMITS } from '../../prefs/entryValue';
 import type { Quantity } from '../../prefs/units';
 import { partLabel } from '../../i18n/format';
 import { mapTreePreserving } from '../../tree/treeWalk';
+import { str } from '../../tree/nodeProps';
 
 export interface RepairedValue {
   type: string;
@@ -18,9 +19,16 @@ const LIMITED: Record<string, { quantity: Quantity; label: string }> = {
   filletDensity: { quantity: 'density', label: 'prop.filletDensity' },
 };
 
-export function repairedText(r: RepairedValue, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const field = LIMITED[r.field]?.label ?? `prop.${r.field}`;
-  return t('banner.repaired', { part: partLabel(t, r), field: t(field), was: r.was, now: r.now });
+/** `fmt` shows a value in the user's unit: the panel shows 30 g/cm³, so the note must not say 30000. */
+export function repairedText(
+  r: RepairedValue,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  fmt: (q: Quantity, si: number) => string,
+): string {
+  const limited = LIMITED[r.field];
+  const field = limited?.label ?? `prop.${r.field}`;
+  const show = (si: number) => (limited ? fmt(limited.quantity, si) : String(si));
+  return t('banner.repaired', { part: partLabel(t, r), field: t(field), was: show(r.was), now: show(r.now) });
 }
 
 export function repairNode(node: ComponentNode): { node: ComponentNode; repaired: RepairedValue[] } {
@@ -34,7 +42,7 @@ export function repairNode(node: ComponentNode): { node: ComponentNode; repaired
     if (!limit || typeof v !== 'number' || !Number.isFinite(v)) continue;
     const now = clampEntry(v, limit.min, limit.max) ?? v;
     if (now === v) continue;
-    repaired.push({ type: node.type, name: typeof node.name === 'string' ? node.name : '', field: key, was: v, now });
+    repaired.push({ type: node.type, name: str(node, 'name'), field: key, was: v, now });
     out = { ...out, [key]: now };
   }
   return { node: out, repaired };

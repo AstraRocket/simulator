@@ -38,27 +38,27 @@ OpenRocket's full `core` is ~700 files and pulls in Guice, JAXB, GraalVM-JS, cla
 
 **Extraction** = copying only the 273 files the physics + simulation actually need, leaving the reflection/IO-heavy machinery (file loaders, plugin system, scripting, Swing hooks) behind. These files are **real OpenRocket source**: 255 are byte-for-byte upstream; 18 carry overrides (see `patches/`). By package:
 
-| files | package | what it is |
-|------:|---------|------------|
-| 73 | `rocketcomponent` | rocket model: nose, body, fins, stages, mounts, flight configs |
-| 60 | `util` | math/geometry (Coordinate, quaternions, interpolation) |
-| 1 | `utils` | `MotorCorrelation`: how alike two thrust curves are, for the motor picker |
-| 42 | `simulation` | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data |
-| 19 | `aerodynamics` | Extended Barrowman + RASAero CP / drag / stability (force breakdown) |
-| 16 | `unit` | unit system (internals are pure SI) |
-| 12 | `models` | atmosphere (ISA), gravity models, wind |
-| 10 | `motor` | thrust-curve motor model |
-| 4 | `masscalc` | CG / mass / moment-of-inertia |
-| … | rest | logging, l10n, materials, presets, appearance, startup |
+| files | package           | what it is                                                                     |
+| ----: | ----------------- | ------------------------------------------------------------------------------ |
+|    73 | `rocketcomponent` | rocket model: nose, body, fins, stages, mounts, flight configs                 |
+|    60 | `util`            | math/geometry (Coordinate, quaternions, interpolation)                         |
+|     1 | `utils`           | `MotorCorrelation`: how alike two thrust curves are, for the motor picker      |
+|    42 | `simulation`      | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data |
+|    19 | `aerodynamics`    | Extended Barrowman + RASAero CP / drag / stability (force breakdown)           |
+|    16 | `unit`            | unit system (internals are pure SI)                                            |
+|    12 | `models`          | atmosphere (ISA), gravity models, wind                                         |
+|    10 | `motor`           | thrust-curve motor model                                                       |
+|     4 | `masscalc`        | CG / mass / moment-of-inertia                                                  |
+|     … | rest              | logging, l10n, materials, presets, appearance, startup                         |
 
 ### 2. `patches/`: full-file overrides of extracted sources
 
-**These are not diffs.** Each file under `patches/` is a *complete, hand-edited copy* of the OpenRocket file at the same relative path; extract writes it **instead of** the pristine upstream one. "Applying a patch" is a file-level swap, not a `git apply`. Two kinds:
+**These are not diffs.** Each file under `patches/` is a _complete, hand-edited copy_ of the OpenRocket file at the same relative path; extract writes it **instead of** the pristine upstream one. "Applying a patch" is a file-level swap, not a `git apply`. Two kinds:
 
 - **TeaVM-compat**: e.g. `UUID`→`LongUUID`, `ConcurrentHashMap`/`ConcurrentLinkedQueue`→plain collections, `String.format("%g")`→`%s`, replacing `BarrowmanCalculator`'s reflective `Class.forName(...)` calc lookup with an explicit `instanceof` chain, dropping `java.awt.geom` (`FinSet`/`FreeformFinSet` now use the `Geo2D` shim; `BoundingBox` simply loses its two `Rectangle2D` methods), and a copy-constructor `ArrayList.clone()` (WASM-GC's strict casts reject the JVM's `(ArrayList) super.clone()`).
 - **Opt-in RASAero supersonic-aero extensions**: default-off feature code (`../docs/rasaero/` holds dated physics notes; their diffs predate the current patches, so use the `diff -u` command below to see what a patch changes today).
 
-To change a patch, edit the whole file under `patches/…` (it *is* the patch). To view what a patch changed vs upstream: `diff -u <openrocket-src>/…/X.java patches/…/X.java`.
+To change a patch, edit the whole file under `patches/…` (it _is_ the patch). To view what a patch changed vs upstream: `diff -u <openrocket-src>/…/X.java patches/…/X.java`.
 
 ### 3. `src/shims/`: whole classes we provide instead of OpenRocket's
 
@@ -68,7 +68,7 @@ Where an extracted file is impractical, the upstream class is **not extracted at
 
 Just `java.text.Collator`, the one `java.*` class the extracted physics needs that TeaVM's class library lacks (motor-name sorting). Compiled in a separate source set via `--patch-module` (JPMS forbids `java.*` in the unnamed module, and it can't mix with ordinary sources); on a real JVM the genuine JDK `Collator` wins, so it affects only the TeaVM build. (The kernel uses the `Geo2D` shim above in place of `java.awt.geom`.)
 
-**Rule of thumb:** JDK gap → *jdkstub*; provide a class instead of OpenRocket's → *shim*; edit OpenRocket's class in place → *patch*.
+**Rule of thumb:** JDK gap → _jdkstub_; provide a class instead of OpenRocket's → _shim_; edit OpenRocket's class in place → _patch_.
 
 ### 5. `src/api/`: the @JSExport facade (the browser's entry point)
 
@@ -78,7 +78,7 @@ Just `java.text.Collator`, the one `java.*` class the extracted physics needs th
 
 The facade has two failure contracts, decided by the return type:
 
-- **JSON-returning methods** (`getStaticInfo`, `getComponentInfo`, `getComponentMasses`, `getAeroSweep`, `simulate`, `simulateJson`) never throw for a bad input or a failed computation. They return an `{"error": "<message>"}` envelope and the wrapper reads it.
+- **JSON-returning methods** (`getStaticInfo`, `getRockSimStageFigures`, `getComponentInfo`, `getComponentMasses`, `getAeroSweep`, `simulate`, `simulateJson`) never throw for a bad input or a failed computation. They return an `{"error": "<message>"}` envelope and the wrapper reads it.
 - **Void and primitive-returning methods** cannot carry an envelope (there is nowhere in an `int`, a `double` or a `void` to put a message), so they **throw** instead: `buildRocket`, `newRocket`, `setMotor`, `setMotorById`, `setMotorIgnitionById`, `getWorstThetaDeg`, `getStandardPressure`, `getMotorSimilarity`, the flag setters (`setRogersModifiedBarrowman`, `setStubbyNoseDrag`, `setSupersonicAero`) and the `addX` builders (`addNoseCone`, `addBodyTube`, `addTrapezoidFins`, `addInnerTube`, `addParachute`). A rejected input is an `IllegalArgumentException` with a message that names the field (an unknown handle, a non-mount component id, a non-finite ignition delay, a malformed thrust curve); anything else is whatever `RuntimeException` the kernel raised. On both targets the exception crosses into JavaScript as a throw carrying the Java message. Callers must not inspect the return value of these methods for an `error` key; there is none.
 
 The TypeScript wrapper (`../web/src/engine/openRocketEngine.ts`) runs every one of these through `callEngine`, which rethrows the failure as an `EngineCallError` whose `operation` names the facade method and whose message keeps the kernel text. A design used after `resetEngine()` throws `StaleDesignError` ahead of the call, and `callEngine` lets that one through untouched. The wrapper also validates the motor curve and the ignition delay itself before calling in, so the kernel guards are the second line of defense, not the only one.
@@ -88,7 +88,10 @@ The TypeScript wrapper (`../web/src/engine/openRocketEngine.ts`) runs every one 
 `extract/extract.mjs` regenerates `src/java/` from an OpenRocket source tree. It is manifest-driven and idempotent; for each path in `extract/manifest.txt` it writes the `patches/` file if one exists there, else the verbatim upstream file:
 
 ```js
-const want = readFileSync(patchSet.has(rel) ? join(patchesRoot, rel) : upstream, 'utf8');
+const want = readFileSync(
+  patchSet.has(rel) ? join(patchesRoot, rel) : upstream,
+  "utf8",
+);
 ```
 
 ```bash

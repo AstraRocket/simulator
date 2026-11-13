@@ -13,7 +13,7 @@ import {
   type ScopedMaterial,
 } from '../../../src/services/materials/myMaterials';
 
-// Mirrors OpenRocket 24.12's `MaterialEditPanel`: document and application edits and
+// Mirrors desktop's `MaterialEditPanel`: document and application edits and
 // removals differ (matedtpan.dlg.RemoveUsedMaterial.Document / .Application).
 
 let library: Material[] = [];
@@ -132,6 +132,15 @@ describe('saving', () => {
     expect(node('tube')).toMatchObject({ materialName: 'Ply B', density: 700 });
     expect(node('fins')).toMatchObject({ filletMaterialName: 'Ply B', filletDensity: 700 });
     expect(tree.documentMaterials).toEqual([{ name: 'Ply B', type: 'bulk', density: 700, group: 'Woods' }]);
+  });
+
+  it('keeps the shear modulus a file gave a design material through an edit', async () => {
+    const stiff = { ...ply(), shearModulus: 3.1e8 };
+    tree = { ...designWith({ name: 'Birch ply', density: 650 }), documentMaterials: [asDoc(stiff)] };
+    await saveMaterial(design, stiff, { ...stiff, density: 700 });
+    expect(tree.documentMaterials).toEqual([
+      { name: 'Birch ply', type: 'bulk', density: 700, shearModulus: 3.1e8, group: 'Woods' },
+    ]);
   });
 
   it('leaves the parts with an edit of a browser material, and keeps the old one in the design for them', async () => {

@@ -1,8 +1,10 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { bodyTubeRadius, num } from '../../tree/nodeProps';
+import { tubeRadii } from '../design/discGeometry';
+import { hasShoulder, shouldersOf } from '../../tree/shapeProfile';
 import { axialFrames, type AxialFrame } from '../../tree/axialRebase';
 import { lineageOf, walkNodes } from '../../tree/treeWalk';
 import { uiToSi } from '../../prefs/units';
+import { str } from '../../tree/nodeProps';
 
 // Packed recovery gear is not subtracted, matching hobby charge calculators.
 
@@ -33,9 +35,12 @@ export function ejectionBay(tree: RocketTree, deviceId: string): EjectionBay | n
   const deviceFrame = frames.get(deviceId);
   if (!tubeFrame || !deviceFrame) return null;
 
-  const boreM = 2 * (bodyTubeRadius(tube) - num(tube, 'thickness', 0));
+  const boreM = 2 * (tubeRadii(tube)?.innerR ?? 0);
   const tubeSpan = spanOf(tubeFrame);
-  const blocks = [...innerBlocks(tube, new Set(lineage), frames), ...shoulderBlocks(tree, tube, frames)];
+  // The tube's own parent: a stage, or a pod set or booster holding its own chain.
+  const holder = lineage[lineage.indexOf(tube) + 1];
+  const siblings = holder?.children ?? tree.components;
+  const blocks = [...innerBlocks(tube, new Set(lineage), frames), ...shoulderBlocks(siblings, tube, frames)];
   const device = spanOf(deviceFrame);
   const middle = (device.start + device.end) / 2;
   let fore = tubeSpan.start;
@@ -46,7 +51,7 @@ export function ejectionBay(tree: RocketTree, deviceId: string): EjectionBay | n
   }
   return {
     tubeId: tube.id,
-    tubeName: typeof tube.name === 'string' ? tube.name : '',
+    tubeName: str(tube, 'name'),
     boreM,
     lengthM: Math.max(0, aft - fore),
     wholeTube: fore === tubeSpan.start && aft === tubeSpan.end,
@@ -66,28 +71,21 @@ function innerBlocks(tube: ComponentNode, holders: Set<ComponentNode>, frames: M
   return out;
 }
 
-function shoulderBlocks(tree: RocketTree, tube: ComponentNode, frames: Map<string, AxialFrame>): Span[] {
-  const siblings = tree.components.flatMap((n) => (n.type === 'stage' ? (n.children ?? []) : [n]));
+function shoulderBlocks(siblings: ComponentNode[], tube: ComponentNode, frames: Map<string, AxialFrame>): Span[] {
   const i = siblings.findIndex((n) => n.id === tube.id);
   const out: Span[] = [];
   const before = siblings[i - 1];
   const after = siblings[i + 1];
   const frameOf = (n: ComponentNode | undefined) => (n?.id ? frames.get(n.id) : undefined);
+  // A flipped nose cone's shoulder is on its fore end, so it plugs the tube in front of it.
   const b = frameOf(before);
-  if (before && b) {
-    const shoulder =
-      before.type === 'nosecone'
-        ? num(before, 'shoulderLength', 0)
-        : before.type === 'transition'
-          ? num(before, 'aftShoulderLength', 0)
-          : 0;
-    if (shoulder > 0) out.push({ start: b.start + b.length, end: b.start + b.length + shoulder });
+  const intoAft = before && (before.type === 'nosecone' || before.type === 'transition') && shouldersOf(before).aft;
+  if (b && intoAft && hasShoulder(intoAft)) {
+    out.push({ start: b.start + b.length, end: b.start + b.length + intoAft.length });
   }
   const a = frameOf(after);
-  if (after && a && after.type === 'transition') {
-    const shoulder = num(after, 'foreShoulderLength', 0);
-    if (shoulder > 0) out.push({ start: a.start - shoulder, end: a.start });
-  }
+  const intoFore = after && (after.type === 'nosecone' || after.type === 'transition') && shouldersOf(after).fore;
+  if (a && intoFore && hasShoulder(intoFore)) out.push({ start: a.start - intoFore.length, end: a.start });
   return out;
 }
 

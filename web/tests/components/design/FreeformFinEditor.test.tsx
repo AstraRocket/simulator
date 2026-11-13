@@ -179,3 +179,27 @@ describe('keyboard focus on the outline markers', () => {
     }
   });
 });
+
+// The kernel refuses a crossing outline and the whole design stops building, so the editor refuses the edit.
+describe('an edit that would cross the outline', () => {
+  const NEAR: Pt[] = [
+    [0, 0],
+    [0.035, 0.03],
+    [0.04, 0.03],
+    [0.06, 0],
+  ];
+
+  it('is refused, keeping the last good outline and adding no undo step', () => {
+    const { onChange, onCommit } = show(NEAR);
+    // 10 mm aft puts the leading edge across the trailing edge.
+    fireEvent.keyDown(vertex(2), { key: 'ArrowRight', shiftKey: true });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('still allows the move that stays clear', () => {
+    const { onChange } = show(NEAR);
+    fireEvent.keyDown(vertex(2), { key: 'ArrowRight' });
+    expect((onChange.mock.calls[0]![0] as Pt[])[1]![0]).toBeCloseTo(0.036, 9);
+  });
+});

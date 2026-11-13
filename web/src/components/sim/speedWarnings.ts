@@ -1,3 +1,5 @@
+import type { FlightEventType } from '../../engine/openRocketEngine';
+
 /** Stored in SI. Keys stay literal so the i18n key scan can find them. */
 export const SPEED_WARNINGS = [
   { key: 'deploymentSpeedWarn', label: 'settings.deploySpeedWarn', hint: 'settings.deploySpeedWarnHint' },
@@ -39,7 +41,7 @@ export interface DeployedDevice {
 
 /** Devices at the same instant count; an earlier drogue does not. */
 export function lastDeployment(
-  events: readonly { type: string; time?: number; source?: string; sourceId?: string }[] | undefined,
+  events: readonly { type: FlightEventType; time?: number; source?: string; sourceId?: string }[] | undefined,
 ): DeployedDevice[] {
   const deployments = (events ?? []).filter((e) => e.type === 'RECOVERY_DEVICE_DEPLOYMENT');
   const last = deployments[deployments.length - 1];

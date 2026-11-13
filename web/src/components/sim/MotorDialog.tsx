@@ -57,10 +57,10 @@ export function MotorDialog({
       ),
     [used, catalog],
   );
-  // Never defaulted from the mount, or it would follow the user to a larger mount.
   const liftoffFields = useLiftoffFields(liftoff);
   const [filterInit] = useState(() => ({
     mfrs: loadMfrs(),
+    // Never defaulted from the mount, or it would follow the user to a larger mount.
     dia: loadDia() ?? ([0, MAX_IDX] as [number, number]),
     mount: mount && mount.bore > 0 ? mount : null,
   }));

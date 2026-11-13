@@ -5,6 +5,10 @@ import { JsonListStore } from '../storage/jsonListStore';
 import { MIN_CURVE_SAMPLES } from './motorCurve';
 import { nsKey } from '../storage/storageKeys';
 
+/** The stored key, and the key a re-import replaces by. */
+export const customMotorId = (manufacturer: string, designation: string): string =>
+  `custom:${manufacturer}:${designation}`;
+
 export interface CustomMotor {
   id: string;
   designation: string;
@@ -51,6 +55,20 @@ export const isThrustSampleArray = (v: unknown): boolean =>
     );
   });
 
+export type MotorHeaderProblem = 'numbers' | 'size' | 'mass' | 'propOverTotal';
+
+/** What is wrong with a motor's sizes and weights, checked in this order; null when they are sound. */
+export function motorHeaderProblem(
+  m: Pick<CustomMotor, 'diameter' | 'length' | 'totalWeightG' | 'propWeightG'>,
+): MotorHeaderProblem | null {
+  if (![m.diameter, m.length, m.totalWeightG, m.propWeightG].every(Number.isFinite)) return 'numbers';
+  if (!(m.diameter > 0) || !(m.length > 0)) return 'size';
+  // The kernel accepts negative propellant, which makes mass rise over the burn.
+  if (m.propWeightG < 0 || !(m.totalWeightG > 0)) return 'mass';
+  if (m.propWeightG > m.totalWeightG) return 'propOverTotal';
+  return null;
+}
+
 export function isCustomMotor(v: unknown): v is CustomMotor {
   const m = v as CustomMotor;
   return (
@@ -60,15 +78,7 @@ export function isCustomMotor(v: unknown): v is CustomMotor {
     // motorDb.ts localeCompares these; a missing one takes down the whole picker.
     typeof m.manufacturer === 'string' &&
     typeof m.class === 'string' &&
-    Number.isFinite(m.diameter) &&
-    m.diameter > 0 &&
-    Number.isFinite(m.length) &&
-    m.length > 0 &&
-    Number.isFinite(m.totalWeightG) &&
-    m.totalWeightG > 0 &&
-    Number.isFinite(m.propWeightG) &&
-    m.propWeightG >= 0 &&
-    m.propWeightG <= m.totalWeightG &&
+    motorHeaderProblem(m) === null &&
     isThrustSampleArray(m.samples) &&
     isMassArray(m.massesG, m.samples.length) &&
     (m.cgMm === undefined || (Number.isFinite(m.cgMm) && m.cgMm >= 0 && m.cgMm <= m.length)) &&

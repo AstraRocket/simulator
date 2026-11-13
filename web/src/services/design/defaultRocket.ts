@@ -37,7 +37,7 @@ export const DEFAULT_PRESETS = {
   nose: {
     partNo: 'PNC-50KA',
     type: 'nosecone',
-    digest: 'b3b5899ebbb48c4ec80bae00d72280a9',
+    digest: 'd1a20a7df06b8277929d01400c58d8a0',
     outerDiameter: 0.024790399999999997,
     length: 0.06985,
     thickness: 0.0015748,
@@ -104,6 +104,8 @@ const FIN = {
   thickness: 0.00238125,
   materialName: 'Balsa',
   materialDensity: 170,
+  // Balsa's in `Databases.java`.
+  materialShearModulus: 0.23e9,
   materialGroup: 'Woods',
 } as const;
 
@@ -192,6 +194,7 @@ export function defaultRocketTree(): RocketTree {
         density: FIN.materialDensity,
         materialName: FIN.materialName,
         materialGroup: FIN.materialGroup,
+        shearModulus: FIN.materialShearModulus,
         position: { method: 'bottom', offset: 0 },
       },
       {

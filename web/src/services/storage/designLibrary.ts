@@ -5,7 +5,7 @@ import { parseJsonList } from './jsonListStore';
 import type { Workspace } from './workspaceStore';
 import type { FlightResult } from '../../engine/openRocketEngine';
 import { nsKey } from './storageKeys';
-import { isFiniteNumber } from '../app/numbers';
+import { isFiniteNumber, isRecord } from '../app/numbers';
 import { shortId } from '../app/uuid';
 
 export type StoredResults = Record<string, FlightResult>;
@@ -184,9 +184,9 @@ export class DesignLibrary {
     if (!raw) return {};
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      if (!isRecord(parsed)) return {};
       const out: StoredResults = {};
-      for (const [simId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      for (const [simId, value] of Object.entries(parsed)) {
         if (isFlightResult(value)) out[simId] = value;
       }
       return out;

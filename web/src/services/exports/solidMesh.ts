@@ -4,10 +4,17 @@ import type { ComponentNode } from '../../engine/openRocketEngine';
 import { noseConeAftRadius, num, numOpt } from '../../tree/nodeProps';
 import { finCutContour, finRootChord, finSpan, mountRadius, type FinParent } from '../../tree/finPlanform';
 import { freeformPoints, partLength } from '../../tree/position';
-import { hasShoulder, nodeShape, outerProfile, profileEnds, shouldersOf } from '../../tree/shapeProfile';
+import { hasShoulder, nodeOuterProfile, profileEnds, shouldersOf } from '../../tree/shapeProfile';
 import { tubeFinRadius } from '../../tree/tubefins';
 import { FIN_DEFAULTS, KERNEL_DEFAULTS, kernelDefault } from '../../tree/kernelDefaults';
-import { directedEdges, edgeKey, meshTolerances, undirectedEdgeCounts, validateSolid } from './meshValidate';
+import {
+  directedEdges,
+  edgeKey,
+  meshTolerances,
+  triangleArea,
+  undirectedEdgeCounts,
+  validateSolid,
+} from './meshValidate';
 import { KeyedError } from '../../i18n/keyedError';
 
 // In meters. Not the 3D view's geometry: its open shells and 0.1 mm tip floor leave non-manifold seams.
@@ -184,8 +191,7 @@ function dropDegenerate(geo: THREE.BufferGeometry, areaTol = 1e-12): THREE.Buffe
     a.fromBufferAttribute(pos, ia);
     b.fromBufferAttribute(pos, ib);
     c.fromBufferAttribute(pos, ic);
-    const area = b.clone().sub(a).cross(c.clone().sub(a)).length() * 0.5;
-    if (area > areaTol) keep.push(ia, ib, ic);
+    if (triangleArea(a, b, c) > areaTol) keep.push(ia, ib, ic);
   }
   geo.setIndex(keep);
   return geo;
@@ -294,7 +300,7 @@ function validated(geo: THREE.BufferGeometry | null): THREE.BufferGeometry | nul
   return geo;
 }
 
-// The kernel leaves a tube fin wall NaN, so borrow the inner tube's default.
+// A keyless tube fin wall takes the parent's wall in `autoRadius`; only a tree that skipped it borrows this.
 const TUBE_FIN_WALL = KERNEL_DEFAULTS.innertube.thickness;
 
 export function discSolidForNode(outerR: number, innerR: number, length: number): THREE.BufferGeometry | null {
@@ -308,8 +314,7 @@ function buildSolid(node: ComponentNode, parent: FinParent): THREE.BufferGeometr
     case 'nosecone': {
       const R = noseConeAftRadius(node);
       if (!(R > 0) || !(len > 0)) return null;
-      const shape = nodeShape(node);
-      const surface = outerProfile(shape, numOpt(node, 'shapeParameter'), len, 0, R, SEGMENTS);
+      const surface = nodeOuterProfile(node, len, 0, R, SEGMENTS);
       // Built tip first even when flipped, so the base shoulder always goes aft.
       const sh = shouldersOf(node);
       const base = node['flipped'] === true ? sh.fore : sh.aft;
@@ -320,9 +325,7 @@ function buildSolid(node: ComponentNode, parent: FinParent): THREE.BufferGeometr
     case 'transition': {
       const { fore: rf, aft: ra } = profileEnds(node);
       if (!(len > 0) || !(Math.max(rf, ra) > 0)) return null;
-      const shape = nodeShape(node);
-      const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
-      let surface = outerProfile(shape, numOpt(node, 'shapeParameter'), len, rf, ra, SEGMENTS, undefined, clipped);
+      let surface = nodeOuterProfile(node, len, rf, ra, SEGMENTS);
       const { fore, aft } = shouldersOf(node);
       if (hasShoulder(fore))
         surface = [[-fore.length, Math.min(fore.radius, rf)], [0, Math.min(fore.radius, rf)], ...surface];

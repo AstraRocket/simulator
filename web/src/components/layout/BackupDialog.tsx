@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fmtDateTime } from '../../i18n/format';
 import { useTranslation } from 'react-i18next';
 import { Dialog } from '../common/Dialog';
 import { useAsyncLoad } from '../common/useAsyncLoad';
@@ -8,7 +9,8 @@ import { useSettings } from '../../state/useSettings';
 import { assertImportSize, readFileText } from '../../services/files/decodeText';
 import { exportFilename, saveText } from '../../services/files/saveFile';
 import { appName } from '../../services/app/appInfo';
-import { todayYmd } from '../../services/weather/openMeteo';
+import { localToday } from '../../services/app/localDate';
+import { withMember } from '../../services/app/collections';
 import {
   BACKUP_LIBRARIES,
   libraryCounts,
@@ -21,9 +23,7 @@ import {
 } from '../../services/storage/backup';
 import { Check } from '../common/Check';
 import { StatusLine } from '../common/StatusLine';
-
-const button =
-  'rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink ring-1 ring-line/10 hover:bg-elevated disabled:opacity-50';
+import { DialogButton } from '../common/DialogButton';
 
 export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; onClose: () => void }) {
   const { t, i18n } = useTranslation();
@@ -35,13 +35,6 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
   const [results, setResults] = useState<Partial<Record<BackupLibrary, RestoreCount>> | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const toggle = (set: Set<BackupLibrary>, lib: BackupLibrary, on: boolean) => {
-    const next = new Set(set);
-    if (on) next.add(lib);
-    else next.delete(lib);
-    return next;
-  };
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -59,8 +52,10 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
     run(async () => {
       const text = await makeBackup(toSave, settings);
       // Local calendar day: a UTC date names an evening backup in the Americas tomorrow.
-      await saveText(text, exportFilename([appName(), 'backup', todayYmd()], 'json'), 'application/json');
-      setStatus(t('backup.saved'));
+      // Not on a cancel: a user who then clears site data would lose what they thought was saved.
+      if (await saveText(text, exportFilename([appName(), 'backup', localToday()], 'json'), 'application/json')) {
+        setStatus(t('backup.saved'));
+      }
     });
 
   const open = useFilePick({
@@ -96,11 +91,7 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
 
   const restorable = !!file && BACKUP_LIBRARIES.some((lib) => toRestore.has(lib) && file.entries[lib]);
 
-  const made = file?.created ? new Date(file.created) : null;
-  const madeText =
-    made && !Number.isNaN(made.getTime())
-      ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(made)
-      : null;
+  const madeText = file?.created ? fmtDateTime(new Date(file.created).getTime()) : null;
 
   return (
     <Dialog
@@ -119,7 +110,7 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
               <Check
                 key={lib}
                 checked={toSave.has(lib)}
-                onChange={(v) => setToSave((s) => toggle(s, lib, v))}
+                onChange={(v) => setToSave((s) => withMember(s, lib, v))}
                 className=""
                 label={
                   <>
@@ -131,9 +122,9 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
                 }
               />
             ))}
-            <button onClick={() => void save()} disabled={busy || toSave.size === 0} className={button}>
+            <DialogButton size="sm" onClick={() => void save()} disabled={busy || toSave.size === 0}>
               {t('backup.save')}
-            </button>
+            </DialogButton>
           </section>
         )}
 
@@ -147,7 +138,7 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
                   key={lib}
                   checked={toRestore.has(lib) && !!held}
                   disabled={!held}
-                  onChange={(v) => setToRestore((s) => toggle(s, lib, v))}
+                  onChange={(v) => setToRestore((s) => withMember(s, lib, v))}
                   className=""
                   label={
                     <>
@@ -163,12 +154,12 @@ export function BackupDialog({ mode, onClose }: { mode: 'backup' | 'restore'; on
             })}
             <p className="text-xs leading-snug text-ink-faint">{t('backup.skipNote')}</p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={open.pick} disabled={busy} className={button}>
+              <DialogButton size="sm" onClick={open.pick} disabled={busy}>
                 {t('backup.open')}
-              </button>
-              <button onClick={() => void restore()} disabled={busy || !restorable} className={button}>
+              </DialogButton>
+              <DialogButton size="sm" onClick={() => void restore()} disabled={busy || !restorable}>
                 {t('backup.restore')}
-              </button>
+              </DialogButton>
             </div>
             {open.input}
             {file && madeText && (

@@ -2,8 +2,8 @@
 // Use `surface_pressure`, never `pressure_msl`; `utc_offset_seconds` ignores DST, so local times come from `Intl`.
 
 import { AnonymousFetchError, anonymousGet } from './anonymousFetch';
-import { isFiniteNumber, roundTo, isRecord } from '../app/numbers';
-import { geometricFromGeopotential } from '../map/geodesy';
+import { isFiniteNumber, roundTo, isRecord, finiteOr } from '../app/numbers';
+import { geometricFromGeopotential, isLatLon } from '../map/geodesy';
 
 const FREE = {
   forecast: 'https://api.open-meteo.com',
@@ -93,8 +93,6 @@ export function ymdInZone(ms: number, timeZone: string | undefined): string {
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
-
-export const todayYmd = (): string => ymdInZone(Date.now(), undefined);
 
 const nextHourMs = (): number => Date.now() + 3_600_000;
 
@@ -255,8 +253,6 @@ export interface ForecastVariant {
   samples: HourSample[];
 }
 
-const finiteOrNull = (x: unknown): number | null => (isFiniteNumber(x) ? x : null);
-
 function refusalReason(body: unknown): string | null {
   const one: unknown = Array.isArray(body) ? body[0] : body;
   return isRecord(one) && one['error'] === true
@@ -284,12 +280,12 @@ export function parseForecast(body: unknown, elevationsM: readonly number[]): Fo
     for (const v of ['time', ...SURFACE_VARS]) {
       if (units[v] !== unitFor(v)) throw new WeatherError('units', `${v} in ${unitText(units[v])}`);
     }
-    const e = finiteOrNull(item['elevation']);
+    const e = finiteOr(item['elevation'], null);
     if (e === null || Math.abs(e - elevationsM[i]!) > 0.5) {
       throw new WeatherError('shape', `answered for ${e ?? 'no'} m, not ${elevationsM[i]!} m`);
     }
     const time = h['time'];
-    if (!Array.isArray(time) || time.some((t) => finiteOrNull(t) === null)) {
+    if (!Array.isArray(time) || time.some((t) => finiteOr(t, null) === null)) {
       throw new WeatherError('shape', 'no usable hours');
     }
     const series = (v: string, required: boolean): (number | null)[] => {
@@ -298,7 +294,7 @@ export function parseForecast(body: unknown, elevationsM: readonly number[]): Fo
       if (!Array.isArray(a) || a.length !== time.length)
         throw new WeatherError('shape', `${v} does not match its hours`);
       if (units[v] !== unitFor(v)) throw new WeatherError('units', `${v} in ${unitText(units[v])}`);
-      return a.map(finiteOrNull);
+      return a.map((x) => finiteOr(x, null));
     };
     const s = Object.fromEntries(SURFACE_VARS.map((v) => [v, series(v, true)])) as Record<
       (typeof SURFACE_VARS)[number],
@@ -352,13 +348,13 @@ const ELEVATION_BATCH = 100;
 
 function parseElevations(body: unknown, count: number): number[] | null {
   if (!isRecord(body) || !Array.isArray(body['elevation']) || body['elevation'].length !== count) return null;
-  const out = body['elevation'].map(finiteOrNull);
+  const out = body['elevation'].map((x) => finiteOr(x, null));
   return out.every((e): e is number => e !== null) ? out : null;
 }
 
 function parseElevation(body: unknown): number | null {
   if (!isRecord(body) || !Array.isArray(body['elevation'])) return null;
-  const e = finiteOrNull(body['elevation'][0]);
+  const e = finiteOr(body['elevation'][0], null);
   return e === null ? null : Math.round(e);
 }
 
@@ -518,7 +514,7 @@ function parsePlaces(json: unknown): PlaceMatch[] {
     const lat = r['latitude'];
     const lon = r['longitude'];
     if (!name || !(isFiniteNumber(lat) && isFiniteNumber(lon))) return [];
-    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return [];
+    if (!isLatLon(lat, lon)) return [];
     return [
       {
         name,
@@ -526,7 +522,7 @@ function parsePlaces(json: unknown): PlaceMatch[] {
         country: text(r['country']),
         latitudeDeg: lat,
         longitudeDeg: lon,
-        elevationM: finiteOrNull(r['elevation']),
+        elevationM: finiteOr(r['elevation'], null),
       },
     ];
   });

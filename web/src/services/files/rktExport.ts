@@ -5,10 +5,16 @@ import { clusterCount, clusterPlacesOf } from '../../tree/cluster';
 import { isChainType, rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
 import { countOf, numOpt, positionOf } from '../../tree/nodeProps';
 import { axialLength, freeformPoints, partLength, startFromPosition } from '../../tree/position';
-import { assemblyParentRadius, isAssembly, resolveAssemblyRadius, ringInstanceOffsets } from '../../tree/assembly';
+import {
+  assemblyChainLength,
+  assemblyParentRadius,
+  isAssembly,
+  resolveAssemblyRadius,
+  ringInstanceOffsets,
+} from '../../tree/assembly';
 import { profileEnds } from '../../tree/shapeProfile';
 import { finRootChord, tabPosition } from '../../tree/finPlanform';
-import { KERNEL_DEFAULTS, KERNEL_MATERIALS, kernelDefault } from '../../tree/kernelDefaults';
+import { KERNEL_DEFAULTS, kernelDefault } from '../../tree/kernelDefaults';
 import { asStageNodes } from '../design/orkTree';
 import { escapeXml } from './xmlUtil';
 import { plainDecimal } from './numberText';
@@ -16,7 +22,7 @@ import { radToDeg } from '../../prefs/units';
 import type { Keyed } from '../../i18n/keyedError';
 import { notePartName } from './importNote';
 import { partLabel } from '../../i18n/format';
-import { MATERIAL_KEYS, statedMaterial } from '../design/materialSlots';
+import { resolvedMaterial } from '../design/materialSlots';
 import {
   FINISH_CODES,
   LOCATION_CODES,
@@ -30,6 +36,7 @@ import {
   TIP_SHAPE_CODES,
 } from './rocksim/schema';
 import { overridesStages, type StageFigures } from './rocksim/stageStacks';
+import { DESKTOP_PART_NAMES } from './desktopPartNames';
 
 export type { StageFigures } from './rocksim/stageStacks';
 
@@ -90,7 +97,7 @@ const DENSITY_TYPES = { bulk: 0, surface: 1, line: 2 } as const;
 
 // Always written: desktop opens a part with no `Density` weighing nothing.
 function materialOf(n: ComponentNode, kind: Exclude<MaterialKind, 'none'>): { name: string; density: number } {
-  return statedMaterial(n, MATERIAL_KEYS[kind], kind === 'bulk') ?? KERNEL_MATERIALS[kind];
+  return resolvedMaterial(n, kind);
 }
 
 const put = (w: Writer, d: number, name: string, v: number | undefined, scale: (x: number) => number): void => {
@@ -107,7 +114,7 @@ function writeCommon(
   kind: MaterialKind = 'bulk',
   ownMass?: number,
 ): void {
-  el(w, d, 'Name', n.name ?? '');
+  el(w, d, 'Name', n.name ?? DESKTOP_PART_NAMES[n.type] ?? '');
   if (kind !== 'none') {
     const material = materialOf(n, kind);
     el(w, d, 'Material', material.name);
@@ -675,7 +682,7 @@ export function exportRkt(
     w.emit(3, `<${elName}>`);
     writeChildren(w, 4, stage, stageStart);
     w.emit(3, `</${elName}>`);
-    stageStart += kids.reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
+    stageStart += assemblyChainLength(stage);
   });
 
   w.emit(2, '</RocketDesign>');

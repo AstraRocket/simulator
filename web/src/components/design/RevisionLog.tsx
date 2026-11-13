@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { localToday } from '../../services/app/localDate';
 import { uuid } from '../../services/app/uuid';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 import { useWorkspaceStore } from '../../state/store';
 import { smallButton } from '../common/smallButton';
 import { NOTE_FIELD, NOTE_LABEL } from './designNotesStyles';
@@ -25,7 +25,7 @@ export function RevisionLog() {
     setNote('');
   };
   const remove = async (id: string) => {
-    if (!(await confirm({ message: t('config.removeRevisionConfirm'), danger: true }))) return;
+    if (!(await confirmDelete(t('config.removeRevisionConfirm')))) return;
     const rest = entries.filter((e) => e.id !== id);
     updateDesignMeta({ revisionLog: rest.length ? rest : undefined });
   };

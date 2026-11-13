@@ -6,8 +6,16 @@ import {
   type MotorSpec,
   type RocketTree,
 } from '../../src/engine/openRocketEngine';
+import { outlineCrossesItself } from '../../src/services/design/finOutline';
 import { KERNEL_TEST_TIMEOUT_MS } from '../testing/kernelTimeout';
-import { MAX_FIN_POINTS, MAX_LINE_COUNT, MAX_NESTING_DEPTH } from '../../src/services/files/ork/importLimits';
+import {
+  MAX_AUTO_RADIUS_RUN,
+  MAX_COMPONENTS,
+  MAX_FIN_POINTS,
+  MAX_LINE_COUNT,
+  MAX_NESTING_DEPTH,
+  MAX_TOTAL_INSTANCES,
+} from '../../src/services/files/ork/importLimits';
 
 // The vendored module loads directly because `initEngine` wants a browser.
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
@@ -175,7 +183,7 @@ describe('error envelopes, from the Java side', () => {
   });
 
   it('refuses a sweep whose point count overflows, instead of returning an empty one', () => {
-    // Not /sweep/i: the wrapper prefixes every message with "engine aeroSweep failed".
+    // Not /sweep/i: the wrapper names the call ("failed at aeroSweep").
     expect(() => build().aeroSweep({ machMin: 0, machMax: 1, machStep: 5e-324 })).toThrow(/infinite number|over the/);
     expect(() => build().aeroSweep({ machMin: -1.7e308, machMax: 1.7e308, machStep: 0.05 })).toThrow(
       /infinite number|over the/,
@@ -372,6 +380,58 @@ describe('the import ceilings match the kernel', () => {
     const points = Array.from({ length: MAX_FIN_POINTS + 1 }, (_, i) => [i * 1e-5, i === 0 ? 0 : 0.01]);
     tube['children'] = [{ id: 'ff', type: 'freeformfinset', finCount: 3, thickness: 0.002, points }];
     expect(() => OpenRocketDesign.buildTree(tree as unknown as RocketTree).staticInfo()).toThrow(/points/);
+  });
+
+  it('refuses nested counts that multiply out past the browser ceiling, before building', () => {
+    const tube = (children?: unknown[]) => ({
+      type: 'bodytube',
+      length: 0.1,
+      outerRadius: 0.01,
+      thickness: 0.001,
+      children,
+    });
+    // A pod set sits on a tube, so each level is a tube carrying 64 pods.
+    const pods = (levels: number) => {
+      let node: Record<string, unknown> = tube();
+      for (let i = 0; i < levels; i++) node = tube([{ type: 'podset', instanceCount: 64, children: [node] }]);
+      return { components: [{ type: 'stage', children: [node] }] } as unknown as RocketTree;
+    };
+    // 1 + 64 + 64 + 4096 + 4096 instances.
+    expect(() => OpenRocketDesign.buildTree(pods(2)).staticInfo()).not.toThrow();
+    // 262,144 instances: refused at once, where building took seconds.
+    const started = performance.now();
+    expect(() => OpenRocketDesign.buildTree(pods(3))).toThrow(new RegExp(`more than ${MAX_TOTAL_INSTANCES} parts`));
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  // Every pass walks the chain back to its sized tube; 200 tubes took 24 s at one pass per tube.
+  const tubes = (count: number, auto: (i: number) => boolean) =>
+    ({
+      components: [
+        {
+          type: 'stage',
+          children: Array.from({ length: count }, (_, i) => ({
+            type: 'bodytube',
+            length: 0.01,
+            outerRadius: 0.02,
+            thickness: 0.001,
+            outerRadiusAuto: auto(i),
+          })),
+        },
+      ],
+    }) as unknown as RocketTree;
+
+  it('builds a run of automatic radii at the browser ceiling, at the sized tube radius, and refuses one more', () => {
+    const design = OpenRocketDesign.buildTree(tubes(MAX_AUTO_RADIUS_RUN + 1, (i) => i > 0));
+    expect(design.staticInfo().refDiameter).toBeCloseTo(0.04, 9);
+    expect(() => OpenRocketDesign.buildTree(tubes(MAX_AUTO_RADIUS_RUN + 2, (i) => i > 0))).toThrow(/in a row/);
+  });
+
+  it('builds as many parts as the browser ceiling, and refuses one more', () => {
+    expect(() => OpenRocketDesign.buildTree(tubes(MAX_COMPONENTS - 1, () => false))).not.toThrow();
+    expect(() => OpenRocketDesign.buildTree(tubes(MAX_COMPONENTS, () => false))).toThrow(
+      new RegExp(`more than ${MAX_COMPONENTS} parts`),
+    );
   });
 
   it('builds a parachute at the line count ceiling, and refuses one line more', () => {
@@ -1106,6 +1166,30 @@ describe('a self-intersecting freeform fin outline is refused', () => {
   it('refuses a crossing outline, naming the fin set', () => {
     expect(() => info(BOWTIE)).toThrow(/Forward fins/);
     expect(() => info(BOWTIE)).toThrow(/crosses or touches itself/);
+  });
+
+  // The fin editor refuses an edit by the same test; on a 1 mm grid, touching and collinear edges are common.
+  it('refuses exactly the outlines the fin editor refuses', () => {
+    let seed = 7;
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
+    const mm = (lo: number, hi: number) => Math.round(lo + rand() * (hi - lo)) / 1000;
+    const outlines = [VALID, BOWTIE, REPEATED];
+    for (let k = 0; k < 150; k++) {
+      const interior = Array.from({ length: 2 + (k % 5) }, () => [mm(-20, 80), mm(0, 60)]);
+      outlines.push([[0, 0], ...interior, [mm(10, 80), 0]]);
+    }
+    const kernelRefuses = (points: number[][]) => {
+      try {
+        info(points);
+        return false;
+      } catch (e) {
+        if (/crosses or touches itself/.test(String(e))) return true;
+        throw e;
+      }
+    };
+    const verdicts = outlines.map((p) => [kernelRefuses(p), outlineCrossesItself(p as [number, number][])]);
+    expect(verdicts.filter(([kernel, editor]) => kernel !== editor)).toEqual([]);
+    expect(new Set(verdicts.map(([kernel]) => kernel)).size).toBe(2);
   });
 
   it('refuses an outline with a repeated point', () => {

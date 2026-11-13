@@ -56,7 +56,7 @@ export function UpdateToast() {
       return;
     }
     next?.addEventListener('statechange', () => next.state === 'activated' && reloadOnce());
-    if (swReg) setTimeout(reloadOnce, APPLY_FALLBACK_MS);
+    if (swReg) reloadOnceLeft(swReg, next);
     void updateServiceWorker(true);
   }, [swReg, updateServiceWorker]);
 
@@ -152,7 +152,8 @@ export function UpdateToast() {
   );
 }
 
-const APPLY_FALLBACK_MS = 10_000;
+// Backs up the `activated` listener, which misses a worker that turned redundant instead.
+const APPLY_POLL_MS = 1_000;
 
 let reloading = false;
 
@@ -160,6 +161,15 @@ function reloadOnce(): void {
   if (reloading) return;
   reloading = true;
   window.location.reload();
+}
+
+/** Not while `next` still waits: the old worker would serve the old page, whose files the new one deletes on activating. */
+function reloadOnceLeft(reg: ServiceWorkerRegistration, next: ServiceWorker | undefined): void {
+  const poll = setInterval(() => {
+    if (reg.waiting === next) return;
+    clearInterval(poll);
+    reloadOnce();
+  }, APPLY_POLL_MS);
 }
 
 function UpdateToastBody({

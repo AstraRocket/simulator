@@ -1,4 +1,12 @@
 // localStorage throws when site data is blocked.
+export function readLocalText(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 export function readLocalJson<T>(key: string, valid: (v: unknown) => v is T, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);

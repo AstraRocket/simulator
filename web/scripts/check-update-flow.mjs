@@ -1,13 +1,11 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { cpSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { acknowledgeWip, servePreview, VITE, WEB } from './lib/previewCheck.mjs';
 
 /* global document, location, window */
 
-const WEB = fileURLToPath(new URL('..', import.meta.url));
-const VITE = resolve(WEB, 'node_modules/vite/bin/vite.js');
 const OUT = 'dist-update-check';
 // Served again later as a CDN node still holding the previous deploy.
 const OUT_B = 'dist-update-check-b';
@@ -17,8 +15,6 @@ const VERSION_A = '0.0.0-update-a';
 const VERSION_B = '0.0.0-update-b';
 const VERSION_C = '0.0.0-update-c';
 // Must match services/storage/settings.ts; this .mjs cannot import TS.
-const SETTINGS_KEY = 'astrarocket:settings:v1';
-
 const log = (...a) => console.log('[update-flow]', ...a);
 const chunkOf = (html) => html.match(/assets\/index-[\w-]+\.js/)?.[0] ?? null;
 
@@ -31,43 +27,13 @@ function build(version) {
   });
 }
 
-async function serve() {
-  const child = spawn(process.execPath, [VITE, 'preview', '--outDir', OUT, '--port', String(PORT), '--strictPort'], {
-    cwd: WEB,
-    stdio: ['ignore', 'ignore', 'inherit'],
-  });
-  for (let i = 0; i < 100; i++) {
-    try {
-      const res = await fetch(URL_);
-      if (res.ok) return child;
-    } catch {
-      // not up yet
-    }
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  child.kill();
-  throw new Error('preview server did not come up');
-}
+const serve = () => servePreview(OUT, PORT, URL_);
 
 async function main() {
   build(VERSION_A);
   const server = await serve();
   const browser = await chromium.launch();
   try {
-    const acknowledgeWip = (p) =>
-      p.addInitScript((key) => {
-        let stored = {};
-        try {
-          stored = JSON.parse(localStorage.getItem(key) || '{}') ?? {};
-        } catch {
-          // a corrupt blob; the app discards it too, so start clean
-        }
-        try {
-          localStorage.setItem(key, JSON.stringify({ ...stored, wipAcknowledged: true }));
-        } catch {
-          // about:blank has no storage; the real navigation runs this again
-        }
-      }, SETTINGS_KEY);
     const page = await browser.newPage();
     await acknowledgeWip(page);
 

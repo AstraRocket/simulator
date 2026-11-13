@@ -3,7 +3,7 @@ import type { ComponentNode, IgnitionEvent, MotorSpec, RocketTree } from '../../
 import { newFlightConfig, type MountMotor } from '../../../src/services/flight/flightConfigs';
 import type { OrkExportMotor } from '../../../src/services/files/orkFile';
 import { buildExportMotorMap } from '../../../src/services/motors/exportMotors';
-import { emptyMountMotor } from '../../../src/services/files/loadOrk';
+import { emptyMotorSpec } from '../../../src/services/motors/motorCurve';
 
 const node = (o: object) => o as unknown as ComponentNode;
 const spec = (designation: string, manufacturer?: string): MotorSpec =>
@@ -53,7 +53,7 @@ describe('buildExportMotorMap', () => {
   });
 
   it('leaves out a mount a loaded file left empty, so the desktop is not sent a motor named ""', () => {
-    const m = buildExportMotorMap(tree, newFlightConfig({ primary: mount('D12'), pod: { spec: emptyMountMotor() } }));
+    const m = buildExportMotorMap(tree, newFlightConfig({ primary: mount('D12'), pod: { spec: emptyMotorSpec() } }));
     expect(Object.keys(m)).toEqual(['primary']);
   });
 

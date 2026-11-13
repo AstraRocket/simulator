@@ -1,8 +1,9 @@
 import type { CommitEditProps } from './DimensionFields';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentType } from '../../engine/openRocketEngine';
-import { colorForType, mergePalette } from '../../services/design/partColors';
+import { colorForType } from '../../services/design/partColors';
+import { usePartPalette } from '../common/usePartPalette';
 import {
   alphaOf,
   defaultAppearance,
@@ -29,8 +30,8 @@ import { PanelButton } from './PanelButton';
 
 export function AppearanceSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
-  const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
+  const { settings, updateSection } = useSettings();
+  const palette = usePartPalette();
   const hasInside = INSIDE_COLOR_TYPES.has(node.type);
   const sided = SIDED_TYPES.has(node.type);
   const separate = hasInside && node['separateInsideOutside'] === true;
@@ -46,11 +47,8 @@ export function AppearanceSection({ node, onCommitChange }: CommitEditProps) {
   // `ApplicationPreferences.setDefaultColor` / `setDefaultLineStyle`, then the part's own is cleared.
   const saveAsDefault = () => {
     const lineStyle = readLineStyle(node['lineStyle']);
-    update({
-      figureStyles: {
-        ...settings.figureStyles,
-        [node.type]: { ...saved, ...(figureColor ? { color: figureColor } : {}), ...(lineStyle ? { lineStyle } : {}) },
-      },
+    updateSection('figureStyles', {
+      [node.type]: { ...saved, ...(figureColor ? { color: figureColor } : {}), ...(lineStyle ? { lineStyle } : {}) },
     });
     onCommitChange({ color: undefined, lineStyle: undefined });
   };

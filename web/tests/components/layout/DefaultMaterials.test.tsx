@@ -12,7 +12,7 @@ beforeAll(serveData);
 const CATALOG = readData<MaterialRow[]>('materials.generated.json');
 
 describe('Settings default materials', () => {
-  it("stores the chosen material's catalog group", async () => {
+  it("stores the chosen material's catalog group and shear modulus", async () => {
     const aluminum = CATALOG.find((m) => m.name === 'Aluminum' && m.type === 'bulk')!;
     const onChange = vi.fn();
     renderWithProviders(<DefaultMaterials defaults={{}} onChange={onChange} />);
@@ -20,7 +20,7 @@ describe('Settings default materials', () => {
     await waitFor(() => expect(picker.querySelector('option[value="Aluminum"]')).not.toBeNull());
     fireEvent.change(picker, { target: { value: 'Aluminum' } });
     expect(onChange.mock.calls.at(-1)![0]).toEqual({
-      'bodytube:bulk': { name: 'Aluminum', density: aluminum.density, group: aluminum.group },
+      'bodytube:bulk': { name: 'Aluminum', density: aluminum.density, group: aluminum.group, shearModulus: 26e9 },
     });
   });
 });

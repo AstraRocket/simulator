@@ -1,10 +1,10 @@
 {
   "name": "astrarocket-web",
-  "version": "0.5.27",
+  "version": "0.5.28",
   "version_major": 0,
   "version_minor": 5,
-  "version_patch": 27,
-  "version_date": "11/09/2026",
+  "version_patch": 28,
+  "version_date": "11/13/2026",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -52,10 +52,9 @@
     "metrics": "node scripts/quality-metrics.mjs",
     "preview": "vite preview",
     "spell": "cspell --no-progress --config ../cspell.json",
-    "sync:all": "npm run sync:database && npm run sync:motors && npm run sync:motor-digests && npm run sync:materials && npm run sync:components && npm run sync:preset-digests && npm run sync:examples && npm run sync:contributors",
+    "sync:all": "npm run openrocket:build && npm run sync:motors && npm run sync:motor-digests && npm run sync:materials && npm run sync:components && npm run sync:preset-digests && npm run check:digests && npm run sync:examples && npm run sync:contributors",
     "sync:components": "node scripts/sync-components.mjs",
     "sync:contributors": "node scripts/sync-contributors.mjs",
-    "sync:database": "node scripts/fetch-parts-database.mjs",
     "sync:examples": "node scripts/sync-examples.mjs",
     "sync:materials": "node scripts/sync-materials.mjs",
     "sync:motor-digests": "node scripts/sync-motor-digests.mjs",

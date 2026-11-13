@@ -5,7 +5,7 @@ import { getWorkspaceStore, lean, resultsOf } from '../services/storage/workspac
 import { migrateWorkspace } from '../services/storage/workspaceMigrate';
 import { workspaceSnapshot } from './workspaceSelectors';
 import type { WorkspaceState } from './store';
-import { showing } from './viewSlice';
+import { LAND_ON_DESIGN } from './viewSlice';
 import { claimWorkspace, observeWorkspace, workspaceHandoff } from './workspaceHandoff';
 import { holdSaves, voidPendingAutosave } from './writtenWorkspace';
 
@@ -76,7 +76,7 @@ export const createDesignLibrarySlice =
         if (!opened) return missing();
         clearHistory();
         get().hydrate(opened);
-        set((s) => ({ selectedId: null, ...showing(s, '2d') }));
+        set({ selectedId: null, ...LAND_ON_DESIGN });
         await get().refreshDesigns();
       },
 

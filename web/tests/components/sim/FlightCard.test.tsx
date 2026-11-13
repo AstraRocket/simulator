@@ -7,6 +7,7 @@ import { FlightCard } from '../../../src/components/sim/FlightCard';
 import type { ResultFlight } from '../../../src/services/flight/simulations';
 import type { FlightConfig } from '../../../src/services/flight/flightConfigs';
 import type { FlightResult, MotorSpec, RocketTree, StaticInfo } from '../../../src/engine/openRocketEngine';
+import { METRIC_UNITS } from '../../../src/prefs/units';
 
 const spec = {
   designation: 'H128',
@@ -135,6 +136,17 @@ describe('the flight card', () => {
     expect(card.textContent).toContain('Certification held');
     expect(card.textContent).toContain('Settings ▸ Flyer');
     expect(within(card).queryByRole('note')).toBeNull();
+  });
+
+  it('prints the rail and wind in the units the launch panel uses', () => {
+    seedSettings({ units: { ...METRIC_UNITS, length: 'ft', distance: 'm', windspeed: 'mph', velocity: 'm/s' } });
+    const flight = seed();
+    renderWithProviders(<FlightCard flight={flight} />);
+    const card = screen.getAllByRole('article')[0]!;
+    // 1.8 m of rail and 3 m/s of wind.
+    expect(card.textContent).toContain('5.91 ft');
+    expect(card.textContent).toMatch(/6\.7\d? mph/);
+    localStorage.clear();
   });
 
   it("leaves out a rocket's mass and CG the live build did not weigh", () => {

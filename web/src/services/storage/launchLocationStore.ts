@@ -3,6 +3,7 @@ import { IndexedDbKeyValueStore } from './idbKeyValueStore';
 import { JsonListStore } from './jsonListStore';
 import { uuid } from '../app/uuid';
 import { nsKey } from './storageKeys';
+import { isLatLon } from '../map/geodesy';
 
 export interface LaunchLocation {
   id: string;
@@ -39,8 +40,7 @@ export function isLocation(v: unknown): v is LaunchLocation {
     typeof p.id === 'string' &&
     p.id !== '' &&
     typeof p.name === 'string' &&
-    num(p.latitudeDeg, LAUNCH_SITE_LIMITS.latitudeDeg) &&
-    num(p.longitudeDeg, LAUNCH_SITE_LIMITS.longitudeDeg) &&
+    isLatLon(p.latitudeDeg, p.longitudeDeg) &&
     (p.launchAltitudeM === null || num(p.launchAltitudeM, LAUNCH_SITE_LIMITS.launchAltitudeM))
   );
 }

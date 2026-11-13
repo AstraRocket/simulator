@@ -457,7 +457,7 @@ function surfaceChainIndexes(context is Context, finPlane is Plane, snapEdges is
     {
         steps += 1;
 
-        // Continue from whichever end of the current curve lies towards the aft
+        // Continue from whichever end of the current curve lies toward the aft
         // root point.
         const forwardIsEnd = abs(currentGeom.end2D[axialIndex] - aftY) < abs(currentGeom.start2D[axialIndex] - aftY);
         const forwardY = forwardIsEnd ? currentGeom.end2D[axialIndex] : currentGeom.start2D[axialIndex];
@@ -1275,7 +1275,7 @@ function airfoilSectionProfile(sketch is Sketch, units is ValueWithUnits, chord,
     return true;
 }
 
-/** The NACA four-digit half-thickness at chord fraction `s`, normalised so the maximum
+/** The NACA four-digit half-thickness at chord fraction `s`, normalized so the maximum
  *  is 1; `s` is clamped to [0, 1] so a rounded sample cannot ask for a negative root. */
 function airfoilHalfThickness(s)
 {
@@ -1284,16 +1284,16 @@ function airfoilHalfThickness(s)
                 + 0.2843 * c * c * c - 0.1036 * c * c * c * c);
 }
 
-/** Points along a circle of `radius` about (`centreX`, `centreY`), `from` to `to`
+/** Points along a circle of `radius` about (`centerX`, `centerY`), `from` to `to`
  * inclusive.  The caller supplies the start point, so only the steps are added. */
-function appendHalfCircle(points is array, units is ValueWithUnits, centreX, centreY, radius, from, to) returns array
+function appendHalfCircle(points is array, units is ValueWithUnits, centerX, centerY, radius, from, to) returns array
 {
     // `from`/`to` are bare numbers in radians, given their unit only where the
     // trig functions need one (note 33).
     for (var i = 1; i <= ARC_STEPS; i += 1)
     {
         const angle = from + (to - from) * i / ARC_STEPS;
-        points = append(points, vector(centreX + radius * cos(angle * radian), centreY + radius * sin(angle * radian)) * units);
+        points = append(points, vector(centerX + radius * cos(angle * radian), centerY + radius * sin(angle * radian)) * units);
     }
     return points;
 }
@@ -1344,13 +1344,14 @@ function finTabExtent(params is map) returns map
     // the tab is not clamped to the chord here (see the note above).
     var length = tab.length == undefined ? 0 : tab.length;
 
-    // `position` is a LENGTH in metres, not a fraction of the chord, and may be
+    // `position` is a LENGTH in meters, not a fraction of the chord, and may be
     // NEGATIVE.  All FIVE AxialMethod cases are explicit (note 34).
     var front = offset;
     if (method == "after" || method == "aftersibling" || method == "aftersiblings")
     {
         front = offset + chord;
     }
+    // A file may spell the method either way. cspell:disable-next-line
     else if (method == "middle" || method == "center" || method == "centre")
     {
         front = offset + (chord - length) / 2;
@@ -1399,7 +1400,7 @@ export function ellipticalfinsetComponentSketch(context is Context, comp is map,
     drawSnappedFinOutline(context, sketch, finProfilePoints(comp.params, "planform", units), units, sketchPlane, parentSketch, parentSiblingSketches);
 }
 
-/** Tube-fin section in the meridian sketch plane: an annulus centred at the tube
+/** Tube-fin section in the meridian sketch plane: an annulus centered at the tube
  * axis, offset from the rocket axis by the parent body radius plus the tube. */
 export function tubefinsetComponentSketch(comp is map, sketch is Sketch, units is ValueWithUnits)
 {
@@ -1446,7 +1447,7 @@ export function parachuteComponentSketch(comp is map, sketch is Sketch, units is
 }
 
 /** A streamer, drawn as its PACKED canister, like a parachute or shock cord.  Its
- * own function only to make explicit that it is modelled stowed (note 15). */
+ * own function only to make explicit that it is modeled stowed (note 15). */
 export function streamerComponentSketch(comp is map, sketch is Sketch, units is ValueWithUnits) {
     packedCanisterSketch(comp.params, sketch, units);
 }
@@ -1585,7 +1586,7 @@ function sketchProfile(comp is map, sketch is Sketch, units is ValueWithUnits)
     if (size(profilePoints) < 2)
     {
         // @keep: the user has to re-export the JSON for this to go away.
-        println("  [profile] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no profile — regenerate the JSON with the current web app");
+        println("  [profile] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no profile; regenerate the JSON with the current web app");
         return;
     }
 
@@ -1604,7 +1605,7 @@ function sketchProfile(comp is map, sketch is Sketch, units is ValueWithUnits)
     if (!hasBore)
     {
         // @keep: a stale payload, and the user is the one who can fix it.
-        println("  [profile] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no innerProfile — drawn solid; regenerate the JSON with the current web app");
+        println("  [profile] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no innerProfile, so it is drawn solid; regenerate the JSON with the current web app");
     }
 
     // Dividing by `units` turns a length back into a bare number before it is
@@ -1659,7 +1660,7 @@ export function sketchShoulder(comp is map, sketch is Sketch, units is ValueWith
     if (shoulders == undefined)
     {
         // @keep: as above -- only a fresh payload fixes this.
-        println("  [shoulder] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no shoulderProfile — regenerate the JSON with the current web app");
+        println("  [shoulder] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no shoulderProfile; regenerate the JSON with the current web app");
         return;
     }
 
@@ -1749,8 +1750,8 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *    Every component is coaxial with the rocket axis (Z), but a component inside
  *    a pod set is coaxial with the *pod*.  Revolving about the global axis
  *    therefore measures a pod child's radius as the pod's offset from the rocket
- *    axis: a fin root a little off a pod tube far off centre reads as the pod's
- *    whole offset, so the snap test compares the fin against the pod's centreline
+ *    axis: a fin root a little off a pod tube far off center reads as the pod's
+ *    whole offset, so the snap test compares the fin against the pod's centerline
  *    instead of its wall, and the root-slide pass then shoves the profile out
  *    until the fin lands on the core body's surface.  Taking the axis through the
  *    plane origin's own x/y picks the component's own axis out of that family; for
@@ -1784,20 +1785,20 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *    A fin's root can outrun its direct parent, for instance a fin on a
  *    transition whose root reaches back over the body tube beside it.  The face
  *    then has to close along the real profile across that whole run, so the
- *    neighbouring outlines are offered as well as the parent's.
+ *    neighboring outlines are offered as well as the parent's.
  *
 
  * 4. Why edgeIndexAllowed tests membership
  *
- *    The restriction used to be the range test `size(restrictTo) >= i`, which
- *    skipped indices 0..size(restrictTo) rather than checking membership.
- *    Low-indexed edges such as a body's outer wall were never considered, and a
- *    fin point matched the tube's inner wall instead.
+ *    A range test such as `size(restrictTo) >= i` would skip indices
+ *    0..size(restrictTo) rather than check membership: low-indexed edges such
+ *    as a body's outer wall would never be considered, and a fin point would
+ *    match the tube's inner wall instead.
  *
 
  * 5. Why the chain walk is given the aft root's own y
  *
- *    The walk heads towards the aft root, so that is what it must measure
+ *    The walk heads toward the aft root, so that is what it must measure
  *    against -- not an arbitrary vertex of the aft edge.  A transition's start
  *    vertex sits exactly where the previous segment ends, so using it as the
  *    target makes the walk's direction ambiguous at that shared point: it steps
@@ -1920,7 +1921,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     So for a root end lying beyond a curve's axial end, the axial gap is not a
  *     failure to snap -- it is a link waiting to be drawn (notes 7).  Measuring
  *     the full 3D distance adds that overrun to the radial term, so a fin
- *     sitting at exactly the right radius still reports millimetres, blows past
+ *     sitting at exactly the right radius still reports millimeters, blows past
  *     SNAP_TOLERANCE, and matches nothing.  `rootMatchDistance` therefore
  *     measures only the radial term once the root end is out of the curve's
  *     span, and measures against the curve itself while it is inside it.
@@ -1949,18 +1950,16 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *
  *       - the axis clipping where a wall is thicker than the local radius, so
  *         `innerForeNegative` / `innerAftNegative` and the intercept points are
- *         no longer needed on this side;
+ *         not needed on this side;
  *       - the solid case as two points on the axis (`innerIsAxis`).
  *
- *     Shoulders used to be in this list too, as bridging discs/annuli and a
- *     bore step.  They are not any more -- see note 18.
+ *     Shoulders are not in this list: they are revolved on their own (note 18).
  *
- *     That is why this function no longer branches on `thickness`, `filled` or
- *     the shape: those cases used to be decided here, each with its own way of
- *     closing the section, and they disagreed with each other.  The quad
- *     shortcut for plain cones is gone for the same reason -- it cannot carry a
- *     shoulder, a wall or a cap, and the web app already emits a two-point
- *     profile for a cone.
+ *     So this function does not branch on `thickness`, `filled` or the shape:
+ *     deciding those cases here, each with its own way of closing the section,
+ *     makes them disagree with each other.  Nor is there a quad shortcut for
+ *     plain cones: it cannot carry a shoulder, a wall or a cap, and the web app
+ *     already emits a two-point profile for a cone.
  *
  *     The two end faces do the closing: on a solid they span the full radius
  *     and are the caps; on a walled component they span only the wall, leaving
@@ -1970,7 +1969,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  * 15. Why a missing bore is reported instead of fatal
  *
  *     `sketchProfile` is typed, so `convertProfilePoints(params.innerProfile, …)`
- *     is a compile error the moment `innerProfile` is absent — it does not
+ *     is a compile error the moment `innerProfile` is absent: it does not
  *     degrade to undefined at runtime.  A JSON from an older web app trips that,
  *     because that build emitted `profile` for every shape but only emitted
  *     `innerProfile` for non-conical, unfilled, walled components.
@@ -2000,37 +1999,32 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     is why a solid and a walled section can share one code path.
  *
 
- * 17. Why a section that reaches the axis used to be reported
+ * 17. How to tell a refused section that reaches the axis from a wrong profile
  *
  *     A solid nose cone's tip is ON the rocket axis, and a solid section runs
  *     along the axis for a segment before closing.  That is the one section shape
  *     whose failure mode is invisible in the sketch: the profile and the region
  *     both look correct, and only the revolve refuses.  A `[section]` println
- *     reporting the minimum radius used to separate "the revolve rejected a
- *     solid section" from "the profile is actually wrong".
- *
- *     That instrumentation is now removed.  It narrowed the failure down but
- *     could not fix it: the profile was never wrong.  See note 18 for what
- *     actually did, and re-add the equivalent print if a revolve ever fails
- *     again -- it is two lines.
+ *     reporting the minimum radius separates "the revolve rejected a solid
+ *     section" from "the profile is actually wrong"; it is two lines to add if
+ *     a revolve fails.  Note 18 is why a correct section can still be refused.
  *
 
  * 18. Why shoulders are revolved separately and unioned on
  *
- *     Shoulders used to be folded into the component's own meridian section
- *     (`profile` / `innerProfile`), as bridging discs/annuli and a bore step at
- *     the component's end plane.  That section is geometrically correct and the
- *     revolve refused it anyway, with REVOLVE_FAILED, on every component whose
- *     region runs ALONG the axis -- i.e. every solid one.  Three hypotheses for
- *     the cause were formed and disproved in a row; the profile was never the
- *     problem, and neither was the sketch: each one solved to exactly one face.
+ *     A shoulder folded into the component's own meridian section (`profile` /
+ *     `innerProfile`), as bridging discs/annuli and a bore step at the
+ *     component's end plane, gives a section that is geometrically correct, and
+ *     the revolve refuses it anyway, with REVOLVE_FAILED, on every component
+ *     whose region runs ALONG the axis -- i.e. every solid one.  Neither the
+ *     profile nor the sketch is at fault: each solves to exactly one face.
  *
- *     The fix is structural rather than numerical.  A shoulder is now its own
+ *     The answer is structural rather than numerical.  A shoulder is its own
  *     small closed polygon -- `shoulderProfile(params, 'fore' | 'aft')` in
  *     geometry.ts, drawn by `sketchShoulder` above -- revolved on its own about
  *     the same axis and boolean-unioned onto the body (see `unionShoulders` in
- *     main.fs, note 10).  The body is left with exactly the section it had
- *     before shoulders existed, which is the well-trodden path.
+ *     main.fs, note 10).  The body keeps a section with no shoulder in it,
+ *     which is the well-trodden path.
  *
  *     The connector step matters and must stay in the polygon.  A shoulder's
  *     radius routinely differs from the body's end radius, so the outline runs
@@ -2133,7 +2127,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     CREATED one -- and 1e-9 m is exactly `MIN_SEGMENT_LENGTH`, the same
  *     threshold this file uses elsewhere to decide a segment does not exist.
  *
- *     So the zero is left alone on the web-app side and honoured here: no
+ *     So the zero is left alone on the web-app side and honored here: no
  *     section, no region, no body.  `createComponents` completes a component
  *     with an undefined face without complaint (notes 4), and the mass still
  *     counts, because it comes from `params.mass` rather than from geometry.
@@ -2258,7 +2252,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     This is the same reason shoulders are not folded into the body's meridian
  *     section (note 18), one level up: a feature that has to meet the parent
  *     along a curve is easier to get right, and to keep debuggable, as its own
- *     body unioned on afterwards.  A tab cannot even be drawn in the fin's own
+ *     body unioned on afterward.  A tab cannot even be drawn in the fin's own
  *     sketch, for a further reason: it shares its outer edge with the root
  *     chord, so the two regions would touch or overlap, and `createComponents`
  *     keeps only `qSketchRegion(sketchId)[0]` anyway.
@@ -2298,8 +2292,8 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     exact for all three fin types and reuses the very region the square path
  *     already extrudes.
  *
- *     The square path is deliberately untouched -- same single symmetric extrude
- *     as before.  It is the default, it is what all six test rockets use, and it
+ *     The square path is deliberately a single symmetric extrude.  It is the
+ *     default, it is what all six test rockets use, and it
  *     is the one path in this file known to work; putting it through a new
  *     boolean would trade a proven result for an unproven one.  The two shaped
  *     sections are new code on a new code path, and every step of it is guarded
@@ -2324,7 +2318,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *
  *     That is harmless while the corner's station is negative and fatal once it
  *     is positive, and a positive station is ORDINARY rather than exotic: any tab
- *     longer than its own root chord centred on the chord has both ends outboard
+ *     longer than its own root chord centered on the chord has both ends outboard
  *     of the leading and trailing edges, so the fore corner's `y` goes positive.
  *     The solver then takes the mirror, and the tab is drawn at `-y`.
  *
@@ -2398,7 +2392,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     corners are offset outward, radially away from the axis and so into the
  *     fin, by `overlap` -- a quarter of the tab height, capped at the fin's
  *     thickness.  The offset is buried inside the fin, so nothing about the
- *     finished part changes, but the boolean now has a volume to work with.
+ *     finished part changes, but the boolean has a volume to work with.
  *
  *     This is the one thing the overlap must NOT be traded away for, and it is
  *     why the tab's top edge is a PROJECTION rather than a curve the tab owns:
@@ -2589,7 +2583,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     that is wrong on a tapering parent.  `offsetRadius` is one constant, true
  *     at the fin's root chord, but a 50 mm tab running down a transition that
  *     loses ~5.7 mm of radius showed a ~5.04 mm miss on the correct outer
- *     profile -- rejected by 0.04 mm -- in favour of a 10 mm sliver that happened
+ *     profile -- rejected by 0.04 mm -- in favor of a 10 mm sliver that happened
  *     to sit near the constant.  The tab then projected that sliver and the
  *     region could not close on it.
  *
@@ -2614,13 +2608,13 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *
  * 34. Why `tab.position` is a LENGTH, and all five AxialMethod cases are explicit
  *
- *     `position` is a LENGTH in metres, NOT a fraction of the chord.  The FinTab
+ *     `position` is a LENGTH in meters, NOT a fraction of the chord.  The FinTab
  *     type in webapp/src/types.ts used to document it as "fraction along root
  *     chord [0..1]", which was wrong; that comment came from an older assumption
  *     that a tab could never be longer than its fin, and the assumption no
  *     longer holds.  OpenRocket's own `<tabposition>` has always held a length
  *     (`FinSet.getTabOffset()`) and nothing in the importer scales it, so
- *     `offset` is used directly.  It may legitimately be NEGATIVE: centring a tab
+ *     `offset` is used directly.  It may legitimately be NEGATIVE: centering a tab
  *     longer than its chord pushes the start back past the fin's leading edge,
  *     and the Airstart example rocket ships exactly that (-0.0047625 on a 0.34036
  *     chord).
@@ -2638,7 +2632,7 @@ function sketchQuadrilateral(sketch, topLeft, topRight, bottomLeft, bottomRight)
  *     fall through to "top", so a tab set to "tip of the rocket" or "after the
  *     sibling component" was silently resolved as if it were "top" -- a wrong
  *     position with no warning anywhere.  Every branch is explicit now, and an
- *     unrecognised method is reported rather than guessed at.  ABSOLUTE and TOP
+ *     unrecognized method is reported rather than guessed at.  ABSOLUTE and TOP
  *     are the same expression; they differ in what the offset is measured FROM,
  *     which the caller has already resolved, so both give `offset` here.
  *

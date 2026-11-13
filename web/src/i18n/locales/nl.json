@@ -47,6 +47,8 @@
       "archiveEmpty": "Het .ork-archief is leeg.",
       "archiveCorrupt": "Het .ork-archief is beschadigd of kan niet worden gelezen.",
       "tooManyComponents": "Dit {{format}}-bestand bevat te veel onderdelen om te openen (mogelijk beschadigd).",
+      "tooManyInstances": "Dit {{format}}-bestand nest pods, clusters en aantallen tot te veel onderdelen om te openen (mogelijk beschadigd).",
+      "autoRadiusRunTooLong": "Dit {{format}}-bestand heeft te veel onderdelen met automatische straal achter elkaar om te openen (mogelijk beschadigd).",
       "tooManySimulations": "Dit .ork-bestand bevat te veel simulaties om te openen (mogelijk beschadigd).",
       "tooManyUnknownElements": "Dit .ork-bestand bevat te veel onbekende elementen om te openen (mogelijk beschadigd).",
       "tooManyConfigs": "Dit .ork-bestand bevat te veel vluchtconfiguraties om te openen (mogelijk beschadigd).",
@@ -158,6 +160,7 @@
       "nothing": "Niets om te exporteren."
     },
     "engine": {
+      "callFailed": "De OpenRocket-natuurkundemotor is mislukt bij {{operation}}: {{detail}}",
       "notReady": "De OpenRocket-natuurkundemotor is nog niet klaar met laden. Wacht tot hij geladen is en probeer het dan opnieuw.",
       "staleDesign": "Dit ontwerp is opgebouwd voordat de natuurkundemotor opnieuw werd gestart. Bouw het opnieuw op voordat je het gebruikt."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Ongedaan maken",
-    "redo": "Opnieuw"
+    "redo": "Opnieuw",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Raket schalen",
@@ -535,7 +540,8 @@
       "pressure": "Druk",
       "force": "Stuwkracht / kracht",
       "impulse": "Impuls",
-      "rollRate": "Rolsnelheid"
+      "rollRate": "Rolsnelheid",
+      "shearModulus": "Glijdingsmodulus"
     }
   },
   "settings": {
@@ -662,8 +668,6 @@
     "removeMembership": "Het lidmaatschap van {{org}} verwijderen"
   },
   "config": {
-    "title": "Raketconfiguratie",
-    "edit": "Raketconfiguratie bewerken",
     "notes": "Ontwerpnotities",
     "name": "Ontwerpnaam",
     "designer": "Ontwerper",
@@ -681,7 +685,6 @@
     "removeRevision": "Revisie van {{date}} verwijderen",
     "removeRevisionConfirm": "Deze revisie verwijderen?",
     "appOnlyNotes": "Opslaan als .ork bewaart al deze notities. Kitfabrikant, kit-onderdeelnummer en de gedateerde revisies zijn van deze app: desktop-OpenRocket laat ze vallen als het het bestand opslaat. .rkt bewaart deze drie niet, en de kitnaam ook niet.",
-    "save": "OK",
     "type_original": "Eigen ontwerp / anders",
     "type_commercial_kit": "Bouwpakket",
     "type_clone_kit": "Kloon van een bouwpakket",
@@ -934,6 +937,7 @@
     "stdDev": "Standaardafwijking",
     "stdDevName": "Standaardafwijking van de wind",
     "turbulenceIntensity": "Turbulentie-intensiteit",
+    "turbulenceNeedsWind": "Stel eerst een gemiddelde wind in: het percentage geeft de windstoten als deel daarvan.",
     "levelCount_one": "{{count}} windlaag",
     "levelCount_other": "{{count}} windlagen",
     "editProfile": "Windprofiel bewerken…",
@@ -1499,6 +1503,7 @@
     "collapseAll": "Alles invouwen",
     "collapseTree": "De onderdelenlijst verbergen",
     "hidePart": "Verbergen in de weergaven",
+    "hiddenByParent": "Verborgen in de weergaven, samen met het onderdeel waar het in zit",
     "showPart": "Tonen in de weergaven",
     "showAll": "Alles tonen",
     "hiddenNote": "Verborgen onderdelen tellen nog mee voor massa, CG, aerodynamica en alle vluchtwaarden. Alleen de 2D- en 3D-weergaven laten ze weg.",
@@ -1903,6 +1908,7 @@
     "densityBulk": "Volumedichtheid",
     "densitySurface": "Oppervlaktedichtheid",
     "densityLine": "Lijndichtheid",
+    "shearModulus": "Glijdingsmodulus",
     "save": "Opslaan",
     "cancel": "Annuleren",
     "addToLibrary": "Toevoegen aan mijn eigen materialen, voor elk ontwerp",
@@ -2090,7 +2096,6 @@
     "searchCode": "Zoeken op code (bv. C6)…",
     "select": "Kiezen",
     "loading": "Laden…",
-    "loadingCatalog": "Motorcatalogus laden…",
     "pickHint": "Kies een motor om de stuwkrachtcurve en de specificaties te zien.",
     "backToList": "Terug naar de lijst",
     "curve": "Curve",

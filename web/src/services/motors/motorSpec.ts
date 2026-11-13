@@ -1,8 +1,9 @@
 import { must } from '../app/must';
+import { fromCatalog } from './catalogUnits';
 import type { MotorSpec } from '../../engine/openRocketEngine';
 import type { CatalogMotor } from './motorDb';
 import { cumulativeImpulse } from './motorMath';
-import { getMotorStore, isMotorType, type CustomMotor } from './motorStore';
+import { getMotorStore, isMotorType, motorHeaderProblem, type CustomMotor } from './motorStore';
 import { finalizeCurve } from './curveFinalize';
 import { KeyedError } from '../../i18n/keyedError';
 
@@ -40,23 +41,20 @@ export function samplesToMotorSpec(
   if (!Number.isFinite(motor.totalWeightG) || !Number.isFinite(motor.propWeightG)) {
     throw new KeyedError('errors.thrustcurve.noWeight', { motor: motor.designation });
   }
-  // The kernel accepts negative propellant, which makes mass rise over the burn.
-  if (motor.propWeightG < 0 || !(motor.totalWeightG > 0)) {
-    throw new KeyedError('errors.thrustcurve.badWeight', { motor: motor.designation });
-  }
-  if (motor.propWeightG > motor.totalWeightG) {
-    throw new KeyedError('errors.thrustcurve.propOverTotal', {
-      motor: motor.designation,
-      prop: motor.propWeightG,
-      total: motor.totalWeightG,
-    });
-  }
-  const badSize = (v: number) => !Number.isFinite(v) || v <= 0;
-  if (badSize(motor.diameter) || badSize(motor.length)) {
+  const problem = motorHeaderProblem(motor);
+  if (problem === 'numbers' || problem === 'size') {
     throw new KeyedError('errors.thrustcurve.badSize', {
       motor: motor.designation,
       diameter: motor.diameter,
       length: motor.length,
+    });
+  }
+  if (problem === 'mass') throw new KeyedError('errors.thrustcurve.badWeight', { motor: motor.designation });
+  if (problem === 'propOverTotal') {
+    throw new KeyedError('errors.thrustcurve.propOverTotal', {
+      motor: motor.designation,
+      prop: motor.propWeightG,
+      total: motor.totalWeightG,
     });
   }
 
@@ -64,12 +62,12 @@ export function samplesToMotorSpec(
     throw new KeyedError('errors.thrustcurve.negativeThrust', { motor: motor.designation });
   }
   const cgX = cgSamples?.[0]?.[1] ?? motor.length / 2000;
-  if (!Number.isFinite(cgX) || cgX < 0 || cgX > motor.length / 1000) {
+  if (!Number.isFinite(cgX) || cgX < 0 || cgX > fromCatalog(motor.length)) {
     throw new KeyedError('errors.thrustcurve.badCg', { motor: motor.designation, length: motor.length });
   }
 
-  const totalMass = motor.totalWeightG / 1000;
-  const propMass = motor.propWeightG / 1000;
+  const totalMass = fromCatalog(motor.totalWeightG);
+  const propMass = fromCatalog(motor.propWeightG);
 
   const times = pts.map((p) => p.time);
   const thrusts = pts.map((p) => p.thrust);
@@ -83,8 +81,8 @@ export function samplesToMotorSpec(
   return {
     designation: motor.designation,
     manufacturer: motor.manufacturerAbbrev,
-    diameter: motor.diameter / 1000,
-    length: motor.length / 1000,
+    diameter: fromCatalog(motor.diameter),
+    length: fromCatalog(motor.length),
     times,
     thrusts,
     masses,
@@ -142,8 +140,8 @@ export function customMotorToSpec(cm: CustomMotor, ejectionDelay: number): Motor
     cm.samples,
     ejectionDelay,
     // Stored in mm and grams; the spec wants m and kg.
-    cm.cgMm === undefined ? undefined : [[0, cm.cgMm / 1000]],
-    cm.massesG?.map((g) => g / 1000),
+    cm.cgMm === undefined ? undefined : [[0, fromCatalog(cm.cgMm)]],
+    cm.massesG?.map(fromCatalog),
   );
   return { ...spec, imported: true, ...(cm.type ? { type: cm.type } : {}) };
 }

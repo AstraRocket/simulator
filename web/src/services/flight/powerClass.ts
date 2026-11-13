@@ -20,6 +20,7 @@ const HIGH_POWER = {
 } as const;
 
 export interface SeatedMotor {
+  mountId: string;
   spec: MotorSpec;
   count: number;
 }
@@ -43,7 +44,7 @@ export function seatedMotors(tree: RocketTree, config: FlightConfig): SeatedMoto
         copies * instancesOf(n) * (n.type === 'innertube' ? clusterCount(n['cluster'] as string | undefined) : 1);
       if (n.motorMount === true && typeof n.id === 'string') {
         const seated = config.motors[n.id];
-        if (seated) out.push({ spec: seated.spec, count: here });
+        if (seated) out.push({ mountId: n.id, spec: seated.spec, count: here });
       }
       if (n.children) walk(n.children, here);
     }
@@ -62,7 +63,10 @@ function kernelAverage(spec: MotorSpec, curve: [number, number][]): number | nul
 }
 
 // `dryMassKg` is the kernel's motorless mass; null before the engine answers.
-export function powerClass(motors: readonly SeatedMotor[], dryMassKg: number | null | undefined): PowerClass {
+export function powerClass(
+  motors: readonly Pick<SeatedMotor, 'spec' | 'count'>[],
+  dryMassKg: number | null | undefined,
+): PowerClass {
   let installed = 0;
   let loaded = 0;
   let propellant = 0;

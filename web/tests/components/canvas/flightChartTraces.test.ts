@@ -12,6 +12,7 @@ import {
   traceScale,
   traceUnit,
   visibleSeries,
+  axisRange,
 } from '../../../src/components/canvas/flightChartTraces';
 import type { FlightResult, FlightSeries } from '../../../src/engine/openRocketEngine';
 
@@ -214,5 +215,23 @@ describe('the pairs', () => {
     const [pair] = pairSeries(['xy:drag:mach'], plain);
     const t = (k: string, v?: Record<string, string>) => (v ? `${v.y} / ${v.x}` : `t:${k}`);
     expect(traceLabel(pair!, t)).toBe('t:flight.drag / t:flight.mach');
+  });
+});
+
+describe('axisRange', () => {
+  it('keeps zero on an anchored axis whose data is all negative', () => {
+    const [lo, hi] = axisRange(-10, -2, false);
+    expect(lo).toBe(-10);
+    // Headroom is 8% of the data span, -10 to -2.
+    expect(hi).toBeCloseTo(0.64, 12);
+  });
+
+  it('pads both ends of a level axis by a share of its span', () => {
+    expect(axisRange(100, 200, true)).toEqual([90, 210]);
+    expect(axisRange(100, 200, true, { pad: 0.05 })).toEqual([95, 205]);
+  });
+
+  it('is never empty', () => {
+    expect(axisRange(0, 0, false, { headroom: 0 })).toEqual([0, 1]);
   });
 });

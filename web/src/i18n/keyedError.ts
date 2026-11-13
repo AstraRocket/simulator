@@ -1,5 +1,6 @@
 import en from './locales/en.json';
 import { errorMessage } from '../services/app/errorMessage';
+import { isRecord } from '../services/app/numbers';
 
 export interface Keyed {
   /** The full i18n key, so every call site names it literally. */
@@ -47,6 +48,16 @@ export function errorText(e: unknown, t: Translate): string {
   return e instanceof KeyedError ? keyedText(e, t) : errorMessage(e);
 }
 
+/** A failed action's banner text: `key` takes the cause as `{{reason}}`. */
+export function actionError(
+  key: string,
+  e: unknown,
+  t: Translate,
+  values: Record<string, string | number> = {},
+): string {
+  return t(key, { ...values, reason: errorText(e, t) });
+}
+
 export function errorReason(e: unknown): string | Keyed {
   return e instanceof KeyedError ? (e.values ? { key: e.key, values: e.values } : { key: e.key }) : errorMessage(e);
 }
@@ -56,6 +67,6 @@ export function isKeyed(v: unknown): v is Keyed {
   const { key, values } = v as { key?: unknown; values?: unknown };
   if (typeof key !== 'string' || key === '') return false;
   if (values === undefined) return true;
-  if (!values || typeof values !== 'object' || Array.isArray(values)) return false;
+  if (!isRecord(values)) return false;
   return Object.values(values).every((x) => typeof x === 'string' || typeof x === 'number' || isKeyed(x));
 }

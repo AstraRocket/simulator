@@ -1,6 +1,7 @@
 import { nsKey } from '../../services/storage/storageKeys';
 import { readLocalJson, writeLocalJson } from '../../services/storage/localPref';
 import { withKey } from '../../services/app/objectKeys';
+import { isRecord } from '../../services/app/numbers';
 
 export type DialogSize = 'sm' | 'md' | 'lg' | '3xl' | '4xl' | '6xl';
 
@@ -38,7 +39,7 @@ export const layerClass: Record<DialogLayer, string> = {
 
 const KEY = nsKey('dialogExpanded');
 
-const isFlagMap = (v: unknown): v is Record<string, boolean> => !!v && typeof v === 'object' && !Array.isArray(v);
+const isFlagMap = (v: unknown): v is Record<string, boolean> => isRecord(v);
 
 export function readExpanded(id: string): boolean {
   return readLocalJson(KEY, isFlagMap, {})[id] === true;

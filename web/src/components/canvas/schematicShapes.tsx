@@ -2,21 +2,15 @@ import type { ComponentNode } from '../../engine/openRocketEngine';
 import { bodyRadiusAt } from '../../tree/finPlanform';
 import { isChainType } from '../../tree/componentKinds';
 import { hasShoulder, profileEnds, shouldersOf, type Shoulder } from '../../tree/shapeProfile';
-import { bodyTubeRadius, countOf, noseConeAftRadius, num } from '../../tree/nodeProps';
+import { bodyTubeRadius, noseConeAftRadius } from '../../tree/nodeProps';
 import { lineInstances } from '../../tree/placement';
-import { motorSeatStart, partLength } from '../../tree/position.js';
-import {
-  assemblyChainLength,
-  assemblyParentRadius,
-  isAssembly,
-  resolveAssemblyRadius,
-  ringInstanceOffsets,
-} from '../../tree/assembly.js';
+import { motorSeatStart, partLength, podPlacement } from '../../tree/position.js';
+import { isAssembly } from '../../tree/assembly.js';
 import { token } from '../common/colorTokens';
 import { dashOf } from '../../services/design/figureStyle';
 import { chainWithKernelEnds } from '../../services/design/autoRadius.js';
-import { axialStart, figureToken, profilePath } from '../../tree/schematicGeometry';
-import { createPainter, fillOf, type HoverExtents, type SchematicShapesCfg } from './schematicPainter';
+import { profilePath } from '../../tree/schematicGeometry';
+import { createPainter, figureInk, fillOf, type HoverExtents, type SchematicShapesCfg } from './schematicPainter';
 import { fairingShape, finSetShapes, internalShapes, lugShape, tubeFinShapes } from './schematicParts';
 
 export function buildSchematicShapes(cfg: SchematicShapesCfg): {
@@ -29,7 +23,8 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
   const { scale, roll, motors } = cfg;
   const chain = chainWithKernelEnds(cfg.chain);
   const p = createPainter(cfg);
-  const { ctx, shapes, overlay, wires, clipDefs, extents, nextKey, nameOf, isSel, clickable, selWidth, partLine } = p;
+  const { ctx, shapes, overlay, wires, clipDefs, extents, nextKey, nameOf, clickable, selStroke, selWidth, partLine } =
+    p;
   const { noteHover, motorShapes } = p;
   const isHidden = (n: ComponentNode): boolean => !!n.id && !!cfg.hiddenIds?.has(n.id);
 
@@ -49,14 +44,9 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
       const t = child.type;
       // -off.y: the section frame's +y is up and SVG y grows down.
       if (isAssembly(t)) {
-        const podChain = child.children ?? [];
-        const podLen = assemblyChainLength(child);
-        const podRadius = resolveAssemblyRadius(child, assemblyParentRadius(parent));
-        const podStart = axialStart(child, podLen, pStart, pLen);
-        const count = countOf(child, 'instanceCount', 2);
-        for (const off of ringInstanceOffsets(count, podRadius, num(child, 'angleOffset', 0) + turn)) {
-          renderChain(podChain, podStart, baseY - off.y * ctx.scale, off.angle);
-        }
+        const pod = podPlacement(child, parent, pStart, pLen, turn);
+        for (const off of pod.copies)
+          renderChain(child.children ?? [], pod.start, baseY - off.y * ctx.scale, off.angle);
         continue;
       }
       if (t === 'freeformfinset' || t === 'trapezoidfinset' || t === 'ellipticalfinset') finSetShapes(p, at, child);
@@ -90,7 +80,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
         width={Math.max(1.5, lenSi * scale)}
         height={2 * rSi * scale}
         fill="rgba(127,127,127,0.001)"
-        stroke={isSel(owner) ? 'var(--accent)' : fillOf(owner, SHOULDER_INK)}
+        stroke={selStroke(owner, fillOf(owner, SHOULDER_INK))}
         strokeWidth={selWidth(owner)}
         strokeDasharray={dashOf(owner, '3 2')}
         style={{ pointerEvents: 'none' }}
@@ -114,7 +104,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
       <path
         key={nextKey()}
         d={profilePath(ctx, n, cx, len, fore, aft, baseY)}
-        {...partLine(n, fillOf(n, token(figureToken(n.type))))}
+        {...partLine(n, figureInk(n))}
         {...clickable(n)}
       />,
     );
@@ -151,7 +141,7 @@ export function buildSchematicShapes(cfg: SchematicShapesCfg): {
               y={baseY - r * scale}
               width={len * scale}
               height={2 * r * scale}
-              {...partLine(n, fillOf(n, token(figureToken(n.type))))}
+              {...partLine(n, figureInk(n))}
               {...clickable(n)}
             />,
           );

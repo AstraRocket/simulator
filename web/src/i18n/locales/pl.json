@@ -47,6 +47,8 @@
       "archiveEmpty": "Archiwum .ork jest puste.",
       "archiveCorrupt": "Archiwum .ork jest uszkodzone lub nie można go odczytać.",
       "tooManyComponents": "Ten plik {{format}} deklaruje zbyt wiele komponentów, by go otworzyć (możliwe uszkodzenie).",
+      "tooManyInstances": "Ten plik {{format}} zagnieżdża kapsuły, klastry i liczności w zbyt wiele części, by go otworzyć (możliwe uszkodzenie).",
+      "autoRadiusRunTooLong": "Ten plik {{format}} ma zbyt wiele części z automatycznym promieniem pod rząd, by go otworzyć (możliwe uszkodzenie).",
       "tooManySimulations": "Ten plik .ork deklaruje zbyt wiele symulacji, by go otworzyć (możliwe uszkodzenie).",
       "tooManyUnknownElements": "Ten plik .ork zawiera zbyt wiele nierozpoznanych elementów, by go otworzyć (możliwe uszkodzenie).",
       "tooManyConfigs": "Ten plik .ork deklaruje zbyt wiele konfiguracji lotu, by go otworzyć (możliwe uszkodzenie).",
@@ -158,6 +160,7 @@
       "nothing": "Nie ma nic do wyeksportowania."
     },
     "engine": {
+      "callFailed": "Silnik fizyczny OpenRocket zawiódł przy {{operation}}: {{detail}}",
       "notReady": "Silnik fizyczny OpenRocket nie skończył się jeszcze wczytywać. Poczekaj na jego wczytanie i spróbuj ponownie.",
       "staleDesign": "Ten projekt zbudowano przed ponownym uruchomieniem silnika fizycznego. Zbuduj go ponownie przed użyciem."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Cofnij",
-    "redo": "Ponów"
+    "redo": "Ponów",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Przeskaluj rakietę",
@@ -535,7 +540,8 @@
       "pressure": "Ciśnienie",
       "force": "Ciąg / siła",
       "impulse": "Impuls",
-      "rollRate": "Prędkość przechylania"
+      "rollRate": "Prędkość przechylania",
+      "shearModulus": "Moduł Kirchhoffa"
     }
   },
   "settings": {
@@ -664,8 +670,6 @@
     "removeMembership": "Usuń członkostwo: {{org}}"
   },
   "config": {
-    "title": "Konfiguracja rakiety",
-    "edit": "Edytuj konfigurację rakiety",
     "notes": "Notatki projektowe",
     "name": "Nazwa projektu",
     "designer": "Projektant",
@@ -683,7 +687,6 @@
     "removeRevision": "Usuń rewizję z {{date}}",
     "removeRevisionConfirm": "Usunąć tę rewizję?",
     "appOnlyNotes": "Zapis do .ork zachowuje wszystkie te notatki. Producent zestawu, numer katalogowy i rewizje z datą należą tylko do tej aplikacji: OpenRocket na komputer usuwa je przy zapisie pliku. Format .rkt nie zachowuje tych trzech pól ani nazwy zestawu.",
-    "save": "OK",
     "type_original": "Projekt własny / inne",
     "type_commercial_kit": "Zestaw handlowy",
     "type_clone_kit": "Kopia zestawu",
@@ -938,6 +941,7 @@
     "stdDev": "Odchylenie standardowe",
     "stdDevName": "Odchylenie standardowe wiatru",
     "turbulenceIntensity": "Intensywność turbulencji",
+    "turbulenceNeedsWind": "Najpierw ustaw średni wiatr: procent określa porywy jako jego część.",
     "levelCount_one": "{{count}} poziom wiatru",
     "levelCount_few": "{{count}} poziomy wiatru",
     "levelCount_many": "{{count}} poziomów wiatru",
@@ -1509,6 +1513,7 @@
     "collapseAll": "Zwiń wszystko",
     "collapseTree": "Ukryj listę części",
     "hidePart": "Ukryj w widokach",
+    "hiddenByParent": "Ukryty w widokach razem z częścią, w której się znajduje",
     "showPart": "Pokaż w widokach",
     "showAll": "Pokaż wszystkie",
     "hiddenNote": "Ukryte części nadal liczą się do masy, SC, aerodynamiki i wszystkich danych lotu. Pomijają je tylko widoki 2D i 3D.",
@@ -1917,6 +1922,7 @@
     "densityBulk": "Gęstość objętościowa",
     "densitySurface": "Gęstość powierzchniowa",
     "densityLine": "Gęstość liniowa",
+    "shearModulus": "Moduł Kirchhoffa",
     "save": "Zapisz",
     "cancel": "Anuluj",
     "addToLibrary": "Dodaj do moich własnych materiałów, dla każdego projektu",
@@ -2106,7 +2112,6 @@
     "searchCode": "Szukaj po oznaczeniu (np. C6)…",
     "select": "Wybierz",
     "loading": "Wczytywanie…",
-    "loadingCatalog": "Wczytywanie katalogu silników…",
     "pickHint": "Wybierz silnik, aby zobaczyć jego krzywą ciągu i dane.",
     "backToList": "Wróć do listy",
     "curve": "Krzywa",

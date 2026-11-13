@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { areaPath, polylinePath } from '../../../src/components/common/svgPath';
+import { areaPath, pointsAttr, polylinePath } from '../../../src/components/common/svgPath';
 import { baselineArea, linePath } from '../../../src/components/sim/chartScales';
 
 describe('polylinePath', () => {
@@ -108,5 +108,16 @@ describe('areaPath', () => {
 
   it('draws nothing with no finite point', () => {
     expect(areaPath([[NaN, 1]], 0)).toBe('');
+  });
+});
+
+describe('pointsAttr', () => {
+  it('rounds only when asked, since a view drawn in meters would lose its shape', () => {
+    const pts = [
+      [0.012, 1.5],
+      [2, -0.25],
+    ] as const;
+    expect(pointsAttr(pts)).toBe('0.012,1.5 2,-0.25');
+    expect(pointsAttr(pts, 1)).toBe('0.0,1.5 2.0,-0.3');
   });
 });

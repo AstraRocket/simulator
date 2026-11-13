@@ -10,7 +10,7 @@ import type { MotorDims } from '../../tree/schematicGeometry';
 import { TILE_SOURCES, type TileSourceId } from '../../services/map/slippyMap';
 import { LAYERS } from '../common/map/mapStyle';
 import { MapCredit, TileLayerButtons } from '../common/map/MapParts';
-import { useGroundLayer } from '../common/map/useTileVerdict';
+import { useSiteGround } from '../common/map/useTileVerdict';
 import { ColorInput } from '../common/ColorInput';
 import { FlightPathScene } from './FlightPathScene';
 import { FlightPlaybackBar } from './FlightPlaybackBar';
@@ -33,12 +33,11 @@ export function FlightPath3D({
 }) {
   const { t } = useTranslation();
   const u = useUnits();
-  const { settings, update } = useSettings();
+  const { settings, updateSection } = useSettings();
   const phase = settings.phaseColors;
   const playback = useFlightPlayback(settings.playbackSpeed);
   const { progress } = playback;
-  const site = latitudeDeg != null && longitudeDeg != null ? { lat: latitudeDeg, lon: longitudeDeg } : null;
-  const ground = useGroundLayer(site !== null);
+  const { site, ground } = useSiteGround(latitudeDeg, longitudeDeg);
 
   const scene = useMemo(() => buildFlightScene(result, phase), [result, phase]);
   const { scenePts, times, alts, vels } = scene;
@@ -48,9 +47,9 @@ export function FlightPath3D({
   const idx = useMemo(() => indexForProgress(times, progress), [times, progress]);
   const nowT = times[idx] ?? 0;
 
-  const setBoost = useCallback((c: string) => update({ phaseColors: { ...phase, boost: c } }), [update, phase]);
-  const setCoast = useCallback((c: string) => update({ phaseColors: { ...phase, coast: c } }), [update, phase]);
-  const setDescent = useCallback((c: string) => update({ phaseColors: { ...phase, descent: c } }), [update, phase]);
+  const setBoost = useCallback((c: string) => updateSection('phaseColors', { boost: c }), [updateSection]);
+  const setCoast = useCallback((c: string) => updateSection('phaseColors', { coast: c }), [updateSection]);
+  const setDescent = useCallback((c: string) => updateSection('phaseColors', { descent: c }), [updateSection]);
 
   const mapSource: TileSourceId | null = ground.imagery === 'unavailable' ? null : ground.source;
 

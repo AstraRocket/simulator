@@ -111,7 +111,7 @@ export function digestChanges(previous, current) {
 }
 
 /**
- * @param {{ digest: string, label: string }[]} presets every preset the release holds
+ * @param {{ digest: string, label: string }[]} presets every preset the build holds
  * @param {{ digest?: string }[]} components the catalog this run would write
  * @returns {string[]} the labels of the presets no row carries, sorted
  */

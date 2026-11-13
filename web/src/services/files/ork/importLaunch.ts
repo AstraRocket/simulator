@@ -1,7 +1,7 @@
 import type { LaunchConditions } from '../../design/orkTree';
 import { xmlText as text } from '../xmlUtil';
 import { stdDevForIntensity } from '../../flight/windTurbulence';
-import { usableWindLevels } from '../../flight/windLevels';
+import { usableWindLevels, windFrom } from '../../flight/windLevels';
 import { usableAtmosphereLevels } from '../../flight/atmosphereLevels';
 import { isWeatherSource, restoredSource } from '../../weather/weatherSource';
 import { finiteNum } from './numbers';
@@ -122,11 +122,10 @@ function readWind(condEl: Element, launch: Partial<LaunchConditions>): void {
       Array.from(mlEl.querySelectorAll(':scope > windlevel')).map((w) => {
         // Negative speed is wind from the opposite heading (MultiLevelPinkNoiseWindModel.addWindLevel).
         const speed = finiteNum(w.getAttribute('speed')) ?? 0;
-        const deg = ((finiteNum(w.getAttribute('direction')) ?? 0) * 180) / Math.PI;
+        const deg = radToDeg(finiteNum(w.getAttribute('direction')) ?? 0);
         return {
           altitudeM: finiteNum(w.getAttribute('altitude')),
-          speed: Math.abs(speed),
-          directionDeg: speed < 0 ? (((deg + 180) % 360) + 360) % 360 : deg,
+          ...windFrom(speed, deg),
           stddev: finiteNum(w.getAttribute('standarddeviation')) ?? 0,
         };
       }),

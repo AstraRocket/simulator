@@ -1,5 +1,6 @@
 import { type TransferProgress, fetchJsonStaged } from './fetchProgress';
 import { errorReason, KeyedError } from '../../i18n/keyedError';
+import { isRecord } from './numbers';
 
 const LOCAL_BASE = `${import.meta.env.BASE_URL}data/`;
 
@@ -71,7 +72,7 @@ function reportProgress(name: string, p: CatalogProgress): void {
 }
 
 export function manifestEntries(body: unknown): Record<string, string> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) return {};
+  if (!isRecord(body)) return {};
   const out: Record<string, string> = {};
   for (const [name, hash] of Object.entries(body)) if (typeof hash === 'string' && hash) out[name] = hash;
   return out;
@@ -84,7 +85,7 @@ export interface CatalogInfo {
 
 export function manifestCatalogs(body: unknown): Record<string, CatalogInfo> {
   const raw = (body as { catalogs?: unknown } | null)?.catalogs;
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  if (!isRecord(raw)) return {};
   const out: Record<string, CatalogInfo> = {};
   for (const [name, v] of Object.entries(raw)) {
     const { updated, count } = (v ?? {}) as { updated?: unknown; count?: unknown };

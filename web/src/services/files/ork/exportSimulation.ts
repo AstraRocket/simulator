@@ -12,6 +12,7 @@ import { LAUNCH_SI } from '../../../prefs/launchUnits';
 import { DEFAULT_HEADING_DEG } from '../../flight/windLevels';
 import { G0 } from '../../motors/motorMath';
 import { DEFAULT_SETTINGS } from '../../storage/settings';
+import { KERNEL_LAUNCH_SITE } from '../../../tree/kernelDefaults';
 import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS } from './simulationTags';
 
 export function simulationsXml(
@@ -26,7 +27,7 @@ export function simulationsXml(
   if (simulations?.length) {
     for (const sim of simulations) simulationXml(w, depth + 1, sim, prefs);
   } else if (launch) {
-    // 24.12 warns on any other simulator, calculator or status value.
+    // `SingleSimulationHandler` warns on any other simulator, calculator or status value.
     emit(depth + 1, '<simulation status="notsimulated">');
     emit(depth + 2, '<name>Simulation 1</name>');
     emit(depth + 2, '<simulator>RK4Simulator</simulator>');
@@ -89,8 +90,9 @@ function conditionsXml(
   emit(depth, `<launchroddirection>${launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG}</launchroddirection>`);
   windXml(w, depth, launch);
   emit(depth, `<launchaltitude>${launch.launchAltitudeM ?? 0}</launchaltitude>`);
-  emit(depth, `<launchlatitude>${launch.latitudeDeg ?? 0}</launchlatitude>`);
-  emit(depth, `<launchlongitude>${launch.longitudeDeg ?? -80.6}</launchlongitude>`);
+  // A cleared coordinate is the default site's, as a run of it flies (not 0, a point off Ecuador).
+  emit(depth, `<launchlatitude>${launch.latitudeDeg ?? KERNEL_LAUNCH_SITE.latitudeDeg}</launchlatitude>`);
+  emit(depth, `<launchlongitude>${launch.longitudeDeg ?? KERNEL_LAUNCH_SITE.longitudeDeg}</launchlongitude>`);
   emit(depth, `<geodeticmethod>${launch.geodetic ?? 'spherical'}</geodeticmethod>`);
   emit(depth, `<simulationsteppermethod>${prefs.stepper}</simulationsteppermethod>`);
   const seed = prefs.randomSeed;
@@ -98,10 +100,11 @@ function conditionsXml(
   if (fixedSeed) emit(depth, `<randomseed>${seed}</randomseed>`);
   atmosphereXml(w, depth, launch);
   forecastLevelsXml(w, depth, launch.atmosphereLevels ?? []);
-  // Not upstream's <gravity model="constant">: it makes 24.12 misread the rest of the block.
+  // As `OpenRocketSaver` writes it; `GravityHandler` reads no other form.
   if (launch.gravityModel === 'constant') {
-    emit(depth, '<gravitymodel>constant</gravitymodel>');
-    emit(depth, `<constantgravity>${launch.constantGravity ?? G0}</constantgravity>`);
+    emit(depth, '<gravity model="constant">');
+    emit(depth + 1, `<value>${launch.constantGravity ?? G0}</value>`);
+    emit(depth, '</gravity>');
   }
   weatherSourceXml(w, depth, launch);
   for (const [key, tag] of SIM_PREF_TAGS) emit(depth, `<${tag}>${prefs[key]}</${tag}>`);

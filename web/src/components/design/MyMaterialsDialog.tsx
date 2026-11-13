@@ -1,7 +1,6 @@
 // cspell:ignore matedtpan -- desktop's MaterialEditPanel message keys
 import { useMemo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { confirm } from '../../state/confirmStore';
 import { useWorkspaceStore } from '../../state/store';
 import { errorText } from '../../i18n/keyedError';
 import { partLabel, fmtList } from '../../i18n/format';
@@ -24,7 +23,7 @@ import {
   type DesignAccess,
   type ScopedMaterial,
 } from '../../services/materials/myMaterials';
-import { MasterDetail, MasterRow, MasterDetailDialog } from '../common/MasterDetail';
+import { MasterDetail, MasterRow, MasterSection, MasterDetailDialog } from '../common/MasterDetail';
 import { useGuardedSelection } from '../common/useGuardedSelection';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { MaterialEditor } from './MaterialEditor';
@@ -46,7 +45,7 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   const version = useSyncExternalStore(onCustomMaterialsChanged, customMaterialsVersion, customMaterialsVersion);
   const library = useAsyncLoad(listCustom, 'custom', { refresh: version });
   const builtins = useAsyncLoad(() => Promise.all(MATERIAL_TYPES.map(builtinsForType)), 'builtins');
-  const { selectedId, select, settle, close, onDirtyChange, err, setErr } = useGuardedSelection(
+  const { selectedId, select, settle, close, onDirtyChange, err, setErr, removeWith } = useGuardedSelection(
     t('myMaterials.discardConfirm'),
   );
 
@@ -60,7 +59,14 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
   const libraryList = useMemo<ScopedMaterial[]>(
     () =>
       (library.data ?? [])
-        .map((m) => ({ name: m.name, type: m.type, density: m.density, group: m.group, scope: 'library' as const }))
+        .map((m) => ({
+          name: m.name,
+          type: m.type,
+          density: m.density,
+          ...(m.shearModulus ? { shearModulus: m.shearModulus } : {}),
+          group: m.group,
+          scope: 'library' as const,
+        }))
         .sort(byNameThenDensity),
     [library.data],
   );
@@ -92,39 +98,15 @@ export function MyMaterialsDialog({ onClose }: { onClose: () => void }) {
       setErr(t('myMaterials.deleteRefused', { name: m.name, parts: fmtList(users.map((n) => partLabel(t, n))) }));
       return;
     }
-    const ok = await confirm({
-      message:
-        m.scope === 'library' && users.length
-          ? t('myMaterials.deleteKeepsInDesign', { name: m.name })
-          : t('myMaterials.deleteConfirm', { name: m.name }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
-    if (!ok) return;
-    setErr(null);
-    try {
-      await deleteMaterial(design, m);
-      settle(null);
-    } catch (e) {
-      setErr(errorText(e, t));
-    }
+    await removeWith(
+      m.scope === 'library' && users.length
+        ? t('myMaterials.deleteKeepsInDesign', { name: m.name })
+        : t('myMaterials.deleteConfirm', { name: m.name }),
+      () => deleteMaterial(design, m),
+    );
   };
 
-  const removeAll = async () => {
-    const ok = await confirm({
-      message: t('myMaterials.deleteAllConfirm'),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
-    if (!ok) return;
-    setErr(null);
-    try {
-      await deleteAllMaterials(design);
-      settle(null);
-    } catch (e) {
-      setErr(errorText(e, t));
-    }
-  };
+  const removeAll = () => removeWith(t('myMaterials.deleteAllConfirm'), () => deleteAllMaterials(design));
 
   const empty = designList.length === 0 && libraryList.length === 0;
   const actionClass = smallButton('xs', 'ink');
@@ -198,25 +180,20 @@ function Section({
   const u = useUnits();
   if (!list.length) return null;
   return (
-    <section>
-      <h3 className="sticky top-0 bg-surface px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-        {title}
-      </h3>
-      <ul className="divide-y divide-line/5">
-        {list.map((m) => {
-          const fu = u.at(unitScope('material', m.type), QUANTITY[m.type]);
-          return (
-            <li key={keyOf(m)}>
-              <MasterRow selected={keyOf(m) === selectedId} onClick={() => void onSelect(keyOf(m))}>
-                <span className="block truncate text-sm text-ink-strong">{m.name}</span>
-                <span className="block truncate text-xs tabular-nums text-ink-faint">
-                  {t(`myMaterials.type.${m.type}`)} · {fu.fmtSym(m.density)}
-                </span>
-              </MasterRow>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <MasterSection title={title}>
+      {list.map((m) => {
+        const fu = u.at(unitScope('material', m.type), QUANTITY[m.type]);
+        return (
+          <li key={keyOf(m)}>
+            <MasterRow selected={keyOf(m) === selectedId} onClick={() => void onSelect(keyOf(m))}>
+              <span className="block truncate text-sm text-ink-strong">{m.name}</span>
+              <span className="block truncate text-xs tabular-nums text-ink-faint">
+                {t(`myMaterials.type.${m.type}`)} · {fu.fmtSym(m.density)}
+              </span>
+            </MasterRow>
+          </li>
+        );
+      })}
+    </MasterSection>
   );
 }

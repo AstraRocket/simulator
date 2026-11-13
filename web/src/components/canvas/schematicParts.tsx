@@ -1,28 +1,27 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import {
   FREEFORM_FALLBACK,
-  finMount,
+  finPlacement,
   finBodyPoint,
   finPointsWithRoot,
   finRootChord,
   finSpan,
   finTabPoints,
-  mountRadius,
-  type FinParent,
   type FinPose,
 } from '../../tree/finPlanform';
 import { finCant, num, str } from '../../tree/nodeProps';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults.js';
 import { railButtonSize } from './railButton';
 import { placementOffsets, turnedOffset } from '../../tree/placement';
-import { tubeFinRadius } from '../../tree/tubefins.js';
+import { tubeFinSeat } from '../../tree/tubefins.js';
 import { motorSeatStart } from '../../tree/position.js';
 import { DISC_TYPES } from '../../services/files/componentFormats.js';
 import { discDims, tubeRadii } from '../../services/design/discGeometry.js';
 import { token } from '../common/colorTokens';
+import { pointsAttr } from '../common/svgPath';
 import { dashOf } from '../../services/design/figureStyle';
-import { axialStart, figureToken, innerTubeExtent, internalExtent } from '../../tree/schematicGeometry';
-import { fillOf, type Painter } from './schematicPainter';
+import { axialStart, innerTubeExtent, internalExtent } from '../../tree/schematicGeometry';
+import { figureInk, type Painter } from './schematicPainter';
 
 /** Where a child part sits: its parent's span and radius in meters, and the section's centerline in px. */
 export interface PartPlace {
@@ -53,7 +52,7 @@ function finTabShape(
   const px = (x: number) => at(x, 0)[0];
   const py = (y: number) => at(0, y)[1];
   const ink = {
-    fill: wire ? 'none' : fillOf(child, token(figureToken(child.type))),
+    fill: wire ? 'none' : figureInk(child),
     fillOpacity: wire ? undefined : '0.35',
     stroke: token('sch-line'),
     strokeWidth: '1',
@@ -78,18 +77,15 @@ function finTabShape(
     );
     return;
   }
-  (wire ? wires : shapes).push(
-    <polygon key={nextKey()} points={tab.map(([x, y]) => at(x, y).join(',')).join(' ')} {...ink} />,
-  );
+  (wire ? wires : shapes).push(<polygon key={nextKey()} points={pointsAttr(tab.map(([x, y]) => at(x, y)))} {...ink} />);
 }
 
 export function finSetShapes(paint: Painter, at: PartPlace, child: ComponentNode): void {
   const { ctx, wire, shapes, overlay, nextKey, noteHoverFins, wallClip, finFactors, pushWire, partLine } = paint;
   const { parent, pStart, pLen, pRadius, baseY, turn } = at;
   const grab = paint.clickable(child);
-  // Body radius under the fin front (`FinSet.getFinFront`), not the widest.
-  const fp: FinParent = finMount(child, parent, pStart) ?? pRadius;
-  const R = mountRadius(fp) ?? pRadius;
+  // Body radius under the fin front, not the widest.
+  const { fp, R } = finPlacement(child, parent, pStart, pRadius);
   const outline = finPointsWithRoot(child, fp) ?? FREEFORM_FALLBACK;
   const tab = finTabPoints(child, fp);
   const chord = finRootChord(child);
@@ -104,12 +100,12 @@ export function finSetShapes(paint: Painter, at: PartPlace, child: ComponentNode
   const clip = wallClip(parent, pStart, pLen, pRadius, baseY);
   for (const { angle, p, near } of projections) {
     const pose: FinPose = { front: start, radius: R, chord, cant, angle };
-    const ptsStr = outline
-      .map(([px, py]) => {
+    const ptsStr = pointsAttr(
+      outline.map(([px, py]) => {
         const [bx, by] = finBodyPoint(px, py, 0, pose);
-        return `${ctx.x0 + bx * ctx.scale},${baseY - by * ctx.scale}`;
-      })
-      .join(' ');
+        return [ctx.x0 + bx * ctx.scale, baseY - by * ctx.scale];
+      }),
+    );
     if (wire) {
       pushWire(child, grab, clip, (extra) => <polygon key={nextKey()} points={ptsStr} {...extra} />);
       finTabShape(paint, child, baseY, pose, tab);
@@ -120,7 +116,7 @@ export function finSetShapes(paint: Painter, at: PartPlace, child: ComponentNode
         key={nextKey()}
         points={ptsStr}
         clipPath={near ? undefined : `url(#${clip})`}
-        {...partLine(child, fillOf(child, token(figureToken(child.type))))}
+        {...partLine(child, figureInk(child))}
         {...grab}
       />
     );
@@ -136,10 +132,8 @@ export function tubeFinShapes(paint: Painter, at: PartPlace, child: ComponentNod
     paint;
   const { parent, pStart, pLen, pRadius, baseY, turn, surfaceAt } = at;
   const grab = paint.clickable(child);
-  const len = num(child, 'length', KERNEL_DEFAULTS.tubefinset.length);
-  const start = axialStart(child, len, pStart, pLen);
-  const R = surfaceAt(start);
-  const rt = tubeFinRadius(child, R);
+  const seat = tubeFinSeat(child, pStart, pLen, (o) => surfaceAt(pStart + o));
+  const { length: len, start, bodyRadius: R, tubeRadius: rt } = seat;
   const X = ctx.x0 + start * ctx.scale;
   noteHover(child, X, baseY - (R + 2 * rt) * ctx.scale, X + len * ctx.scale, baseY + (R + 2 * rt) * ctx.scale);
   const tubes = finFactors(child, turn, 6);
@@ -181,7 +175,7 @@ export function tubeFinShapes(paint: Painter, at: PartPlace, child: ComponentNod
           width={w2}
           height={2 * half}
           rx="2"
-          fill={fillOf(child, token(figureToken(child.type)))}
+          fill={figureInk(child)}
           fillOpacity="0.6"
           stroke={selStroke(child, token('sch-line'))}
           strokeWidth={selWidth(child)}
@@ -212,14 +206,14 @@ export function fairingShape(paint: Painter, at: PartPlace, child: ComponentNode
       <polygon
         key={nextKey()}
         points={`${X},${y0} ${X + 0.3 * len * ctx.scale},${yh} ${X + 0.7 * len * ctx.scale},${yh} ${Xe},${y0}`}
-        {...partLine(child, fillOf(child, token(figureToken(child.type))))}
+        {...partLine(child, figureInk(child))}
         {...grab}
       />
     ) : fshape === 'halfround' ? (
       <path
         key={nextKey()}
         d={`M ${X} ${y0} L ${X} ${yh + 0.35 * (y0 - yh)} Q ${X} ${yh} ${X + Math.min(8, len * ctx.scale * 0.25)} ${yh} L ${Xe - Math.min(8, len * ctx.scale * 0.25)} ${yh} Q ${Xe} ${yh} ${Xe} ${yh + 0.35 * (y0 - yh)} L ${Xe} ${y0} Z`}
-        {...partLine(child, fillOf(child, token(figureToken(child.type))))}
+        {...partLine(child, figureInk(child))}
         {...grab}
       />
     ) : (
@@ -229,7 +223,7 @@ export function fairingShape(paint: Painter, at: PartPlace, child: ComponentNode
         y={yh}
         width={Math.max(2, len * ctx.scale)}
         height={Math.max(2, hgt * ctx.scale)}
-        {...partLine(child, fillOf(child, token(figureToken(child.type))))}
+        {...partLine(child, figureInk(child))}
         {...grab}
       />
     ),
@@ -247,7 +241,9 @@ export function lugShape(paint: Painter, at: PartPlace, child: ComponentNode): v
   const reach = btn ? btn.reach : 2 * num(child, 'outerRadius', KERNEL_DEFAULTS.launchlug.outerRadius);
   const station = axialStart(child, btn ? 0 : len, pStart, pLen);
   const start = btn ? station - len / 2 : station;
-  const c = Math.cos(num(child, 'angleOffset', Math.PI) + turn);
+  const c = Math.cos(
+    num(child, 'angleOffset', KERNEL_DEFAULTS[t === 'railbutton' ? 'railbutton' : 'launchlug'].angleOffset) + turn,
+  );
   const R = surfaceAt(station);
   const yInner = baseY - R * c * ctx.scale;
   const yOuter = baseY - (R + reach) * c * ctx.scale;
@@ -261,24 +257,26 @@ export function lugShape(paint: Painter, at: PartPlace, child: ComponentNode): v
       y={yTop}
       width={Math.max(2, len * ctx.scale)}
       height={h}
-      {...partLine(child, fillOf(child, token(figureToken(child.type))))}
+      {...partLine(child, figureInk(child))}
       {...grab}
     />,
   );
 }
 
-const TYPE_STYLE: Partial<Record<string, { tag: string }>> = {
-  parachute: { tag: 'chute' },
-  streamer: { tag: 'strmr' },
-  shockcord: { tag: 'cord' },
-  masscomponent: { tag: 'mass' },
-  centeringring: { tag: 'CR' },
-  bulkhead: { tag: 'BH' },
-  engineblock: { tag: 'EB' },
-  tubecoupler: { tag: 'TC' },
-  innertube: { tag: 'IT' },
-};
+/** The tag text is `schematic.tag.<type>`, in the user's language. */
+const TAGGED_TYPES: ReadonlySet<string> = new Set([
+  'parachute',
+  'streamer',
+  'shockcord',
+  'masscomponent',
+  'centeringring',
+  'bulkhead',
+  'engineblock',
+  'tubecoupler',
+  'innertube',
+]);
 
+/** True when the type has a glyph, which then replaces the tag. */
 function partGlyph(
   paint: Painter,
   child: ComponentNode,
@@ -287,11 +285,11 @@ function partGlyph(
   gs: number,
   bw: number,
   bh: number,
-): void {
+): boolean {
   const { overlay, nextKey } = paint;
   const g = gs / 2;
   const glyphProps = {
-    stroke: fillOf(child, token(figureToken(child.type))),
+    stroke: figureInk(child),
     fill: 'none',
     strokeWidth: 1.2,
     style: { pointerEvents: 'none' as const },
@@ -313,7 +311,7 @@ function partGlyph(
           y={gcy - g * 0.35}
           width={g * 1.4}
           height={g * 1.05}
-          fill={fillOf(child, token(figureToken(child.type)))}
+          fill={figureInk(child)}
           fillOpacity="0.35"
         />
         <path
@@ -337,7 +335,8 @@ function partGlyph(
         d={`M ${gcx - g} ${gcy} ${[1, 2, 3, 4].map((i) => `L ${gcx - g + i * seg * 2 - seg} ${gcy + (i % 2 ? -1 : 1) * g * 0.45} L ${gcx - g + i * seg * 2} ${gcy}`).join(' ')}`}
       />,
     );
-  }
+  } else return false;
+  return true;
 }
 
 export function internalShapes(
@@ -346,12 +345,12 @@ export function internalShapes(
   child: ComponentNode,
   nest: (parent: ComponentNode, start: number, len: number, r: number, baseY: number, turn: number) => void,
 ): void {
-  const { ctx, overlay, motors, nextKey, nameOf, isSel, noteHover, selWidth, motorShapes } = paint;
+  const { ctx, overlay, motors, nextKey, nameOf, noteHover, selStroke, selWidth, motorShapes } = paint;
   const { parent, pStart, pLen, pRadius, baseY, turn } = at;
   const grab = paint.clickable(child);
-  const style = TYPE_STYLE[child.type];
+  const tagged = TAGGED_TYPES.has(child.type);
   // Not `internalExtent` for discs: its 85% cap would draw a coupler too small.
-  const disc = DISC_TYPES.has(child.type) ? discDims(child, tubeRadii(parent), parent.children ?? []) : null;
+  const disc = DISC_TYPES.has(child.type) ? discDims(child, tubeRadii(parent), parent, pStart) : null;
   const { length: len, radius: r } = disc
     ? { length: disc.length, radius: disc.outerR }
     : child.type === 'innertube'
@@ -361,7 +360,7 @@ export function internalShapes(
   const offsets = placementOffsets(child, r).map((off) => turnedOffset(off, turn));
   const motor = child.type === 'innertube' && child.id ? motors?.[child.id] : undefined;
   for (const off of offsets) {
-    const inkColor = isSel(child) ? 'var(--accent)' : fillOf(child, token(figureToken(child.type)));
+    const inkColor = selStroke(child, figureInk(child));
     noteHover(
       child,
       ctx.x0 + start * ctx.scale,
@@ -390,10 +389,9 @@ export function internalShapes(
     const gcx = ctx.x0 + (start + len / 2) * ctx.scale;
     const gcy = baseY - off.y * ctx.scale;
     const gs = Math.min(bw * 0.8, bh * 0.7);
-    if (gs >= 8) partGlyph(paint, child, gcx, gcy, gs, bw, bh);
-    const hasGlyph = gs >= 8 && ['parachute', 'masscomponent', 'centeringring', 'shockcord'].includes(child.type);
+    const hasGlyph = gs >= 8 && partGlyph(paint, child, gcx, gcy, gs, bw, bh);
     const tagRoom = len * ctx.scale > 26 && 2 * r * ctx.scale > 11;
-    if (style && !hasGlyph && tagRoom) {
+    if (tagged && !hasGlyph && tagRoom) {
       const tx = ctx.x0 + (start + len / 2) * ctx.scale;
       const ty = baseY - off.y * ctx.scale;
       overlay.push(
@@ -404,10 +402,10 @@ export function internalShapes(
           textAnchor="middle"
           dominantBaseline="central"
           fontSize="8.5"
-          fill={fillOf(child, token(figureToken(child.type)))}
+          fill={figureInk(child)}
           style={{ pointerEvents: 'none', textTransform: 'uppercase', letterSpacing: '0.04em' }}
         >
-          {paint.typeTag?.(child.type) ?? style.tag}
+          {paint.typeTag(child.type)}
         </text>,
       );
     }

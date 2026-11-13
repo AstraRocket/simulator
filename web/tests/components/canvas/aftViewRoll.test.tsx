@@ -6,6 +6,7 @@ import { renderWithProviders } from '../../testing/renderWithProviders';
 import { AftView } from '../../../src/components/canvas/AftView';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 // Desktop's RocketFigure applies one `rotate_x(rotation)` to side and back views alike.
 afterEach(() => {
@@ -50,6 +51,7 @@ function sideUp(roll: number): number {
     roll,
     uid: 't',
     setHoverId: () => {},
+    ...ENGLISH_LABELS,
   });
   const rect = shapes
     .filter((n): n is ReactElement<Record<string, unknown>> => isValidElement(n) && n.type === 'rect')

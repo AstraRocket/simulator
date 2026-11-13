@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { importCustomMotors, loadCatalog } from '../../../src/services/motors/motorDb';
+import { hasCurve, importCustomMotors, loadCatalog } from '../../../src/services/motors/motorDb';
 import type { CustomMotor } from '../../../src/services/motors/motorStore';
 
 const added: unknown[][] = [];
 let stored: CustomMotor[] = [];
 vi.mock('../../../src/services/app/remoteData', () => ({ fetchCatalog: vi.fn(async () => []) }));
-vi.mock('../../../src/services/motors/motorStore', () => ({
+vi.mock('../../../src/services/motors/motorStore', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/services/motors/motorStore')>()),
   getMotorStore: () => ({
     listCustomMotors: async () => stored,
     addCustomMotors: async (m: unknown[]) => void added.push(m),
@@ -102,6 +103,9 @@ describe('a stored custom motor in the catalog', () => {
       expect(row!.impulse).toBeCloseTo(27, 9);
       expect(row!.class).toBe('E');
       expect(row!.burn).toBe(1.5);
+      // The Motors dashboard ticks and the compare pane draws only a row with a curve.
+      expect(hasCurve(row!)).toBe(true);
+      expect(row!.curves![0]!.samples[0]).toEqual([0, 0]);
     } finally {
       stored = [];
     }

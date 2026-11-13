@@ -1,6 +1,6 @@
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { walkNodes } from '../../tree/treeWalk';
-import { finCant } from '../../tree/nodeProps';
+import { finCant, str } from '../../tree/nodeProps';
 import { finMountOf, finRootChord } from '../../tree/finPlanform';
 import { isPlanarFinSet } from '../../tree/tubefins';
 
@@ -35,7 +35,7 @@ export function badDimensions(tree: RocketTree): BadDimension[] {
   for (const n of walkNodes(tree.components ?? [])) {
     for (const field of REQUIRED_COMPONENT_FIELDS[n.type] ?? []) {
       if (n[field] != null && !isDimension(n[field])) {
-        out.push({ id: n.id, type: n.type, name: typeof n.name === 'string' ? n.name : '', field });
+        out.push({ id: n.id, type: n.type, name: str(n, 'name'), field });
       }
     }
   }
@@ -64,7 +64,7 @@ export function overturnedFins(tree: RocketTree): NamedPart[] {
       const dx = x - xCenter;
       if (dx >= 0) break;
       if (sin * -dx >= mount.radiusAt(xCenter + dx * cos)) {
-        out.push({ id: n.id, type: n.type, name: typeof n.name === 'string' ? n.name : '' });
+        out.push({ id: n.id, type: n.type, name: str(n, 'name') });
         break;
       }
     }

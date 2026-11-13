@@ -13,11 +13,13 @@ import {
   type ProfilePoint,
 } from '../../services/flight/environmentProfile';
 import { formatLat, formatLon } from '../../services/map/slippyMap';
-import { fmtSiteTime } from '../../i18n/format';
+import { fmtSig, fmtSiteTime, withUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
-import { degToRad, radToDeg } from '../../prefs/units';
+import { degToRad, radToDeg, unitScope } from '../../prefs/units';
+import { siteAltitudeUnit } from '../sim/launchSection';
 import { norm360 } from '../../services/flight/groundTrack';
 import { polylinePath } from '../common/svgPath';
+import { LAxes, type PlotFrame } from '../common/chartAxes';
 import { LegendSwatch } from '../sim/chartAxes';
 import { token } from '../common/colorTokens';
 
@@ -37,13 +39,7 @@ const CHARTS: EnvironmentQuantity[] = ['windSpeed', 'windDirection', 'temperatur
 const PAD: EnvironmentQuantity[] = ['temperature', 'pressure', 'density', 'speedOfSound', 'windSpeed', 'windDirection'];
 
 /** Significant figures, not decimals: density reads 1.225 kg/m³ and 0.001225 g/cm³ alike. */
-function sig4(fu: FieldUnit, si: number): string {
-  const ui = fu.toUi(si);
-  if (!Number.isFinite(ui)) return NO_VALUE;
-  if (ui === 0) return `${fu.fmtSym(si, 0)}`;
-  const mag = Math.floor(Math.log10(Math.abs(ui)));
-  return `${fu.fmtSym(si, Math.max(0, 3 - mag))}`;
-}
+const sig4 = (fu: FieldUnit, si: number): string => withUnit(fmtSig(fu.toUi(si), 4), fu.sym);
 
 export function EnvironmentView({ flight }: { flight: ResultFlight }) {
   const { t } = useTranslation();
@@ -54,7 +50,8 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
   if (!env) return <p className="p-4 text-sm text-ink-muted">{t('env.noData')}</p>;
 
   const unit = (q: EnvironmentQuantity) => u.plain(QUANTITY[q]);
-  const dist = u.plain('distance');
+  // The Apogee tile's unit, so the note and the profile heights read as it does.
+  const dist = u.at(unitScope('sim', 'apogee'), 'distance');
   const show = (q: EnvironmentQuantity, si: number) => {
     if (q !== 'windDirection') return sig4(unit(q), si);
     // Still air has no direction; the recorded angle of a zero vector is not one.
@@ -74,7 +71,9 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
           {validAt && <TermRow label={t('env.when')}>{validAt}</TermRow>}
           <TermRow label={t('env.latitude')}>{latText(flight.launch.latitudeDeg)}</TermRow>
           <TermRow label={t('env.longitude')}>{lonText(flight.launch.longitudeDeg)}</TermRow>
-          <TermRow label={t('env.elevation')}>{`${dist.fmtSym(flight.launch.launchAltitudeM ?? 0, 0)}`}</TermRow>
+          <TermRow label={t('env.elevation')}>
+            {siteAltitudeUnit(u).fmtSym(flight.launch.launchAltitudeM ?? 0, 0)}
+          </TermRow>
           {PAD.map((q) => (
             <TermRow key={q} label={t(`env.q.${q}`)}>
               {show(q, env.pad[q])}
@@ -135,6 +134,7 @@ const PAD_L = 46;
 const PAD_R = 10;
 const PAD_T = 10;
 const PAD_B = 30;
+const FRAME: PlotFrame = { width: W, height: H, padL: PAD_L, padR: PAD_R, padT: PAD_T, padB: PAD_B };
 
 function ProfileChart({
   title,
@@ -195,28 +195,9 @@ function ProfileChart({
         </span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={label}>
-        <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} className="stroke-ink-dim" />
-        <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} className="stroke-ink-dim" />
+        <LAxes frame={FRAME} xLo={loUi} xHi={hiUi} xSym={xSym} yLo="0" yHi={y.fmt(apogee, 0)} ySym={y.sym} />
         <path d={path(legs.descent)} fill="none" strokeWidth={0.75} strokeOpacity={0.6} className="stroke-warn-400" />
         <path d={path(legs.ascent)} fill="none" strokeWidth={1.75} className="stroke-accent-400" />
-        <text x={PAD_L - 4} y={PAD_T + 8} textAnchor="end" className="fill-ink-muted text-[10px]">
-          {y.fmt(apogee, 0)}
-        </text>
-        <text x={PAD_L - 4} y={H - PAD_B} textAnchor="end" className="fill-ink-muted text-[10px]">
-          0
-        </text>
-        <text x={4} y={(H - PAD_B + PAD_T) / 2} className="fill-ink-faint text-[10px]">
-          {y.sym}
-        </text>
-        <text x={PAD_L} y={H - PAD_B + 13} textAnchor="start" className="fill-ink-muted text-[10px]">
-          {loUi}
-        </text>
-        <text x={W - PAD_R} y={H - PAD_B + 13} textAnchor="end" className="fill-ink-muted text-[10px]">
-          {hiUi}
-        </text>
-        <text x={(PAD_L + W - PAD_R) / 2} y={H - 4} textAnchor="middle" className="fill-ink-faint text-[10px]">
-          {xSym}
-        </text>
       </svg>
     </figure>
   );

@@ -1,4 +1,4 @@
-import { test, expect, autosaved, importOrk, type NameClash, type Page } from './base';
+import { test, expect, autosaved, designTitle, importOrk, type NameClash, type Page } from './base';
 
 const openLibrary = async (page: Page) => {
   await page.getByRole('button', { name: 'Menu' }).click();
@@ -108,8 +108,7 @@ test('an example opens from the library, as its own unsaved design', async ({ pa
   await entry.click();
   await expect(dlg).toBeHidden();
 
-  const title = page.getByRole('button', { name: 'Edit rocket configuration' });
-  await expect(title).toContainText('Clustered motors');
+  await expect(designTitle(page)).toContainText('Clustered motors');
   // Scoped to the tree: the name is also on SVG <title>s in the schematic.
   await expect(page.getByRole('tree', { name: 'Components' }).getByText('Clustered Inner Tube')).toBeVisible();
 
@@ -133,7 +132,7 @@ test('an example opens from Import, as its own unsaved design', async ({ page })
   await entry.click();
   await expect(dlg).toBeHidden();
 
-  await expect(page.getByRole('button', { name: 'Edit rocket configuration' })).toContainText('Tube fin rocket');
+  await expect(designTitle(page)).toContainText('Tube fin rocket');
   await expect(page.getByRole('tree', { name: 'Components' }).getByText('Tube fin set')).toBeVisible();
 });
 

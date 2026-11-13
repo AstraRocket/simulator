@@ -1,20 +1,16 @@
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWorkspaceStore, selectConfig, selectMotorDims } from '../../state/store';
-import { useSettings } from '../../state/useSettings';
-import { withFigureDefaults } from '../../services/design/figureStyle';
+import { useWorkspaceStore } from '../../state/store';
+import { useDesignFigure } from './useDesignFigure';
 import type { StaticInfo } from '../../engine/api';
 import { useSimSummary } from '../layout/useSimSummary';
 import { SchematicPreview } from './SchematicPreview';
+import { RunToggleButton } from '../common/RunToggleButton';
 
 export function RocketOverview({ info }: { info: StaticInfo }) {
   const { t } = useTranslation();
-  const design = useWorkspaceStore((s) => s.tree);
-  const config = useWorkspaceStore(selectConfig);
+  const { tree, motors } = useDesignFigure();
   const setDesignPane = useWorkspaceStore((s) => s.setDesignPane);
-  const { settings } = useSettings();
-  const tree = useMemo(() => withFigureDefaults(design, settings.figureStyles), [design, settings.figureStyles]);
-  const motors = useMemo(() => selectMotorDims(design, config), [design, config]);
   const s = useSimSummary(info);
 
   return (
@@ -57,23 +53,16 @@ export function RocketOverview({ info }: { info: StaticInfo }) {
         <div className="min-w-0 flex-1">
           <Row label={t('sim.apogee')}>{s.flight}</Row>
         </div>
-        <button
+        <RunToggleButton
+          busy={s.busy}
+          label={s.runLabel}
           onClick={s.onRun}
           disabled={!s.busy && s.blocked}
           title={s.runTitle}
-          className={`m-2 rounded-md px-4 py-2 text-sm font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50 ${
-            s.busy ? 'bg-prominent hover:bg-prominent-hover' : 'bg-accent-600 hover:bg-accent-700'
-          }`}
-        >
-          {/* U+FE0E asks for the text glyph: see HeaderSummary. */}
-          {s.busy ? (
-            s.runLabel
-          ) : (
-            <>
-              <span aria-hidden>{'▶︎'}</span> {s.runLabel}
-            </>
-          )}
-        </button>
+          glyph="lead"
+          size="md"
+          className="m-2"
+        />
       </div>
     </section>
   );

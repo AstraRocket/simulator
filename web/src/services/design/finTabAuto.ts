@@ -1,6 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { finRootChord } from '../../tree/finPlanform';
-import { countOf, num, positionOf } from '../../tree/nodeProps';
+import { countOf, innerTubeRadius, num, positionOf } from '../../tree/nodeProps';
 import { clusterPlacesOf } from '../../tree/cluster';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { axialLength, partLength, startFromPosition } from '../../tree/position';
@@ -26,7 +26,7 @@ function finLines(fin: ComponentNode): FinLines {
 
 /** Deliberately differs from desktop, which treats every tube as on-axis (wrong for a cluster or offset mount). */
 function tubeReach(tube: ComponentNode, fins: FinLines): number {
-  const r = num(tube, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius);
+  const r = innerTubeRadius(tube);
   const h = fins.halfThickness;
   let reach = 0;
   for (const { radialPosition: d, radialDirection: dir } of clusterPlacesOf(tube)) {

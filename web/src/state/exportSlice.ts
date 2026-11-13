@@ -7,14 +7,14 @@ import type { ComponentInfo, OpenRocketDesign, RocketTree } from '../engine/open
 import type { StageLaunch } from '../services/files/rasaero/stageLaunch';
 import { buildDesignInfo } from '../services/report/designInfo';
 import { buildExportMotorMap, fillMotorDigests } from '../services/motors/exportMotors';
-import { builtFrom, computeStaticInfo } from '../services/design/buildRocket';
+import { buildConfiguredRocket, builtFrom, computeStaticInfo } from '../services/design/buildRocket';
 import { stageNodes, walkNodes } from '../tree/treeWalk';
 import { effectivePrefs, isOutdated } from '../services/flight/simulations';
 import { loadSettings } from '../services/storage/settings';
 import { configuredTree, stageFlies, type FlightConfig } from '../services/flight/flightConfigs';
 import { overridesStages, stageStacks } from '../services/files/rocksim/stageStacks';
 import { designNameOf } from '../services/app/appInfo';
-import { errorText, keyedText, type Keyed } from '../i18n/keyedError';
+import { actionError, keyedText, type Keyed } from '../i18n/keyedError';
 import { fmtList, partLabel } from '../i18n/format';
 import { configOf, selectActive, selectConfig, selectDesignName } from './workspaceSelectors';
 import { reportSource } from './reportSource';
@@ -128,7 +128,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
         });
         if (infoLeftOut) set({ err: i18n.t('errors.saveOrkNoDesignInfo') });
       } catch (e) {
-        set({ err: i18n.t('errors.saveOrk', { reason: errorText(e, i18n.t) }) });
+        set({ err: actionError('errors.saveOrk', e, i18n.t) });
       }
     },
     saveRkt: async () => {
@@ -149,7 +149,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
           });
         }
       } catch (e) {
-        set({ err: i18n.t('errors.exportRkt', { reason: errorText(e, i18n.t) }) });
+        set({ err: actionError('errors.exportRkt', e, i18n.t) });
       }
     },
     exportPrint: async (opts) => {
@@ -160,7 +160,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
         const { skipped } = await downloadRocket3mf(name, tree, opts);
         if (skipped.length) set({ err: i18n.t('errors.exportPrintPartial', { parts: fmtList(skipped) }) });
       } catch (e) {
-        set({ err: i18n.t('errors.exportPrint', { reason: errorText(e, i18n.t) }) });
+        set({ err: actionError('errors.exportPrint', e, i18n.t) });
       }
     },
     saveRasaero: async () => {
@@ -176,7 +176,6 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
         let stageLaunch: StageLaunch[] | undefined;
         if (info && stageNodes(tree).length > 1) {
           const { cumulativeStageLaunch } = await import('../services/files/rasaero/stageLaunch');
-          const { buildConfiguredRocket } = await import('../services/design/buildRocket');
           stageLaunch = cumulativeStageLaunch(flown, buildConfiguredRocket(flown, config));
           rebuildNow(tree, config);
         }
@@ -194,7 +193,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
         });
         if (warnings.length) set({ err: warnings.map((k) => keyedText(k, i18n.t)).join(' ') });
       } catch (e) {
-        set({ err: i18n.t('errors.exportRasaero', { reason: errorText(e, i18n.t) }) });
+        set({ err: actionError('errors.exportRasaero', e, i18n.t) });
       }
     },
     exportJson: async () => {
@@ -220,7 +219,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
           set({ err: i18n.t('errors.exportJsonPartial', { parts }) });
         }
       } catch (e) {
-        set({ err: i18n.t('errors.exportJson', { reason: errorText(e, i18n.t) }) });
+        set({ err: actionError('errors.exportJson', e, i18n.t) });
       }
     },
     exportComponent: async (nodeId, format) => {
@@ -229,12 +228,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
         const ok = await exportComponent(get().tree, nodeId, format, selectDesignName(get()), i18n.t);
         if (!ok) set({ err: i18n.t('errors.exportUnsupported', { format: format.toUpperCase() }) });
       } catch (e) {
-        set({
-          err: i18n.t('errors.exportFailed', {
-            format: format.toUpperCase(),
-            reason: errorText(e, i18n.t),
-          }),
-        });
+        set({ err: actionError('errors.exportFailed', e, i18n.t, { format: format.toUpperCase() }) });
       }
     },
   };

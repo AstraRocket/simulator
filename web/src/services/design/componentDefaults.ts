@@ -69,6 +69,8 @@ export const COMPONENT_DEFAULTS = {
     screwHeight: 0,
     materialName: 'Delrin',
     materialDensity: 1420,
+    // Delrin's in `Databases.java`.
+    materialShearModulus: 0.946e9,
     materialGroup: 'Plastics',
   },
   parachute: {

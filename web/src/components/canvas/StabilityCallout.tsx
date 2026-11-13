@@ -4,7 +4,7 @@ import type * as THREE from 'three';
 import type { StaticInfo } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
 import { AxisCallout } from './rocketCallouts';
-import { marginText } from '../../tree/schematicGeometry';
+import { marginText, stationLabel } from '../../tree/schematicGeometry';
 import { CP_INK, MARGIN_INK } from './stabilityInks';
 import { useSceneColors } from './sceneColors';
 
@@ -29,7 +29,7 @@ export function StabilityCallout({
     const margin = marginText(cal, info.stabilityPercent, t);
     if (!margin) return null;
     return {
-      text: `${t('schematic.cp')} · ${u.fmtSym('length', info.cp)}    ${margin.text}`,
+      text: `${stationLabel(t, u, 'cp', info.cp)}    ${margin.text}`,
       color: scene[MARGIN_INK[margin.state]],
     };
   }, [info, cal, t, u, scene]);

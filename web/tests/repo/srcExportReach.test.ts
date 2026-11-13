@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const web = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -50,10 +51,27 @@ const exportedValues = (t: string): Exported[] => {
   return out;
 };
 
+// A name in a comment is not a use. TypeScript's printer drops them, so a regex or string holding `/*` or `//`
+// is read as code.
+const printer = ts.createPrinter({ removeComments: true });
+const stripComments = (f: string, t: string): string =>
+  printer.printFile(
+    ts.createSourceFile(f, t, ts.ScriptTarget.Latest, false, f.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS),
+  );
+
+const codeCache = new Map<string, string>();
+const code = (f: string): string => {
+  const hit = codeCache.get(f);
+  if (hit !== undefined) return hit;
+  const t = stripComments(f, text(f));
+  codeCache.set(f, t);
+  return t;
+};
+
 const occurrences = (t: string, name: string): number => (t.match(new RegExp(`\\b${name}\\b`, 'g')) ?? []).length;
 
 const mentionedElsewhere = (files: string[], name: string, self: string): boolean =>
-  files.some((f) => f !== self && occurrences(text(f), name) > 0);
+  files.some((f) => f !== self && occurrences(code(f), name) > 0);
 
 const modulePath = (file: string): string =>
   file
@@ -78,7 +96,7 @@ const importsFrom = (from: string, self: string): boolean => {
 };
 
 const reachedThrough = (files: string[], name: string, self: string): boolean =>
-  files.some((f) => f !== self && occurrences(text(f), name) > 0 && importsFrom(f, self));
+  files.some((f) => f !== self && occurrences(code(f), name) > 0 && importsFrom(f, self));
 
 const testOnlyExports = (): string[] => {
   const found: string[] = [];
@@ -91,7 +109,7 @@ const testOnlyExports = (): string[] => {
         if (reachedThrough(testFiles, name, file)) found.push(where);
         continue;
       }
-      if (occurrences(t.replace(EXPORT_LIST, ''), name) > 1) continue;
+      if (occurrences(code(file).replace(EXPORT_LIST, ''), name) > 1) continue;
       if (mentionedElsewhere(srcFiles, name, file)) continue;
       if (!mentionedElsewhere(testFiles, name, file)) continue;
       found.push(where);

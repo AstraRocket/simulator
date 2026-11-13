@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { MAX_ROD_ANGLE_RAD } from '../../../src/services/flight/safetyLimits';
-import { simConditions, newSimulation, resultKey, type SimPrefs } from '../../../src/services/flight/simulations';
+import {
+  simConditions,
+  newSimulation,
+  nextFreeName,
+  resultKey,
+  type SimPrefs,
+} from '../../../src/services/flight/simulations';
 import { newFlightConfig } from '../../../src/services/flight/flightConfigs';
 import type { CompleteLaunch } from '../../../src/services/flight/requiredLaunch';
 import { DEFAULT_HEADING_DEG } from '../../../src/services/flight/windLevels';
@@ -206,5 +212,13 @@ describe('a profile kept under the Average model', () => {
     expect(resultKey(tree, config, sim({ ...base, keptWindLevels: kept }), PREFS)).toBe(
       resultKey(tree, config, sim(base), PREFS),
     );
+  });
+});
+
+describe('nextFreeName', () => {
+  it('keeps a free name and numbers a taken one from 2', () => {
+    expect(nextFreeName('Copy', ['A'])).toBe('Copy');
+    expect(nextFreeName('Copy', ['Copy'])).toBe('Copy 2');
+    expect(nextFreeName('Copy', ['Copy', 'Copy 2', 'Copy 3'])).toBe('Copy 4');
   });
 });

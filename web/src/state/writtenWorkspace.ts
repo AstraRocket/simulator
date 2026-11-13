@@ -1,30 +1,45 @@
 import type { WorkspaceState } from './store';
+import {
+  getWorkspaceStore,
+  pickWorkspace,
+  WORKSPACE_FIELDS,
+  type WorkspaceField,
+} from '../services/storage/workspaceStore';
+import { workspaceSnapshot } from './workspaceSelectors';
 
-type Written = Pick<WorkspaceState, 'tree' | 'sims' | 'configs' | 'activeId' | 'loadedMeta'>;
+type Written = Pick<WorkspaceState, WorkspaceField>;
 
 // Compared by identity: every edit replaces the object it changes.
 let written: Written | null = null;
 
 export function markWritten(s: Written): void {
-  written = { tree: s.tree, sims: s.sims, configs: s.configs, activeId: s.activeId, loadedMeta: s.loadedMeta };
+  written = pickWorkspace(s);
 }
 
 // `s` is passed in because the store imports this module.
-export function recordWrite(fields: Written, s: Pick<WorkspaceState, 'clearSaveWarning' | 'markSaved'>): void {
+function recordWrite(fields: Written, s: Pick<WorkspaceState, 'clearSaveWarning' | 'markSaved'>): void {
   markWritten(fields);
   s.clearSaveWarning();
   s.markSaved();
 }
 
 export function unchangedSinceWrite(s: Written): boolean {
-  return (
-    written !== null &&
-    written.tree === s.tree &&
-    written.sims === s.sims &&
-    written.configs === s.configs &&
-    written.activeId === s.activeId &&
-    written.loadedMeta === s.loadedMeta
-  );
+  const w = written;
+  return w !== null && WORKSPACE_FIELDS.every((k) => w[k] === s[k]);
+}
+
+/** Held during a delete (see `holdSaves`) or already stored. */
+export function nothingToWrite(s: Written): boolean {
+  return savesHeld() || unchangedSinceWrite(s);
+}
+
+// `now` reads the store after the await, for the same reason `recordWrite` takes `s`.
+export async function writeWorkspace(
+  fields: Written,
+  now: () => Pick<WorkspaceState, 'clearSaveWarning' | 'markSaved'>,
+): Promise<void> {
+  await getWorkspaceStore().save(workspaceSnapshot(fields));
+  recordWrite(fields, now());
 }
 
 // React clears the autosave timer only after the store changes, so the timer checks this token.

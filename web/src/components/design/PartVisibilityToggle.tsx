@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { smallButton } from '../common/smallButton';
 
 export interface PartVisibility {
   /** The parts hidden by their own button. */
@@ -32,7 +33,9 @@ export function PartVisibilityToggle({
   if (!id || !visibility) return null;
   const own = visibility.hidden.has(id);
   const hidden = visibility.shownHidden.has(id);
-  const label = own ? t('tree.showPart') : t('tree.hidePart');
+  // Hidden by a parent: this button can do nothing, so it says why rather than offering to hide.
+  const inherited = hidden && !own;
+  const label = own ? t('tree.showPart') : inherited ? t('tree.hiddenByParent') : t('tree.hidePart');
   return (
     <button
       type="button"
@@ -40,8 +43,8 @@ export function PartVisibilityToggle({
         e.stopPropagation(); // don't also select the row
         visibility.onToggle(id);
       }}
-      // Hidden by a parent: only that parent's button can bring it back.
-      disabled={hidden && !own}
+      // Only the parent's button can bring it back.
+      disabled={inherited}
       tabIndex={tabIndex}
       aria-pressed={own}
       aria-label={label}
@@ -64,7 +67,7 @@ export function HiddenPartsNote({ visibility }: { visibility: PartVisibility }) 
       <button
         type="button"
         onClick={visibility.onShowAll}
-        className="shrink-0 whitespace-nowrap rounded-md bg-raised px-2 py-1 text-xs font-medium text-accent-300 ring-1 ring-line/10 hover:bg-elevated"
+        className={smallButton('xs', 'accent', 'shrink-0 whitespace-nowrap')}
       >
         {t('tree.showAll')}
       </button>

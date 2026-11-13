@@ -13,7 +13,6 @@ const R_AIR = 287.053;
 const T0 = 288.15; // K
 const P0 = 101325; // Pa
 const RHO0 = 1.225; // kg/m^3
-const LAPSE = 0.0065; // K/m (positive)
 
 export interface SizingLaunch {
   launchAltitudeM?: number | null;
@@ -54,24 +53,47 @@ export function siteAirDensity(siteM: number | null, temperatureC: number | null
 }
 
 const ISA_TABLE_STEP = 500;
-/** Geopotential, m. */
-const H_TROPOPAUSE = 11000;
-const T_TROPOPAUSE = T0 - LAPSE * H_TROPOPAUSE;
-const P_TROPOPAUSE = P0 * Math.pow(T_TROPOPAUSE / T0, G0 / (R_AIR * LAPSE));
+/** `ExtendedISAModel.STANDARD_LAYERS` (geopotential, m) and `STANDARD_TEMPERATURES` (K). */
+const ISA_LAYERS = [0, 11000, 20000, 32000, 47000, 51000, 71000, 84852];
+const ISA_TEMPS = [288.15, 216.65, 216.65, 228.65, 270.65, 270.65, 214.65, 186.95];
 
-/** `h` is geometric altitude, m. */
-function isaExact(h: number): { t: number; p: number } {
-  const geo = Math.min((ISA_EARTH_RADIUS_M * h) / (ISA_EARTH_RADIUS_M + h), 20000);
-  if (geo < H_TROPOPAUSE) {
-    const t = T0 - LAPSE * geo;
-    return { t, p: P0 * Math.pow(t / T0, G0 / (R_AIR * LAPSE)) };
-  }
-  return { t: T_TROPOPAUSE, p: P_TROPOPAUSE * Math.exp((-(geo - H_TROPOPAUSE) * G0) / (R_AIR * T_TROPOPAUSE)) };
+const toGeopotential = (h: number) => (ISA_EARTH_RADIUS_M * h) / (ISA_EARTH_RADIUS_M + h);
+const toGeometric = (geo: number) => (ISA_EARTH_RADIUS_M * geo) / (ISA_EARTH_RADIUS_M - geo);
+
+/** `ExtendedISAModel.calculatePressure`: the pressure at `alt1` from the conditions at `alt2`. */
+function layerPressure(alt1: number, temp1: number, alt2: number, temp2: number, press2: number): number {
+  const rate = (temp2 - temp1) / (alt2 - alt1);
+  if (Math.abs(rate) > 0.000001) return press2 / Math.pow(1 + ((alt2 - alt1) * rate) / temp1, -G0 / (rate * R_AIR));
+  return press2 / Math.exp((-(alt2 - alt1) * G0) / (R_AIR * temp1));
 }
+
+function pressureIn(layer: number, basePressure: number, geo: number): { t: number; p: number } {
+  const rate = (ISA_TEMPS[layer + 1]! - ISA_TEMPS[layer]!) / (ISA_LAYERS[layer + 1]! - ISA_LAYERS[layer]!);
+  const t = ISA_TEMPS[layer]! + (geo - ISA_LAYERS[layer]!) * rate;
+  return { t, p: layerPressure(geo, t, ISA_LAYERS[layer]!, ISA_TEMPS[layer]!, basePressure) };
+}
+
+/** Each layer's base pressure, read 1 m below its base as the kernel's constructor does. */
+const ISA_PRESSURES = ISA_LAYERS.reduce<number[]>(
+  (out, base, i) => [...out, i === 0 ? P0 : pressureIn(i - 1, out[i - 1]!, base - 1).p],
+  [],
+);
+
+/** `ExtendedISAModel.getExactConditions`; `h` is geometric altitude, m. */
+function isaExact(h: number): { t: number; p: number } {
+  const geo = Math.min(Math.max(toGeopotential(h), 0), ISA_LAYERS[ISA_LAYERS.length - 1]!);
+  let layer = 0;
+  while (layer < ISA_LAYERS.length - 2 && ISA_LAYERS[layer + 1]! <= geo) layer++;
+  return pressureIn(layer, ISA_PRESSURES[layer]!, geo);
+}
+
+/** The kernel's last tabulated level; it holds that level's conditions above it. */
+const ISA_TOP_LEVEL = Math.ceil(toGeometric(ISA_LAYERS[ISA_LAYERS.length - 1]!) / ISA_TABLE_STEP) - 1;
 
 // As the kernel's ExtendedISAModel reads them: exact every 500 m, linear in between.
 export function isaAt(h: number): { t: number; p: number } {
   if (!(h > 0)) return isaExact(0);
+  if (h >= ISA_TOP_LEVEL * ISA_TABLE_STEP) return isaExact(ISA_TOP_LEVEL * ISA_TABLE_STEP);
   const i = Math.floor(h / ISA_TABLE_STEP);
   const f = (h - i * ISA_TABLE_STEP) / ISA_TABLE_STEP;
   const lo = isaExact(i * ISA_TABLE_STEP);
@@ -158,6 +180,12 @@ export interface Band {
 export const MAIN_BAND: Band = { key: 'main', min: 15 * FT_S, max: 20 * FT_S, target: 18 * FT_S };
 
 export const DROGUE_BAND: Band = { key: 'drogue', min: 50 * FT_S, max: 75 * FT_S, target: 60 * FT_S };
+
+/** Field limits shared by the parachute tool and the simple rocket; SI, the Cd unitless. */
+export const CHUTE_LIMITS = {
+  diameter: { stepSi: 0.01, minSi: 0.01, maxSi: 20 },
+  cd: { step: 0.05, min: 0.05, max: 3 },
+} as const;
 
 export type RateVerdict = 'slow' | 'main' | 'between' | 'drogue' | 'fast';
 

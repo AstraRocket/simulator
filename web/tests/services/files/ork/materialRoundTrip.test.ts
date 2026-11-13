@@ -100,6 +100,7 @@ describe('a material the editor offers survives a .ork round trip', () => {
                   filletMaterialName: 'Epoxy - West System 105/205 Fast',
                   filletDensity: 1180,
                   filletMaterialGroup: 'Adhesives',
+                  filletShearModulus: 1.5e9,
                 }),
               ],
             }),
@@ -113,6 +114,7 @@ describe('a material the editor offers survives a .ork round trip', () => {
     expect(back['density']).toBe(630);
     expect(back['filletMaterialName']).toBe('Epoxy - West System 105/205 Fast');
     expect(back['filletDensity']).toBe(1180);
+    expect(back['filletShearModulus']).toBe(1.5e9);
   });
 
   it.each([

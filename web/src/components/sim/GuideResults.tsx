@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SortHeader } from '../common/SortHeader';
 import { useTranslation } from 'react-i18next';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import type { Quantity } from '../../prefs/units';
@@ -6,6 +7,18 @@ import type { CatalogMotor } from '../../services/motors/motorDb';
 import { motorName } from '../../services/motors/motorName';
 import { fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
+import {
+  ClassChips,
+  FitsMount,
+  ImpulseRange,
+  ManufacturerMenu,
+  OopFilter,
+  PerfFilters,
+  PluggedFilter,
+  SparkyFilter,
+} from './MotorFilterBar';
+import { MotorSearch } from './MotorPanelParts';
+import type { useMotorFilter } from './useMotorFilter';
 
 export interface GuideRowBase {
   key: string;
@@ -92,6 +105,92 @@ export function GuideToolbar({
   );
 }
 
+const runButton =
+  'rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-line/10 disabled:cursor-not-allowed disabled:opacity-40';
+
+/** The filters and the fly row above both guides' candidate lists; `lead` opens the first row. */
+export function GuideFilterPanel({
+  filter: f,
+  lead,
+  hidden,
+  run,
+  onFly,
+  onCancel,
+  flying,
+  max,
+  costText,
+  leftOut,
+  loading,
+  failed,
+}: {
+  filter: ReturnType<typeof useMotorFilter>;
+  lead?: ReactNode;
+  hidden: boolean;
+  run: { done: number; total: number } | null;
+  onFly: () => void;
+  onCancel: () => void;
+  flying: number;
+  max: number;
+  costText: string;
+  leftOut: number;
+  loading: boolean;
+  failed: boolean;
+}) {
+  const { t } = useTranslation();
+  const tooMany = flying > max;
+  return (
+    <div className={`space-y-2 border-b border-line/10 p-3 ${hidden ? 'hidden' : ''}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        {lead}
+        <MotorSearch value={f.text} onChange={f.setText} className="min-w-[140px] py-1.5" />
+        <ManufacturerMenu manufacturers={f.manufacturers} mfrs={f.mfrs} onChange={f.setMfrs} />
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <ClassChips classes={f.classes} cls={f.cls} onChange={f.setCls} />
+        <ImpulseRange imp={f.imp} onChange={f.setImp} />
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {f.mount && <FitsMount mount={f.mount} fits={f.fits} onChange={f.setFits} />}
+        <PluggedFilter plugged={f.plugged} onChange={f.setPlugged} />
+        <SparkyFilter value={f.sparky} onChange={f.setSparky} />
+        <OopFilter on={f.hideOop} onChange={f.setHideOop} />
+      </div>
+      <PerfFilters perf={f.perf} onChange={f.setPerf} onClear={f.clearPerf} fields={f.perfFields} />
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {run ? (
+          <>
+            <button onClick={onCancel} className={`${runButton} bg-raised text-ink hover:bg-elevated`}>
+              {t('common.cancel')}
+            </button>
+            <span className="text-xs tabular-nums text-ink-muted" role="status">
+              {t('guide.progress', { done: run.done, total: run.total })}
+            </span>
+          </>
+        ) : (
+          <button
+            onClick={onFly}
+            disabled={loading || failed || flying === 0 || tooMany}
+            className={`${runButton} bg-accent-600 text-on-accent hover:bg-accent-700`}
+          >
+            {tooMany || flying === 0 ? t('guide.flyIdle') : t('guide.fly', { count: flying })}
+          </button>
+        )}
+        {!run && !loading && (
+          <span className="text-xs">
+            <span className={tooMany ? 'text-warn-400' : 'text-ink-faint'}>
+              {tooMany ? t('guide.tooMany', { count: flying, max }) : costText}
+            </span>
+            {leftOut > 0 && (
+              <span className="text-ink-faint">{` ${t('guide.noCurveLeftOut', { count: leftOut })}`}</span>
+            )}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function GuideResults<R extends GuideRowBase>({
   rows,
   failed,
@@ -124,25 +223,17 @@ export function GuideResults<R extends GuideRowBase>({
   const select =
     'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
 
-  const header = (key: string, label: string, align: 'left' | 'right' = 'right') => {
-    const active = sort.key === key;
-    return (
-      <th
-        key={key}
-        scope="col"
-        aria-sort={active ? (sort.desc ? 'descending' : 'ascending') : 'none'}
-        className={`px-1.5 py-1.5 align-bottom font-medium leading-tight ${align === 'left' ? 'text-left' : 'text-right'}`}
-      >
-        <button
-          onClick={() => onSort((s) => ({ key, desc: s.key === key ? !s.desc : descFirst(key) }))}
-          className={`hover:text-ink-strong ${align === 'left' ? 'text-left' : 'text-right'} ${active ? 'text-ink-strong' : ''}`}
-        >
-          {label}
-          {active && <span aria-hidden="true">{sort.desc ? ' ▾' : ' ▴'}</span>}
-        </button>
-      </th>
-    );
-  };
+  const header = (key: string, label: string, align: 'left' | 'right' = 'right') => (
+    <SortHeader
+      key={key}
+      active={sort.key === key}
+      dir={sort.desc ? -1 : 1}
+      onSort={() => onSort((s) => ({ key, desc: s.key === key ? !s.desc : descFirst(key) }))}
+      className={`px-1.5 py-1.5 align-bottom font-medium leading-tight ${align === 'left' ? 'text-left' : 'text-right'}`}
+    >
+      {label}
+    </SortHeader>
+  );
 
   return (
     <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">

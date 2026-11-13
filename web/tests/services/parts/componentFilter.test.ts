@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readData } from '../../testing/dataDir';
+import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import {
-  DEFAULT_CHUTE_CD,
   boreClears,
   materialFamilies,
   materialFamily,
@@ -131,7 +131,7 @@ describe('fitScore', () => {
   });
 
   it("matches an end within desktop's band, max(0.05 d, 1 mm), strictly inside", () => {
-    // ComponentPresetRowFilter(double, int) in the 24.12 jar: epsilon = max(0.05 * d, 0.001).
+    // Desktop's ComponentPresetRowFilter(double, int): epsilon = max(0.05 * d, 0.001).
     const d = 0.0546608;
     const eps = Math.max(0.05 * d, 0.001);
     const match = { kind: 'ends' as const, fore: d, aft: null };
@@ -333,7 +333,9 @@ describe('sorting by shape and drag coefficient', () => {
 
   it('sorts parachutes by drag coefficient, using the default the picker applies', () => {
     const chutes = ofType('parachute');
-    const cds = queryComponents(chutes, q({ sort: 'cd' }), 'parachute').map((r) => r.part.cd ?? DEFAULT_CHUTE_CD);
+    const cds = queryComponents(chutes, q({ sort: 'cd' }), 'parachute').map(
+      (r) => r.part.cd ?? KERNEL_DEFAULTS.parachute.cd,
+    );
     expect(cds).toEqual([...cds].sort((a, b) => a - b));
   });
 

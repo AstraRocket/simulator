@@ -10,7 +10,7 @@ import {
   newModelPose,
   type PhaseColors,
 } from '../../../src/components/canvas/flightScene';
-import type { FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
+import type { FlightEvent, FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
 import { boostWindows, findRecovery } from '../../../src/components/canvas/flightScene';
 import { mergePalette } from '../../../src/services/design/partColors';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
@@ -389,7 +389,7 @@ describe("the delay grain's smoke", () => {
       [0, 1],
       [3, 4],
     ];
-    const events = [
+    const events: FlightEvent[] = [
       { type: 'EJECTION_CHARGE', time: 1 },
       { type: 'EJECTION_CHARGE', time: 9 },
     ];

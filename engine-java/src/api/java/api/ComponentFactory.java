@@ -107,6 +107,89 @@ final class ComponentFactory {
         return v;
     }
 
+    // Mirror web/src/services/files/ork/importLimits.ts. The kernel's build grows with the square of the part count.
+    static final int MAX_COMPONENTS = 1000;
+    // Each count is capped alone, but nesting multiplies them: three pod sets of 64 are 262,144 parts.
+    static final int MAX_TOTAL_INSTANCES = 20000;
+    // Each automatic radius walks back to a sized part, so a long run costs its length squared.
+    static final int MAX_AUTO_RADIUS_RUN = 16;
+
+    /** Refuses a tree too large to build in reasonable time, before the kernel sees any of it. */
+    static void checkSize(Map<String, Object> root) {
+        long[] totals = new long[3]; // parts, instances, current run of automatic radii
+        sizeOf(root, 1, totals);
+    }
+
+    private static void sizeOf(Map<String, Object> node, long copies, long[] totals) {
+        for (Map<String, Object> kid : JsonLite.objList(node, "children")) {
+            if (++totals[0] > MAX_COMPONENTS) {
+                throw new IllegalArgumentException("The design has more than " + MAX_COMPONENTS + " parts");
+            }
+            long here = copies * instancesOf(kid);
+            totals[1] += here;
+            if (totals[1] > MAX_TOTAL_INSTANCES) {
+                throw new IllegalArgumentException("The design has more than " + MAX_TOTAL_INSTANCES
+                        + " parts once pod, cluster, fin and instance counts are multiplied out");
+            }
+            Boolean auto = autoRadiusOf(kid);
+            if (auto != null) {
+                totals[2] = auto ? totals[2] + 1 : 0;
+            }
+            if (totals[2] > MAX_AUTO_RADIUS_RUN) {
+                throw new IllegalArgumentException("The design has more than " + MAX_AUTO_RADIUS_RUN
+                        + " automatic-radius parts in a row");
+            }
+            sizeOf(kid, here, totals);
+        }
+    }
+
+    /** Null for a part with no radius of its own to size; the flags `create` reads. */
+    private static Boolean autoRadiusOf(Map<String, Object> node) {
+        switch (str(node, "type", "")) {
+            case "nosecone":
+                return bool(node, "aftRadiusAuto", false);
+            case "bodytube":
+                return bool(node, "outerRadiusAuto", false);
+            case "transition":
+                return bool(node, "foreRadiusAuto", false) || bool(node, "aftRadiusAuto", false)
+                        || Double.isNaN(JsonLite.dbl(node, "foreRadius", Double.NaN))
+                        || Double.isNaN(JsonLite.dbl(node, "aftRadius", Double.NaN));
+            default:
+                return null;
+        }
+    }
+
+    /** How many copies the kernel places of this node, and so of everything inside it. */
+    private static int instancesOf(Map<String, Object> node) {
+        String type = str(node, "type", "");
+        switch (type) {
+            case "podset":
+            case "parallelstage":
+                return count(node, "instanceCount", 2, MAX_INSTANCE_COUNT);
+            case "launchlug":
+            case "railbutton":
+            case "centeringring":
+            case "bulkhead":
+            case "engineblock":
+                return count(node, "instanceCount", 1, MAX_INSTANCE_COUNT);
+            case "trapezoidfinset":
+            case "ellipticalfinset":
+            case "freeformfinset":
+                return count(node, "finCount", 3, MAX_FIN_COUNT);
+            case "tubefinset":
+                return count(node, "finCount", 6, MAX_FIN_COUNT);
+            case "innertube": {
+                String cluster = str(node, "cluster", null);
+                for (ClusterConfiguration known : ClusterConfiguration.CONFIGURATIONS) {
+                    if (known.getXMLName().equals(cluster)) return known.getClusterCount();
+                }
+                return 1; // an unknown name is refused when the tube is built
+            }
+            default:
+                return 1;
+        }
+    }
+
     private ComponentFactory() {}
 
     static RocketComponent create(Map<String, Object> node) {

@@ -1,42 +1,22 @@
 // The precache answers only `docs/<slug>/index.html` (`directoryIndex` is off); `docs/<slug>/` needs a prior visit.
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { acknowledgeWip, servePreview, VITE, WEB } from './lib/previewCheck.mjs';
 
-const WEB = fileURLToPath(new URL('..', import.meta.url));
-const VITE = resolve(WEB, 'node_modules/vite/bin/vite.js');
 const DOCS = resolve(WEB, 'public/docs/index.html');
 const OUT = 'dist-offline-check';
 const PORT = 4181;
 const URL_ = `http://localhost:${PORT}/`;
 // Must match services/storage/settings.ts; this .mjs cannot import TS.
-const SETTINGS_KEY = 'astrarocket:settings:v1';
-
 const UNREAD_PAGE = { menuItem: 'Safety', heading: 'Safety' };
 const DIRECT_PAGE = 'docs/motors/';
 const SEARCH = { query: 'ejection delay', match: /Ejection delay/ };
 
 const log = (...a) => console.log('[offline-help]', ...a);
 
-async function serve() {
-  const child = spawn(process.execPath, [VITE, 'preview', '--outDir', OUT, '--port', String(PORT), '--strictPort'], {
-    cwd: WEB,
-    stdio: ['ignore', 'ignore', 'inherit'],
-  });
-  for (let i = 0; i < 100; i++) {
-    try {
-      const res = await fetch(URL_);
-      if (res.ok) return child;
-    } catch {
-      // not up yet
-    }
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  child.kill();
-  throw new Error('preview server did not come up');
-}
+const serve = () => servePreview(OUT, PORT, URL_);
 
 async function main() {
   if (!existsSync(DOCS)) {
@@ -53,19 +33,7 @@ async function main() {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    await page.addInitScript((key) => {
-      let stored = {};
-      try {
-        stored = JSON.parse(localStorage.getItem(key) || '{}') ?? {};
-      } catch {
-        // a corrupt blob; the app discards it too, so start clean
-      }
-      try {
-        localStorage.setItem(key, JSON.stringify({ ...stored, wipAcknowledged: true }));
-      } catch {
-        // about:blank has no storage; the real navigation runs this again
-      }
-    }, SETTINGS_KEY);
+    await acknowledgeWip(page);
 
     const failed = [];
     page.on('requestfailed', (r) => failed.push(`${r.method()} ${r.url()} ${r.failure()?.errorText ?? ''}`));

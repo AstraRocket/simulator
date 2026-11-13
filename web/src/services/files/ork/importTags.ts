@@ -10,7 +10,7 @@ import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
 import { degToRad } from '../../../prefs/units';
-import { KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
+import { KERNEL_FINISHES, KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
 import { DEPLOY_EVENTS, MASS_COMPONENT_TYPES, SEPARATION_EVENTS } from '../../design/componentFields';
 import { CLUSTER_POINTS } from '../../../tree/cluster';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
@@ -49,10 +49,6 @@ export function autoRadiusTag(el: Element, tag: string): number | undefined {
   return v !== undefined && v >= 0 ? v : undefined;
 }
 
-export function isDrogueTag(el: Element): boolean {
-  return (text(el, ':scope > isdrogue') ?? '').trim().toLowerCase() === 'true';
-}
-
 export function finCountTag(el: Element, fallback: number = COMPONENT_DEFAULTS.finset.finCount): number {
   return clampCount(numTag(el, 'fincount', fallback), 1, MAX_FIN_COUNT);
 }
@@ -75,10 +71,7 @@ export function readPackedSize(el: Element, node: ComponentNode): void {
 }
 
 export function readAutoValue(el: Element, node: ComponentNode, tag: string, flag: string): boolean {
-  if (
-    (text(el, `:scope > ${tag}`)?.trim().toLowerCase() ?? '') === 'auto' ||
-    (text(el, `:scope > ${tag}auto`)?.trim().toLowerCase() ?? '') === 'true'
-  ) {
+  if ((text(el, `:scope > ${tag}`)?.trim().toLowerCase() ?? '') === 'auto' || isTrueTag(el, `${tag}auto`)) {
     node[flag] = true;
     return true;
   }
@@ -174,6 +167,8 @@ function readFillet(el: Element, node: ComponentNode): void {
   if (group) node['filletMaterialGroup'] = group;
   const name = (m.textContent ?? '').trim();
   if (name) node['filletMaterialName'] = name;
+  const shear = finiteNum(m.getAttribute('shearModulus'));
+  if (shear !== undefined && shear >= 0) node['filletShearModulus'] = shear;
 }
 
 export function readFinRotation(el: Element, node: ComponentNode): void {
@@ -225,17 +220,7 @@ const enumToken = (raw: string): string => raw.trim().toLowerCase().replace(/_/g
 
 /** Includes `ComponentFactory.finishOf`'s `regular` alias for NORMAL. */
 const FINISHES: ReadonlyMap<string, string> = new Map([
-  ...[
-    'rough',
-    'roughunfinished',
-    'unfinished',
-    'normal',
-    'smooth',
-    'polished',
-    'finishpolished',
-    'optimum',
-    'mirror',
-  ].map((f): [string, string] => [f, f]),
+  ...KERNEL_FINISHES.map((f): [string, string] => [f, f]),
   ['regular', 'normal'],
 ]);
 
@@ -403,7 +388,7 @@ function readAppearanceBlock(el: Element): PartAppearance {
   const shine = Number(text(el, ':scope > shine')?.trim() ?? NaN);
   // The `Appearance` constructor clamps the shine to 0-1.
   if (Number.isFinite(shine)) out.shine = Math.min(1, Math.max(0, shine));
-  if (text(el, ':scope > opacityaffectstexture')?.trim().toLowerCase() === 'true') out.opacityAffectsTexture = true;
+  if (isTrueTag(el, 'opacityaffectstexture')) out.opacityAffectsTexture = true;
   return out;
 }
 

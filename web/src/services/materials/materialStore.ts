@@ -1,4 +1,4 @@
-import { isMaterialType, type Material, type MaterialType } from './materialTypes';
+import { isMaterialFields, type Material, type MaterialType } from './materialTypes';
 import type { KeyValueStore } from '../storage/keyValueStore';
 import { IndexedDbKeyValueStore } from '../storage/idbKeyValueStore';
 import { JsonListStore } from '../storage/jsonListStore';
@@ -13,20 +13,8 @@ export interface MaterialStore {
 
 const CUSTOM_KEY = nsKey('materials:custom');
 
-// `density > 0`, not merely finite: zero gives a massless part, negative drags the CG off the airframe.
 export function isMaterial(v: unknown): v is Material {
-  const m = v as Material;
-  return (
-    !!m &&
-    typeof m.name === 'string' &&
-    // Older entries may lack a group.
-    m.name.trim().length > 0 &&
-    (m.group === undefined || typeof m.group === 'string') &&
-    typeof m.density === 'number' &&
-    Number.isFinite(m.density) &&
-    m.density > 0 &&
-    isMaterialType(m.type)
-  );
+  return isMaterialFields(v);
 }
 
 export const materialId = (name: string, type: MaterialType): string => JSON.stringify([type, name]);

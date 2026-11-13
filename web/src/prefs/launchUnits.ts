@@ -9,6 +9,11 @@ export interface LaunchUnitBridge {
 }
 
 const identity = (q: Quantity): LaunchUnitBridge => ({ q, toSi: (v) => v, fromSi: (v) => v });
+const stored = (q: Quantity, sym: string): LaunchUnitBridge => ({
+  q,
+  toSi: (v) => uiToSi(q, sym, v),
+  fromSi: (v) => siToUi(q, sym, v),
+});
 
 export const LAUNCH_SI = {
   length: identity('length'),
@@ -22,16 +27,8 @@ export const LAUNCH_SI = {
     toSi: (v: number) => degToRad(v),
     fromSi: (v: number) => radToDeg(v),
   },
-  degC: {
-    q: 'temperature',
-    toSi: (v: number) => uiToSi('temperature', '°C', v),
-    fromSi: (v: number) => siToUi('temperature', '°C', v),
-  },
-  hPa: {
-    q: 'pressure',
-    toSi: (v: number) => v * 100,
-    fromSi: (v: number) => v / 100,
-  },
+  degC: stored('temperature', '°C'),
+  hPa: stored('pressure', 'hPa'),
   accel: identity('acceleration'),
   pressure: identity('pressure'),
   force: identity('force'),

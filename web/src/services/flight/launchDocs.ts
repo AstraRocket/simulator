@@ -8,6 +8,7 @@ import { curveStats, specSamples } from '../motors/motorMath';
 import { impulseClass } from '../motors/motorCombine';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
 import type { LaunchConditions } from '../design/orkTree';
+import { str } from '../../tree/nodeProps';
 
 export interface LaunchMotor {
   stageIndex: number;
@@ -79,9 +80,8 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
     .map((stage, stageIndex) => ({ stage, stageIndex }))
     .filter(({ stage }) => !grounded.has(stage.id as string));
 
-  // Matched by spec object identity.
-  const copies = new Map<MotorSpec, number>();
-  for (const s of seatedMotors(tree, config)) copies.set(s.spec, (copies.get(s.spec) ?? 0) + s.count);
+  // By mount: mounts flying the same motor can share one spec object.
+  const copies = new Map(seatedMotors(tree, config).map((s) => [s.mountId, s.count]));
 
   const motors: LaunchMotor[] = [];
   for (const { stage, stageIndex } of flying) {
@@ -91,10 +91,10 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
       const impulseNs = curveStats(specSamples(seated.spec)).impulse;
       motors.push({
         stageIndex,
-        stageName: typeof stage.name === 'string' ? stage.name : '',
-        mount: { name: typeof mount.name === 'string' ? mount.name : '', type: mount.type },
+        stageName: str(stage, 'name'),
+        mount: { name: str(mount, 'name'), type: mount.type },
         spec: seated.spec,
-        count: copies.get(seated.spec) ?? 1,
+        count: copies.get(mount.id as string) ?? 1,
         impulseNs,
         impulseClass: impulseClass(impulseNs),
         delayS: seated.spec.ejectionDelay >= PLUGGED_DELAY ? null : seated.spec.ejectionDelay,
@@ -111,7 +111,7 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
       const diameter = node['diameter'];
       devices.push({
         stageIndex,
-        stageName: typeof stage.name === 'string' ? stage.name : '',
+        stageName: str(stage, 'name'),
         node,
         role: roles.get(node.id as string) ?? 'main',
         deployEvent: d.deployEvent,

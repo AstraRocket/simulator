@@ -47,6 +47,8 @@
       "archiveEmpty": "Das .ork-Archiv ist leer.",
       "archiveCorrupt": "Das .ork-Archiv ist beschädigt oder kann nicht gelesen werden.",
       "tooManyComponents": "Diese {{format}}-Datei enthält zu viele Bauteile, um sie zu öffnen (möglicherweise fehlerhaft).",
+      "tooManyInstances": "Diese {{format}}-Datei verschachtelt Pods, Cluster und Anzahlen so tief, dass sie zu viele Bauteile ergibt, um sie zu öffnen (möglicherweise fehlerhaft).",
+      "autoRadiusRunTooLong": "Diese {{format}}-Datei hat zu viele Bauteile mit automatischem Radius hintereinander, um sie zu öffnen (möglicherweise fehlerhaft).",
       "tooManySimulations": "Diese .ork-Datei enthält zu viele Simulationen, um sie zu öffnen (möglicherweise fehlerhaft).",
       "tooManyUnknownElements": "Diese .ork-Datei enthält zu viele unbekannte Elemente, um sie zu öffnen (möglicherweise fehlerhaft).",
       "tooManyConfigs": "Diese .ork-Datei enthält zu viele Flugkonfigurationen, um sie zu öffnen (möglicherweise fehlerhaft).",
@@ -158,6 +160,7 @@
       "nothing": "Nichts zu exportieren."
     },
     "engine": {
+      "callFailed": "Die OpenRocket-Engine ist bei {{operation}} fehlgeschlagen: {{detail}}",
       "notReady": "Die OpenRocket-Engine ist noch nicht fertig geladen. Warten Sie, bis sie geladen ist, und versuchen Sie es dann erneut.",
       "staleDesign": "Diese Konstruktion wurde vor dem Zurücksetzen der Engine aufgebaut. Bauen Sie sie vor der Verwendung neu auf."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Rückgängig",
-    "redo": "Wiederholen"
+    "redo": "Wiederholen",
+    "undoKeys": "Strg+Z",
+    "redoKeys": "Strg+Umschalt+Z"
   },
   "scale": {
     "title": "Rakete skalieren",
@@ -535,7 +540,8 @@
       "pressure": "Druck",
       "force": "Schub / Kraft",
       "impulse": "Impuls",
-      "rollRate": "Rollrate"
+      "rollRate": "Rollrate",
+      "shearModulus": "Schubmodul"
     }
   },
   "settings": {
@@ -662,8 +668,6 @@
     "removeMembership": "Die Mitgliedschaft bei {{org}} entfernen"
   },
   "config": {
-    "title": "Raketenkonfiguration",
-    "edit": "Raketenkonfiguration bearbeiten",
     "notes": "Konstruktionsnotizen",
     "name": "Name des Entwurfs",
     "designer": "Konstrukteur",
@@ -681,7 +685,6 @@
     "removeRevision": "Revision vom {{date}} entfernen",
     "removeRevisionConfirm": "Diese Revision entfernen?",
     "appOnlyNotes": "Beim Speichern als .ork bleiben alle Notizen erhalten. Bausatzhersteller, Bausatz-Teilenummer und die datierten Revisionen gehören nur zu dieser App: Desktop-OpenRocket verwirft sie, wenn es die Datei speichert. .rkt enthält weder diese drei noch den Bausatznamen.",
-    "save": "OK",
     "type_original": "Eigener Entwurf / sonstiges",
     "type_commercial_kit": "Kommerzieller Bausatz",
     "type_clone_kit": "Nachbau eines Bausatzes",
@@ -934,6 +937,7 @@
     "stdDev": "Standardabweichung",
     "stdDevName": "Standardabweichung des Winds",
     "turbulenceIntensity": "Turbulenzintensität",
+    "turbulenceNeedsWind": "Legen Sie zuerst eine mittlere Windgeschwindigkeit fest: Der Prozentwert gibt die Böen als Anteil daran an.",
     "levelCount_one": "{{count}} Windschicht",
     "levelCount_other": "{{count}} Windschichten",
     "editProfile": "Windprofil bearbeiten…",
@@ -1499,6 +1503,7 @@
     "collapseAll": "Alle einklappen",
     "collapseTree": "Bauteilliste ausblenden",
     "hidePart": "In den Ansichten ausblenden",
+    "hiddenByParent": "Mit dem übergeordneten Teil in den Ansichten ausgeblendet",
     "showPart": "In den Ansichten einblenden",
     "showAll": "Alle einblenden",
     "hiddenNote": "Ausgeblendete Teile zählen weiter bei Masse, CG, Aerodynamik und allen Flugwerten. Nur die 2D- und 3D-Ansichten lassen sie weg.",
@@ -1903,6 +1908,7 @@
     "densityBulk": "Rohdichte",
     "densitySurface": "Flächendichte",
     "densityLine": "Liniendichte",
+    "shearModulus": "Schubmodul",
     "save": "Speichern",
     "cancel": "Abbrechen",
     "addToLibrary": "Zu meinen eigenen Materialien hinzufügen, für jeden Entwurf",
@@ -2090,7 +2096,6 @@
     "searchCode": "Nach Code suchen (z. B. C6)…",
     "select": "Auswählen",
     "loading": "Wird geladen…",
-    "loadingCatalog": "Motorkatalog wird geladen…",
     "pickHint": "Wählen Sie einen Motor, um seine Schubkurve und Daten zu sehen.",
     "backToList": "Zurück zur Liste",
     "curve": "Kurve",

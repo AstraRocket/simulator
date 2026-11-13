@@ -5,6 +5,7 @@ import { siToUi, degToRad } from '../../../prefs/units';
 import { stageLabel, withUnit } from '../../../i18n/format';
 import { offsetToLatLon } from '../../map/geodesy';
 import { flightBranches } from '../../flight/flightColumns';
+import { eventTime } from '../../flight/flightEvents';
 import { bearingFromPad, distanceFromPad } from '../../flight/groundTrack';
 import {
   resolveAltitudeReference,
@@ -18,6 +19,8 @@ import {
 } from './options';
 import { defaultBranchColor, defaultGroundColor, defaultPinColor, kmlColor, rgbHex } from './colors';
 import type { FlightPathBranch, FlightPathMeta, FlightPathModel, FlightPathPoint, FlightPathWaypoint } from './model';
+import { KERNEL_LAUNCH_SITE } from '../../../tree/kernelDefaults';
+import { finiteOr, isFiniteNumber } from '../../app/numbers';
 
 const LABEL_KEYS = [
   'rocket',
@@ -48,12 +51,12 @@ function buildLabels(t: Translate): Record<string, string> {
 }
 
 function fixed(v: number | null | undefined, digits: number): string {
-  return typeof v === 'number' && Number.isFinite(v) ? v.toFixed(digits) : '-';
+  return isFiniteNumber(v) ? v.toFixed(digits) : '-';
 }
 
 // Empty, not a dash: balloons use these as Mustache sections, where '' hides the line.
 function seconds(v: number | null | undefined): string {
-  return typeof v === 'number' && Number.isFinite(v) ? v.toFixed(1) : '';
+  return isFiniteNumber(v) ? v.toFixed(1) : '';
 }
 
 const KML_ALTITUDE_MODE: Record<Exclude<AltitudeReference, 'automatic'>, string> = {
@@ -75,16 +78,14 @@ function fmtLength(meters: number, unit: DistanceUnit): string {
   return siToUi('distance', unit, meters).toFixed(UNIT_DECIMALS[unit]);
 }
 
-// Kennedy Space Center, the kernel's default site (`OpenRocketEngine.simulateJson`).
-export const EXPORT_FALLBACK_LATITUDE = 28.61;
-export const EXPORT_FALLBACK_LONGITUDE = -80.6;
+export const EXPORT_FALLBACK_LATITUDE = KERNEL_LAUNCH_SITE.latitudeDeg;
+export const EXPORT_FALLBACK_LONGITUDE = KERNEL_LAUNCH_SITE.longitudeDeg;
 
 // Both zero, not either (unlike OpenRocket): a zero latitude or longitude alone is a real site.
 function launchPositionUnset(launch: LaunchConditions): boolean {
   return (launch.latitudeDeg ?? 0) === 0 && (launch.longitudeDeg ?? 0) === 0;
 }
 
-const finiteOr0 = (v: number | null | undefined): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const series = (s: FlightSeries, key: string): (number | null)[] | undefined => s[key];
 
 function rawBranchesOf(
@@ -247,9 +248,9 @@ function branchStartIndex(
   ctx: Pick<BranchCtx, 'primary' | 'stageTrackStart'>,
 ): number {
   if (ctx.primary || ctx.stageTrackStart === 'pad') return 0;
-  const separation = events.find((e) => e.type === 'STAGE_SEPARATION');
-  if (!separation || !Number.isFinite(separation.time)) return 0;
-  const idx = indexOfTime(time, separation.time, n);
+  const separated = eventTime(events, 'STAGE_SEPARATION');
+  if (separated == null || !Number.isFinite(separated)) return 0;
+  const idx = indexOfTime(time, separated, n);
   return idx > 0 && idx < n ? idx : 0;
 }
 
@@ -284,14 +285,14 @@ function branchSamples(
   const north = series(raw.series, 'Py'); // drift north (m)
   const n = Math.min(time.length, alt.length);
 
-  const eastAt = (i: number) => finiteOr0(east?.[i]);
-  const northAt = (i: number) => finiteOr0(north?.[i]);
+  const eastAt = (i: number) => finiteOr(east?.[i], 0);
+  const northAt = (i: number) => finiteOr(north?.[i], 0);
   const phi = ctx.kernelPosition ? series(raw.series, 'φ') : undefined;
   const lam = ctx.kernelPosition ? series(raw.series, 'λ') : undefined;
   const positionAt = (i: number): { lat: number; lon: number } => {
     const la = phi?.[i];
     const lo = lam?.[i];
-    if (typeof la === 'number' && Number.isFinite(la) && typeof lo === 'number' && Number.isFinite(lo)) {
+    if (isFiniteNumber(la) && isFiniteNumber(lo)) {
       return { lat: la, lon: lo };
     }
     return ctx.project(eastAt(i), northAt(i));
@@ -307,10 +308,10 @@ function branchSamples(
     });
 
   const waypointAt = (i: number, type: WaypointKind, label: string, device: string | null): FlightPathWaypoint => {
-    const altAgl = finiteOr0(alt[i]);
+    const altAgl = finiteOr(alt[i], 0);
     const { lat: latitude, lon: longitude } = positionAt(i);
     const mslMeters = altAgl + ctx.launchAlt;
-    const t = finiteOr0(time[i]);
+    const t = finiteOr(time[i], 0);
     return {
       type,
       label,
@@ -446,11 +447,11 @@ function trackPoints(s: BranchSamples, options: FlightPathExportOptions, ctx: Br
   const { time, alt, east, north, n, start } = s;
   const stride = Math.max(1, options.pathStride);
   const path: FlightPathPoint[] = [];
-  // Skip a missing sample: `finiteOr0` would plant a mid-flight point on the pad.
+  // Skip a missing sample: a 0 fallback would plant a mid-flight point on the pad.
   const pushPoint = (i: number) => {
-    if (![time[i], alt[i], north?.[i], east?.[i]].every((v) => typeof v === 'number' && Number.isFinite(v))) return;
-    const altAgl = finiteOr0(alt[i]);
-    const t = finiteOr0(time[i]);
+    if (![time[i], alt[i], north?.[i], east?.[i]].every(isFiniteNumber)) return;
+    const altAgl = finiteOr(alt[i], 0);
+    const t = finiteOr(time[i], 0);
     const at = s.positionAt(i);
     path.push({
       latitude: at.lat,
@@ -520,7 +521,7 @@ function indexOfTime(time: (number | null)[], t: number, n: number): number {
   let bestDiff = Infinity;
   const limit = Math.min(n, time.length);
   for (let i = 0; i < limit; i++) {
-    const diff = Math.abs(finiteOr0(time[i]) - t);
+    const diff = Math.abs(finiteOr(time[i], 0) - t);
     if (diff < bestDiff) {
       bestDiff = diff;
       best = i;

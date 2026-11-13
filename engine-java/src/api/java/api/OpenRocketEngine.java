@@ -194,6 +194,10 @@ public final class OpenRocketEngine {
                     + comps.getClass().getSimpleName());
         }
         List<?> topLevel = comps instanceof List ? (List<?>) comps : java.util.Collections.emptyList();
+        // Before any kernel work: the size check is what keeps a crafted file from stalling the build.
+        Map<String, Object> whole = new java.util.LinkedHashMap<>();
+        whole.put("children", topLevel);
+        ComponentFactory.checkSize(whole);
         boolean staged = false;
         for (Object o : topLevel) {
             if (o instanceof Map && "stage".equals(((Map<?, ?>) o).get("type"))) {
@@ -617,6 +621,38 @@ public final class OpenRocketEngine {
         return sb.append('}').toString();
     }
 
+    /**
+     * As `RockSimSaver.setStageOverrides`: each of the first three stages weighed alone, and the CG of the stack
+     * from the sustainer through it, in configurations of their own. Toggling the selected configuration instead
+     * changes the rocket's length, and with it an automatic shock cord's length and mass.
+     */
+    @JSExport
+    public static String getRockSimStageFigures(int rocketHandle) {
+        try {
+            Rocket rocket = get(rocketHandle, RocketCtx.class, "a rocket").rocket;
+            StringBuilder sb = new StringBuilder("{\"stages\":[");
+            FlightConfiguration stack = new FlightConfiguration(rocket);
+            stack.clearAllStages();
+            int done = 0;
+            for (RocketComponent child : rocket.getChildren()) {
+                if (!(child instanceof AxialStage) || done == 3) continue;
+                int stageNumber = ((AxialStage) child).getStageNumber();
+                FlightConfiguration single = new FlightConfiguration(rocket);
+                single.clearAllStages();
+                single._setStageActive(stageNumber, true);
+                stack._setStageActive(stageNumber, true);
+                if (done++ > 0) sb.append(',');
+                sb.append('{');
+                num(sb, "mass", MassCalculator.calculateStructure(single).getMass()).append(',');
+                num(sb, "stackCg", MassCalculator.calculateStructure(stack).getCM().getX());
+                sb.append('}');
+            }
+            return sb.append("]}").toString();
+        } catch (RuntimeException e) {
+            return errorJson(e);
+        }
+    }
+
     /** cgX is from the component's own front; positionX is from the nose. */
     @JSExport
     public static String getComponentInfo(int rocketHandle, String componentId) {
@@ -694,21 +730,26 @@ public final class OpenRocketEngine {
         }
     }
 
-    /** Auto tubes remember their last sizing neighbor, so it takes one pass per symmetric part plus one. */
+    /**
+     * Auto tubes remember their last sizing neighbor, so it can take one pass per symmetric part plus one.
+     * Stops at the first pass that moves no radius, as the app's resolver does.
+     */
     private static void settleAutoRadii(Rocket rocket) {
-        int symmetric = 0;
+        List<info.openrocket.core.rocketcomponent.SymmetricComponent> parts = new ArrayList<>();
         for (RocketComponent c : rocket) {
-            if (c instanceof info.openrocket.core.rocketcomponent.SymmetricComponent) symmetric++;
-        }
-        for (int pass = 0; pass <= symmetric; pass++) {
-            for (RocketComponent c : rocket) {
-                if (c instanceof info.openrocket.core.rocketcomponent.SymmetricComponent) {
-                    info.openrocket.core.rocketcomponent.SymmetricComponent s =
-                            (info.openrocket.core.rocketcomponent.SymmetricComponent) c;
-                    s.getForeRadius();
-                    s.getAftRadius();
-                }
+            if (c instanceof info.openrocket.core.rocketcomponent.SymmetricComponent) {
+                parts.add((info.openrocket.core.rocketcomponent.SymmetricComponent) c);
             }
+        }
+        double[] last = null;
+        for (int pass = 0; pass <= parts.size(); pass++) {
+            double[] radii = new double[parts.size() * 2];
+            for (int i = 0; i < parts.size(); i++) {
+                radii[2 * i] = parts.get(i).getForeRadius();
+                radii[2 * i + 1] = parts.get(i).getAftRadius();
+            }
+            if (java.util.Arrays.equals(radii, last)) return;
+            last = radii;
         }
     }
 

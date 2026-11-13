@@ -45,12 +45,14 @@ describe('MaterialPicker under StrictMode', () => {
     fireEvent.change(select, { target: { value: '__add__' } });
 
     fireEvent.change(screen.getByPlaceholderText('Name (e.g. G10 fiberglass)'), { target: { value: 'Moon Cheese' } });
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '1234' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /density/i }), { target: { value: '1234' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Add to my custom materials, for every design' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     // Density is converted from the user's unit to SI, so only the name is pinned.
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Moon Cheese', expect.any(Number), expect.any(String)));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith('Moon Cheese', expect.any(Number), expect.any(String), undefined),
+    );
     expect(onChange.mock.calls[0]![1]).toBeGreaterThan(0);
     expect(screen.getByRole('option', { name: /Moon Cheese/ })).toBeTruthy();
   });
@@ -186,7 +188,7 @@ describe('MaterialPicker add form density box', () => {
     const listed = (select.querySelector('optgroup option')!.textContent ?? '').split(' · ')[1]!;
     const unit = listed.slice(listed.indexOf(' ') + 1);
     fireEvent.change(select, { target: { value: '__add__' } });
-    const box = screen.getByRole('spinbutton');
+    const box = screen.getAllByRole('spinbutton')[0]!;
     expect(box.getAttribute('aria-label')).toBe(`${quantity} (${unit})`);
     expect(box.getAttribute('placeholder')).toBe(`${quantity} (${unit})`);
   });

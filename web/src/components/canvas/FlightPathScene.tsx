@@ -9,7 +9,7 @@ import { LookMaterial } from './LookMaterial';
 import { surfacesOf } from './lookSurfaces';
 import { RoomReflections } from './RoomReflections';
 import { usePieces } from './usePieces';
-import { mergePalette } from '../../services/design/partColors';
+import { usePartPalette } from '../common/usePartPalette';
 import { useSettings } from '../../state/useSettings';
 import { EVENT_LABEL } from '../../services/flight/simReport';
 import {
@@ -63,7 +63,7 @@ export function FlightPathScene({
   const sceneInk = useSceneColors();
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const palette = useMemo(() => mergePalette(settings.partColors), [settings.partColors]);
+  const palette = usePartPalette();
   const phase = settings.phaseColors;
   const { playing, speed, follow, loop, progressRef, onTick, onEnd } = playback;
   const modelRef = useRef<THREE.Group>(null);

@@ -5,10 +5,13 @@ import { saveBlob } from '../../src/services/files/saveFile';
 import type { MotorSpec, RocketTree } from '../../src/engine/openRocketEngine';
 import en from '../../src/i18n/locales/en.json';
 
-vi.mock('../../src/services/files/saveFile', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/services/files/saveFile')>()),
-  saveBlob: vi.fn(async () => {}),
-}));
+vi.mock('../../src/services/files/saveFile', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../src/services/files/saveFile')>();
+  const saveBlob = vi.fn(async (_blob: Blob, _name: string) => true);
+  // The real `saveText` calls its own module's `saveBlob`, so it is routed through the mock.
+  const saveText = (text: string, name: string, mime?: string) => saveBlob(new Blob([text], { type: mime }), name);
+  return { ...real, saveBlob, saveText };
+});
 
 const s = () => useWorkspaceStore.getState();
 

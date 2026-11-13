@@ -1,19 +1,19 @@
 {
-  "motors": "091c98bf29f9",
-  "components": "737cdeea8882",
-  "materials": "6de83ed3c6fc",
+  "motors": "5c09e75f0541",
+  "components": "6cdfe307803a",
+  "materials": "07834818d8a8",
   "contributors": "218475285581",
   "catalogs": {
     "motors": {
-      "updated": "2026-10-19",
+      "updated": "2026-11-10",
       "count": 1156
     },
     "components": {
-      "updated": "2026-10-19",
+      "updated": "2026-11-10",
       "count": 5228
     },
     "materials": {
-      "updated": "2026-10-19",
+      "updated": "2026-11-10",
       "count": 97
     },
     "contributors": {

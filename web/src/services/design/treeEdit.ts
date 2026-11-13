@@ -2,8 +2,7 @@ import { must } from '../app/must';
 import type { ComponentNode, ComponentType, RocketTree } from '../../engine/openRocketEngine';
 import { defaultStageName } from './orkTree';
 import type { Component, ParachuteComponent, TubeComponent } from '../parts/componentDb';
-import { DEFAULT_CHUTE_CD } from '../parts/componentFilter';
-import { presetNode } from '../parts/customParts';
+import { pinSavedSize, presetNode } from '../parts/customParts';
 import { KERNEL_DEFAULTS, KERNEL_MATERIALS } from '../../tree/kernelDefaults.js';
 import { COMPONENT_DEFAULTS } from './componentDefaults.js';
 import { EXTERNAL_COMPONENT_TYPES, isChainType, type ChainType } from '../../tree/componentKinds';
@@ -18,7 +17,6 @@ import {
   findWithParent,
   replaceNode,
   stageNodes,
-  walkNodes,
   lineageOf,
   collectNodes,
 } from '../../tree/treeWalk';
@@ -35,7 +33,12 @@ function newId(): string {
   return uuid();
 }
 
-const clone = (tree: RocketTree): RocketTree => structuredClone(tree);
+/** Mutates a deep copy, then runs `syncDerived`. */
+export function editCopy(tree: RocketTree, mutate: (next: RocketTree) => void): RocketTree {
+  const next = structuredClone(tree);
+  mutate(next);
+  return syncDerived(next);
+}
 
 export function findNode(tree: RocketTree, id: string): ComponentNode | null {
   return findNodeIn(tree.components, id);
@@ -46,7 +49,7 @@ const SURFACE_MATERIAL = ['surfaceMaterialName', 'surfaceDensity'];
 const TAPER = ['length', 'shape', 'shapeParameter', 'aftRadius', 'aftRadiusAuto', 'thickness', 'filled'];
 const THICKNESS_RING = ['length', 'outerRadius', 'thickness', ...BULK_MATERIAL];
 
-/** Keys whose 24.12 setter calls `clearPreset()` (`javap -c` on `rocketcomponent`); others keep the link. */
+/** Keys whose setter calls `clearPreset()` in the engine's OpenRocket (`rocketcomponent`); others keep the link. */
 const PRESET_SETTERS: Record<string, ReadonlySet<string>> = {
   nosecone: new Set([...TAPER, 'flipped', 'shoulderRadius', ...BULK_MATERIAL]),
   transition: new Set([
@@ -133,17 +136,17 @@ function unlinkMovedShoulder(tree: RocketTree, id: string, before: ComponentNode
 }
 
 export function removeNode(tree: RocketTree, id: string): RocketTree {
-  const next = clone(tree);
-  const hit = findSiblings(next.components, id);
-  if (hit) hit.siblings.splice(hit.index, 1);
-  return syncDerived(next);
+  return editCopy(tree, (next) => {
+    const hit = findSiblings(next.components, id);
+    if (hit) hit.siblings.splice(hit.index, 1);
+  });
 }
 
 export function addChild(tree: RocketTree, parentId: string, node: ComponentNode): RocketTree {
-  const next = clone(tree);
-  const parent = findNodeIn(next.components, parentId);
-  if (parent) (parent.children ??= []).push(node);
-  return syncDerived(next);
+  return editCopy(tree, (next) => {
+    const parent = findNodeIn(next.components, parentId);
+    if (parent) (parent.children ??= []).push(node);
+  });
 }
 
 export function findMounts(tree: RocketTree): ComponentNode[] {
@@ -349,7 +352,7 @@ function parachutePatch(p: ParachuteComponent): Partial<ComponentNode> {
   return {
     name: p.desc ? p.desc : undefined,
     diameter: p.diameter,
-    cd: cd ?? DEFAULT_CHUTE_CD,
+    cd: cd ?? KERNEL_DEFAULTS.parachute.cd,
     cdAuto: cd == null,
     lineCount: stated(p.lineCount) ?? DEFAULT_LINE_COUNT,
     lineLength: stated(p.lineLength) ?? KERNEL_DEFAULTS.parachute.lineLength,
@@ -441,7 +444,8 @@ function railButtonPatch(p: Stated<'railbutton'>): Partial<ComponentNode> {
 
 function statedPatch(p: Component, node?: ComponentNode): Partial<ComponentNode> {
   // Storage may hold anything, so a saved part goes through repairNode.
-  if (p.custom && p.patch) return presetNode(repairNode(p.patch as ComponentNode).node);
+  // Pinned here too, for parts saved before the save pinned them.
+  if (p.custom && p.patch) return pinSavedSize(presetNode(repairNode(p.patch as ComponentNode).node), p.type);
   const mat = statedMaterial(p);
   switch (p.type) {
     case 'nosecone':
@@ -455,6 +459,8 @@ function statedPatch(p: Component, node?: ComponentNode): Partial<ComponentNode>
         outerRadius: p.outerDiameter / 2,
         length: p.length,
         ...(p.innerDiameter != null ? { thickness: Math.max(0.0001, (p.outerDiameter - p.innerDiameter) / 2) } : {}),
+        // BodyTube.loadFromPreset always clears filled; a catalog tube is hollow.
+        ...(p.type === 'bodytube' ? { filled: false } : {}),
         ...mat,
       };
     // Clamped: a few catalog rows state an inner diameter above the outer.
@@ -495,10 +501,10 @@ export function findParent(tree: RocketTree, id: string): ComponentNode | null {
 export function moveNode(tree: RocketTree, id: string, dir: -1 | 1): RocketTree {
   const at = findSiblings(tree.components, id);
   if (!at || at.index + dir < 0 || at.index + dir >= at.siblings.length) return tree;
-  const next = clone(tree);
-  const { siblings, index } = must(findSiblings(next.components, id), 'moved part');
-  siblings.splice(index + dir, 0, ...siblings.splice(index, 1));
-  return syncDerived(next);
+  return editCopy(tree, (next) => {
+    const { siblings, index } = must(findSiblings(next.components, id), 'moved part');
+    siblings.splice(index + dir, 0, ...siblings.splice(index, 1));
+  });
 }
 
 /**
@@ -584,9 +590,7 @@ export function defaultNode(type: ComponentType): ComponentNode & { id: string }
         type,
         id,
         motorMount: true,
-        length: 0.07,
-        outerRadius: 0.0095,
-        thickness: 0.0005,
+        ...KERNEL_DEFAULTS.innertube,
         motorOverhang: 0.00635,
         position: { method: 'bottom', offset: 0 },
       };
@@ -645,10 +649,10 @@ export function defaultNode(type: ComponentType): ComponentNode & { id: string }
       return {
         type,
         id,
-        diameter: 0.3,
-        cd: 0.8,
+        diameter: KERNEL_DEFAULTS.parachute.diameter,
+        cd: KERNEL_DEFAULTS.parachute.cd,
         cdAuto: true,
-        lineCount: 6,
+        lineCount: KERNEL_DEFAULTS.parachute.lineCount,
         lineLength: 0.45,
         lineLengthAuto: true,
         drogue: false,
@@ -736,7 +740,7 @@ export function defaultNode(type: ComponentType): ComponentNode & { id: string }
 export function recoveryDevices(tree: RocketTree, stageId: string): ComponentNode[] {
   const stage = findNode(tree, stageId);
   if (!stage?.children) return [];
-  return [...walkNodes(stage.children)].filter((n) => isRecoveryDevice(n.type));
+  return collectNodes(stage.children, (n) => isRecoveryDevice(n.type));
 }
 
 /** Returns the same tree when nothing changes, so no empty undo step is recorded. */
@@ -789,9 +793,7 @@ export function addStage(tree: RocketTree): { tree: RocketTree; id: string } {
   const id = node.id;
   const count = stageNodes(tree).length;
   node.name = defaultStageName(count);
-  const next = clone(tree);
-  next.components.push(node);
-  return { tree: next, id };
+  return { tree: editCopy(tree, (next) => next.components.push(node)), id };
 }
 
 export function addPart(
@@ -809,9 +811,7 @@ export function addPart(
     : null;
   if (host?.id) return { tree: addChild(tree, host.id, node), id };
   if (!stageId) {
-    const next = clone(tree);
-    next.components.push(node);
-    return { tree: syncDerived(next), id };
+    return { tree: editCopy(tree, (next) => next.components.push(node)), id };
   }
   if (!allowedChildren('stage').includes(type)) {
     throw new KeyedError('errors.design.cannotAdd', { part: { key: `part.${type}` } });

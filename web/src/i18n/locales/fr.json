@@ -47,6 +47,8 @@
       "archiveEmpty": "L'archive .ork est vide.",
       "archiveCorrupt": "L'archive .ork est endommagée ou illisible.",
       "tooManyComponents": "Ce {{format}} déclare trop de composants pour être ouvert (peut-être corrompu).",
+      "tooManyInstances": "Ce {{format}} imbrique pods, grappes et nombres en trop de pièces pour être ouvert (peut-être corrompu).",
+      "autoRadiusRunTooLong": "Ce {{format}} a trop de pièces à rayon automatique à la suite pour être ouvert (peut-être corrompu).",
       "tooManySimulations": "Ce .ork déclare trop de simulations pour être ouvert (peut-être corrompu).",
       "tooManyUnknownElements": "Ce .ork contient trop d'éléments non reconnus pour être ouvert (peut-être corrompu).",
       "tooManyConfigs": "Ce .ork déclare trop de configurations de vol pour être ouvert (peut-être corrompu).",
@@ -158,6 +160,7 @@
       "nothing": "Rien à exporter."
     },
     "engine": {
+      "callFailed": "Le moteur physique OpenRocket a échoué lors de {{operation}} : {{detail}}",
       "notReady": "Le moteur physique OpenRocket n'a pas fini de se charger. Attendez la fin du chargement, puis réessayez.",
       "staleDesign": "Cette conception a été construite avant la réinitialisation du moteur physique. Reconstruisez-la avant de l'utiliser."
     },
@@ -476,7 +479,9 @@
   },
   "edit": {
     "undo": "Annuler",
-    "redo": "Rétablir"
+    "redo": "Rétablir",
+    "undoKeys": "Ctrl+Z",
+    "redoKeys": "Ctrl+Maj+Z"
   },
   "scale": {
     "title": "Mettre la fusée à l'échelle",
@@ -535,7 +540,8 @@
       "pressure": "Pression",
       "force": "Poussée / force",
       "impulse": "Impulsion",
-      "rollRate": "Vitesse de roulis"
+      "rollRate": "Vitesse de roulis",
+      "shearModulus": "Module de cisaillement"
     }
   },
   "settings": {
@@ -663,8 +669,6 @@
     "removeMembership": "Retirer l’adhésion {{org}}"
   },
   "config": {
-    "title": "Configuration de la fusée",
-    "edit": "Modifier la configuration de la fusée",
     "notes": "Notes de conception",
     "name": "Nom de la conception",
     "designer": "Concepteur",
@@ -682,7 +686,6 @@
     "removeRevision": "Retirer la révision du {{date}}",
     "removeRevisionConfirm": "Retirer cette révision ?",
     "appOnlyNotes": "L’enregistrement en .ork conserve toutes ces notes. Le fabricant du kit, la référence du kit et les révisions datées sont propres à cette application : OpenRocket de bureau les supprime s’il enregistre le fichier. Le format .rkt ne conserve ni ces trois éléments ni le nom du kit.",
-    "save": "OK",
     "type_original": "Conception originale / autre",
     "type_commercial_kit": "Kit du commerce",
     "type_clone_kit": "Réplique d'un kit",
@@ -936,6 +939,7 @@
     "stdDev": "Écart-type",
     "stdDevName": "Écart-type du vent",
     "turbulenceIntensity": "Intensité de turbulence",
+    "turbulenceNeedsWind": "Indiquez d'abord un vent moyen : le pourcentage exprime les rafales comme une part de celui-ci.",
     "levelCount_one": "{{count}} couche de vent",
     "levelCount_many": "{{count}} couches de vent",
     "levelCount_other": "{{count}} couches de vent",
@@ -1504,6 +1508,7 @@
     "collapseAll": "Tout replier",
     "collapseTree": "Masquer la liste des composants",
     "hidePart": "Masquer dans les vues",
+    "hiddenByParent": "Masqué dans les vues avec la pièce qui le contient",
     "showPart": "Afficher dans les vues",
     "showAll": "Tout afficher",
     "hiddenNote": "Les pièces masquées comptent toujours dans la masse, le CG, l’aérodynamique et toutes les valeurs de vol. Seules les vues 2D et 3D les omettent.",
@@ -1910,6 +1915,7 @@
     "densityBulk": "Masse volumique",
     "densitySurface": "Masse surfacique",
     "densityLine": "Masse linéique",
+    "shearModulus": "Module de cisaillement",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "addToLibrary": "Ajouter à mes matériaux personnalisés, pour toutes les conceptions",
@@ -2098,7 +2104,6 @@
     "searchCode": "Rechercher par code (p. ex. C6)…",
     "select": "Sélectionner",
     "loading": "Chargement…",
-    "loadingCatalog": "Chargement du catalogue de moteurs…",
     "pickHint": "Sélectionnez un moteur pour voir sa courbe de poussée et ses caractéristiques.",
     "backToList": "Retour à la liste",
     "curve": "Courbe",

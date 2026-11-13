@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../../state/store';
 import { partLabel } from '../../i18n/format';
 import { PropSection } from './PropSection';
 import { RadioGroup } from '../common/RadioGroup';
+import { SelectRow } from '../common/SelectRow';
 
 function DeviceSelect({
   label,
@@ -26,26 +27,21 @@ function DeviceSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="shrink-0 text-xs text-ink-muted">{label}</span>
-      <select
-        value={value}
-        disabled={!enabled}
-        aria-label={label}
-        title={current ? partLabel(t, current) : undefined}
-        onChange={(e) => onChange(e.target.value)}
-        className={`min-w-0 flex-1 rounded-md px-2 py-1 text-sm ring-1 ring-line/10 focus:outline-none focus:ring-accent-500 ${
-          enabled ? 'bg-raised text-ink-strong' : 'bg-raised/50 text-ink-faint'
-        }`}
-      >
-        {none !== undefined && <option value="">{none}</option>}
-        {options.map((d) => (
-          <option key={d.id as string} value={d.id as string}>
-            {partLabel(t, d)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SelectRow
+      label={label}
+      value={value}
+      disabled={!enabled}
+      title={current ? partLabel(t, current) : undefined}
+      onChange={onChange}
+      width="min-w-0 flex-1"
+    >
+      {none !== undefined && <option value="">{none}</option>}
+      {options.map((d) => (
+        <option key={d.id as string} value={d.id as string}>
+          {partLabel(t, d)}
+        </option>
+      ))}
+    </SelectRow>
   );
 }
 

@@ -15,8 +15,11 @@ export function DefaultMaterials({
 }) {
   const { t } = useTranslation();
 
-  const set = (key: string, name: string | undefined, density: number, group?: string) => {
-    const chosen = !name || !(density > 0) ? null : group ? { name, density, group } : { name, density };
+  const set = (key: string, name: string | undefined, density: number, group?: string, shearModulus?: number) => {
+    const chosen =
+      !name || !(density > 0)
+        ? null
+        : { name, density, ...(group ? { group } : {}), ...(shearModulus ? { shearModulus } : {}) };
     onChange(withKey(defaults, key, chosen));
   };
 
@@ -36,7 +39,7 @@ export function DefaultMaterials({
             design={false}
             value={defaults[key]?.name}
             density={defaults[key]?.density}
-            onChange={(name, density, group) => set(key, name, density, group)}
+            onChange={(name, density, group, shearModulus) => set(key, name, density, group, shearModulus)}
           />
         );
       })}

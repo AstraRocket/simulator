@@ -157,6 +157,28 @@ function Grab({ onReady }: { onReady: (api: ReturnType<typeof useSettings>) => v
   return null;
 }
 
+describe('SettingsProvider updateSection', () => {
+  it('keeps both of two patches to one section in the same tick', () => {
+    loadSettings.mockReturnValue({ ...DEFAULT_SETTINGS });
+    saveSettings.mockReturnValue(true);
+    let api!: ReturnType<typeof useSettings>;
+    render(
+      <SettingsProvider>
+        <Grab onReady={(a) => (api = a)} />
+      </SettingsProvider>,
+    );
+    act(() => {
+      api.updateSection('units', { length: 'in' });
+      api.updateSection('units', { mass: 'oz' });
+    });
+    expect(api.settings.units.length).toBe('in');
+    expect(api.settings.units.mass).toBe('oz');
+    expect(api.settings.units.velocity).toBe(DEFAULT_SETTINGS.units.velocity);
+    const written = saveSettings.mock.calls.at(-1)![0] as typeof DEFAULT_SETTINGS;
+    expect(written.units).toMatchObject({ length: 'in', mass: 'oz' });
+  });
+});
+
 describe('SettingsProvider reset', () => {
   it('installs a copy of the defaults, not the shared constant', () => {
     loadSettings.mockReturnValue({ ...DEFAULT_SETTINGS });

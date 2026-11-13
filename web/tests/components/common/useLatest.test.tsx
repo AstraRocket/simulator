@@ -62,4 +62,13 @@ describe('useLatest', () => {
     unmount();
     expect(signal.aborted).toBe(true);
   });
+
+  it('cancels the request without superseding the claim', () => {
+    const { result } = renderHook(() => useLatest());
+    const current = result.current.claim();
+    const signal = result.current.claimSignal();
+    result.current.cancel();
+    expect(signal.aborted).toBe(true);
+    expect(current()).toBe(true);
+  });
 });

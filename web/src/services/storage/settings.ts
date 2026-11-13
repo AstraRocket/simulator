@@ -1,5 +1,6 @@
 import { DEFAULT_FLYER, flyerFrom, type Flyer } from './flyer';
 import { nsKey } from './storageKeys';
+import { readLocalText, writeLocalJson } from './localPref';
 import type { PartKey } from '../design/partColors';
 import { readFigureStyles, type FigureStyles } from '../design/figureStyle';
 import type { CompleteLaunch } from '../flight/requiredLaunch';
@@ -22,6 +23,8 @@ import {
 import { hexOf, parseHexColor } from '../design/colorHex';
 import { parseDefaultMaterialKey } from '../design/materialSlots';
 import { THEME_PREFS, type NonDaylightPref, type ThemePref } from '../app/theme';
+import { KERNEL_LAUNCH_SITE } from '../../tree/kernelDefaults';
+import { isRecord } from '../app/numbers';
 
 // The minimum keeps the design actions on one row.
 export const TREE_PANE_MIN = 300;
@@ -50,8 +53,8 @@ const DEFAULT_LAUNCH: CompleteLaunch = {
   windStdDev: 0,
   windDirectionDeg: DEFAULT_HEADING_DEG,
   launchAltitudeM: 0,
-  latitudeDeg: 28.61,
-  longitudeDeg: -80.6,
+  latitudeDeg: KERNEL_LAUNCH_SITE.latitudeDeg,
+  longitudeDeg: KERNEL_LAUNCH_SITE.longitudeDeg,
   temperatureC: null,
   pressureHPa: null,
   geodetic: 'spherical',
@@ -102,7 +105,7 @@ export interface Settings {
   partColors: Partial<Record<PartKey, string>>;
   figureStyles: FigureStyles;
   /** Spent at part creation, not resolved at simulation time as desktop does. */
-  defaultMaterials: Record<string, { name: string; density: number; group?: string }>;
+  defaultMaterials: Record<string, { name: string; density: number; group?: string; shearModulus?: number }>;
   phaseColors: { boost: string; coast: string; descent: string };
   aeroHeat: 'sky' | 'openrocket';
   playbackSpeed: number;
@@ -180,8 +183,8 @@ export function encodeStageColors(colors: Map<number, number>): Record<string, s
 
 export function decodeStageColors(value: unknown): Map<number, number> {
   const out = new Map<number, number>();
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
-  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+  if (!isRecord(value)) return out;
+  for (const [key, raw] of Object.entries(value)) {
     const index = Number.parseInt(key, 10);
     if (!Number.isInteger(index) || index < 0) continue;
     if (typeof raw !== 'string' || !/^[0-9a-fA-F]{6}$/.test(raw)) continue;
@@ -268,16 +271,18 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const KEY = nsKey('settings:v1');
 
+/** A stored boolean, else `d`. */
+const flag = <D>(v: unknown, d: D): boolean | D => (typeof v === 'boolean' ? v : d);
+
 function loadPathExport(raw: unknown): PathExportSettings {
   const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<PathExportSettings>;
-  const bool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
   const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
   const colors = (v: unknown): Record<string, string> | undefined => {
     const m = decodeStageColors(v);
     return m.size ? encodeStageColors(m) : undefined;
   };
   const out: PathExportSettings = {
-    labelWaypointsWithMission: bool(p.labelWaypointsWithMission) ?? DEFAULT_PATH_EXPORT.labelWaypointsWithMission,
+    labelWaypointsWithMission: flag(p.labelWaypointsWithMission, DEFAULT_PATH_EXPORT.labelWaypointsWithMission),
   };
   if (Array.isArray(p.waypoints)) {
     out.waypoints = p.waypoints.filter((w): w is string => typeof w === 'string');
@@ -285,8 +290,8 @@ function loadPathExport(raw: unknown): PathExportSettings {
   const assign = <K extends keyof PathExportSettings>(k: K, v: PathExportSettings[K]) => {
     if (v !== undefined) out[k] = v;
   };
-  assign('includeFlightPath', bool(p.includeFlightPath));
-  assign('includeGroundTrack', bool(p.includeGroundTrack));
+  assign('includeFlightPath', flag(p.includeFlightPath, undefined));
+  assign('includeGroundTrack', flag(p.includeGroundTrack, undefined));
   if (typeof p.pathStride === 'number' && Number.isInteger(p.pathStride) && p.pathStride >= 1) {
     out.pathStride = p.pathStride;
   }
@@ -294,11 +299,11 @@ function loadPathExport(raw: unknown): PathExportSettings {
   assign('distanceUnit', str(p.distanceUnit));
   assign('altitudeReference', str(p.altitudeReference));
   assign('waypointAltitudeReference', str(p.waypointAltitudeReference));
-  assign('drawShadow', bool(p.drawShadow));
+  assign('drawShadow', flag(p.drawShadow, undefined));
   assign('stageTrackStart', str(p.stageTrackStart));
-  assign('showWaypointLabels', bool(p.showWaypointLabels));
-  assign('colorWaypointPins', bool(p.colorWaypointPins));
-  assign('includeDescriptions', bool(p.includeDescriptions));
+  assign('showWaypointLabels', flag(p.showWaypointLabels, undefined));
+  assign('colorWaypointPins', flag(p.colorWaypointPins, undefined));
+  assign('includeDescriptions', flag(p.includeDescriptions, undefined));
   // Not `str()`, which drops '', the "follow the app" choice.
   if (typeof p.exportLanguage === 'string') out.exportLanguage = p.exportLanguage;
   assign('branchColors', colors(p.branchColors));
@@ -324,7 +329,7 @@ export function loadSettings(): Settings {
 }
 
 export function settingsFrom(value: unknown): Settings {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return structuredClone(DEFAULT_SETTINGS);
+  if (!isRecord(value)) return defaultSettings();
   const s = value as Partial<Settings>;
   const rulers = s.rulers;
   const savedRulers =
@@ -346,7 +351,7 @@ export function settingsFrom(value: unknown): Settings {
     defaultMaterials: Object.fromEntries(
       Object.entries((s.defaultMaterials ?? {}) as Record<string, unknown>).flatMap(([key, v]) => {
         if (!parseDefaultMaterialKey(key)) return [];
-        const m = v as { name?: unknown; density?: unknown; group?: unknown } | null;
+        const m = v as { name?: unknown; density?: unknown; group?: unknown; shearModulus?: unknown } | null;
         if (
           !m ||
           typeof m.name !== 'string' ||
@@ -357,7 +362,11 @@ export function settingsFrom(value: unknown): Settings {
         )
           return [];
         const group = typeof m.group === 'string' && m.group.trim() !== '' ? { group: m.group } : {};
-        return [[key, { name: m.name, density: m.density, ...group }]];
+        const shear =
+          typeof m.shearModulus === 'number' && Number.isFinite(m.shearModulus) && m.shearModulus > 0
+            ? { shearModulus: m.shearModulus }
+            : {};
+        return [[key, { name: m.name, density: m.density, ...group, ...shear }]];
       }),
     ),
     // Same filter as partColors: these reach a style attribute too.
@@ -396,7 +405,6 @@ export function settingsFrom(value: unknown): Settings {
       sim.stepper = stepperOf(sim.stepper, DEFAULT_SETTINGS.simulation.stepper);
       const seed: unknown = sim.randomSeed;
       sim.randomSeed = typeof seed === 'number' && Number.isFinite(seed) ? seedFromInput(seed) : null;
-      const flag = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
       sim.confirmDelete = flag(sim.confirmDelete, DEFAULT_SETTINGS.simulation.confirmDelete);
       sim.autoRunOutdated = flag(sim.autoRunOutdated, DEFAULT_SETTINGS.simulation.autoRunOutdated);
       return sim;
@@ -463,18 +471,18 @@ export function settingsFrom(value: unknown): Settings {
       delete l.weatherSource;
       return l;
     })(),
-    showMarkers: typeof s.showMarkers === 'boolean' ? s.showMarkers : DEFAULT_SETTINGS.showMarkers,
-    showInfoCard: typeof s.showInfoCard === 'boolean' ? s.showInfoCard : DEFAULT_SETTINGS.showInfoCard,
-    showGrid: typeof s.showGrid === 'boolean' ? s.showGrid : DEFAULT_SETTINGS.showGrid,
-    showStats: typeof s.showStats === 'boolean' ? s.showStats : DEFAULT_SETTINGS.showStats,
-    showImportNotes: typeof s.showImportNotes === 'boolean' ? s.showImportNotes : DEFAULT_SETTINGS.showImportNotes,
-    showSafetyCard: typeof s.showSafetyCard === 'boolean' ? s.showSafetyCard : DEFAULT_SETTINGS.showSafetyCard,
+    showMarkers: flag(s.showMarkers, DEFAULT_SETTINGS.showMarkers),
+    showInfoCard: flag(s.showInfoCard, DEFAULT_SETTINGS.showInfoCard),
+    showGrid: flag(s.showGrid, DEFAULT_SETTINGS.showGrid),
+    showStats: flag(s.showStats, DEFAULT_SETTINGS.showStats),
+    showImportNotes: flag(s.showImportNotes, DEFAULT_SETTINGS.showImportNotes),
+    showSafetyCard: flag(s.showSafetyCard, DEFAULT_SETTINGS.showSafetyCard),
     treePaneWidth: clampTreePane(s.treePaneWidth),
     sidePaneWidth: clampSidePane(s.sidePaneWidth),
-    maximizeCenter: typeof s.maximizeCenter === 'boolean' ? s.maximizeCenter : DEFAULT_SETTINGS.maximizeCenter,
+    maximizeCenter: flag(s.maximizeCenter, DEFAULT_SETTINGS.maximizeCenter),
     rulers: { ...DEFAULT_SETTINGS.rulers, ...savedRulers },
-    saveDesignInfo: typeof s.saveDesignInfo === 'boolean' ? s.saveDesignInfo : DEFAULT_SETTINGS.saveDesignInfo,
-    askWhereToSave: typeof s.askWhereToSave === 'boolean' ? s.askWhereToSave : DEFAULT_SETTINGS.askWhereToSave,
+    saveDesignInfo: flag(s.saveDesignInfo, DEFAULT_SETTINGS.saveDesignInfo),
+    askWhereToSave: flag(s.askWhereToSave, DEFAULT_SETTINGS.askWhereToSave),
     theme: THEME_PREFS.includes(s.theme as ThemePref) ? (s.theme as ThemePref) : DEFAULT_SETTINGS.theme,
     themeBeforeDaylight:
       (s.themeBeforeDaylight as string) !== 'daylight' && THEME_PREFS.includes(s.themeBeforeDaylight as ThemePref)
@@ -509,19 +517,14 @@ export function settingsFrom(value: unknown): Settings {
       }
       return c;
     })(),
-    wipAcknowledged: typeof s.wipAcknowledged === 'boolean' ? s.wipAcknowledged : DEFAULT_SETTINGS.wipAcknowledged,
+    wipAcknowledged: flag(s.wipAcknowledged, DEFAULT_SETTINGS.wipAcknowledged),
     flyer: flyerFrom(s.flyer),
   };
 }
 
 /** Null, not defaults, when nothing is stored: the caller's copy is then the best record. */
 export function loadStoredSettings(): Settings | null {
-  try {
-    if (!localStorage.getItem(KEY)) return null;
-  } catch {
-    return null;
-  }
-  return loadSettings();
+  return readLocalText(KEY) ? loadSettings() : null;
 }
 
 /** Keys a newer build wrote; a change writes them back so they survive. */
@@ -529,7 +532,7 @@ export function unknownStoredSettings(): Record<string, unknown> {
   try {
     const raw = localStorage.getItem(KEY);
     const stored = raw ? (JSON.parse(raw) as unknown) : null;
-    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {};
+    if (!isRecord(stored)) return {};
     return Object.fromEntries(Object.entries(stored).filter(([k]) => !Object.hasOwn(DEFAULT_SETTINGS, k)));
   } catch {
     return {};
@@ -542,10 +545,5 @@ export function isSettingsStorageKey(key: string | null): boolean {
 }
 
 export function saveSettings(s: Settings): boolean {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(s));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeLocalJson(KEY, s);
 }

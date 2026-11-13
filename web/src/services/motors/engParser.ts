@@ -1,6 +1,6 @@
 // RASP `.eng` header: designation diameter(mm) length(mm) delays propWeight(kg) totalWeight(kg) manufacturer.
 // As upstream's RASPMotorLoader, one bad motor refuses the whole file.
-import type { CustomMotor } from './motorStore';
+import { customMotorId, motorHeaderProblem, type CustomMotor } from './motorStore';
 import { impulseClass } from './motorCombine';
 import { totalImpulse } from './motorMath';
 import { removeDelay } from './rseParser';
@@ -46,15 +46,10 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
   const propKg = readDecimal(propS);
   const totalKg = readDecimal(totalS);
   // Checked as stored grams: 1e306 kg is finite but its grams are not.
-  if (![diameter, length, propKg * 1000, totalKg * 1000].every(Number.isFinite)) {
-    throw new KeyedError('errors.motorFile.engHeaderNumbers');
-  }
-  if (!(diameter > 0) || !(length > 0)) {
-    throw new KeyedError('errors.motorFile.engHeaderSize');
-  }
-  if (!(propKg >= 0) || !(totalKg > 0) || propKg > totalKg) {
-    throw new KeyedError('errors.motorFile.engHeaderMass');
-  }
+  const problem = motorHeaderProblem({ diameter, length, totalWeightG: totalKg * 1000, propWeightG: propKg * 1000 });
+  if (problem === 'numbers') throw new KeyedError('errors.motorFile.engHeaderNumbers');
+  if (problem === 'size') throw new KeyedError('errors.motorFile.engHeaderSize');
+  if (problem) throw new KeyedError('errors.motorFile.engHeaderMass');
 
   // `customToRow` reads only `delayList`, so the delays must go through it here.
   const delays = delayList(delaysS, 'rasp');
@@ -89,7 +84,7 @@ function parseMotor(lines: readonly Line[], at: number): { motor: CustomMotor; n
   const manufacturer = mfr.join(' ') || 'Custom';
   return {
     motor: {
-      id: `custom:${manufacturer}:${designation}`,
+      id: customMotorId(manufacturer, designation),
       designation,
       manufacturer,
       class: impulseClass(totalImpulse(samples)),

@@ -18,7 +18,7 @@ const stage = (id: string, children: ComponentNode[]) => ({ id, type: 'stage', c
 const part = (id: string, type: string, extra: Record<string, unknown> = {}, children: ComponentNode[] = []) =>
   ({ id, type, length: 0.1, ...extra, children }) as unknown as ComponentNode;
 
-// Desktop's "Match fore/aft diameter" (`ComponentPresetRowFilter`, 24.12 jar): within
+// Desktop's "Match fore/aft diameter" (`ComponentPresetRowFilter`): within
 // `max(0.05 * d, 0.001)`; a flipped nose cone takes the previous part; across stages.
 const foreColumn = (p: Component): number | null =>
   p.type === 'bodytube' ? p.outerDiameter : p.type === 'transition' ? p.foreOuterDiameter : null;

@@ -16,6 +16,7 @@ import { SizingFigures } from '../tools/SizingFigures';
 import type { NodeEditProps } from './DimensionFields';
 import { commitWith } from './fieldHelpers';
 import { ReadoutOpener } from './ReadoutOpener';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
 export function RecoverySizingReadout({ node, onChange, onCommit }: NodeEditProps) {
   const { t } = useTranslation();
@@ -41,9 +42,8 @@ function SizingBody({ node, onUse }: { node: ComponentNode; onUse: (diameterM: n
   const launch = useWorkspaceStore((s) => selectActive(s).launch);
   const result = useWorkspaceStore((s) => (selectOutdated(s) ? null : selectActive(s).result));
 
-  // The kernel flies the stored Cd even on Auto (Parachute.getComponentCD), default 0.8.
-  // Not `|| 0.8`, which would replace a stored 0.
-  const cd = num(node, 'cd', 0.8);
+  // The kernel flies the stored Cd even on Auto (Parachute.getComponentCD). Not `||`, which would replace a stored 0.
+  const cd = num(node, 'cd', KERNEL_DEFAULTS.parachute.cd);
   const diameter = num(node, 'diameter');
 
   // By name only for results without ids: an unnamed device shares the kernel default name.

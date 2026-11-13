@@ -7,6 +7,7 @@ import {
   hoverTagFor,
   marginText,
   MARKER_R,
+  stationLabel,
   type Ctx,
   type HoverBox,
 } from '../../tree/schematicGeometry';
@@ -46,8 +47,8 @@ export function StabilityOverlay({
   const cpX = info && showMarkers && Number.isFinite(info.cp) ? ctx.x0 + info.cp * scale : null;
   const margin = info ? marginText(info.stabilityCalibers, info.stabilityPercent, t) : null;
   const stab = margin?.state ?? null;
-  const cgLabel = info ? `${t('schematic.cg')} · ${u.fmtSym('length', info.cg)}` : t('schematic.cg');
-  const cpLabel = info ? `${t('schematic.cp')} · ${u.fmtSym('length', info.cp)}` : t('schematic.cp');
+  const cgLabel = info ? stationLabel(t, u, 'cg', info.cg) : t('schematic.cg');
+  const cpLabel = info ? stationLabel(t, u, 'cp', info.cp) : t('schematic.cp');
   const callouts = calloutLayout(cgX, cpX, ctx.cy, vHalf * scale, w, h, margin?.text ?? null);
   const side = (x: number, label: string) =>
     x + 8 + label.length * LABEL_CHAR_W > w

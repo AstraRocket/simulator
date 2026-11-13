@@ -1,23 +1,21 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { confirm } from '../../state/confirmStore';
-import { MasterDetail, MasterRow, MasterDetailDialog } from '../common/MasterDetail';
+import { MasterDetail, MasterRow, MasterSection, MasterDetailDialog } from '../common/MasterDetail';
 import { useGuardedSelection } from '../common/useGuardedSelection';
 import { fmtNum } from '../../i18n/format';
 import { useUnits, type Units } from '../../prefs/useUnits';
-import { DEFAULT_CHUTE_CD } from '../../services/parts/componentFilter';
 import { deleteCustomPart, type SavedPartEntry } from '../../services/parts/customParts';
 import type { Component } from '../../services/parts/componentDb';
 import { SavedPartEditor } from './SavedPartEditor';
 import { useSavedParts } from './useSavedParts';
 import { groupSavedParts } from './savedPartGroups';
-import { errorText } from '../../i18n/keyedError';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
 export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const u = useUnits();
   const { entries, error: listError } = useSavedParts();
-  const { selectedId, select, settle, close, onDirtyChange, err, setErr } = useGuardedSelection(
+  const { selectedId, select, close, onDirtyChange, err, removeWith } = useGuardedSelection(
     t('picker.savedDiscardConfirm'),
   );
 
@@ -26,21 +24,8 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
   // Resolved from the list, not copied, so a part deleted in another tab clears the selection.
   const selected = entries?.find((e) => e.part.id === selectedId) ?? null;
 
-  const remove = async (e: SavedPartEntry) => {
-    const ok = await confirm({
-      message: t('picker.deleteSavedConfirm', { name: e.part.partNo }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
-    if (!ok) return;
-    setErr(null);
-    try {
-      await deleteCustomPart(e.part.id);
-      settle(null);
-    } catch (err2) {
-      setErr(errorText(err2, t));
-    }
-  };
+  const remove = (e: SavedPartEntry) =>
+    removeWith(t('picker.deleteSavedConfirm', { name: e.part.partNo }), () => deleteCustomPart(e.part.id));
 
   return (
     <MasterDetailDialog
@@ -62,34 +47,29 @@ export function SavedPartsDialog({ onClose }: { onClose: () => void }) {
           list={
             <>
               {groups.map(({ type, list }) => (
-                <section key={type}>
-                  <h3 className="sticky top-0 bg-surface px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                    {t(`part.${type}`, { defaultValue: type })}
-                  </h3>
-                  <ul className="divide-y divide-line/5">
-                    {list.map((e) => (
-                      <li key={e.part.id}>
-                        <MasterRow selected={e.part.id === selectedId} onClick={() => void select(e.part.id)}>
-                          <span className="block truncate text-sm text-ink-strong">
-                            <span className="mr-1 text-warn-400" aria-hidden="true">
-                              ★
-                            </span>
-                            {e.part.partNo}
+                <MasterSection key={type} title={t(`part.${type}`, { defaultValue: type })}>
+                  {list.map((e) => (
+                    <li key={e.part.id}>
+                      <MasterRow selected={e.part.id === selectedId} onClick={() => void select(e.part.id)}>
+                        <span className="block truncate text-sm text-ink-strong">
+                          <span className="mr-1 text-warn-400" aria-hidden="true">
+                            ★
                           </span>
-                          <span className="block truncate text-xs text-ink-faint">
-                            {e.row ? (
-                              <>
-                                {e.part.mfr} · {describe(e.row, u, t)}
-                              </>
-                            ) : (
-                              <span className="text-warn-200">{t('picker.savedBrokenShort')}</span>
-                            )}
-                          </span>
-                        </MasterRow>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                          {e.part.partNo}
+                        </span>
+                        <span className="block truncate text-xs text-ink-faint">
+                          {e.row ? (
+                            <>
+                              {e.part.mfr} · {describe(e.row, u, t)}
+                            </>
+                          ) : (
+                            <span className="text-warn-200">{t('picker.savedBrokenShort')}</span>
+                          )}
+                        </span>
+                      </MasterRow>
+                    </li>
+                  ))}
+                </MasterSection>
               ))}
             </>
           }
@@ -123,7 +103,7 @@ function describe(row: Component, u: Units, t: (k: string, o?: Record<string, un
   const sym = u.sym('length');
   switch (row.type) {
     case 'parachute':
-      return `⌀ ${len(row.diameter)} ${sym} · ${t('prop.dragCoeff')} ${fmtNum(row.cd ?? DEFAULT_CHUTE_CD, 2)}`;
+      return `⌀ ${len(row.diameter)} ${sym} · ${t('prop.dragCoeff')} ${fmtNum(row.cd ?? KERNEL_DEFAULTS.parachute.cd, 2)}`;
     case 'nosecone':
       return `${t(`noseShape.${row.shape}`)} · ⌀ ${len(row.outerDiameter)} · ${len(row.length)} ${sym}`;
     case 'bulkhead':

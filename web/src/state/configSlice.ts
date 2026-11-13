@@ -101,6 +101,8 @@ interface ConfigSliceShared extends EditSteps {
   seed: FlightConfig;
 }
 
+type NestedOverrides = { deployments: DeployOverride; separations: SepOverride };
+
 export const createConfigSlice =
   ({ seed, beginEdit, commitEdit, recordStep }: ConfigSliceShared): StateCreator<WorkspaceState, [], [], ConfigSlice> =>
   (set, get) => {
@@ -111,6 +113,25 @@ export const createConfigSlice =
         const edited = mutate(current);
         if (edited === current) return {};
         return { configs: replaceById(s.configs, configId, () => edited) };
+      });
+    };
+    // A new config object would read as a changed input and drop a run in flight.
+    const setNested = <F extends keyof NestedOverrides, K extends keyof NestedOverrides[F]>(
+      configId: string,
+      field: F,
+      id: string,
+      key: K,
+      value: NestedOverrides[F][K] | null,
+    ) => {
+      const mapOf = (c: FlightConfig) => c[field] as Record<string, NestedOverrides[F]> | undefined;
+      const config = get().configs.find((c) => c.id === configId);
+      if (!config || holdsKey(mapOf(config)?.[id], key, value)) return;
+      beginEdit();
+      patchConfig(configId, (c) => {
+        const map = mapOf(c);
+        // Removed, not stored as undefined: a key holding `undefined` still counts as an override.
+        const inner = nonEmpty(withKey(map?.[id], key, value));
+        return { ...c, [field]: nonEmpty(withKey(map, id, inner ?? null)) };
       });
     };
 
@@ -156,26 +177,8 @@ export const createConfigSlice =
           return { ...c, motors: { ...c.motors, [mountId]: { ...seated, ...target } } };
         });
       },
-      setDeployment: (configId, deviceId, key, value) => {
-        // A new config object would read as a changed input and drop a run in flight.
-        const config = get().configs.find((c) => c.id === configId);
-        if (!config || holdsKey(config.deployments?.[deviceId], key, value)) return;
-        beginEdit();
-        patchConfig(configId, (c) => {
-          // Removed, not stored as undefined: a key holding `undefined` still counts as an override.
-          const device = nonEmpty(withKey(c.deployments?.[deviceId], key, value));
-          return { ...c, deployments: nonEmpty(withKey(c.deployments, deviceId, device ?? null)) };
-        });
-      },
-      setSeparation: (configId, stageId, key, value) => {
-        const config = get().configs.find((c) => c.id === configId);
-        if (!config || holdsKey(config.separations?.[stageId], key, value)) return;
-        beginEdit();
-        patchConfig(configId, (c) => {
-          const stage = nonEmpty(withKey(c.separations?.[stageId], key, value));
-          return { ...c, separations: nonEmpty(withKey(c.separations, stageId, stage ?? null)) };
-        });
-      },
+      setDeployment: (configId, deviceId, key, value) => setNested(configId, 'deployments', deviceId, key, value),
+      setSeparation: (configId, stageId, key, value) => setNested(configId, 'separations', stageId, key, value),
       setStageFlies: (configId, stageId, flies) => {
         const s = get();
         const current = s.configs.find((c) => c.id === configId);

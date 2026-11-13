@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { QNum } from '../sim/QNum';
-import { SiteElevationField, SiteTemperatureField } from './SiteFields';
+import { SiteElevationField, SiteTemperatureField } from '../sim/SiteQNum';
 import { CardGroup } from '../common/CardGroup';
+import { Check } from '../common/Check';
 import { NumberRow } from '../common/NumberRow';
-import { FieldLabel } from '../common/FieldMark';
+import { SelectRow } from '../common/SelectRow';
 import { motorFullName } from '../../services/motors/motorName';
-import { MAIN_BAND } from '../../services/flight/recoverySizing';
+import { CHUTE_LIMITS, MAIN_BAND } from '../../services/flight/recoverySizing';
 import { SIMPLE_FIN_COUNT, SIMPLE_FIN_SHAPES, type SimpleFinShape } from '../../services/flight/simpleRocket';
 import type { SimpleRocket } from './useSimpleRocket';
 
@@ -108,20 +109,13 @@ export function FinsCard({ rocket }: { rocket: SimpleRocket }) {
         value={finCount}
         onChange={(v) => setFinCount(v == null ? null : Math.round(v))}
       />
-      <label className="flex items-center justify-between gap-3">
-        <FieldLabel text={t('simpleTool.finShape')} />
-        <select
-          value={finShape}
-          onChange={(e) => setFinShape(e.target.value as SimpleFinShape)}
-          className="w-32 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          {SIMPLE_FIN_SHAPES.map((k) => (
-            <option key={k} value={k}>
-              {t(`simpleTool.finShape_${k}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectRow<SimpleFinShape> label={t('simpleTool.finShape')} value={finShape} onChange={setFinShape} width="w-32">
+        {SIMPLE_FIN_SHAPES.map((k) => (
+          <option key={k} value={k}>
+            {t(`simpleTool.finShape_${k}`)}
+          </option>
+        ))}
+      </SelectRow>
       <QNum
         label={t('simpleTool.finRoot')}
         hint={t('simpleTool.finRootHint')}
@@ -193,15 +187,7 @@ export function ChuteCard({ rocket }: { rocket: SimpleRocket }) {
   const { chuteCd, setChuteCd, chuteSized } = rocket;
   return (
     <CardGroup title={t('simpleTool.chute')}>
-      <label className="flex items-center gap-2 text-sm text-ink">
-        <input
-          type="checkbox"
-          checked={chuteOn}
-          onChange={(e) => setChuteOn(e.target.checked)}
-          className="accent-accent-500"
-        />
-        {t('simpleTool.chuteOn')}
-      </label>
+      <Check checked={chuteOn} onChange={setChuteOn} label={t('simpleTool.chuteOn')} className="text-sm text-ink" />
       {chuteOn && (
         <>
           <QNum
@@ -210,9 +196,7 @@ export function ChuteCard({ rocket }: { rocket: SimpleRocket }) {
             field="simpleChuteDiameter"
             kind="length"
             u={u}
-            stepSi={0.01}
-            minSi={0.01}
-            maxSi={20}
+            {...CHUTE_LIMITS.diameter}
             placeholder={
               chuteSized != null && Number.isFinite(chuteSized)
                 ? lengthUnit('simpleChuteDiameter').fmt(chuteSized)
@@ -223,9 +207,7 @@ export function ChuteCard({ rocket }: { rocket: SimpleRocket }) {
           />
           <NumberRow
             label={t('chuteTool.cd')}
-            step={0.05}
-            min={0.05}
-            max={3}
+            {...CHUTE_LIMITS.cd}
             required
             missing={chuteCd == null}
             value={chuteCd}

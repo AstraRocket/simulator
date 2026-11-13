@@ -1,11 +1,9 @@
-import { NO_VALUE } from '../../src/i18n/noValue';
 import { describe, it, expect } from 'vitest';
 import {
   IMPERIAL_UNITS,
   METRIC_UNITS,
   QUANTITIES,
   UNITS,
-  fmtSi,
   niceStep,
   normalizeUnitOverrides,
   normalizeUnits,
@@ -46,23 +44,11 @@ describe('unit conversion', () => {
     expect(uiToSi('surfaceDensity', 'g/cm²', 1)).toBeCloseTo(10, 12);
     expect(uiToSi('lineDensity', 'oz/ft', 1)).toBeCloseTo(0.0283495231 / 0.3048, 12);
     expect(uiToSi('lineDensity', 'g/m', 1)).toBeCloseTo(0.001, 12);
-    expect(fmtSi('surfaceDensity', 'oz/yd²', 1.1 * (0.0283495231 / 0.83612736), 2)).toBe('1.1');
+    expect(siToUi('surfaceDensity', 'oz/yd²', 1.1 * (0.0283495231 / 0.83612736))).toBeCloseTo(1.1, 12);
   });
 
   it('falls back to the first unit for a symbol it does not know', () => {
     expect(siToUi('mass', 'stone', 1)).toBe(siToUi('mass', 'g', 1));
-  });
-
-  it('never returns a number for an absent value', () => {
-    // The kernel emits null for NaN/Infinity, and `null / toSI` is 0.
-    expect(fmtSi('distance', 'm', NaN)).toBe(NO_VALUE);
-    expect(fmtSi('distance', 'm', null as unknown as number)).toBe(NO_VALUE);
-  });
-
-  it('formats with a magnitude ladder, or a requested precision', () => {
-    expect(fmtSi('length', 'mm', 0.9)).toBe('900');
-    expect(fmtSi('length', 'in', 0.9)).toBe('35.4');
-    expect(fmtSi('length', 'in', 0.9, 3)).toBe('35.433');
   });
 });
 

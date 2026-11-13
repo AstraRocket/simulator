@@ -158,9 +158,9 @@ describe('a save names the motor the mount holds, not the one the file was opene
   });
 
   it('does not send desktop back to the C6 when the new motor is one its database lacks', async () => {
-    expect(row('SCR', 'A8').digests ?? []).toEqual([]);
-    const found = (await save(spec('SCR', 'A8', 5)))['cfg-1']!;
-    expect(found.filter((m) => m.designation !== 'A8')).toEqual([]);
+    expect(row('Jambol', 'B5').digests ?? []).toEqual([]);
+    const found = (await save(spec('Jambol', 'B5', 5)))['cfg-1']!;
+    expect(found.filter((m) => m.designation !== 'B5')).toEqual([]);
   });
 
   it('does not send desktop back to the C6 when the catalog cannot load', async () => {

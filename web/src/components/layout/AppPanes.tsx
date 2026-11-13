@@ -23,11 +23,10 @@ export function AppBanners() {
   const storageWarning = useWorkspaceStore((s) => s.storageWarning);
   return (
     <>
-      {storageWarning && (
-        <Banner tone="warn" role="status">
-          {storageWarning}
-        </Banner>
-      )}
+      {/* Always mounted: a live region created with its text is not announced. */}
+      <div role="status" aria-live="polite">
+        {storageWarning && <Banner tone="warn">{storageWarning}</Banner>}
+      </div>
       {buildErr && (
         <Banner tone="danger" role="alert">
           {buildErr}

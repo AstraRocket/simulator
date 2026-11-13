@@ -42,6 +42,6 @@ describe('configuration table cells', () => {
 
   it('print a delay in the reader locale', async () => {
     await act(() => i18n.changeLanguage('de'));
-    expect(cell(1.5).textContent).toContain('+1,5s');
+    expect(cell(1.5).textContent).toContain('+1,5 s');
   });
 });

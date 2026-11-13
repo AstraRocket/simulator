@@ -193,6 +193,16 @@ function extent(p: Piece): { x0: number; x1: number; r0: number; r1: number } {
 }
 
 const byId = (pieces: Piece[], id: string) => pieces.filter((p) => p.id === id);
+/** One part's pieces together: a shoulder and its cap are pieces of their own. */
+const partExtent = (pieces: Piece[], id: string) =>
+  byId(pieces, id)
+    .map(extent)
+    .reduce((a, e) => ({
+      x0: Math.min(a.x0, e.x0),
+      x1: Math.max(a.x1, e.x1),
+      r0: Math.min(a.r0, e.r0),
+      r1: Math.max(a.r1, e.r1),
+    }));
 
 describe('buildPieces internals', () => {
   it('builds a body tube as a tube, with its own wall', () => {
@@ -280,7 +290,7 @@ describe('buildPieces internals', () => {
 });
 
 describe('buildPieces shoulders', () => {
-  const noseTree = (shoulder: Record<string, number>) =>
+  const noseTree = (shoulder: Record<string, number | boolean>) =>
     ({
       name: 'Shouldered',
       components: [
@@ -297,9 +307,27 @@ describe('buildPieces shoulders', () => {
 
   it('carries a nose cone shoulder aft, at the shoulder radius', () => {
     const { pieces } = buildPieces(noseTree({ shoulderLength: 0.03, shoulderRadius: 0.011 }));
-    const e = extent(byId(pieces, 'nose')[0]!);
+    const e = partExtent(pieces, 'nose');
     expect(e.x1).toBeCloseTo(0.13, 6);
     expect(e.r1).toBeCloseTo(0.013, 6);
+  });
+
+  it('gives a shoulder its own wall, and closes its free end only when capped', () => {
+    const shoulder = { shoulderLength: 0.03, shoulderRadius: 0.011, shoulderThickness: 0.002 };
+    const open = byId(buildPieces(noseTree(shoulder)).pieces, 'nose')
+      .slice(1)
+      .map(extent);
+    expect(open).toHaveLength(1);
+    expect(open[0]!.r1).toBeCloseTo(0.011, 6);
+    expect(open[0]!.r0).toBeCloseTo(0.009, 6);
+    const capped = byId(buildPieces(noseTree({ ...shoulder, shoulderCapped: true })).pieces, 'nose')
+      .slice(1)
+      .map(extent);
+    expect(capped).toHaveLength(2);
+    // The cap is a disc of the shoulder's wall at the shoulder's aft end.
+    expect(capped[1]!.r0).toBeCloseTo(0, 6);
+    expect(capped[1]!.x0).toBeCloseTo(0.128, 6);
+    expect(capped[1]!.x1).toBeCloseTo(0.13, 6);
   });
 
   it('draws no stub when the nose cone has no shoulder', () => {
@@ -309,7 +337,7 @@ describe('buildPieces shoulders', () => {
 
   it('clamps a shoulder wider than the part it steps down from', () => {
     const { pieces } = buildPieces(noseTree({ shoulderLength: 0.03, shoulderRadius: 0.05 }));
-    expect(extent(byId(pieces, 'nose')[0]!).r1).toBeCloseTo(0.013, 6);
+    expect(partExtent(pieces, 'nose').r1).toBeCloseTo(0.013, 6);
   });
 
   it('carries both of a transition shoulders, fore one reaching forward', () => {
@@ -337,7 +365,7 @@ describe('buildPieces shoulders', () => {
         },
       ],
     } as unknown as RocketTree;
-    const e = extent(byId(buildPieces(tree).pieces, 'trans')[0]!);
+    const e = partExtent(buildPieces(tree).pieces, 'trans');
     expect(e.x0).toBeCloseTo(0.18, 6);
     expect(e.x1).toBeCloseTo(0.265, 6);
   });

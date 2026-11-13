@@ -1,9 +1,12 @@
-/** Not `parseFloat(x) || 0` (passes Infinity) or `Number(x)` ('' is 0). */
+import { readDecimal } from '../numberText';
+import { finiteOr } from '../../app/numbers';
+
+/** Decimal text only, as Java's `parseDouble` reads it: not `Number(x)` ('' is 0, '0x10' is 16). */
 export function finiteNum(raw: string | null | undefined): number | undefined {
   const t = raw?.trim();
   if (!t) return undefined;
-  const v = Number(t);
-  return Number.isFinite(v) ? v : undefined;
+  const v = readDecimal(t);
+  return finiteOr(v, undefined);
 }
 
 export function clampCount(v: number, lo: number, hi: number): number {
