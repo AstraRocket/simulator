@@ -737,6 +737,17 @@
     "lastFlyingStage": "Pelo menos um estágio precisa voar em cada configuração.",
     "stageGrounded": "Fica em solo em:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Carregar {{motor}} também nos outros suportes deste estágio? Cada um mantém sua própria ignição.",
+    "otherMountsEmpty": "{{mount}}, vazio agora",
+    "otherMountsReplaces": "{{mount}}, substituindo {{motor}}",
+    "otherMountsKeptPlugged": "o motor continua tampado",
+    "otherMountsTooWide": "{{mount}} fica de fora: o motor é largo demais para o diâmetro interno.",
+    "otherMountsTooLong": "{{mount}} fica de fora: o motor é comprido demais para ele.",
+    "otherMountsLoad": "Carregar",
+    "otherMountsDismiss": "Não, obrigado",
+    "otherMountsLoaded": "{{motor}} carregado nos outros suportes.",
+    "otherMountsUndo": "Desfazer",
+    "otherMountsClose": "Fechar",
     "bays": "Compartimentos"
   },
   "tabs": {

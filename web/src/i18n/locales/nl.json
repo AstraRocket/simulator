@@ -736,6 +736,17 @@
     "lastFlyingStage": "In elke configuratie moet minstens één trap vliegen.",
     "stageGrounded": "Blijft aan de grond in:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "{{motor}} ook in de andere houders van deze trap laden? Elke houder houdt zijn eigen ontsteking.",
+    "otherMountsEmpty": "{{mount}}, nu leeg",
+    "otherMountsReplaces": "{{mount}}, vervangt {{motor}}",
+    "otherMountsKeptPlugged": "de motor blijft afgesloten",
+    "otherMountsTooWide": "{{mount}} valt af: de motor is te breed voor de binnendiameter.",
+    "otherMountsTooLong": "{{mount}} valt af: de motor is er te lang voor.",
+    "otherMountsLoad": "Laden",
+    "otherMountsDismiss": "Nee, bedankt",
+    "otherMountsLoaded": "{{motor}} in de andere houders geladen.",
+    "otherMountsUndo": "Ongedaan maken",
+    "otherMountsClose": "Sluiten",
     "bays": "Compartimenten"
   },
   "tabs": {

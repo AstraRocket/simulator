@@ -737,6 +737,17 @@
     "lastFlyingStage": "Pelo menos um andar tem de voar em cada configuração.",
     "stageGrounded": "Fica em terra em:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Carregar {{motor}} também nos outros suportes deste andar? Cada um mantém a sua própria ignição.",
+    "otherMountsEmpty": "{{mount}}, vazio agora",
+    "otherMountsReplaces": "{{mount}}, a substituir {{motor}}",
+    "otherMountsKeptPlugged": "o motor continua tapado",
+    "otherMountsTooWide": "{{mount}} fica de fora: o motor é demasiado largo para o diâmetro interior.",
+    "otherMountsTooLong": "{{mount}} fica de fora: o motor é demasiado comprido para ele.",
+    "otherMountsLoad": "Carregar",
+    "otherMountsDismiss": "Não, obrigado",
+    "otherMountsLoaded": "{{motor}} carregado nos outros suportes.",
+    "otherMountsUndo": "Desfazer",
+    "otherMountsClose": "Fechar",
     "bays": "Compartimentos"
   },
   "tabs": {

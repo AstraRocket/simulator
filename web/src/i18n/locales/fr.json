@@ -737,6 +737,17 @@
     "lastFlyingStage": "Au moins un étage doit voler dans chaque configuration.",
     "stageGrounded": "Reste au sol dans :",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Charger aussi {{motor}} dans les autres supports de cet étage ? Chacun garde son propre allumage.",
+    "otherMountsEmpty": "{{mount}}, vide pour l’instant",
+    "otherMountsReplaces": "{{mount}}, remplace {{motor}}",
+    "otherMountsKeptPlugged": "son moteur reste bouché",
+    "otherMountsTooWide": "{{mount}} est laissé de côté : le moteur est trop large pour son alésage.",
+    "otherMountsTooLong": "{{mount}} est laissé de côté : le moteur est trop long pour lui.",
+    "otherMountsLoad": "Les charger",
+    "otherMountsDismiss": "Non merci",
+    "otherMountsLoaded": "{{motor}} chargé dans les autres supports.",
+    "otherMountsUndo": "Annuler",
+    "otherMountsClose": "Fermer",
     "bays": "Baies"
   },
   "tabs": {

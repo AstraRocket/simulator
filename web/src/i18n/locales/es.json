@@ -737,6 +737,17 @@
     "lastFlyingStage": "En cada configuración tiene que volar al menos una etapa.",
     "stageGrounded": "Se queda en tierra en:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "¿Cargar {{motor}} también en los otros soportes de esta etapa? Cada uno conserva su propio encendido.",
+    "otherMountsEmpty": "{{mount}}, ahora vacío",
+    "otherMountsReplaces": "{{mount}}, sustituye a {{motor}}",
+    "otherMountsKeptPlugged": "su motor sigue tapado",
+    "otherMountsTooWide": "{{mount}} queda fuera: el motor es demasiado ancho para su diámetro interior.",
+    "otherMountsTooLong": "{{mount}} queda fuera: el motor es demasiado largo para él.",
+    "otherMountsLoad": "Cargarlos",
+    "otherMountsDismiss": "No, gracias",
+    "otherMountsLoaded": "{{motor}} cargado en los otros soportes.",
+    "otherMountsUndo": "Deshacer",
+    "otherMountsClose": "Cerrar",
     "bays": "Bahías"
   },
   "tabs": {

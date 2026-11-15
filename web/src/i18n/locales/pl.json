@@ -738,6 +738,17 @@
     "lastFlyingStage": "W każdej konfiguracji musi lecieć co najmniej jeden stopień.",
     "stageGrounded": "Zostaje na ziemi w:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Załadować {{motor}} także do pozostałych komór tego stopnia? Każda zachowuje własny zapłon.",
+    "otherMountsEmpty": "{{mount}}, teraz pusta",
+    "otherMountsReplaces": "{{mount}}, zamiast {{motor}}",
+    "otherMountsKeptPlugged": "silnik pozostaje zaślepiony",
+    "otherMountsTooWide": "Pominięto {{mount}}: silnik jest za szeroki na jej średnicę wewnętrzną.",
+    "otherMountsTooLong": "Pominięto {{mount}}: silnik jest dla niej za długi.",
+    "otherMountsLoad": "Załaduj",
+    "otherMountsDismiss": "Nie, dziękuję",
+    "otherMountsLoaded": "Załadowano {{motor}} do pozostałych komór.",
+    "otherMountsUndo": "Cofnij",
+    "otherMountsClose": "Zamknij",
     "bays": "Przedziały"
   },
   "tabs": {

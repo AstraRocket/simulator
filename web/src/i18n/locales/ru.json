@@ -738,6 +738,17 @@
     "lastFlyingStage": "В каждой конфигурации должна лететь хотя бы одна ступень.",
     "stageGrounded": "Остаётся на земле в:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Установить {{motor}} и в остальные держатели этой ступени? Каждый сохранит своё зажигание.",
+    "otherMountsEmpty": "{{mount}}, сейчас пуст",
+    "otherMountsReplaces": "{{mount}}, вместо {{motor}}",
+    "otherMountsKeptPlugged": "двигатель остаётся заглушён",
+    "otherMountsTooWide": "{{mount}} пропущен: двигатель слишком широк для его внутреннего диаметра.",
+    "otherMountsTooLong": "{{mount}} пропущен: двигатель для него слишком длинный.",
+    "otherMountsLoad": "Установить",
+    "otherMountsDismiss": "Нет, спасибо",
+    "otherMountsLoaded": "{{motor}} установлен в остальные держатели.",
+    "otherMountsUndo": "Отменить",
+    "otherMountsClose": "Закрыть",
     "bays": "Отсеки"
   },
   "tabs": {

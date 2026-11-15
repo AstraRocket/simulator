@@ -736,6 +736,17 @@
     "lastFlyingStage": "At least one stage has to fly on each configuration.",
     "stageGrounded": "Left on the ground in:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Load {{motor}} into the other mounts of this stage too? Each keeps its own ignition.",
+    "otherMountsEmpty": "{{mount}}, empty now",
+    "otherMountsReplaces": "{{mount}}, replacing {{motor}}",
+    "otherMountsKeptPlugged": "its motor stays plugged",
+    "otherMountsTooWide": "{{mount}} is left out: the motor is too wide for its bore.",
+    "otherMountsTooLong": "{{mount}} is left out: the motor is too long for it.",
+    "otherMountsLoad": "Load them",
+    "otherMountsDismiss": "No thanks",
+    "otherMountsLoaded": "Loaded {{motor}} into the other mounts.",
+    "otherMountsUndo": "Undo",
+    "otherMountsClose": "Close",
     "bays": "Bays"
   },
   "tabs": {

@@ -264,7 +264,30 @@
 # their machine-path, OpenRocket-source and catalog tooling.
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-11-15: reviewed 779a4342 through 5db63e5f (v0.200 of 2026-11-14 and
+# v0.201 of 2026-11-15). No engine-java file changed; every change is under
+# their packages/app.
+#
+# APP-SIDE, DONE HERE: loading the picked motor into the other mounts of the
+# same stage where it fits, offered and never applied by itself, with one Undo
+# (their otherMountLoad.ts; ours is services/flight/otherMounts.ts and
+# components/config/OtherMountsOffer.tsx). Each mount keeps its ignition; a
+# plugged mount stays plugged. Their per-mount delay matching is not taken: our
+# MotorSpec carries the picked delay, so the pick's delay is copied.
+#
+# NOT TAKEN: their unbalanced-thrust warning (asymmetricThrust.ts). OpenRocket
+# core flies all thrust on the centerline and has no thrust moment, so this is
+# advice the kernel cannot back.
+#
+# NOT APPLICABLE: everything batch simulate (matching mounts, mixed batches on
+# rings of separate tubes, batch row loadouts, the two new export columns); this
+# app has no batch simulate. Their fit-length tolerance made consistent: ours is
+# already one check (motorPicker.ts `motorFitsMount`). Their motor data refresh
+# of 2026-11-09 added and changed no motor.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 779a4342caaacbb048253c0fe69e2a6ae7848d11
-version = 0.199
-dated   = 2026-11-13
+ref     = 5db63e5f310d482c953ce7ebbbeeacc662ffcc0c
+version = 0.201
+dated   = 2026-11-15
