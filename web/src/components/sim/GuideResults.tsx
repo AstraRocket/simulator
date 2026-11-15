@@ -30,6 +30,8 @@ export interface GuideCol<R> {
   id: string;
   label: string;
   quantity?: Quantity;
+  /** The unit chip the figure shares with its tile on the Results summary. */
+  scope?: string;
   value: (r: R) => number | null;
   digits?: number;
 }
@@ -37,7 +39,8 @@ export interface GuideCol<R> {
 const cellText = <R,>(c: GuideCol<R>, r: R, u: Units): string => {
   const v = c.value(r);
   if (v == null || !Number.isFinite(v)) return NO_VALUE;
-  return c.quantity ? u.fmt(c.quantity, v) : fmtNum(v, c.digits ?? 1);
+  if (!c.quantity) return fmtNum(v, c.digits ?? 1);
+  return c.scope ? u.at(c.scope, c.quantity).fmt(v) : u.fmt(c.quantity, v);
 };
 
 export interface GuideSort {

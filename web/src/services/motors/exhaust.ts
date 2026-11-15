@@ -1,7 +1,7 @@
 import { must } from '../app/must';
 import type { MotorSpec, RocketTree } from '../../engine/openRocketEngine';
-import { collectNodes, stageNodes } from '../../tree/treeWalk';
-import type { FlightConfig } from '../flight/flightConfigs';
+import { stageNodes } from '../../tree/treeWalk';
+import { flyingNodes, type FlightConfig } from '../flight/flightConfigs';
 import type { CatalogMotor } from './motorDb';
 
 export interface Exhaust {
@@ -117,7 +117,7 @@ export function burnExhausts(
 ): Exhaust[] {
   const out: Exhaust[] = [];
   for (const stage of [...stageNodes(tree)].reverse()) {
-    const seated = collectNodes([stage], (n) => n.motorMount === true)
+    const seated = flyingNodes([stage], config, (n) => n.motorMount === true)
       .map((m) => config.motors[m.id as string])
       .filter((m) => m != null);
     if (!seated.length) continue;

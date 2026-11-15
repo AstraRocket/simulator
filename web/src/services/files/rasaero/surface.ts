@@ -1,7 +1,7 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
 import type { Keyed } from '../../../i18n/keyedError';
 import type { Cdx1Writer } from './units';
-import { bodyTubeRadius, num, str } from '../../../tree/nodeProps';
+import { bodyTubeRadius, finCountOf, str } from '../../../tree/nodeProps';
 import { partLength } from '../../../tree/position';
 import { nodeOuterProfile, profileEnds } from '../../../tree/shapeProfile';
 import { finPlanformArea, finPlanformPoints } from '../../../tree/finPlanform';
@@ -61,7 +61,7 @@ function wetArea(node: ComponentNode): number | null {
     return area;
   }
   if (isPlanarFinSet(node.type)) {
-    return 2 * finPlanformArea(finPlanformPoints(node) ?? []) * num(node, 'finCount', 3);
+    return 2 * finPlanformArea(finPlanformPoints(node) ?? []) * finCountOf(node);
   }
   return null;
 }

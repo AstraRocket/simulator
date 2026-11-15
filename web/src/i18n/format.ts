@@ -63,6 +63,11 @@ export function withUnit(text: string, sym: string): string {
   return sym === '°' ? `${text}${sym}` : `${text} ${sym}`;
 }
 
+/** A stability margin in calibers, the kernel's figure. A non-finite one is the dash and the unit, as any readout. */
+export function fmtCalibers(cal: number, t: (key: string) => string, digits = 2): string {
+  return withUnit(fmtNum(cal, digits), t('stability.caliber'));
+}
+
 /** A table column's heading with its unit, as every sortable table writes it. */
 export function colWithUnit(label: string, sym: string): string {
   return `${label} (${sym})`;

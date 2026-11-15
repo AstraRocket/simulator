@@ -27,7 +27,10 @@ export function propAltitudeUnit(
   return u.at(unitScope('prop', node.type, key), 'distance');
 }
 
-const delayText = (s: number, t: TFunction) => ` +${withUnit(fmtUpTo(s, 3), t('units.second'))}`;
+/** A deployment or separation delay, in seconds: the table and the override placeholders read it alike. */
+export const fmtDelay = (s: number): string => fmtUpTo(s, 3);
+
+const delayText = (s: number, t: TFunction) => ` +${withUnit(fmtDelay(s), t('units.second'))}`;
 
 const triggerText = (event: string, altitude: string | null, delay: number, t: TFunction) =>
   `${event}${altitude ? ` ${altitude}` : ''}${delay ? delayText(delay, t) : ''}`;

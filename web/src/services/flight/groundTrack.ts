@@ -20,7 +20,16 @@ export interface GroundTrackLine {
   bearing: number;
 }
 
-// Drops half-valid samples rather than zeroing them: zero is the pad, so one null would draw a spike to it.
+/**
+ * Sample i's ground position, or null when the run left either coordinate non-finite there. Every reader drops
+ * such a sample rather than zeroing it: zero is the pad, so one null would draw a spike to it.
+ */
+export function groundPointAt(series: FlightSeries | undefined, i: number): GroundPoint | null {
+  const e = series?.['Px']?.[i];
+  const n = series?.['Py']?.[i];
+  return isFiniteNumber(e) && isFiniteNumber(n) ? { east: e, north: n } : null;
+}
+
 export function trackPoints(series: FlightSeries | undefined): GroundPoint[] {
   const east = series?.['Px'];
   const north = series?.['Py'];
@@ -28,9 +37,8 @@ export function trackPoints(series: FlightSeries | undefined): GroundPoint[] {
   const n = Math.min(east.length, north.length);
   const out: GroundPoint[] = [];
   for (let i = 0; i < n; i++) {
-    const e = east[i];
-    const nr = north[i];
-    if (isFiniteNumber(e) && isFiniteNumber(nr)) out.push({ east: e, north: nr });
+    const p = groundPointAt(series, i);
+    if (p) out.push(p);
   }
   return out;
 }

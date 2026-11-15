@@ -193,6 +193,7 @@
     "openExample": "Could not open that example: {{reason}}",
     "saveOrk": "Could not save .ork: {{reason}}",
     "saveOrkNoDesignInfo": "Saved the .ork without design info: the design could not be built, so there were no statistics to include.",
+    "saveOrkFairing": "Saved the .ork, but desktop OpenRocket has no fairing part and leaves these out, mass and all, when it opens the file: {{parts}}.",
     "exportRasaero": "Could not export RASAero: {{reason}}",
     "exportRasaeroSurface": "The RASAero file was saved, but RASAero has no surface matching this design's finish, so it was written as smooth (zero roughness).",
     "exportRasaeroStageMass": "The RASAero file was saved, but a stage's launch weight and CG were not available, so the simulation's weight and CG cells were written as 0. Enter them in RASAero before flying.",
@@ -485,6 +486,7 @@
     "undo": "Undo",
     "redo": "Redo",
     "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
     "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
@@ -1423,6 +1425,7 @@
     "noEditor": "This app has no editor for: {{items}}. They are preserved, so a save keeps them.",
     "docMaterialsSkipped": "Design materials skipped as unreadable: {{count}}.",
     "referenceType": "This design measures its stability in calibers against \"{{type}}\". This app measures them against the widest body tube, so the stability margin in calibers can differ from desktop OpenRocket's; the file keeps the setting.",
+    "lookupTables": "These simulations fly a drag or stability lookup table in desktop OpenRocket. This app works out drag and stability itself, so their saved results are marked outdated and a rerun can differ. The tables are kept, so saving preserves them: {{names}}.",
     "motorPlugged": "Motor {{motor}}: plugged (no ejection charge). Make sure recovery deploys on apogee or altitude, not the ejection charge.",
     "motorPluggedNoDelay": "Motor {{motor}}: plugged (no ejection charge; the file gives no readable delay). Make sure recovery deploys on apogee or altitude, not the ejection charge.",
     "finPointsCapped": "A freeform fin had more than {{max}} points; the rest were dropped.",
@@ -2794,7 +2797,6 @@
     "cgHint": "The balance point with no motor in, measured from the nose tip.",
     "cgOutside": "The CG has to be on the rocket, between the nose tip and {{length}}.",
     "railStability": "Stability off the launcher",
-    "calibers": "{{value}} cal",
     "lowStability": "Under {{min}} caliber: likely unstable",
     "stabilityNote": "Stability is from your CG and fins with the stand-in nose; the real nose moves it a little.",
     "colStability": "Stability (cal)",

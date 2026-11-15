@@ -57,9 +57,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       apply((base) => ({ [key]: { ...base[key], ...patch } })),
     [apply],
   );
+  // A refused reset is held like a refused change: the next change lays it over what storage still holds.
   const reset = useCallback(() => {
     const fresh = defaultSettings();
-    if (!saveSettings(fresh)) reportRefused();
+    if (saveSettings(fresh)) unsaved.current = {};
+    else {
+      unsaved.current = fresh;
+      reportRefused();
+    }
     setSettings(fresh);
   }, []);
   const value = useMemo(() => ({ settings, update, updateSection, reset }), [settings, update, updateSection, reset]);

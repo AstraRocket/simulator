@@ -114,7 +114,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
             grounded: c.grounded,
           })),
         );
-        const { downloadOrk } = await import('../services/files/saveOrk');
+        const { downloadOrk, partsDesktopDrops } = await import('../services/files/saveOrk');
         if (replaced()) return;
         downloadOrk({
           name: designNameOf(tree, loadedMeta),
@@ -126,7 +126,12 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
           simulations,
           designInfo,
         });
-        if (infoLeftOut) set({ err: i18n.t('errors.saveOrkNoDesignInfo') });
+        const dropped = partsDesktopDrops(tree).map((p) => (typeof p === 'string' ? p : keyedText(p, i18n.t)));
+        const notes = [
+          ...(infoLeftOut ? [i18n.t('errors.saveOrkNoDesignInfo')] : []),
+          ...(dropped.length ? [i18n.t('errors.saveOrkFairing', { parts: fmtList(dropped) })] : []),
+        ];
+        if (notes.length) set({ err: notes.join(' ') });
       } catch (e) {
         set({ err: actionError('errors.saveOrk', e, i18n.t) });
       }

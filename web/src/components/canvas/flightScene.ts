@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { FlightEvent, FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import { eventTime, forwardFlightEnd } from '../../services/flight/flightEvents';
+import { groundPointAt } from '../../services/flight/groundTrack';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { findRecoveryDevices } from '../../services/design/treeEdit';
 import { num } from '../../tree/nodeProps';
@@ -112,17 +113,20 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   const time = result.series.time ?? [];
   const alt = result.series.altitude ?? [];
   const vel = result.series.velocity ?? [];
-  const px = result.series.Px ?? [];
-  const py = result.series.Py ?? [];
+  // A run that records no ground position flies up the axis; one that does drops a sample missing it,
+  // as the ground track does, rather than drawing it at the pad.
+  const tracked = !!result.series.Px && !!result.series.Py;
   const rows: { t: number; a: number; v: number; east: number; north: number }[] = [];
   for (let i = 0; i < time.length; i++) {
     if (!Number.isFinite(time[i]) || !Number.isFinite(alt[i])) continue;
+    const ground = groundPointAt(result.series, i);
+    if (tracked && !ground) continue;
     rows.push({
       t: time[i]!,
       a: alt[i]!,
       v: Number.isFinite(vel[i]) ? vel[i]! : 0,
-      east: Number(px[i]) || 0,
-      north: Number(py[i]) || 0,
+      east: ground?.east ?? 0,
+      north: ground?.north ?? 0,
     });
   }
   // Loop, don't spread: Math.max(...bigArray) overflows the argument stack.

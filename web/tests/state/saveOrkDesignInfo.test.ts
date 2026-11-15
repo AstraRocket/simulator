@@ -6,7 +6,10 @@ vi.mock('../../src/services/report/reportModel', () => ({ assembleReport }));
 vi.mock('../../src/services/report/designInfo', () => ({ buildDesignInfo: (r: unknown) => r }));
 
 const downloadOrk = vi.hoisted(() => vi.fn());
-vi.mock('../../src/services/files/saveOrk', () => ({ downloadOrk }));
+vi.mock('../../src/services/files/saveOrk', async (orig) => ({
+  ...(await orig<typeof import('../../src/services/files/saveOrk')>()),
+  downloadOrk,
+}));
 
 const digests = vi.hoisted(() => ({ release: null as null | (() => void) }));
 vi.mock('../../src/services/motors/exportMotors', async (orig) => ({
@@ -87,5 +90,21 @@ describe('saveOrk with design info', () => {
     await releaseDigests();
     await saving;
     expect(s().err).toBeNull();
+  });
+});
+
+describe('saveOrk with a part desktop has no element for', () => {
+  it('writes the file and names each fairing desktop will leave out', async () => {
+    const tree = structuredClone(s().tree);
+    const stage = tree.components[0]!;
+    stage.children = [...(stage.children ?? []), { id: 'fair', type: 'fairing', name: 'Camera shroud' } as never];
+    useWorkspaceStore.setState({ tree, err: null });
+    const saving = s().saveOrk();
+    await releaseDigests();
+    await saving;
+
+    expect(downloadOrk).toHaveBeenCalledTimes(1);
+    // ComponentHandler has no fairing element, so desktop opens the file without it.
+    expect(s().err).toMatch(/no fairing part.*Camera shroud/);
   });
 });

@@ -281,6 +281,22 @@ describe('normalizeFreeformPoints', () => {
     ]);
   });
 
+  it('leaves a first point within 1e-12 m² of the origin where it is, as the kernel does', () => {
+    // FreeformFinSet.java:280, `if (IGNORE_SMALLER_THAN < delta.length2())`, IGNORE_SMALLER_THAN = 1.0e-12 (:28).
+    const near: [number, number][] = [
+      [1e-7, 0],
+      [0.04, 0.03],
+      [0.06, 0],
+    ];
+    expect(normalizeFreeformPoints(near)).toBe(near);
+    const past: [number, number][] = [
+      [1e-5, 0],
+      [0.04, 0.03],
+      [0.06, 0],
+    ];
+    expect(normalizeFreeformPoints(past)[0]).toEqual([0, 0]);
+  });
+
   it('preserves the root chord, which is already translation-invariant', () => {
     const moved: [number, number][] = [
       [0.02, 0],

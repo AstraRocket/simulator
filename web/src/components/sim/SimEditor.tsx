@@ -16,7 +16,7 @@ import type { SimPrefs, Simulation } from '../../services/flight/simulations';
 import { clampMaxAngleStep, seedFromInput, stepperOf } from '../../services/flight/simulations';
 import { NumberRow } from '../common/NumberRow';
 import { fmtUpTo } from '../../i18n/format';
-import { SPEED_WARNINGS } from './speedWarnings';
+import { MIN_SPEED_LIMIT, SPEED_WARNINGS } from './speedWarnings';
 import { SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from './simOptionFields';
 import { KernelMethodRows, StepperSelect } from './SimOptionRows';
 import { CardGroup } from '../common/CardGroup';
@@ -290,7 +290,7 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
             value={speed(prefs?.[w.key])}
             placeholder={u.fmt('velocity', g[w.key])}
             step={vStep}
-            min={0}
+            min={u.toUi('velocity', MIN_SPEED_LIMIT)}
             onChange={onSpeed(w.key)}
             onCommit={onCommit}
           />

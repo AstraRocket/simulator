@@ -7,6 +7,7 @@ import { MotorCatalogGate } from './MotorCatalogGate';
 import { useCatalog } from './useCatalog';
 import { useMotorFilter } from './useMotorFilter';
 import { useUnits } from '../../prefs/useUnits';
+import { unitScope, type Quantity } from '../../prefs/units';
 import { useLauncherT } from '../common/useLauncher';
 import { useSettings } from '../../state/useSettings';
 import {
@@ -315,19 +316,32 @@ export function CandidateList({
   );
 }
 
+// The figure's unit chip on the Results summary.
+const simFigure = (key: string, quantity: Quantity) => ({ quantity, scope: unitScope('sim', key) });
+
 const COLS: GuideCol<GuideRow>[] = [
   ...motorCols<GuideRow>(),
   { id: 'burn', label: 'guide.colBurn', value: (r) => r.motor.burn, digits: 1 },
-  { id: 'apogee', label: 'sim.apogee', quantity: 'distance', value: (r) => r.apogee },
-  { id: 'maxVelocity', label: 'sim.maxSpeed', quantity: 'velocity', value: (r) => r.maxVelocity },
-  { id: 'maxAcceleration', label: 'sim.maxAccel', quantity: 'acceleration', value: (r) => r.maxAcceleration },
-  { id: 'railExit', label: 'sim.rodExit', quantity: 'velocity', value: (r) => r.railExit },
+  { id: 'apogee', label: 'sim.apogee', ...simFigure('apogee', 'distance'), value: (r) => r.apogee },
+  { id: 'maxVelocity', label: 'sim.maxSpeed', ...simFigure('maxSpeed', 'velocity'), value: (r) => r.maxVelocity },
+  {
+    id: 'maxAcceleration',
+    label: 'sim.maxAccel',
+    ...simFigure('maxAccel', 'acceleration'),
+    value: (r) => r.maxAcceleration,
+  },
+  { id: 'railExit', label: 'sim.rodExit', ...simFigure('rodExit', 'velocity'), value: (r) => r.railExit },
   { id: 'railMargin', label: 'guide.colMargin', value: (r) => r.railMargin, digits: 2 },
   { id: 'railTwr', label: 'guide.colTwr', value: (r) => r.railTwr, digits: 1 },
   { id: 'timeToApogee', label: 'guide.colToApogee', value: (r) => r.timeToApogee, digits: 1 },
   { id: 'optimumDelay', label: 'guide.colOptimum', value: (r) => r.optimumDelay, digits: 1 },
-  { id: 'deployVelocity', label: 'sim.deployVelocity', quantity: 'velocity', value: (r) => r.deployVelocity },
-  { id: 'landingVelocity', label: 'sim.landing', quantity: 'velocity', value: (r) => r.landingVelocity },
+  {
+    id: 'deployVelocity',
+    label: 'sim.deployVelocity',
+    ...simFigure('deployVelocity', 'velocity'),
+    value: (r) => r.deployVelocity,
+  },
+  { id: 'landingVelocity', label: 'sim.landing', ...simFigure('landing', 'velocity'), value: (r) => r.landingVelocity },
 ];
 
 const ISSUE_KEY: Record<GuideIssue, string> = {
@@ -392,7 +406,8 @@ function GuideTable({
     return sortGuideRows(guide.rows, val, sort.desc);
   }, [guide.rows, sort, verdicts]);
 
-  const colLabel = (c: GuideCol<GuideRow>) => (c.quantity ? colWithUnit(lt(c.label), u.sym(c.quantity)) : lt(c.label));
+  const colLabel = (c: GuideCol<GuideRow>) =>
+    c.quantity ? colWithUnit(lt(c.label), u.sym(c.quantity, c.scope)) : lt(c.label);
   const pickButton = (r: GuideRow, name: string, size: string) => (
     <GuideUseButton
       name={name}

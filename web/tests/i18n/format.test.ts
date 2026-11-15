@@ -12,6 +12,7 @@ import {
   colWithUnit,
   fmtDateTime,
   fmtRelativeAge,
+  fmtCalibers,
 } from '../../src/i18n/format';
 import { NO_VALUE } from '../../src/i18n/noValue';
 import i18n from '../../src/i18n';
@@ -232,5 +233,29 @@ describe('fmtRelativeAge', () => {
     expect(fmtRelativeAge(30_000, 'just now')).toBe('just now');
     expect(fmtRelativeAge(5 * 60_000, 'just now')).toBe('5 minutes ago');
     expect(fmtRelativeAge(2 * 3_600_000, 'just now')).toBe('2 hours ago');
+  });
+});
+
+describe('fmtCalibers', () => {
+  it("reads in each locale's own unit, the one every caliber readout uses", async () => {
+    try {
+      for (const lang of ['pl', 'ru', 'de']) {
+        await i18n.changeLanguage(lang);
+        const unit = (
+          JSON.parse(readFileSync(resolve(__dirname, `../../src/i18n/locales/${lang}.json`), 'utf8')) as {
+            stability: { caliber: string };
+          }
+        ).stability.caliber;
+        expect(fmtCalibers(1.5, i18n.t.bind(i18n))).toBe(
+          `${new Intl.NumberFormat(lang, { minimumFractionDigits: 2 }).format(1.5)} ${unit}`,
+        );
+      }
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
+
+  it('reads a margin with no value as the dash and the unit, as any readout does', () => {
+    expect(fmtCalibers(NaN, i18n.t.bind(i18n))).toBe(`${NO_VALUE} cal`);
   });
 });

@@ -139,8 +139,18 @@ final class ComponentFactory {
                 throw new IllegalArgumentException("The design has more than " + MAX_AUTO_RADIUS_RUN
                         + " automatic-radius parts in a row");
             }
+            // An inline pod's first part follows the tube carrying it, but the main line looks past
+            // pods (SymmetricComponent.getPreviousSymmetricComponent): a pod's run continues the main
+            // line's count, and nothing inside it resets that count.
+            long mainRun = totals[2];
             sizeOf(kid, here, totals);
+            if (isAssembly(kid)) totals[2] = mainRun;
         }
+    }
+
+    private static boolean isAssembly(Map<String, Object> node) {
+        String type = str(node, "type", "");
+        return type.equals("podset") || type.equals("parallelstage");
     }
 
     /** Null for a part with no radius of its own to size; the flags `create` reads. */

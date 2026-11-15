@@ -15,7 +15,14 @@
 # byte-identical to upstream: that is a leftover, and patches/LEDGER.md says
 # to delete it rather than bless it.
 #
+# `@manifest` hashes the manifest's file list and `@upstream` the content of
+# the upstream files it names, so a dropped manifest line or a substitute
+# upstream fails the check whatever source it came from. Each patch hash and
+# both of these must also appear (first 12 characters) in patches/LEDGER.md.
+#
 
+@manifest 809561cbc1a2213eac0430d38ae8383c07916541688c5ed44733d80e06210f0a
+@upstream c679040d623bd2c27fc7aff9c0de70484618bae753f03bd63491e906ba9e6b73
 info/openrocket/core/aerodynamics/barrowman/FinSetCalc.java 644 61fddf1ea45bee823f39b83b5174f0ce911188852a634436c6fb20f2e7bb2716 10a7a1f049401c5e8de62003f3fe6e1b912a03d3fbb38bad9387d50ffe2214ce
 info/openrocket/core/aerodynamics/barrowman/SymmetricComponentCalc.java 404 85ba7c8d9f3d52377fdca6af7a7e6ea58ae128b05d5f6de0975bb2176d9a174a 8798cc06c7c21eca4b9887339109c7f29408ef9ce2f11ca39df7c0e4f09d6644
 info/openrocket/core/simulation/SimulationOptions.java 161 7e8703697825df86e8e79c5aa8cdab885cdee1d9eb7e7f7e2198b44afcdc2ef5 ea5e1dff7f4a177b1b1406037e850b9e1edd55938c102a28ce2589d53818c5ea

@@ -4,6 +4,7 @@ import { findMounts, findNode } from '../../services/design/treeEdit';
 import { partLabel } from '../../i18n/format';
 import { useWorkspaceStore } from '../../state/store';
 import { confirm } from '../../state/confirmStore';
+import { isApplePlatform } from '../../services/app/device';
 
 export interface TreeCommand {
   enabled: boolean;
@@ -30,7 +31,10 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
   const pasteClipboard = useWorkspaceStore((s) => s.pasteClipboard);
   const duplicateSelected = useWorkspaceStore((s) => s.duplicateSelected);
 
-  const named = (key: string, keys: string) => `${t(key)} (${keys})`;
+  // As UndoRedoButtons: Apple's own symbol needs no translation; elsewhere the locale names the key.
+  const apple = isApplePlatform();
+  const named = (key: string, letter: string) =>
+    `${t(key)} (${apple ? `⌘${letter}` : t('edit.ctrlKeys', { key: letter })})`;
   const noSelection = t('tree.selectFirst');
 
   const commandsFor = (id: string | null): TreeCommands => {
@@ -43,7 +47,7 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
     const cutOk = !!node && !!id && canRemove(tree, id);
     const cut: TreeCommand = {
       enabled: cutOk,
-      title: !node ? noSelection : cutOk ? named('tree.cut', 'Ctrl+X') : t('prop.lastStage'),
+      title: !node ? noSelection : cutOk ? named('tree.cut', 'X') : t('prop.lastStage'),
       run: () => {
         if (!cutOk) return;
         target();
@@ -57,7 +61,7 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
 
     const copy: TreeCommand = {
       enabled: !!node,
-      title: node ? named('tree.copy', 'Ctrl+C') : noSelection,
+      title: node ? named('tree.copy', 'C') : noSelection,
       run: () => {
         target();
         copySelected();
@@ -70,7 +74,7 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
       title: !clipboard
         ? t('tree.pasteEmpty')
         : place
-          ? named('tree.paste', 'Ctrl+V')
+          ? named('tree.paste', 'V')
           : t('tree.pasteNowhere', {
               part: partLabel(t, clipboard),
               target: node ? partLabel(t, node) : t('tree.theDesign'),
@@ -83,7 +87,7 @@ export function useTreeEdit(): TreeCommands & { at: (id: string) => TreeCommands
 
     const duplicate: TreeCommand = {
       enabled: !!node,
-      title: node ? named('tree.duplicate', 'Ctrl+D') : noSelection,
+      title: node ? named('tree.duplicate', 'D') : noSelection,
       run: () => {
         target();
         duplicateSelected();

@@ -97,7 +97,11 @@ export function checkBuildSize(components: readonly ComponentNode[], format: Imp
       const auto = autoRadiusOf(n);
       if (auto !== null) autoRun = auto ? autoRun + 1 : 0;
       if (autoRun > MAX_AUTO_RADIUS_RUN) throw new KeyedError('errors.file.autoRadiusRunTooLong', { format });
+      // An inline pod's first part follows the tube carrying it, but the main line looks past pods
+      // (ComponentFactory.sizeOf): a pod's run continues the main line's count, and nothing inside it resets that count.
+      const mainRun = autoRun;
       if (n.children) walk(n.children, here);
+      if (n.type === 'podset' || n.type === 'parallelstage') autoRun = mainRun;
     }
   };
   walk(components, 1);

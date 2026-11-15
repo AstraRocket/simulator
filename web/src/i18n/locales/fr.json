@@ -193,6 +193,7 @@
     "openExample": "Impossible d'ouvrir cet exemple : {{reason}}",
     "saveOrk": "Impossible d'enregistrer le .ork : {{reason}}",
     "saveOrkNoDesignInfo": "Le .ork a été enregistré sans les infos de conception : la conception n'a pas pu être construite, il n'y avait donc aucune statistique à inclure.",
+    "saveOrkFairing": "Le .ork a été enregistré, mais OpenRocket de bureau n'a pas de pièce carénage et omet celles-ci, masse comprise, à l'ouverture du fichier : {{parts}}.",
     "exportRasaero": "Impossible d'exporter vers RASAero : {{reason}}",
     "exportRasaeroSurface": "Le fichier RASAero a été enregistré, mais RASAero n'a aucune surface correspondant à la finition de cette conception ; elle a donc été écrite comme lisse (rugosité nulle).",
     "exportRasaeroStageMass": "Le fichier RASAero a été enregistré, mais la masse au lancement et le CG d'un étage n'étaient pas disponibles ; les cellules de masse et de CG de la simulation ont été écrites à 0. Saisissez-les dans RASAero avant de voler.",
@@ -485,6 +486,7 @@
     "undo": "Annuler",
     "redo": "Rétablir",
     "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
     "redoKeys": "Ctrl+Maj+Z"
   },
   "scale": {
@@ -1428,6 +1430,7 @@
     "noEditor": "Cette application n'a pas d'éditeur pour : {{items}}. Ils sont conservés, donc un enregistrement les garde.",
     "docMaterialsSkipped": "Matériaux de la conception ignorés car illisibles : {{count}}.",
     "referenceType": "Ce modèle mesure sa marge de stabilité (cal) par rapport à « {{type}} ». Cette application la mesure par rapport au tube de corps le plus large ; la marge en cal peut donc différer de celle d’OpenRocket de bureau. Le fichier conserve le réglage.",
+    "lookupTables": "Ces simulations volent dans OpenRocket de bureau avec une table de traînée ou de stabilité. Cette application calcule elle-même la traînée et la stabilité : leurs résultats enregistrés sont donc marqués comme périmés, et une nouvelle exécution peut différer. Les tables sont conservées et réenregistrées avec le fichier : {{names}}.",
     "motorPlugged": "Moteur {{motor}} : obturé (sans charge d'éjection). Assurez-vous que la récupération se déclenche à l'apogée ou à une altitude, pas sur la charge d'éjection.",
     "motorPluggedNoDelay": "Moteur {{motor}} : obturé (sans charge d'éjection ; le fichier ne donne aucun retard lisible). Assurez-vous que la récupération se déclenche à l'apogée ou à une altitude, pas sur la charge d'éjection.",
     "finPointsCapped": "Un aileron de forme libre avait plus de {{max}} points ; le reste a été abandonné.",
@@ -2805,7 +2808,6 @@
     "cgHint": "Le point d’équilibre sans moteur, mesuré depuis la pointe de l’ogive.",
     "cgOutside": "Le CG doit être sur la fusée, entre la pointe de l’ogive et {{length}}.",
     "railStability": "Stabilité en sortie de rampe",
-    "calibers": "{{value}} cal",
     "lowStability": "Moins de {{min}} cal : probablement instable",
     "stabilityNote": "La stabilité vient de votre CG et de vos ailerons avec l’ogive de remplacement ; la vraie ogive la change un peu.",
     "colStability": "Stabilité (cal)",

@@ -1,10 +1,10 @@
 {
   "_readme": [
     "The CI ratchet for validation/score.mjs, in one place. `score.mjs --check-floors` reads it: the gated set must be exactly `gates` points with sha256 `gateHash`, and the score must not drop below `min` for the model being scored.",
-    "Raise a floor when the model improves; that is the point of a ratchet. A changed gate count or hash means anchors.json moved, which needs a reason in review."
+    "Raise a floor when the model improves; that is the point of a ratchet. A changed gate count or hash means anchors.json or a fixture's geometry moved, which needs a reason in review. The hash covers each gated point and every input that sets its model value: the fixture's geometry, refAreaScale, aoaDeg, machAlt and maxMach."
   ],
   "gates": 135,
-  "gateHash": "1189f0ff05b29cb92230bb20c833af4aac4f8d5259540f161f6031884b4913be",
+  "gateHash": "911e0d8f5ab287388a7487b85db82e8806465289846cb5a841a5b619c202524d",
   "min": {
     "classic": 13,
     "supersonic": 61

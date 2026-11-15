@@ -1,5 +1,5 @@
 import type { ComponentNode, ComponentPosition } from '../engine/openRocketEngine';
-import { KERNEL_AUTO_RADIUS, KERNEL_BODYTUBE_OUTER_RADIUS, KERNEL_DEFAULTS } from './kernelDefaults';
+import { KERNEL_AUTO_RADIUS, KERNEL_BODYTUBE_OUTER_RADIUS, KERNEL_DEFAULTS, kernelDefault } from './kernelDefaults';
 import { degToRad } from '../prefs/units';
 
 /** Rejects non-finite values: a malformed file's NaN would reach every geometry path. */
@@ -29,6 +29,13 @@ export const finCant = (node: ComponentNode): number => Math.max(-MAX_CANT, Math
 
 export const countOf = (n: ComponentNode, key: string, fb: number): number =>
   Math.min(MAX_INSTANCE_COUNT, Math.max(1, Math.round(num(n, key, fb))));
+
+/** A node's count as `ComponentFactory.count` reads it: the stated one, else its type's kernel default. */
+export const kernelCountOf = (n: ComponentNode, key: string): number =>
+  countOf(n, key, kernelDefault(n.type, key) ?? 1);
+
+/** The fins a fin set flies: 3 planar or 6 tube fins when the node states none. */
+export const finCountOf = (n: ComponentNode): number => kernelCountOf(n, 'finCount');
 
 export const str = (n: ComponentNode, key: string, fb = ''): string => (typeof n[key] === 'string' ? n[key] : fb);
 
@@ -88,6 +95,11 @@ const CONSTRUCTOR_METHOD: Readonly<Record<string, ComponentPosition['method']>> 
   parallelstage: 'bottom',
   launchlug: 'middle',
   railbutton: 'middle',
+  // BodyComponent and AxialStage: AxialMethod.AFTER, so each stacks behind the one before.
+  nosecone: 'after',
+  transition: 'after',
+  bodytube: 'after',
+  stage: 'after',
 };
 
 /** For a `position` with no valid method: `applyAssembly` reads `bottom`, `create` reads `top`. */

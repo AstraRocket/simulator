@@ -115,7 +115,7 @@ export interface Hole {
 }
 
 /** Null for a stated bore or a single centered hole, which the plain bore already draws. */
-function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: number): Hole[] | null {
+export function ringHoles(ring: ComponentNode, parent: ComponentNode, parentStart: number): Hole[] | null {
   if (ring.type !== 'centeringring') return null;
   if (ring['innerRadiusAuto'] !== true && typeof ring['innerRadius'] === 'number') return null;
   const holes: Hole[] = [];

@@ -197,4 +197,24 @@ describe('a design with a long run of automatic radii', () => {
       expect.objectContaining({ key: 'errors.file.autoRadiusRunTooLong' }),
     );
   });
+
+  // The kernel's main line looks past an offset pod (SymmetricComponent.getPreviousSymmetricComponent),
+  // so a sized tube inside one does not end the chain around it.
+  const podded = (segments: number) => {
+    const tube = (r: string, inner = '') =>
+      `<bodytube><name>Tube</name><length>0.1</length><radius>${r}</radius><subcomponents>${inner}</subcomponents></bodytube>`;
+    const pod = `<podset><name>Pods</name><instancecount>2</instancecount><radiusoffset method="free">0.05</radiusoffset><subcomponents>${tube('0.01')}</subcomponents></podset>`;
+    const segment = tube('auto').repeat(MAX_AUTO_RADIUS_RUN - 1) + tube('auto', pod);
+    return ORK.replace(/<bodytube>.*<\/bodytube>/s, tube('0.01') + segment.repeat(segments));
+  };
+
+  it('opens a run at the cap that carries a pod with a sized tube', () => {
+    expect(parseDesignFile(podded(1)).tree.components[0]?.children).toHaveLength(MAX_AUTO_RADIUS_RUN + 1);
+  });
+
+  it('is refused when a pod with a sized tube sits inside a run past the cap', () => {
+    expect(() => parseDesignFile(podded(2))).toThrow(
+      expect.objectContaining({ key: 'errors.file.autoRadiusRunTooLong' }),
+    );
+  });
 });

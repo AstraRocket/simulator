@@ -27,15 +27,19 @@ export function freeformRootChord(
 /** `FreeformFinSet.SNAP_LARGER_THAN` (m). */
 export const FREEFORM_SNAP_LARGER_THAN = 2.5;
 
+/** `FreeformFinSet.IGNORE_SMALLER_THAN` (m², a squared distance). */
+export const FREEFORM_IGNORE_SMALLER_THAN = 1.0e-12;
+
 /** As `FreeformFinSet.setPoints()` stores it: translated by -p0, then snapped. */
-export function normalizeFreeformPoints(pts: [number, number][] | undefined): [number, number][] {
-  const p = pts ?? [];
+export function normalizeFreeformPoints(pts: readonly (readonly [number, number])[] | undefined): [number, number][] {
+  const p = (pts ?? []) as [number, number][];
   const p0 = p[0];
   if (!p0 || !Number.isFinite(p0[0]) || !Number.isFinite(p0[1])) return p;
   const cap = FREEFORM_SNAP_LARGER_THAN;
   // A point past the cap both ways keeps its x: the kernel's second `set` overwrites the first.
   const snap = (x: number, y: number): [number, number] => (y > cap ? [x, cap] : x > cap ? [cap, y] : [x, y]);
-  const moved = p0[0] !== 0 || p0[1] !== 0;
+  // `IGNORE_SMALLER_THAN < delta.length2()`: a first point that close to the origin is left where it is.
+  const moved = p0[0] * p0[0] + p0[1] * p0[1] > FREEFORM_IGNORE_SMALLER_THAN;
   const out = p.map(([x, y]): [number, number] => (moved ? snap(x - p0[0], y - p0[1]) : snap(x, y)));
   return !moved && out.every(([x, y], i) => x === p[i]![0] && y === p[i]![1]) ? p : out;
 }
@@ -172,12 +176,14 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
     const children = parent.children.map((child) => {
       let next = child;
       const pos = positionOf(child);
+      // Only a method the file states: a part with none takes the kernel's own default, AFTER for a body part.
+      const statedAfter = child.position != null && pos.method === 'after';
       if (stacksInParent(parent, child)) {
         const len = partLength(child);
         const relStart = chained;
         chained += len;
         prevEndRel = relStart + len;
-        if (pos.method === 'after') {
+        if (statedAfter) {
           changed = true;
           next = {
             ...child,
@@ -190,7 +196,7 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
         }
         return fixChildren(next, pStart + relStart, len);
       }
-      if (pos.method === 'after') {
+      if (statedAfter) {
         changed = true;
         // isAfter(): previous sibling's aft end, offset forced to 0; NOT_AFTER: parent's aft end plus offset.
         const type = String(child.type);

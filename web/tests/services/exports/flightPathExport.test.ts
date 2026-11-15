@@ -481,6 +481,22 @@ describe('launch position fallback', () => {
     }
   });
 
+  it('places a cleared coordinate where the kernel flew it, one axis at a time', () => {
+    // The bridge reads a missing launchLatitude as 28.61 and launchLongitude as -80.60 (`OpenRocketEngine.java`).
+    const cleared = (lat: number | null, lon: number | null) =>
+      ({ ...launch, latitudeDeg: lat, longitudeDeg: lon }) as unknown as LaunchConditions;
+    for (const [lat, lon, want] of [
+      [null, -105, [28.61, -105]],
+      [40, null, [40, -80.6]],
+      [0, null, [0, -80.6]],
+      [null, null, [28.61, -80.6]],
+    ] as const) {
+      const m = build(result, {}, cleared(lat, lon));
+      expect([m.launchLatitude, m.launchLongitude]).toEqual(want);
+      expect(hasLaunchPosition(cleared(lat, lon))).toBe(true);
+    }
+  });
+
   it('flags exactly the positions it substitutes', () => {
     expect(hasLaunchPosition(site(40, -105))).toBe(true);
     expect(hasLaunchPosition(site(51.48, 0))).toBe(true);
@@ -1093,5 +1109,42 @@ describe('mimeForExtension', () => {
     expect(mimeForExtension('gpx')).toContain('gpx');
     expect(mimeForExtension('csv')).toContain('csv');
     expect(mimeForExtension('weird')).toContain('text/plain');
+  });
+});
+
+describe('a sample the run left with no ground position', () => {
+  const gapped = {
+    summary: { maxAltitude: 100, maxVelocity: 50, maxAcceleration: 20, timeToApogee: 2, flightTime: 4 },
+    series: {
+      time: [0, 1, 2, 3, 4],
+      altitude: [0, 60, 100, 60, 0],
+      velocity: [0, 40, 0, 20, 10],
+      Px: [0, 50, null, 150, 200],
+      Py: [0, 100, null, 300, 400],
+    },
+    events: [
+      { type: 'LIFTOFF', time: 0 },
+      { type: 'APOGEE', time: 2 },
+      { type: 'GROUND_HIT', time: 4 },
+    ],
+  } as unknown as FlightResult;
+  const built = () =>
+    buildFlightPathModel(
+      gapped,
+      launch,
+      { simName: 'Gap', rocketName: '', motorName: '' },
+      defaultExportOptions(),
+      label,
+    );
+
+  it('puts an event there at the nearest sample that has one, never at the pad', () => {
+    const apogee = built().branches[0]!.waypoints.find((w) => w.type === 'apogee')!;
+    const want = offsetToLatLon(40, -105, { east: 50, north: 100 });
+    expect(apogee.latitude).toBeCloseTo(want.lat, 9);
+    expect(apogee.longitude).toBeCloseTo(want.lon, 9);
+  });
+
+  it('leaves it out of the path, as the ground track does', () => {
+    expect(built().branches[0]!.path.map((p) => p.time)).toEqual([0, 1, 3, 4]);
   });
 });

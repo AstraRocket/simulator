@@ -73,6 +73,18 @@ export function listCustom(): Promise<Material[]> {
   return loadCustom();
 }
 
+/** One entry per name and type, so a save under another material's name would overwrite it. `except` is the one being edited. */
+export async function refuseTakenName(
+  name: string,
+  type: MaterialType,
+  except?: { name: string; type: string },
+): Promise<void> {
+  const isExcept = (m: Material) => except !== undefined && m.name === except.name && m.type === except.type;
+  if ((await listCustom()).some((m) => m.name === name && m.type === type && !isExcept(m))) {
+    throw new KeyedError('errors.material.nameTaken', { name });
+  }
+}
+
 const signal = changeSignal();
 const bump = signal.bump;
 

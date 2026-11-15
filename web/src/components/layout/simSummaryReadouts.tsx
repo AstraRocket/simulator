@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next';
 import { simStatusLabel, type simStatus } from '../../services/flight/simulations';
 import { stabilityState, stabilityToneOf, stabilityVerdictKey } from '../../services/flight/simReport';
 import { STABILITY_GLYPH } from '../../tree/schematicGeometry';
-import { fmtNum } from '../../i18n/format';
+import { fmtCalibers } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import type { StaticInfo } from '../../engine/api';
 
@@ -12,7 +12,7 @@ export function stabilityReadout(cal: StaticInfo['stabilityCalibers'], t: TFunct
   return (
     <span className={pad ? stabilityToneOf(pad) : 'text-ink-muted'}>
       {pad && <span aria-hidden>{`${STABILITY_GLYPH[pad]} `}</span>}
-      {fmtNum(cal, 2)} {t('stability.caliber')}
+      {fmtCalibers(cal, t)}
       {pad && <span className="sr-only">{` (${t(stabilityVerdictKey(cal))})`}</span>}
     </span>
   );

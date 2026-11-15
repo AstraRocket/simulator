@@ -110,12 +110,15 @@ describe('humidity, gravity and the Earth model round-trip through .ork', () => 
     }
   });
 
-  it('carries a constant gravity model, and writes nothing for the default', () => {
+  it('carries a constant gravity model, and writes WGS for the default as OpenRocketSaver does', () => {
     const back = roundTrip({ ...base, gravityModel: 'constant', constantGravity: 9.81 });
     expect(back?.gravityModel).toBe('constant');
     expect(back?.constantGravity).toBeCloseTo(9.81, 12);
-    expect(exportOrk({ name: 'Opts', tree, launch: base })).not.toContain('<gravity');
+    expect(exportOrk({ name: 'Opts', tree, launch: base })).toContain('<gravity model="wgs"/>');
   });
+
+  // The app's own export with its gravity element taken out, so each case holds only the one it adds.
+  const withoutGravity = () => exportOrk({ name: 'Opts', tree, launch: base }).replace('<gravity model="wgs"/>', '');
 
   // OpenRocketSaver.java:402-409 writes this element, and GravityHandler reads only it.
   it('writes constant gravity as the element desktop writes and reads', () => {
@@ -126,22 +129,19 @@ describe('humidity, gravity and the Earth model round-trip through .ork', () => 
   });
 
   it("reads a desktop file's gravity element (GravityHandler)", () => {
-    const xml = exportOrk({ name: 'Opts', tree, launch: base }).replace(
+    const xml = withoutGravity().replace(
       '</conditions>',
       '<gravity model="constant"><value>9.7</value></gravity></conditions>',
     );
     const launch = importOrk(xml).launch;
     expect(launch?.gravityModel).toBe('constant');
     expect(launch?.constantGravity).toBeCloseTo(9.7, 12);
-    const wgs = exportOrk({ name: 'Opts', tree, launch: base }).replace(
-      '</conditions>',
-      '<gravity model="wgs"/></conditions>',
-    );
+    const wgs = withoutGravity().replace('</conditions>', '<gravity model="wgs"/></conditions>');
     expect(importOrk(wgs).launch?.gravityModel).toBe('wgs');
   });
 
   it('still reads the bare gravitymodel pair', () => {
-    const xml = exportOrk({ name: 'Opts', tree, launch: base }).replace(
+    const xml = withoutGravity().replace(
       '</conditions>',
       '<gravitymodel>Constant</gravitymodel><constantgravity>9.6</constantgravity></conditions>',
     );

@@ -30,7 +30,8 @@ import {
 } from '../../src/services/design/treeEdit';
 import { seatMotor, CURVELESS } from '../testing/seatMotor';
 import { asFlown, isStale } from '../testing/flown';
-import type { FlightResult } from '../../src/engine/openRocketEngine';
+import type { ComponentNode, FlightResult } from '../../src/engine/openRocketEngine';
+import { chooseFinStock, finStockChoice, stockModulus } from '../../src/state/finFlutterChoices';
 import { hasThrustCurve } from '../../src/services/flight/runnability';
 import { reconcileConfigs } from '../../src/services/flight/flightConfigs';
 
@@ -1054,6 +1055,20 @@ describe('tab and view stay in step', () => {
     expect(s().view).toBe('flight');
     s().setDesignPane('stats');
     expect([s().tab, s().designPane, s().view]).toEqual(['design', 'stats', '2d']);
+  });
+});
+
+describe('a fin stock picked for the flutter readout', () => {
+  it('is forgotten when the workspace is replaced, so the next design follows its own material', () => {
+    // Every design from the default rocket names its fin set `fins`.
+    const fins = { id: 'fins', type: 'trapezoidfinset', materialName: 'Fiberglass' } as unknown as ComponentNode;
+    chooseFinStock('fins', { stock: 'balsa', shearPa: stockModulus('balsa') });
+    expect(finStockChoice(fins).stock).toBe('balsa');
+    s().resetWorkspace();
+    // Fiberglass flies as G10: 425,000 psi.
+    const after = finStockChoice(fins);
+    expect(after.stock).toBe('g10');
+    expect(after.shearPa! / 425000).toBeCloseTo(6894.757, 3);
   });
 });
 

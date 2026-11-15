@@ -5,6 +5,7 @@ import {
   addCustom,
   checkedMaterialName,
   DEFAULT_CUSTOM_GROUP,
+  refuseTakenName,
 } from '../../services/materials/materials';
 import type { DocumentMaterial } from '../../services/materials/documentMaterials';
 import { useWorkspaceStore } from '../../state/store';
@@ -58,6 +59,8 @@ export function useCustomMaterialForm({
         onChange(m.name, m.density, m.group, m.shearModulus);
       } else {
         const live = observe();
+        // As My Materials does: a library save under a taken name would replace that material everywhere.
+        await refuseTakenName(checkedMaterialName(name, si), type);
         const next = await addCustom(name, type, si, group, shearModulus);
         const list = await materialsForType(type);
         if (!live()) return; // selecting another component unmounts this

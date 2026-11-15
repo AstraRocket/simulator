@@ -3,13 +3,13 @@ name: Gates
 # The gate set, called by ci.yml on a PR. A reusable workflow
 # (`workflow_call`), so the jobs live apart from the trigger that runs them.
 #
-# The web jobs (build-and-test, housekeeping, unit, repo, e2e) and the docs site
-# typecheck (website) run in parallel, and the PR is gated on all of them. The test
-# jobs are split three ways, each slice on its own runner, so the wait is one slice,
-# not the whole job. The full e2e suite and the service worker checks (update-flow)
-# run by hand from e2e-full.yml. The engine checks (parity, the reproducible extract,
-# the aero scorecards) are not here: they only move when the engine changes,
-# and are run by hand with `npm run audit` in engine-java.
+# The web jobs (build-and-test, housekeeping, unit, repo, e2e), the docs site
+# typecheck (website) and the engine's Node-only checks (engine) run in parallel, and
+# the PR is gated on all of them. The test jobs are split three ways, each slice on
+# its own runner, so the wait is one slice, not the whole job. The full e2e suite and
+# the service worker checks (update-flow) run by hand from e2e-full.yml. Parity and
+# the reproducible engine rebuild need a JDK and are run by hand with `npm run audit`
+# in engine-java.
 #
 # Callers decide WHEN this runs; this file only says WHAT runs. It has no
 # trigger of its own and cannot be run directly.
@@ -246,3 +246,29 @@ jobs:
         run: npm ci
 
       - run: npm run typecheck
+
+  # The engine checks that need no JDK, on every PR: each takes seconds, so no path filter.
+  #
+  #   extract:check     src/java is exactly the pinned upstream plus the blessed patches.
+  #                     Fetches the pinned commit itself (shallow, sparse).
+  #   --check-floors    The vendored engine, the binary deploy ships, still meets the
+  #                     aero scorecard floors in both models.
+  #
+  # Parity and the reproducible rebuild need a JDK and minutes; they stay in
+  # `npm run audit` in engine-java. engine-java has no dependencies to install.
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: engine-java
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - run: npm run extract:check
+      - run: npm run validate -- --check-floors
+      - run: npm run validate:supersonic -- --check-floors

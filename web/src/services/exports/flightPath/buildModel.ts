@@ -6,7 +6,7 @@ import { stageLabel, withUnit } from '../../../i18n/format';
 import { offsetToLatLon } from '../../map/geodesy';
 import { flightBranches } from '../../flight/flightColumns';
 import { eventTime } from '../../flight/flightEvents';
-import { bearingFromPad, distanceFromPad } from '../../flight/groundTrack';
+import { bearingFromPad, distanceFromPad, groundPointAt, type GroundPoint } from '../../flight/groundTrack';
 import {
   resolveAltitudeReference,
   WAYPOINT_LABEL_KEY,
@@ -81,9 +81,18 @@ function fmtLength(meters: number, unit: DistanceUnit): string {
 export const EXPORT_FALLBACK_LATITUDE = KERNEL_LAUNCH_SITE.latitudeDeg;
 export const EXPORT_FALLBACK_LONGITUDE = KERNEL_LAUNCH_SITE.longitudeDeg;
 
+// A cleared axis is the kernel's default on its own, as the bridge reads it.
+function flownSite(launch: LaunchConditions): { lat: number; lon: number } {
+  return {
+    lat: launch.latitudeDeg ?? KERNEL_LAUNCH_SITE.latitudeDeg,
+    lon: launch.longitudeDeg ?? KERNEL_LAUNCH_SITE.longitudeDeg,
+  };
+}
+
 // Both zero, not either (unlike OpenRocket): a zero latitude or longitude alone is a real site.
 function launchPositionUnset(launch: LaunchConditions): boolean {
-  return (launch.latitudeDeg ?? 0) === 0 && (launch.longitudeDeg ?? 0) === 0;
+  const { lat, lon } = flownSite(launch);
+  return lat === 0 && lon === 0;
 }
 
 const series = (s: FlightSeries, key: string): (number | null)[] | undefined => s[key];
@@ -123,8 +132,9 @@ export function buildFlightPathModel(
   angleUnit = '°',
 ): FlightPathModel {
   const unset = launchPositionUnset(launch);
-  const lat0 = unset ? EXPORT_FALLBACK_LATITUDE : (launch.latitudeDeg ?? 0);
-  const lon0 = unset ? EXPORT_FALLBACK_LONGITUDE : (launch.longitudeDeg ?? 0);
+  const site = flownSite(launch);
+  const lat0 = unset ? EXPORT_FALLBACK_LATITUDE : site.lat;
+  const lon0 = unset ? EXPORT_FALLBACK_LONGITUDE : site.lon;
   const launchAlt = launch.launchAltitudeM ?? 0;
 
   const project = (east: number, north: number) => offsetToLatLon(lat0, lon0, { east, north });
@@ -285,8 +295,18 @@ function branchSamples(
   const north = series(raw.series, 'Py'); // drift north (m)
   const n = Math.min(time.length, alt.length);
 
-  const eastAt = (i: number) => finiteOr(east?.[i], 0);
-  const northAt = (i: number) => finiteOr(north?.[i], 0);
+  // A sample with no ground position takes the nearest one that has it: 0 would put the waypoint on the pad.
+  const groundAt = (i: number): GroundPoint => {
+    const own = groundPointAt(raw.series, i);
+    if (own) return own;
+    for (let d = 1; d < n; d++) {
+      const near = groundPointAt(raw.series, i - d) ?? groundPointAt(raw.series, i + d);
+      if (near) return near;
+    }
+    return { east: 0, north: 0 };
+  };
+  const eastAt = (i: number) => groundAt(i).east;
+  const northAt = (i: number) => groundAt(i).north;
   const phi = ctx.kernelPosition ? series(raw.series, 'φ') : undefined;
   const lam = ctx.kernelPosition ? series(raw.series, 'λ') : undefined;
   const positionAt = (i: number): { lat: number; lon: number } => {
@@ -358,7 +378,10 @@ function branchSamples(
 function branchRangeMeters(s: BranchSamples): number {
   // From 0, not `start`.
   let max = 0;
-  for (let i = 0; i < s.n; i++) max = Math.max(max, s.distanceAt(i));
+  // Only samples with a ground position: a gap would read as the nearest one, already counted.
+  for (let i = 0; i < s.n; i++) {
+    if (isFiniteNumber(s.east?.[i]) && isFiniteNumber(s.north?.[i])) max = Math.max(max, s.distanceAt(i));
+  }
   return max;
 }
 

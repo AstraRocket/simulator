@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/useSettings';
 import { unitScope } from '../../prefs/units';
 import { NO_VALUE } from '../../i18n/noValue';
-import { fmtNum, withUnit } from '../../i18n/format';
+import { fmtCalibers, fmtNum, withUnit } from '../../i18n/format';
 import { Notice } from '../common/Notice';
 import { ToolResultCard } from './ToolLayout';
 import { MAIN_BAND } from '../../services/flight/recoverySizing';
@@ -20,26 +20,29 @@ import type { SimpleRocket } from './useSimpleRocket';
 export function SimpleProblem({ rocket }: { rocket: SimpleRocket }) {
   const { t } = useTranslation();
   const { u, lengthUnit, problem, inputs } = rocket;
-  // Always mounted, swapping its text: a live region created with its text is not announced.
-  if (!problem || !inputs) return <p role="status" aria-live="polite" className="sr-only" />;
+  // One element, always mounted, swapping its text: a live region created with its text is not announced,
+  // and a different element for the empty state would be a new region each time a problem appears.
+  const shown = !!problem && !!inputs;
   return (
-    <Notice tone="warn" role="status">
-      {problem === 'tooShort'
-        ? t('simpleTool.tooShort', {
-            nose: SIMPLE_NOSE_CALIBERS,
-            length: lengthUnit('simpleLength').fmtSym(inputs.diameterM * SIMPLE_NOSE_CALIBERS),
-          })
-        : problem === 'finsTooLong'
-          ? t('simpleTool.finsTooLong', {
-              fin: lengthUnit('simpleFinRoot').fmtSym(simpleFins(inputs).rootChordM),
-              body: lengthUnit('simpleLength').fmtSym(simpleBodyLength(inputs)),
+    <Notice tone="warn" role="status" className={shown ? '' : 'sr-only'}>
+      {!problem || !inputs
+        ? null
+        : problem === 'tooShort'
+          ? t('simpleTool.tooShort', {
+              nose: SIMPLE_NOSE_CALIBERS,
+              length: lengthUnit('simpleLength').fmtSym(inputs.diameterM * SIMPLE_NOSE_CALIBERS),
             })
-          : problem === 'cgOutside'
-            ? t('simpleTool.cgOutside', { length: lengthUnit('simpleLength').fmtSym(inputs.lengthM) })
-            : t('simpleTool.mountTooWide', {
-                mount: u.at(unitScope('launch', 'simpleMount'), 'motorDimensions').fmtSym(inputs.mountDiameterM),
-                body: u.at(unitScope('launch', 'simpleDiameter'), 'length').fmtSym(inputs.diameterM),
-              })}
+          : problem === 'finsTooLong'
+            ? t('simpleTool.finsTooLong', {
+                fin: lengthUnit('simpleFinRoot').fmtSym(simpleFins(inputs).rootChordM),
+                body: lengthUnit('simpleLength').fmtSym(simpleBodyLength(inputs)),
+              })
+            : problem === 'cgOutside'
+              ? t('simpleTool.cgOutside', { length: lengthUnit('simpleLength').fmtSym(inputs.lengthM) })
+              : t('simpleTool.mountTooWide', {
+                  mount: u.at(unitScope('launch', 'simpleMount'), 'motorDimensions').fmtSym(inputs.mountDiameterM),
+                  body: u.at(unitScope('launch', 'simpleDiameter'), 'length').fmtSym(inputs.diameterM),
+                })}
     </Notice>
   );
 }
@@ -102,7 +105,7 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
             {fig.railStability != null && (
               <Figure
                 label={t('simpleTool.railStability')}
-                value={t('simpleTool.calibers', { value: fmtNum(fig.railStability, 2) })}
+                value={fmtCalibers(fig.railStability, t)}
                 warn={issues.has('stability') ? t('simpleTool.lowStability', { min: SIMPLE_STABILITY_MIN }) : null}
               />
             )}

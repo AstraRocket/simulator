@@ -448,6 +448,31 @@ describe('the import ceilings match the kernel', () => {
     expect(() => OpenRocketDesign.buildTree(tubes(MAX_AUTO_RADIUS_RUN + 2, (i) => i > 0))).toThrow(/in a row/);
   });
 
+  // The main line looks past an offset pod (SymmetricComponent.getPreviousSymmetricComponent), so a sized
+  // tube inside one does not end the chain around it; 300 tubes this way took 60 s in getStaticInfo.
+  const podded = (segments: number) => {
+    const tube = (auto: boolean, children?: unknown[]) => ({
+      type: 'bodytube',
+      length: 0.01,
+      outerRadius: 0.02,
+      thickness: 0.001,
+      outerRadiusAuto: auto,
+      children,
+    });
+    const pod = { type: 'podset', instanceCount: 2, radiusOffset: 0.05, children: [tube(false)] };
+    const segment = [...Array.from({ length: MAX_AUTO_RADIUS_RUN - 1 }, () => tube(true)), tube(true, [pod])];
+    return {
+      components: [
+        { type: 'stage', children: [tube(false), ...Array.from({ length: segments }, () => segment).flat()] },
+      ],
+    } as unknown as RocketTree;
+  };
+
+  it('builds a run at the ceiling that carries a pod with a sized tube, and refuses a longer one', () => {
+    expect(() => OpenRocketDesign.buildTree(podded(1)).staticInfo()).not.toThrow();
+    expect(() => OpenRocketDesign.buildTree(podded(2))).toThrow(/in a row/);
+  });
+
   it('builds as many parts as the browser ceiling, and refuses one more', () => {
     expect(() => OpenRocketDesign.buildTree(tubes(MAX_COMPONENTS - 1, () => false))).not.toThrow();
     expect(() => OpenRocketDesign.buildTree(tubes(MAX_COMPONENTS, () => false))).toThrow(

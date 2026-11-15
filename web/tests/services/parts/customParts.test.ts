@@ -279,6 +279,12 @@ describe('updateCustomPart', () => {
     expect(patch.color).toBe('#ff0000');
   });
 
+  it('keeps the part the size it states, whatever Auto flag the edit carries', async () => {
+    const part = await saveCustomPart(tube(), 'bodytube', meta);
+    await updateCustomPart(part.id, meta, { ...part.node, outerRadiusAuto: true });
+    expect((await listSavedParts())[0]!.part.node['outerRadiusAuto']).toBe(false);
+  });
+
   it('refuses a name another part of the same type already uses', async () => {
     await saveCustomPart(tube(), 'bodytube', meta);
     const second = await saveCustomPart(tube(), 'bodytube', { ...meta, partNo: 'other' });

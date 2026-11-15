@@ -107,17 +107,21 @@ Guardrails: `--check` writes nothing and **exits non-zero** on any of:
 - an extracted file that differs from `upstream(+patch)`;
 - an extracted file not in the manifest (it compiles, but a regeneration would not produce it);
 - an extracted file carrying any `PATCH(...)` marker with **no** `patches/` counterpart (a regeneration would silently revert it);
-- a patch whose divergence from upstream does not match the blessed baseline in `extract/DIVERGENCE.txt`, or that baseline being absent.
+- a patch whose divergence from upstream does not match the blessed baseline in `extract/DIVERGENCE.txt`, or that baseline being absent;
+- the manifest's file list, or the content of the upstream files it names, differing from the `@manifest` and `@upstream` fingerprints in that baseline (so `--src`, `OPENROCKET_SRC` or an edited cache cannot stand in for the pinned commit);
+- a fingerprint in that baseline that `patches/LEDGER.md` does not quote (its first 12 characters);
+- a shadowed upstream class moving since `extract/SHIMS.txt` recorded it, or that file being absent;
+- a class in `src/api/java`, `test/` or `src/jdkstubs` that declares a name upstream has (only the manifest and the shims may provide one).
 
 A `patches/` file whose path isn't in the manifest is a hard error (it would silently never apply).
 
-**`extract/DIVERGENCE.txt` is the load-bearing guardrail**, and it is worth being precise about why. The first four bullets all rest on one invariant, `src/java == upstream + patches`. The patches are an **input** to that equation, so the invariant can never question them: edit a `patches/` file and `src/java` together and the check is green by construction, whatever you put there. `DIVERGENCE.txt` records, per patch, how many lines it differs from upstream by (a real LCS diff), plus a sha256 of the patch and of the upstream file it replaces, and `--check` recomputes all three and fails on any change. Changing a patch therefore means running `--bless` and explaining the new number in review.
+**`extract/DIVERGENCE.txt` is the load-bearing guardrail**, and it is worth being precise about why. The first four bullets all rest on one invariant, `src/java == upstream + patches`. The patches are an **input** to that equation, so the invariant can never question them: edit a `patches/` file and `src/java` together and the check is green by construction, whatever you put there. `DIVERGENCE.txt` records, per patch, how many lines it differs from upstream by (a real LCS diff), plus a sha256 of the patch and of the upstream file it replaces, and `--check` recomputes all three and fails on any change. Changing a patch therefore means running `--bless`, which prints the LEDGER line to write, and quoting the new fingerprint in `patches/LEDGER.md` with the reason; until that entry exists, `--check` fails. A bless alone accepts nothing.
 
 A delta of 0 fails `--check` and `--bless` refuses it; delete the patch.
 
 Comparing `src/java` to the patch also can never see upstream moving underneath; the per-patch numbers and upstream hashes are what surface that on an upgrade.
 
-`--check` is only meaningful against the exact upstream the extraction was made from, pinned in `extract/UPSTREAM`. CI does not run it; `npm run audit` does.
+`--check` is only meaningful against the exact upstream the extraction was made from, pinned in `extract/UPSTREAM`. CI runs it on every pull request (the `engine` job in `gates.yml`), and so does `npm run audit`.
 
 **At build time nothing is applied**: `src/java/` is committed already in its final state, so Gradle just compiles it. Extraction is a deliberate step you run only on an OpenRocket upgrade (then re-audit each `patches/` file against the new upstream).
 
@@ -127,7 +131,7 @@ There is a `package.json` here with no dependencies and nothing to install. It e
 the Node helper scripts named entry points, so `npm run parity` works the way it does in `web/`:
 
 ```bash
-npm run audit          # every engine check CI does not run, in order, stopping at the first failure
+npm run audit          # every engine check, in order, stopping at the first failure (CI runs only extract and the floors)
 npm run build          # both targets, vendored into ../web/   (= node build-engine.mjs)
 npm run build:js       # JS only
 npm run build:wasm     # WASM-GC only
@@ -136,7 +140,8 @@ npm run parity:js      # JS only          npm run parity:wasm   # WASM-GC only
 npm run parity:golden  # rewrite golden.txt (deliberate physics changes only)
 npm run validate       # aero scorecard   npm run validate:supersonic / :strict (fails today by design)
 npm run extract:check    # no arguments: fetches the pinned upstream itself
-npm run extract:bless    # re-record extract/DIVERGENCE.txt + SHIMS.txt
+npm run extract:bless    # re-record extract/DIVERGENCE.txt, then quote what it prints in patches/LEDGER.md
+npm run extract:bless-shims   # re-record extract/SHIMS.txt, after re-reading each flagged upstream class
 ```
 
 **You do not need to clone OpenRocket by hand.** With no `--src` and no
@@ -148,7 +153,7 @@ so bumping the pin re-fetches instead of silently checking against the old
 commit. `--refresh` forces it; `--src <path>` still points at your own checkout,
 which is what you want offline.
 
-`--bless` and `--check` both write nothing to `src/java`. Only a bare
+`--bless`, `--bless-shims` and `--check` write nothing to `src/java`. Only a bare
 `extract --src …` regenerates the tree, and on a CRLF checkout that rewrites all
 273 files to LF, so do not run it casually.
 
@@ -164,7 +169,7 @@ node build-engine.mjs --wasm     # WASM → ../web/public/engine/openrocket-engi
 ./gradlew buildWasmGC            # WASM-GC target (teavm.wasmGC)
 ```
 
-Both targets compile from the same sources and are checked against the JVM (tolerances under Tests below). Change a Java source → rebuild **both** artifacts (`.mjs` + `.wasm`); `npm run audit` rebuilds them and fails if the committed artifacts differ. CI does not, so run it before pushing an engine change.
+Both targets compile from the same sources and are checked against the JVM (tolerances under Tests below). Change a Java source → rebuild **both** artifacts (`.mjs` + `.wasm`); `npm run audit` rebuilds them and fails if the result differs from the vendored artifacts it started with. CI does not, so run it before pushing an engine change.
 
 Non-obvious, load-bearing settings in `build.gradle`:
 

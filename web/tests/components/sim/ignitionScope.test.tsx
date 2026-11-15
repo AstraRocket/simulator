@@ -23,6 +23,22 @@ function row(event: IgnitionEvent, delay: number, everywhere = false) {
   return onIgnitionChange;
 }
 
+describe('a motor whose curve the builder would skip', () => {
+  it('is shown as missing, with no curve to open, as Run treats it', () => {
+    // An embedded motor with every mass zero: `curveProblem` refuses it.
+    const damaged = { ...C6, masses: C6.masses.map(() => 0) };
+    renderWithProviders(<MotorRow motor={damaged} onChange={() => {}} onError={() => {}} />);
+    expect(screen.getByText('Not in the catalog: choose a motor')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Thrust curve' })).toBeNull();
+  });
+
+  it('shows a usable curve as a motor', () => {
+    renderWithProviders(<MotorRow motor={C6} onChange={() => {}} onError={() => {}} />);
+    expect(screen.queryByText('Not in the catalog: choose a motor')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Thrust curve' })).toBeTruthy();
+  });
+});
+
 describe('ignition scope and reset', () => {
   it('changes this configuration until "All configurations" is picked', () => {
     const onIgnitionChange = row('automatic', 0);

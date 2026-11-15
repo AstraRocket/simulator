@@ -47,7 +47,8 @@ export function FlightXYPanel({
   const xUnit = traceUnit(xMeta, u, t);
   const yUnit = traceUnit(yMeta, u, t);
   const clipped = !!xMeta.aero || !!yMeta.aero;
-  const sameScale = !!xMeta.quantity && xMeta.quantity === yMeta.quantity && SAME_SCALE.has(xMeta.quantity);
+  const sameScale =
+    !!xMeta.quantity && xMeta.quantity === yMeta.quantity && SAME_SCALE.has(xMeta.quantity) && xUnit === yUnit;
 
   const { lines, x0, x1, y0, y1 } = useMemo(() => {
     let xMin = Infinity;

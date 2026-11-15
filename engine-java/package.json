@@ -20,6 +20,7 @@
     "reference": "node reference/run.mjs",
     "reference:show": "node reference/run.mjs --show",
     "extract:check": "node extract/extract.mjs --check",
-    "extract:bless": "node extract/extract.mjs --bless"
+    "extract:bless": "node extract/extract.mjs --bless",
+    "extract:bless-shims": "node extract/extract.mjs --bless-shims"
   }
 }

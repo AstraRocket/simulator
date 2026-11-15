@@ -20,21 +20,27 @@ export function SaveStatus() {
     return () => clearInterval(id);
   }, [lastSavedAt]);
 
-  if (lastSavedAt === null || warning) return null;
-
-  const when = fmtRelativeAge(now - lastSavedAt, t('save.justNow'));
+  // Mounted empty from the start and filled on the first save: a region created holding its text is
+  // never announced. The text then stays the same, so later saves do not announce again.
+  const saved = lastSavedAt !== null && !warning;
 
   return (
     <span
       role="status"
-      title={t('save.tip', {
-        time: fmtDateTime(lastSavedAt, { timeStyle: 'medium' }),
-      })}
+      title={saved ? t('save.tip', { time: fmtDateTime(lastSavedAt, { timeStyle: 'medium' }) }) : undefined}
       className="text-[10px] font-medium text-ink-faint"
     >
-      {/* No age in the live text, or it would re-announce every tick. */}
-      <span aria-hidden="true">{withAge ? t('save.saved', { when }) : t('save.savedShort')}</span>
-      <span className="sr-only">{t('save.savedShort')}</span>
+      {saved && (
+        <>
+          {/* No age in the live text, or it would re-announce every tick. */}
+          <span aria-hidden="true">
+            {withAge
+              ? t('save.saved', { when: fmtRelativeAge(now - lastSavedAt, t('save.justNow')) })
+              : t('save.savedShort')}
+          </span>
+          <span className="sr-only">{t('save.savedShort')}</span>
+        </>
+      )}
     </span>
   );
 }

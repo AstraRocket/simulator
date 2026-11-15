@@ -121,4 +121,16 @@ describe('rail length needed', () => {
     const needed = fly(design(LUG), { ...opts, railExitMinSpeed: min }).railLengthNeeded!;
     expect(fly(design(LUG), { ...opts, launchRodLength: needed }).launchRodVelocity).toBeCloseTo(min, 1);
   });
+
+  it('does not depend on the rod set, even one shorter than the rocket past its lug', () => {
+    // The lug's aft end is 0.14 m from the tip and the tail 0.7 m, so a 0.3 m rod guides nothing.
+    const opts = { guideAwareRodClearance: true, railExitMinSpeed: 5 };
+    const short = fly(design(LUG), { ...opts, launchRodLength: 0.3 }).railLengthNeeded!;
+    const long = fly(design(LUG), { ...opts, launchRodLength: 1 }).railLengthNeeded!;
+    expect(short).toBeCloseTo(long, 6);
+    expect(fly(design(LUG), { guideAwareRodClearance: true, launchRodLength: long }).launchRodVelocity).toBeCloseTo(
+      5,
+      1,
+    );
+  });
 });

@@ -3,6 +3,7 @@ import { appPresetType } from './presetTypes';
 import { xmlText as text } from '../xmlUtil';
 import { COMPONENT_DEFAULTS } from '../../design/componentDefaults';
 import { clampCount, finiteNum } from './numbers';
+import { readDecimal } from '../numberText';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_COUNT } from './importLimits';
 import { EXTRA_KEY, readPassthrough } from './passthrough';
 import { BAYS_KEY, MAIN_DEVICE_KEY, readBays, readMainDevice } from './orkBays';
@@ -25,7 +26,8 @@ export function isTrueTag(el: Element, tag: string): boolean {
 export function numTag(el: Element, tag: string, fallback: number): number {
   const t = text(el, `:scope > ${tag}`);
   // Values like "auto 0.012" carry an automatic flag + last value.
-  const v = t ? Number(t.split(/\s+/).pop()) : NaN;
+  // Decimal text only, as `parseDouble` reads it: `Number` also takes "0x10".
+  const v = t ? readDecimal(t.split(/\s+/).pop() ?? '') : NaN;
   return Number.isFinite(v) ? v : fallback;
 }
 
@@ -385,7 +387,7 @@ function readAppearanceBlock(el: Element): PartAppearance {
   const out: PartAppearance = { ...BUILDER_DEFAULT };
   const paint = orColor(el.querySelector(':scope > paint'));
   if (paint) Object.assign(out, paint);
-  const shine = Number(text(el, ':scope > shine')?.trim() ?? NaN);
+  const shine = readDecimal(text(el, ':scope > shine') ?? '');
   // The `Appearance` constructor clamps the shine to 0-1.
   if (Number.isFinite(shine)) out.shine = Math.min(1, Math.max(0, shine));
   if (isTrueTag(el, 'opacityaffectstexture')) out.opacityAffectsTexture = true;
