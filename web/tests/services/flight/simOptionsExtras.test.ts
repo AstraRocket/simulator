@@ -32,6 +32,7 @@ const prefs: SimPrefs = {
   drogueLowSpeedWarn: 3.048,
   guideAwareRodClearance: false,
   railExitVelocityMin: 15,
+  rogersKbf: false,
 };
 
 describe('simConditions carries humidity, gravity and the angle step', () => {

@@ -47,7 +47,8 @@ Three independent opt-ins, off by default:
 | `airfoilSection` (per fin set) | RASAero fin cross-sections | `FinSet` property |
 
 `BarrowmanCalculator` threads the two booleans into each per-component calculator when it builds
-its calc map (`createCalcObject`), and preserves them across `newInstance()`. Validate any change
+its calc map (`createCalcObject`), and preserves them across `newInstance()`. Only `rogersKbf` is
+reachable from the app, as an opt-in setting (see Feature #3); `supersonicAero` is not exposed. Validate any change
 with `node validation/score.mjs [--supersonic]` (scores vs `validation/anchors.json`).
 
 ---
@@ -152,6 +153,22 @@ the closer answer for the geometries the term was validated against, not automat
 one: on an erroneously aft CP it overstates the margin the rocket has. *(Correction taken from
 mmrocket-sim, which credits Ken Karbon, Apogee Peak of Flight 687.)* *Code:
 `FinSetCalc.calculateNonaxialForces`.*
+
+**On the unstable kernel this term rarely acts.** Upstream `unstable` now has its own complete
+NACA Report 1307 fin-body interference model, carryover included, for a trapezoidal fin set on a
+body tube below the stall angle (`createBodyFinInterferenceModel`, `nacaActive`). Kbf stands down
+wherever that model is active, so it adds the carryover only to elliptical and freeform fins, fins
+not on a body tube, and past stall. The flag also gates a second, separate term on every fin set:
+fin friction drag x1.8 for RASAero's "Fin Interference" component (`FinSetCalc`, `rogersKbf ||
+supersonicAero`). Measured at Mach 0.3 on a 3-fin minimum-diameter test rocket: a trapezoidal set's
+CP and CNa are unchanged and CD rises 1.319 to 1.439; an elliptical set's CP moves 4.3 mm aft, CNa
+28.6 to 34.1, margin 2.79 to 2.96 cal, CD 1.341 to 1.465 (`web/tests/engine/rogersKbf.test.ts`).
+
+**In the app** it is the opt-in **RASAero fin interference (from Kbf)** setting (Settings →
+Simulation → Flight model), named for what it does here rather than as Kbf. It asks for
+confirmation when turned on. The web wrapper sets it per handle with the bridge's
+`setRogersModifiedBarrowman`: `setKernelRogersKbf` for static CP, margin and sweeps, and each
+flight's `SimulationOptions.rogersKbf`.
 
 ## Feature #2: Power-on base drag (`nozzleExitDiameter`)
 

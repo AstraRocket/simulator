@@ -40,6 +40,7 @@ const PREFS: SimPrefs = {
   drogueLowSpeedWarn: 3.048,
   guideAwareRodClearance: false,
   railExitVelocityMin: 15,
+  rogersKbf: false,
 };
 
 describe('simConditions', () => {
@@ -211,6 +212,28 @@ describe('a profile kept under the Average model', () => {
     const sim = (launch: CompleteLaunch) => newSimulation('A', config.id, launch);
     expect(resultKey(tree, config, sim({ ...base, keptWindLevels: kept }), PREFS)).toBe(
       resultKey(tree, config, sim(base), PREFS),
+    );
+  });
+});
+
+describe('the Rogers Kbf setting', () => {
+  const tree = { components: [{ type: 'nosecone', id: 'n', length: 0.1 }] } as never;
+  const config = newFlightConfig();
+  const sim = () => newSimulation('A', config.id, base);
+
+  it('is passed to the engine', () => {
+    expect(simConditions(base, { ...PREFS, rogersKbf: true }).rogersKbf).toBe(true);
+    expect(simConditions(base, PREFS).rogersKbf).toBe(false);
+  });
+
+  it('off, keys a result as before the setting existed, so saved runs stay current', () => {
+    const { rogersKbf: _off, ...older } = PREFS;
+    expect(resultKey(tree, config, sim(), PREFS)).toBe(resultKey(tree, config, sim(), older as SimPrefs));
+  });
+
+  it('on, keys a result apart from off', () => {
+    expect(resultKey(tree, config, sim(), { ...PREFS, rogersKbf: true })).not.toBe(
+      resultKey(tree, config, sim(), PREFS),
     );
   });
 });
