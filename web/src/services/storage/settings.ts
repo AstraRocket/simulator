@@ -83,6 +83,11 @@ export interface SimulationSettings {
   railExitVelocityMin: number;
   /** Changes the flight itself; false matches OpenRocket (full rod length, buttons ignored). */
   guideAwareRodClearance: boolean;
+  /**
+   * The kernel's Kbf flag: +80% fin friction drag on every fin set, and body carryover on fins upstream's
+   * NACA 1307 model skips (it already gives trapezoidal fins on a body tube theirs). Static CP and margin follow it.
+   */
+  rogersKbf: boolean;
 }
 
 interface RulerSides {
@@ -243,6 +248,7 @@ export const DEFAULT_SETTINGS: Settings = {
     drogueLowSpeedWarn: 3.048,
     railExitVelocityMin: 15,
     guideAwareRodClearance: false,
+    rogersKbf: false,
   },
   launchDefaults: DEFAULT_LAUNCH,
   headerSummary: 'full',
@@ -402,6 +408,7 @@ export function settingsFrom(value: unknown): Settings {
       sim.railExitVelocityMin = pos(sim.railExitVelocityMin, DEFAULT_SETTINGS.simulation.railExitVelocityMin);
       // The bridge fails the whole run on a wrong type here.
       sim.guideAwareRodClearance = sim.guideAwareRodClearance === true;
+      sim.rogersKbf = sim.rogersKbf === true;
       sim.stepper = stepperOf(sim.stepper, DEFAULT_SETTINGS.simulation.stepper);
       const seed: unknown = sim.randomSeed;
       sim.randomSeed = typeof seed === 'number' && Number.isFinite(seed) ? seedFromInput(seed) : null;

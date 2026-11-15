@@ -38,6 +38,7 @@ import { withKey } from '../../services/app/objectKeys';
 import { useLatestRef } from '../common/useLatestRef';
 import { smallButton } from '../common/smallButton';
 import { SelectRow } from '../common/SelectRow';
+import { confirm } from '../../state/confirmStore';
 
 const RULER_SIDES = ['top', 'bottom', 'left', 'right'] as const;
 
@@ -313,6 +314,18 @@ export function SimTab() {
   // Stored in radians, edited in the user's angle unit.
   const angle = u.at(unitScope('settings', 'maxAngleStep'), 'angle');
   const setSim = (patch: Partial<SimulationSettings>) => updateSection('simulation', patch);
+  // Only turning it on asks: off is OpenRocket again.
+  const setRogersKbf = async (on: boolean) => {
+    if (on) {
+      const ok = await confirm({
+        title: t('settings.rogersKbfConfirmTitle'),
+        message: t('settings.rogersKbfConfirm'),
+        confirmLabel: t('settings.rogersKbfConfirmLabel'),
+      });
+      if (!ok) return;
+    }
+    setSim({ rogersKbf: on });
+  };
   return (
     <>
       <Check
@@ -385,6 +398,12 @@ export function SimTab() {
         hint={t('settings.guideAwareRodClearanceHint')}
         checked={settings.simulation.guideAwareRodClearance}
         onChange={(v) => setSim({ guideAwareRodClearance: v })}
+      />
+      <Check
+        label={t('settings.rogersKbf')}
+        hint={t('settings.rogersKbfHint')}
+        checked={settings.simulation.rogersKbf}
+        onChange={(v) => void setRogersKbf(v)}
       />
     </>
   );

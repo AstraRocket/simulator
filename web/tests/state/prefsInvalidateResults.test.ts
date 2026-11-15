@@ -49,6 +49,7 @@ describe('changedPrefKeys', () => {
         'maxTime',
         'railExitVelocityMin',
         'randomSeed',
+        'rogersKbf',
         'stepper',
         'timeStep',
       ].sort(),
@@ -84,6 +85,13 @@ describe('a change to the global run preferences', () => {
     setGlobals({ guideAwareRodClearance: !BASE.guideAwareRodClearance });
     expect(isStale(row('pinned'))).toBe(true);
     expect(isStale(row('plain'))).toBe(true);
+  });
+
+  it('ages a row when the Rogers Kbf model turns on, and not when it goes back off', () => {
+    setGlobals({ rogersKbf: true });
+    expect(isStale(row('plain'))).toBe(true);
+    setGlobals({});
+    expect(isStale(row('plain'))).toBe(false);
   });
 
   it('reads current again when the value goes back', () => {

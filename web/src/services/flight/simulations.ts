@@ -94,7 +94,9 @@ function computeResultKey(tree: RocketTree, config: FlightConfig, sim: Simulatio
   const prefs = effectivePrefs(globals, sim.prefs);
   // Neither is flown.
   const { weatherSource: _source, keptWindLevels: _kept, ...launch } = sim.launch;
-  return stableJson([flightKey(tree), flown, launch, SIM_PREF_KEYS.map((k) => prefs[k] ?? null)]);
+  // Off adds nothing, so a run saved before the setting existed keeps its key.
+  const keyed = SIM_PREF_KEYS.filter((k) => k !== 'rogersKbf' || prefs.rogersKbf);
+  return stableJson([flightKey(tree), flown, launch, keyed.map((k) => prefs[k] ?? null)]);
 }
 
 export function isOutdated(sim: Simulation, tree: RocketTree, config: FlightConfig, globals: SimPrefs): boolean {
@@ -195,6 +197,7 @@ export interface SimPrefs {
   guideAwareRodClearance: boolean;
   // m/s.
   railExitVelocityMin: number;
+  rogersKbf: boolean;
   // The kernel compares lengths as text in this unit, so a unit switch changes what a run records.
   lengthUnit?: string;
 }
@@ -212,6 +215,7 @@ export const SIM_PREF_KEYS = [
   'drogueLowSpeedWarn',
   'guideAwareRodClearance',
   'railExitVelocityMin',
+  'rogersKbf',
   'lengthUnit',
 ] as const satisfies readonly (keyof SimPrefs)[];
 
@@ -285,6 +289,7 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
     drogueLowSpeedWarn: prefs?.drogueLowSpeedWarn,
     guideAwareRodClearance: prefs?.guideAwareRodClearance,
     railExitMinSpeed: prefs?.railExitVelocityMin,
+    rogersKbf: prefs?.rogersKbf,
     // All series, not `summary`'s 17: the app can only plot or export what it asked for.
     series: 'full' as const,
   };

@@ -286,7 +286,11 @@
 # already one check (motorPicker.ts `motorFitsMount`). Their motor data refresh
 # of 2026-11-09 added and changed no motor.
 #
-# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+# CLOSED: the SEMROC BTC-20BB [R] mass. openrocket-database's semroc.orc gives
+# 0.82 oz, our pinned copy carries it, and components.generated.json (regenerated
+# 2026-11-09) ships 0.02325 kg. The "still 0.21 oz" above was carried forward
+# without being re-read; 0.21 oz is the neighboring part it was cloned from. A
+# saved design keeps its stored mass until the part is picked again, as desktop.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
 ref     = 5db63e5f310d482c953ce7ebbbeeacc662ffcc0c
 version = 0.201

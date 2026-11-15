@@ -11,7 +11,7 @@ import {
   unchangedSinceWrite,
   writeWorkspace,
 } from './writtenWorkspace';
-import { setKernelLengthUnit, type RocketTree } from '../engine/openRocketEngine';
+import { setKernelLengthUnit, setKernelRogersKbf, type RocketTree } from '../engine/openRocketEngine';
 
 import { useEngineStore } from './engineStore';
 import { getWorkspaceStore, pickWorkspace } from '../services/storage/workspaceStore';
@@ -125,6 +125,7 @@ export function useWorkspaceEffects() {
   const buildInputs = useWorkspaceStore((s) => buildKey(s.tree, selectConfig(s)));
   const enginePhase = useEngineStore((s) => s.phase);
   const lengthUnit = useSettings().settings.units.length;
+  const rogersKbf = useSettings().settings.simulation.rogersKbf;
   const rebuildSeq = useWorkspaceStore((s) => s.rebuildSeq);
 
   useEffect(() => {
@@ -210,6 +211,7 @@ export function useWorkspaceEffects() {
     }
     const build = () => {
       setKernelLengthUnit(lengthUnit);
+      setKernelRogersKbf(rogersKbf);
       const store = useWorkspaceStore.getState();
       // Read from the store, not closed over: the deps are only narrow rebuild keys.
       const res = computeStaticInfo(store.tree, selectConfig(store));
@@ -229,7 +231,7 @@ export function useWorkspaceEffects() {
     }
     const id = setTimeout(build, REBUILD_DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [ready, enginePhase, components, buildInputs, lengthUnit, rebuildSeq]);
+  }, [ready, enginePhase, components, buildInputs, lengthUnit, rogersKbf, rebuildSeq]);
 
   const { settings } = useSettings();
   useEffect(() => {

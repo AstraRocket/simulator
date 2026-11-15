@@ -365,6 +365,8 @@ export interface SimulationOptions {
   guideAwareRodClearance?: boolean;
   /** m/s. */
   railExitMinSpeed?: number;
+  /** Omitted follows {@link setKernelRogersKbf}. Off keeps the flight bit-identical to upstream (`FinSetCalc`). */
+  rogersKbf?: boolean;
   series?: 'summary' | 'full';
 }
 
@@ -667,7 +669,14 @@ export class OpenRocketDesign {
 
   static buildTree(tree: RocketTree): OpenRocketDesign {
     const handle = callEngine('buildRocket', () => eng().buildRocket(JSON.stringify(tree)));
-    return new OpenRocketDesign(handle);
+    const design = new OpenRocketDesign(handle);
+    if (rogersKbf) design.setRogersKbf(true);
+    return design;
+  }
+
+  /** Per handle; the bridge reads it each time it builds the aerodynamic calculators. */
+  setRogersKbf(enabled: boolean): void {
+    callEngine('setRogersModifiedBarrowman', () => eng().setRogersModifiedBarrowman(this.handle, enabled));
   }
 
   setMotorById(componentId: string, motor: MotorSpec): void {
@@ -745,6 +754,7 @@ export class OpenRocketDesign {
   }
 
   simulate(options: SimulationOptions = {}): FlightResult {
+    if (options.rogersKbf !== undefined) this.setRogersKbf(options.rogersKbf);
     const raw = callEngine('simulate', () =>
       eng().simulateJson(
         this.handle,
@@ -829,6 +839,13 @@ export function setKernelLengthUnit(symbol: string): void {
 
 export function kernelLengthUnit(): string {
   return lengthUnit;
+}
+
+let rogersKbf = false;
+
+/** The aerodynamics every design built from now on reports: static CP and margin, sweeps, and flights given no `rogersKbf`. */
+export function setKernelRogersKbf(enabled: boolean): void {
+  rogersKbf = enabled;
 }
 
 export function standardPressurePa(altitudeM: number): number | null {

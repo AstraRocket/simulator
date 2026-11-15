@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { PlaybackTab, SimTab } from '../../../src/components/layout/SettingsTabs';
+import { useConfirmStore } from '../../../src/state/confirmStore';
 import { readSettings, renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
 
 beforeEach(() => localStorage.clear());
@@ -51,5 +52,37 @@ describe('a speed warning limit', () => {
     fireEvent.blur(box);
     const sim = readSettings()['simulation'] as Record<string, number>;
     expect(sim['railExitVelocityMin']).toBeCloseTo(0.1, 9);
+  });
+});
+
+describe('RASAero fin interference', () => {
+  const kbf = () => (readSettings()['simulation'] as Record<string, unknown> | undefined)?.['rogersKbf'];
+  const box = () => screen.getByRole('checkbox', { name: /RASAero fin interference/ });
+  const asked = () => useConfirmStore.getState().request;
+
+  beforeEach(() => useConfirmStore.getState().settle(false));
+
+  it('asks first, and stays off when the warning is canceled', async () => {
+    renderWithProviders(<SimTab />);
+    fireEvent.click(box());
+    expect(asked()?.message).toMatch(/no longer match desktop OpenRocket/);
+    useConfirmStore.getState().settle(false);
+    await waitFor(() => expect(asked()).toBeNull());
+    expect(kbf()).not.toBe(true);
+  });
+
+  it('turns on once confirmed', async () => {
+    renderWithProviders(<SimTab />);
+    fireEvent.click(box());
+    useConfirmStore.getState().settle(true);
+    await waitFor(() => expect(kbf()).toBe(true));
+  });
+
+  it('turns off without asking', () => {
+    seedSettings({ simulation: { rogersKbf: true } });
+    renderWithProviders(<SimTab />);
+    fireEvent.click(box());
+    expect(asked()).toBeNull();
+    expect(kbf()).toBe(false);
   });
 });
