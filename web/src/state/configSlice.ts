@@ -10,6 +10,7 @@ import {
   newFlightConfig,
   reconcileConfigs,
   mountIgnition,
+  sameMotorSpec,
   sameIgnition,
   type FlightConfig,
   type MountMotor,
@@ -33,6 +34,8 @@ export interface ConfigSlice {
   setSelectedConfigId: (id: string | null) => void;
   setConfigsTab: (tab: ConfigsTab) => void;
   setMountMotor: (configId: string, mountId: string, m: MotorSpec) => void;
+  /** One undo step for all of them; each mount keeps its ignition. Null empties the mount. */
+  setMountMotors: (configId: string, specs: Record<string, MotorSpec | null>) => void;
   /** `all` matches desktop's IgnitionSelectionDialog "Change all configurations". */
   setMountIgnition: (
     configId: string,
@@ -82,19 +85,6 @@ export function selectMotorDims(tree: RocketTree, config: FlightConfig): MotorDi
 export function sanitizeConfigs(tree: RocketTree, configs: FlightConfig[]): FlightConfig[] {
   const safe = (Array.isArray(configs) ? configs : []).filter((c) => c && typeof c.id === 'string' && c.motors);
   return reconcileConfigs(tree, safe.length ? safe : [defaultConfig(tree)]);
-}
-
-/** A catalog pick builds a new object each time, so reference equality is not enough. */
-function sameMotorSpec(a: MotorSpec, b: MotorSpec): boolean {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof MotorSpec)[]);
-  for (const k of keys) {
-    const x = a[k];
-    const y = b[k];
-    if (Array.isArray(x) && Array.isArray(y)) {
-      if (x.length !== y.length || x.some((v, i) => v !== y[i])) return false;
-    } else if (x !== y) return false;
-  }
-  return true;
 }
 
 interface ConfigSliceShared extends EditSteps {
@@ -149,6 +139,24 @@ export const createConfigSlice =
         if (seated && sameMotorSpec(seated.spec, m)) return;
         recordStep();
         patchConfig(configId, (c) => ({ ...c, motors: { ...c.motors, [mountId]: { ...c.motors[mountId], spec: m } } }));
+      },
+      setMountMotors: (configId, specs) => {
+        const current = get().configs.find((c) => c.id === configId);
+        if (!current) return;
+        const moves = Object.entries(specs).filter(([id, m]) => {
+          const seated = current.motors[id]?.spec;
+          return m ? !seated || !sameMotorSpec(seated, m) : !!seated;
+        });
+        if (!moves.length) return;
+        recordStep();
+        patchConfig(configId, (c) => {
+          const motors = { ...c.motors };
+          for (const [id, m] of moves) {
+            if (m) motors[id] = { ...motors[id], spec: m };
+            else delete motors[id];
+          }
+          return { ...c, motors };
+        });
       },
       setMountIgnition: (configId, mountId, event, delay, scope = 'config') => {
         const target = { ignitionEvent: event, ignitionDelay: delay };

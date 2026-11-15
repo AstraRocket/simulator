@@ -735,6 +735,17 @@
     "lastFlyingStage": "各構成で少なくとも1つの段が飛行する必要があります。",
     "stageGrounded": "地上に残す構成:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "このステージの他のマウントにも {{motor}} を搭載しますか？ 各マウントの点火設定はそのままです。",
+    "otherMountsEmpty": "{{mount}}（現在は空）",
+    "otherMountsReplaces": "{{mount}}（{{motor}} を置き換え）",
+    "otherMountsKeptPlugged": "モーターはプラグのまま",
+    "otherMountsTooWide": "{{mount}} は対象外です：モーターが内径に対して太すぎます。",
+    "otherMountsTooLong": "{{mount}} は対象外です：モーターが長すぎます。",
+    "otherMountsLoad": "搭載する",
+    "otherMountsDismiss": "しない",
+    "otherMountsLoaded": "{{motor}} を他のマウントに搭載しました。",
+    "otherMountsUndo": "取り消す",
+    "otherMountsClose": "閉じる",
     "bays": "ベイ"
   },
   "tabs": {

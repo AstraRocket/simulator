@@ -736,6 +736,17 @@
     "lastFlyingStage": "In jeder Konfiguration muss mindestens eine Stufe fliegen.",
     "stageGrounded": "Bleibt am Boden in:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "{{motor}} auch in die anderen Halterungen dieser Stufe laden? Jede behält ihre eigene Zündung.",
+    "otherMountsEmpty": "{{mount}}, derzeit leer",
+    "otherMountsReplaces": "{{mount}}, ersetzt {{motor}}",
+    "otherMountsKeptPlugged": "ihr Motor bleibt verschlossen",
+    "otherMountsTooWide": "{{mount}} wird ausgelassen: Der Motor ist zu dick für ihre Bohrung.",
+    "otherMountsTooLong": "{{mount}} wird ausgelassen: Der Motor ist zu lang dafür.",
+    "otherMountsLoad": "Laden",
+    "otherMountsDismiss": "Nein danke",
+    "otherMountsLoaded": "{{motor}} wurde in die anderen Halterungen geladen.",
+    "otherMountsUndo": "Rückgängig",
+    "otherMountsClose": "Schließen",
     "bays": "Sektionen"
   },
   "tabs": {

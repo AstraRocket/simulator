@@ -14,6 +14,19 @@ export interface MountMotor {
   ignitionDelay?: number;
 }
 
+/** A catalog pick builds a new object each time, so reference equality is not enough. */
+export function sameMotorSpec(a: MotorSpec, b: MotorSpec): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof MotorSpec)[]);
+  for (const k of keys) {
+    const x = a[k];
+    const y = b[k];
+    if (Array.isArray(x) && Array.isArray(y)) {
+      if (x.length !== y.length || x.some((v, i) => v !== y[i])) return false;
+    } else if (x !== y) return false;
+  }
+  return true;
+}
+
 export interface FlightConfig {
   id: string;
   /** Null means unnamed (desktop shows the motor list); must round-trip. */
