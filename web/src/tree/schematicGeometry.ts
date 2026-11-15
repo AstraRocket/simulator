@@ -9,7 +9,7 @@ import { isChainType } from './componentKinds.js';
 import { KERNEL_DEFAULTS, kernelDefault } from './kernelDefaults.js';
 import { assemblyBoundingRadius, assemblyParentRadius, isAssembly, resolveAssemblyRadius } from './assembly.js';
 import { stabilityState, stabilityVerdictKey, type StabilityState } from '../services/flight/simReport.js';
-import { fmtNum, fmtPercent } from '../i18n/format';
+import { fmtCalibers, fmtPercent } from '../i18n/format';
 import type { Units } from '../prefs/useUnits';
 
 export interface Ctx {
@@ -293,7 +293,7 @@ export function marginText(
   const state = stabilityState(cal);
   if (!state || pct == null || !Number.isFinite(pct)) return null;
   const glyph = STABILITY_GLYPH[state];
-  const figures = `${fmtNum(cal, 2)} ${t('stability.caliber')} · ${fmtPercent(pct, 1)}`;
+  const figures = `${fmtCalibers(cal, t)} · ${fmtPercent(pct, 1)}`;
   return { state, glyph, figures, text: `${glyph} ${figures} (${t(stabilityVerdictKey(cal))})` };
 }
 

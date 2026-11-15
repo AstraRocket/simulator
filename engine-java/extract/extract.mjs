@@ -3,7 +3,8 @@
  * extract.mjs: regenerate engine-java/src/java/ from OpenRocket core (manifest.txt) plus patches/.
  *
  *   node extract/extract.mjs --check   # verify only; fetches the pinned upstream itself
- *   node extract/extract.mjs --bless   # re-record extract/DIVERGENCE.txt and SHIMS.txt
+ *   node extract/extract.mjs --bless   # re-record extract/DIVERGENCE.txt
+ *   node extract/extract.mjs --bless-shims   # re-record extract/SHIMS.txt, after reviewing each shim
  *   node extract/extract.mjs --src <openrocket-source>   # regenerate src/java/ (writes)
  *   OPENROCKET_SRC=<path> node extract/extract.mjs       # explicit source instead
  *   --refresh                          # re-fetch the pinned upstream cache
@@ -33,8 +34,10 @@ if (args.includes('--help') || args.includes('-h')) {
 }
 const check = args.includes('--check');
 const bless = args.includes('--bless');
-// --bless must not rewrite src/java: on a CRLF checkout, extraction rewrites every file to LF.
-const readOnly = check || bless;
+// Apart from --bless, so accepting a patch never also accepts upstream moving under a shim.
+const blessShims = args.includes('--bless-shims');
+// A bless must not rewrite src/java: on a CRLF checkout, extraction rewrites every file to LF.
+const readOnly = check || bless || blessShims;
 const refresh = args.includes('--refresh');
 
 const readPin = () => {
@@ -117,6 +120,20 @@ if (manifestSet.size !== manifest.length) {
   die(`manifest.txt lists ${dups.length} file(s) more than once:\n  ${[...new Set(dups)].join('\n  ')}`);
 }
 
+const norm = (s) => s.replace(/\r\n/g, '\n');
+// Hashes catch edits that keep the line count, such as one coefficient swapped for another.
+const sha = (text) => createHash('sha256').update(text).digest('hex');
+
+// The manifest's file list, and the content of the upstream files it names: a dropped line and a
+// substitute upstream (`--src`, OPENROCKET_SRC, an edited cache) each change one of these.
+const manifestSha = sha([...manifest].sort().join('\n'));
+const upstreamContentSha = sha(
+  [...manifest].sort().map((rel) => {
+    const p = join(coreJavaRoot, rel);
+    return `${rel} ${existsSync(p) ? sha(norm(readFileSync(p, 'utf8'))) : 'missing'}`;
+  }).join('\n'),
+);
+
 const walk = (dir) => (existsSync(dir) ? readdirSync(dir).flatMap((n) => {
   const p = join(dir, n);
   return statSync(p).isDirectory() ? walk(p) : [p];
@@ -129,7 +146,6 @@ const patchSet = new Set(patches);
 const orphans = patches.filter((p) => !manifestSet.has(p));
 if (orphans.length) die(`patch(es) with no matching manifest entry:\n  ${orphans.join('\n  ')}`);
 
-const norm = (s) => s.replace(/\r\n/g, '\n');
 const missing = [];
 const drift = [];
 let patched = 0;
@@ -197,8 +213,6 @@ const changedLines = (a, b) => {
   return (x.length - lcs) + (y.length - lcs);
 };
 
-// Hashes catch edits that keep the line count, such as one coefficient swapped for another.
-const sha = (text) => createHash('sha256').update(text).digest('hex');
 const divergence = [];
 for (const rel of manifest) {
   if (!patchSet.has(rel)) continue;
@@ -218,10 +232,16 @@ divergence.sort((x, y) => y.delta - x.delta || x.rel.localeCompare(y.rel));
 const divergencePath = join(here, 'DIVERGENCE.txt');
 const hasBaseline = existsSync(divergencePath);
 const baseline = new Map();
+const recorded = { manifest: null, upstream: null };
 if (hasBaseline) {
   for (const raw of readFileSync(divergencePath, 'utf8').split('\n')) {
     const entry = raw.trim();
     if (!entry || entry.startsWith('#')) continue;
+    const at = /^@(manifest|upstream)\s+([0-9a-f]{64})$/.exec(entry);
+    if (at) {
+      recorded[at[1]] = at[2];
+      continue;
+    }
     const m = /^(\S+)\s+(\d+)(?:\s+([0-9a-f]{64})\s+([0-9a-f]{64}))?$/.exec(entry);
     if (!m) die(`DIVERGENCE.txt: cannot parse line: ${entry}`);
     baseline.set(m[1], { delta: Number(m[2]), patchSha: m[3] ?? null, upstreamSha: m[4] ?? null });
@@ -250,17 +270,44 @@ if (hasBaseline) {
   }
 }
 
+const FINGERPRINTS = [
+  { key: 'manifest', what: 'the manifest file list', now: manifestSha },
+  { key: 'upstream', what: 'the upstream files the manifest names', now: upstreamContentSha },
+];
+const fingerprintDrift = hasBaseline
+  ? FINGERPRINTS.filter((f) => recorded[f.key] !== f.now).map((f) => ({
+      ...f,
+      why: recorded[f.key] === null ? 'not recorded' : 'changed since the last bless',
+    }))
+  : [];
+
+// A bless records; the LEDGER explains. Every fingerprint the baseline accepts has to appear in an entry,
+// so a bless alone (or a hand edit of DIVERGENCE.txt) cannot accept a change nobody wrote down.
+const ledgerPath = join(patchesRoot, 'LEDGER.md');
+const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
+const short = (s) => s.slice(0, 12);
+const unexplained = [
+  ...divergence.map((d) => ({ what: `\`${d.rel}\``, sha: d.patchSha })),
+  ...FINGERPRINTS.map((f) => ({ what: f.what, sha: f.now })),
+].filter((f) => !ledger.includes(short(f.sha)));
+
 const leftovers = divergence.filter((d) => d.delta === 0);
 if (bless && leftovers.length) {
   die(`refusing to bless ${leftovers.length} patch(es) identical to upstream; delete them instead:\n  ${leftovers.map((d) => d.rel).join('\n  ')}`);
 }
 
 if (bless) {
-  if (unblessed.length) {
-    console.log('extract: add to patches/LEDGER.md, explaining each line:');
+  if (unblessed.length || fingerprintDrift.length || unexplained.length) {
+    console.log('extract: add to patches/LEDGER.md, explaining each line (`--check` fails until each fingerprint is there):');
     console.log(`  ## <what changed> - ${new Date().toISOString().slice(0, 10)}`);
     for (const { rel, was, now, why } of unblessed) {
-      console.log(`  - \`${rel}\`: ${was ?? 'new'} -> ${now ?? 'removed'} lines (${why}). WHY: <reason>`);
+      const d = divergence.find((x) => x.rel === rel);
+      const fp = d ? ` \`${short(d.patchSha)}\`` : '';
+      console.log(`  - \`${rel}\`${fp}: ${was ?? 'new'} -> ${now ?? 'removed'} lines (${why}). WHY: <reason>`);
+    }
+    for (const { what, sha: fp } of unexplained) {
+      if (unblessed.some((u) => what === `\`${u.rel}\``)) continue;
+      console.log(`  - ${what} \`${short(fp)}\`. WHY: <reason>`);
     }
   }
   const header = [
@@ -281,21 +328,52 @@ if (bless) {
     '# byte-identical to upstream: that is a leftover, and patches/LEDGER.md says',
     '# to delete it rather than bless it.',
     '#',
+    '# `@manifest` hashes the manifest\'s file list and `@upstream` the content of',
+    '# the upstream files it names, so a dropped manifest line or a substitute',
+    '# upstream fails the check whatever source it came from. Each patch hash and',
+    '# both of these must also appear (first 12 characters) in patches/LEDGER.md.',
+    '#',
     '',
     '',
   ].join('\n');
-  const body = divergence
-    .map(({ rel, delta, patchSha, upstreamSha }) => `${rel} ${delta} ${patchSha} ${upstreamSha}`)
-    .join('\n');
+  const body = [
+    `@manifest ${manifestSha}`,
+    `@upstream ${upstreamContentSha}`,
+    ...divergence.map(({ rel, delta, patchSha, upstreamSha }) => `${rel} ${delta} ${patchSha} ${upstreamSha}`),
+  ].join('\n');
   writeFileSync(divergencePath, `${header}${body}\n`);
   console.log(`extract: blessed ${divergence.length} patch divergence(s) -> extract/DIVERGENCE.txt`);
 }
 
-const shimFiles = walk(shimsRoot)
-  .filter((f) => f.endsWith('.java'))
-  .map((f) => relative(shimsRoot, f).replace(/\\/g, '/'))
+// A type's name comes from its package line, not from where its file sits: javac takes any path.
+// Top-level declarations start in column 0; Javadoc lines start with a space.
+const declaredTypes = (file) => {
+  const text = readFileSync(file, 'utf8');
+  const pkg = /^\s*package\s+([\w.]+)\s*;/m.exec(text)?.[1];
+  const dir = pkg ? `${pkg.replace(/\./g, '/')}/` : '';
+  return [
+    ...text.matchAll(
+      /^(?:(?:public|final|abstract|sealed|non-sealed|strictfp)\s+)*(?:class|interface|enum|record|@interface)\s+(\w+)/gm,
+    ),
+  ].map((m) => `${dir}${m[1]}.java`);
+};
+const javaFiles = (root) => walk(root).filter((f) => f.endsWith('.java'));
+
+const shimFiles = javaFiles(shimsRoot);
+const shadowing = [...new Set(shimFiles.flatMap(declaredTypes))]
+  .filter((rel) => existsSync(join(coreJavaRoot, rel)))
   .sort();
-const shadowing = shimFiles.filter((rel) => existsSync(join(coreJavaRoot, rel)));
+
+// Every other root build.gradle compiles with src/java, or puts on its classpath. Only src/java (through the
+// manifest) and src/shims/java (through SHIMS.txt) may provide a class upstream has.
+const OTHER_ROOTS = ['src/api/java', 'test', 'src/jdkstubs'];
+const hidden = OTHER_ROOTS.flatMap((root) =>
+  javaFiles(join(engineRoot, root)).flatMap((f) =>
+    declaredTypes(f)
+      .filter((rel) => existsSync(join(coreJavaRoot, rel)))
+      .map((rel) => ({ file: relative(engineRoot, f).replace(/\\/g, '/'), rel })),
+  ),
+);
 
 const shimsPath = join(here, 'SHIMS.txt');
 const hasShimBaseline = existsSync(shimsPath);
@@ -326,7 +404,7 @@ if (hasShimBaseline) {
   }
 }
 
-if (bless) {
+if (blessShims) {
   const header = [
     '# Upstream classes that a src/shims file SHADOWS, and what that upstream',
     '# file looked like when the shim was last reviewed (sha256, CRLF-normalized).',
@@ -336,7 +414,8 @@ if (bless) {
     '# It cannot be diffed (162 lines standing in for 2089), so this records',
     '# instead that upstream has not moved underneath it. When a hash changes,',
     '# `extract --check` fails: go read what changed in that upstream class,',
-    '# decide whether the shim still matches, then re-bless.',
+    '# decide whether the shim still matches, then `npm run extract:bless-shims`.',
+    '# `extract:bless` never writes this file.',
     '#',
     '# Shims with no entry here define a name upstream does not (LongUUID, Geo2D,',
     '# the RASAero calculators, the Guice stand-ins), so there is nothing to track.',
@@ -352,11 +431,26 @@ console.log(`extract: ${shimFiles.length} shim(s), ${shadowing.length} shadowing
 if (shimMoved.length) {
   console.error(`extract: ${shimMoved.length} shadowed shim(s) need review:`);
   shimMoved.forEach(({ rel, why }) => console.error(`  ! ${rel}  (${why})`));
-  console.error('extract:   re-read the upstream class, confirm the shim still matches, then --bless.');
+  console.error('extract:   re-read the upstream class, confirm the shim still matches, then --bless-shims.');
 }
 if (!hasShimBaseline) {
   console.error('extract: extract/SHIMS.txt is MISSING - shim drift is unchecked.');
-  console.error('extract:   create it with --bless.');
+  console.error('extract:   create it with --bless-shims.');
+}
+if (hidden.length) {
+  console.error(`extract: ${hidden.length} class(es) outside src/java and src/shims/java replace an upstream class:`);
+  hidden.forEach(({ file, rel }) => console.error(`  ! ${file} declares ${rel.replace(/\.java$/, '').replace(/\//g, '.')}`));
+  console.error('extract:   an upstream class is extracted through the manifest, patched in patches/, or shimmed.');
+}
+if (fingerprintDrift.length) {
+  console.error(`extract: ${fingerprintDrift.length} fingerprint(s) do NOT match extract/DIVERGENCE.txt:`);
+  fingerprintDrift.forEach(({ what, why }) => console.error(`  ! ${what} (${why})`));
+  console.error('extract:   a changed manifest needs --bless; a changed upstream means the source is not the pinned commit.');
+}
+if (unexplained.length) {
+  console.error(`extract: ${unexplained.length} fingerprint(s) have no entry in patches/LEDGER.md:`);
+  unexplained.forEach(({ what, sha: fp }) => console.error(`  ! ${what} \`${short(fp)}\``));
+  console.error('extract:   say in the LEDGER why each changed, quoting its fingerprint.');
 }
 
 if (unpatched.length) {
@@ -455,13 +549,14 @@ if (leftovers.length) {
 }
 const problems = missing.length + drift.length + stale.length + unpatched.length
   + unblessed.length + leftovers.length + baselineMissing
-  + shimMoved.length + shimBaselineMissing + materialDrift.length;
+  + shimMoved.length + shimBaselineMissing + materialDrift.length
+  + hidden.length + fingerprintDrift.length + unexplained.length;
 if (check) {
   console.log(`extract --check: ${drift.length} extracted file(s) differ from upstream(+patch)${drift.length ? ':' : '.'}`);
   drift.forEach((d) => console.log(`  ~ ${d}`));
   console.log(
     problems
-      ? `extract --check: FAILED (${missing.length} missing, ${drift.length} drifted, ${stale.length} unmanaged, ${unpatched.length} unpatched, ${unblessed.length} unblessed, ${leftovers.length} leftover(s), ${shimMoved.length} shim(s) to review, ${materialDrift.length} material(s)${baselineMissing ? ', no patch baseline' : ''}${shimBaselineMissing ? ', no shim baseline' : ''})`
+      ? `extract --check: FAILED (${missing.length} missing, ${drift.length} drifted, ${stale.length} unmanaged, ${unpatched.length} unpatched, ${unblessed.length} unblessed, ${leftovers.length} leftover(s), ${shimMoved.length} shim(s) to review, ${hidden.length} hidden class(es), ${fingerprintDrift.length} fingerprint(s), ${unexplained.length} unexplained, ${materialDrift.length} material(s)${baselineMissing ? ', no patch baseline' : ''}${shimBaselineMissing ? ', no shim baseline' : ''})`
       : 'extract --check: OK - src/java is exactly upstream(+patches), and the material table is upstream\'s.',
   );
   process.exit(problems ? 1 : 0);

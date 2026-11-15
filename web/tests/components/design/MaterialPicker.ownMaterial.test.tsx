@@ -47,3 +47,28 @@ describe('adding a custom material', () => {
     expect(screen.getByRole('textbox', { name: /^Name/ })).toBeTruthy();
   });
 });
+
+describe('adding a custom material under a name the library already has', () => {
+  beforeAll(serveData);
+
+  it('is refused as My Materials refuses it, and the stored one is left alone', async () => {
+    const add = vi.fn(async () => {});
+    setMaterialStore({
+      list: async () => [{ name: 'Foam', type: 'bulk', density: 30, group: 'Other', custom: true }],
+      add,
+      remove: async () => {},
+    });
+    renderWithProviders(<MaterialPicker onChange={vi.fn()} />);
+    const select = materialSelect();
+    await waitFor(() => expect(select.options.length).toBeGreaterThan(3));
+    fireEvent.change(select, { target: { value: '__add__' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /^Name/ }), { target: { value: 'Foam' } });
+    const density = screen.getByRole('spinbutton', { name: /density/i });
+    fireEvent.change(density, { target: { value: '900' } });
+    fireEvent.blur(density);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Add to my custom materials, for every design' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByText(/already called Foam/)).toBeTruthy());
+    expect(add).not.toHaveBeenCalled();
+  });
+});

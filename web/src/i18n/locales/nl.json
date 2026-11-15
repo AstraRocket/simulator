@@ -193,6 +193,7 @@
     "openExample": "Kon dat voorbeeld niet openen: {{reason}}",
     "saveOrk": "Kon het .ork-bestand niet opslaan: {{reason}}",
     "saveOrkNoDesignInfo": "Het .ork-bestand is opgeslagen zonder ontwerpinformatie: het ontwerp kon niet worden opgebouwd, dus er was geen statistiek om op te nemen.",
+    "saveOrkFairing": "Het .ork-bestand is opgeslagen, maar desktop-OpenRocket kent geen stroomlijnkap en laat deze bij het openen weg, inclusief hun massa: {{parts}}.",
     "exportRasaero": "Kon RASAero niet exporteren: {{reason}}",
     "exportRasaeroSurface": "Het RASAero-bestand is opgeslagen, maar RASAero heeft geen oppervlak dat past bij de afwerking van dit ontwerp, dus het is als glad (ruwheid nul) geschreven.",
     "exportRasaeroStageMass": "Het RASAero-bestand is opgeslagen, maar het lanceergewicht en het zwaartepunt van een trap waren niet beschikbaar, dus de gewichts- en zwaartepuntcellen van de simulatie zijn als 0 geschreven. Vul ze in RASAero in voordat u vliegt.",
@@ -485,6 +486,7 @@
     "undo": "Ongedaan maken",
     "redo": "Opnieuw",
     "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
     "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
@@ -1423,6 +1425,7 @@
     "noEditor": "Deze app heeft geen editor voor: {{items}}. Ze blijven bewaard, dus opslaan houdt ze.",
     "docMaterialsSkipped": "Ontwerpmaterialen overgeslagen omdat ze onleesbaar zijn: {{count}}.",
     "referenceType": "Dit ontwerp meet zijn stabiliteit in kalibers ten opzichte van \"{{type}}\". Deze app meet die ten opzichte van de breedste rompbuis, dus de stabiliteitsmarge in kalibers kan afwijken van die in desktop-OpenRocket; het bestand behoudt de instelling.",
+    "lookupTables": "Deze simulaties vliegen in desktop-OpenRocket met een opzoektabel voor weerstand of stabiliteit. Deze app berekent weerstand en stabiliteit zelf, dus hun opgeslagen resultaten zijn als verouderd gemarkeerd en een nieuwe run kan afwijken. De tabellen blijven bewaard en worden bij het opslaan meegeschreven: {{names}}.",
     "motorPlugged": "Motor {{motor}}: afgesloten (geen uitstootlading). Zorg dat de berging op apogeum of hoogte wordt ingezet, niet door de uitstootlading.",
     "motorPluggedNoDelay": "Motor {{motor}}: afgesloten (geen uitstootlading; het bestand geeft geen leesbare vertraging). Zorg dat de berging op apogeum of hoogte wordt ingezet, niet door de uitstootlading.",
     "finPointsCapped": "Een vrije-vormvin had meer dan {{max}} punten; de rest is weggelaten.",
@@ -2794,7 +2797,6 @@
     "cgHint": "Het zwaartepunt zonder motor, gemeten vanaf de neuspunt.",
     "cgOutside": "Het zwaartepunt moet op de raket liggen, tussen de neuspunt en {{length}}.",
     "railStability": "Stabiliteit bij het verlaten van de lanceerrail",
-    "calibers": "{{value}} kal",
     "lowStability": "Onder {{min}} kaliber: waarschijnlijk instabiel",
     "stabilityNote": "De stabiliteit komt uit uw zwaartepunt en vinnen met de vervangende neus; de echte neus verschuift haar iets.",
     "colStability": "Stabiliteit (kal)",

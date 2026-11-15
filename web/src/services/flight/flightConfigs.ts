@@ -129,20 +129,28 @@ export function liveMotors(tree: RocketTree, config: FlightConfig): [string, Mou
   return out;
 }
 
-/** Mounts outside every grounded stage: a grounded stage stays on the pad, motors and all. */
-function flyingMountIds(tree: RocketTree, config: FlightConfig): Set<string> {
+/** Matches outside every grounded stage or booster: a grounded stage stays on the pad, motors and all. */
+export function flyingNodes(
+  nodes: readonly ComponentNode[],
+  config: FlightConfig,
+  pred: (n: ComponentNode) => boolean,
+): ComponentNode[] {
   const grounded = new Set(config.grounded ?? []);
-  const ids = new Set<string>();
-  const walk = (nodes: readonly ComponentNode[]) => {
-    for (const n of nodes) {
+  const out: ComponentNode[] = [];
+  const walk = (list: readonly ComponentNode[]) => {
+    for (const n of list) {
       if ((n.type === 'stage' || n.type === 'parallelstage') && typeof n.id === 'string' && grounded.has(n.id))
         continue;
-      if (n.motorMount === true && typeof n.id === 'string') ids.add(n.id);
+      if (typeof n.id === 'string' && pred(n)) out.push(n);
       if (n.children) walk(n.children);
     }
   };
-  walk(tree.components);
-  return ids;
+  walk(nodes);
+  return out;
+}
+
+function flyingMountIds(tree: RocketTree, config: FlightConfig): Set<string> {
+  return new Set(flyingNodes(tree.components, config, (n) => n.motorMount === true).map((n) => n.id as string));
 }
 
 // The first mount alone would refuse a booster-only `.ork` (curve-less sustainer placeholder) that desktop flies.

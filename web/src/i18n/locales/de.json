@@ -193,6 +193,7 @@
     "openExample": "Dieses Beispiel konnte nicht geöffnet werden: {{reason}}",
     "saveOrk": ".ork konnte nicht gespeichert werden: {{reason}}",
     "saveOrkNoDesignInfo": "Die .ork wurde ohne Entwurfsinfos gespeichert: Der Entwurf ließ sich nicht aufbauen, daher gab es keine Statistik zum Einfügen.",
+    "saveOrkFairing": "Die .ork wurde gespeichert, aber Desktop-OpenRocket hat kein Verkleidungsteil und lässt diese samt ihrer Masse beim Öffnen weg: {{parts}}.",
     "exportRasaero": "RASAero-Export fehlgeschlagen: {{reason}}",
     "exportRasaeroSurface": "Die RASAero-Datei wurde gespeichert, aber RASAero kennt keine Oberfläche, die zur Oberflächengüte dieses Entwurfs passt, daher wurde sie als glatt (keine Rauheit) geschrieben.",
     "exportRasaeroStageMass": "Die RASAero-Datei wurde gespeichert, aber Startgewicht und Schwerpunkt einer Stufe waren nicht verfügbar; die Gewichts- und Schwerpunktfelder der Simulation wurden mit 0 geschrieben. Tragen Sie sie vor dem Flug in RASAero ein.",
@@ -485,6 +486,7 @@
     "undo": "Rückgängig",
     "redo": "Wiederholen",
     "undoKeys": "Strg+Z",
+    "ctrlKeys": "Strg+{{key}}",
     "redoKeys": "Strg+Umschalt+Z"
   },
   "scale": {
@@ -1423,6 +1425,7 @@
     "noEditor": "Diese App hat keinen Editor für: {{items}}. Sie bleiben erhalten, sodass ein Speichern sie behält.",
     "docMaterialsSkipped": "Übersprungene, nicht lesbare Entwurfsmaterialien: {{count}}.",
     "referenceType": "Dieses Design misst seine Stabilität in Kalibern an „{{type}}“. Diese App misst sie am breitesten Rumpfrohr, daher kann der Stabilitätsabstand in Kalibern von dem in Desktop-OpenRocket abweichen; die Datei behält die Einstellung.",
+    "lookupTables": "Diese Simulationen fliegen in Desktop-OpenRocket mit einer Widerstands- oder Stabilitätstabelle. Diese App berechnet Widerstand und Stabilität selbst, daher sind ihre gespeicherten Ergebnisse als veraltet markiert, und ein neuer Lauf kann abweichen. Die Tabellen bleiben erhalten und werden beim Speichern mitgeschrieben: {{names}}.",
     "motorPlugged": "Motor {{motor}}: verschlossen (keine Ausstoßladung). Stellen Sie sicher, dass die Bergung bei Apogäum oder Höhe auslöst, nicht durch die Ausstoßladung.",
     "motorPluggedNoDelay": "Motor {{motor}}: verschlossen (keine Ausstoßladung; die Datei enthält keine lesbare Verzögerung). Stellen Sie sicher, dass die Bergung bei Apogäum oder Höhe auslöst, nicht durch die Ausstoßladung.",
     "finPointsCapped": "Eine Freiform-Finne hatte mehr als {{max}} Punkte; der Rest wurde verworfen.",
@@ -2794,7 +2797,6 @@
     "cgHint": "Der Schwerpunkt ohne Motor, gemessen ab der Nasenspitze.",
     "cgOutside": "Der Schwerpunkt muss auf der Rakete liegen, zwischen Nasenspitze und {{length}}.",
     "railStability": "Stabilität beim Verlassen der Startschiene",
-    "calibers": "{{value}} Kal.",
     "lowStability": "Unter {{min}} Kaliber: wahrscheinlich instabil",
     "stabilityNote": "Die Stabilität ergibt sich aus Ihrem Schwerpunkt und Ihren Finnen mit der Ersatznase; die echte Nase verschiebt sie etwas.",
     "colStability": "Stabilität (Kal.)",

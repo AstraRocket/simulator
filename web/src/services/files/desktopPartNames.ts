@@ -20,6 +20,6 @@ export const DESKTOP_PART_NAMES: Readonly<Partial<Record<ComponentType, string>>
   streamer: 'Streamer',
   shockcord: 'Shock Cord',
   masscomponent: 'Mass Component',
-  podset: 'Pod set',
-  parallelstage: 'Booster',
+  podset: 'Pod Set',
+  parallelstage: 'Booster Set',
 };

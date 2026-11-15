@@ -107,6 +107,17 @@ describe('the benchtop tool', () => {
     expect(button('Choose…').disabled).toBe(false);
   });
 
+  it('says it in the region that was already there, so a screen reader announces it', () => {
+    renderWithProviders(<SimpleRocketTool />);
+    enterRocket();
+    const region = screen.getByRole('status');
+    enter('Overall length', '10');
+    expect(screen.getByRole('status')).toBe(region);
+    expect(region.textContent).toMatch(/longer than its 4:1 nose/);
+    enter('Overall length', '100');
+    expect(screen.getByRole('status')).toBe(region);
+  });
+
   it('flies the rocket, warns on the figures and marks them stale after an edit', async () => {
     renderWithProviders(<SimpleRocketTool />);
     enterRocket();

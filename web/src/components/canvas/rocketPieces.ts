@@ -13,7 +13,7 @@ import {
 } from '../../tree/finPlanform';
 import { assemblyBoundingRadius, isAssembly, ringInstanceOffsets } from '../../tree/assembly.js';
 import { lineInstances, placementOffsets } from '../../tree/placement';
-import { isPlanarFinSet, tubeFinSeat } from '../../tree/tubefins.js';
+import { isPlanarFinSet, tubeFinSeat, tubeFinWall } from '../../tree/tubefins.js';
 import { hasShoulder, nodeOuterProfile, profileEnds, shouldersOf } from '../../tree/shapeProfile.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DEFAULT_PART_COLORS, type PartPalette } from '../../services/design/partColors';
@@ -303,10 +303,12 @@ function addTubeFins(b: PieceBuild, child: ComponentNode, at: PieceParent) {
   const count = countOf(child, 'finCount', 6);
   const seat = tubeFinSeat(child, at.pStart, at.pLen, (o) => surfaceAt(at, at.pStart + o));
   const { length: len, start, bodyRadius: R, tubeRadius: rt } = seat;
-  const wall = Math.min(num(child, 'thickness', 0.0005), rt * 0.45);
+  // The bore the kernel flies; a set with no wall at all (no body tube to take one from) is drawn solid.
+  const wall = tubeFinWall(child, at.parent, rt);
+  const bore = Number.isFinite(wall) ? rt - wall : 0;
   b.maxR = Math.max(b.maxR, R + 2 * rt);
   for (const { angle } of ringInstanceOffsets(count, 0, num(child, 'rotation', 0))) {
-    const geo = annulusGeometry(rt, Math.max(rt - wall, rt * 0.55), len);
+    const geo = annulusGeometry(rt, bore, len);
     geo.translate(start, R + rt, 0);
     geo.applyMatrix4(new THREE.Matrix4().makeRotationX(angle));
     if (at.xform) geo.applyMatrix4(at.xform);

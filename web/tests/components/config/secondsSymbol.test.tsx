@@ -104,3 +104,21 @@ describe('the seconds symbol, by key', () => {
     }
   });
 });
+
+describe('a delay with three decimals', () => {
+  it('reads the same in the override placeholder as in the table', () => {
+    const precise = { ...device, deployDelay: 1.125 } as ComponentNode;
+    const withPrecise = {
+      components: [
+        { type: 'stage', id: 's1', children: [{ type: 'bodytube', id: 'b1', motorMount: true, children: [precise] }] },
+      ],
+    } as unknown as RocketTree;
+    const config = { id: 'c', name: null, motors: {} } as FlightConfig;
+    renderWithProviders(<DeploymentSection config={config} device={precise} index={0} />);
+    const placeholders = [...document.querySelectorAll('input')].map((i) => i.placeholder);
+    expect(placeholders).toContain('1.125');
+    cleanup();
+    const cell = recoveryColumns(withPrecise, i18n.t.bind(i18n), alt)[0]!.cell(config);
+    expect(render(<>{cell}</>).container.textContent).toContain('+1.125');
+  });
+});

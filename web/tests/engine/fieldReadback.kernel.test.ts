@@ -255,14 +255,15 @@ describe('the panel shows what the kernel flies', () => {
               misses.push({ rule: `${type}.${f.key}`, label: c.label, app: shown, kernel: built[f.key] });
             }
           }
-          // Parts in the stage's own chain are laid end to end and read no position.
-          if (!['stage', 'nosecone', 'bodytube', 'transition'].includes(type)) {
-            compared.add(`${type}.position`);
-            const pos = positionOf(app);
-            const shown = `${pos.method} ${+pos.offset.toFixed(9)}`;
-            const kernel = `${String(built.positionMethod)} ${+Number(built.positionOffset).toFixed(9)}`;
-            if (shown !== kernel) misses.push({ rule: `${type}.position`, label: c.label, app: shown, kernel });
-          }
+          // Parts in the stage's own chain are laid end to end and read no offset, but report a method.
+          const chained = ['stage', 'nosecone', 'bodytube', 'transition'].includes(type);
+          compared.add(`${type}.position`);
+          const pos = positionOf(app);
+          const shown = chained ? pos.method : `${pos.method} ${+pos.offset.toFixed(9)}`;
+          const kernel = chained
+            ? String(built.positionMethod)
+            : `${String(built.positionMethod)} ${+Number(built.positionOffset).toFixed(9)}`;
+          if (shown !== kernel) misses.push({ rule: `${type}.position`, label: c.label, app: shown, kernel });
         }
       }
     }

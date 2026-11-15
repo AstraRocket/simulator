@@ -138,7 +138,6 @@ const BASELINE = [
   'src/services/storage/designLibrary.ts#setDesignLibrary',
   'src/services/storage/idbKeyValueStore.ts#__resetIdbForTests',
   'src/services/storage/launchLocationStore.ts#setLaunchLocationStore',
-  'src/state/finFlutterChoices.ts#forgetFinStockChoices',
 ];
 
 describe('src exports reached only from tests are a decision', () => {

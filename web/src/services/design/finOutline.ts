@@ -1,10 +1,9 @@
 // FreeformFinSet.intersects, which the kernel runs on every outline and the bridge turns into a failed build.
 // Ported with its snapping (setPoints) and Line2D semantics (Geo2D), so the editor refuses what the kernel would.
 
-type Pt = readonly [number, number];
+import { FREEFORM_IGNORE_SMALLER_THAN as IGNORE_SMALLER_THAN, normalizeFreeformPoints } from '../../tree/position';
 
-const IGNORE_SMALLER_THAN = 1e-12;
-const SNAP_LARGER_THAN = 2.5;
+type Pt = readonly [number, number];
 
 // Line2D.relativeCCW: collinear points off the segment get a non-zero sign.
 function relativeCCW(x1: number, y1: number, x2: number, y2: number, px: number, py: number): number {
@@ -35,12 +34,7 @@ function segmentsIntersect(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
 // As setPoints moves the outline to the origin and snaps it inside 2.5 m. Holds on a body tube,
 // where the kernel's clamps leave the editor's points as they are.
 function asKernelSees(points: readonly Pt[]): Pt[] {
-  const [dx, dy] = points[0]!;
-  const moved = dx * dx + dy * dy > IGNORE_SMALLER_THAN ? points.map(([x, y]) => [x - dx, y - dy] as Pt) : points;
-  // The y snap starts from the unsnapped point, so a point past both limits keeps its x.
-  return moved.map(([x, y]) =>
-    y > SNAP_LARGER_THAN ? ([x, SNAP_LARGER_THAN] as Pt) : ([Math.min(x, SNAP_LARGER_THAN), y] as Pt),
-  );
+  return normalizeFreeformPoints(points);
 }
 
 /** True when the kernel would refuse this outline for crossing or touching itself. */

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLauncherT } from '../common/useLauncher';
-import { fmtNum, stageLabel } from '../../i18n/format';
+import { fmtCalibers, fmtNum, stageLabel } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import type { FlightResult } from '../../engine/api';
 import { CSV_MIME, flightEventsCsv } from '../../services/exports/csvExport';
@@ -24,7 +24,7 @@ function Extras({ row }: { row: EventRow }) {
     if (v == null || !Number.isFinite(v)) return [];
     switch (k) {
       case 'stability':
-        return [`${fmtNum(v, 2)} ${t('stability.caliber')}`];
+        return [fmtCalibers(v, t)];
       case 'twr':
         return [`${t('flight.twr')} ${fmtNum(v, 1)}`];
       case 'aoa':

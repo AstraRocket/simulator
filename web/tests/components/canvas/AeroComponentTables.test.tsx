@@ -47,6 +47,14 @@ describe('StabilityTable', () => {
     expect(heads.some((h) => h?.includes('% body'))).toBe(false);
   });
 
+  it("prints the whole rocket's share in the reader's language, as every part's share is", async () => {
+    await i18n.changeLanguage('de');
+    renderTable();
+    const row = screen.getByText(i18n.t('aero.wholeRocket')).closest('tr')!;
+    const cells = [...row.querySelectorAll('td')].map((c) => c.textContent);
+    expect(cells.at(-1)).toBe(new Intl.NumberFormat('de', { style: 'percent' }).format(1));
+  });
+
   it("names the CP columns in the reader's language, as the drawings do", async () => {
     for (const lang of ['ru', 'pl']) {
       await i18n.changeLanguage(lang);

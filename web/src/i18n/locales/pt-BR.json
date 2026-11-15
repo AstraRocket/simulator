@@ -193,6 +193,7 @@
     "openExample": "Não foi possível abrir esse exemplo: {{reason}}",
     "saveOrk": "Não foi possível salvar o .ork: {{reason}}",
     "saveOrkNoDesignInfo": "O .ork foi salvo sem as informações do projeto: não foi possível montar o projeto, então não havia estatísticas para incluir.",
+    "saveOrkFairing": "O .ork foi salvo, mas o OpenRocket para desktop não tem a peça carenagem e, ao abrir o arquivo, deixa estas de fora com a massa: {{parts}}.",
     "exportRasaero": "Não foi possível exportar o RASAero: {{reason}}",
     "exportRasaeroSurface": "O arquivo do RASAero foi salvo, mas o RASAero não tem uma superfície correspondente ao acabamento deste projeto, então ela foi gravada como lisa (rugosidade zero).",
     "exportRasaeroStageMass": "O arquivo do RASAero foi salvo, mas o peso de lançamento e o CG de um estágio não estavam disponíveis, então as células de peso e CG da simulação foram gravadas como 0. Informe-as no RASAero antes de voar.",
@@ -485,6 +486,7 @@
     "undo": "Desfazer",
     "redo": "Refazer",
     "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
     "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
@@ -1428,6 +1430,7 @@
     "noEditor": "Este aplicativo não tem editor para: {{items}}. Eles são preservados, então salvar os mantém.",
     "docMaterialsSkipped": "Materiais do projeto ignorados por serem ilegíveis: {{count}}.",
     "referenceType": "Este projeto mede a margem de estabilidade (cal) em relação a \"{{type}}\". Este app a mede em relação ao tubo de corpo mais largo, então a margem em cal pode diferir da do OpenRocket para desktop; o arquivo mantém a configuração.",
+    "lookupTables": "Estas simulações voam no OpenRocket para desktop com uma tabela de arrasto ou de estabilidade. Este app calcula por conta própria o arrasto e a estabilidade, então os resultados salvos ficam marcados como desatualizados e uma nova execução pode diferir. As tabelas são mantidas e gravadas junto com o arquivo: {{names}}.",
     "motorPlugged": "Motor {{motor}}: tampado (sem carga de ejeção). Garanta que a recuperação seja acionada no apogeu ou por altitude, não pela carga de ejeção.",
     "motorPluggedNoDelay": "Motor {{motor}}: tampado (sem carga de ejeção; o arquivo não traz um retardo legível). Garanta que a recuperação seja acionada no apogeu ou por altitude, não pela carga de ejeção.",
     "finPointsCapped": "Uma aleta livre tinha mais de {{max}} pontos; o restante foi descartado.",
@@ -2805,7 +2808,6 @@
     "cgHint": "O ponto de equilíbrio sem motor, medido a partir da ponta da coifa.",
     "cgOutside": "O CG precisa estar no foguete, entre a ponta da coifa e {{length}}.",
     "railStability": "Estabilidade na saída do lançador",
-    "calibers": "{{value}} cal",
     "lowStability": "Abaixo de {{min}} cal: provavelmente instável",
     "stabilityNote": "A estabilidade vem do seu CG e das suas aletas com a coifa substituta; a coifa real a muda um pouco.",
     "colStability": "Estabilidade (cal)",

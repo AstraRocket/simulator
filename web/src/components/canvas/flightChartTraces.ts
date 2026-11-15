@@ -1,5 +1,5 @@
 import type { FlightResult, FlightSeries } from '../../engine/openRocketEngine';
-import { type Quantity, radToDeg } from '../../prefs/units';
+import { type Quantity, radToDeg, siToUiDelta, unitScope } from '../../prefs/units';
 import type { Units } from '../../prefs/useUnits';
 import { flightBranches, seriesColumn } from '../../services/flight/flightColumns';
 import { dynamicPressure, qAlpha, rollRate } from '../../services/flight/flightEvents';
@@ -17,6 +17,8 @@ export interface Meta {
   quantity?: Quantity;
   // A second unit group for a product: q·α is pressure times angle.
   times?: Quantity;
+  // The unit chip this figure shares with its tile on the Results summary.
+  scope?: string;
   ladder?: boolean;
   // Raw SI to display units, used only without `quantity`.
   scale?: number;
@@ -26,8 +28,22 @@ export interface Meta {
   xy?: { x: Meta; y: Meta };
 }
 
-const ALTITUDE: Meta = { key: 'altitude', label: 'flight.altitude', unit: 'm', digits: 0, quantity: 'distance' };
-const VELOCITY: Meta = { key: 'velocity', label: 'flight.velocity', unit: 'm/s', digits: 0, quantity: 'velocity' };
+const ALTITUDE: Meta = {
+  key: 'altitude',
+  label: 'flight.altitude',
+  unit: 'm',
+  digits: 0,
+  quantity: 'distance',
+  scope: unitScope('sim', 'apogee'),
+};
+const VELOCITY: Meta = {
+  key: 'velocity',
+  label: 'flight.velocity',
+  unit: 'm/s',
+  digits: 0,
+  quantity: 'velocity',
+  scope: unitScope('sim', 'maxSpeed'),
+};
 
 export const SERIES: Meta[] = [
   ALTITUDE,
@@ -72,12 +88,15 @@ export const SERIES: Meta[] = [
   { key: 'rollRate', label: 'flight.rollRate', unit: 'r/s', digits: 2, quantity: 'rollRate' },
   { key: 'velocityAltitude', label: 'flight.velocityAltitude', unit: '', digits: 0, xy: { x: ALTITUDE, y: VELOCITY } },
 ];
-export const traceScale = (m: Meta, u: Pick<Units, 'factor'>): number =>
-  m.quantity ? u.factor(m.quantity) * (m.times ? u.factor(m.times) : 1) : (m.scale ?? 1);
+export const traceScale = (m: Meta, u: Pick<Units, 'factor' | 'sym'>): number => {
+  if (!m.quantity) return m.scale ?? 1;
+  const own = m.scope ? siToUiDelta(m.quantity, u.sym(m.quantity, m.scope), 1) : u.factor(m.quantity);
+  return own * (m.times ? u.factor(m.times) : 1);
+};
 
 // The display value of SI zero: nonzero only for temperature.
-export const traceOffset = (m: Meta, u: Pick<Units, 'toUi'>): number =>
-  m.quantity && !m.times ? u.toUi(m.quantity, 0) : 0;
+export const traceOffset = (m: Meta, u: Pick<Units, 'toUi' | 'at'>): number =>
+  m.quantity && !m.times ? (m.scope ? u.at(m.scope, m.quantity).toUi(0) : u.toUi(m.quantity, 0)) : 0;
 
 export const traceLabel = (m: Meta, t: (key: string, values?: Record<string, string>) => string): string =>
   m.literal
@@ -90,7 +109,7 @@ export const traceUnit = (m: Meta, u: Pick<Units, 'sym'>, t: (key: string) => st
   m.quantity
     ? m.times
       ? `${u.sym(m.quantity)}·${u.sym(m.times)}`
-      : u.sym(m.quantity)
+      : u.sym(m.quantity, m.scope)
     : m.unitKey
       ? t(m.unitKey)
       : m.unit;

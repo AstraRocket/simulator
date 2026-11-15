@@ -530,6 +530,19 @@ describe('bore and profile flags', () => {
       expect(patch.thickness).toBeGreaterThanOrEqual(0);
     });
 
+    it('agrees with the diameter and wall beside it on a tube that leaves both out', () => {
+      // A .rkt with no ID tag: the boxes show the kernel's defaults, and the bore has to follow them.
+      const onChange = show({ id: 'bare', type: 'bodytube', length: 0.2 } as unknown as ComponentNode);
+      const od = Number(box('Diameter').value);
+      const wall = Number(box('Thickness').value);
+      expect(od).toBeGreaterThan(0);
+      expect(Number(box('Inner diameter').value)).toBeCloseTo(od - 2 * wall, 6);
+
+      fireEvent.change(box('Inner diameter'), { target: { value: String(od - 1) } });
+      // The wall half of the 1 cm taken off the diameter, never the 0 a zero outer radius gave.
+      expect((onChange.mock.calls.at(-1)![0] as { thickness: number }).thickness).toBeCloseTo(0.005, 9);
+    });
+
     it('halves a typed outer diameter back into the stored radius', () => {
       const onChange = vi.fn();
       render(onChange);

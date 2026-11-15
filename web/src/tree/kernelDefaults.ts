@@ -57,6 +57,9 @@ export function defaultSeparation(type: string): number {
 /** Kennedy Space Center, the kernel's default site (`OpenRocketEngine.simulateJson`), in degrees. */
 export const KERNEL_LAUNCH_SITE = { latitudeDeg: 28.61, longitudeDeg: -80.6 } as const;
 
+/** What the kernel flies with no humidity given: `ExtendedISAModel.STANDARD_RELATIVE_HUMIDITY`, a fraction. */
+export const KERNEL_RELATIVE_HUMIDITY = 0;
+
 /** Names `ComponentFactory.finishOf` accepts, in desktop's `Finish` enum order. */
 export const KERNEL_FINISHES: readonly string[] = [
   'rough',

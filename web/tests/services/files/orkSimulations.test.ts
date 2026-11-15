@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// cspell:ignore randomseed recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning Allumage -- OpenRocket .ork element names, and a French extension name
+// cspell:ignore randomseed recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning draglookup stabilitylookup stabilitylookupcsv Allumage -- OpenRocket .ork element names, and a French extension name
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -368,5 +368,41 @@ describe("each simulation's own run settings", () => {
   it('are refused outside the bounds Settings holds them to', () => {
     const bad = xml.replace('<timestep>0.01</timestep>', '<timestep>1000000</timestep>');
     expect(importOrk(bad).simulations?.[0]?.prefs?.timeStep).toBeUndefined();
+  });
+});
+
+describe('a simulation that flies a lookup table on desktop', () => {
+  // SimulationConditionsHandler reads these; the kernel always flies Barrowman (SimulationOptions).
+  const withTable = (tag: string, body: string) =>
+    importOrk(
+      write([
+        { name: 'Tabled', configId: 'cfg-c6', launch, summary, status: 'uptodate' },
+        { name: 'Plain', configId: 'cfg-c6', launch, summary, status: 'uptodate' },
+      ]).replace('</conditions>', `<${tag}>${body}</${tag}></conditions>`),
+    );
+
+  it.each([
+    ['draglookup', '<point mach="0.5" cd="0.4"/>'],
+    ['stabilitylookup', '<point mach="0.5" cn="2" cm="0" cp="0.3"/>'],
+    ['draglookupcsv', 'drag.csv'],
+    ['stabilitylookupcsv', 'stability.csv'],
+  ])('files its desktop summary as outdated, and says why (%s)', (tag, body) => {
+    const res = withTable(tag, body);
+    const [tabled, plain] = res.simulations!;
+    expect(tabled!.outdated).toBe(true);
+    expect(tabled!.summary).toEqual(summary);
+    expect(plain!.outdated).toBe(false);
+    const note = noteTexts(res.notes).find((n) => /lookup table/.test(n));
+    expect(note).toContain('Tabled');
+    expect(note).not.toContain('Plain');
+  });
+
+  it('keeps the table, so saving the design preserves it', () => {
+    const res = withTable('draglookup', '<point mach="0.5" cd="0.4"/>');
+    expect(res.simulations![0]!.xmlExtra?.join('')).toContain('draglookup');
+  });
+
+  it('reads an empty element as no table, as desktop does', () => {
+    expect(withTable('draglookupcsv', '  ').simulations![0]!.outdated).toBe(false);
   });
 });

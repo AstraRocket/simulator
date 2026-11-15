@@ -8,7 +8,7 @@ import { clampEntry } from '../../prefs/entryValue';
 import { unitScope, type Quantity, degToRad } from '../../prefs/units';
 import { num } from '../../tree/nodeProps';
 import { shapeSelect } from '../../tree/shapeProfile';
-import type { Field } from '../../services/design/componentFields';
+import { FIELDS, type Field } from '../../services/design/componentFields';
 import { DERIVED } from '../../services/design/derivedFields';
 import { clampToBounds, type DimensionBounds } from '../../services/design/linkedDimensions';
 import { isKernelAutoKey, fieldOptions, fieldRange, fieldValue, liveBounds } from '../../services/design/fieldRange';
@@ -199,11 +199,16 @@ interface NumericContext<F extends Field = Field> {
 function boreProps({ node, u, scope, patchNumber }: NumericContext): NumericProps {
   // Not stored: writes the wall and keeps the outer radius, as OpenRocket's linked tube fields do.
   const fu = u.at(scope, 'length');
-  const outerR = num(node, 'outerRadius');
-  const od = 2 * outerR;
+  // What the OD and wall fields beside it show, the kernel's default for a key the node leaves out included.
+  const shown = (key: string): number => {
+    const field = FIELDS[node.type]?.find((x) => x.key === key);
+    const v = field ? fieldValue(node, field) : undefined;
+    return typeof v === 'number' ? v : num(node, key);
+  };
+  const od = 2 * shown('outerRadius');
   return {
     unit: <UnitChip quantity="length" scope={scope} />,
-    value: fu.toUi(Math.max(0, od - 2 * num(node, 'thickness'))),
+    value: fu.toUi(Math.max(0, od - 2 * shown('thickness'))),
     step: fu.step(0.0005),
     min: 0,
     max: fu.toUi(od),

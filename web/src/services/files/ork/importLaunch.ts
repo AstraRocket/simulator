@@ -2,6 +2,7 @@ import type { LaunchConditions } from '../../design/orkTree';
 import { xmlText as text } from '../xmlUtil';
 import { stdDevForIntensity } from '../../flight/windTurbulence';
 import { usableWindLevels, windFrom } from '../../flight/windLevels';
+import { norm360 } from '../../flight/groundTrack';
 import { usableAtmosphereLevels } from '../../flight/atmosphereLevels';
 import { isWeatherSource, restoredSource } from '../../weather/weatherSource';
 import { finiteNum } from './numbers';
@@ -113,7 +114,8 @@ function readWind(condEl: Element, launch: Partial<LaunchConditions>): void {
   if (!Number.isNaN(sd)) launch.windStdDev = sd;
   let dirRad = avgEl ? numTag(avgEl, 'direction', NaN) : NaN;
   if (Number.isNaN(dirRad)) dirRad = numTag(condEl, 'winddirection', NaN);
-  if (!Number.isNaN(dirRad)) launch.windDirectionDeg = radToDeg(dirRad);
+  // Reduced as PinkNoiseWindModel.setDirection reduces it (MathUtil.reduce2Pi).
+  if (!Number.isNaN(dirRad)) launch.windDirectionDeg = norm360(radToDeg(dirRad));
 
   const mlEl = windEls.find((w) => (w.getAttribute('model') ?? '').toLowerCase() === 'multilevel');
   if (mlEl) {

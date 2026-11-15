@@ -7,6 +7,7 @@ import { ComponentExportButton } from './ComponentExportButton';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import { partLabel } from '../../i18n/format';
 import { isFinSet } from '../../tree/tubefins';
+import { finCountOf } from '../../tree/nodeProps';
 import { token } from '../common/colorTokens';
 import { Disclosure } from '../common/Disclosure';
 import { toggled } from '../../services/app/collections';
@@ -92,10 +93,7 @@ function detail(n: ComponentNode, t: TFunction, u: Units): string {
     return [typeof n.shape === 'string' ? t(`noseShape.${n.shape}`, { defaultValue: n.shape }) : null, len(u, n.length)]
       .filter(Boolean)
       .join(' · ');
-  if (isFinSet(ty)) {
-    const c = n.finCount ?? n.count;
-    return typeof c === 'number' ? t('tree.fins', { count: c }) : '';
-  }
+  if (isFinSet(ty)) return t('tree.fins', { count: finCountOf(n) });
   if (ty === 'parachute') {
     const d = len(u, n.diameter);
     return d ? `⌀ ${d}` : '';

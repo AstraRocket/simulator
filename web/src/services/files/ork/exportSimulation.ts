@@ -12,7 +12,7 @@ import { LAUNCH_SI } from '../../../prefs/launchUnits';
 import { DEFAULT_HEADING_DEG } from '../../flight/windLevels';
 import { G0 } from '../../motors/motorMath';
 import { DEFAULT_SETTINGS } from '../../storage/settings';
-import { KERNEL_LAUNCH_SITE } from '../../../tree/kernelDefaults';
+import { KERNEL_LAUNCH_SITE, KERNEL_RELATIVE_HUMIDITY } from '../../../tree/kernelDefaults';
 import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS } from './simulationTags';
 
 export function simulationsXml(
@@ -100,11 +100,13 @@ function conditionsXml(
   if (fixedSeed) emit(depth, `<randomseed>${seed}</randomseed>`);
   atmosphereXml(w, depth, launch);
   forecastLevelsXml(w, depth, launch.atmosphereLevels ?? []);
-  // As `OpenRocketSaver` writes it; `GravityHandler` reads no other form.
+  // As `OpenRocketSaver` writes it, WGS included: with no element, desktop takes its user's preferred model.
   if (launch.gravityModel === 'constant') {
     emit(depth, '<gravity model="constant">');
     emit(depth + 1, `<value>${launch.constantGravity ?? G0}</value>`);
     emit(depth, '</gravity>');
+  } else {
+    emit(depth, '<gravity model="wgs"/>');
   }
   weatherSourceXml(w, depth, launch);
   for (const [key, tag] of SIM_PREF_TAGS) emit(depth, `<${tag}>${prefs[key]}</${tag}>`);
@@ -153,9 +155,11 @@ function atmosphereXml(w: OrkWriter, depth: number, launch: LaunchConditions): v
     emit(depth, '<atmosphere model="extendedisa">');
     emit(depth + 1, `<basetemperature>${LAUNCH_SI.degC.toSi(launch.temperatureC ?? 15)}</basetemperature>`);
     emit(depth + 1, `<basepressure>${LAUNCH_SI.hPa.toSi(launch.pressureHPa ?? 1013.25)}</basepressure>`);
-    if (launch.relativeHumidity != null) {
-      emit(depth + 1, `<baserelativehumidity>${launch.relativeHumidity}</baserelativehumidity>`);
-    }
+    // Always, as `OpenRocketSaver` writes it: with none, desktop takes its user's preferred humidity.
+    emit(
+      depth + 1,
+      `<baserelativehumidity>${launch.relativeHumidity ?? KERNEL_RELATIVE_HUMIDITY}</baserelativehumidity>`,
+    );
     emit(depth, '</atmosphere>');
   }
 }

@@ -6,8 +6,7 @@ import { findStages } from '../../services/design/treeEdit';
 import { OverrideCard, OverrideNumber, OverrideRow, OverrideSelect, OverrideAltitude } from './OverrideFields';
 import { overrideFieldLabel } from './overrideFieldLabel';
 import { useUnits } from '../../prefs/useUnits';
-import { propAltitudeUnit } from './configColumns';
-import { fmtUpTo } from '../../i18n/format';
+import { fmtDelay, propAltitudeUnit } from './configColumns';
 import { partName } from './partName';
 import { SEPARATION_EVENTS } from '../../services/design/componentFields';
 
@@ -75,7 +74,7 @@ export function SeparationSection({
             name={name}
             label={t('prop.separationDelay')}
             value={over?.separationDelay ?? null}
-            placeholder={fmtUpTo(design.separationDelay, 2)}
+            placeholder={fmtDelay(design.separationDelay)}
             step={0.5}
             min={0}
             unit={t('units.second')}

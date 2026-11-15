@@ -1477,10 +1477,9 @@ public final class OpenRocketEngine {
     private static double railLengthNeeded(RocketCtx ctx, Map<String, Object> o, double minSpeed)
             throws SimulationException {
         SimulationConditions probe = buildConditions(ctx, o);
-        double rod = probe.getLaunchRodLength();
         probe.setLaunchRodLength(PROBE_ROD_M);
         probe.setMaxSimulationTime(Math.min(probe.getMaxSimulationTime(), PROBE_MAX_TIME_S));
-        RailSpeedProbe listener = new RailSpeedProbe(minSpeed, JsonLite.bool(o, "guideAwareRodClearance", false), rod);
+        RailSpeedProbe listener = new RailSpeedProbe(minSpeed, JsonLite.bool(o, "guideAwareRodClearance", false));
         probe.getSimulationListenerList().add(listener);
         new BasicEventSimulationEngine().simulate(probe);
         return listener.railLength();

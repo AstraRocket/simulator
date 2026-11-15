@@ -205,10 +205,15 @@ shim and the real class is invisible at compile time and wrong at runtime.
   and unpatched files as problems, and also unblessed patches, leftover patches
   (identical to upstream), a missing `DIVERGENCE.txt` baseline, shims whose
   upstream class moved since review (`SHIMS.txt`) or a missing shim baseline,
-  and drift in the app's upstream material rows. `extract/DIVERGENCE.txt` pins
+  and drift in the app's upstream material rows, a class outside `src/java` and
+  the shims that declares an upstream name, a manifest list or upstream content
+  that differs from the `@manifest` and `@upstream` fingerprints, and any
+  fingerprint `patches/LEDGER.md` does not quote. `extract/DIVERGENCE.txt` pins
   each patch's line delta plus a sha256 of the patch and of the upstream file it
   replaces, so any byte change to a patch fails the check until it is
-  re-recorded with `npm run extract:bless` (which refuses to bless a leftover).
+  re-recorded with `npm run extract:bless` (which refuses to bless a leftover)
+  and its fingerprint is quoted in the LEDGER. Shims are re-recorded only by
+  `npm run extract:bless-shims`.
   Verify that every counter fails the check, that a bless cannot hide a change
   the LEDGER does not explain, and that no single bad manifest entry can turn
   the check green.
@@ -221,7 +226,7 @@ shim and the real class is invisible at compile time and wrong at runtime.
   mode, and any flag that could make the two targets differ in floating-point
   behavior. `-Pparity` builds a variant - confirm the variant that gets
   compared is the variant that ships.
-- Confirm `gates.yml` still reads the ref from `extract/UPSTREAM`.
+- Confirm the `engine` job in `gates.yml` takes the ref only from `extract/UPSTREAM` (through `extract:check`).
 
 ### 5. The gates themselves: `test/parity/` and `validation/`
 
@@ -240,7 +245,7 @@ gate's scope covers what it says it covers.
   that crashes, hangs, or produces no output at all? Does the comparison fail,
   or can an empty result compare equal? `TARGET_COMPLETE` and the stdout
   synchronization are load-bearing here.
-- **`validation/` is a ratchet in CI.** The `validate` job in `gates.yml` runs
+- **`validation/` is a ratchet in CI.** The `engine` job in `gates.yml` runs
   `score.mjs --check-floors` on both models, which reads
   `validation/floors.json`: the gated set must be exactly 135 points with the
   recorded `gateHash`, and the score must not drop below 13/135 (classic) or

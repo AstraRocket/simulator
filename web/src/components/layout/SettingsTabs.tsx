@@ -29,7 +29,7 @@ import { onSi } from '../../prefs/entryValue';
 import { Check } from '../common/Check';
 import { ColorField } from '../common/ColorInput';
 import { canAskWhereToSave } from '../../services/files/saveFile';
-import { SPEED_WARNINGS } from '../sim/speedWarnings';
+import { MIN_SPEED_LIMIT, SPEED_WARNINGS } from '../sim/speedWarnings';
 import { EsriKeyField } from '../sim/EsriKeyField';
 import { CardGroup } from '../common/CardGroup';
 import { THEME_PREFS, type ThemePref } from '../../services/app/theme';
@@ -40,9 +40,6 @@ import { smallButton } from '../common/smallButton';
 import { SelectRow } from '../common/SelectRow';
 
 const RULER_SIDES = ['top', 'bottom', 'left', 'right'] as const;
-
-// m/s. Above 0, as the load keeps only a positive limit: a 0 would come back as the default.
-const MIN_SPEED_LIMIT = 0.1;
 
 export function GeneralTab() {
   const { t } = useTranslation();

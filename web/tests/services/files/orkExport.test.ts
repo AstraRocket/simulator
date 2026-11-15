@@ -121,3 +121,49 @@ describe('exportOrk - a blank launch field', () => {
     expect(out).toContain('<launchlongitude>-80.6</launchlongitude>');
   });
 });
+
+describe('exportOrk - a pod set or booster the user never named', () => {
+  it("is saved under desktop's own name for a new one", () => {
+    const tube = (id: string, children: ComponentNode[] = []) =>
+      node({ id, type: 'bodytube', length: 0.3, outerRadius: 0.02, thickness: 0.001, children });
+    const tree = {
+      name: 'R',
+      components: [
+        node({
+          id: 's',
+          type: 'stage',
+          children: [
+            tube('core', [
+              node({ id: 'p', type: 'podset', instanceCount: 2, children: [tube('pod')] }),
+              node({ id: 'b', type: 'parallelstage', instanceCount: 2, children: [tube('boost')] }),
+            ]),
+          ],
+        }),
+      ],
+    } as unknown as RocketTree;
+    const out = xmlFor(tree);
+    // core/src/main/resources/l10n/messages.properties: PodSet.PodSet, BoosterSet.BoosterSet.
+    expect(out).toContain('<name>Pod Set</name>');
+    expect(out).toContain('<name>Booster Set</name>');
+  });
+});
+
+describe('exportOrk - the conditions desktop reads from its preferences when absent', () => {
+  const launch = (over: Partial<LaunchConditions>) =>
+    ({ launchRodLengthM: 1, temperatureC: 20, pressureHPa: 1000, relativeHumidity: null, ...over }) as LaunchConditions;
+  const out = (over: Partial<LaunchConditions>) =>
+    exportOrk({ name: 'Rocket', tree: absoluteTree(), launch: launch(over) } as never);
+
+  it('writes the WGS gravity model, as OpenRocketSaver does', () => {
+    expect(out({})).toContain('<gravity model="wgs"/>');
+    expect(out({ gravityModel: 'constant', constantGravity: 9.8 } as Partial<LaunchConditions>)).not.toContain(
+      'model="wgs"',
+    );
+  });
+
+  it('writes a humidity in an extended atmosphere, the one the kernel flies when none is set', () => {
+    // ExtendedISAModel.STANDARD_RELATIVE_HUMIDITY.
+    expect(out({})).toContain('<baserelativehumidity>0</baserelativehumidity>');
+    expect(out({ relativeHumidity: 0.4 })).toContain('<baserelativehumidity>0.4</baserelativehumidity>');
+  });
+});

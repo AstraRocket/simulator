@@ -8,6 +8,7 @@ import type { MountFit } from '../../services/motors/motorPicker';
 import { MotorSpecDialog } from './MotorSpecDialog';
 import { useUnits } from '../../prefs/useUnits';
 import { motorName } from '../../services/motors/motorName';
+import { hasUsableCurve } from '../../services/motors/motorCurve';
 import { IGNITION_EVENTS } from '../../services/design/componentFields';
 import type { IgnitionScope } from '../../state/store';
 import { ejectionDelayText } from './motorFormat';
@@ -45,7 +46,8 @@ export function MotorRow({
   const u = useUnits();
   const [open, setOpen] = useState(false);
   const [curveOpen, setCurveOpen] = useState(false);
-  const hasCurve = !!motor?.masses?.length;
+  // The builder's predicate: a curve it would skip is shown as missing, not as a motor Run then refuses.
+  const hasCurve = hasUsableCurve(motor);
   const cardLabel = title ?? t('sims.motor');
   return (
     <section aria-label={cardLabel} className={'rounded-xl bg-surface p-3 ring-1 ring-line/10'}>

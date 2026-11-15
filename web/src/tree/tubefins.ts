@@ -16,6 +16,20 @@ export function tubeFinRadius(node: ComponentNode, bodyRadius: number): number {
   return tubeFinMaxRadius(n, bodyRadius) ?? bodyRadius;
 }
 
+/**
+ * `TubeFinSet.getThickness`: a stated wall clamped to the tube's radius (`setThickness`). With none, the set takes its
+ * parent body tube's wall when added (`BodyTube.addChild`; a filled tube's is its radius); anywhere else it has none.
+ */
+export function tubeFinWall(node: ComponentNode, parent: ComponentNode | null, tubeRadius: number): number {
+  const parentWall =
+    parent?.type !== 'bodytube'
+      ? NaN
+      : parent['filled'] === true
+        ? Infinity
+        : num(parent, 'thickness', KERNEL_DEFAULTS.bodytube.thickness);
+  return Math.min(Math.max(numOpt(node, 'thickness') ?? parentWall, 0), tubeRadius);
+}
+
 /** Where a tube fin set sits: `radiusAt` gives the body radius at an offset from the parent's start. */
 export function tubeFinSeat(node: ComponentNode, pStart: number, pLen: number, radiusAt: (offset: number) => number) {
   const length = num(node, 'length', KERNEL_DEFAULTS.tubefinset.length);

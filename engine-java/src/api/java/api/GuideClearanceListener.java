@@ -53,10 +53,18 @@ final class GuideClearanceListener extends AbstractSimulationListener {
 
 	private static final double SAME_STATION_M = 0.0005;
 
+	/** Where the rocket's guides sit: the lug's aft end, a button line's guiding station, the tail. */
+	private static final class Guides {
+		double lugX = Double.NaN;
+		double buttonX = Double.NaN;
+		double maxX = 0;
+		boolean hasButtons = false;
+	}
+
 	// Buttons need two in the rail, so a line guides until its second-to-last station leaves.
 	// A button's origin is its axial center (no length), so its aft edge is center + outerDiameter / 2.
-	static double effectiveRodLength(FlightConfiguration configuration, double rodLength) {
-		double lugX = Double.NaN;
+	private static Guides survey(FlightConfiguration configuration) {
+		Guides g = new Guides();
 		List<Double> angles = new ArrayList<>();
 		List<Double> centers = new ArrayList<>();
 		List<Double> aftEdges = new ArrayList<>();
@@ -64,8 +72,8 @@ final class GuideClearanceListener extends AbstractSimulationListener {
 		for (RocketComponent c : configuration.getActiveComponents()) {
 			if (c instanceof LaunchLug) {
 				for (CoordinateIF p : c.toAbsolute(new Coordinate(c.getLength()))) {
-					if (Double.isNaN(lugX) || p.getX() > lugX) {
-						lugX = p.getX();
+					if (Double.isNaN(g.lugX) || p.getX() > g.lugX) {
+						g.lugX = p.getX();
 					}
 				}
 			} else if (c instanceof RailButton) {
@@ -79,16 +87,20 @@ final class GuideClearanceListener extends AbstractSimulationListener {
 			}
 		}
 
-		double maxX = 0;
 		for (CoordinateIF c : configuration.getBounds()) {
-			if (c.getX() > maxX) {
-				maxX = c.getX();
+			if (c.getX() > g.maxX) {
+				g.maxX = c.getX();
 			}
 		}
+		g.buttonX = railGuideX(angles, centers, aftEdges);
+		g.hasButtons = !angles.isEmpty();
+		return g;
+	}
 
-		double lugLength = Double.isNaN(lugX) ? Double.NaN : travel(rodLength, maxX, lugX);
-		double buttonX = railGuideX(angles, centers, aftEdges);
-		double buttonLength = Double.isNaN(buttonX) ? Double.NaN : travel(rodLength, maxX, buttonX);
+	static double effectiveRodLength(FlightConfiguration configuration, double rodLength) {
+		Guides g = survey(configuration);
+		double lugLength = Double.isNaN(g.lugX) ? Double.NaN : travel(rodLength, g.maxX, g.lugX);
+		double buttonLength = Double.isNaN(g.buttonX) ? Double.NaN : travel(rodLength, g.maxX, g.buttonX);
 
 		if (!Double.isNaN(lugLength) && !Double.isNaN(buttonLength)) {
 			return Math.min(lugLength, buttonLength);
@@ -99,15 +111,37 @@ final class GuideClearanceListener extends AbstractSimulationListener {
 		if (!Double.isNaN(buttonLength)) {
 			return buttonLength;
 		}
-		return angles.isEmpty() ? rodLength : 0;
+		return g.hasButtons ? 0 : rodLength;
+	}
+
+	/**
+	 * How much rod lies past the last guide when it leaves: what a guided travel adds to make a rod length.
+	 * Takes no rod, so it is not clamped by a short one. 0 with no guide at all; NaN when buttons stand in no
+	 * two-station line, which no rod guides. For any rod, effectiveRodLength is max(0, rod - this).
+	 */
+	static double guideOffset(FlightConfiguration configuration) {
+		Guides g = survey(configuration);
+		double lug = Double.isNaN(g.lugX) ? Double.NaN : overhang(g.maxX, g.lugX);
+		double button = Double.isNaN(g.buttonX) ? Double.NaN : overhang(g.maxX, g.buttonX);
+		if (!Double.isNaN(lug) && !Double.isNaN(button)) {
+			return Math.max(lug, button);
+		}
+		if (!Double.isNaN(lug)) {
+			return lug;
+		}
+		if (!Double.isNaN(button)) {
+			return button;
+		}
+		return g.hasButtons ? Double.NaN : 0;
+	}
+
+	private static double overhang(double maxX, double guideX) {
+		return maxX >= guideX ? maxX - guideX : 0;
 	}
 
 	private static double travel(double rodLength, double maxX, double guideX) {
 		// Clamped at 0: a negative distance would always satisfy the comparison.
-		if (maxX >= guideX) {
-			return Math.max(0, rodLength - (maxX - guideX));
-		}
-		return rodLength;
+		return Math.max(0, rodLength - overhang(maxX, guideX));
 	}
 
 	private static double railGuideX(List<Double> angles, List<Double> centers, List<Double> aftEdges) {

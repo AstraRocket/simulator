@@ -1,6 +1,6 @@
 import type { ComponentNode, FlightSummary, MotorSpec, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
-import { collectNodes, stageNodes } from '../../tree/treeWalk';
-import { effectiveDeployment, type FlightConfig } from './flightConfigs';
+import { stageNodes } from '../../tree/treeWalk';
+import { effectiveDeployment, flyingNodes, type FlightConfig } from './flightConfigs';
 import { seatedMotors } from './powerClass';
 import { chargeRows, deviceRoles, type ChargeRole, type ChargeRow } from './recoveryCharges';
 import { isRecoveryDevice } from '../design/treeEdit';
@@ -85,7 +85,7 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
 
   const motors: LaunchMotor[] = [];
   for (const { stage, stageIndex } of flying) {
-    for (const mount of collectNodes([stage], (n) => n.motorMount === true)) {
+    for (const mount of flyingNodes([stage], config, (n) => n.motorMount === true)) {
       const seated = config.motors[mount.id as string];
       if (!seated) continue;
       const impulseNs = curveStats(specSamples(seated.spec)).impulse;
@@ -106,7 +106,7 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
   const roles = deviceRoles(tree);
   const devices: LaunchDevice[] = [];
   for (const { stage, stageIndex } of flying) {
-    for (const node of collectNodes([stage], (n) => isRecoveryDevice(n.type))) {
+    for (const node of flyingNodes([stage], config, (n) => isRecoveryDevice(n.type))) {
       const d = effectiveDeployment(config, node);
       const diameter = node['diameter'];
       devices.push({

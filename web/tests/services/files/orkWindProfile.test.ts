@@ -160,6 +160,14 @@ describe('a negative wind speed in a file', () => {
   });
 });
 
+describe('a wind heading past a full turn in a file', () => {
+  it('reads as the heading the kernel flies', () => {
+    // PinkNoiseWindModel.setDirection keeps MathUtil.reduce2Pi of it: 401° is 41°.
+    expect(roundTrip({ ...base, windDirectionDeg: 401 })?.windDirectionDeg).toBeCloseTo(41, 9);
+    expect(roundTrip({ ...base, windDirectionDeg: -30 })?.windDirectionDeg).toBeCloseTo(330, 9);
+  });
+});
+
 describe('a profile kept under the Average model', () => {
   const desktopAverage =
     `<openrocket version="1.10" creator="OpenRocket 24.12"><rocket><name>W</name><subcomponents><stage><name>S</name>` +

@@ -18,6 +18,7 @@ import { abortRunWork, createRunSlice, type RunSlice } from './runSlice';
 import { createDriftSweepSlice, type DriftSweepSlice } from './driftSweepSlice';
 import { createMotorGuideSlice, type MotorGuideSlice } from './motorGuideSlice';
 import { markWritten, voidPendingAutosave } from './writtenWorkspace';
+import { forgetFinStockChoices } from './finFlutterChoices';
 import { configOf, freshWorkspace, repairNotes, type StorageWarningKind } from './workspaceSelectors';
 
 // Defined in a leaf module so the slices can import them without a run-time cycle.
@@ -185,6 +186,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
   const replaceWorkspace = (patch: Partial<WorkspaceState> | ((s: WorkspaceState) => Partial<WorkspaceState>)) => {
     voidPendingAutosave();
     abortRunWork();
+    // Held by node id, and designs from the default rocket share their ids.
+    forgetFinStockChoices();
     set((s) => ({
       hiddenParts: new Set<string>(),
       simRuns: {},

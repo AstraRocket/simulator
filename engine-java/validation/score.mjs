@@ -108,6 +108,17 @@ for (const [name, spec] of Object.entries(anchors)) {
       process.exit(1);
     }
   }
+  // Every input that sets a model value goes into the gated-set hash, so an edit to one moves the hash:
+  // the fixture's geometry (not `_expect`, which a deliberate model change re-records) and the sweep settings.
+  const { _expect: _, ...geometry } = tree;
+  const anchorInputs = [
+    spec.fixture,
+    createHash('sha256').update(JSON.stringify(geometry)).digest('hex'),
+    `scale ${spec.refAreaScale ?? 1}`,
+    `aoa ${spec.aoaDeg ?? 0}`,
+    `alt ${spec.machAlt ?? ''}`,
+    `maxMach ${spec.maxMach ?? 10}`,
+  ].join('|');
   const pin = aeroPin(tree);
   if (recordExpect) {
     const path = join(here, 'fixtures', spec.fixture);
@@ -188,7 +199,7 @@ for (const [name, spec] of Object.entries(anchors)) {
         gateTotal++;
         if (inTol) gatePass++;
         gatedIds.push([name, series.id, series.quantity, series.base ?? '', mach, anchor,
-          series.relTol != null ? `rel ${series.relTol}` : `abs ${series.tol}`].join('|'));
+          series.relTol != null ? `rel ${series.relTol}` : `abs ${series.tol}`, anchorInputs].join('|'));
       }
       const result = gated ? (inTol ? 'PASS' : '**FAIL**') : (inTol ? 'ok (info)' : 'off (info)');
       out.push(`| ${mach} | ${anchor} | ${m.toFixed(4)} | ${delta >= 0 ? '+' : ''}${delta.toFixed(4)} | ±${tol.toFixed(4)} | ${result} |`);
@@ -227,7 +238,7 @@ if (expectGates != null && gateTotal !== expectGates) {
 }
 if (expectGateHash != null && gateHash !== expectGateHash) {
   console.error(`score: the gated set changed: sha256 ${gateHash}, expected ${expectGateHash}.`);
-  console.error('score:   a gate flag, Mach range, anchor or tolerance moved in anchors.json.');
+  console.error('score:   a gate flag, Mach range, anchor, tolerance, sweep setting or fixture moved.');
   console.error('score:   If deliberate, update gateHash in validation/floors.json and say why in review.');
   failed = true;
 }

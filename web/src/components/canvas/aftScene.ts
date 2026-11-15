@@ -20,7 +20,7 @@ import { isChainType } from '../../tree/componentKinds.js';
 import { axialStart, partLength, podPlacement } from '../../tree/position.js';
 import { innerTubeExtent, internalExtent, type MotorDims } from '../../tree/schematicGeometry';
 import { figureInk } from './schematicPainter';
-import { discDims, tubeRadii } from '../../services/design/discGeometry';
+import { discDims, ringHoles, tubeRadii } from '../../services/design/discGeometry';
 import { DISC_TYPES } from '../../services/files/componentFormats';
 import { withKernelEnds } from '../../services/design/autoRadius';
 import { partLabel } from '../../i18n/format';
@@ -333,8 +333,19 @@ function drawDisc(b: AftBuild, child: ComponentNode, { parent, cy, cz, pStart, p
   const outerR = disc?.outerR ?? 0;
   const off = toAftFrame(placementOffsets(child, outerR)[0]!, turn);
   if (disc) {
-    const rings = disc.innerR > 0 ? [disc.outerR, disc.innerR] : [disc.outerR];
-    rings.forEach((r, i) => dashedCircle(b, child, i, cy + off.y, cz + off.z, r, '2 3'));
+    const y = cy + off.y;
+    const z = cz + off.z;
+    dashedCircle(b, child, 0, y, z, disc.outerR, '2 3');
+    // One hole per cluster tube through an automatic ring, as the 3D view and every export cut it.
+    const holes = ringHoles(child, parent, pStart);
+    if (holes) {
+      holes.forEach((h, i) => {
+        const at = toAftFrame(h, turn);
+        dashedCircle(b, child, i + 1, y + at.y, z + at.z, h.r, '2 3');
+      });
+    } else if (disc.innerR > 0) {
+      dashedCircle(b, child, 1, y, z, disc.innerR, '2 3');
+    }
   }
   const start = axialStart(child, len, pStart, pLen);
   walkCopy(b, { parent: child, pRadius: outerR, cy: cy + off.y, cz: cz + off.z, pStart: start, pLen: len, turn }, 0);

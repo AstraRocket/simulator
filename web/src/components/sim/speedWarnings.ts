@@ -1,5 +1,8 @@
 import type { FlightEventType } from '../../engine/openRocketEngine';
 
+/** m/s. Above 0, as the settings load keeps only a positive limit: a 0 would come back as the default. */
+export const MIN_SPEED_LIMIT = 0.1;
+
 /** Stored in SI. Keys stay literal so the i18n key scan can find them. */
 export const SPEED_WARNINGS = [
   { key: 'deploymentSpeedWarn', label: 'settings.deploySpeedWarn', hint: 'settings.deploySpeedWarnHint' },

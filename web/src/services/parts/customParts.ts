@@ -33,6 +33,8 @@ const STATED_RADII: Partial<Record<string, readonly string[]>> = {
  * A saved part is the size it was saved at: each radius it states loses its automatic flag, or
  * `syncAutoRadii` would give it the neighbor's size while the picker lists it by its own.
  */
+export const statesRadius = (type: string, key: string): boolean => (STATED_RADII[type] ?? []).includes(key);
+
 export function pinSavedSize(node: Partial<ComponentNode>, type: string): Partial<ComponentNode> {
   const out: Record<string, unknown> = { ...node };
   for (const key of STATED_RADII[type] ?? []) if (n(node, key) !== null) out[`${key}Auto`] = false;
@@ -223,7 +225,7 @@ export async function updateCustomPart(id: string, meta: PartMeta, node: Partial
   const key = savedPartKey({ ...current, ...clean });
   const clash = saved.some((p) => p.id !== id && savedPartKey(p) === key);
   if (clash) throw new KeyedError('errors.savedPart.nameTaken');
-  return write({ ...current, ...clean, node });
+  return write({ ...current, ...clean, node: pinSavedSize(node, current.type) });
 }
 
 export const savedPartKey = (p: Pick<CustomPart, 'type' | 'mfr' | 'partNo'>): string =>

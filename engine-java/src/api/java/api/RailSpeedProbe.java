@@ -12,7 +12,6 @@ final class RailSpeedProbe extends AbstractSimulationListener {
 
 	private final double minSpeed;
 	private final boolean guideAware;
-	private final double realRodLength;
 
 	private CoordinateIF origin = null;
 	private double offset = 0;
@@ -24,11 +23,10 @@ final class RailSpeedProbe extends AbstractSimulationListener {
 	/** One-slot array, not a field: listeners are shallow-cloned and must share it. */
 	private final double[] result = { Double.NaN };
 
-	/** minSpeed in m/s, realRodLength in m. */
-	RailSpeedProbe(double minSpeed, boolean guideAware, double realRodLength) {
+	/** minSpeed in m/s. */
+	RailSpeedProbe(double minSpeed, boolean guideAware) {
 		this.minSpeed = minSpeed;
 		this.guideAware = guideAware;
-		this.realRodLength = realRodLength;
 	}
 
 	@Override
@@ -47,7 +45,8 @@ final class RailSpeedProbe extends AbstractSimulationListener {
 		}
 		origin = status.getRocketPosition();
 		if (guideAware) {
-			offset = realRodLength - GuideClearanceListener.effectiveRodLength(status.getConfiguration(), realRodLength);
+			// Not the real rod minus its effective length: a rod shorter than the overhang clamps that to the rod.
+			offset = GuideClearanceListener.guideOffset(status.getConfiguration());
 		}
 	}
 

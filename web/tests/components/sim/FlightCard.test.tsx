@@ -149,6 +149,29 @@ describe('the flight card', () => {
     localStorage.clear();
   });
 
+  it('prints each flight figure in its chip on the Results summary, and the rail and wind in their fields', () => {
+    seedSettings({
+      units: METRIC_UNITS,
+      unitOverrides: {
+        'sim.apogee': 'ft',
+        'sim.maxSpeed': 'ft/s',
+        'sim.landing': 'mph',
+        'launch.length': 'ft',
+        'launch.speed': 'mph',
+      },
+    });
+    const flight = seed();
+    renderWithProviders(<FlightCard flight={flight} />);
+    const text = screen.getAllByRole('article')[0]!.textContent;
+    // 410 m, 95 m/s, 5 m/s landing, 1.8 m of rail, 3 m/s of wind.
+    expect(text).toMatch(/1\D?345 ft/);
+    expect(text).toContain('312 ft/s');
+    expect(text).toMatch(/11\.2\d? mph/);
+    expect(text).toContain('5.91 ft');
+    expect(text).toMatch(/6\.7\d? mph/);
+    localStorage.clear();
+  });
+
   it("leaves out a rocket's mass and CG the live build did not weigh", () => {
     const flight = seed();
     useWorkspaceStore.setState({

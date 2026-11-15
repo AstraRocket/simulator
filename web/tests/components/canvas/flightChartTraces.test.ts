@@ -132,6 +132,23 @@ describe('a product series', () => {
   });
 });
 
+describe('the altitude and velocity panels', () => {
+  it('follow the Apogee and Max speed chips over the global unit', () => {
+    const chips: Record<string, string> = { 'sim.apogee': 'ft', 'sim.maxSpeed': 'mph' };
+    const u = {
+      factor: () => 1,
+      sym: (q: string, scope?: string) => (scope && chips[scope]) || (q === 'distance' ? 'm' : 'm/s'),
+      at: () => ({ toUi: () => 0 }),
+    };
+    const alt = SERIES.find((m) => m.key === 'altitude')!;
+    const vel = SERIES.find((m) => m.key === 'velocity')!;
+    expect(traceScale(alt, u as never)).toBeCloseTo(1 / 0.3048, 12);
+    expect(traceUnit(alt, u as never, (k) => k)).toBe('ft');
+    expect(traceScale(vel, u as never)).toBeCloseTo(1 / 0.44704, 12);
+    expect(traceUnit(vel, u as never, (k) => k)).toBe('mph');
+  });
+});
+
 describe('the stability panel', () => {
   it('labels calibers with the translated word, as the rest of the app does', () => {
     const stability = SERIES.find((m) => m.key === 'stability')!;

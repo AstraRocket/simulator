@@ -4,8 +4,7 @@ import { deployOverride, designDeployment, type FlightConfig } from '../../servi
 import { useWorkspaceStore } from '../../state/store';
 import { OverrideCard, OverrideNumber, OverrideSelect, OverrideAltitude } from './OverrideFields';
 import { useUnits } from '../../prefs/useUnits';
-import { propAltitudeUnit } from './configColumns';
-import { fmtUpTo } from '../../i18n/format';
+import { fmtDelay, propAltitudeUnit } from './configColumns';
 import { partName } from './partName';
 import { DEPLOY_EVENTS } from '../../services/design/componentFields';
 import { LOWER_STAGE_SEPARATION, hasStageBelow } from '../../services/design/fieldRange';
@@ -70,7 +69,7 @@ export function DeploymentSection({
         name={name}
         label={t('prop.deployDelay')}
         value={over?.deployDelay ?? null}
-        placeholder={fmtUpTo(design.deployDelay, 2)}
+        placeholder={fmtDelay(design.deployDelay)}
         step={0.5}
         min={0}
         unit={t('units.second')}

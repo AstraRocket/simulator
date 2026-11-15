@@ -2,6 +2,7 @@ import type { DocumentMaterial } from '../../materials/documentMaterials';
 import { byNameThenDensity, isDocumentMaterial } from '../../materials/documentMaterials';
 import type { MaterialType } from '../../materials/materialTypes';
 import { escapeXml } from '../xmlUtil';
+import { readDecimal } from '../numberText';
 import { desktopGroup } from './exportParts';
 import { MAX_PASSTHROUGH } from './importLimits';
 
@@ -17,14 +18,15 @@ function parseStorable(text: string): DocumentMaterial | null {
   if (split.length < 3) return null;
   const type = Object.hasOwn(FILE_TYPES, split[0]!) ? FILE_TYPES[split[0]!] : undefined;
   if (!type) return null;
-  const density = Number(split[2]!.trim());
+  // Decimal text only, as `parseDouble` reads it: `Number` also takes "0x10".
+  const density = readDecimal(split[2]!);
   let group: string | undefined;
   let shearModulus = 0;
   if (split.length >= 4) {
     // A numeric fourth piece is the shear modulus; otherwise it is the group.
     const fourth = split[3]!.trim();
-    if (fourth !== '' && Number.isFinite(Number(fourth))) {
-      shearModulus = Number(fourth);
+    if (Number.isFinite(readDecimal(fourth))) {
+      shearModulus = readDecimal(fourth);
       group = split[4];
     } else group = split[3];
   }
