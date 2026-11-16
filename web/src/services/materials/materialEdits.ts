@@ -1,11 +1,11 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { mapTreePreserving, walkNodes } from '../../tree/treeWalk';
+import { mapTreePreserving, collectNodes } from '../../tree/treeWalk';
 import { mathEquals } from '../motors/mathEquals';
 import type { DocumentMaterial } from './documentMaterials';
 import type { MaterialType } from './materialTypes';
 import { FILLET_MATERIAL_KEYS, MATERIAL_KEYS, type MaterialKeys } from '../design/materialSlots';
 
-export type MaterialRef = Pick<DocumentMaterial, 'name' | 'type' | 'density'> & { group?: string };
+export type MaterialRef = Pick<DocumentMaterial, 'name' | 'type' | 'density' | 'shearModulus'> & { group?: string };
 
 const SLOTS: Record<MaterialType, MaterialKeys[]> = {
   bulk: [MATERIAL_KEYS.bulk, FILLET_MATERIAL_KEYS],
@@ -21,7 +21,7 @@ function holds(node: ComponentNode, slot: MaterialKeys, m: MaterialRef): boolean
 
 export function partsUsing(tree: Pick<RocketTree, 'components'>, m: MaterialRef): ComponentNode[] {
   const slots = SLOTS[m.type];
-  return [...walkNodes(tree.components)].filter((n) => slots.some((s) => holds(n, s, m)));
+  return collectNodes(tree.components, (n) => slots.some((s) => holds(n, s, m)));
 }
 
 // Desktop edits one shared `Material` object (`Material.loadFrom`); here each part holds its own copy.
@@ -39,6 +39,7 @@ export function withMaterialReplaced<T extends Pick<RocketTree, 'components'>>(
         if (!holds(next, s, from)) continue;
         next = { ...next, [s.name]: to.name, [s.density]: to.density };
         if (s.group) next = { ...next, [s.group]: to.group || undefined };
+        if (s.shear) next = { ...next, [s.shear]: to.shearModulus || undefined };
       }
       return next;
     },

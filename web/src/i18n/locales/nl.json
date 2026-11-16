@@ -47,6 +47,8 @@
       "archiveEmpty": "Het .ork-archief is leeg.",
       "archiveCorrupt": "Het .ork-archief is beschadigd of kan niet worden gelezen.",
       "tooManyComponents": "Dit {{format}}-bestand bevat te veel onderdelen om te openen (mogelijk beschadigd).",
+      "tooManyInstances": "Dit {{format}}-bestand nest pods, clusters en aantallen tot te veel onderdelen om te openen (mogelijk beschadigd).",
+      "autoRadiusRunTooLong": "Dit {{format}}-bestand heeft te veel onderdelen met automatische straal achter elkaar om te openen (mogelijk beschadigd).",
       "tooManySimulations": "Dit .ork-bestand bevat te veel simulaties om te openen (mogelijk beschadigd).",
       "tooManyUnknownElements": "Dit .ork-bestand bevat te veel onbekende elementen om te openen (mogelijk beschadigd).",
       "tooManyConfigs": "Dit .ork-bestand bevat te veel vluchtconfiguraties om te openen (mogelijk beschadigd).",
@@ -83,6 +85,7 @@
       "engHeader": "Ongeldige .eng-kopregel. Verwacht: aanduiding diameter lengte vertragingen stuwstofmassa totaalmassa fabrikant.",
       "engHeaderNumbers": "Ongeldige .eng-kopregel: de diameter, de lengte of een massa is geen getal.",
       "engHeaderSize": "Ongeldige .eng-kopregel: diameter en lengte moeten positief zijn.",
+      "oversize": "Motor {{motor}} is groter of zwaarder dan de simulator aankan (meer dan 1000 m of 10¹⁵ kg). Corrigeer het motorbestand of kies een andere motor.",
       "engHeaderMass": "Ongeldige .eng-kopregel: de stuwstofmassa moet tussen 0 en de totale massa liggen.",
       "engDataLine": "Ongeldige .eng-gegevens op regel {{line}}: een tijd en een stuwkracht verwacht, maar \"{{text}}\" gevonden.",
       "engNoCurve": "Het .eng-bestand bevat geen meetpunten van de stuwkrachtcurve.",
@@ -119,6 +122,7 @@
       "propOverTotal": "{{motor}} staat in de catalogus met meer stuwstof ({{prop}} g) dan geladen massa ({{total}} g), dus de verbranding zou eindigen bij een negatieve massa. Kies een andere motor.",
       "badWeight": "{{motor}} staat in de catalogus met een negatieve stuwstofmassa of een geladen massa van nul of minder, dus kan niet worden gesimuleerd. Kies een andere motor.",
       "badSize": "thrustcurve.org geeft {{motor}} een onjuiste maat (diameter {{diameter}} mm, lengte {{length}} mm), dus deze kan niet worden gesimuleerd. Kies een andere motor.",
+      "oversize": "Motor {{motor}} is groter of zwaarder dan de simulator aankan (meer dan 1000 m of 10¹⁵ kg) en is daarom weggelaten. Kies een andere motor.",
       "negativeThrust": "De stuwkrachtcurve van {{motor}} bevat een negatieve stuwkracht, dus deze kan niet worden gesimuleerd. Kies een andere motor.",
       "badCg": "Het opgegeven zwaartepunt van {{motor}} ligt buiten de motor (0 tot {{length}} mm), dus deze kan niet worden gesimuleerd. Kies een andere motor.",
       "importGone": "De geïmporteerde motor {{motor}} is niet meer opgeslagen. Importeer het motorbestand opnieuw.",
@@ -158,6 +162,7 @@
       "nothing": "Niets om te exporteren."
     },
     "engine": {
+      "callFailed": "De OpenRocket-natuurkundemotor is mislukt bij {{operation}}: {{detail}}",
       "notReady": "De OpenRocket-natuurkundemotor is nog niet klaar met laden. Wacht tot hij geladen is en probeer het dan opnieuw.",
       "staleDesign": "Dit ontwerp is opgebouwd voordat de natuurkundemotor opnieuw werd gestart. Bouw het opnieuw op voordat je het gebruikt."
     },
@@ -188,6 +193,7 @@
     "openExample": "Kon dat voorbeeld niet openen: {{reason}}",
     "saveOrk": "Kon het .ork-bestand niet opslaan: {{reason}}",
     "saveOrkNoDesignInfo": "Het .ork-bestand is opgeslagen zonder ontwerpinformatie: het ontwerp kon niet worden opgebouwd, dus er was geen statistiek om op te nemen.",
+    "saveOrkFairing": "Het .ork-bestand is opgeslagen, maar desktop-OpenRocket kent geen stroomlijnkap en laat deze bij het openen weg, inclusief hun massa: {{parts}}.",
     "exportRasaero": "Kon RASAero niet exporteren: {{reason}}",
     "exportRasaeroSurface": "Het RASAero-bestand is opgeslagen, maar RASAero heeft geen oppervlak dat past bij de afwerking van dit ontwerp, dus het is als glad (ruwheid nul) geschreven.",
     "exportRasaeroStageMass": "Het RASAero-bestand is opgeslagen, maar het lanceergewicht en het zwaartepunt van een trap waren niet beschikbaar, dus de gewichts- en zwaartepuntcellen van de simulatie zijn als 0 geschreven. Vul ze in RASAero in voordat u vliegt.",
@@ -218,6 +224,7 @@
     "length": "Lengte",
     "dimLength": "lengte {{value}}",
     "dimWall": "wand {{value}}",
+    "boreTooSmall": "gat te klein, nodig Ø {{value}}",
     "maxDiameter": "Max. diameter",
     "massEmpty": "Massa (leeg)",
     "massLoaded": "Massa (geladen)",
@@ -281,7 +288,8 @@
       "cutCount": "{{name}} ({{qty}}x snijden)",
       "finDims": "wortel {{root}} mm | spanwijdte {{span}} mm | plaatdikte {{stock}} mm",
       "discDims": "Ø{{diameter}} mm",
-      "discBoreDims": "Ø{{diameter}} mm | boring Ø{{bore}} mm"
+      "discBoreDims": "Ø{{diameter}} mm | boring Ø{{bore}} mm",
+      "boreTooSmall": "CONTROLEREN: gat te klein, buis heeft Ø{{bore}} mm nodig"
     },
     "title": "Ontwerprapport",
     "select": "Kies welke onderdelen meegaan:",
@@ -476,7 +484,10 @@
   },
   "edit": {
     "undo": "Ongedaan maken",
-    "redo": "Opnieuw"
+    "redo": "Opnieuw",
+    "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Raket schalen",
@@ -535,7 +546,8 @@
       "pressure": "Druk",
       "force": "Stuwkracht / kracht",
       "impulse": "Impuls",
-      "rollRate": "Rolsnelheid"
+      "rollRate": "Rolsnelheid",
+      "shearModulus": "Glijdingsmodulus"
     }
   },
   "settings": {
@@ -635,6 +647,11 @@
     "simModel": "Vluchtmodel",
     "guideAwareRodClearance": "Verlaten volgens de geleiders",
     "guideAwareRodClearanceHint": "OpenRocket houdt de raket over de volle lengte van de lanceerinrichting geleid, waar de lugs of railknoppen ook zitten. Aan: een lug geleidt tot het achtereinde de stang verlaat, en een rail tot de op een na laatste knop hem verlaat, dus één knop geeft geen geleiding. Reken op een vroeger vertrek en een iets lagere uittreesnelheid. Uit: de resultaten komen overeen met OpenRocket.",
+    "rogersKbf": "RASAero-vininterferentie (uit Kbf)",
+    "rogersKbfHint": "Twee termen uit de Rogers Modified Barrowman-patch (Kbf) van mmrocket-sim. De wrijvingsweerstand van elke vinset stijgt met 80% voor de interferentie tussen vin en romp, zoals RASAero II die telt, dus het apogeum valt lager uit. Vinnen die het eigen interferentiemodel van OpenRocket niet dekt (elliptische, vrije vorm, of vinnen die niet op een rompbuis zitten) krijgen ook de lift die de vinnen op de romp overdragen (NACA Report 1307). Dat schuift het CP naar achteren en verhoogt de marge; trapeziumvormige vinnen op een rompbuis krijgen die al van OpenRocket. Het CP en de marge op het tabblad Ontwerp volgen de instelling, net als vluchten; de Werkbank niet. Uit: de resultaten komen overeen met OpenRocket.",
+    "rogersKbfConfirmTitle": "RASAero-vininterferentie inschakelen?",
+    "rogersKbfConfirm": "De resultaten komen dan niet meer overeen met OpenRocket voor desktop. Elke vinset krijgt 80% meer wrijvingsweerstand, dus het apogeum valt lager uit. Elliptische, vrije-vorm- en andere vinnen buiten het interferentiemodel van OpenRocket krijgen ook extra romplift, die het CP naar achteren schuift en een hogere stabiliteitsmarge toont. Geen van beide termen is voor uw ontwerp gecontroleerd, en een te ver naar achteren geplaatst CP overschat hoe stabiel een raket is. Vluchten zonder de optie worden als verouderd gemarkeerd.",
+    "rogersKbfConfirmLabel": "Inschakelen",
     "deploySpeedWarnHint": "Enkelvoudig openen (zonder drogue): boven deze snelheid loop je het risico dat het openen van de parachute de romp openscheurt of de koepel verscheurt.",
     "mainHighSpeedWarnHint": "Dubbel openen: daarboven komt de HOOFDPARACHUTE er te snel uit, meestal door een drogue die te klein is om de raket af te remmen of door een hoofdparachute die te hoog is ingesteld.",
     "mainLowSpeedWarnHint": "Dubbel openen: daaronder gaat de hoofdparachute open terwijl de raket nauwelijks daalt, wat normaal betekent dat hij rond het apogeum is opengegaan: een langzame daling vanaf de volle hoogte met veel drift.",
@@ -662,8 +679,6 @@
     "removeMembership": "Het lidmaatschap van {{org}} verwijderen"
   },
   "config": {
-    "title": "Raketconfiguratie",
-    "edit": "Raketconfiguratie bewerken",
     "notes": "Ontwerpnotities",
     "name": "Ontwerpnaam",
     "designer": "Ontwerper",
@@ -681,7 +696,6 @@
     "removeRevision": "Revisie van {{date}} verwijderen",
     "removeRevisionConfirm": "Deze revisie verwijderen?",
     "appOnlyNotes": "Opslaan als .ork bewaart al deze notities. Kitfabrikant, kit-onderdeelnummer en de gedateerde revisies zijn van deze app: desktop-OpenRocket laat ze vallen als het het bestand opslaat. .rkt bewaart deze drie niet, en de kitnaam ook niet.",
-    "save": "OK",
     "type_original": "Eigen ontwerp / anders",
     "type_commercial_kit": "Bouwpakket",
     "type_clone_kit": "Kloon van een bouwpakket",
@@ -727,6 +741,17 @@
     "lastFlyingStage": "In elke configuratie moet minstens één trap vliegen.",
     "stageGrounded": "Blijft aan de grond in:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "{{motor}} ook in de andere houders van deze trap laden? Elke houder houdt zijn eigen ontsteking.",
+    "otherMountsEmpty": "{{mount}}, nu leeg",
+    "otherMountsReplaces": "{{mount}}, vervangt {{motor}}",
+    "otherMountsKeptPlugged": "de motor blijft afgesloten",
+    "otherMountsTooWide": "{{mount}} valt af: de motor is te breed voor de binnendiameter.",
+    "otherMountsTooLong": "{{mount}} valt af: de motor is er te lang voor.",
+    "otherMountsLoad": "Laden",
+    "otherMountsDismiss": "Nee, bedankt",
+    "otherMountsLoaded": "{{motor}} in de andere houders geladen.",
+    "otherMountsUndo": "Ongedaan maken",
+    "otherMountsClose": "Sluiten",
     "bays": "Compartimenten"
   },
   "tabs": {
@@ -934,6 +959,7 @@
     "stdDev": "Standaardafwijking",
     "stdDevName": "Standaardafwijking van de wind",
     "turbulenceIntensity": "Turbulentie-intensiteit",
+    "turbulenceNeedsWind": "Stel eerst een gemiddelde wind in: het percentage geeft de windstoten als deel daarvan.",
     "levelCount_one": "{{count}} windlaag",
     "levelCount_other": "{{count}} windlagen",
     "editProfile": "Windprofiel bewerken…",
@@ -1415,6 +1441,7 @@
     "noEditor": "Deze app heeft geen editor voor: {{items}}. Ze blijven bewaard, dus opslaan houdt ze.",
     "docMaterialsSkipped": "Ontwerpmaterialen overgeslagen omdat ze onleesbaar zijn: {{count}}.",
     "referenceType": "Dit ontwerp meet zijn stabiliteit in kalibers ten opzichte van \"{{type}}\". Deze app meet die ten opzichte van de breedste rompbuis, dus de stabiliteitsmarge in kalibers kan afwijken van die in desktop-OpenRocket; het bestand behoudt de instelling.",
+    "lookupTables": "Deze simulaties vliegen in desktop-OpenRocket met een opzoektabel voor weerstand of stabiliteit. Deze app berekent weerstand en stabiliteit zelf, dus hun opgeslagen resultaten zijn als verouderd gemarkeerd en een nieuwe run kan afwijken. De tabellen blijven bewaard en worden bij het opslaan meegeschreven: {{names}}.",
     "motorPlugged": "Motor {{motor}}: afgesloten (geen uitstootlading). Zorg dat de berging op apogeum of hoogte wordt ingezet, niet door de uitstootlading.",
     "motorPluggedNoDelay": "Motor {{motor}}: afgesloten (geen uitstootlading; het bestand geeft geen leesbare vertraging). Zorg dat de berging op apogeum of hoogte wordt ingezet, niet door de uitstootlading.",
     "finPointsCapped": "Een vrije-vormvin had meer dan {{max}} punten; de rest is weggelaten.",
@@ -1499,6 +1526,7 @@
     "collapseAll": "Alles invouwen",
     "collapseTree": "De onderdelenlijst verbergen",
     "hidePart": "Verbergen in de weergaven",
+    "hiddenByParent": "Verborgen in de weergaven, samen met het onderdeel waar het in zit",
     "showPart": "Tonen in de weergaven",
     "showAll": "Alles tonen",
     "hiddenNote": "Verborgen onderdelen tellen nog mee voor massa, CG, aerodynamica en alle vluchtwaarden. Alleen de 2D- en 3D-weergaven laten ze weg.",
@@ -1651,6 +1679,7 @@
     "tabOffsetMethod": "Referentie van de vinlip",
     "cluster": "Cluster",
     "tubeFinsCollide": "Deze buizen overlappen elkaar. Bij deze buisdiameter passen er maximaal {{max}}; bij dit aantal is de grootste die past {{diameter}} {{unit}}.",
+    "ringBoreTooSmall": "Het gat van deze ring is kleiner dan de binnenbuis die erdoor loopt. De buis heeft een gat van minstens Ø {{diameter}} {{unit}} nodig.",
     "shapeParameter": "Vormparameter",
     "stripArea": "Strookoppervlakte",
     "stripAspect": "Beeldverhouding",
@@ -1903,6 +1932,7 @@
     "densityBulk": "Volumedichtheid",
     "densitySurface": "Oppervlaktedichtheid",
     "densityLine": "Lijndichtheid",
+    "shearModulus": "Glijdingsmodulus",
     "save": "Opslaan",
     "cancel": "Annuleren",
     "addToLibrary": "Toevoegen aan mijn eigen materialen, voor elk ontwerp",
@@ -2090,7 +2120,6 @@
     "searchCode": "Zoeken op code (bv. C6)…",
     "select": "Kiezen",
     "loading": "Laden…",
-    "loadingCatalog": "Motorcatalogus laden…",
     "pickHint": "Kies een motor om de stuwkrachtcurve en de specificaties te zien.",
     "backToList": "Terug naar de lijst",
     "curve": "Curve",
@@ -2784,7 +2813,6 @@
     "cgHint": "Het zwaartepunt zonder motor, gemeten vanaf de neuspunt.",
     "cgOutside": "Het zwaartepunt moet op de raket liggen, tussen de neuspunt en {{length}}.",
     "railStability": "Stabiliteit bij het verlaten van de lanceerrail",
-    "calibers": "{{value}} kal",
     "lowStability": "Onder {{min}} kaliber: waarschijnlijk instabiel",
     "stabilityNote": "De stabiliteit komt uit uw zwaartepunt en vinnen met de vervangende neus; de echte neus verschuift haar iets.",
     "colStability": "Stabiliteit (kal)",

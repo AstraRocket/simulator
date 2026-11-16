@@ -8,7 +8,7 @@ import { clampEntry } from '../../prefs/entryValue';
 import { unitScope, type Quantity, degToRad } from '../../prefs/units';
 import { num } from '../../tree/nodeProps';
 import { shapeSelect } from '../../tree/shapeProfile';
-import type { Field } from '../../services/design/componentFields';
+import { FIELDS, type Field } from '../../services/design/componentFields';
 import { DERIVED } from '../../services/design/derivedFields';
 import { clampToBounds, type DimensionBounds } from '../../services/design/linkedDimensions';
 import { isKernelAutoKey, fieldOptions, fieldRange, fieldValue, liveBounds } from '../../services/design/fieldRange';
@@ -16,8 +16,9 @@ import { parentRadiusOf } from '../../tree/finPlanform';
 import { PropSection } from './PropSection';
 import { rebaseTabOffset } from '../../tree/finPlanform';
 import { useWorkspaceStore } from '../../state/store';
-import { trimFloatNoise } from '../../services/app/numbers';
+import { trimFloatNoise, finiteOr } from '../../services/app/numbers';
 import { NumberWithUnit } from '../common/NumberRow';
+import { SelectRow } from '../common/SelectRow';
 import { commitWith, sectionFields } from './fieldHelpers';
 
 // Memoized on the live build: each read is a kernel call and the panel re-renders per keystroke.
@@ -29,7 +30,7 @@ function useKernelAutoValue(node: ComponentNode, f: Field): number | undefined {
     if (autoKey === null || !rocket || id === null) return undefined;
     try {
       const v = rocket.componentInfo(id)[autoKey];
-      return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+      return finiteOr(v, undefined);
     } catch {
       // A part the live build does not hold yet (the rebuild trails the edit).
       return undefined;
@@ -198,11 +199,16 @@ interface NumericContext<F extends Field = Field> {
 function boreProps({ node, u, scope, patchNumber }: NumericContext): NumericProps {
   // Not stored: writes the wall and keeps the outer radius, as OpenRocket's linked tube fields do.
   const fu = u.at(scope, 'length');
-  const outerR = num(node, 'outerRadius');
-  const od = 2 * outerR;
+  // What the OD and wall fields beside it show, the kernel's default for a key the node leaves out included.
+  const shown = (key: string): number => {
+    const field = FIELDS[node.type]?.find((x) => x.key === key);
+    const v = field ? fieldValue(node, field) : undefined;
+    return typeof v === 'number' ? v : num(node, key);
+  };
+  const od = 2 * shown('outerRadius');
   return {
     unit: <UnitChip quantity="length" scope={scope} />,
-    value: fu.toUi(Math.max(0, od - 2 * num(node, 'thickness'))),
+    value: fu.toUi(Math.max(0, od - 2 * shown('thickness'))),
     step: fu.step(0.0005),
     min: 0,
     max: fu.toUi(od),
@@ -259,20 +265,18 @@ function SelectField({
   const { t } = useTranslation();
   const cur = String(fieldValue(node, f));
   return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="shrink-0 text-xs text-ink-muted">{label}</span>
-      <select
-        value={cur}
-        onChange={(e) => commitChange(selectPatch(node, f.key, e.target.value))}
-        className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-      >
-        {fieldOptions(node, f, stageBelow).map((o) => (
-          <option key={o} value={o}>
-            {f.optLabel ? f.optLabel(o, t) : f.optI18n ? t(`${f.optI18n}.${o}`) : o}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SelectRow
+      label={label}
+      value={cur}
+      onChange={(v) => commitChange(selectPatch(node, f.key, v))}
+      width="min-w-0 flex-1"
+    >
+      {fieldOptions(node, f, stageBelow).map((o) => (
+        <option key={o} value={o}>
+          {f.optLabel ? f.optLabel(o, t) : f.optI18n ? t(`${f.optI18n}.${o}`) : o}
+        </option>
+      ))}
+    </SelectRow>
   );
 }
 

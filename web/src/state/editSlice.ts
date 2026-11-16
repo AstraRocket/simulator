@@ -80,6 +80,9 @@ export const createEditSlice =
       recordStep();
       set((s) => ({ tree: withDocumentMaterials(s.tree, next) }));
     };
+    // Bumps `selectionSeq` so a re-picked id still scrolls and focuses.
+    const commitSelecting = (next: RocketTree, selectedId: string, origins?: ReadonlyMap<string, string>) =>
+      commitTree(next, { selectedId, selectionSeq: get().selectionSeq + 1 }, origins);
 
     return {
       scaleDesign: (factor, scope = 'rocket', options = {}) => {
@@ -116,18 +119,8 @@ export const createEditSlice =
         const origins = new Map<string, string>();
         void commitTree(change(get().tree, origins), {}, origins);
       },
-      setStageDrogue: (stageId, deviceId) => {
-        const { tree } = get();
-        const next = setStageDrogue(tree, stageId, deviceId);
-        if (next === tree) return;
-        commitTree(next);
-      },
-      setStageMain: (stageId, deviceId) => {
-        const { tree } = get();
-        const next = setStageMain(tree, stageId, deviceId);
-        if (next === tree) return;
-        commitTree(next);
-      },
+      setStageDrogue: (stageId, deviceId) => commitTree(setStageDrogue(get().tree, stageId, deviceId)),
+      setStageMain: (stageId, deviceId) => commitTree(setStageMain(get().tree, stageId, deviceId)),
       removeSelected: () => {
         const { selectedId, tree } = get();
         if (!selectedId) return;
@@ -146,24 +139,24 @@ export const createEditSlice =
         commitTree(removeNode(tree, selectedId), { selectedId: null });
       },
       pasteClipboard: () => {
-        const { clipboard, tree, selectedId, selectionSeq } = get();
+        const { clipboard, tree, selectedId } = get();
         const done = clipboard ? pasteNode(tree, clipboard, selectedId) : null;
-        if (done) commitTree(done.tree, { selectedId: done.id, selectionSeq: selectionSeq + 1 }, done.origins);
+        if (done) commitSelecting(done.tree, done.id, done.origins);
       },
       duplicateSelected: () => {
-        const { tree, selectedId, selectionSeq } = get();
+        const { tree, selectedId } = get();
         const done = selectedId ? duplicateNode(tree, selectedId) : null;
-        if (done) commitTree(done.tree, { selectedId: done.id, selectionSeq: selectionSeq + 1 }, done.origins);
+        if (done) commitSelecting(done.tree, done.id, done.origins);
       },
       addPartToTree: (type) => {
-        const { tree, selectedId, selectionSeq } = get();
+        const { tree, selectedId } = get();
         const seed = defaultMaterialPatch(type, loadSettings().defaultMaterials) as Partial<ComponentNode>;
         const { tree: next, id } = addPart(tree, type, selectedId, seed);
-        commitTree(next, { selectedId: id, selectionSeq: selectionSeq + 1 });
+        commitSelecting(next, id);
       },
       addStageToTree: () => {
         const { tree: next, id } = addStage(get().tree);
-        commitTree(next, { selectedId: id, selectionSeq: get().selectionSeq + 1 });
+        commitSelecting(next, id);
       },
       moveSelected: (dir) => {
         const { selectedId, tree } = get();

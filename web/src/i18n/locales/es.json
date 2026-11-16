@@ -47,6 +47,8 @@
       "archiveEmpty": "El archivo comprimido .ork está vacío.",
       "archiveCorrupt": "El archivo comprimido .ork está dañado o no se puede leer.",
       "tooManyComponents": "Este {{format}} declara demasiados componentes para abrirlo (posiblemente esté dañado).",
+      "tooManyInstances": "Este {{format}} anida pods, clústeres y cantidades en demasiadas piezas para abrirlo (posiblemente esté dañado).",
+      "autoRadiusRunTooLong": "Este {{format}} tiene demasiadas piezas seguidas con radio automático para abrirlo (posiblemente esté dañado).",
       "tooManySimulations": "Este .ork declara demasiadas simulaciones para abrirlo (posiblemente esté dañado).",
       "tooManyUnknownElements": "Este .ork lleva demasiados elementos no reconocidos para abrirlo (posiblemente esté dañado).",
       "tooManyConfigs": "Este .ork declara demasiadas configuraciones de vuelo para abrirlo (posiblemente esté dañado).",
@@ -83,6 +85,7 @@
       "engHeader": "Encabezado .eng mal formado. Se esperaba: designación diámetro longitud retardos masaPropelente masaTotal fabricante.",
       "engHeaderNumbers": "Encabezado .eng mal formado: el diámetro, la longitud o una masa no es un número.",
       "engHeaderSize": "Encabezado .eng mal formado: el diámetro y la longitud deben ser positivos.",
+      "oversize": "El motor {{motor}} es más grande o más pesado de lo que el simulador puede manejar (más de 1000 m o 10¹⁵ kg). Corrija el archivo del motor o elija otro motor.",
       "engHeaderMass": "Encabezado .eng mal formado: la masa de propelente debe estar entre 0 y la masa total.",
       "engDataLine": "Datos .eng mal formados en la línea {{line}}: se esperaba un tiempo y un empuje, pero hay «{{text}}».",
       "engNoCurve": "El archivo .eng no tiene puntos de datos de la curva de empuje.",
@@ -119,6 +122,7 @@
       "propOverTotal": "{{motor}} figura en el catálogo con más propelente ({{prop}} g) que masa cargada ({{total}} g), así que su combustión terminaría con una masa negativa. Elige otro motor.",
       "badWeight": "{{motor}} figura en el catálogo con una masa de propelente negativa o una masa cargada de cero o menos, así que no se puede simular. Elija otro motor.",
       "badSize": "thrustcurve.org da a {{motor}} un tamaño incorrecto (diámetro {{diameter}} mm, longitud {{length}} mm), así que no se puede simular. Elige otro motor.",
+      "oversize": "El motor {{motor}} es más grande o más pesado de lo que el simulador puede manejar (más de 1000 m o 10¹⁵ kg), así que se omitió. Elija otro motor.",
       "negativeThrust": "Los datos de la curva de empuje de {{motor}} tienen un empuje negativo, así que no se puede simular. Elige otro motor.",
       "badCg": "El centro de gravedad indicado para {{motor}} queda fuera del motor (0 a {{length}} mm), así que no se puede simular. Elige otro motor.",
       "importGone": "El motor importado {{motor}} ya no está guardado. Vuelve a importar su archivo de motor.",
@@ -158,6 +162,7 @@
       "nothing": "No hay nada que exportar."
     },
     "engine": {
+      "callFailed": "El motor de física de OpenRocket falló en {{operation}}: {{detail}}",
       "notReady": "El motor de física de OpenRocket aún no ha terminado de cargarse. Espera a que termine y vuelve a intentarlo.",
       "staleDesign": "Este diseño se construyó antes de reiniciar el motor de física. Vuelve a construirlo antes de usarlo."
     },
@@ -188,6 +193,7 @@
     "openExample": "No se pudo abrir ese ejemplo: {{reason}}",
     "saveOrk": "No se pudo guardar el .ork: {{reason}}",
     "saveOrkNoDesignInfo": "Se guardó el .ork sin la información de diseño: el diseño no se pudo construir, así que no había estadísticas que incluir.",
+    "saveOrkFairing": "Se guardó el .ork, pero OpenRocket de escritorio no tiene la pieza carenado y, al abrir el archivo, omite estas con toda su masa: {{parts}}.",
     "exportRasaero": "No se pudo exportar a RASAero: {{reason}}",
     "exportRasaeroSurface": "El archivo de RASAero se guardó, pero RASAero no tiene una superficie que coincida con el acabado de este diseño, así que se escribió como lisa (rugosidad cero).",
     "exportRasaeroStageMass": "El archivo de RASAero se guardó, pero el peso de lanzamiento y el CG de una etapa no estaban disponibles, así que las celdas de peso y CG de la simulación se escribieron como 0. Introdúcelas en RASAero antes de volar.",
@@ -218,6 +224,7 @@
     "length": "Longitud",
     "dimLength": "long. {{value}}",
     "dimWall": "pared {{value}}",
+    "boreTooSmall": "orificio demasiado pequeño, necesita Ø {{value}}",
     "maxDiameter": "Diámetro máx.",
     "massEmpty": "Masa (vacío)",
     "massLoaded": "Masa (cargado)",
@@ -281,7 +288,8 @@
       "cutCount": "{{name}} (cortar {{qty}})",
       "finDims": "raíz {{root}} mm | envergadura {{span}} mm | espesor {{stock}} mm",
       "discDims": "Ø{{diameter}} mm",
-      "discBoreDims": "Ø{{diameter}} mm | orificio Ø{{bore}} mm"
+      "discBoreDims": "Ø{{diameter}} mm | orificio Ø{{bore}} mm",
+      "boreTooSmall": "REVISAR: orificio demasiado pequeño, el tubo necesita Ø{{bore}} mm"
     },
     "title": "Informe de diseño",
     "select": "Selecciona los elementos a incluir:",
@@ -476,7 +484,10 @@
   },
   "edit": {
     "undo": "Deshacer",
-    "redo": "Rehacer"
+    "redo": "Rehacer",
+    "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
+    "redoKeys": "Ctrl+Mayús+Z"
   },
   "scale": {
     "title": "Escalar cohete",
@@ -535,7 +546,8 @@
       "pressure": "Presión",
       "force": "Empuje / fuerza",
       "impulse": "Impulso",
-      "rollRate": "Velocidad de alabeo"
+      "rollRate": "Velocidad de alabeo",
+      "shearModulus": "Módulo de corte"
     }
   },
   "settings": {
@@ -636,6 +648,11 @@
     "simModel": "Modelo de vuelo",
     "guideAwareRodClearance": "Salida según las guías",
     "guideAwareRodClearanceHint": "OpenRocket guía el cohete durante toda la longitud de la guía, estén donde estén sus anillas o patines. Activado: una anilla guía hasta que su extremo posterior sale de la varilla, y un raíl hasta que sale su penúltimo patín, así que un solo patín no da recorrido guiado. Espera una salida más temprana y una velocidad de salida algo menor. Desactivado, los resultados coinciden con OpenRocket.",
+    "rogersKbf": "Interferencia de aletas de RASAero (de Kbf)",
+    "rogersKbfHint": "Dos términos del parche Barrowman modificado de Rogers (Kbf) de mmrocket-sim. La resistencia de fricción de cada juego de aletas aumenta un 80 % por la interferencia aleta-fuselaje, como la cuenta RASAero II, así que el apogeo sale más bajo. Las aletas que el propio modelo de interferencia de OpenRocket no cubre (elípticas, de forma libre o no montadas en un tubo) reciben además la sustentación que las aletas transmiten al fuselaje (NACA Report 1307), lo que desplaza el CP hacia atrás y aumenta el margen; las aletas trapezoidales en un tubo ya la reciben de OpenRocket. El CP y el margen de la pestaña Diseño la siguen, igual que los vuelos; el Banco no. Desactivado, los resultados coinciden con OpenRocket.",
+    "rogersKbfConfirmTitle": "¿Activar la interferencia de aletas de RASAero?",
+    "rogersKbfConfirm": "Los resultados dejarán de coincidir con OpenRocket de escritorio. Cada juego de aletas recibe un 80 % más de resistencia de fricción, así que el apogeo sale más bajo. Las aletas elípticas, de forma libre y otras fuera del modelo de interferencia de OpenRocket reciben además sustentación extra en el fuselaje, que desplaza el CP hacia atrás y muestra un margen de estabilidad mayor. Ninguno de los dos términos se ha comprobado para tu diseño, y un CP demasiado atrasado sobrestima la estabilidad de un cohete. Las simulaciones voladas sin la opción se marcan como desactualizadas.",
+    "rogersKbfConfirmLabel": "Activar",
     "deploySpeedWarnHint": "Despliegue simple (sin piloto): por encima de esta velocidad, abrir el paracaídas puede dañar el fuselaje o rasgar la vela.",
     "mainHighSpeedWarnHint": "Doble despliegue: por encima de esto el PRINCIPAL sale demasiado rápido. Normalmente se debe a un piloto demasiado pequeño o a un principal programado demasiado alto.",
     "mainLowSpeedWarnHint": "Doble despliegue: por debajo de esto el principal se abre con el cohete apenas descendiendo, lo que suele significar que se desplegó cerca del apogeo: un descenso lento desde la altitud máxima que deriva lejos.",
@@ -663,8 +680,6 @@
     "removeMembership": "Quitar la membresía de {{org}}"
   },
   "config": {
-    "title": "Configuración del cohete",
-    "edit": "Editar la configuración del cohete",
     "notes": "Notas del diseño",
     "name": "Nombre del diseño",
     "designer": "Diseñador",
@@ -682,7 +697,6 @@
     "removeRevision": "Quitar la revisión del {{date}}",
     "removeRevisionConfirm": "¿Quitar esta revisión?",
     "appOnlyNotes": "Al guardar en .ork se conservan todas estas notas. El fabricante del kit, la referencia del kit y las revisiones con fecha son propios de esta aplicación: OpenRocket de escritorio los descarta si guarda el archivo. .rkt no guarda estos tres ni el nombre del kit.",
-    "save": "Aceptar",
     "type_original": "Diseño original / otro",
     "type_commercial_kit": "Kit comercial",
     "type_clone_kit": "Clon de un kit",
@@ -728,6 +742,17 @@
     "lastFlyingStage": "En cada configuración tiene que volar al menos una etapa.",
     "stageGrounded": "Se queda en tierra en:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "¿Cargar {{motor}} también en los otros soportes de esta etapa? Cada uno conserva su propio encendido.",
+    "otherMountsEmpty": "{{mount}}, ahora vacío",
+    "otherMountsReplaces": "{{mount}}, sustituye a {{motor}}",
+    "otherMountsKeptPlugged": "su motor sigue tapado",
+    "otherMountsTooWide": "{{mount}} queda fuera: el motor es demasiado ancho para su diámetro interior.",
+    "otherMountsTooLong": "{{mount}} queda fuera: el motor es demasiado largo para él.",
+    "otherMountsLoad": "Cargarlos",
+    "otherMountsDismiss": "No, gracias",
+    "otherMountsLoaded": "{{motor}} cargado en los otros soportes.",
+    "otherMountsUndo": "Deshacer",
+    "otherMountsClose": "Cerrar",
     "bays": "Bahías"
   },
   "tabs": {
@@ -936,6 +961,7 @@
     "stdDev": "Desviación estándar",
     "stdDevName": "Desviación estándar del viento",
     "turbulenceIntensity": "Intensidad de turbulencia",
+    "turbulenceNeedsWind": "Indica primero un viento medio: el porcentaje expresa las ráfagas como fracción de él.",
     "levelCount_one": "{{count}} nivel de viento",
     "levelCount_many": "{{count}} niveles de viento",
     "levelCount_other": "{{count}} niveles de viento",
@@ -1420,6 +1446,7 @@
     "noEditor": "Esta aplicación no tiene editor para: {{items}}. Se conservan, así que al guardar se mantienen.",
     "docMaterialsSkipped": "Materiales del diseño omitidos por ilegibles: {{count}}.",
     "referenceType": "Este diseño mide su margen de estabilidad (cal) respecto a «{{type}}». Esta app lo mide respecto al tubo de cuerpo más ancho, así que el margen en cal puede diferir del de OpenRocket de escritorio; el archivo conserva el ajuste.",
+    "lookupTables": "Estas simulaciones vuelan en OpenRocket de escritorio con una tabla de arrastre o de estabilidad. Esta app calcula por sí misma el arrastre y la estabilidad, así que sus resultados guardados se marcan como desactualizados y una nueva ejecución puede diferir. Las tablas se conservan y se guardan con el archivo: {{names}}.",
     "motorPlugged": "Motor {{motor}}: taponado (sin carga de eyección). Asegúrate de que la recuperación se active en el apogeo o por altitud, no con la carga de eyección.",
     "motorPluggedNoDelay": "Motor {{motor}}: taponado (sin carga de eyección; el archivo no da un retardo legible). Asegúrate de que la recuperación se active en el apogeo o por altitud, no con la carga de eyección.",
     "finPointsCapped": "Una aleta libre tenía más de {{max}} puntos; el resto se descartó.",
@@ -1504,6 +1531,7 @@
     "collapseAll": "Contraer todo",
     "collapseTree": "Ocultar la lista de componentes",
     "hidePart": "Ocultar en las vistas",
+    "hiddenByParent": "Oculto en las vistas junto con la pieza que lo contiene",
     "showPart": "Mostrar en las vistas",
     "showAll": "Mostrar todo",
     "hiddenNote": "Las piezas ocultas siguen contando en la masa, el CG, la aerodinámica y todos los datos de vuelo. Solo las vistas 2D y 3D las omiten.",
@@ -1656,6 +1684,7 @@
     "tabOffsetMethod": "Referencia de la lengüeta",
     "cluster": "Clúster",
     "tubeFinsCollide": "Estos tubos se solapan. Con este diámetro de tubo caben como máximo {{max}}; con esta cantidad el mayor que cabe es {{diameter}} {{unit}}.",
+    "ringBoreTooSmall": "El orificio de este anillo es más pequeño que el tubo interior que lo atraviesa. El tubo necesita un orificio de al menos Ø {{diameter}} {{unit}}.",
     "shapeParameter": "Parámetro de forma",
     "stripArea": "Área de la cinta",
     "stripAspect": "Relación de aspecto",
@@ -1910,6 +1939,7 @@
     "densityBulk": "Densidad volumétrica",
     "densitySurface": "Densidad superficial",
     "densityLine": "Densidad lineal",
+    "shearModulus": "Módulo de corte",
     "save": "Guardar",
     "cancel": "Cancelar",
     "addToLibrary": "Añadir a mis materiales personalizados, para todos los diseños",
@@ -2098,7 +2128,6 @@
     "searchCode": "Buscar por código (p. ej. C6)…",
     "select": "Seleccionar",
     "loading": "Cargando…",
-    "loadingCatalog": "Cargando catálogo de motores…",
     "pickHint": "Selecciona un motor para ver su curva de empuje y especificaciones.",
     "backToList": "Volver a la lista",
     "curve": "Curva",
@@ -2795,7 +2824,6 @@
     "cgHint": "El punto de equilibrio sin motor, medido desde la punta de la ojiva.",
     "cgOutside": "El CG tiene que estar en el cohete, entre la punta de la ojiva y {{length}}.",
     "railStability": "Estabilidad al salir del lanzador",
-    "calibers": "{{value}} cal",
     "lowStability": "Menos de {{min}} calibre: probablemente inestable",
     "stabilityNote": "La estabilidad sale de su CG y sus aletas con la ojiva sustituta; la ojiva real la cambia un poco.",
     "colStability": "Estabilidad (cal)",

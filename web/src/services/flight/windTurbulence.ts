@@ -16,6 +16,16 @@ export function stdDevForIntensity(average: number, intensity: number): number {
   return Math.max(intensity * average, 0);
 }
 
+/** The whole percent the turbulence fields show. */
+export function turbulencePercent(intensity: number): number {
+  return Math.round(intensity * 100);
+}
+
+/** A cleared percent field means no turbulence. */
+export function stdDevForPercent(average: number, percent: number | null): number {
+  return stdDevForIntensity(average, (percent ?? 0) / 100);
+}
+
 // As `PinkNoiseWindModel.setAverage`; untouched from zero, where the stand-in intensity of 1 would explode it.
 export function retuneStdDev(was: number, wasStdDev: number, now: number): number {
   if (!hasIntensity(was)) return wasStdDev;

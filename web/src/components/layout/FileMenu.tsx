@@ -2,6 +2,7 @@ import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObjec
 import { useTranslation } from 'react-i18next';
 import { useCanBuildDesign } from '../design/useCanBuildDesign';
 import { useMenuPopover } from '../common/useMenuPopover';
+import { MenuPanel } from '../common/MenuPanel';
 import { useOnline } from '../common/useOnline';
 import { useCapability } from '../common/useMediaQuery';
 import { useUpdateStore } from '../../state/updateStore';
@@ -123,12 +124,7 @@ function FileMenu({
   };
 
   return (
-    <div // eslint-disable-line jsx-a11y-x/interactive-supports-focus -- roving tabindex: focus moves to the items, as in the ARIA menu pattern, so the container is not
-      ref={menuRef}
-      role="menu"
-      onKeyDown={onMenuKeyDown}
-      className="absolute right-0 z-50 mt-1 w-44 overflow-hidden rounded-lg bg-raised py-1 shadow-xl ring-1 ring-line/10"
-    >
+    <MenuPanel menuRef={menuRef} onMenuKeyDown={onMenuKeyDown}>
       <MenuItem onClick={run(actions.onNew)}>{t('file.new')}</MenuItem>
       <MenuItem onClick={run(actions.onOpenLibrary)}>{t('file.openLibrary')}</MenuItem>
       <MenuItem disabled={!canSave} onClick={run(actions.onSaveAs)}>
@@ -213,7 +209,7 @@ function FileMenu({
         {t('update.check')}
       </MenuItem>
       <MenuItem onClick={run(actions.onAbout)}>{t('about.open')}</MenuItem>
-    </div>
+    </MenuPanel>
   );
 }
 

@@ -10,6 +10,7 @@ import { getLaunchLocationStore, isLocation, type LaunchLocation } from './launc
 import { getMotorStore, isCustomMotor, type CustomMotor } from '../motors/motorStore';
 import { getTemplateStore, isUserTemplate, type UserTemplate } from '../exports/templateStore';
 import { settingsFrom, type Settings } from './settings';
+import { isRecord } from '../app/numbers';
 
 const BACKUP_FORMAT = 'astrarocket-backup';
 const BACKUP_VERSION = 1;
@@ -97,7 +98,7 @@ export function readBackup(text: string): ReadBackup {
     throw new KeyedError('errors.backup.notBackup');
   }
   const b = data as Record<string, unknown> | null;
-  if (!b || typeof b !== 'object' || Array.isArray(b) || b['format'] !== BACKUP_FORMAT) {
+  if (!isRecord(b) || b['format'] !== BACKUP_FORMAT) {
     throw new KeyedError('errors.backup.notBackup');
   }
   const version = b['version'];

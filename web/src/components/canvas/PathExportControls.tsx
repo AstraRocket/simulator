@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { AltitudeReference, DistanceUnit } from '../../services/exports/flightPathExport';
 import { CardGroup } from '../common/CardGroup';
+import { SelectRow } from '../common/SelectRow';
 
 const UNITS: DistanceUnit[] = ['m', 'ft', 'km', 'mi'];
 
@@ -9,34 +10,6 @@ export function Section({ title, children }: { title: string; children: React.Re
     <CardGroup title={title} fill="raised">
       {children}
     </CardGroup>
-  );
-}
-
-export function SelectRow<T extends string>({
-  label,
-  value,
-  onChange,
-  width,
-  children,
-}: {
-  label: string;
-  value: T;
-  onChange: (v: T) => void;
-  width?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="text-xs text-ink-muted">{label}</span>
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className={`${width ?? ''} rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500`}
-      >
-        {children}
-      </select>
-    </label>
   );
 }
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
-import { rseDigest } from '../../../src/services/files/ork/embeddedMotors';
+import { rseDigest } from '../../testing/rseDigest';
 
 const design = {
   setMotorById: vi.fn(),

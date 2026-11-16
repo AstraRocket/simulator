@@ -180,7 +180,7 @@ Changing any of those four marks every simulation that has already run as **outd
 
 ## Flight model
 
-Also on the **Simulation** tab. Everything above decides when a flight *warns*. This one changes what the flight does.
+Also on the **Simulation** tab. Everything above decides when a flight *warns*. These change what the flight does.
 
 - **Guide-aware launcher clearance**: off by default, which is OpenRocket's own behavior: the rocket stays on the launcher for its full length wherever its launch lugs or rail buttons sit. OpenRocket computes a guide-aware length and then never uses it, so a guide mounted above the rocket's aft end is credited with guided travel it does not have, and rail buttons are not considered at all.
 
@@ -189,6 +189,15 @@ Also on the **Simulation** tab. Everything above decides when a flight *warns*. 
   It is a setting rather than a correction because the engine is tested to match desktop OpenRocket flight for flight. Left off, a run matches OpenRocket exactly.
 
   Changing it marks every simulation that has already run as **outdated**.
+
+- **RASAero fin interference (from Kbf)**: off by default, which is OpenRocket's own aerodynamics. Turning it on asks you to confirm, because results stop matching desktop OpenRocket. It switches on two terms from mmrocket-sim's Rogers Modified Barrowman (Kbf) patch, which the engine carries:
+
+  - **Fin interference drag, on every fin set.** Fin friction drag rises 80%, the share RASAero II books as fin-body interference. Apogee comes out lower.
+  - **Body carryover lift, on some fin sets.** Fins induce lift on the body beside them (NACA Report 1307). OpenRocket's own interference model already counts it for trapezoidal fins on a body tube, so those are unchanged. Elliptical and freeform fins, and fins not on a body tube, get it from this setting. Their CP moves aft and their stability margin reads higher.
+
+  The CP and margin on the Design tab follow the setting, as do flights, sweeps and reports. The Benchtop does not. Neither term has been validated against your design, and a CP placed too far aft overstates how stable a rocket is, so treat a margin that only clears your minimum with this on as not clearing it.
+
+  Turning it on marks every simulation that has already run as **outdated**. Turning it off again brings back the earlier results' status.
 
 ## General
 

@@ -16,6 +16,7 @@ describe('defaultMaterialPatch', () => {
       materialName: KERNEL_MATERIALS.bulk.name,
       density: KERNEL_MATERIALS.bulk.density,
       materialGroup: KERNEL_MATERIALS.bulk.group,
+      shearModulus: KERNEL_MATERIALS.bulk.shearModulus,
     });
   });
 
@@ -42,6 +43,11 @@ describe('defaultMaterialPatch', () => {
   it('carries the catalog group stored with a bulk default', () => {
     const patch = defaultMaterialPatch('trapezoidfinset', { 'trapezoidfinset:bulk': { ...PLY, group: 'Woods' } });
     expect(patch).toEqual({ materialName: 'Plywood (birch)', density: 630, materialGroup: 'Woods' });
+  });
+
+  it('carries the shear modulus stored with a bulk default', () => {
+    const patch = defaultMaterialPatch('trapezoidfinset', { 'trapezoidfinset:bulk': { ...PLY, shearModulus: 0.6e9 } });
+    expect(patch).toEqual({ materialName: 'Plywood (birch)', density: 630, shearModulus: 0.6e9 });
   });
 
   it('maps surface and line onto their own keys, on one part', () => {

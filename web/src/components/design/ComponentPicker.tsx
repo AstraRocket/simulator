@@ -16,7 +16,6 @@ import {
   savedPartsVersion,
 } from '../../services/parts/customParts';
 import {
-  DEFAULT_CHUTE_CD,
   describeNotes,
   emptyQuery,
   fitRuleFor,
@@ -25,8 +24,8 @@ import {
   type FitContext,
   type Ranked,
 } from '../../services/parts/componentFilter';
-import { confirm } from '../../state/confirmStore';
-import { fmtNum, fmtPercent } from '../../i18n/format';
+import { confirmDelete } from '../../state/confirmStore';
+import { colWithUnit, fmtNum, fmtPercent } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import { useCatalogProgress } from '../common/useCatalogProgress';
@@ -36,6 +35,8 @@ import { progressPercent } from '../../services/app/remoteData';
 import { useAsyncLoad } from '../common/useAsyncLoad';
 import { PickerFilters } from './PickerFilters';
 import { PickerTable, type Col, type CurrentPart } from './PickerTable';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
+import { StatusLine } from '../common/StatusLine';
 
 const ROW_CAP = 200;
 
@@ -111,7 +112,7 @@ export function ComponentPicker({
 
 function columnsFor(type: ComponentType, u: Units, t: (k: string) => string, ranked: boolean): Col[] {
   const len = (v: number | null | undefined) => (v == null ? NO_VALUE : u.fmt('length', v));
-  const withUnit = (label: string) => `${label} (${u.sym('length')})`;
+  const withUnit = (label: string) => colWithUnit(label, u.sym('length'));
   const od = (r: Ranked<Component>) => outerDiameterOf(r.part);
   const inner = (r: Ranked<Component>) => ('innerDiameter' in r.part ? r.part.innerDiameter : null);
   const length = (r: Ranked<Component>) => lengthOf(r.part);
@@ -263,7 +264,7 @@ function columnsFor(type: ComponentType, u: Units, t: (k: string) => string, ran
           cell: (r) =>
             r.part.type === 'parachute'
               ? r.part.cd == null
-                ? `(${fmtNum(DEFAULT_CHUTE_CD, 2)})`
+                ? `(${fmtNum(KERNEL_DEFAULTS.parachute.cd, 2)})`
                 : fmtNum(r.part.cd, 2)
               : NO_VALUE,
           title: (r) => (r.part.type === 'parachute' && r.part.cd == null ? t('picker.cdDefault') : ''),
@@ -302,11 +303,7 @@ function PickerDialog({
   const [delErr, setDelErr] = useState<string | null>(null);
   const remove = async (p: Component) => {
     if (!p.id) return;
-    const ok = await confirm({
-      message: t('picker.deleteSavedConfirm', { name: p.partNo }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
+    const ok = await confirmDelete(t('picker.deleteSavedConfirm', { name: p.partNo }));
     if (!ok) return;
     setDelErr(null);
     try {
@@ -354,10 +351,9 @@ function PickerDialog({
           {ranked.length > shown.length
             ? t('picker.showing', { shown: shown.length, total: ranked.length })
             : t('picker.results', { count: ranked.length })}
-          {/* Always mounted: a live region created with its text is not announced. */}
-          <div role="status" aria-live="polite" className="mt-1 normal-case tracking-normal text-danger-400">
+          <StatusLine tone="danger" size="fine" className="mt-1 normal-case tracking-normal">
             {delErr}
-          </div>
+          </StatusLine>
         </div>
       }
     >

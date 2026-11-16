@@ -8,6 +8,7 @@ import { Check } from '../common/Check';
 import { DialogButton } from '../common/DialogButton';
 import { StatusLine } from '../common/StatusLine';
 import type { useCustomMaterialForm } from './useCustomMaterialForm';
+import { ShearModulusInput } from './ShearModulusInput';
 
 export function CustomMaterialForm({
   form: {
@@ -18,6 +19,8 @@ export function CustomMaterialForm({
     setGroup,
     dens,
     setDens,
+    shear,
+    setShear,
     toLibrary,
     setToLibrary,
     addErr,
@@ -68,6 +71,13 @@ export function CustomMaterialForm({
         ariaLabel={`${t(DENSITY_LABEL[type])} (${fu.sym})`}
         className="w-full rounded bg-surface px-2 py-1.5 text-sm tabular-nums ring-1 ring-line/10 placeholder:text-ink-faint"
       />
+      {type === 'bulk' && (
+        <ShearModulusInput
+          value={shear}
+          onChange={setShear}
+          className="w-full rounded bg-surface px-2 py-1.5 text-sm tabular-nums ring-1 ring-line/10 placeholder:text-ink-faint"
+        />
+      )}
       {design && (
         <Check
           checked={toLibrary}

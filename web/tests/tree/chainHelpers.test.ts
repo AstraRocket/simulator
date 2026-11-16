@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ComponentNode, RocketTree } from '../../src/engine/openRocketEngine';
 import { anyOuterRadius, bodyTubeRadius, chainOuterRadius, noseConeAftRadius } from '../../src/tree/nodeProps';
+import { KERNEL_AUTO_RADIUS } from '../../src/tree/kernelDefaults';
 import { axialChain, motorSeatStart } from '../../src/tree/position';
 
 const n = (type: string, extra: Record<string, unknown> = {}): ComponentNode => ({ type, ...extra }) as ComponentNode;
@@ -13,9 +14,14 @@ describe('chainOuterRadius', () => {
     expect(chainOuterRadius(n('transition', { foreRadius: 0.05, aftRadius: 0.04 }))).toBe(0.05);
   });
 
-  it('is 0 for other types and for a transition with missing or non-finite values', () => {
+  it('is 0 for a part off the chain', () => {
     expect(chainOuterRadius(n('innertube', { outerRadius: 0.01 }))).toBe(0);
-    expect(chainOuterRadius(n('transition', { aftRadius: Number.NaN }))).toBe(0);
+  });
+
+  it("reads a transition's missing or non-finite end as Transition()'s 25 mm", () => {
+    expect(chainOuterRadius(n('transition', { aftRadius: Number.NaN }))).toBe(KERNEL_AUTO_RADIUS);
+    expect(chainOuterRadius(n('transition', { foreRadius: 0.01 }))).toBe(KERNEL_AUTO_RADIUS);
+    expect(chainOuterRadius(n('transition', { foreRadius: 0.04, aftRadius: 0.01 }))).toBe(0.04);
   });
 
   it('reads a body tube or nose cone with no radius as the one it flies at', () => {

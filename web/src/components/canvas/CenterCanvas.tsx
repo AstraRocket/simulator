@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWorkspaceStore, selectConfig, selectMotorDims } from '../../state/store';
+import { useWorkspaceStore } from '../../state/store';
 import type { ResultFlight } from '../../services/flight/simulations';
 import type { FlightResult } from '../../engine/openRocketEngine';
 import { TreeSchematic } from './TreeSchematic';
@@ -19,8 +19,7 @@ import { useViewPrefs } from './useViewPrefs';
 import { useBurnExhausts } from './useBurnExhausts';
 import { degToRad, radToDeg } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
-import { useSettings } from '../../state/useSettings';
-import { withFigureDefaults } from '../../services/design/figureStyle';
+import { useDesignFigure } from './useDesignFigure';
 import { RULER_H } from '../../tree/schematicGeometry';
 import { hiddenPartIds } from '../../tree/partVisibility';
 
@@ -48,10 +47,8 @@ export function CenterCanvas({
   const roll = useWorkspaceStore((s) => s.roll);
   const onRollBy = useWorkspaceStore((s) => s.rollBy);
   const resetKey = useWorkspaceStore((s) => s.resetKey);
-  const design = useWorkspaceStore((s) => s.tree);
-  const { settings } = useSettings();
   // The flight path draws `design`: figure styles do not reach it.
-  const tree = useMemo(() => withFigureDefaults(design, settings.figureStyles), [design, settings.figureStyles]);
+  const { design, config, tree, motors } = useDesignFigure();
   const hiddenParts = useWorkspaceStore((s) => s.hiddenParts);
   // The flight path draws every part too: hiding is for looking at the design.
   const hiddenIds = useMemo(() => hiddenPartIds(design.components, hiddenParts), [design.components, hiddenParts]);
@@ -59,8 +56,6 @@ export function CenterCanvas({
   const selectedId = useWorkspaceStore((s) => s.selectedId);
   const onSelect = useWorkspaceStore((s) => s.setSelectedId);
   const setErr = useWorkspaceStore((s) => s.setErr);
-  const config = useWorkspaceStore(selectConfig);
-  const motors = useMemo(() => selectMotorDims(design, config), [design, config]);
   const exhausts = useBurnExhausts(design, config, view === 'path');
   const exportData = useExportData(motors);
   const { showMarkers, showInfoCard, showGrid, rulers } = useViewPrefs();

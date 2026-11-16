@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { ComponentPosition } from '../../engine/openRocketEngine';
 import { UnitChip } from '../common/UnitChip';
+import { SelectRow } from '../common/SelectRow';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
@@ -37,20 +38,18 @@ export function PlacementSection({ node, onChange, onCommit }: NodeEditProps) {
 
   return (
     <PropSection title={t('prop.placement')}>
-      <label className="flex items-center justify-between gap-3">
-        <span className="shrink-0 text-xs text-ink-muted">{t('prop.positionFrom')}</span>
-        <select
-          value={pos.method}
-          onChange={(e) => changeMethod(e.target.value as ComponentPosition['method'])}
-          className="min-w-0 flex-1 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          {(['top', 'middle', 'bottom', 'absolute'] as const).map((m) => (
-            <option key={m} value={m}>
-              {t(`positionFrom.${m}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectRow<ComponentPosition['method']>
+        label={t('prop.positionFrom')}
+        value={pos.method}
+        onChange={changeMethod}
+        width="min-w-0 flex-1"
+      >
+        {(['top', 'middle', 'bottom', 'absolute'] as const).map((m) => (
+          <option key={m} value={m}>
+            {t(`positionFrom.${m}`)}
+          </option>
+        ))}
+      </SelectRow>
       <NumberField
         label={t('prop.offset')}
         unit={<UnitChip quantity="length" scope={offsetScope} />}

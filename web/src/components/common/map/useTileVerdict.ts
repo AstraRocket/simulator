@@ -43,3 +43,9 @@ export function useGroundLayer(hasSite: boolean) {
   };
   return { layer, source, pick, ...verdict };
 }
+
+/** The launch site, null without both coordinates, and the ground layer over it. */
+export function useSiteGround(latitudeDeg: number | null | undefined, longitudeDeg: number | null | undefined) {
+  const site = latitudeDeg != null && longitudeDeg != null ? { lat: latitudeDeg, lon: longitudeDeg } : null;
+  return { site, ground: useGroundLayer(site !== null) };
+}

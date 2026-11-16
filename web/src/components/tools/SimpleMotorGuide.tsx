@@ -1,47 +1,43 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog } from '../common/Dialog';
-import { CatalogLoading, CatalogError } from '../common/CatalogLoading';
+import { MotorCatalogGate } from '../sim/MotorCatalogGate';
 import { useCatalog } from '../sim/useCatalog';
-import {
-  ClassChips,
-  FitsMount,
-  ImpulseRange,
-  ManufacturerMenu,
-  OopFilter,
-  PerfFilters,
-  PluggedFilter,
-  SparkyFilter,
-} from '../sim/MotorFilterBar';
 import { useMotorFilter } from '../sim/useMotorFilter';
-import { MotorSearch } from '../sim/MotorPanelParts';
 import { CandidateList } from '../sim/MotorGuideDialog';
-import { GuideResults, GuideToolbar, GuideUseButton, type GuideCol, type GuideSort } from '../sim/GuideResults';
+import {
+  GuideFilterPanel,
+  GuideResults,
+  GuideToolbar,
+  GuideUseButton,
+  type GuideCol,
+  type GuideSort,
+} from '../sim/GuideResults';
 import { motorCols, sortGuideRows, useGuideCandidates } from '../sim/guideRows';
 import { useUnits } from '../../prefs/useUnits';
 import { useSettings } from '../../state/useSettings';
 import { PERF_FIELDS, twrField } from '../../services/motors/motorPerf';
 import { catalogMotorSpec } from '../../services/motors/motorSpec';
-import { keyOf } from '../../services/motors/motorKey';
+import type { CatalogMotor } from '../../services/motors/motorDb';
 import { delayString, motorName } from '../../services/motors/motorName';
-import { nearestDelay, probeDelay } from '../../services/flight/motorGuide';
+import { flyGuideBatch } from '../../services/flight/motorGuide';
 import { SimCanceledError } from '../../engine/simClient';
 import { errorText } from '../../i18n/keyedError';
+import { colWithUnit } from '../../i18n/format';
 import {
   SIMPLE_GUIDE_MAX,
-  SIMPLE_MACH_CAUTION,
-  SIMPLE_STABILITY_MIN,
+  simpleIssues,
   simpleMountFit,
+  type SimpleIssue,
   type SimpleFigures,
   type SimpleGuide,
-  type SimpleGuideFailure,
   type SimpleGuideRow,
   type SimpleInputs,
   type SimpleLaunch,
 } from '../../services/flight/simpleRocket';
 import { flySimple } from './simpleFlight';
 import { useIsDesktop } from '../common/useMediaQuery';
-import { MAIN_BAND } from '../../services/flight/recoverySizing';
+import { useLatest } from '../common/useLatest';
 import { simpleGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 
@@ -71,63 +67,44 @@ export function SimpleMotorGuide({
   const { catalog, loading, error, retry } = useCatalog();
   const f = useMotorFilter(catalog, { mount: fit, perfFields });
   const { candidates, noCurve, dropped, setDropped, flying } = useGuideCandidates(f.matches);
-  const tooMany = flying.length > SIMPLE_GUIDE_MAX;
 
   const [run, setRun] = useState<{ done: number; total: number } | null>(null);
-  const abort = useRef<AbortController | null>(null);
-  useEffect(() => () => abort.current?.abort(), []);
+  const request = useLatest();
 
   const fly = async () => {
-    abort.current?.abort();
-    const ac = new AbortController();
-    abort.current = ac;
+    const current = request.claim();
+    const signal = request.claimSignal();
     const key = flownKey;
     const asked = flying;
     onGuide(null);
     setRun({ done: 0, total: asked.length });
-    const rows: SimpleGuideRow[] = [];
-    const failed: SimpleGuideFailure[] = [];
-    await Promise.all(
-      asked.map(async (motor) => {
-        const k = keyOf(motor);
-        try {
-          const spec = await catalogMotorSpec(motor, probeDelay(motor));
-          if (ac.signal.aborted) throw new SimCanceledError();
-          const first = await flySimple(inputs, launch, spec, ac.signal);
-          const nearest = nearestDelay(motor, first.optimumDelay);
-          const seated = { ...spec, ejectionDelay: nearest ?? spec.ejectionDelay };
-          // With a parachute the charge sets the deployment speed, so fly again at it.
-          const again = inputs.chute != null && nearest != null && nearest !== spec.ejectionDelay;
-          const figures = again ? await flySimple(inputs, launch, seated, ac.signal) : first;
-          rows.push({ key: k, motor, spec: seated, figures, nearest });
-        } catch (e) {
-          if (!ac.signal.aborted) failed.push({ key: k, motor, reason: errorText(e, t) });
-        } finally {
-          if (abort.current === ac) setRun((r) => (r ? { ...r, done: r.done + 1 } : r));
-        }
+    const batch = await flyGuideBatch(asked, {
+      fly: async (motor: CatalogMotor, delay: number) => {
+        const spec = await catalogMotorSpec(motor, delay);
+        if (signal.aborted) throw new SimCanceledError();
+        const figures = await flySimple(inputs, launch, spec, signal);
+        return { spec, figures, optimumDelay: figures.optimumDelay };
+      },
+      // With a parachute the charge sets the deployment speed, so fly again at it.
+      refly: inputs.chute != null,
+      row: (motor, key, { spec, figures }, nearest): SimpleGuideRow => ({
+        key,
+        motor,
+        spec: { ...spec, ejectionDelay: nearest ?? spec.ejectionDelay },
+        figures,
+        nearest,
       }),
-    );
-    if (abort.current !== ac) return;
-    abort.current = null;
-    setRun(null);
-    const order = new Map(asked.map((m, i) => [keyOf(m), i]));
-    const byAsked = (a: { key: string }, b: { key: string }) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0);
-    onGuide({
-      key,
-      asked: asked.length,
-      partial: ac.signal.aborted,
-      rows: rows.sort(byAsked),
-      failed: failed.sort(byAsked),
+      signal,
+      onSettled: () => {
+        if (current()) setRun((r) => (r ? { ...r, done: r.done + 1 } : r));
+      },
+      reason: (e) => errorText(e, t),
     });
+    if (!current()) return;
+    setRun(null);
+    onGuide({ key, asked: asked.length, ...batch });
   };
 
-  const cancel = () => {
-    abort.current?.abort();
-  };
-
-  const btn =
-    'rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-line/10 disabled:cursor-not-allowed disabled:opacity-40';
-  const leftOut = noCurve.length;
   const desktop = useIsDesktop();
   const showing = guide != null && !run;
 
@@ -142,65 +119,22 @@ export function SimpleMotorGuide({
       fullBleed="xl"
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className={`space-y-2 border-b border-line/10 p-3 ${showing && !desktop ? 'hidden' : ''}`}>
-          <div className="flex flex-wrap items-center gap-2">
-            <MotorSearch value={f.text} onChange={f.setText} className="min-w-[140px] py-1.5" />
-            <ManufacturerMenu manufacturers={f.manufacturers} mfrs={f.mfrs} onChange={f.setMfrs} />
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <ClassChips classes={f.classes} cls={f.cls} onChange={f.setCls} />
-            <ImpulseRange imp={f.imp} onChange={f.setImp} />
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            {f.mount && <FitsMount mount={f.mount} fits={f.fits} onChange={f.setFits} />}
-            <PluggedFilter plugged={f.plugged} onChange={f.setPlugged} />
-            <SparkyFilter value={f.sparky} onChange={f.setSparky} />
-            <OopFilter on={f.hideOop} onChange={f.setHideOop} />
-          </div>
-          <PerfFilters perf={f.perf} onChange={f.setPerf} onClear={f.clearPerf} fields={f.perfFields} />
+        <GuideFilterPanel
+          filter={f}
+          hidden={showing && !desktop}
+          run={run}
+          onFly={() => void fly()}
+          onCancel={request.cancel}
+          flying={flying.length}
+          max={SIMPLE_GUIDE_MAX}
+          costText={t('simpleTool.guideCost')}
+          leftOut={noCurve.length}
+          loading={loading}
+          failed={!!error}
+        />
 
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {run ? (
-              <>
-                <button onClick={cancel} className={`${btn} bg-raised text-ink hover:bg-elevated`}>
-                  {t('common.cancel')}
-                </button>
-                <span className="text-xs tabular-nums text-ink-muted" role="status">
-                  {t('guide.progress', { done: run.done, total: run.total })}
-                </span>
-              </>
-            ) : (
-              <button
-                onClick={() => void fly()}
-                disabled={loading || !!error || flying.length === 0 || tooMany}
-                className={`${btn} bg-accent-600 text-on-accent hover:bg-accent-700`}
-              >
-                {tooMany || flying.length === 0 ? t('guide.flyIdle') : t('guide.fly', { count: flying.length })}
-              </button>
-            )}
-            {!run && !loading && (
-              <span className="text-xs">
-                <span className={tooMany ? 'text-warn-400' : 'text-ink-faint'}>
-                  {tooMany
-                    ? t('guide.tooMany', { count: flying.length, max: SIMPLE_GUIDE_MAX })
-                    : t('simpleTool.guideCost')}
-                </span>
-                {leftOut > 0 && (
-                  <span className="text-ink-faint">{` ${t('guide.noCurveLeftOut', { count: leftOut })}`}</span>
-                )}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="grid min-h-0 flex-1 place-items-center p-6">
-            <CatalogError message={`${t('catalog.failedMotors')} ${error}`} onRetry={retry} />
-          </div>
-        ) : loading ? (
-          <div className="grid min-h-0 flex-1 place-items-center p-6">
-            <CatalogLoading name="motors" label={t('motorDlg.loadingCatalog')} />
-          </div>
+        {error || loading ? (
+          <MotorCatalogGate loading={loading} error={error} onRetry={retry} centered />
         ) : showing ? (
           <GuideTable
             guide={guide}
@@ -243,6 +177,14 @@ const COLS: GuideCol<SimpleGuideRow>[] = [
   { id: 'landingVelocity', label: 'simpleTool.landingSpeed', quantity: 'velocity', value: fig('landingVelocity') },
 ];
 
+const ISSUE_KEYS: Record<SimpleIssue, string> = {
+  slowExit: 'guide.issue.slowExit',
+  mach: 'simpleTool.issueMach',
+  stability: 'simpleTool.issueStability',
+  deployFast: 'guide.issue.deployFast',
+  hardLanding: 'simpleTool.issueHardLanding',
+};
+
 const OPTIONAL_COLS: ReadonlySet<string> = new Set(['railStability', 'deployVelocity', 'landingVelocity']);
 
 const descFirst = (key: string) => key !== 'motor';
@@ -263,14 +205,11 @@ function GuideTable({
   const { t } = useTranslation();
   const u = useUnits();
   const { settings } = useSettings();
-  const minExit = settings.simulation.railExitVelocityMin;
-  const notes = (r: SimpleGuideRow): string[] => [
-    ...(r.figures.railExit < minExit ? [t('guide.issue.slowExit')] : []),
-    ...(r.figures.maxMach > SIMPLE_MACH_CAUTION ? [t('simpleTool.issueMach')] : []),
-    ...((r.figures.railStability ?? Infinity) < SIMPLE_STABILITY_MIN ? [t('simpleTool.issueStability')] : []),
-    ...((r.figures.deployVelocity ?? 0) > settings.simulation.deploymentSpeedWarn ? [t('guide.issue.deployFast')] : []),
-    ...((r.figures.landingVelocity ?? 0) > MAIN_BAND.max ? [t('simpleTool.issueHardLanding')] : []),
-  ];
+  const limits = {
+    railExitMin: settings.simulation.railExitVelocityMin,
+    deployWarn: settings.simulation.deploymentSpeedWarn,
+  };
+  const notes = (r: SimpleGuideRow): string[] => [...simpleIssues(r.figures, limits)].map((k) => t(ISSUE_KEYS[k]));
   const cols = COLS.filter((c) => !OPTIONAL_COLS.has(c.id) || guide.rows.some((r) => c.value(r) != null));
 
   const [sort, setSort] = useState<GuideSort>({ key: 'apogee', desc: true });
@@ -280,7 +219,8 @@ function GuideTable({
     return sortGuideRows(guide.rows, val, sort.desc);
   }, [guide.rows, sort]);
 
-  const colLabel = (c: GuideCol<SimpleGuideRow>) => (c.quantity ? `${t(c.label)} (${u.sym(c.quantity)})` : t(c.label));
+  const colLabel = (c: GuideCol<SimpleGuideRow>) =>
+    c.quantity ? colWithUnit(t(c.label), u.sym(c.quantity)) : t(c.label);
   const pickButton = (r: SimpleGuideRow, name: string, size: string) => (
     <GuideUseButton
       name={name}

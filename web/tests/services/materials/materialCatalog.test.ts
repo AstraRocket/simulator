@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readData, DATA_DIR } from '../../testing/dataDir';
 import { isMaterialCatalog, type MaterialRow } from '../../../src/services/materials/materialTypes';
+import { KERNEL_MATERIALS } from '../../../src/tree/kernelDefaults';
+import { COMPONENT_DEFAULTS } from '../../../src/services/design/componentDefaults';
 const CATALOG = readData<MaterialRow[]>('materials.generated.json');
 const APP = (
   JSON.parse(readFileSync(join(DATA_DIR, '..', '..', 'scripts', 'data', 'materials.app.json'), 'utf8')) as {
@@ -31,7 +33,22 @@ describe('the catalog the app fetches', () => {
   });
 
   it('ships no maintainer-only field', () => {
-    for (const m of CATALOG) expect(Object.keys(m).sort()).toEqual(['density', 'group', 'kind', 'name', 'type']);
+    const fields = ['density', 'group', 'kind', 'name', 'shearModulus', 'type'];
+    for (const m of CATALOG) for (const k of Object.keys(m)) expect(fields).toContain(k);
+  });
+
+  it('gives the built-in defaults the shear modulus the catalog has', () => {
+    const shear = (name: string) => CATALOG.find((m) => m.name === name && m.type === 'bulk')?.shearModulus;
+    expect(KERNEL_MATERIALS.bulk.shearModulus).toBe(shear(KERNEL_MATERIALS.bulk.name));
+    const rb = COMPONENT_DEFAULTS.railbutton;
+    expect(rb.materialShearModulus).toBe(shear(rb.materialName));
+  });
+
+  it("carries unstable's shear modulus, bulk only", () => {
+    // Databases.java: Cardboard 0.4e9, Balsa 0.23e9.
+    expect(CATALOG.find((m) => m.name === 'Cardboard')?.shearModulus).toBe(0.4e9);
+    expect(CATALOG.find((m) => m.name === 'Balsa')?.shearModulus).toBe(0.23e9);
+    for (const m of CATALOG) if (m.shearModulus !== undefined) expect(m.type).toBe('bulk');
   });
 });
 describe('adhesive materials', () => {

@@ -26,6 +26,7 @@ describe('which quantities a unit conversion can overflow', () => {
       'lineDensity',
       'pressure',
       'rollRate',
+      'shearModulus',
       'surfaceDensity',
     ]);
   });
@@ -52,7 +53,7 @@ describe('a custom material density', () => {
     renderWithProviders(<MaterialPicker onChange={onChange} />);
     fireEvent.change(screen.getByRole('combobox') as HTMLSelectElement, { target: { value: '__add__' } });
     fireEvent.change(screen.getByPlaceholderText('Name (e.g. G10 fiberglass)'), { target: { value: 'Moon Cheese' } });
-    return { onChange, box: () => screen.getByRole('spinbutton') as HTMLInputElement };
+    return { onChange, box: () => screen.getByRole('spinbutton', { name: /density/i }) as HTMLInputElement };
   };
 
   it('is refused when the conversion to SI overflows', async () => {

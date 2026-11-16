@@ -11,7 +11,9 @@ import { Check } from '../common/Check';
 import { LanguageOptions } from '../common/LanguageOptions';
 import { NumberInput } from '../common/NumberInput';
 import { ToggleButton } from '../common/ToggleButton';
-import { AltitudeRefSelect, Section, SelectRow, UnitRow } from './PathExportControls';
+import { toggled } from '../../services/app/collections';
+import { AltitudeRefSelect, Section, UnitRow } from './PathExportControls';
+import { SelectRow } from '../common/SelectRow';
 import type { useExportOptions } from './useExportOptions';
 
 type ExportOptions = ReturnType<typeof useExportOptions>;
@@ -46,12 +48,7 @@ export function ExportPresets({ opts, change }: SectionProps) {
 
 export function ExportWaypoints({ opts, change }: SectionProps) {
   const { t } = useTranslation();
-  const toggleWaypoint = (k: WaypointKind) => {
-    const waypoints = new Set(opts.waypoints);
-    if (waypoints.has(k)) waypoints.delete(k);
-    else waypoints.add(k);
-    change({ waypoints });
-  };
+  const toggleWaypoint = (k: WaypointKind) => change({ waypoints: toggled(opts.waypoints, k) });
   return (
     <Section title={t('pathExport.waypoints')}>
       <div className="grid grid-cols-2 gap-1.5">

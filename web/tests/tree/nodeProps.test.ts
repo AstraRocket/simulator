@@ -85,10 +85,20 @@ describe('positionOf', () => {
       offset: -0.01,
     });
   });
-  it('falls back to the kernel default (top, 0) when there is no position', () => {
-    expect(positionOf(node({}))).toEqual({ method: 'top', offset: 0 });
-    expect(positionOf(node({ position: null }))).toEqual({ method: 'top', offset: 0 });
+  it("falls back to the constructor's method when there is no position", () => {
+    // BodyComponent.java:29, `super(AxialMethod.AFTER)`: a body part stacks behind the one before.
+    expect(positionOf(node({}))).toEqual({ method: 'after', offset: 0 });
+    expect(positionOf(node({ position: null }))).toEqual({ method: 'after', offset: 0 });
+    // MassObject.java:48, `setAxialMethod(AxialMethod.TOP)`.
+    expect(positionOf(node({ type: 'masscomponent' }))).toEqual({ method: 'top', offset: 0 });
   });
+  it('reads a method in any case, as autoRadius does', () => {
+    expect(positionOf(node({ type: 'masscomponent', position: { method: 'BOTTOM', offset: 0.1 } }))).toEqual({
+      method: 'bottom',
+      offset: 0.1,
+    });
+  });
+
   it('reads a string offset as 0 rather than letting it into arithmetic', () => {
     // `pLen - childLen + "0.1"` is a string, and must not reach the layout as one.
     expect(positionOf(node({ position: { method: 'middle', offset: '0.1' } }))).toEqual({

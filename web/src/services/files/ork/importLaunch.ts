@@ -1,7 +1,8 @@
 import type { LaunchConditions } from '../../design/orkTree';
 import { xmlText as text } from '../xmlUtil';
 import { stdDevForIntensity } from '../../flight/windTurbulence';
-import { usableWindLevels } from '../../flight/windLevels';
+import { usableWindLevels, windFrom } from '../../flight/windLevels';
+import { norm360 } from '../../flight/groundTrack';
 import { usableAtmosphereLevels } from '../../flight/atmosphereLevels';
 import { isWeatherSource, restoredSource } from '../../weather/weatherSource';
 import { finiteNum } from './numbers';
@@ -113,7 +114,8 @@ function readWind(condEl: Element, launch: Partial<LaunchConditions>): void {
   if (!Number.isNaN(sd)) launch.windStdDev = sd;
   let dirRad = avgEl ? numTag(avgEl, 'direction', NaN) : NaN;
   if (Number.isNaN(dirRad)) dirRad = numTag(condEl, 'winddirection', NaN);
-  if (!Number.isNaN(dirRad)) launch.windDirectionDeg = radToDeg(dirRad);
+  // Reduced as PinkNoiseWindModel.setDirection reduces it (MathUtil.reduce2Pi).
+  if (!Number.isNaN(dirRad)) launch.windDirectionDeg = norm360(radToDeg(dirRad));
 
   const mlEl = windEls.find((w) => (w.getAttribute('model') ?? '').toLowerCase() === 'multilevel');
   if (mlEl) {
@@ -122,11 +124,10 @@ function readWind(condEl: Element, launch: Partial<LaunchConditions>): void {
       Array.from(mlEl.querySelectorAll(':scope > windlevel')).map((w) => {
         // Negative speed is wind from the opposite heading (MultiLevelPinkNoiseWindModel.addWindLevel).
         const speed = finiteNum(w.getAttribute('speed')) ?? 0;
-        const deg = ((finiteNum(w.getAttribute('direction')) ?? 0) * 180) / Math.PI;
+        const deg = radToDeg(finiteNum(w.getAttribute('direction')) ?? 0);
         return {
           altitudeM: finiteNum(w.getAttribute('altitude')),
-          speed: Math.abs(speed),
-          directionDeg: speed < 0 ? (((deg + 180) % 360) + 360) % 360 : deg,
+          ...windFrom(speed, deg),
           stddev: finiteNum(w.getAttribute('standarddeviation')) ?? 0,
         };
       }),

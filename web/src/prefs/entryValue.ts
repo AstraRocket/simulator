@@ -2,9 +2,16 @@ import { type Quantity, uiToSi } from './units';
 
 // Check finiteness after every conversion: 1e306 g/cm3 is 1e309 kg/m3, which the .ork reader takes back as 0.
 
+/** The bridge refuses any size beyond this (`ComponentFactory.MAX_MAGNITUDE`), so a typo of 1e9 mm fails the build. */
+const ENGINE_MAX_MAGNITUDE = 1e6;
+
 export const SI_LIMITS: Partial<Record<Quantity, { min?: number; max?: number }>> = {
   /** kg/m3. */
   density: { max: 30_000 },
+  /** Signed: positions and offsets are lengths too. */
+  length: { min: -ENGINE_MAX_MAGNITUDE, max: ENGINE_MAX_MAGNITUDE },
+  mass: { max: ENGINE_MAX_MAGNITUDE },
+  distance: { max: ENGINE_MAX_MAGNITUDE },
 };
 
 /** `null` means do not store: the box keeps its draft text rather than snapping to zero. */

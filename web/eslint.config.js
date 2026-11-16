@@ -35,15 +35,7 @@ const banLayers = (...layers) => {
 
 export default tseslint.config(
   {
-    ignores: [
-      'dist',
-      'coverage',
-      'playwright-report',
-      'test-results',
-      'public',
-      'src/engine/vendor',
-      'openrocket-database',
-    ],
+    ignores: ['dist', 'coverage', 'playwright-report', 'test-results', 'public', 'src/engine/vendor'],
   },
   {
     files: ['scripts/**/*.mjs', '*.js', '*.mjs'],
@@ -118,7 +110,9 @@ export default tseslint.config(
   {
     files: ['tests/**/*.{ts,tsx}', '**/*.test.{ts,tsx}'],
     rules: {
+      // Test callbacks and mocks are async to match the signature they stand in for, with nothing to await.
       '@typescript-eslint/require-await': 'off',
+      // Tests read parsed files, mock calls and stored JSON, which are `any` by nature.
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

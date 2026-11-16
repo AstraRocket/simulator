@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
+import type { FlightEvent, FlightResult, RocketTree } from '../../engine/openRocketEngine';
+import { eventTime, forwardFlightEnd } from '../../services/flight/flightEvents';
+import { groundPointAt } from '../../services/flight/groundTrack';
 import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import { findRecoveryDevices } from '../../services/design/treeEdit';
 import { num } from '../../tree/nodeProps';
@@ -12,7 +14,7 @@ export function sceneFromEnu(east: number, up: number, north: number): THREE.Vec
 }
 
 // A burnout with no open burn extends the previous window (cluster motors burning out apart).
-export function boostWindows(events: readonly { type: string; time: number }[]): [number, number][] {
+export function boostWindows(events: readonly Pick<FlightEvent, 'type' | 'time'>[]): [number, number][] {
   const out: [number, number][] = [];
   let start: number | null = null;
   for (const e of [...events].sort((a, b) => a.time - b.time)) {
@@ -35,7 +37,7 @@ export const burnAt = (t: number, windows: readonly [number, number][]): number 
   windows.findIndex(([a, b]) => t >= a && t < b);
 
 export function delayWindows(
-  events: readonly { type: string; time: number }[],
+  events: readonly Pick<FlightEvent, 'type' | 'time'>[],
   burns: readonly [number, number][],
 ): [number, number][] {
   const charges = events.filter((e) => e.type === 'EJECTION_CHARGE').map((e) => e.time);
@@ -111,32 +113,35 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   const time = result.series.time ?? [];
   const alt = result.series.altitude ?? [];
   const vel = result.series.velocity ?? [];
-  const px = result.series.Px ?? [];
-  const py = result.series.Py ?? [];
+  // A run that records no ground position flies up the axis; one that does drops a sample missing it,
+  // as the ground track does, rather than drawing it at the pad.
+  const tracked = !!result.series.Px && !!result.series.Py;
   const rows: { t: number; a: number; v: number; east: number; north: number }[] = [];
   for (let i = 0; i < time.length; i++) {
     if (!Number.isFinite(time[i]) || !Number.isFinite(alt[i])) continue;
+    const ground = groundPointAt(result.series, i);
+    if (tracked && !ground) continue;
     rows.push({
       t: time[i]!,
       a: alt[i]!,
       v: Number.isFinite(vel[i]) ? vel[i]! : 0,
-      east: Number(px[i]) || 0,
-      north: Number(py[i]) || 0,
+      east: ground?.east ?? 0,
+      north: ground?.north ?? 0,
     });
   }
   // Loop, don't spread: Math.max(...bigArray) overflows the argument stack.
   let maxA = 1;
   for (const r of rows) if (r.a > maxA) maxA = r.a;
   const s = 24 / maxA;
-  const evT = (type: string) => result.events.find((e) => e.type === type)?.time;
   const burns = boostWindows(result.events);
   const lastBurnout = burns[burns.length - 1]?.[1];
   // Seconds, not `maxA` (meters).
   const lastT = rows[rows.length - 1]?.t ?? 0;
-  const apT = evT('APOGEE') ?? result.summary.timeToApogee ?? lastT;
-  // Matches `forwardFlightEnd`. Not EJECTION_CHARGE: a booster's charge lands in the sustainer's branch.
-  const deployed = evT('RECOVERY_DEVICE_DEPLOYMENT');
-  const dpT = deployed ?? apT;
+  const apT = eventTime(result.events, 'APOGEE') ?? result.summary.timeToApogee ?? lastT;
+  const deployed = eventTime(result.events, 'RECOVERY_DEVICE_DEPLOYMENT');
+  // Not EJECTION_CHARGE: a booster's charge lands in the sustainer's branch.
+  const end = forwardFlightEnd(result);
+  const dpT = Number.isFinite(end) ? end : lastT;
   const sp = rows.map((r) => sceneFromEnu(r.east * s, r.a * s, r.north * s));
   const cols = rows.map((r): [number, number, number] => {
     const c = new THREE.Color(isBoosting(r.t, burns) ? phase.boost : r.t <= apT ? phase.coast : phase.descent);
@@ -158,11 +163,11 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
     });
     return bi;
   };
-  const wanted: [string, number | undefined][] = [
+  const wanted: [FlightEvent['type'], number | undefined][] = [
     ['BURNOUT', lastBurnout],
     ['APOGEE', apT],
     ['RECOVERY_DEVICE_DEPLOYMENT', deployed],
-    ['GROUND_HIT', evT('GROUND_HIT') ?? rows[rows.length - 1]?.t],
+    ['GROUND_HIT', eventTime(result.events, 'GROUND_HIT') ?? rows[rows.length - 1]?.t],
   ];
   const cos: { type: string; pos: THREE.Vector3; time: number }[] = [];
   for (const [type, tt] of wanted) {

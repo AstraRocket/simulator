@@ -9,8 +9,10 @@ import type { ChargeRow } from '../../services/flight/recoveryCharges';
 import { designNameOf } from '../../services/app/appInfo';
 import { motorFullName } from '../../services/motors/motorName';
 import { useUnits } from '../../prefs/useUnits';
-import type { Units } from '../../prefs/useUnits';
-import { fmtNum, partLabel, stageLabel, stagePrefixed, withFixedUnit } from '../../i18n/format';
+import type { FieldUnit, Units } from '../../prefs/useUnits';
+import { degToRad, unitScope, type Quantity } from '../../prefs/units';
+import { LIMIT_FIELD } from '../../prefs/launchUnits';
+import { fmtCalibers, fmtNum, partLabel, stageLabel, stagePrefixed, withFixedUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { DialogButton } from '../common/DialogButton';
 import { useSettings } from '../../state/useSettings';
@@ -75,6 +77,11 @@ export function FlightCard({ flight }: { flight: ResultFlight }) {
   );
 }
 
+/** `deg` is in degrees; a field unit's counterpart of `fmtDegrees`. */
+function degreesText(fu: FieldUnit, deg: number, degDigits: number): string {
+  return fu.fmtSym(degToRad(deg), fu.sym === '°' ? degDigits : degDigits + 2);
+}
+
 function deploysText(t: T, u: Units, d: LaunchDevice): string {
   const event = t(`deployEvent.${d.deployEvent}`);
   if (d.deployEvent === 'altitude')
@@ -95,7 +102,12 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
   const { info, flight } = docs;
   const held = highestLevel(flyer);
   const sec = (s: number | null | undefined) => (s == null ? NO_VALUE : withFixedUnit(s, t('units.second')));
-  const grams = (kg: number | null) => (kg == null ? NO_VALUE : u.fmtSym('mass', kg, 2));
+  const chargeMass = u.at(unitScope('ejection', 'saved'), 'mass');
+  const grams = (kg: number | null) => (kg == null ? NO_VALUE : chargeMass.fmtSym(kg, 2));
+  // Each figure in its chip's unit on the Results summary.
+  const sim = (key: string, q: Quantity, si: number, digits?: number) =>
+    u.at(unitScope('sim', key), q).fmtSym(si, digits);
+  const launchField = (field: string, q: Quantity) => u.at(unitScope('launch', field), q);
   return (
     <article className="flight-card space-y-4 text-sm text-ink">
       <header>
@@ -128,7 +140,7 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
             info && [t('report.cp'), Number.isFinite(info.cp) && info.cp > 0 ? u.fmtSym('length', info.cp) : NO_VALUE],
             info && [
               t('report.stabilityCal'),
-              Number.isFinite(info.stabilityCalibers) ? `${fmtNum(info.stabilityCalibers, 2)} cal` : NO_VALUE,
+              Number.isFinite(info.stabilityCalibers) ? fmtCalibers(info.stabilityCalibers, t) : NO_VALUE,
             ],
             [
               t('launchDocs.certNeeded'),
@@ -171,29 +183,37 @@ function CardBody({ docs, flyer, t, u }: { docs: LaunchDocs; flyer: Flyer; t: T;
       <Section title={t('launchDocs.flight')}>
         <Pairs
           rows={[
-            [t('report.altitude'), flight ? u.fmtSym('distance', flight.maxAltitude, 0) : NO_VALUE],
+            [t('report.altitude'), flight ? sim('apogee', 'distance', flight.maxAltitude, 0) : NO_VALUE],
             [t('report.timeToApogee'), sec(flight?.timeToApogee)],
-            [t('report.maxVel'), flight ? u.fmtSym('velocity', flight.maxVelocity, 0) : NO_VALUE],
+            [t('report.maxVel'), flight ? sim('maxSpeed', 'velocity', flight.maxVelocity, 0) : NO_VALUE],
             [t('launchDocs.maxMach'), flight ? fmtNum(flight.maxMachNumber, 2) : NO_VALUE],
-            [t('report.velOffRod'), flight ? u.fmtSym('velocity', flight.launchRodVelocity) : NO_VALUE],
+            [t('report.velOffRod'), flight ? sim('rodExit', 'velocity', flight.launchRodVelocity) : NO_VALUE],
             [
               t('launchDocs.railLength'),
-              docs.launch.launchRodLengthM != null ? u.fmtSym('distance', docs.launch.launchRodLengthM, 2) : NO_VALUE,
+              docs.launch.launchRodLengthM != null
+                ? launchField('length', 'length').fmtSym(docs.launch.launchRodLengthM, 2)
+                : NO_VALUE,
             ],
             [
               t('launchDocs.railAngle'),
-              docs.launch.launchRodAngleDeg != null ? `${fmtNum(docs.launch.launchRodAngleDeg, 1)}°` : NO_VALUE,
+              docs.launch.launchRodAngleDeg != null
+                ? degreesText(launchField(LIMIT_FIELD.rodAngle, 'angle'), docs.launch.launchRodAngleDeg, 1)
+                : NO_VALUE,
             ],
             [
               t('launchDocs.wind'),
-              docs.launch.windAverage != null ? u.fmtSym('velocity', docs.launch.windAverage) : NO_VALUE,
+              docs.launch.windAverage != null
+                ? launchField(LIMIT_FIELD.windSpeed, 'windspeed').fmtSym(docs.launch.windAverage)
+                : NO_VALUE,
             ],
             [t('launchDocs.optimumDelay'), sec(flight?.optimumDelay)],
             [
               t('report.velDeploy'),
-              flight?.deploymentVelocity != null ? u.fmtSym('velocity', flight.deploymentVelocity) : NO_VALUE,
+              flight?.deploymentVelocity != null
+                ? sim('deployVelocity', 'velocity', flight.deploymentVelocity)
+                : NO_VALUE,
             ],
-            [t('report.landingVel'), flight ? u.fmtSym('velocity', flight.groundHitVelocity) : NO_VALUE],
+            [t('report.landingVel'), flight ? sim('landing', 'velocity', flight.groundHitVelocity) : NO_VALUE],
             [t('report.flightTime'), sec(flight?.flightTime)],
           ]}
         />

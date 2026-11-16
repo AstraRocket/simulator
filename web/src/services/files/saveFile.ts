@@ -40,8 +40,12 @@ export function canAskWhereToSave(): boolean {
   return savePicker() !== null;
 }
 
-// False means fall back: the browser refuses a picker opened too long after the user's click.
-async function pickAndSave(picker: SavePicker, blob: Blob, filename: string): Promise<boolean> {
+// `fallback`: the browser refuses a picker opened too long after the user's click.
+async function pickAndSave(
+  picker: SavePicker,
+  blob: Blob,
+  filename: string,
+): Promise<'saved' | 'canceled' | 'fallback'> {
   const ext = /\.([A-Za-z0-9]+)$/.exec(filename)?.[1];
   // The dialog wants a bare MIME type: `text/csv;charset=utf-8` is refused.
   const mime = (blob.type || 'application/octet-stream').split(';')[0]!.trim();
@@ -53,28 +57,31 @@ async function pickAndSave(picker: SavePicker, blob: Blob, filename: string): Pr
     const out = await handle.createWritable();
     await out.write(blob);
     await out.close();
-    return true;
+    return 'saved';
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return true;
-    return false;
+    if (e instanceof DOMException && e.name === 'AbortError') return 'canceled';
+    return 'fallback';
   }
 }
 
-export async function saveBlob(blob: Blob, filename: string): Promise<void> {
+/** False when the user canceled; a plain download cannot be seen to fail, so it counts as saved. */
+export async function saveBlob(blob: Blob, filename: string): Promise<boolean> {
   if (needsShareSheet()) {
     try {
       const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file] });
-        return;
+        return true;
       }
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return;
+      if (e instanceof DOMException && e.name === 'AbortError') return false;
     }
   }
   const picker = loadSettings().askWhereToSave ? savePicker() : null;
-  if (picker && (await pickAndSave(picker, blob, filename))) return;
+  const picked = picker ? await pickAndSave(picker, blob, filename) : 'fallback';
+  if (picked !== 'fallback') return picked === 'saved';
   anchorDownload(blob, filename);
+  return true;
 }
 
 const BOM = String.fromCharCode(0xfeff);
@@ -85,8 +92,8 @@ function textForSave(text: string, mime: string): string {
   return isCsv && !text.startsWith(BOM) ? BOM + text : text;
 }
 
-export async function saveText(text: string, filename: string, mime = 'text/plain;charset=utf-8'): Promise<void> {
-  await saveBlob(new Blob([textForSave(text, mime)], { type: mime }), filename);
+export function saveText(text: string, filename: string, mime = 'text/plain;charset=utf-8'): Promise<boolean> {
+  return saveBlob(new Blob([textForSave(text, mime)], { type: mime }), filename);
 }
 
 // Filename first: a string payload type-checks in either position, so swapped arguments are not caught.

@@ -35,7 +35,15 @@ describe('SaveStatus', () => {
 
   it('says nothing before the first write has landed', () => {
     renderWithProviders(<SaveStatus />);
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('');
+  });
+
+  it('fills the region that was already there, so a screen reader announces the first save', () => {
+    renderWithProviders(<SaveStatus />);
+    const region = screen.getByRole('status');
+    set({ lastSavedAt: Date.now() });
+    expect(screen.getByRole('status')).toBe(region);
+    expect(spoken()).toBe('Saved');
   });
 
   it('reports a save that just landed', () => {
@@ -71,6 +79,6 @@ describe('SaveStatus', () => {
   it('stays quiet while the storage banner is up', () => {
     renderWithProviders(<SaveStatus />);
     set({ lastSavedAt: Date.now(), storageWarning: 'Browser storage is full.' });
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 });

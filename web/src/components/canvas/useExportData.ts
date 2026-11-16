@@ -1,14 +1,13 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWorkspaceStore } from '../../state/store';
+import { selectDesignName, useWorkspaceStore } from '../../state/store';
 import { useUnits } from '../../prefs/useUnits';
-import { APP_VERSION, designNameOf } from '../../services/app/appInfo';
+import { APP_VERSION } from '../../services/app/appInfo';
 import type { ExportData } from '../../services/exports/schematicExport';
 import { rocketSpanM } from './aftScene';
 
 export function useExportData(motors: object): ExportData {
-  const loadedMeta = useWorkspaceStore((s) => s.loadedMeta);
-  const treeName = useWorkspaceStore((s) => s.tree.name);
+  const name = useWorkspaceStore(selectDesignName);
   const components = useWorkspaceStore((s) => s.tree.components);
   const spanM = useMemo(() => rocketSpanM(components), [components]);
   const info = useWorkspaceStore((s) => s.info);
@@ -16,7 +15,7 @@ export function useExportData(motors: object): ExportData {
   const { t } = useTranslation();
   return useMemo(
     () => ({
-      name: designNameOf({ name: treeName }, loadedMeta),
+      name,
       info,
       spanM,
       units: units.all,
@@ -24,6 +23,6 @@ export function useExportData(motors: object): ExportData {
       appVersion: APP_VERSION,
       t,
     }),
-    [loadedMeta, treeName, info, spanM, units.all, motors, t],
+    [name, info, spanM, units.all, motors, t],
   );
 }

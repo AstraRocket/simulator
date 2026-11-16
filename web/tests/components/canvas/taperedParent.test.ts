@@ -8,6 +8,7 @@ import { buildPieces } from '../../../src/components/canvas/rocketPieces';
 import { buildAftScene } from '../../../src/components/canvas/aftScene';
 import { bodyRadiusAt } from '../../../src/tree/finPlanform';
 import { assemblyParentRadius, resolveAssemblyRadius } from '../../../src/tree/assembly';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 // A conical parent has a closed-form radius, so no expected value comes from the code.
 
@@ -58,6 +59,7 @@ const schematic = (tree: RocketTree) =>
     roll: 0,
     uid: 't',
     setHoverId: () => {},
+    ...ENGLISH_LABELS,
   });
 
 /** In rocket-frame meters, y up from the axis. */

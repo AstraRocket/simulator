@@ -6,7 +6,14 @@ import { fmtDegrees, useUnits } from '../../prefs/useUnits';
 import { NO_VALUE } from '../../i18n/noValue';
 import { degToRad, unitScope } from '../../prefs/units';
 import type { FlightResult } from '../../engine/api';
-import { forwardFlightEnd, maxQ, maxQAlpha, maxRollRate, seriesAt } from '../../services/flight/flightEvents';
+import {
+  eventTime,
+  forwardFlightEnd,
+  maxQ,
+  maxQAlpha,
+  maxRollRate,
+  seriesAtEvent,
+} from '../../services/flight/flightEvents';
 import { distanceFromPad, landingPoint } from '../../services/flight/groundTrack';
 import { railVerdictKey, stabilityTone } from '../../services/flight/simReport';
 import { useSettings } from '../../state/useSettings';
@@ -36,11 +43,11 @@ function RailExitStats({ sim }: { sim: FlightResult }) {
   });
   const s = sim.summary;
   // At rail exit, unlike the on-pad Stability tile (Mach 0.3, fully loaded).
-  const rodTime = sim.events.find((e) => e.type === 'LAUNCHROD')?.time;
-  const railMargin = rodTime != null ? seriesAt(sim.series, 'stability', rodTime) : null;
-  const railCp = rodTime != null ? seriesAt(sim.series, 'cpLocation', rodTime) : null;
-  const railTwr = rodTime != null ? seriesAt(sim.series, 'Twr', rodTime) : null;
-  const railAoa = rodTime != null ? seriesAt(sim.series, 'aoa', rodTime) : null;
+  const rodTime = eventTime(sim.events, 'LAUNCHROD');
+  const railMargin = seriesAtEvent(sim, 'LAUNCHROD', 'stability');
+  const railCp = seriesAtEvent(sim, 'LAUNCHROD', 'cpLocation');
+  const railTwr = seriesAtEvent(sim, 'LAUNCHROD', 'Twr');
+  const railAoa = seriesAtEvent(sim, 'LAUNCHROD', 'aoa');
   return (
     <>
       <Stat

@@ -212,7 +212,7 @@ describe('a stated catalog mass', () => {
     expect(wrong).toEqual([]);
   });
 
-  // No volume: PresetDump on the 24.12 jar reports its density as Infinity.
+  // No volume: PresetDump on the engine build reports its density as Infinity.
   it('is not carried for a reversed SEMROC cone that no build gives a volume', async () => {
     const engine = await loadEngine();
     const row = catalog.find((p) => p.mfr === 'SEMROC Astronautics' && p.partNo === 'BC-08542 [R]')!;
@@ -225,7 +225,7 @@ describe('a stated catalog mass', () => {
   });
 });
 
-// 24.12 `Transition.loadFromPreset` clamps each shoulder radius to its end radius;
+// Desktop's `Transition.loadFromPreset` sets each shoulder radius through a setter that clamps it to its end radius;
 // the bridge does not, so the node must carry it.
 describe('a stated shoulder', () => {
   const sides = (p: Component): { key: string; stated: number; end: number }[] =>
@@ -258,7 +258,7 @@ describe('a stated shoulder', () => {
       for (const { key, stated, end } of sides(row)) {
         const want = Math.min(stated, end);
         if (!(Math.abs(fields[key]! - want) <= 1e-12))
-          wrong.push(`${row.type} ${row.mfr} ${row.partNo} ${key}: 24.12 ${want}, kernel ${fields[key]}`);
+          wrong.push(`${row.type} ${row.mfr} ${row.partNo} ${key}: desktop ${want}, kernel ${fields[key]}`);
       }
     }
     expect(wrong).toEqual([]);
@@ -267,7 +267,7 @@ describe('a stated shoulder', () => {
 
 // `makeRailButton` derives density from `MASS` (button alone); the override adds screw and nut.
 describe('a catalog rail button', () => {
-  // [maker, part number, MASS in kg], PresetDump on the 24.12 release jar.
+  // [maker, part number, MASS in kg], PresetDump on the engine build.
   const PRESET_MASS: [string, string, number][] = [
     ['Binder Design-Rail Button Supply House', 'Std 1010 RB', 4.4500000000000003e-4],
     ['Binder Design-Rail Button Supply House', 'Std 1515 RB', 0.0014650000000000002],
@@ -297,6 +297,20 @@ describe('a catalog rail button', () => {
     expect(info.mass / mass).toBeCloseTo(1, 3);
   });
 });
+describe('a body tube picked onto a filled tube', () => {
+  it('flies hollow at the stated bore, as desktop clears filled on every pick', async () => {
+    const engine = await loadEngine();
+    for (const row of sample('bodytube').filter((p) => p.type === 'bodytube' && p.innerDiameter != null)) {
+      if (row.type !== 'bodytube') throw new Error('sample returned another type');
+      const probe = node('bodytube', 'probe', { filled: true });
+      const tree = updateNode(design(probe) as RocketTree, 'probe', { ...catalogPatch(row, probe), ...presetRef(row) });
+      engine.reset();
+      const geo = JSON.parse(engine.getComponentGeometry(engine.buildRocket(JSON.stringify(tree)), 'probe'));
+      expect(geo.innerRadius, `${row.mfr} ${row.partNo}`).toBeCloseTo(row.innerDiameter! / 2, 9);
+    }
+  });
+});
+
 describe('a pick onto a capped shoulder', () => {
   const stated = (p: Component, side: '' | 'fore' | 'aft'): boolean => {
     const r = p as unknown as Record<string, number | null | undefined>;

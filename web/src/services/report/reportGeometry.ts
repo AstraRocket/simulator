@@ -1,6 +1,6 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { bodyTubeRadius, countOf, num, numOpt } from '../../tree/nodeProps';
-import { isFinSet, tubeFinRadius } from '../../tree/tubefins';
+import { bodyTubeRadius, countOf } from '../../tree/nodeProps';
+import { isFinSet, tubeFinSeat } from '../../tree/tubefins';
 import {
   FREEFORM_FALLBACK,
   bodyRadiusAt,
@@ -10,21 +10,15 @@ import {
   finSpan,
   type FinParent,
 } from '../../tree/finPlanform';
-import { nodeShape, outerProfile, profileEnds } from '../../tree/shapeProfile';
-import { axialChain, axialStart, partLength } from '../../tree/position';
-import {
-  assemblyChainLength,
-  assemblyParentRadius,
-  isAssembly,
-  resolveAssemblyRadius,
-  ringInstanceOffsets,
-} from '../../tree/assembly';
+import { nodeOuterProfile, profileEnds } from '../../tree/shapeProfile';
+import { axialChain, partLength, podPlacement } from '../../tree/position';
+import { isAssembly } from '../../tree/assembly';
 
 // Outputs are mm.
 
 export type Pt = [number, number];
 import { M_TO_MM } from '../../prefs/units';
-import { KERNEL_DEFAULTS, kernelDefault } from '../../tree/kernelDefaults';
+import { kernelDefault } from '../../tree/kernelDefaults';
 
 export function finPlanformMm(node: ComponentNode, parent: FinParent = null): { pts: Pt[]; count: number } {
   const height = finSpan(node);
@@ -41,8 +35,7 @@ export function profileMm(
 ): { w: number; h: number; pts: Pt[] } | null {
   const len = partLength(node);
   if (len <= 0) return null;
-  const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
-  const prof = outerProfile(nodeShape(node), numOpt(node, 'shapeParameter'), len, foreR, aftR, 80, undefined, clipped);
+  const prof = nodeOuterProfile(node, len, foreR, aftR, 80);
   const maxR = Math.max(...prof.map(([, r]) => r), aftR, foreR);
   const h = maxR * 2 * M_TO_MM;
   const cy = h / 2;
@@ -78,10 +71,7 @@ export function rocketSideView(tree: RocketTree): { w: number; h: number; body: 
 
     if (node.type === 'tubefinset') {
       // No rootChord; its length picks the radius sample station, so a wrong one floats it on a taper.
-      const len = num(node, 'length', KERNEL_DEFAULTS.tubefinset.length);
-      const s0 = axialStart(node, len, pStart, pLen);
-      const R = radiusAt(s0 - pStart);
-      const rt = tubeFinRadius(node, R);
+      const { length: len, start: s0, bodyRadius: R, tubeRadius: rt } = tubeFinSeat(node, pStart, pLen, radiusAt);
       const topR = R + 2 * rt;
       push(
         [
@@ -115,18 +105,7 @@ export function rocketSideView(tree: RocketTree): { w: number; h: number; body: 
     let chainMaxR = 0.001;
 
     const revolve = (node: ComponentNode, foreR: number, aftR: number, len: number) => {
-      const shape = nodeShape(node);
-      const clipped = typeof node['clipped'] === 'boolean' ? node['clipped'] : undefined;
-      for (const [px, r] of outerProfile(
-        shape,
-        numOpt(node, 'shapeParameter'),
-        len,
-        foreR,
-        aftR,
-        60,
-        undefined,
-        clipped,
-      )) {
+      for (const [px, r] of nodeOuterProfile(node, len, foreR, aftR, 60)) {
         profile.push([x + px, r]);
         chainMaxR = Math.max(chainMaxR, r);
       }
@@ -163,13 +142,10 @@ export function rocketSideView(tree: RocketTree): { w: number; h: number; body: 
   }
 
   function emitAssembly(pod: ComponentNode, host: ComponentNode, hostStart: number, hostLen: number, cy: number) {
-    const podLen = assemblyChainLength(pod);
-    const podStart = axialStart(pod, podLen, hostStart, hostLen);
-    const podRadius = resolveAssemblyRadius(pod, assemblyParentRadius(host));
-    const count = countOf(pod, 'instanceCount', 2);
-    for (const off of ringInstanceOffsets(count, podRadius, num(pod, 'angleOffset', 0))) {
+    const at = podPlacement(pod, host, hostStart, hostLen);
+    for (const off of at.copies) {
       const center = cy + off.y;
-      const { profile } = walkChain(pod.children ?? [], podStart, center);
+      const { profile } = walkChain(pod.children ?? [], at.start, center);
       if (profile.length < 2) continue;
       pods.push([
         ...profile.map(([px, r]) => [px * M_TO_MM, (center + r) * M_TO_MM] as Pt),

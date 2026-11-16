@@ -1,8 +1,14 @@
 import type { ComponentNode, ComponentPosition, RocketTree } from '../engine/openRocketEngine';
-import { assemblyChainLength, isAssembly } from './assembly.js';
+import {
+  assemblyChainLength,
+  assemblyParentRadius,
+  isAssembly,
+  resolveAssemblyRadius,
+  ringInstanceOffsets,
+} from './assembly.js';
 import { isChainType } from './componentKinds';
-import { FIN_DEFAULTS, kernelLength } from './kernelDefaults';
-import { num, positionOf } from './nodeProps';
+import { FIN_DEFAULTS, KERNEL_DEFAULTS, KERNEL_FREEFORM_POINTS, kernelLength } from './kernelDefaults';
+import { countOf, num, positionOf } from './nodeProps';
 
 /** "start" is a child's leading edge from its parent's leading edge (m). */
 
@@ -21,21 +27,28 @@ export function freeformRootChord(
 /** `FreeformFinSet.SNAP_LARGER_THAN` (m). */
 export const FREEFORM_SNAP_LARGER_THAN = 2.5;
 
+/** `FreeformFinSet.IGNORE_SMALLER_THAN` (m², a squared distance). */
+export const FREEFORM_IGNORE_SMALLER_THAN = 1.0e-12;
+
 /** As `FreeformFinSet.setPoints()` stores it: translated by -p0, then snapped. */
-export function normalizeFreeformPoints(pts: [number, number][] | undefined): [number, number][] {
-  const p = pts ?? [];
+export function normalizeFreeformPoints(pts: readonly (readonly [number, number])[] | undefined): [number, number][] {
+  const p = (pts ?? []) as [number, number][];
   const p0 = p[0];
   if (!p0 || !Number.isFinite(p0[0]) || !Number.isFinite(p0[1])) return p;
   const cap = FREEFORM_SNAP_LARGER_THAN;
   // A point past the cap both ways keeps its x: the kernel's second `set` overwrites the first.
   const snap = (x: number, y: number): [number, number] => (y > cap ? [x, cap] : x > cap ? [cap, y] : [x, y]);
-  const moved = p0[0] !== 0 || p0[1] !== 0;
+  // `IGNORE_SMALLER_THAN < delta.length2()`: a first point that close to the origin is left where it is.
+  const moved = p0[0] * p0[0] + p0[1] * p0[1] > FREEFORM_IGNORE_SMALLER_THAN;
   const out = p.map(([x, y]): [number, number] => (moved ? snap(x - p0[0], y - p0[1]) : snap(x, y)));
   return !moved && out.every(([x, y], i) => x === p[i]![0] && y === p[i]![1]) ? p : out;
 }
 
+/** A fin set with no `points` flies the kernel's default outline. */
 export function freeformPoints(n: ComponentNode): [number, number][] {
-  return n.type === 'freeformfinset' ? normalizeFreeformPoints(n['points'] as [number, number][] | undefined) : [];
+  if (n.type !== 'freeformfinset') return [];
+  const pts = n['points'] as [number, number][] | undefined;
+  return Array.isArray(pts) ? normalizeFreeformPoints(pts) : KERNEL_FREEFORM_POINTS.map(([x, y]) => [x, y]);
 }
 
 /** Not the positioning extent ({@link axialLength}). */
@@ -65,6 +78,21 @@ export function motorSeatStart(mount: ComponentNode, mountStart: number, mountLe
 
 export function axialStart(child: ComponentNode, childLen: number, pStart: number, pLen: number): number {
   return pStart + startFromPosition(positionOf(child), childLen, pLen, pStart);
+}
+
+/** A pod or booster set's chain start, ring radius and copies; `turn` is added to its own `angleOffset`. */
+export function podPlacement(pod: ComponentNode, parent: ComponentNode, pStart: number, pLen: number, turn = 0) {
+  const length = assemblyChainLength(pod);
+  const radius = resolveAssemblyRadius(pod, assemblyParentRadius(parent));
+  return {
+    radius,
+    start: axialStart(pod, length, pStart, pLen),
+    copies: ringInstanceOffsets(
+      countOf(pod, 'instanceCount', KERNEL_DEFAULTS.podset.instanceCount),
+      radius,
+      num(pod, 'angleOffset', 0) + turn,
+    ),
+  };
 }
 
 /** `pStart` is read only by `absolute`, which the kernel measures from the nose tip. */
@@ -120,7 +148,7 @@ export function stacksInParent(parent: ComponentNode, child: ComponentNode): boo
   return isAssembly(parent.type) && isChainType(child.type);
 }
 
-/** `isAfter()` is false (FinSet.java:159, InnerTube.java:176, LaunchLug.java:134, MassObject.java:53, TubeFinSet.java:216). */
+/** `isAfter()` is false (FinSet.java:159, InnerTube.java:176, LaunchLug.java:134, MassObject.java:53, TubeFinSet.java:216); pods and boosters are `AFTER_IS_TOP`. */
 const NOT_AFTER: ReadonlySet<string> = new Set([
   'trapezoidfinset',
   'ellipticalfinset',
@@ -134,6 +162,9 @@ const NOT_AFTER: ReadonlySet<string> = new Set([
   'tubefinset',
 ]);
 
+/** ComponentAssembly.setAxialMethod turns AFTER into TOP for these and keeps the offset. */
+const AFTER_IS_TOP: ReadonlySet<string> = new Set(['podset', 'parallelstage']);
+
 /** Rewrites 'after' into a parent-relative 'top' offset; 'absolute' stays, as in desktop. */
 export function resolveFilePositions(tree: RocketTree): RocketTree {
   let changed = false;
@@ -145,12 +176,14 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
     const children = parent.children.map((child) => {
       let next = child;
       const pos = positionOf(child);
+      // Only a method the file states: a part with none takes the kernel's own default, AFTER for a body part.
+      const statedAfter = child.position != null && pos.method === 'after';
       if (stacksInParent(parent, child)) {
         const len = partLength(child);
         const relStart = chained;
         chained += len;
         prevEndRel = relStart + len;
-        if (pos.method === 'after') {
+        if (statedAfter) {
           changed = true;
           next = {
             ...child,
@@ -163,10 +196,11 @@ export function resolveFilePositions(tree: RocketTree): RocketTree {
         }
         return fixChildren(next, pStart + relStart, len);
       }
-      if (pos.method === 'after') {
+      if (statedAfter) {
         changed = true;
         // isAfter(): previous sibling's aft end, offset forced to 0; NOT_AFTER: parent's aft end plus offset.
-        const resolved = NOT_AFTER.has(String(child.type)) ? pLen + pos.offset : prevEndRel;
+        const type = String(child.type);
+        const resolved = AFTER_IS_TOP.has(type) ? pos.offset : NOT_AFTER.has(type) ? pLen + pos.offset : prevEndRel;
         next = {
           ...child,
           position: { method: 'top', offset: resolved, ork: { method: 'after', offset: pos.offset, resolved } },

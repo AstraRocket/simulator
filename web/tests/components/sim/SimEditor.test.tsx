@@ -166,3 +166,14 @@ describe('the multi-edit status', () => {
     }
   });
 });
+
+describe('a speed warning typed as 0', () => {
+  it('is held at the floor Settings uses, since the settings load would put back the default for 0', () => {
+    renderWithProviders(<SimEditor />);
+    const field = screen.getByLabelText('Deploy-speed warning above') as HTMLInputElement;
+    fireEvent.change(field, { target: { value: '0' } });
+    fireEvent.blur(field);
+    const stored = selectActive(st()).prefs?.deploymentSpeedWarn;
+    expect(stored).toBeGreaterThan(0);
+  });
+});

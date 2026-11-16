@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IMAGE_WIDTHS, type ImageFormat } from '../../services/exports/schematicExport.js';
 import { useMenuPopover } from '../common/useMenuPopover';
+import { MenuPanel } from '../common/MenuPanel';
 import { token } from '../common/colorTokens';
 
 export interface ImageExportOptions {
@@ -42,28 +43,10 @@ export function ImageExportMenu({
         {label}
       </button>
       {open && (
-        <div // eslint-disable-line jsx-a11y-x/interactive-supports-focus -- roving tabindex: focus moves to the items, as in the ARIA menu pattern, so the container is not
-          // Children must be menuitems, or screen readers announce "menu, 0 items".
-          role="menu"
-          ref={menuRef}
-          onKeyDown={onMenuKeyDown}
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: '100%',
-            marginTop: 4,
-            zIndex: 30,
-            background: token('raised'),
-            border: '1px solid var(--border, #444)',
-            borderRadius: 6,
-            padding: 6,
-            boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
-            display: 'grid',
-            gridTemplateColumns: 'auto repeat(3, auto)',
-            gap: 4,
-            whiteSpace: 'nowrap',
-            fontSize: 12,
-          }}
+        <MenuPanel
+          menuRef={menuRef}
+          onMenuKeyDown={onMenuKeyDown}
+          className="grid grid-cols-[auto_repeat(3,auto)] gap-1 whitespace-nowrap p-1.5 text-xs"
         >
           {(['png', 'jpeg'] as ImageFormat[]).map((fmt) => [
             <span
@@ -117,7 +100,7 @@ export function ImageExportMenu({
               {t('export.fitFrame')}
             </label>
           )}
-        </div>
+        </MenuPanel>
       )}
     </div>
   );

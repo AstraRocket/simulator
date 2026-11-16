@@ -69,7 +69,15 @@ describe('siEntry', () => {
 
   it('checks the chained leg for a value whose stored form is not SI', () => {
     expect(siEntry('angle', '°', 45, (si) => (si * 180) / Math.PI)).toBeCloseTo(45, 9);
-    expect(siEntry('length', 'm', 1e300, (si) => si * 1e300)).toBeNull();
+    expect(siEntry('velocity', 'm/s', 1e300, (si) => si * 1e300)).toBeNull();
+  });
+
+  it('stops a length, mass or distance at the 1e6 the bridge accepts, so a typo cannot fail the build', () => {
+    expect(siEntry('length', 'mm', 1e12)).toBe(1e6);
+    expect(siEntry('length', 'm', -5e6)).toBe(-1e6);
+    expect(siEntry('mass', 'kg', 2e6)).toBe(1e6);
+    expect(siEntry('distance', 'km', 5000)).toBe(1e6);
+    expect(siEntry('length', 'mm', 300)).toBeCloseTo(0.3, 12);
   });
 
   it('refuses a NaN chained result rather than storing it', () => {

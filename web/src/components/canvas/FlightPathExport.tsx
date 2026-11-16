@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWorkspaceStore, selectActive, selectDesignName } from '../../state/store';
-import { configFor, primaryMotor } from '../../services/flight/flightConfigs';
+import { useWorkspaceStore, selectActive, selectDesignName, configOf } from '../../state/store';
+import { primaryMotor } from '../../services/flight/flightConfigs';
 import type { ResultFlight } from '../../services/flight/simulations';
 import { download as saveDownload, exportFilename } from '../../services/files/saveFile';
 import {
@@ -20,6 +20,7 @@ import { useUnits } from '../../prefs/useUnits';
 import { useExportTemplates } from './useExportTemplates';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { smallButton } from '../common/smallButton';
+import { Notice } from '../common/Notice';
 import {
   ExportBalloons,
   ExportMission,
@@ -45,8 +46,10 @@ export function FlightPathExport({
   const launch = flight ? flight.launch : active.launch;
   const simName = flight ? flight.name : active.name;
   // The motor the exported flight's own row flies, not the active row's.
-  const configId = useWorkspaceStore((s) => (flight && s.sims.find((x) => x.id === flight.id))?.configId);
-  const motor = useWorkspaceStore((s) => primaryMotor(s.tree, configFor(s.configs, configId ?? active.configId)));
+  const motor = useWorkspaceStore((s) => {
+    const row = (flight && s.sims.find((x) => x.id === flight.id)) || active;
+    return primaryMotor(s.tree, configOf(s.configs, row));
+  });
   const rocketName = useWorkspaceStore(selectDesignName);
 
   if (!result) return null;
@@ -161,18 +164,11 @@ export function ExportDialog({
           <ExportUnits opts={opts} change={change} setUnit={setUnit} />
           <ExportMission opts={opts} change={change} patchOpts={patchOpts} />
 
-          {noPosition && (
-            <p className="rounded-lg bg-warn-500/10 px-3 py-2 text-xs leading-relaxed text-warn-300 ring-1 ring-warn-400/30">
-              {t('pathExport.noPosition')}
-            </p>
-          )}
+          {noPosition && <Notice tone="warn">{t('pathExport.noPosition')}</Notice>}
           {error && (
-            <p
-              role="alert"
-              className="rounded-lg bg-error-500/10 px-3 py-2 text-xs leading-relaxed text-error-300 ring-1 ring-error-400/30"
-            >
+            <Notice tone="danger" role="alert">
               {error}
-            </p>
+            </Notice>
           )}
         </div>
 

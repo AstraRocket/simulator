@@ -2,7 +2,16 @@ import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { countOf, num } from '../../tree/nodeProps';
 import { finCutContour, finMountOf, finRootPoints, type FinParent } from '../../tree/finPlanform';
 import { COMPONENT_DEFAULTS } from '../design/componentDefaults';
-import { mountBore, nodeContext, plateOuter, ringHolesIn, type Hole, type Tube } from '../design/discGeometry';
+import {
+  nodeContext,
+  plateOuter,
+  ringBoreNeedIn,
+  ringHolesIn,
+  statedOrRingBore,
+  type Hole,
+  type Tube,
+} from '../design/discGeometry';
+import { parentStartOf } from '../../tree/axialRebase';
 import { englishText, type Translate } from '../../i18n/keyedError';
 
 // Geometry is in meters; only the writer converts to millimeters. DXF Y grows upward.
@@ -98,6 +107,7 @@ function discPart(
   label: string,
   l: LabelText,
   holes: Hole[] | null = null,
+  boreNeed: number | null = null,
 ): Part {
   const ents: Ent[] = [{ kind: 'circle', layer: 'CUT', c: { x: 0, y: 0 }, r: outerR }];
   if (holes) {
@@ -116,16 +126,19 @@ function discPart(
       ? l('export.dxf.discBoreDims', { diameter: dim(outerR * 2), bore: dim(boreR * 2) })
       : l('export.dxf.discDims', { diameter: dim(outerR * 2) });
   const labels = [node.name || label, dims];
+  if (boreNeed !== null) labels.push(l('export.dxf.boreTooSmall', { bore: dim(boreNeed * 2) }));
   return { ents: [...ents, ...textBlock(ents, labels)] };
 }
 
 function partForNode(
   node: ComponentNode,
   enclosing: Tube | null,
-  siblings: ComponentNode[],
+  parent: ComponentNode | null,
+  parentStart: number,
   finParent: FinParent,
   l: LabelText,
   holes: Hole[] | null = null,
+  boreNeed: number | null = null,
 ): Part | null {
   switch (node.type) {
     case 'trapezoidfinset':
@@ -137,14 +150,14 @@ function partForNode(
       return discPart(node, plateOuter(node, enclosing), null, l('export.dxf.bulkhead'), l);
     case 'centeringring': {
       const outer = plateOuter(node, enclosing);
-      const bore = num(node, 'innerRadius', NaN);
       return discPart(
         node,
         outer,
-        Number.isNaN(bore) ? mountBore(siblings) : bore,
+        statedOrRingBore(node, parent, outer, parentStart),
         l('export.dxf.centeringring'),
         l,
         holes,
+        boreNeed,
       );
     }
     default:
@@ -314,10 +327,12 @@ export function componentToDxf(tree: RocketTree, nodeId: string, t: Translate = 
   const part = partForNode(
     ctx.node,
     ctx.enclosing,
-    ctx.siblings,
+    ctx.parent,
+    ctx.parent ? parentStartOf(tree, ctx.parent) : 0,
     finMountOf(tree, nodeId),
     labelText(t),
     ringHolesIn(tree, ctx),
+    ringBoreNeedIn(tree, nodeId),
   );
   if (!part) return null;
   const b = bounds(part.ents);

@@ -8,7 +8,7 @@ import UpstreamPin from '@site/src/components/UpstreamPin';
 
 :::info About this snapshot
 
-Checked **2026-11-05**, comparing **AstraRocket <AppVersion />** (engine built from OpenRocket <UpstreamPin />) against **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** at v0.197 (2026-11-03), read from its user guide and API README.
+Checked **2026-11-09**, comparing **AstraRocket <AppVersion />** (engine built from OpenRocket <UpstreamPin />) against **[mmrocket-sim](https://github.com/mtnmanak/mmrocket-sim)** at v0.198 (2026-11-09), read from its user guide and API README.
 
 :::
 
@@ -16,7 +16,7 @@ Checked **2026-11-05**, comparing **AstraRocket <AppVersion />** (engine built f
 
 Both run OpenRocket's own kernel, compiled out of Java with TeaVM. mmrocket-sim builds from OpenRocket 24.12 and compiles to JavaScript. AstraRocket builds from the newer **unstable** branch and compiles to WebAssembly, with a JavaScript fallback. Two cores on different OpenRocket commits can give different numbers without either being wrong.
 
-mmrocket-sim also offers its own aerodynamics models beside OpenRocket's, including a supersonic model (beta) calibrated against published wind-tunnel and free-flight data. AstraRocket flies OpenRocket's Extended Barrowman model unchanged.
+mmrocket-sim also offers its own aerodynamics models beside OpenRocket's, including a supersonic model (beta) calibrated against published wind-tunnel and free-flight data. AstraRocket flies OpenRocket's Extended Barrowman model unchanged by default. One opt-in setting, [RASAero fin interference](./settings.md#flight-model), switches on two terms from mmrocket-sim's Rogers Modified Barrowman (Kbf) model. It is not their Kbf model as a whole: the newer OpenRocket core already counts the fin-body carryover for trapezoidal fins, so on those fins it adds only the interference drag.
 
 ## The product
 
@@ -26,7 +26,7 @@ Both are browser apps from independent authors, with no install, an installable 
 
 | mmrocket-sim feature | Here |
 | --- | --- |
-| **Selectable aerodynamics models, including supersonic (beta)** | Not available. This app flies OpenRocket's Extended Barrowman model. |
+| **Selectable aerodynamics models, including supersonic (beta)** | Not available. This app flies OpenRocket's Extended Barrowman model, with one opt-in setting, [RASAero fin interference](./settings.md#flight-model), taken from their Kbf model. |
 | **Camera shrouds** | Not available. |
 | **Protuberances** (drag-only bumps such as raceways) | Not available. |
 | **Vent and marking holes on a tube** | Not available, and not planned. |

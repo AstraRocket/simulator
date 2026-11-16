@@ -14,14 +14,16 @@ import { KeyValueMotorStore, setMotorStore } from '../../../src/services/motors/
 import { KeyValueTemplateStore, setTemplateStore } from '../../../src/services/exports/templateStore';
 import { exportFilename } from '../../../src/services/files/saveFile';
 import { appName } from '../../../src/services/app/appInfo';
-import { todayYmd } from '../../../src/services/weather/openMeteo';
+import { localToday } from '../../../src/services/app/localDate';
 
-const saved = vi.hoisted(() => ({ text: '', name: '' }));
+const saved = vi.hoisted(() => ({ text: '', name: '', canceled: false }));
 vi.mock('../../../src/services/files/saveFile', async (orig) => ({
   ...(await orig<typeof import('../../../src/services/files/saveFile')>()),
   saveText: async (text: string, name: string) => {
+    if (saved.canceled) return false;
     saved.text = text;
     saved.name = name;
+    return true;
   },
 }));
 
@@ -36,6 +38,7 @@ beforeEach(() => {
   setMotorStore(new KeyValueMotorStore(kv));
   setTemplateStore(new KeyValueTemplateStore(undefined, kv));
   saved.text = '';
+  saved.canceled = false;
 });
 
 const dialog = (name: string) => screen.getByRole('dialog', { name });
@@ -50,7 +53,7 @@ describe('Export ▸ Backup and Import ▸ Backup', () => {
     fireEvent.click(within(backup).getByRole('button', { name: 'Save backup file' }));
     await waitFor(() => expect(screen.getByText('Backup saved.')).toBeTruthy());
     // Local date, not UTC, which dates an evening backup in the Americas tomorrow.
-    expect(saved.name).toBe(exportFilename([appName(), 'backup', todayYmd()], 'json'));
+    expect(saved.name).toBe(exportFilename([appName(), 'backup', localToday()], 'json'));
     unmount();
 
     await getMaterialStore().remove('G10', 'bulk');
@@ -66,6 +69,16 @@ describe('Export ▸ Backup and Import ▸ Backup', () => {
     );
     expect(within(restore).getByText('Settings: restored')).toBeTruthy();
     expect((await getMaterialStore().list()).map((m) => m.name)).toEqual(['G10']);
+  });
+
+  it('says nothing was saved when the user cancels the save dialog', async () => {
+    saved.canceled = true;
+    renderWithProviders(<BackupDialog mode="backup" onClose={() => {}} />);
+    const backup = dialog('Backup');
+    const button = within(backup).getByRole('button', { name: 'Save backup file' }) as HTMLButtonElement;
+    fireEvent.click(button);
+    await waitFor(() => expect(button.disabled).toBe(false));
+    expect(screen.queryByText('Backup saved.')).toBeNull();
   });
 
   it('offers every library on both sides, in alphabetical order, and skips one the file lacks', async () => {

@@ -5,10 +5,10 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import { catalogPatch, defaultNode, findNode, syncDerived, updateNode } from '../../../src/services/design/treeEdit';
 import { isComponentRow, type ParachuteComponent } from '../../../src/services/parts/componentDb';
 import { axialFrames, rebasePosition } from '../../../src/tree/axialRebase';
-import { axialChain, axialLength } from '../../../src/tree/position';
+import { axialChain, axialLength, resolveFilePositions } from '../../../src/tree/position';
 import { countOf, MAX_CANT, num, positionOf } from '../../../src/tree/nodeProps';
 import { lineInstances, placementOffsets } from '../../../src/tree/placement';
-import { innerTubeExtent } from '../../../src/tree/schematicGeometry';
+import { innerTubeExtent, internalExtent } from '../../../src/tree/schematicGeometry';
 import { clusterCount } from '../../../src/tree/cluster';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
 import { profileMm, rocketSideView } from '../../../src/services/report/reportGeometry';
@@ -461,6 +461,60 @@ function withAbsolutes(tree: RocketTree, seed: number): RocketTree {
   };
   return { ...tree, components: tree.components.map((c) => visit(c, null)) };
 }
+
+// Keys a new or imported part may lack, so the bridge builds the kernel's default:
+// a packed radius, a freeform outline, a tube fin wall.
+function withKeyless(tree: RocketTree, seed: number): RocketTree {
+  const r = rng(seed + 0xbb67ae85);
+  const chance = (p: number) => r() < p;
+  const visit = (node: ComponentNode): ComponentNode => {
+    const out: Record<string, unknown> = { ...node };
+    if (node.children) out['children'] = node.children.map(visit);
+    if (PACKED[node.type] && chance(0.3)) {
+      delete out['radius'];
+      delete out['radiusAuto'];
+    }
+    // Outlines moved off the origin are a case of their own, so they keep their points. The tab was sized
+    // for the outline, so it is refitted to the default's 50 mm root.
+    const p0 = (node['points'] as Pt[] | undefined)?.[0];
+    if (node.type === 'freeformfinset' && p0?.[0] === 0 && p0[1] === 0 && chance(0.6)) {
+      delete out['points'];
+      out['tabLength'] = 0.02;
+      out['tabOffsetMethod'] = 'middle';
+      out['tabOffset'] = 0;
+    }
+    // Named, since the synced wall leaves no trace of the missing key.
+    if (node.type === 'tubefinset' && chance(0.4)) {
+      delete out['thickness'];
+      out['id'] = `${node.id}${NO_WALL}`;
+    }
+    return out as unknown as ComponentNode;
+  };
+  return { ...tree, components: tree.components.map(visit) };
+}
+
+// As a file saves them; the kernel reads AFTER as TOP for both (`ComponentAssembly.setAxialMethod`).
+function withAfterAssemblies(tree: RocketTree, seed: number): RocketTree {
+  const r = rng(seed + 0x3c6ef373);
+  const visit = (node: ComponentNode): ComponentNode => {
+    const out: Record<string, unknown> = { ...node };
+    if (node.children) out['children'] = node.children.map(visit);
+    if ((node.type === 'podset' || node.type === 'parallelstage') && r() < 0.4) {
+      out['position'] = { method: 'after', offset: Math.round((r() - 0.5) * 0.1 * 1e4) / 1e4 };
+    }
+    return out as unknown as ComponentNode;
+  };
+  return { ...tree, components: tree.components.map(visit) };
+}
+
+const NO_WALL = '-no-wall';
+
+const PACKED: Partial<Record<string, string>> = {
+  parachute: 'parachute',
+  masscomponent: 'mass component',
+  streamer: 'streamer',
+  shockcord: 'shock cord',
+};
 
 const CHAIN_TYPES: ReadonlySet<string> = new Set(['stage', 'nosecone', 'bodytube', 'transition']);
 
@@ -1123,7 +1177,9 @@ function dedupe(pts: Pt[]): Pt[] {
   return out;
 }
 
-// Root points inside the tab span are dropped, as `getTabPointsWithRoot` does.
+// Root points inside the tab span are dropped, as `getTabPointsWithRoot` does. The joined shape is the app's
+// choice, built as `finCutContour` builds it, so the rule checks the pieces it joins, not the kernel's own
+// contour (`generateContinuousFinAndTabShape` walks a multi-point root differently).
 function kernelCutOutline(k: KernelGeometry): Pt[] | null {
   const pts = (xs: [number | null, number | null][] | undefined): Pt[] | null =>
     xs && xs.every(([x, y]) => typeof x === 'number' && typeof y === 'number') ? (xs as Pt[]) : null;
@@ -1349,6 +1405,9 @@ function compare(
           k.outerRadius,
         );
         if (f) note(`tube fin rotation${inside}`, num(node, 'rotation', 0), f['rotation'], sameAngle);
+        const noWall = id.endsWith(NO_WALL) ? ', no wall key' : '';
+        const bore = Math.max(num(node, 'outerRadius', 0) - num(node, 'thickness', 0), 0);
+        note(`tube fin bore${noWall}${inside}`, bore, k.innerRadius);
         break;
       }
       case 'innertube': {
@@ -1391,11 +1450,17 @@ function compare(
         check(`fin tab depth limit${where}`, parentRadiusOf(tree, id), k.maxTabHeight);
         const mount = finMountOf(tree, id);
         const span = kernelSpan(node, k);
-        if (span !== undefined) note(`${node.type} span${where}`, finSpan(node, mount), span);
+        const noPoints = node.type === 'freeformfinset' && !node['points'] ? ', no points key' : '';
+        if (span !== undefined) note(`${node.type} span${noPoints}${where}`, finSpan(node, mount), span);
         const method = node['tabOffsetMethod'];
         const tabBy = method === 'absolute' || method === 'after' ? `, offset ${method}` : '';
         const p0 = (node['points'] as Pt[] | undefined)?.[0];
-        const moved = p0 && (p0[0] !== 0 || p0[1] !== 0) ? ', outline off the origin' : '';
+        const moved =
+          node.type === 'freeformfinset' && !node['points']
+            ? ', no points key'
+            : p0 && (p0[0] !== 0 || p0[1] !== 0)
+              ? ', outline off the origin'
+              : '';
         finSets.add(id);
         if ([...(k.finPoints ?? []), ...(k.rootPoints ?? [])].some(([x, y]) => x === null || y === null)) {
           overturned.add(id);
@@ -1442,26 +1507,22 @@ function compare(
         break;
       }
       case 'parachute':
-        check(`parachute automatic packed radius${inside}`, node['radius'], k.radius);
-        break;
       case 'streamer':
-        check(`streamer automatic packed radius${inside}`, node['radius'], k.radius);
-        break;
       case 'shockcord':
-        check(`shock cord automatic packed radius${inside}`, node['radius'], k.radius);
+      case 'masscomponent': {
+        const label = PACKED[node.type]!;
+        if (auto('radiusAuto')) check(`${label} automatic packed radius${inside}`, node['radius'], k.radius);
+        const bare = node['radius'] === undefined ? ', no radius key' : '';
+        note(
+          `${label} drawn packed radius${bare}${inside}`,
+          internalExtent(node, parentRadiusOf(tree, id) ?? 0).radius,
+          k.radius,
+        );
         break;
-      case 'masscomponent':
-        check(`mass component automatic packed radius${inside}`, node['radius'], k.radius);
-        break;
+      }
     }
-    const packed: Record<string, string> = {
-      parachute: 'parachute',
-      masscomponent: 'mass component',
-      streamer: 'streamer',
-      shockcord: 'shock cord',
-    };
-    if (node.type in packed && auto('radiusAuto') && !skip.has(id)) {
-      const label = packed[node.type]!;
+    if (PACKED[node.type] && auto('radiusAuto') && !skip.has(id)) {
+      const label = PACKED[node.type]!;
       check(`${label} automatic packed length${inside}`, node['length'], k.settledLength);
       const s = stored?.get(id);
       if (s) check(`${label} automatic packed length from the stored size${inside}`, node['length'], s.settledLength);
@@ -1471,9 +1532,10 @@ function compare(
     const cant = typeof node['cant'] === 'number' ? node['cant'] : 0;
     if (k.positionX !== undefined) {
       const absolute = positionOf(node).method === 'absolute' && node.position !== undefined;
+      const after = node.position?.ork?.method === 'after' ? ', saved after' : '';
       const rule = keyless
         ? `station of a part with no position key${parent ? ` in a ${parent.type}` : ''}`
-        : `${node.type} station${absolute ? ', placed absolute' : ''}${cant !== 0 ? ', canted' : ''}${inside}`;
+        : `${node.type} station${absolute ? ', placed absolute' : ''}${after}${cant !== 0 ? ', canted' : ''}${inside}`;
       checked.set(rule, (checked.get(rule) ?? 0) + 1);
       const start = frames.get(id)?.start;
       const station = k.positionX - (cant !== 0 ? (axialLength(node) / 2) * (1 - Math.cos(cant)) : 0);
@@ -1668,7 +1730,7 @@ describe('app geometry matches the kernel', () => {
     let unresolved = 0;
     const checked = new Map<string, number>();
     for (let seed = 1; seed <= DESIGNS; seed++) {
-      const generated = withPlacements(withAbsolutes(withExtras(generate(seed), seed), seed), seed);
+      const generated = withKeyless(withPlacements(withAbsolutes(withExtras(generate(seed), seed), seed), seed), seed);
       const stored = kernelGeometry(engine, generated);
       const tree = syncDerived(generated);
       const r = compare(`seed ${seed}`, tree, kernelGeometry(engine, tree, { fields: true }), stored);
@@ -1719,6 +1781,20 @@ describe('app geometry matches the kernel', () => {
       'streamer automatic packed length from the stored size in a bodytube',
       'shock cord automatic packed radius in a bodytube',
       'shock cord automatic packed length from the stored size in a bodytube',
+      'parachute drawn packed radius, no radius key in a bodytube',
+      'streamer drawn packed radius, no radius key in a bodytube',
+      'shock cord drawn packed radius, no radius key in a bodytube',
+      'mass component drawn packed radius, no radius key in a bodytube',
+      'parachute drawn packed radius in a bodytube',
+      'mass component drawn packed radius in a nosecone',
+      'freeformfinset outline points, no points key in a nosecone',
+      'freeformfinset outline points, no points key in a flipped nosecone',
+      'freeformfinset outline points, no points key in a transition',
+      'freeformfinset outline points, no points key, canted in a transition',
+      'freeformfinset span, no points key in a nosecone',
+      'freeformfinset span, no points key in a transition',
+      'tube fin bore in a bodytube',
+      'tube fin bore, no wall key in a bodytube',
       'transition fore shoulder radius, automatic end wider than 25 mm',
       'transition aft shoulder radius, automatic end wider than 25 mm',
       'launchlug copy spacing in a bodytube',
@@ -1768,8 +1844,14 @@ describe('app geometry matches the kernel', () => {
     let unresolved = 0;
     const checked = new Map<string, number>();
     for (let seed = 1; seed <= ASSEMBLY_DESIGNS; seed++) {
-      const tree = syncDerived(withPlacements(withAbsolutes(withExtras(generateAssemblies(seed), seed), seed), seed));
-      const r = compare(`assembly seed ${seed}`, tree, kernelGeometry(engine, tree, { fields: true }));
+      const saved = withAfterAssemblies(
+        withPlacements(withAbsolutes(withExtras(generateAssemblies(seed), seed), seed), seed),
+        seed,
+      );
+      // The kernel reads the saved positions; the app reads them as the loader resolves them.
+      const kernel = kernelGeometry(engine, syncDerived(saved), { fields: true });
+      const tree = syncDerived(resolveFilePositions(saved));
+      const r = compare(`assembly seed ${seed}`, tree, kernel);
       misses.push(...r.misses);
       unresolved += r.unresolved;
       for (const [rule, count] of r.checked) checked.set(rule, (checked.get(rule) ?? 0) + count);
@@ -1783,6 +1865,8 @@ describe('app geometry matches the kernel', () => {
       'bodytube station in a podset',
       'podset station, placed absolute in a bodytube',
       'parallelstage station, placed absolute in a bodytube',
+      'podset station, saved after in a bodytube',
+      'parallelstage station, saved after in a bodytube',
       'podset radial distance, relative in a bodytube',
       'podset radial distance, free in a bodytube',
       'podset radial distance, surface in a bodytube',

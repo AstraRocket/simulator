@@ -61,3 +61,12 @@ describe('SavedPartEditor', () => {
     expect(saved['overrideMass']).toBeCloseTo(0.15, 9);
   });
 });
+
+describe('SavedPartEditor on a radius the part states', () => {
+  it('offers no Auto switch, since applying the part pins its size', () => {
+    renderWithProviders(<SavedPartEditor part={part} onDirtyChange={() => {}} onDelete={() => {}} onBack={() => {}} />);
+    expect(screen.queryByRole('checkbox', { name: 'Diameter: Auto' })).toBeNull();
+    // Not pinned, so it still works: the shoulder follows the bore.
+    expect(screen.getByRole('checkbox', { name: 'Shoulder diameter: Auto' })).toBeTruthy();
+  });
+});

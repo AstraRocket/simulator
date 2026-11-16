@@ -1,5 +1,5 @@
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { num } from '../../tree/nodeProps';
+import { num, str } from '../../tree/nodeProps';
 import { stageNodes, walkNodes } from '../../tree/treeWalk';
 import {
   addChild,
@@ -53,7 +53,7 @@ export function recoveryCharges(tree: RocketTree): RecoveryCharge[] {
             ...parsed,
             massKg: num(c, 'mass', 0),
             tubeId: tube.id,
-            tubeName: typeof tube.name === 'string' ? tube.name : '',
+            tubeName: str(tube, 'name'),
           });
         }
       }
@@ -67,7 +67,7 @@ export function recoveryCharges(tree: RocketTree): RecoveryCharge[] {
 export function stageNamesById(tree: RocketTree): Map<string, string> {
   const names = new Map<string, string>();
   for (const stage of stageNodes(tree)) {
-    const name = typeof stage.name === 'string' ? stage.name : '';
+    const name = str(stage, 'name');
     for (const n of walkNodes(stage.children ?? [])) if (typeof n.id === 'string') names.set(n.id, name);
   }
   return names;

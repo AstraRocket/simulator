@@ -8,6 +8,7 @@ import { plainSig } from '../files/numberText';
 /** Must match the store's single-point drag sweep that fills StaticInfo.cd. */
 const CD_MACH = 0.3;
 
+// SI, ASCII and 4 significant figures whatever the reader's units: the block is read by tools, not people.
 const M = 'm';
 const KG = 'kg';
 const INERTIA = 'kg*m^2';

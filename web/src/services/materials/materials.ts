@@ -39,9 +39,17 @@ export async function addCustom(
   type: MaterialType,
   density: number,
   group: string = DEFAULT_CUSTOM_GROUP,
+  shearModulus?: number,
 ): Promise<Material[]> {
   const trimmed = checkedMaterialName(name, density);
-  await getMaterialStore().add({ name: trimmed, type, density, group: group || DEFAULT_CUSTOM_GROUP, custom: true });
+  await getMaterialStore().add({
+    name: trimmed,
+    type,
+    density,
+    ...(shearModulus ? { shearModulus } : {}),
+    group: group || DEFAULT_CUSTOM_GROUP,
+    custom: true,
+  });
   bump();
   return getMaterialStore().list();
 }
@@ -63,6 +71,18 @@ export async function addCustomMaterials(materials: readonly Material[]): Promis
 
 export function listCustom(): Promise<Material[]> {
   return loadCustom();
+}
+
+/** One entry per name and type, so a save under another material's name would overwrite it. `except` is the one being edited. */
+export async function refuseTakenName(
+  name: string,
+  type: MaterialType,
+  except?: { name: string; type: string },
+): Promise<void> {
+  const isExcept = (m: Material) => except !== undefined && m.name === except.name && m.type === except.type;
+  if ((await listCustom()).some((m) => m.name === name && m.type === type && !isExcept(m))) {
+    throw new KeyedError('errors.material.nameTaken', { name });
+  }
 }
 
 const signal = changeSignal();

@@ -1,5 +1,5 @@
 import type { ComponentNode } from '../engine/openRocketEngine';
-import { clusterPoints } from './cluster';
+import { clusterPlacesOf } from './cluster';
 import { countOf, num, positionOf } from './nodeProps';
 import { defaultSeparation } from './kernelDefaults';
 
@@ -22,14 +22,7 @@ export function placementOffsets(node: ComponentNode, tubeOuterRadius: number): 
   const radialPosition = num(node, 'radialPosition', 0);
   const radialDirection = num(node, 'radialDirection', 0);
   if (node.type === 'innertube') {
-    return clusterPoints(
-      node['cluster'] as string | undefined,
-      tubeOuterRadius,
-      num(node, 'clusterScale', 1),
-      num(node, 'clusterRotation', 0),
-      radialPosition,
-      radialDirection,
-    ).map((p) => ({
+    return clusterPlacesOf(node, tubeOuterRadius).map((p) => ({
       y: p.radialPosition * Math.cos(p.radialDirection),
       z: p.radialPosition * Math.sin(p.radialDirection),
     }));

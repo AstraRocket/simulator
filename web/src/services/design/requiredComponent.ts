@@ -1,8 +1,9 @@
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { walkNodes } from '../../tree/treeWalk';
-import { finCant } from '../../tree/nodeProps';
+import { finCant, str } from '../../tree/nodeProps';
 import { finMountOf, finRootChord } from '../../tree/finPlanform';
 import { isPlanarFinSet } from '../../tree/tubefins';
+import { freeformPoints, freeformRootChord } from '../../tree/position';
 
 /** Only these stop a kernel run (bridge refusal or NaN mass); other zeros fly, as on desktop. */
 export const REQUIRED_COMPONENT_FIELDS: Record<string, readonly string[]> = {
@@ -35,8 +36,13 @@ export function badDimensions(tree: RocketTree): BadDimension[] {
   for (const n of walkNodes(tree.components ?? [])) {
     for (const field of REQUIRED_COMPONENT_FIELDS[n.type] ?? []) {
       if (n[field] != null && !isDimension(n[field])) {
-        out.push({ id: n.id, type: n.type, name: typeof n.name === 'string' ? n.name : '', field });
+        out.push({ id: n.id, type: n.type, name: str(n, 'name'), field });
       }
+    }
+    // FreeformFinSet flies `last.x - first.x` as its length. At or below 0 the kernel still builds it, and flies
+    // a negative margin or a normal-looking wrong one.
+    if (n.type === 'freeformfinset' && !(freeformRootChord(freeformPoints(n), 0) > 0)) {
+      out.push({ id: n.id, type: n.type, name: str(n, 'name'), field: 'length' });
     }
   }
   return out;
@@ -64,7 +70,7 @@ export function overturnedFins(tree: RocketTree): NamedPart[] {
       const dx = x - xCenter;
       if (dx >= 0) break;
       if (sin * -dx >= mount.radiusAt(xCenter + dx * cos)) {
-        out.push({ id: n.id, type: n.type, name: typeof n.name === 'string' ? n.name : '' });
+        out.push({ id: n.id, type: n.type, name: str(n, 'name') });
         break;
       }
     }

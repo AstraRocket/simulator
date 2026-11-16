@@ -7,7 +7,7 @@ import { degToRad } from '../../prefs/units';
 import { LAUNCH_SI } from '../../prefs/launchUnits';
 import { stableJson } from '../app/stableJson';
 import { DEFAULT_HEADING_DEG, surfaceWind } from './windLevels';
-import { walkNodes } from '../../tree/treeWalk';
+import { collectNodes } from '../../tree/treeWalk';
 import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import { BAYS_KEY } from './recoveryBays';
@@ -67,7 +67,7 @@ const treeKeys = new WeakMap<RocketTree, string>();
 export function flightKey(tree: RocketTree): string {
   let key = treeKeys.get(tree);
   if (key === undefined) {
-    const deviceNames = [...walkNodes(tree.components)].filter((n) => isRecoveryDevice(n.type)).map((n) => n.name);
+    const deviceNames = collectNodes(tree.components, (n) => isRecoveryDevice(n.type)).map((n) => n.name);
     // Settled as the kernel builds them, so a settled and unsettled link key the same.
     key = stableJson([settleLinkedDimensions(tree).components, deviceNames], NOT_FLOWN);
     treeKeys.set(tree, key);
@@ -94,7 +94,9 @@ function computeResultKey(tree: RocketTree, config: FlightConfig, sim: Simulatio
   const prefs = effectivePrefs(globals, sim.prefs);
   // Neither is flown.
   const { weatherSource: _source, keptWindLevels: _kept, ...launch } = sim.launch;
-  return stableJson([flightKey(tree), flown, launch, SIM_PREF_KEYS.map((k) => prefs[k] ?? null)]);
+  // Off adds nothing, so a run saved before the setting existed keeps its key.
+  const keyed = SIM_PREF_KEYS.filter((k) => k !== 'rogersKbf' || prefs.rogersKbf);
+  return stableJson([flightKey(tree), flown, launch, keyed.map((k) => prefs[k] ?? null)]);
 }
 
 export function isOutdated(sim: Simulation, tree: RocketTree, config: FlightConfig, globals: SimPrefs): boolean {
@@ -168,6 +170,14 @@ function newSimId(): string {
   return uuid();
 }
 
+/** `base`, or `base 2`, `base 3` ... where it is taken. */
+export function nextFreeName(base: string, taken: Iterable<string>): string {
+  const used = new Set(taken);
+  let name = base;
+  for (let n = 2; used.has(name); n++) name = `${base} ${n}`;
+  return name;
+}
+
 export function newSimulation(name: string, configId: string, launch: LaunchConditions): Simulation {
   return { id: newSimId(), name, configId, launch, result: null };
 }
@@ -187,6 +197,7 @@ export interface SimPrefs {
   guideAwareRodClearance: boolean;
   // m/s.
   railExitVelocityMin: number;
+  rogersKbf: boolean;
   // The kernel compares lengths as text in this unit, so a unit switch changes what a run records.
   lengthUnit?: string;
 }
@@ -204,6 +215,7 @@ export const SIM_PREF_KEYS = [
   'drogueLowSpeedWarn',
   'guideAwareRodClearance',
   'railExitVelocityMin',
+  'rogersKbf',
   'lengthUnit',
 ] as const satisfies readonly (keyof SimPrefs)[];
 
@@ -277,6 +289,7 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
     drogueLowSpeedWarn: prefs?.drogueLowSpeedWarn,
     guideAwareRodClearance: prefs?.guideAwareRodClearance,
     railExitMinSpeed: prefs?.railExitVelocityMin,
+    rogersKbf: prefs?.rogersKbf,
     // All series, not `summary`'s 17: the app can only plot or export what it asked for.
     series: 'full' as const,
   };

@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../state/useSettings';
 import { unitScope } from '../../prefs/units';
 import { NO_VALUE } from '../../i18n/noValue';
-import { fmtNum, withUnit } from '../../i18n/format';
+import { fmtCalibers, fmtNum, withUnit } from '../../i18n/format';
+import { Notice } from '../common/Notice';
 import { ToolResultCard } from './ToolLayout';
 import { MAIN_BAND } from '../../services/flight/recoverySizing';
 import {
@@ -11,34 +12,38 @@ import {
   SIMPLE_STABILITY_MIN,
   simpleBodyLength,
   simpleFins,
+  simpleIssues,
+  type SimpleIssue,
 } from '../../services/flight/simpleRocket';
 import type { SimpleRocket } from './useSimpleRocket';
-
-const NOTICE = 'rounded-lg px-3 py-1.5 text-xs leading-snug ring-1';
 
 export function SimpleProblem({ rocket }: { rocket: SimpleRocket }) {
   const { t } = useTranslation();
   const { u, lengthUnit, problem, inputs } = rocket;
-  if (!problem || !inputs) return null;
+  // One element, always mounted, swapping its text: a live region created with its text is not announced,
+  // and a different element for the empty state would be a new region each time a problem appears.
+  const shown = !!problem && !!inputs;
   return (
-    <p role="status" className={`${NOTICE} bg-warn-500/10 text-warn-300 ring-warn-400/30`}>
-      {problem === 'tooShort'
-        ? t('simpleTool.tooShort', {
-            nose: SIMPLE_NOSE_CALIBERS,
-            length: lengthUnit('simpleLength').fmtSym(inputs.diameterM * SIMPLE_NOSE_CALIBERS),
-          })
-        : problem === 'finsTooLong'
-          ? t('simpleTool.finsTooLong', {
-              fin: lengthUnit('simpleFinRoot').fmtSym(simpleFins(inputs).rootChordM),
-              body: lengthUnit('simpleLength').fmtSym(simpleBodyLength(inputs)),
+    <Notice tone="warn" role="status" className={shown ? '' : 'sr-only'}>
+      {!problem || !inputs
+        ? null
+        : problem === 'tooShort'
+          ? t('simpleTool.tooShort', {
+              nose: SIMPLE_NOSE_CALIBERS,
+              length: lengthUnit('simpleLength').fmtSym(inputs.diameterM * SIMPLE_NOSE_CALIBERS),
             })
-          : problem === 'cgOutside'
-            ? t('simpleTool.cgOutside', { length: lengthUnit('simpleLength').fmtSym(inputs.lengthM) })
-            : t('simpleTool.mountTooWide', {
-                mount: u.at(unitScope('launch', 'simpleMount'), 'motorDimensions').fmtSym(inputs.mountDiameterM),
-                body: u.at(unitScope('launch', 'simpleDiameter'), 'length').fmtSym(inputs.diameterM),
-              })}
-    </p>
+          : problem === 'finsTooLong'
+            ? t('simpleTool.finsTooLong', {
+                fin: lengthUnit('simpleFinRoot').fmtSym(simpleFins(inputs).rootChordM),
+                body: lengthUnit('simpleLength').fmtSym(simpleBodyLength(inputs)),
+              })
+            : problem === 'cgOutside'
+              ? t('simpleTool.cgOutside', { length: lengthUnit('simpleLength').fmtSym(inputs.lengthM) })
+              : t('simpleTool.mountTooWide', {
+                  mount: u.at(unitScope('launch', 'simpleMount'), 'motorDimensions').fmtSym(inputs.mountDiameterM),
+                  body: u.at(unitScope('launch', 'simpleDiameter'), 'length').fmtSym(inputs.diameterM),
+                })}
+    </Notice>
   );
 }
 
@@ -48,12 +53,18 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
   const { u, err, flown, key } = rocket;
   const seconds = (v: number | null) => (v == null ? null : withUnit(fmtNum(v, 1), t('units.second')));
   const fig = flown?.figures;
+  const issues = fig
+    ? simpleIssues(fig, {
+        railExitMin: settings.simulation.railExitVelocityMin,
+        deployWarn: settings.simulation.deploymentSpeedWarn,
+      })
+    : new Set<SimpleIssue>();
   return (
     <ToolResultCard label={t('simpleTool.result')}>
       {err && (
-        <p role="alert" className={`${NOTICE} mb-3 bg-danger-500/10 text-danger-300 ring-danger-400/30`}>
+        <Notice tone="danger" role="alert" className="mb-3">
           {err}
-        </p>
+        </Notice>
       )}
       {!fig ? (
         <p className="text-xs text-ink-muted">{t('simpleTool.empty')}</p>
@@ -65,7 +76,7 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
               label={t('simpleTool.railExit')}
               value={u.fmtSym('velocity', fig.railExit)}
               warn={
-                fig.railExit < settings.simulation.railExitVelocityMin
+                issues.has('slowExit')
                   ? t('simpleTool.slowExit', {
                       speed: u.fmtSym('velocity', settings.simulation.railExitVelocityMin),
                     })
@@ -86,7 +97,7 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
             <Figure
               label={t('sim.maxMach')}
               value={fmtNum(fig.maxMach, 2)}
-              warn={fig.maxMach > SIMPLE_MACH_CAUTION ? t('simpleTool.machNote', { mach: SIMPLE_MACH_CAUTION }) : null}
+              warn={issues.has('mach') ? t('simpleTool.machNote', { mach: SIMPLE_MACH_CAUTION }) : null}
             />
             <Figure label={t('simpleTool.toApogee')} value={seconds(fig.timeToApogee)} />
             <Figure label={t('simpleTool.optimumDelay')} value={seconds(fig.optimumDelay)} />
@@ -94,12 +105,8 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
             {fig.railStability != null && (
               <Figure
                 label={t('simpleTool.railStability')}
-                value={t('simpleTool.calibers', { value: fmtNum(fig.railStability, 2) })}
-                warn={
-                  fig.railStability < SIMPLE_STABILITY_MIN
-                    ? t('simpleTool.lowStability', { min: SIMPLE_STABILITY_MIN })
-                    : null
-                }
+                value={fmtCalibers(fig.railStability, t)}
+                warn={issues.has('stability') ? t('simpleTool.lowStability', { min: SIMPLE_STABILITY_MIN }) : null}
               />
             )}
           </Figures>
@@ -109,7 +116,7 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
                 label={t('sim.deployVelocity')}
                 value={fig.deployVelocity == null ? null : u.fmtSym('velocity', fig.deployVelocity)}
                 warn={
-                  fig.deployVelocity != null && fig.deployVelocity > settings.simulation.deploymentSpeedWarn
+                  issues.has('deployFast')
                     ? t('simpleTool.deployFast', {
                         speed: u.fmtSym('velocity', settings.simulation.deploymentSpeedWarn),
                       })
@@ -120,7 +127,7 @@ export function SimpleResultCard({ rocket }: { rocket: SimpleRocket }) {
                 label={t('simpleTool.landingSpeed')}
                 value={u.fmtSym('velocity', fig.landingVelocity)}
                 warn={
-                  fig.landingVelocity > MAIN_BAND.max
+                  issues.has('hardLanding')
                     ? t('simpleTool.landsHard', { speed: u.fmtSym('velocity', MAIN_BAND.max) })
                     : null
                 }
@@ -147,12 +154,11 @@ function Figures({ title, note, children }: { title: string; note?: string; chil
 
 function Figure({ label, value, warn }: { label: string; value: string | null; warn?: string | null }) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <dt className="text-xs text-ink-muted">{label}</dt>
-        <dd className={`text-sm tabular-nums ${warn ? 'text-warn-400' : 'text-ink'}`}>{value ?? NO_VALUE}</dd>
-      </div>
-      {warn && <p className="text-xs text-warn-400">{warn}</p>}
+    // A dl item holds only its dt and dd, so the warning is a second dd on its own line.
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={`text-sm tabular-nums ${warn ? 'text-warn-400' : 'text-ink'}`}>{value ?? NO_VALUE}</dd>
+      {warn && <dd className="w-full text-xs text-warn-400">{warn}</dd>}
     </div>
   );
 }

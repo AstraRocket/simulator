@@ -10,9 +10,10 @@ import { isFilled } from '../../services/flight/requiredLaunch';
 import {
   hasIntensity,
   retuneStdDev,
-  stdDevForIntensity,
+  stdDevForPercent,
   turbulenceIntensity,
   turbulenceLevel,
+  turbulencePercent,
 } from '../../services/flight/windTurbulence';
 import { DEFAULT_HEADING_DEG, levelFromAverage } from '../../services/flight/windLevels';
 import type { LaunchConditions } from '../../services/design/orkTree';
@@ -129,10 +130,13 @@ export function WindSection({
             min={0}
             max={MAX_TURBULENCE_PERCENT}
             mixed={mixed('windStdDev')}
-            value={Math.round(intensity * 100)}
+            // With no average, a percentage of it is 0 whatever is typed, and would wipe the gusts.
+            disabled={!hasIntensity(windAvg)}
+            {...(hasIntensity(windAvg) ? {} : { hint: t('launch.turbulenceNeedsWind') })}
+            value={turbulencePercent(intensity)}
             onChange={(v) =>
               onChange((l) => ({
-                windStdDev: stdDevForIntensity(isFilled(l.windAverage) ? l.windAverage : 0, (v ?? 0) / 100),
+                windStdDev: stdDevForPercent(isFilled(l.windAverage) ? l.windAverage : 0, v),
               }))
             }
           />

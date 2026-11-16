@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { ComponentNode } from '../../src/engine/openRocketEngine';
-import { tubeFinRadius, tubeFinMaxRadius, tubeFinMaxCount, isFinSet, isPlanarFinSet } from '../../src/tree/tubefins';
+import {
+  tubeFinCollision,
+  tubeFinRadius,
+  tubeFinMaxRadius,
+  tubeFinMaxCount,
+  isFinSet,
+  isPlanarFinSet,
+} from '../../src/tree/tubefins';
 
 const node = (props: Record<string, unknown>): ComponentNode => ({ type: 'tubefinset', ...props });
 
@@ -94,5 +101,20 @@ describe('isFinSet / isPlanarFinSet', () => {
       expect(isFinSet(t), t).toBe(false);
       expect(isPlanarFinSet(t), t).toBe(false);
     }
+  });
+});
+
+describe('tubeFinCollision', () => {
+  it("reads a keyless count as TubeFinSet()'s 6", () => {
+    // Six tubes round a 20 mm body fit up to 20 mm each.
+    expect(tubeFinCollision(node({ outerRadius: 0.025 }), 0.02)).toEqual({
+      maxRadius: tubeFinMaxRadius(6, 0.02),
+      maxCount: tubeFinMaxCount(0.025, 0.02),
+    });
+  });
+
+  it('lets an exactly touching set and an automatic radius through', () => {
+    expect(tubeFinCollision(node({ finCount: 6, outerRadius: tubeFinMaxRadius(6, 0.02) }), 0.02)).toBeNull();
+    expect(tubeFinCollision(node({ finCount: 6 }), 0.02)).toBeNull();
   });
 });

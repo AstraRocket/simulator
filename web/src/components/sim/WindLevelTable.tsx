@@ -5,7 +5,13 @@ import { markRing } from '../common/markRing';
 import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { MAX_TURBULENCE_PERCENT } from '../../services/flight/safetyLimits';
-import { stdDevForIntensity, turbulenceIntensity, turbulenceLevel } from '../../services/flight/windTurbulence';
+import {
+  hasIntensity,
+  stdDevForPercent,
+  turbulenceIntensity,
+  turbulenceLevel,
+  turbulencePercent,
+} from '../../services/flight/windTurbulence';
 import { degToRad, radToDeg } from '../../prefs/units';
 import type { WindLevels } from './useWindLevels';
 
@@ -74,8 +80,9 @@ function WindLevelRow({
         min={0}
         max={MAX_TURBULENCE_PERCENT}
         ariaLabel={t('windProfile.levelField', { field: t('windProfile.turbulence'), n: i + 1 })}
-        value={Math.round(intensity * 100)}
-        onChange={(v) => patchLevel(i, { stddev: stdDevForIntensity(l.speed, (v ?? 0) / 100) })}
+        value={turbulencePercent(intensity)}
+        disabled={!hasIntensity(l.speed)}
+        onChange={(v) => patchLevel(i, { stddev: stdDevForPercent(l.speed, v) })}
         className={`${cell} w-14`}
       />
       <span className="w-20 truncate text-[11px] text-ink-muted">

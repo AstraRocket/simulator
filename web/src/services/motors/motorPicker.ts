@@ -1,6 +1,7 @@
 import { tubeRadii } from '../design/discGeometry';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { toCatalogMm } from './catalogUnits';
+import { finiteOr } from '../app/numbers';
 
 // mm.
 export const STD_DIAMS = [6, 13, 18, 24, 29, 38, 54, 75, 98, 150];
@@ -25,7 +26,7 @@ export interface MountFit {
 
 /** The bore comes from `tubeRadii`, as the drawings use, so the browser and file reader agree. */
 export function mountFit(node: Record<string, unknown>): MountFit | null {
-  const finite = (k: string): number | null => (Number.isFinite(node[k]) ? (node[k] as number) : null);
+  const finite = (k: string): number | null => finiteOr(node[k], null);
   const tube = tubeRadii(node as ComponentNode);
   if (!tube) return null;
   const tubeLen = finite('length');
@@ -74,7 +75,12 @@ export function delayList(raw: string | null | undefined, format: 'rasp' | 'rock
   }
   // RASP's loader sorts; RockSim's keeps file order.
   if (rasp) out.sort((a, b) => a - b);
-  const parts = out.map(String);
+  return formatDelays(out, plugged);
+}
+
+/** The inverse of `parseDelays`, in the order given; none at all is undefined. */
+export function formatDelays(delays: readonly number[], plugged: boolean): string | undefined {
+  const parts = delays.map(String);
   if (plugged) parts.push('P');
   return parts.length ? parts.join(',') : undefined;
 }

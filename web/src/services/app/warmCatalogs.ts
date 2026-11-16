@@ -1,14 +1,14 @@
+import { CATALOG_CACHE } from './cacheNames';
 import { dataHostUrls, hasDataHost, type CatalogName } from './remoteData';
-
-/** Must match the service worker's runtime cache name (vite.config.ts). */
-const CATALOG_CACHE = 'astra-catalogs';
+// Static: the motor views already import it statically, so a dynamic import only triggers rolldown's ineffective-dynamic-import warning.
+import { loadCatalog as loadMotorCatalog } from '../motors/motorDb';
 
 /** Uses the catalogs' own loaders, not `fetchCatalog`: the first caller's shape check is memoized. */
 export function warmCatalogs(): void {
   if (!hasDataHost()) return;
   const warm = () => {
     const loads: [CatalogName, Promise<unknown>][] = [
-      ['motors', import('../motors/motorDb').then((m) => m.loadCatalog())],
+      ['motors', loadMotorCatalog()],
       ['components', import('../parts/componentDb').then((m) => m.loadCatalog())],
     ];
     for (const [name, load] of loads) {

@@ -29,6 +29,17 @@ export interface Workspace {
   loadedMeta: LoadedMeta | null;
 }
 
+/** What a stored workspace holds besides its version: the snapshot, dirty tracking and autosave all read this list. */
+export const WORKSPACE_FIELDS = ['tree', 'sims', 'configs', 'activeId', 'loadedMeta'] as const;
+export type WorkspaceField = (typeof WORKSPACE_FIELDS)[number];
+/** A field added to `Workspace` and left off `WORKSPACE_FIELDS` is required as `never`, so no caller compiles. */
+export type WorkspaceFields = Pick<Workspace, WorkspaceField> &
+  Record<Exclude<keyof Workspace, 'version' | WorkspaceField>, never>;
+
+export function pickWorkspace<T extends Pick<Workspace, WorkspaceField>>(s: T): Pick<T, WorkspaceField> {
+  return { tree: s.tree, sims: s.sims, configs: s.configs, activeId: s.activeId, loadedMeta: s.loadedMeta };
+}
+
 interface Opened {
   w: Workspace;
   seenAt: number | null;

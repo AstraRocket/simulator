@@ -58,11 +58,10 @@ export function writeChargesSection(p: PdfPage, rows: readonly ChargeRow[], bays
       { title: t('bays.result'), w: CW * 0.2 },
       { title: t('bays.notes'), w: CW * 0.32 },
     ];
-    const tests = [...bay.record.tests].sort((a, b) => a.date.localeCompare(b.date));
     table(
       p,
       cols,
-      tests.map((x) => [
+      bay.record.tests.map((x) => [
         x.id === bay.record.flownTestId ? `${x.date} *` : x.date,
         grams(x.chargeKg),
         pinsCell(x.pins),

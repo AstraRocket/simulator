@@ -14,11 +14,11 @@ import { useHelpSearch } from './useHelpSearch';
 export function HelpDialog({ page, onClose }: { page: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const { target, canGoBack, open, goBack } = useHelpNavigation(page, i18n.language);
-  const { frameRef, ready, activeHash, navigate, onFrameLoad } = useHelpFrame(target, i18n.language, open);
+  const { frameRef, ready, activeHash, anchorHash, navigate, onFrameLoad } = useHelpFrame(target, i18n.language, open);
   const { contentsOpen, toggleContents, pick, activeRow } = useHelpContents(navigate, activeHash);
   const { probed, pages } = useHelpPage(target);
   const search = useHelpSearch(pages, i18n.language, pick);
-  useFrameHighlight(frameRef, ready, search.highlight, target);
+  useFrameHighlight(frameRef, ready, search.highlight, target.src, anchorHash);
 
   const status = probed === null ? 'probing' : !probed.page ? 'missing' : ready ? 'ready' : 'rendering';
 

@@ -40,6 +40,14 @@ describe('a trapezoid fin sweep, as an angle', () => {
   });
 });
 
+describe('cluster separation on a keyless inner tube', () => {
+  it("reads and writes against InnerTube()'s 19 mm tube", () => {
+    const tube = node({ type: 'innertube', clusterScale: 2 });
+    expect(DERIVED.clusterSeparation!.read(tube)).toBeCloseTo(0.019, 12);
+    expect(DERIVED.clusterSeparation!.write(tube, 0.038)).toEqual({ clusterScale: 3 });
+  });
+});
+
 describe('a streamer, by area and aspect ratio', () => {
   const strip = (stripLength: number, stripWidth: number) => node({ type: 'streamer', stripLength, stripWidth });
 

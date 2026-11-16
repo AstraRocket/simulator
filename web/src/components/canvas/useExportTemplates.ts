@@ -5,7 +5,7 @@ import { EXPORT_FORMATS } from '../../services/exports/flightPathExport';
 import { getTemplateStore, parseTemplateFilename, type UserTemplate } from '../../services/exports/templateStore';
 import { useLatest } from '../common/useLatest';
 import { readFileText } from '../../services/files/decodeText';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 import { errorText } from '../../i18n/keyedError';
 import i18n from '../../i18n';
 
@@ -75,11 +75,7 @@ export function useExportTemplates() {
 
   const deleteSelected = async () => {
     if (!selectedUser) return;
-    const ok = await confirm({
-      message: t('pathExport.deleteConfirm', { name: selectedUser.name }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
+    const ok = await confirmDelete(t('pathExport.deleteConfirm', { name: selectedUser.name }));
     if (!ok) return;
     const mine = storeWrite.claim();
     try {

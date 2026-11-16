@@ -195,13 +195,14 @@ async function resolveNameClash(page: Page, choice: NameClash): Promise<void> {
   }
 }
 
+// The banner shows the name as plain text, so it has no role to find it by.
+export const designTitle = (page: Page) => page.getByTestId('design-name');
+
 export async function importRkt(page: Page, fixture: string, designName: string, clash?: NameClash): Promise<void> {
   await expect(page.getByText('L/D', { exact: true })).toBeVisible({ timeout: 20_000 });
   await page.locator('input[accept=".rkt"]').setInputFiles(fixture);
   if (clash) await resolveNameClash(page, clash);
-  await expect(page.getByRole('button', { name: 'Edit rocket configuration' })).toContainText(designName, {
-    timeout: 20_000,
-  });
+  await expect(designTitle(page)).toContainText(designName, { timeout: 20_000 });
 }
 
 export function defined<T>(value: T | undefined | null, what: string): T {

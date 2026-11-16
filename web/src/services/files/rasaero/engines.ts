@@ -1,5 +1,5 @@
 import type { ComponentNode } from '../../../engine/openRocketEngine';
-import { walkNodes } from '../../../tree/treeWalk';
+import { collectNodes } from '../../../tree/treeWalk';
 import { clusterCount } from '../../../tree/cluster';
 import { str } from '../../../tree/nodeProps';
 
@@ -76,7 +76,7 @@ export function stageEngineSlots(
   return stagesIn.map((st): StageEngineSlot => {
     if (!motors) return { engine: null, extraMotors: false };
     // One engine per stage: the first mount wins, as SimulationListDTO.findMotorMount.
-    const mounts = [...walkNodes(st.children ?? [])].filter((n) => n.id && motors[n.id]);
+    const mounts = collectNodes(st.children ?? [], (n) => !!motors[n.id as string]);
     const mount = mounts[0];
     const found = mount?.id ? motors[mount.id] : undefined;
     const abbrev = found && engineOn ? rasaeroManufacturerAbbrev(found.manufacturer) : null;

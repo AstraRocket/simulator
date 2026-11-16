@@ -12,6 +12,16 @@ const POWDER_RT = ((22.16 * FT_LBF) / (LBM * RANKINE)) * (3307 * RANKINE);
 
 export const DEFAULT_BAY_PRESSURE_PA = uiToSi('pressure', 'psi', 15);
 
+/** SI field limits shared by the ejection tool and the recovery bays pane. */
+export const EJECTION_FIELD_LIMITS = {
+  bore: { stepSi: 0.001, minSi: 0.005, maxSi: 1 },
+  length: { stepSi: 0.001, minSi: 0.005, maxSi: 5 },
+  pressure: { stepSi: 1000, minSi: 1000, maxSi: 1e6 },
+  pinCount: { step: 1, min: 0, max: 24 },
+  pinForce: { stepSi: 1, minSi: 1, maxSi: 10000 },
+  charge: { stepSi: 0.0001, minSi: 0.0001, maxSi: 0.1 },
+} as const;
+
 function boreVolume(boreM: number, lengthM: number): number {
   return (Math.PI / 4) * boreM * boreM * lengthM;
 }

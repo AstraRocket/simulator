@@ -9,7 +9,7 @@ import {
   type MotorSpec,
   type RocketTree,
 } from '../../src/engine/openRocketEngine';
-import { KeyedError } from '../../src/i18n/keyedError';
+import { KeyedError, errorReason } from '../../src/i18n/keyedError';
 
 const stubApi = (over: Record<string, unknown> = {}) => ({
   buildRocket: () => 1,
@@ -48,6 +48,14 @@ describe('EngineCallError names the call and keeps the cause', () => {
     expect(err.message).toContain('buildRocket');
     expect(err.message).toContain('Component id "x" is not a motor mount');
     expect(err.engineCause).toBeInstanceOf(Error);
+  });
+
+  it('is keyed, so the wrapper sentence follows the language and crosses the worker', () => {
+    const err = new EngineCallError('buildRocket', new Error('no mount'));
+    expect(err).toBeInstanceOf(KeyedError);
+    expect(err.key).toBe('errors.engine.callFailed');
+    expect(err.values).toEqual({ operation: 'buildRocket', detail: 'no mount' });
+    expect(errorReason(err)).toEqual({ key: 'errors.engine.callFailed', values: err.values });
   });
 
   it('a non-Error throw (what a WASM trap looks like) is still wrapped, with its text', () => {

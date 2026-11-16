@@ -78,7 +78,7 @@ describe('KeyValueLaunchLocationStore', () => {
 
   it('reports a refused write instead of resolving over it', async () => {
     kv.refuse = true;
-    await expect(store.save(location())).rejects.toThrow(/storage-full/);
+    await expect(store.save(location())).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 
   it('survives an absent or corrupt blob', async () => {

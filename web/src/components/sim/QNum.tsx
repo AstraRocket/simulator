@@ -17,6 +17,7 @@ export function QNum({
   minSi,
   maxSi,
   placeholder,
+  placeholderSi,
   hint,
   caution,
   mixed,
@@ -35,6 +36,8 @@ export function QNum({
   minSi?: number;
   maxSi?: number;
   commitOnBlur?: boolean;
+  /** A placeholder figure, shown in this field's own unit. */
+  placeholderSi?: number;
 } & NumberRowMarks) {
   const c = LAUNCH_SI[kind];
   const scope = unitScope('launch', field);
@@ -46,7 +49,7 @@ export function QNum({
       step={fu.step(stepSi)}
       min={minSi !== undefined ? fu.toUi(minSi) : undefined}
       max={maxSi !== undefined ? fu.toUi(maxSi) : undefined}
-      placeholder={placeholder}
+      placeholder={placeholderSi !== undefined ? fu.fmt(placeholderSi) : placeholder}
       hint={hint}
       caution={caution}
       mixed={mixed}

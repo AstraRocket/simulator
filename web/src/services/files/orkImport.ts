@@ -1,6 +1,7 @@
 import i18n from '../../i18n';
 import { readDesignNotes } from './ork/orkDesignNotes';
 import { xmlText as text } from './xmlUtil';
+import { readDecimal } from './numberText';
 import { syncAutoRadii } from '../design/autoRadius';
 import { findStages } from '../design/treeEdit';
 import type { OrkImportResult } from './orkTypes';
@@ -30,7 +31,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   const designType = text(rocketEl, ':scope > designtype')?.toLowerCase() ?? undefined;
   const refType = text(rocketEl, ':scope > referencetype')?.toLowerCase();
   const referenceType = refType && refType !== 'maximum' ? refType : undefined;
-  const customRef = Number(text(rocketEl, ':scope > customreference'));
+  const customRef = readDecimal(text(rocketEl, ':scope > customreference') ?? '');
   const customReference = Number.isFinite(customRef) && customRef > 0 ? customRef : undefined;
   const rocketExtra = readPassthrough(rocketEl, KNOWN_ROCKET_TAGS);
   const docEl = doc.querySelector('openrocket');
@@ -73,6 +74,8 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   }
   // The bridge always measures calibers against the widest body tube, so the margin can differ.
   if (referenceType) notes.push(keyedNote('importNote.referenceType', { type: referenceType }));
+  const lookupSims = simulations.filter((s) => s.lookupTables).map((s) => s.name);
+  if (lookupSims.length) notes.push(keyedNote('importNote.lookupTables', { names: noteList(lookupSims) }));
 
   const launch = readLaunchConditions(doc);
 
@@ -105,7 +108,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   };
 }
 
-/** Desktop 24.12's DocumentConfig.SUPPORTED_VERSIONS plus upstream's 1.11. */
+/** Desktop's `DocumentConfig.SUPPORTED_VERSIONS`. */
 const SUPPORTED_ORK_VERSIONS: ReadonlySet<string> = new Set([
   '1.0',
   '1.1',

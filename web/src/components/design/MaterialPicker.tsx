@@ -19,7 +19,7 @@ import { useCustomMaterialForm } from './useCustomMaterialForm';
 export type MaterialUse = 'structure' | 'fillet';
 
 // Density 0 with name undefined means the engine default. The `.ork` writer needs the group `onChange` carries.
-// eslint-disable-next-line complexity -- one select's option groups and its readout, which read best together
+// eslint-disable-next-line complexity -- resolving the current material, the select's option groups, its change handler and the readout share one set of material lists
 export function MaterialPicker({
   value,
   density: ownDensity,
@@ -33,7 +33,7 @@ export function MaterialPicker({
   value?: string;
   /** SI. */
   density?: number;
-  onChange: (name: string | undefined, density: number, group?: string) => void;
+  onChange: (name: string | undefined, density: number, group?: string, shearModulus?: number) => void;
   type?: MaterialType;
   label?: string;
   use?: MaterialUse;
@@ -92,11 +92,11 @@ export function MaterialPicker({
     if (v === '__manage__') return setManaging(true);
     if (v.startsWith(DOC_PREFIX)) {
       const d = docMats[Number(v.slice(DOC_PREFIX.length))];
-      if (d) onChange(d.name, d.density, d.group);
+      if (d) onChange(d.name, d.density, d.group, d.shearModulus);
       return;
     }
     const m = mats.find((x) => x.name === v);
-    if (m) onChange(m.name, m.density, m.group);
+    if (m) onChange(m.name, m.density, m.group, m.shearModulus);
   };
 
   const shown = current ?? docCurrent;

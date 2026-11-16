@@ -47,6 +47,8 @@
       "archiveEmpty": "Archiwum .ork jest puste.",
       "archiveCorrupt": "Archiwum .ork jest uszkodzone lub nie można go odczytać.",
       "tooManyComponents": "Ten plik {{format}} deklaruje zbyt wiele komponentów, by go otworzyć (możliwe uszkodzenie).",
+      "tooManyInstances": "Ten plik {{format}} zagnieżdża kapsuły, klastry i liczności w zbyt wiele części, by go otworzyć (możliwe uszkodzenie).",
+      "autoRadiusRunTooLong": "Ten plik {{format}} ma zbyt wiele części z automatycznym promieniem pod rząd, by go otworzyć (możliwe uszkodzenie).",
       "tooManySimulations": "Ten plik .ork deklaruje zbyt wiele symulacji, by go otworzyć (możliwe uszkodzenie).",
       "tooManyUnknownElements": "Ten plik .ork zawiera zbyt wiele nierozpoznanych elementów, by go otworzyć (możliwe uszkodzenie).",
       "tooManyConfigs": "Ten plik .ork deklaruje zbyt wiele konfiguracji lotu, by go otworzyć (możliwe uszkodzenie).",
@@ -83,6 +85,7 @@
       "engHeader": "Nieprawidłowy nagłówek .eng. Oczekiwano: oznaczenie średnica długość opóźnienia masaPaliwa masaCałkowita producent.",
       "engHeaderNumbers": "Nieprawidłowy nagłówek .eng: średnica, długość lub któraś z mas nie jest liczbą.",
       "engHeaderSize": "Nieprawidłowy nagłówek .eng: średnica i długość muszą być dodatnie.",
+      "oversize": "Silnik {{motor}} jest większy lub cięższy, niż symulator może obsłużyć (ponad 1000 m lub 10¹⁵ kg). Popraw plik silnika lub wybierz inny silnik.",
       "engHeaderMass": "Nieprawidłowy nagłówek .eng: masa paliwa musi mieścić się między 0 a masą całkowitą.",
       "engDataLine": "Nieprawidłowe dane .eng w wierszu {{line}}: oczekiwano czasu i ciągu, a jest „{{text}}”.",
       "engNoCurve": "Plik .eng nie zawiera punktów krzywej ciągu.",
@@ -119,6 +122,7 @@
       "propOverTotal": "{{motor}} ma w katalogu więcej paliwa ({{prop}} g) niż masy startowej ({{total}} g), więc jego spalanie skończyłoby się ujemną masą. Wybierz inny silnik.",
       "badWeight": "{{motor}} ma w katalogu ujemną masę paliwa lub masę startową równą zero lub mniejszą, więc nie da się go zasymulować. Wybierz inny silnik.",
       "badSize": "thrustcurve.org podaje dla {{motor}} błędny rozmiar (średnica {{diameter}} mm, długość {{length}} mm), więc nie można go symulować. Wybierz inny silnik.",
+      "oversize": "Silnik {{motor}} jest większy lub cięższy, niż symulator może obsłużyć (ponad 1000 m lub 10¹⁵ kg), więc został pominięty. Wybierz inny silnik.",
       "negativeThrust": "Dane krzywej ciągu dla {{motor}} zawierają ujemny ciąg, więc nie można go symulować. Wybierz inny silnik.",
       "badCg": "Podany środek ciężkości {{motor}} leży poza silnikiem (od 0 do {{length}} mm), więc nie można go symulować. Wybierz inny silnik.",
       "importGone": "Zaimportowany silnik {{motor}} nie jest już zapisany. Zaimportuj ponownie jego plik silnika.",
@@ -158,6 +162,7 @@
       "nothing": "Nie ma nic do wyeksportowania."
     },
     "engine": {
+      "callFailed": "Silnik fizyczny OpenRocket zawiódł przy {{operation}}: {{detail}}",
       "notReady": "Silnik fizyczny OpenRocket nie skończył się jeszcze wczytywać. Poczekaj na jego wczytanie i spróbuj ponownie.",
       "staleDesign": "Ten projekt zbudowano przed ponownym uruchomieniem silnika fizycznego. Zbuduj go ponownie przed użyciem."
     },
@@ -188,6 +193,7 @@
     "openExample": "Nie udało się otworzyć tego przykładu: {{reason}}",
     "saveOrk": "Nie udało się zapisać pliku .ork: {{reason}}",
     "saveOrkNoDesignInfo": "Zapisano plik .ork bez informacji o projekcie: nie udało się zbudować projektu, więc nie było statystyk do dołączenia.",
+    "saveOrkFairing": "Zapisano plik .ork, ale OpenRocket na komputer nie ma części „osłona aerodynamiczna” i przy otwieraniu pliku pomija te części wraz z ich masą: {{parts}}.",
     "exportRasaero": "Nie udało się wyeksportować do RASAero: {{reason}}",
     "exportRasaeroSurface": "Plik RASAero został zapisany, ale RASAero nie ma powierzchni odpowiadającej wykończeniu tego projektu, więc zapisano ją jako gładką (zerowa chropowatość).",
     "exportRasaeroStageMass": "Plik RASAero został zapisany, ale masa startowa i środek ciężkości jednego ze stopni nie były dostępne, więc pola masy i środka ciężkości w symulacji zapisano jako 0. Wprowadź je w RASAero przed lotem.",
@@ -218,6 +224,7 @@
     "length": "Długość",
     "dimLength": "dł. {{value}}",
     "dimWall": "ścianka {{value}}",
+    "boreTooSmall": "otwór za mały, potrzeba Ø {{value}}",
     "maxDiameter": "Maks. średnica",
     "massEmpty": "Masa (pusta)",
     "massLoaded": "Masa (z paliwem)",
@@ -281,7 +288,8 @@
       "cutCount": "{{name}} (wyciąć {{qty}})",
       "finDims": "nasada {{root}} mm | rozpiętość {{span}} mm | grubość {{stock}} mm",
       "discDims": "Ø{{diameter}} mm",
-      "discBoreDims": "Ø{{diameter}} mm | otwór Ø{{bore}} mm"
+      "discBoreDims": "Ø{{diameter}} mm | otwór Ø{{bore}} mm",
+      "boreTooSmall": "SPRAWDŹ: otwór za mały, rura potrzebuje Ø{{bore}} mm"
     },
     "title": "Raport projektu",
     "select": "Wybierz elementy do uwzględnienia:",
@@ -476,7 +484,10 @@
   },
   "edit": {
     "undo": "Cofnij",
-    "redo": "Ponów"
+    "redo": "Ponów",
+    "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Przeskaluj rakietę",
@@ -535,7 +546,8 @@
       "pressure": "Ciśnienie",
       "force": "Ciąg / siła",
       "impulse": "Impuls",
-      "rollRate": "Prędkość przechylania"
+      "rollRate": "Prędkość przechylania",
+      "shearModulus": "Moduł Kirchhoffa"
     }
   },
   "settings": {
@@ -637,6 +649,11 @@
     "simModel": "Model lotu",
     "guideAwareRodClearance": "Uwzględniaj położenie prowadnic",
     "guideAwareRodClearanceHint": "OpenRocket prowadzi rakietę przez całą długość prowadnicy, niezależnie od położenia uszu startowych czy guzików szynowych. Włączone: ucho prowadzi, dopóki jego tylny koniec nie zejdzie z pręta, a szyna do zejścia przedostatniego guzika, więc pojedynczy guzik nie daje żadnego prowadzenia. Spodziewaj się wcześniejszego zejścia i nieco niższej prędkości na końcu prowadnicy. Wyłączone: wyniki zgodne z OpenRocket.",
+    "rogersKbf": "Interferencja stateczników RASAero (z Kbf)",
+    "rogersKbfHint": "Dwa człony z łatki Zmodyfikowany Barrowman Rogersa (Kbf) projektu mmrocket-sim. Opór tarcia każdego zestawu stateczników rośnie o 80% z tytułu interferencji statecznik-kadłub, tak jak liczy ją RASAero II, więc pułap wychodzi niższy. Stateczniki, których nie obejmuje własny model interferencji OpenRocket (eliptyczne, o dowolnym kształcie lub niezamocowane na rurze kadłuba), dostają też siłę nośną przenoszoną przez stateczniki na kadłub (NACA Report 1307), co przesuwa CP do tyłu i zwiększa zapas stateczności; stateczniki trapezowe na rurze kadłuba dostają ją już od OpenRocket. CP i zapas na karcie Projekt podążają za tym ustawieniem tak jak loty; Warsztat nie. Wyłączone: wyniki zgodne z OpenRocket.",
+    "rogersKbfConfirmTitle": "Włączyć interferencję stateczników RASAero?",
+    "rogersKbfConfirm": "Wyniki przestaną być zgodne z OpenRocket na komputer. Każdy zestaw stateczników dostaje o 80% większy opór tarcia, więc pułap wychodzi niższy. Stateczniki eliptyczne, o dowolnym kształcie i inne spoza modelu interferencji OpenRocket dostają też dodatkową siłę nośną kadłuba, która przesuwa CP do tyłu i pokazuje większy zapas stateczności. Żaden z tych członów nie został sprawdzony dla Twojego projektu, a zbyt daleko cofnięty CP zawyża stateczność rakiety. Symulacje wykonane bez tej opcji zostaną oznaczone jako nieaktualne.",
+    "rogersKbfConfirmLabel": "Włącz",
     "deploySpeedWarnHint": "Otwarcie jednostopniowe (bez spadochronu hamującego): powyżej tej prędkości otwarcie spadochronu grozi podłużnym rozerwaniem kadłuba albo rozdarciem czaszy.",
     "mainHighSpeedWarnHint": "Otwarcie dwustopniowe: powyżej tej wartości GŁÓWNY spadochron wychodzi za szybko, zwykle z powodu zbyt małego spadochronu hamującego albo zbyt wysoko ustawionego otwarcia głównego.",
     "mainLowSpeedWarnHint": "Otwarcie dwustopniowe: poniżej tej wartości główny spadochron otwiera się, gdy rakieta prawie nie opada, co zwykle oznacza otwarcie blisko apogeum: wolne opadanie z pełnej wysokości i duży dryf.",
@@ -664,8 +681,6 @@
     "removeMembership": "Usuń członkostwo: {{org}}"
   },
   "config": {
-    "title": "Konfiguracja rakiety",
-    "edit": "Edytuj konfigurację rakiety",
     "notes": "Notatki projektowe",
     "name": "Nazwa projektu",
     "designer": "Projektant",
@@ -683,7 +698,6 @@
     "removeRevision": "Usuń rewizję z {{date}}",
     "removeRevisionConfirm": "Usunąć tę rewizję?",
     "appOnlyNotes": "Zapis do .ork zachowuje wszystkie te notatki. Producent zestawu, numer katalogowy i rewizje z datą należą tylko do tej aplikacji: OpenRocket na komputer usuwa je przy zapisie pliku. Format .rkt nie zachowuje tych trzech pól ani nazwy zestawu.",
-    "save": "OK",
     "type_original": "Projekt własny / inne",
     "type_commercial_kit": "Zestaw handlowy",
     "type_clone_kit": "Kopia zestawu",
@@ -729,6 +743,17 @@
     "lastFlyingStage": "W każdej konfiguracji musi lecieć co najmniej jeden stopień.",
     "stageGrounded": "Zostaje na ziemi w:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Załadować {{motor}} także do pozostałych komór tego stopnia? Każda zachowuje własny zapłon.",
+    "otherMountsEmpty": "{{mount}}, teraz pusta",
+    "otherMountsReplaces": "{{mount}}, zamiast {{motor}}",
+    "otherMountsKeptPlugged": "silnik pozostaje zaślepiony",
+    "otherMountsTooWide": "Pominięto {{mount}}: silnik jest za szeroki na jej średnicę wewnętrzną.",
+    "otherMountsTooLong": "Pominięto {{mount}}: silnik jest dla niej za długi.",
+    "otherMountsLoad": "Załaduj",
+    "otherMountsDismiss": "Nie, dziękuję",
+    "otherMountsLoaded": "Załadowano {{motor}} do pozostałych komór.",
+    "otherMountsUndo": "Cofnij",
+    "otherMountsClose": "Zamknij",
     "bays": "Przedziały"
   },
   "tabs": {
@@ -801,7 +826,7 @@
     "mass": "Masa",
     "cg": "SC",
     "cp": "SP",
-    "caliber": "kal",
+    "caliber": "kal.",
     "stable": "Stabilna",
     "marginal": "Na granicy",
     "unstable": "Niestabilna"
@@ -938,6 +963,7 @@
     "stdDev": "Odchylenie standardowe",
     "stdDevName": "Odchylenie standardowe wiatru",
     "turbulenceIntensity": "Intensywność turbulencji",
+    "turbulenceNeedsWind": "Najpierw ustaw średni wiatr: procent określa porywy jako jego część.",
     "levelCount_one": "{{count}} poziom wiatru",
     "levelCount_few": "{{count}} poziomy wiatru",
     "levelCount_many": "{{count}} poziomów wiatru",
@@ -1425,6 +1451,7 @@
     "noEditor": "Ta aplikacja nie ma edytora dla: {{items}}. Zostają zachowane, więc zapis je utrzyma.",
     "docMaterialsSkipped": "Pominięte nieczytelne materiały projektu: {{count}}.",
     "referenceType": "Ten projekt mierzy stateczność w kalibrach względem „{{type}}”. Ta aplikacja mierzy ją względem najszerszej rury korpusu, więc zapas stateczności w kalibrach może się różnić od tego w OpenRocket na komputer; plik zachowuje to ustawienie.",
+    "lookupTables": "W OpenRocket na komputer te symulacje korzystają z tabeli oporu lub stateczności. Ta aplikacja sama oblicza opór i stateczność, więc ich zapisane wyniki są oznaczone jako nieaktualne, a ponowne uruchomienie może dać inny wynik. Tabele są zachowane i zapisywane razem z plikiem: {{names}}.",
     "motorPlugged": "Silnik {{motor}}: zaślepiony (bez ładunku wyrzutowego). Upewnij się, że odzysk uruchamia się w apogeum lub na wysokości, a nie od ładunku wyrzutowego.",
     "motorPluggedNoDelay": "Silnik {{motor}}: zaślepiony (bez ładunku wyrzutowego; plik nie podaje czytelnego opóźnienia). Upewnij się, że odzysk uruchamia się w apogeum lub na wysokości, a nie od ładunku wyrzutowego.",
     "finPointsCapped": "Statecznik o dowolnym kształcie miał więcej niż {{max}} punktów; resztę odrzucono.",
@@ -1509,6 +1536,7 @@
     "collapseAll": "Zwiń wszystko",
     "collapseTree": "Ukryj listę części",
     "hidePart": "Ukryj w widokach",
+    "hiddenByParent": "Ukryty w widokach razem z częścią, w której się znajduje",
     "showPart": "Pokaż w widokach",
     "showAll": "Pokaż wszystkie",
     "hiddenNote": "Ukryte części nadal liczą się do masy, SC, aerodynamiki i wszystkich danych lotu. Pomijają je tylko widoki 2D i 3D.",
@@ -1661,6 +1689,7 @@
     "tabOffsetMethod": "Odniesienie zaczepu statecznika",
     "cluster": "Wiązka",
     "tubeFinsCollide": "Te rury nachodzą na siebie. Przy takiej średnicy rury zmieści się najwyżej {{max}}; przy takiej liczbie największa pasująca średnica to {{diameter}} {{unit}}.",
+    "ringBoreTooSmall": "Otwór tego pierścienia jest mniejszy niż rura wewnętrzna, która przez niego przechodzi. Rura potrzebuje otworu o średnicy co najmniej Ø {{diameter}} {{unit}}.",
     "shapeParameter": "Parametr kształtu",
     "stripArea": "Powierzchnia paska",
     "stripAspect": "Format",
@@ -1917,6 +1946,7 @@
     "densityBulk": "Gęstość objętościowa",
     "densitySurface": "Gęstość powierzchniowa",
     "densityLine": "Gęstość liniowa",
+    "shearModulus": "Moduł Kirchhoffa",
     "save": "Zapisz",
     "cancel": "Anuluj",
     "addToLibrary": "Dodaj do moich własnych materiałów, dla każdego projektu",
@@ -2106,7 +2136,6 @@
     "searchCode": "Szukaj po oznaczeniu (np. C6)…",
     "select": "Wybierz",
     "loading": "Wczytywanie…",
-    "loadingCatalog": "Wczytywanie katalogu silników…",
     "pickHint": "Wybierz silnik, aby zobaczyć jego krzywą ciągu i dane.",
     "backToList": "Wróć do listy",
     "curve": "Krzywa",
@@ -2806,7 +2835,6 @@
     "cgHint": "Punkt równowagi bez silnika, mierzony od czubka stożka.",
     "cgOutside": "Środek ciężkości musi leżeć na rakiecie, między czubkiem stożka a {{length}}.",
     "railStability": "Stateczność przy zejściu z wyrzutni",
-    "calibers": "{{value}} kal.",
     "lowStability": "Poniżej {{min}} kalibru: prawdopodobnie niestateczna",
     "stabilityNote": "Stateczność wynika z podanego środka ciężkości i statecznika z zastępczym stożkiem; prawdziwy stożek nieco ją zmienia.",
     "colStability": "Stateczność (kal.)",

@@ -87,7 +87,7 @@ export function radialOrigin(angles: number[]): number {
 // Props and fallbacks must match rocketPieces.ts and exportParts.ts/exportWriters.ts.
 export function mountAngles(node: ComponentNode): number[] {
   const type = String(node.type);
-  if (!isFinSet(type)) return [num(node, 'angleOffset', Math.PI)];
+  if (!isFinSet(type)) return [num(node, 'angleOffset', kernelDefault(type, 'angleOffset') ?? Math.PI)];
   const count = countOf(node, 'finCount', kernelDefault(type, 'finCount') ?? 3);
   return ringInstanceOffsets(count, 0, num(node, 'rotation', 0)).map((o) => o.angle);
 }

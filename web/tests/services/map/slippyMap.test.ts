@@ -14,7 +14,6 @@ import {
   latToTileY,
   lonToTileX,
   metersPerPixel,
-  normalizeLon,
   project,
   tileXToLon,
   tileYToLat,
@@ -22,6 +21,9 @@ import {
   visibleTiles,
   wrapTileX,
   zoomForMetersPerPixel,
+  latHemisphere,
+  latLonUnit,
+  lonHemisphere,
 } from '../../../src/services/map/slippyMap';
 
 describe('tile projection', () => {
@@ -70,11 +72,10 @@ describe('wrapping', () => {
     expect(wrapTileX(3, 3)).toBe(3);
   });
 
-  it('folds a longitude into the readable range', () => {
-    expect(normalizeLon(190)).toBeCloseTo(-170, 9);
-    expect(normalizeLon(-190)).toBeCloseTo(170, 9);
-    expect(normalizeLon(-104.8)).toBeCloseTo(-104.8, 9);
-    expect(normalizeLon(180)).toBeCloseTo(-180, 9);
+  it('folds a panned-past longitude back as MathUtil.reducePi does, 180 staying east', () => {
+    expect(panView({ lat: 0, lon: 190, zoom: 1 }, 0, 0).lon).toBeCloseTo(-170, 9);
+    expect(panView({ lat: 0, lon: -190, zoom: 1 }, 0, 0).lon).toBeCloseTo(170, 9);
+    expect(panView({ lat: 0, lon: 180, zoom: 1 }, 0, 0).lon).toBeCloseTo(180, 9);
   });
 });
 
@@ -247,5 +248,13 @@ describe('panView', () => {
   it('stops at the pole rather than panning past it', () => {
     const v = panView({ lat: 80, lon: 0, zoom: 3 }, 0, -10 * TILE_SIZE);
     expect(v.lat).toBeCloseTo(MAX_LAT, 3);
+  });
+});
+
+describe('latLonUnit', () => {
+  it('adds the hemisphere letter once there is a value', () => {
+    expect(latLonUnit('latitudeDeg', null)).toBe('°');
+    expect(latLonUnit('latitudeDeg', -33.9)).toBe(`° ${latHemisphere(-33.9)}`);
+    expect(latLonUnit('longitudeDeg', 151.2)).toBe(`° ${lonHemisphere(151.2)}`);
   });
 });

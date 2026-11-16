@@ -104,6 +104,6 @@ describe('writes go through kv.update', () => {
     expect(await store.list()).toEqual([]);
 
     kv.update = async () => false; // storage refused it
-    await expect(store.add(mat('Birch'))).rejects.toThrow('storage-full');
+    await expect(store.add(mat('Birch'))).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 });

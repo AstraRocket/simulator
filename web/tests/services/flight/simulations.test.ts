@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { MAX_ROD_ANGLE_RAD } from '../../../src/services/flight/safetyLimits';
-import { simConditions, newSimulation, resultKey, type SimPrefs } from '../../../src/services/flight/simulations';
+import {
+  simConditions,
+  newSimulation,
+  nextFreeName,
+  resultKey,
+  type SimPrefs,
+} from '../../../src/services/flight/simulations';
 import { newFlightConfig } from '../../../src/services/flight/flightConfigs';
 import type { CompleteLaunch } from '../../../src/services/flight/requiredLaunch';
 import { DEFAULT_HEADING_DEG } from '../../../src/services/flight/windLevels';
@@ -34,6 +40,7 @@ const PREFS: SimPrefs = {
   drogueLowSpeedWarn: 3.048,
   guideAwareRodClearance: false,
   railExitVelocityMin: 15,
+  rogersKbf: false,
 };
 
 describe('simConditions', () => {
@@ -206,5 +213,35 @@ describe('a profile kept under the Average model', () => {
     expect(resultKey(tree, config, sim({ ...base, keptWindLevels: kept }), PREFS)).toBe(
       resultKey(tree, config, sim(base), PREFS),
     );
+  });
+});
+
+describe('the Rogers Kbf setting', () => {
+  const tree = { components: [{ type: 'nosecone', id: 'n', length: 0.1 }] } as never;
+  const config = newFlightConfig();
+  const sim = () => newSimulation('A', config.id, base);
+
+  it('is passed to the engine', () => {
+    expect(simConditions(base, { ...PREFS, rogersKbf: true }).rogersKbf).toBe(true);
+    expect(simConditions(base, PREFS).rogersKbf).toBe(false);
+  });
+
+  it('off, keys a result as before the setting existed, so saved runs stay current', () => {
+    const { rogersKbf: _off, ...older } = PREFS;
+    expect(resultKey(tree, config, sim(), PREFS)).toBe(resultKey(tree, config, sim(), older as SimPrefs));
+  });
+
+  it('on, keys a result apart from off', () => {
+    expect(resultKey(tree, config, sim(), { ...PREFS, rogersKbf: true })).not.toBe(
+      resultKey(tree, config, sim(), PREFS),
+    );
+  });
+});
+
+describe('nextFreeName', () => {
+  it('keeps a free name and numbers a taken one from 2', () => {
+    expect(nextFreeName('Copy', ['A'])).toBe('Copy');
+    expect(nextFreeName('Copy', ['Copy'])).toBe('Copy 2');
+    expect(nextFreeName('Copy', ['Copy', 'Copy 2', 'Copy 3'])).toBe('Copy 4');
   });
 });

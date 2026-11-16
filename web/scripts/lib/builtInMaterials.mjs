@@ -3,7 +3,7 @@ import { runDumper } from './openrocketJava.mjs';
 
 const key = (type, name) => `${type}\u0000${name.toLowerCase()}`;
 
-// Read from the build's own `Databases`, not the catalog: the source tree has materials the release lacks.
+// Read from the build's own `Databases`, not the catalog, so a part weighs what that build's desktop gives it.
 export function builtInMaterials(cp) {
   const rows = runDumper({
     cp,

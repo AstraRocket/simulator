@@ -1,6 +1,6 @@
 import type { FlightSeries } from '../../engine/openRocketEngine';
 import { radToDeg } from '../../prefs/units';
-import { roundFixed } from '../app/numbers';
+import { roundFixed, isFiniteNumber } from '../app/numbers';
 
 /** Meters east (kernel `Px`) and north (`Py`) of the pad. */
 export interface GroundPoint {
@@ -20,9 +20,16 @@ export interface GroundTrackLine {
   bearing: number;
 }
 
-const finite = (v: number | null | undefined): v is number => v != null && Number.isFinite(v);
+/**
+ * Sample i's ground position, or null when the run left either coordinate non-finite there. Every reader drops
+ * such a sample rather than zeroing it: zero is the pad, so one null would draw a spike to it.
+ */
+export function groundPointAt(series: FlightSeries | undefined, i: number): GroundPoint | null {
+  const e = series?.['Px']?.[i];
+  const n = series?.['Py']?.[i];
+  return isFiniteNumber(e) && isFiniteNumber(n) ? { east: e, north: n } : null;
+}
 
-// Drops half-valid samples rather than zeroing them: zero is the pad, so one null would draw a spike to it.
 export function trackPoints(series: FlightSeries | undefined): GroundPoint[] {
   const east = series?.['Px'];
   const north = series?.['Py'];
@@ -30,19 +37,18 @@ export function trackPoints(series: FlightSeries | undefined): GroundPoint[] {
   const n = Math.min(east.length, north.length);
   const out: GroundPoint[] = [];
   for (let i = 0; i < n; i++) {
-    const e = east[i];
-    const nr = north[i];
-    if (finite(e) && finite(nr)) out.push({ east: e, north: nr });
+    const p = groundPointAt(series, i);
+    if (p) out.push(p);
   }
   return out;
 }
 
 export const distanceFromPad = (p: GroundPoint): number => Math.hypot(p.east, p.north);
 
-/** Degrees clockwise from north. */
-export const bearingFromPad = (p: GroundPoint): number => (radToDeg(Math.atan2(p.east, p.north)) + 360) % 360;
-
 export const norm360 = (deg: number): number => ((deg % 360) + 360) % 360;
+
+/** Degrees clockwise from north. */
+export const bearingFromPad = (p: GroundPoint): number => norm360(radToDeg(Math.atan2(p.east, p.north)));
 
 export function landingLatLon(series: FlightSeries | undefined): { lat: number; lon: number } | null {
   const lat = series?.['φ'];
@@ -51,7 +57,7 @@ export function landingLatLon(series: FlightSeries | undefined): { lat: number; 
   for (let i = Math.min(lat.length, lon.length) - 1; i >= 0; i--) {
     const a = lat[i];
     const b = lon[i];
-    if (finite(a) && finite(b)) return { lat: a, lon: b };
+    if (isFiniteNumber(a) && isFiniteNumber(b)) return { lat: a, lon: b };
   }
   return null;
 }

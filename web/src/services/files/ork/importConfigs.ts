@@ -1,7 +1,7 @@
 import { PLUGGED_DELAY, type ComponentNode } from '../../../engine/openRocketEngine';
 import { xmlText as text } from '../xmlUtil';
 import { type OrkMotorRef, type OrkFlightConfig, defaultOrkConfig } from '../orkTypes';
-import { nonNegTag, numTag, readDeploymentTags, readSeparationTags } from './importTags';
+import { nonNegTag, numTag, optNonNegTag, readDeploymentTags, readSeparationTags } from './importTags';
 import { MAX_MOTOR_CONFIGS } from './importLimits';
 import { finiteNum } from './numbers';
 import { keyedNote, notePartName, type ImportNote } from '../importNote';
@@ -127,8 +127,9 @@ export function readMotor(ctx: OrkImportContext, el: Element, node: ComponentNod
   if (bareDelay !== 0) node['ignitionDelay'] = bareDelay;
   const ignitionEvent = (igEl: Element | undefined): string | undefined =>
     (igEl && text(igEl, ':scope > ignitionevent')) ?? text(mountEl, ':scope > ignitionevent') ?? undefined;
+  // An unreadable one keeps the mount's, as desktop ignores it.
   const ignitionDelay = (igEl: Element | undefined): number =>
-    nonNegTag(igEl && text(igEl, ':scope > ignitiondelay') !== null ? igEl : mountEl, 'ignitiondelay', 0);
+    (igEl && optNonNegTag(igEl, 'ignitiondelay')) ?? bareDelay;
   const resolveRef = (motorEl: Element, igEl: Element | undefined): OrkMotorRef => {
     const digest = text(motorEl, ':scope > digest');
     const maker = text(motorEl, ':scope > manufacturer')?.trim();

@@ -8,7 +8,7 @@ import { newFlightConfig, type MountMotor } from '../../../src/services/flight/f
 import { exportOrk, importOrk, type OrkExportMotor } from '../../../src/services/files/orkFile';
 import { orkArchive } from '../../../src/services/files/saveOrk';
 import { unpackOrk } from '../../../src/services/files/ork/importUnpack';
-import { rseDigest } from '../../../src/services/files/ork/embeddedMotors';
+import { rseDigest } from '../../testing/rseDigest';
 import { unzipSync } from 'fflate';
 import {
   PLUGGED_DELAY,
@@ -16,9 +16,15 @@ import {
   type MotorSpec,
   type RocketTree,
 } from '../../../src/engine/openRocketEngine';
-const CATALOG = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'public/data/motors.generated.json'), 'utf8'),
-) as CatalogMotor[];
+// The build's database holds no motor whose plugged entry is apart from its delayed one, so the
+// catalog's C6 is split that way here: the delay has to decide between them.
+const SPLIT_C6 = [
+  { digest: 'a'.repeat(32), delays: ['P' as const] },
+  { digest: 'b'.repeat(32), delays: [0, 3, 5, 7] },
+];
+const CATALOG = (
+  JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/motors.generated.json'), 'utf8')) as CatalogMotor[]
+).map((m) => (m.manufacturer === 'Estes' && m.designation === 'C6' ? { ...m, digests: SPLIT_C6 } : m));
 
 const row = (manufacturer: string, designation: string) =>
   CATALOG.find((m) => m.manufacturer === manufacturer && m.designation === designation)!;

@@ -380,6 +380,22 @@ describe('default materials across a reload', () => {
     expect(Object.keys(loadSettings().defaultMaterials).sort()).toEqual(Object.keys(stored).sort());
   });
 
+  it('keeps a positive shear modulus and drops a bad one', () => {
+    const ply = { name: 'Plywood (birch)', density: 630 };
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        defaultMaterials: {
+          'bodytube:bulk': { ...ply, shearModulus: 0.6e9 },
+          'nosecone:bulk': { ...ply, shearModulus: 'stiff' },
+        },
+      }),
+    );
+    const d = loadSettings().defaultMaterials;
+    expect(d['bodytube:bulk']).toEqual({ ...ply, shearModulus: 0.6e9 });
+    expect(d['nosecone:bulk']).toEqual(ply);
+  });
+
   it('reads a key back into its part and material type, and refuses anything else', () => {
     expect(parseDefaultMaterialKey('parachute:surface')).toEqual({ part: 'parachute', material: 'surface' });
     expect(parseDefaultMaterialKey('parachute:plastic')).toBeNull();

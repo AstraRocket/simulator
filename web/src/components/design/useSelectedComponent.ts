@@ -5,7 +5,7 @@ import { findMounts, findNode, findParent, hasCatalog, siblingIndex } from '../.
 import { stageNodes } from '../../tree/treeWalk';
 import { fitContextFor } from '../../services/parts/componentFit';
 import { useWorkspaceStore } from '../../state/store';
-import { confirm } from '../../state/confirmStore';
+import { confirm, confirmDelete } from '../../state/confirmStore';
 import { bodyTubeRadius, num } from '../../tree/nodeProps';
 import { partLabel } from '../../i18n/format';
 import { overriddenBy, type OverrideKind } from '../../services/design/overriddenBy';
@@ -52,7 +52,7 @@ export function useSelectedComponent() {
     if (!node || isOnlyStage) return;
     const label = partLabel(t, node);
     const message = isOnlyMount ? t('warn.lastMountDelete') : t('warn.deletePart', { name: label });
-    if (!(await confirm({ message, confirmLabel: t('common.delete'), danger: true }))) return;
+    if (!(await confirmDelete(message))) return;
     remove();
   };
   const onChange = async (p: Partial<ComponentNode>) => {

@@ -7,6 +7,7 @@ import { FlightCard } from '../../../src/components/sim/FlightCard';
 import type { ResultFlight } from '../../../src/services/flight/simulations';
 import type { FlightConfig } from '../../../src/services/flight/flightConfigs';
 import type { FlightResult, MotorSpec, RocketTree, StaticInfo } from '../../../src/engine/openRocketEngine';
+import { METRIC_UNITS } from '../../../src/prefs/units';
 
 const spec = {
   designation: 'H128',
@@ -135,6 +136,40 @@ describe('the flight card', () => {
     expect(card.textContent).toContain('Certification held');
     expect(card.textContent).toContain('Settings ▸ Flyer');
     expect(within(card).queryByRole('note')).toBeNull();
+  });
+
+  it('prints the rail and wind in the units the launch panel uses', () => {
+    seedSettings({ units: { ...METRIC_UNITS, length: 'ft', distance: 'm', windspeed: 'mph', velocity: 'm/s' } });
+    const flight = seed();
+    renderWithProviders(<FlightCard flight={flight} />);
+    const card = screen.getAllByRole('article')[0]!;
+    // 1.8 m of rail and 3 m/s of wind.
+    expect(card.textContent).toContain('5.91 ft');
+    expect(card.textContent).toMatch(/6\.7\d? mph/);
+    localStorage.clear();
+  });
+
+  it('prints each flight figure in its chip on the Results summary, and the rail and wind in their fields', () => {
+    seedSettings({
+      units: METRIC_UNITS,
+      unitOverrides: {
+        'sim.apogee': 'ft',
+        'sim.maxSpeed': 'ft/s',
+        'sim.landing': 'mph',
+        'launch.length': 'ft',
+        'launch.speed': 'mph',
+      },
+    });
+    const flight = seed();
+    renderWithProviders(<FlightCard flight={flight} />);
+    const text = screen.getAllByRole('article')[0]!.textContent;
+    // 410 m, 95 m/s, 5 m/s landing, 1.8 m of rail, 3 m/s of wind.
+    expect(text).toMatch(/1\D?345 ft/);
+    expect(text).toContain('312 ft/s');
+    expect(text).toMatch(/11\.2\d? mph/);
+    expect(text).toContain('5.91 ft');
+    expect(text).toMatch(/6\.7\d? mph/);
+    localStorage.clear();
   });
 
   it("leaves out a rocket's mass and CG the live build did not weigh", () => {

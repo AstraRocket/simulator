@@ -1,9 +1,11 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { unzipSync, strToU8 } from 'fflate';
 import { md5Hex } from '../../../src/services/motors/md5';
-import { embeddedMotorFile, rowsDigest, rseDigest } from '../../../src/services/files/ork/embeddedMotors';
+import { embeddedMotorFile, rowsDigest } from '../../../src/services/files/ork/embeddedMotors';
+import { rseDigest } from '../../testing/rseDigest';
 import type { MotorSpec } from '../../../src/engine/openRocketEngine';
 
 describe('md5Hex', () => {
@@ -51,7 +53,7 @@ describe('the motor digest, against files the desktop wrote', () => {
   }
 });
 
-// Expected digests from OpenRocket 24.12's `RockSimMotorLoader.load(...).build().getDigest()`.
+// Expected digests from the engine build's `RockSimMotorLoader.load(...).build().getDigest()`.
 describe('rseDigest, rows out of time order', () => {
   const rse = (rows: string[]) =>
     [
@@ -85,6 +87,56 @@ describe('rseDigest, rows out of time order', () => {
       't="1" f="9" m="16" cg="34"',
     ]);
     expect(rseDigest(text)).toBe('db1800174bc27717e987931e63fa4012');
+  });
+});
+
+// Expected digests from the engine build's `RockSimMotorLoader.load(...).build().getDigest()` on these files.
+describe('rseDigest, a mass or CG desktop calculates', () => {
+  const MASSES = ['24', '21', '16', '12'];
+  const rse = (
+    flags: string,
+    mass = (i: number): string | null => MASSES[i]!,
+    cg = (_i: number): string | null => '35',
+  ) =>
+    [
+      '<engine-database>',
+      ' <engine-list>',
+      `  <engine mfg="Estes" code="C6" Type="single-use" dia="18" len="70" initWt="24.3" propWt="12.1"${flags}>`,
+      '   <data>',
+      ...[
+        ['0', '0'],
+        ['0.2', '14'],
+        ['1', '9'],
+        ['1.8', '0'],
+      ].map(([t, f], i) => {
+        const m = mass(i);
+        const c = cg(i);
+        return `    <eng-data t="${t}" f="${f}"${m === null ? '' : ` m="${m}"`}${c === null ? '' : ` cg="${c}"`}/>`;
+      }),
+      '   </data>',
+      '  </engine>',
+      ' </engine-list>',
+      '</engine-database>',
+    ].join('\n');
+  const STATED = ' auto-calc-mass="0" auto-calc-cg="0"';
+
+  it.each([
+    ['both stated', STATED, '08d3162591637fb4d5923b42b7153691'],
+    ['both stated, in words', ' auto-calc-mass="false" auto-calc-cg="FALSE"', '08d3162591637fb4d5923b42b7153691'],
+    ['no flags, so both calculated', '', 'f8b1b0a8ed153ee3ffb7f33e4e1aa347'],
+    ['the mass calculated', ' auto-calc-mass="1" auto-calc-cg="0"', 'b9fe73c085d7867b003ea904c21c1cdb'],
+    ['the CG calculated', ' auto-calc-mass="0" auto-calc-cg="1"', '38e95f7f5887f73e6562d9074ab66da5'],
+  ])('hashes as desktop with %s', (_what, flags, digest) => {
+    expect(rseDigest(rse(flags))).toBe(digest);
+  });
+
+  it('calculates a mass that one row leaves empty or writes in hex', () => {
+    expect(rseDigest(rse(STATED, (i) => (i === 2 ? '' : MASSES[i]!)))).toBe('b9fe73c085d7867b003ea904c21c1cdb');
+    expect(rseDigest(rse(STATED, (i) => (i === 0 ? '0x18' : MASSES[i]!)))).toBe('b9fe73c085d7867b003ea904c21c1cdb');
+  });
+
+  it('calculates a CG that one row leaves out', () => {
+    expect(rseDigest(rse(STATED, undefined, (i) => (i === 1 ? null : '35')))).toBe('38e95f7f5887f73e6562d9074ab66da5');
   });
 });
 

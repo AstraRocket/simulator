@@ -44,9 +44,17 @@ describe('EnvironmentView', () => {
     renderWithProviders(<EnvironmentView flight={flight(AIR)} />);
     const pad = within(document.querySelector('dl')!);
     expect(pad.getByText('Site elevation').nextSibling?.textContent).toBe('1,609 m');
-    expect(pad.getByText('Air temperature').nextSibling?.textContent).toMatch(/^22\.50 °C$/);
+    expect(pad.getByText('Air temperature').nextSibling?.textContent).toBe('22.5 °C');
     expect(pad.getByText('Air density').nextSibling?.textContent).toBe('0.0009985 g/cm³');
     expect(pad.getByText('Wind direction').nextSibling?.textContent).toBe('350°');
+  });
+
+  it("gives the site elevation its Launch field's unit and apogee the Apogee tile's", () => {
+    seedSettings({ unitOverrides: { 'launch.altitude': 'ft', 'sim.apogee': 'ft' } });
+    renderWithProviders(<EnvironmentView flight={flight(AIR)} />);
+    const pad = within(document.querySelector('dl')!);
+    expect(pad.getByText('Site elevation').nextSibling?.textContent).toBe('5,279 ft');
+    expect(screen.getByText(/820\.2 ft/)).toBeTruthy();
   });
 
   it('draws four profiles from the ground to apogee, each named for a screen reader', () => {

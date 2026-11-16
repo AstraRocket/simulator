@@ -3,18 +3,17 @@ import { fmtDegrees, useUnits } from '../../prefs/useUnits';
 import type { sampleAt, WeatherAnswer } from '../../services/weather/openMeteo';
 import type { proposalFor, ProposalGroup } from '../../services/weather/weatherProposal';
 import { formatLat, formatLon } from '../../services/map/slippyMap';
-import { fmtPercent, fmtSiteTime } from '../../i18n/format';
+import { fmtDateTime, fmtPercent, fmtSiteTime } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
-import { LAUNCH_SI } from '../../prefs/launchUnits';
+import { LAUNCH_SI, LIMIT_FIELD } from '../../prefs/launchUnits';
 import { OpenMeteoCredit } from '../common/OpenMeteoCredit';
 import { Check } from '../common/Check';
 import { WhenFields } from './WhenFields';
 import { useOnline } from '../common/useOnline';
 import { fmtNum, withUnit } from '../../i18n/format';
-import { siToUi } from '../../prefs/units';
+import { FAR_DISTANCE_UNIT, siToUi, unitScope, type Quantity } from '../../prefs/units';
 import { smallButton } from '../common/smallButton';
-
-const FAR_UNIT: Record<string, string> = { m: 'km', km: 'km', ft: 'mi', yd: 'mi', mi: 'mi' };
+import { siteAltitudeUnit } from './launchSection';
 
 const btn = smallButton('sm', 'soft');
 
@@ -24,11 +23,14 @@ type Sample = NonNullable<ReturnType<typeof sampleAt>>;
 function useWeatherFormats() {
   const { t } = useTranslation();
   const u = useUnits();
-  const temp = (c: number) => `${u.fmtSym('temperature', LAUNCH_SI.degC.toSi(c), 1)}`;
-  const pres = (hPa: number) => `${u.fmtSym('pressure', LAUNCH_SI.hPa.toSi(hPa), 1)}`;
-  const wind = (ms: number) => `${u.fmtSym('windspeed', ms, 1)}`;
+  // In the unit of the Launch field each proposal fills.
+  const field = (name: string, q: Quantity) => u.at(unitScope('launch', name), q);
+  const temp = (c: number) => field('temperature', 'temperature').fmtSym(LAUNCH_SI.degC.toSi(c), 1);
+  const pres = (hPa: number) => field('pressure', 'pressure').fmtSym(LAUNCH_SI.hPa.toSi(hPa), 1);
+  const wind = (ms: number) => field(LIMIT_FIELD.windSpeed, 'windspeed').fmtSym(ms, 1);
   const alt = (m: number) => `${u.fmtSym('distance', m, 0)}`;
-  const farSym = FAR_UNIT[u.sym('distance')] ?? 'km';
+  const site = (m: number) => siteAltitudeUnit(u).fmtSym(m, 0);
+  const farSym = FAR_DISTANCE_UNIT[u.sym('distance')] ?? 'km';
   const far = (m: number) => withUnit(fmtNum(siToUi('distance', farSym, m), 1), farSym);
 
   const describe = (g: ProposalGroup, p: Proposal): string => {
@@ -46,7 +48,7 @@ function useWeatherFormats() {
         return t('weather.windValue', {
           speed: wind(w.surfaceSpeed),
           from: fmtDegrees(u, w.surfaceFromDeg),
-          gust: w.gust === null ? NO_VALUE : wind(w.gust),
+          gust: w.gust === null ? NO_VALUE : field('gusts', 'windspeed').fmtSym(w.gust, 1),
           top: alt(top.altitudeM),
         });
       }
@@ -58,7 +60,7 @@ function useWeatherFormats() {
     }
   };
 
-  return { alt, far, describe };
+  return { alt, site, far, describe };
 }
 
 export function ForecastRequest({
@@ -84,7 +86,7 @@ export function ForecastRequest({
 }) {
   const { t } = useTranslation();
   const online = useOnline();
-  const { alt } = useWeatherFormats();
+  const { site } = useWeatherFormats();
   return (
     <>
       <div className="flex flex-wrap items-end gap-3">
@@ -99,7 +101,7 @@ export function ForecastRequest({
         </button>
       </div>
       <p className="text-xs text-ink-muted">
-        {t('weather.siteLine', { lat: formatLat(lat, 3), lon: formatLon(lon, 3), alt: alt(siteM) })}
+        {t('weather.siteLine', { lat: formatLat(lat, 3), lon: formatLon(lon, 3), alt: site(siteM) })}
       </p>
     </>
   );
@@ -156,9 +158,9 @@ export function WeatherOffer({
   elsewhere: boolean;
   onFetchFresh: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const online = useOnline();
-  const { alt, describe } = useWeatherFormats();
+  const { site, describe } = useWeatherFormats();
   const validTime = sample && answer ? fmtSiteTime(sample.unix * 1000, answer.timezone) : null;
   return (
     <div className="space-y-2">
@@ -169,9 +171,7 @@ export function WeatherOffer({
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-ink-muted">
           {t(answer.reused ? 'weather.reused' : 'weather.fetchedAt', {
-            time: new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit' }).format(
-              new Date(answer.fetchedAtMs),
-            ),
+            time: fmtDateTime(answer.fetchedAtMs, { hour: '2-digit', minute: '2-digit' }),
           })}
         </p>
         <button
@@ -189,7 +189,7 @@ export function WeatherOffer({
           className="text-xs text-ink-soft"
           checked={useTerrain}
           onChange={onUseTerrain}
-          label={t('weather.useTerrain', { terrain: alt(answer.terrainM), site: alt(siteM) })}
+          label={t('weather.useTerrain', { terrain: site(answer.terrainM), site: site(siteM) })}
         />
       )}
       <ul className="space-y-1">

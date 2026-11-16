@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { confirm } from '../../state/confirmStore';
+import { confirm, confirmDelete } from '../../state/confirmStore';
+import { errorText } from '../../i18n/keyedError';
 
 export function useGuardedSelection(discardMessage: string) {
   const { t } = useTranslation();
@@ -31,7 +32,18 @@ export function useGuardedSelection(discardMessage: string) {
     setSelectedId(id);
   };
 
-  return { selectedId, dirty, select, settle, close, onDirtyChange, err, setErr };
+  /** Asks, then deletes and clears the selection; `remove` returning false keeps it (the error is already set). */
+  const removeWith = async (message: string, remove: () => Promise<unknown>): Promise<void> => {
+    if (!(await confirmDelete(message))) return;
+    setErr(null);
+    try {
+      if ((await remove()) !== false) settle(null);
+    } catch (e) {
+      setErr(errorText(e, t));
+    }
+  };
+
+  return { selectedId, dirty, select, settle, close, onDirtyChange, err, setErr, removeWith };
 }
 
 export function useReportDirty(dirty: boolean, onDirtyChange: (dirty: boolean) => void) {

@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { CATALOG_CACHE, MAP_TILE_CACHE } from './src/services/app/cacheNames.ts';
 
 interface PackageInfo {
   version: string;
@@ -177,7 +178,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/gh\/.*@data\/manifest\.json$/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'astra-catalogs',
+              cacheName: CATALOG_CACHE,
               networkTimeoutSeconds: 3,
               cacheableResponse: { statuses: [200] },
             },
@@ -187,7 +188,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/gh\/.*@data\//,
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'astra-catalogs',
+              cacheName: CATALOG_CACHE,
               expiration: { maxEntries: 16 },
               cacheableResponse: { statuses: [200] },
             },
@@ -218,7 +219,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               // Versioned: older opaque entries cannot answer the CORS requests WebGL makes.
-              cacheName: 'astra-map-tiles-v2',
+              cacheName: MAP_TILE_CACHE,
               expiration: { maxEntries: 1200 },
               cacheableResponse: { statuses: [0, 200] },
               // Drop the Esri token so it is never stored and a new key keeps cached tiles.

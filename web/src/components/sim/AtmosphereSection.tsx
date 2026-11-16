@@ -3,7 +3,6 @@ import { CardGroup } from '../common/CardGroup';
 import { NumberRow } from '../common/NumberRow';
 import { smallButton } from '../common/smallButton';
 import { LAUNCH_SI } from '../../prefs/launchUnits';
-import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { useEngineReady } from '../../state/engineStore';
 import { standardPressurePa } from '../../engine/openRocketEngine';
 import { seaLevelExcessPa } from '../../services/flight/sitePressure';
@@ -11,6 +10,7 @@ import { WeatherDialog } from './WeatherDialog';
 import { WeatherSourceLine } from './WeatherSourceLine';
 import { WeatherKeyField } from './WeatherKeyField';
 import { QNum } from './QNum';
+import { SiteTemperatureField } from './SiteQNum';
 import { capFor, type LaunchSectionProps } from './launchSection';
 import type { LaunchConditions } from '../../services/design/orkTree';
 
@@ -63,15 +63,8 @@ export function AtmosphereSection({
             : undefined
         }
       />
-      <QNum
-        label={t('launch.temperature')}
+      <SiteTemperatureField
         field="temperature"
-        kind="degC"
-        // QNum bounds are SI (kelvin): raw -90 and 70 would cap entries at 70 K.
-        minSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.min)}
-        maxSi={LAUNCH_SI.degC.toSi(LAUNCH_SITE_LIMITS.temperatureC.max)}
-        u={u}
-        stepSi={1}
         placeholder={t('launch.isa')}
         mixed={mixed('temperatureC')}
         value={launch.temperatureC}

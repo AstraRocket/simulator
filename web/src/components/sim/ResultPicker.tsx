@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectActive } from '../../state/store';
 import { resultFlight } from '../../services/flight/simulations';
 import { useMenuPopover } from '../common/useMenuPopover';
+import { MenuPanel } from '../common/MenuPanel';
 
 export function ResultPicker({ fallbackName }: { fallbackName: string }) {
   const { t } = useTranslation();
@@ -39,12 +40,7 @@ export function ResultPicker({ fallbackName }: { fallbackName: string }) {
         </button>
       </h2>
       {open && (
-        <div // eslint-disable-line jsx-a11y-x/interactive-supports-focus -- roving tabindex: focus moves to the items, as in the ARIA menu pattern, so the container is not
-          role="menu"
-          ref={menuRef}
-          onKeyDown={onMenuKeyDown}
-          className="absolute left-0 z-50 mt-1 min-w-48 rounded-lg bg-surface p-1.5 shadow-xl ring-1 ring-line/15"
-        >
+        <MenuPanel menuRef={menuRef} onMenuKeyDown={onMenuKeyDown} align="left" className="min-w-48 p-1.5">
           {ran.map((s) => {
             const on = s.id === shown?.id;
             return (
@@ -57,7 +53,7 @@ export function ResultPicker({ fallbackName }: { fallbackName: string }) {
                   setChosen(s.id);
                   closeAndRestore();
                 }}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-raised ${
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-elevated ${
                   on ? 'text-accent-200' : 'text-ink'
                 }`}
               >
@@ -68,7 +64,7 @@ export function ResultPicker({ fallbackName }: { fallbackName: string }) {
               </button>
             );
           })}
-        </div>
+        </MenuPanel>
       )}
     </div>
   );

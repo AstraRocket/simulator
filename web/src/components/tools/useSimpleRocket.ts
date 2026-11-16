@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { rememberedSlot, useRemembered } from './remembered';
 import { useUnits } from '../../prefs/useUnits';
@@ -12,6 +12,7 @@ import { loadCatalog } from '../../services/motors/motorDb';
 import { nearestDelay } from '../../services/flight/motorGuide';
 import { canopyRoundUp } from '../../services/flight/recoverySizing';
 import { errorText } from '../../i18n/keyedError';
+import { useLatest } from '../common/useLatest';
 import {
   SIMPLE_CHUTE_CD,
   simpleChuteDiameter,
@@ -109,32 +110,28 @@ export function useSimpleRocket() {
   const ready = shaped && motor != null;
   const standIn = diameterM != null ? simpleFins({ diameterM }) : null;
 
-  const abort = useRef<AbortController | null>(null);
-  useEffect(() => () => abort.current?.abort(), []);
+  const request = useLatest();
 
   const fly = async () => {
     if (!ready) return;
-    const ac = new AbortController();
-    abort.current = ac;
+    // Aborts the previous run: a slower earlier flight would otherwise land over this one.
+    const signal = request.claimSignal();
     setFlying(true);
     setErr(null);
     try {
-      const figures = await flySimple(inputs, launch, motor, ac.signal);
+      const figures = await flySimple(inputs, launch, motor, signal);
       // The delays the motor is sold with are the catalog's, not the spec's.
       const row = findSeated(await loadCatalog(), motor);
-      if (!ac.signal.aborted) setFlown({ figures, nearest: row ? nearestDelay(row, figures.optimumDelay) : null, key });
+      if (!signal.aborted) setFlown({ figures, nearest: row ? nearestDelay(row, figures.optimumDelay) : null, key });
     } catch (e) {
-      if (!ac.signal.aborted) setErr(errorText(e, t));
+      if (!signal.aborted) setErr(errorText(e, t));
     } finally {
-      if (abort.current === ac) {
-        abort.current = null;
-        setFlying(false);
-      }
+      // Aborted means canceled or superseded; either way another path owns `flying`.
+      if (!signal.aborted) setFlying(false);
     }
   };
   const cancel = () => {
-    abort.current?.abort();
-    abort.current = null;
+    request.cancel();
     setFlying(false);
   };
   const openAsDesign = () => {

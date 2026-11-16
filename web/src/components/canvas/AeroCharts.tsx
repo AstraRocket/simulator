@@ -12,7 +12,9 @@ import {
 } from './aeroTables';
 import { useElementResize } from '../common/useElementResize';
 import { token } from '../common/colorTokens';
+import { YGridRows } from '../common/chartAxes';
 import { crosshairReadout, machSeriesSummary } from './chartSummary';
+import { CrosshairLine } from './FlightChartHover';
 
 const PAD_L = 46,
   PAD_R = 14,
@@ -170,17 +172,7 @@ export function ChartCard({
           aria-label={summary}
         >
           <ChartBody geom={geom} machs={machs} machMax={machMax} series={series} stacked={!!stacked} digits={digits} />
-          {hoverM != null && (
-            <line
-              x1={geom.X(hoverM)}
-              y1={PAD_T}
-              x2={geom.X(hoverM)}
-              y2={CHART_H - PAD_B}
-              data-crosshair
-              className="stroke-ink-soft/40"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
+          {hoverM != null && <CrosshairLine x={geom.X(hoverM)} top={PAD_T} bottom={CHART_H - PAD_B} />}
         </svg>
       </div>
       <p className="sr-only" role="status" aria-live="polite">
@@ -219,18 +211,13 @@ const ChartBody = memo(function ChartBody({
   const xTicks = useMemo(() => machTicks(machs[0] ?? 0.05, machMax), [machs, machMax]);
   return (
     <>
-      {[0, 1, 2].map((i) => {
-        const yv = yMin + (yMax - yMin) * (i / 2);
-        const gy = Y(yv);
-        return (
-          <g key={i}>
-            <line x1={PAD_L} y1={gy} x2={w - PAD_R} y2={gy} className="stroke-line/10" />
-            <text x={PAD_L - 4} y={gy + 3} textAnchor="end" className="fill-ink-faint text-[9px] tabular-nums">
-              {fmtNum(yv, digits)}
-            </text>
-          </g>
-        );
-      })}
+      <YGridRows
+        values={[0, 1, 2].map((i) => yMin + (yMax - yMin) * (i / 2))}
+        Y={Y}
+        x1={PAD_L}
+        x2={w - PAD_R}
+        label={(yv) => fmtNum(yv, digits)}
+      />
       {stacked
         ? bands.map((b, i) => (
             <path

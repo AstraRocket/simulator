@@ -19,7 +19,7 @@ import { FreeformFinActions } from './FreeformFinActions';
 import { OverridesSection } from './OverridesSection';
 import { ShapeDescription } from './ShapeDescription';
 import { PlacementSection } from './PlacementSection';
-import { FilletSection, PanelHeader, PartSection, TubeFinCollision } from './PropertyPanelParts';
+import { FilletSection, PanelHeader, PartSection, RingBoreTooSmall, TubeFinCollision } from './PropertyPanelParts';
 
 // Emits shallow patches; the tree is always SI and each field converts at the edge.
 
@@ -109,7 +109,7 @@ export function PropertyPanel({
       <FilletSection node={node} onChange={onChange} onCommit={onCommit} commitChange={commitChange} />
 
       <TubeFinCollision node={node} parentRadius={parentRadius} />
-
+      <RingBoreTooSmall node={node} />
       {hasMaterial(node.type) && <MaterialSection node={node} onCommitChange={commitChange} />}
       {node.type === 'shockcord' && <CordMaterialSection node={node} onCommitChange={commitChange} />}
 

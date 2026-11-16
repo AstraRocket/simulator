@@ -8,21 +8,19 @@ import { Dialog } from '../common/Dialog';
 import { errorText } from '../../i18n/keyedError';
 import { DialogButton, DialogActions } from '../common/DialogButton';
 import { StatusLine } from '../common/StatusLine';
+import { smallButton } from '../common/smallButton';
+import { DialogOpener } from '../common/DialogOpener';
 
 export function SavePartButton({ node, type }: { node: ComponentNode; type: PickerType }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  // Mounted only while open, so fields seed in their initializers.
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full rounded-lg bg-raised px-2 py-1.5 text-xs font-medium text-ink-soft hover:bg-elevated"
-      >
-        {t('picker.save')}
-      </button>
-      {/* Mounted only while open, so fields seed in their initializers. */}
-      {open && <SavePartDialog node={node} type={type} onClose={() => setOpen(false)} />}
-    </>
+    <DialogOpener
+      className={smallButton('row', 'soft', 'w-full')}
+      dialog={(close) => <SavePartDialog node={node} type={type} onClose={close} />}
+    >
+      {t('picker.save')}
+    </DialogOpener>
   );
 }
 

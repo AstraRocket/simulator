@@ -3,11 +3,14 @@ import i18n from '../i18n';
 import type { RocketTree } from '../engine/openRocketEngine';
 import { configFor, newFlightConfig, reconcileConfig, type FlightConfig } from '../services/flight/flightConfigs';
 import { repairedText, type RepairedValue } from '../services/design/repairValues';
-import type { Simulation, SimPrefs } from '../services/flight/simulations';
+import { newSimulation, type Simulation, type SimPrefs } from '../services/flight/simulations';
+import type { LaunchConditions } from '../services/design/orkTree';
+import { defaultRocketTree } from '../services/design/defaultRocket';
 import { loadSettings, type Settings } from '../services/storage/settings';
-import type { Workspace } from '../services/storage/workspaceStore';
+import { pickWorkspace, type Workspace, type WorkspaceField } from '../services/storage/workspaceStore';
 import { designNameOf } from '../services/app/appInfo';
-import { unitSymbols } from '../prefs/units';
+import { unitFor, unitSymbols, type Quantity } from '../prefs/units';
+import { fmtSymIn } from '../prefs/useUnits';
 import type { WorkspaceState } from './store';
 
 export const displayUnits = () => {
@@ -18,7 +21,11 @@ export const displayUnits = () => {
 // Length unit from settings: the kernel's own unit lags a pending or failed build.
 export const simPrefsOf = (s: Settings): SimPrefs => ({ ...s.simulation, lengthUnit: s.units.length });
 
-export const repairNotes = (repaired: RepairedValue[]): string[] => repaired.map((r) => repairedText(r, i18n.t));
+export const repairNotes = (repaired: RepairedValue[]): string[] => {
+  const s = loadSettings();
+  const fmt = (q: Quantity, si: number) => fmtSymIn(q, unitFor(s.units, s.unitOverrides, q), si);
+  return repaired.map((r) => repairedText(r, i18n.t, fmt));
+};
 
 export type StorageWarningKind = 'full' | 'degraded' | 'loadFailed' | 'conflict';
 
@@ -47,13 +54,20 @@ export function defaultConfig(tree: RocketTree): FlightConfig {
   return reconcileConfig(tree, newFlightConfig());
 }
 
-export const workspaceSnapshot = (
-  s: Pick<WorkspaceState, 'tree' | 'sims' | 'configs' | 'activeId' | 'loadedMeta'>,
-): Workspace => ({
+export const firstSimName = (): string => i18n.t('sims.untitled', { n: 1 });
+
+/** "Simulation 1" on the launch defaults, with `launch` laid over them. */
+export const firstSim = (configId: string, launch?: Partial<LaunchConditions>): Simulation =>
+  newSimulation(firstSimName(), configId, { ...loadSettings().launchDefaults, ...launch });
+
+/** The blank workspace: the default rocket, its configuration and its first simulation. */
+export function freshWorkspace(): { tree: RocketTree; config: FlightConfig; sim: Simulation } {
+  const tree = defaultRocketTree();
+  const config = defaultConfig(tree);
+  return { tree, config, sim: firstSim(config.id) };
+}
+
+export const workspaceSnapshot = (s: Pick<WorkspaceState, WorkspaceField>): Workspace => ({
   version: 3,
-  tree: s.tree,
-  sims: s.sims,
-  configs: s.configs,
-  activeId: s.activeId,
-  loadedMeta: s.loadedMeta,
+  ...pickWorkspace(s),
 });

@@ -4,6 +4,7 @@ import {
   isUsableLevel,
   padLevelWind,
   usableWindLevels,
+  windFrom,
 } from '../../../src/services/flight/windLevels';
 import type { WindLevel } from '../../../src/services/design/orkTree';
 
@@ -100,5 +101,16 @@ describe('padLevelWind', () => {
 
   it('flies a negative speed as its magnitude from the opposite heading', () => {
     expect(padLevelWind({ launchAltitudeM: 0, windLevels: [at(0, -6, 90)] })).toEqual({ speedMs: 6, headingDeg: 270 });
+  });
+});
+
+describe('windFrom', () => {
+  it('turns a negative speed into wind from the opposite heading', () => {
+    expect(windFrom(-3, 10)).toEqual({ speed: 3, directionDeg: 190 });
+  });
+
+  it('reduces any heading to [0, 360), as PinkNoiseWindModel.setDirection does', () => {
+    expect(windFrom(3, 401)).toEqual({ speed: 3, directionDeg: 41 });
+    expect(windFrom(3, -90)).toEqual({ speed: 3, directionDeg: 270 });
   });
 });

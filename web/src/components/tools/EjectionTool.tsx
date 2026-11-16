@@ -1,7 +1,7 @@
 import { useRemembered } from './remembered';
 import { useTranslation } from 'react-i18next';
 import { useUnits } from '../../prefs/useUnits';
-import { blackPowderMass, DEFAULT_BAY_PRESSURE_PA } from '../../services/flight/ejectionCharge';
+import { blackPowderMass, DEFAULT_BAY_PRESSURE_PA, EJECTION_FIELD_LIMITS } from '../../services/flight/ejectionCharge';
 import { QNum } from '../sim/QNum';
 import { CardGroup } from '../common/CardGroup';
 import { NumberRow } from '../common/NumberRow';
@@ -30,9 +30,7 @@ export function EjectionTool() {
             field="ejectionBore"
             kind="length"
             u={u}
-            stepSi={0.001}
-            minSi={0.005}
-            maxSi={1}
+            {...EJECTION_FIELD_LIMITS.bore}
             required
             missing={boreM == null}
             value={boreM}
@@ -44,9 +42,7 @@ export function EjectionTool() {
             field="ejectionLength"
             kind="length"
             u={u}
-            stepSi={0.001}
-            minSi={0.005}
-            maxSi={5}
+            {...EJECTION_FIELD_LIMITS.length}
             required
             missing={lengthM == null}
             value={lengthM}
@@ -58,9 +54,7 @@ export function EjectionTool() {
             field="ejectionPressure"
             kind="pressure"
             u={u}
-            stepSi={1000}
-            minSi={1000}
-            maxSi={1e6}
+            {...EJECTION_FIELD_LIMITS.pressure}
             required
             missing={pressurePa == null}
             value={pressurePa}
@@ -70,9 +64,7 @@ export function EjectionTool() {
         <CardGroup title={t('ejectionTool.pins')}>
           <NumberRow
             label={t('ejectionTool.pinCount')}
-            step={1}
-            min={0}
-            max={24}
+            {...EJECTION_FIELD_LIMITS.pinCount}
             placeholder={t('ejectionTool.none')}
             value={pinCount}
             onChange={(v) => setPinCount(v == null ? null : Math.round(v))}
@@ -83,9 +75,7 @@ export function EjectionTool() {
             field="ejectionPinForce"
             kind="force"
             u={u}
-            stepSi={1}
-            minSi={1}
-            maxSi={10000}
+            {...EJECTION_FIELD_LIMITS.pinForce}
             value={pinForceN}
             onChange={setPinForceN}
           />

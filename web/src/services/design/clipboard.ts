@@ -1,8 +1,8 @@
 import { must } from '../app/must';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 import { reid } from './componentActions';
-import { canHost, findNode, findParent, isRecoveryDevice, MAIN_DEVICE_KEY, syncDerived } from './treeEdit';
-import { stageNodes, lineageOf, walkNodes } from '../../tree/treeWalk';
+import { canHost, findNode, findParent, isRecoveryDevice, MAIN_DEVICE_KEY, editCopy } from './treeEdit';
+import { stageNodes, lineageOf, walkNodes, collectNodes } from '../../tree/treeWalk';
 
 // Paste placement follows desktop swing RocketActions.
 
@@ -43,22 +43,22 @@ export interface PastedCopy {
 function insertCopy(tree: RocketTree, clip: ComponentNode, place: PastePlace): PastedCopy {
   const origins = new Map<string, string>();
   const copy = reid(structuredClone(clip), origins);
-  const next = structuredClone(tree);
-  const siblings = place.parentId
-    ? (must(findNode(next, place.parentId), 'paste parent').children ??= [])
-    : next.components;
-  siblings.splice(place.index, 0, copy);
   const id = copy.id as string;
-  const stage = stageOf(next, id);
-  if (stage?.children) {
+  const next = editCopy(tree, (next) => {
+    const siblings = place.parentId
+      ? (must(findNode(next, place.parentId), 'paste parent').children ??= [])
+      : next.components;
+    siblings.splice(place.index, 0, copy);
+    const stage = stageOf(next, id);
+    if (!stage?.children) return;
     const copied = new Set([...walkNodes([copy])]);
     for (const key of ['drogue', MAIN_DEVICE_KEY]) {
-      const flagged = [...walkNodes(stage.children)].filter((n) => isRecoveryDevice(n.type) && n[key] === true);
+      const flagged = collectNodes(stage.children, (n) => isRecoveryDevice(n.type) && n[key] === true);
       if (flagged.some((n) => !copied.has(n)))
         for (const n of flagged) if (copied.has(n)) delete (n as Record<string, unknown>)[key];
     }
-  }
-  return { tree: syncDerived(next), id, origins };
+  });
+  return { tree: next, id, origins };
 }
 
 export function pasteNode(tree: RocketTree, clip: ComponentNode, selectedId: string | null): PastedCopy | null {

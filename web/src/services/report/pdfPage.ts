@@ -3,7 +3,7 @@ import { must } from '../app/must';
 import type { jsPDF } from 'jspdf';
 import type { StaticInfo } from '../../engine/openRocketEngine';
 import type { Pt } from './reportGeometry';
-import { fmtNum, fmtPercent, fmtSig, ladderDigits } from '../../i18n/format';
+import { fmtCalibers, fmtNum, fmtPercent, fmtSig, ladderDigits } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { siToUi, type Quantity, type UnitSelection } from '../../prefs/units';
 import { hexToRgbTuple, pageFrame } from './layout';
@@ -372,7 +372,7 @@ export function summaryRows(p: PdfPage, info: StaticInfo): [string, string][] {
       case 'fineness':
         return fmtNum(v, 2);
       case 'stabilityCal':
-        return `${fmtNum(v, 2)} cal`;
+        return fmtCalibers(v, t);
       case 'stabilityPct':
         return fmtPercent(v, 1);
       case 'cd':

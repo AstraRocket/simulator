@@ -11,13 +11,14 @@ import {
   changedPrefKeys,
   isOutdated,
   newSimulation,
+  nextFreeName,
   type Simulation,
   type SimPrefs,
 } from '../services/flight/simulations';
 import { loadSettings } from '../services/storage/settings';
 import { holdsKey, nonEmpty, withKey } from '../services/app/objectKeys';
 import type { WorkspaceState } from './store';
-import { configOf, defaultConfig, selectActive, simPrefsOf } from './workspaceSelectors';
+import { configOf, defaultConfig, firstSim, selectActive, simPrefsOf } from './workspaceSelectors';
 import { insertAfter, replaceById, type EditSteps } from './sliceShared';
 
 export interface SimSlice {
@@ -65,7 +66,7 @@ export function sanitizeSims(sims: Simulation[], configs: FlightConfig[]): Simul
   const known = new Set(configs.map((c) => c.id));
   const fallback = configs[0]!.id;
   const safe = (Array.isArray(sims) ? sims : []).filter((s) => s && typeof s.id === 'string');
-  if (!safe.length) return [newSimulation(i18n.t('sims.untitled', { n: 1 }), fallback, launchDefaults)];
+  if (!safe.length) return [firstSim(fallback)];
   return safe.map((s) => ({
     ...s,
     launch: overLaunchDefaults(launchDefaults, s.launch),
@@ -76,7 +77,7 @@ export function sanitizeSims(sims: Simulation[], configs: FlightConfig[]): Simul
 }
 
 /** Names are never reused, even after deletions. */
-export function uniqueSimName(sims: Simulation[], label: (n: number) => string, start: number): string {
+function uniqueSimName(sims: Simulation[], label: (n: number) => string, start: number): string {
   const taken = new Set(sims.map((x) => x.name));
   let n = start;
   while (taken.has(label(n))) n++;
@@ -148,7 +149,10 @@ export const createSimSlice =
         if (!src) return;
         recordStep();
         const copy = i18n.t('sims.copyName', { name: src.name });
-        const name = uniqueSimName(s.sims, (n) => (n === 1 ? copy : `${copy} ${n}`), 1);
+        const name = nextFreeName(
+          copy,
+          s.sims.map((x) => x.name),
+        );
         // Shares the configuration, not a clone, so a motor change applies to both.
         const s0 = { ...newSimulation(name, src.configId, src.launch), prefs: src.prefs };
         set({ sims: insertAfter(s.sims, id, s0), activeId: s0.id });

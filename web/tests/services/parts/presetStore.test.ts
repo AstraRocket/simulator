@@ -116,7 +116,7 @@ describe('writes go through kv.update', () => {
     expect(await store.list()).toEqual([]);
 
     kv.update = async () => false;
-    await expect(store.add(part('b'))).rejects.toThrow('storage-full');
+    await expect(store.add(part('b'))).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 
   it('setPresetStore swaps the active store', async () => {

@@ -1,4 +1,39 @@
+import { useTranslation } from 'react-i18next';
 import { ToggleButton } from '../common/ToggleButton';
+import { Segmented } from '../common/Segmented';
+
+const SIDE_AFT = ['side', 'aft'] as const;
+
+/** Reset, then the side and aft picker, in the 2D and 3D toolbars. */
+export function SideAftPresets({
+  value,
+  onChange,
+  onReset,
+  resetTitle,
+}: {
+  value: (typeof SIDE_AFT)[number];
+  onChange: (v: (typeof SIDE_AFT)[number]) => void;
+  onReset: () => void;
+  resetTitle?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <ViewBtn onClick={onReset} title={resetTitle}>
+        {t('view.reset')}
+      </ViewBtn>
+      <Segmented
+        size="bar"
+        options={SIDE_AFT}
+        value={value}
+        onChange={onChange}
+        fmt={(v) => t(`view.${v}`)}
+        title={(v) => t(`view.${v}Title`)}
+      />
+      <ToolDivider />
+    </>
+  );
+}
 
 export function ToolDivider() {
   return <span aria-hidden className="hidden h-4 w-px shrink-0 bg-line/20 @[63rem]/bar:block" />;

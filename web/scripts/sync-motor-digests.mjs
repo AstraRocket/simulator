@@ -8,7 +8,7 @@ import { digestChanges, goneSection, motorProblems } from './lib/digestCoverage.
 import { digestKey } from './lib/motorDigestKey.mjs';
 import { motorRowKey } from './lib/motorRowKey.mjs';
 import { rankEntries } from './lib/digestRank.mjs';
-import { chooseBuild, runDumper } from './lib/openrocketJava.mjs';
+import { engineBuild, runDumper } from './lib/openrocketJava.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const CATALOG = resolve(HERE, '../public/data/motors.generated.json');
@@ -57,18 +57,38 @@ function dump(cp) {
   return index;
 }
 
+const DIAMETER_REACH_MM = 1;
+
+// The nearest diameter within a millimeter: thrustcurve.org states Apogee's micro motors at 10.5 mm, the build at 11.
+function entriesAt(index, row) {
+  for (let tenths = 0; tenths <= DIAMETER_REACH_MM * 10; tenths++) {
+    for (const d of new Set([row.diameter - tenths / 10, row.diameter + tenths / 10])) {
+      const found = index.get(digestKey(row.manufacturer, row.designation, d));
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+// Length only chooses among one name's entries: the build's database and thrustcurve.org record cases differently.
 function entriesFor(index, row) {
-  const found = index.get(digestKey(row.manufacturer, row.designation, row.diameter));
+  const found = entriesAt(index, row);
   if (!found) return null;
-  const fits =
-    row.length == null ? found : found.filter((e) => Math.abs(e.lengthMm - row.length) <= LENGTH_TOLERANCE_MM);
-  return fits.length ? rankEntries(fits, row) : null;
+  if (row.length == null) return rankEntries(found, row);
+  const gap = (e) => Math.abs(e.lengthMm - row.length);
+  const close = found.filter((e) => gap(e) <= LENGTH_TOLERANCE_MM);
+  if (close.length) return rankEntries(close, row);
+  const nearest = Math.min(...found.map(gap));
+  return rankEntries(
+    found.filter((e) => gap(e) === nearest),
+    row,
+  );
 }
 
 const digestState = (m) => ({ key: motorRowKey(m), digested: Boolean(m.digests?.length) });
 
 function main() {
-  const { cp, label } = chooseBuild();
+  const { cp, label } = engineBuild();
   console.log(`reading motors from ${label}`);
   console.log('dumping motors:');
   const index = dump(cp);
@@ -99,9 +119,18 @@ function main() {
     console.log(goneText);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${goneText}\n`);
   }
-  if (lost.length) {
+  // A motor the build's database does not hold has no digest to give; only a lost match is a fault.
+  const notInBuild = new Set(catalog.filter((row) => !entriesAt(index, row)).map(motorRowKey));
+  const dropped = lost.filter((k) => notInBuild.has(k));
+  if (dropped.length) {
+    const text = `Not in this build's motor database, so no digest: ${dropped.join(', ')}`;
+    console.log(text);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${text}\n`);
+  }
+  const unmatched = lost.filter((k) => !notInBuild.has(k));
+  if (unmatched.length) {
     throw new Error(
-      `refusing to write: ${lost.length} motors still in the catalog lost their digests (${lost.join(', ')}). Nothing written.`,
+      `refusing to write: ${unmatched.length} motors still in the catalog lost their digests (${unmatched.join(', ')}). Nothing written.`,
     );
   }
   const problems = motorProblems(catalog);

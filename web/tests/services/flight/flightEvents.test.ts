@@ -3,12 +3,14 @@ import type { FlightResult, FlightSeries } from '../../../src/engine/openRocketE
 import {
   dynamicPressure,
   eventRows,
+  eventTime,
   forwardFlightEnd,
   maxQ,
   maxQAlpha,
   maxRollRate,
   MAX_Q,
   qAlpha,
+  seriesAtEvent,
 } from '../../../src/services/flight/flightEvents';
 
 function series(over: Partial<FlightSeries> = {}): FlightSeries {
@@ -216,5 +218,37 @@ describe('q·α and roll rate', () => {
     };
     expect(forwardFlightEnd(staged)).toBe(13);
     expect(forwardFlightEnd({ events: staged.events.slice(0, 5) })).toBe(12);
+  });
+});
+
+describe('seriesAtEvent', () => {
+  const run = {
+    events: [
+      { type: 'BURNOUT', time: 1 },
+      { type: 'BURNOUT', time: 3 },
+    ],
+    series: { time: [0, 1, 2, 3], altitude: [0, 10, 20, 30] },
+  } as unknown as Pick<FlightResult, 'events' | 'series'>;
+
+  it('reads the series at the first event, or the last', () => {
+    expect(seriesAtEvent(run, 'BURNOUT', 'altitude')).toBe(10);
+    expect(seriesAtEvent(run, 'BURNOUT', 'altitude', true)).toBe(30);
+  });
+
+  it('is null with no such event or no such series', () => {
+    expect(seriesAtEvent(run, 'APOGEE', 'altitude')).toBeNull();
+    expect(seriesAtEvent(run, 'BURNOUT', 'Twr')).toBeNull();
+  });
+});
+
+describe('eventTime', () => {
+  it("reads the first event's time, and undefined without one", () => {
+    const events = [
+      { type: 'APOGEE', time: 5 },
+      { type: 'APOGEE', time: 7 },
+    ];
+    expect(eventTime(events, 'APOGEE')).toBe(5);
+    expect(eventTime(events, 'GROUND_HIT')).toBeUndefined();
+    expect(eventTime(undefined, 'APOGEE')).toBeUndefined();
   });
 });

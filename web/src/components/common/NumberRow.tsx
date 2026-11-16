@@ -10,6 +10,7 @@ export interface NumberRowMarks {
   mixed?: boolean;
   required?: boolean;
   missing?: boolean;
+  disabled?: boolean;
   onChange: (v: number | null) => void;
 }
 
@@ -26,6 +27,7 @@ export function NumberRow({
   mixed,
   required,
   missing,
+  disabled,
   onChange,
   onCommit,
   commitOnBlur,
@@ -55,6 +57,7 @@ export function NumberRow({
           mixed={mixed}
           required={required}
           missing={missing}
+          disabled={disabled}
           onChange={onChange}
           onCommit={onCommit}
           commitOnBlur={commitOnBlur}
@@ -82,6 +85,7 @@ export function NumberRow({
         min={min}
         max={max}
         placeholder={placeholder}
+        disabled={disabled}
       />
     </label>
   );

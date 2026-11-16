@@ -10,6 +10,7 @@ import type { Simulation } from '../flight/simulations';
 import type { LoadedMeta } from '../files/wireLoadedOrk';
 import { motorStats, type MotorStats } from './rocketReport';
 import { numOpt } from '../../tree/nodeProps';
+import { ringBoreNeedIn } from '../design/discGeometry';
 import { isFinSet, isPlanarFinSet } from '../../tree/tubefins';
 import { cantFrontShift, finMount, finSpan } from '../../tree/finPlanform';
 import { parentStartOf } from '../../tree/axialRebase';
@@ -37,6 +38,8 @@ export interface PartRow {
   aftR?: number;
   thickness?: number;
   span?: number;
+  /** A centering ring's stated bore radius is under this: the mounts through it need it. */
+  boreNeed?: number;
   mass: number;
 }
 
@@ -112,6 +115,7 @@ export interface ReportModel {
   partsByStage: { stage: string; rows: PartRow[] }[];
   finSetsByStage: { stage: string; sets: FinSetPosition[] }[];
   charges?: ChargeRow[];
+  /** Each bay's tests in date order. */
   bays?: DesignBay[];
 }
 
@@ -132,6 +136,7 @@ export function stageParts(
           /* a part the engine can't weigh: leave 0 */
         }
       }
+      const boreNeed = id && node.type === 'centeringring' ? ringBoreNeedIn(tree, id) : null;
       rows.push({
         depth,
         type: node.type,
@@ -144,6 +149,7 @@ export function stageParts(
         ...(isPlanarFinSet(node.type)
           ? { span: finSpan(node, parent && finMount(node, parent, parentStartOf(tree, parent))) }
           : {}),
+        ...(boreNeed !== null ? { boreNeed } : {}),
         mass,
       });
     }
@@ -244,6 +250,11 @@ export interface ReportSource {
   setErr: (message: string) => void;
 }
 
+export const withTestsByDate = (bay: DesignBay): DesignBay => ({
+  ...bay,
+  record: { ...bay.record, tests: [...bay.record.tests].sort((a, b) => a.date.localeCompare(b.date)) },
+});
+
 // A caller inside render must pass `install`: the default store write updates subscribers mid-render.
 export function assembleReport(s: ReportSource, install?: (built: ReportBuild) => void): ReportModel | null {
   const { tree, info, rocket } = s;
@@ -320,7 +331,9 @@ export function assembleReport(s: ReportSource, install?: (built: ReportBuild) =
     partsByStage,
     finSetsByStage,
     charges: chargeRows(tree),
-    bays: designBays(tree).filter((b) => b.record.tests.length || Object.keys(b.record).length > 1),
+    bays: designBays(tree)
+      .filter((b) => b.record.tests.length || Object.keys(b.record).length > 1)
+      .map(withTestsByDate),
   };
 }
 

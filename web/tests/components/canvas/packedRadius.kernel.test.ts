@@ -7,6 +7,7 @@ import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
@@ -64,6 +65,7 @@ describe('a nose weight nearly as wide as its tube', () => {
       roll: 0,
       uid: 't',
       setHoverId: () => {},
+      ...ENGLISH_LABELS,
     });
     const box = extents.get('weight')!.box;
     expect((box.y1 - box.y0) / 2 / S).toBeCloseTo(WEIGHT_R, 9);

@@ -5,6 +5,8 @@ import { useUnits } from '../../prefs/useUnits';
 import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import { token } from '../common/colorTokens';
+import { pointsAttr } from '../common/svgPath';
+import { PanelButton } from './PanelButton';
 import type { Pt } from './finViewport';
 import { useFreeformEditing } from './useFreeformEditing';
 
@@ -15,7 +17,10 @@ function FinOutline({
 }) {
   const { t } = useTranslation();
   const { W, H, PAD, sx, sy } = view;
-  const poly = pts.map((p) => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ');
+  const poly = pointsAttr(
+    pts.map((p) => [sx(p[0]), sy(p[1])]),
+    1,
+  );
   return (
     <svg
       ref={svgRef}
@@ -159,13 +164,9 @@ export function FreeformFinEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs text-ink-muted">{t('freeform.outline')}</span>
-        <button
-          onClick={removeSel}
-          disabled={sel == null || pts.length <= 3 || fixedEnd(sel)}
-          className="rounded bg-raised px-2 py-1 text-xs text-ink-soft hover:bg-elevated disabled:opacity-40"
-        >
+        <PanelButton onClick={removeSel} disabled={sel == null || pts.length <= 3 || fixedEnd(sel)}>
           {t('freeform.removePoint')}
-        </button>
+        </PanelButton>
       </div>
 
       <FinOutline edit={edit} />

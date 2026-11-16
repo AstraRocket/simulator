@@ -189,7 +189,7 @@ describe('a fin set', () => {
   it('gives back the taper a tab depth already contains', () => {
     const onTube = fin('<TabLength>40</TabLength><TabDepth>5</TabDepth>');
     expect(onTube['tabHeight']).toBeCloseTo(0.005, 12);
-    // Desktop 24.12 reads 3.5 mm: the radius drops 12 to 10.5 mm over the tab's
+    // Desktop reads 3.5 mm: the radius drops 12 to 10.5 mm over the tab's
     // 0 to 30 mm, not the whole 3 mm taper or the 1 mm under the fin.
     const onTransition = find(
       parts(
@@ -763,14 +763,14 @@ describe('a RockSim point list', () => {
 });
 
 describe('a shoulder RockSim gives a length to', () => {
-  it('is open, as desktop 24.12 reads it', () => {
+  it('is capped, as desktop reads it', () => {
     const n = find(
       parts(
         '<NoseCone><Name>N</Name><Len>100</Len><BaseDia>24</BaseDia><ConstructionType>1</ConstructionType><WallThickness>1.5</WallThickness><ShoulderOD>23</ShoulderOD><ShoulderLen>20</ShoulderLen></NoseCone>',
       ),
       'N',
     );
-    expect(n['shoulderCapped']).toBeUndefined();
+    expect(n['shoulderCapped']).toBe(true);
   });
 
   it('says nothing about a cap when there is no shoulder', () => {
@@ -778,14 +778,14 @@ describe('a shoulder RockSim gives a length to', () => {
     expect(n['shoulderCapped']).toBeUndefined();
   });
 
-  it('is open on both sides of a transition', () => {
+  it('is capped where a transition has a shoulder, and only there', () => {
     const t = find(
       parts(
         '<Transition><Name>T</Name><Len>50</Len><FrontDia>18</FrontDia><RearDia>24</RearDia><FrontShoulderDia>17</FrontShoulderDia><FrontShoulderLen>15</FrontShoulderLen><RearShoulderDia>23</RearShoulderDia><RearShoulderLen>0</RearShoulderLen></Transition>',
       ),
       'T',
     );
-    expect(t['foreShoulderCapped']).toBeUndefined();
+    expect(t['foreShoulderCapped']).toBe(true);
     expect(t['aftShoulderCapped']).toBeUndefined();
   });
 });

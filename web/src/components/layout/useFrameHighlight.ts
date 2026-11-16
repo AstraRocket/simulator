@@ -1,5 +1,4 @@
 import { type RefObject, useEffect } from 'react';
-import type { HelpTarget } from '../../services/app/helpDocs';
 import { clearMarks, markMatches } from '../../services/app/helpSearch';
 
 const MARK = 'mark[data-astra-help-mark]';
@@ -9,7 +8,9 @@ export function useFrameHighlight(
   frameRef: RefObject<HTMLIFrameElement | null>,
   ready: boolean,
   highlight: string[],
-  target: HelpTarget,
+  src: string,
+  /** The anchor the page is at, from which the first match is scrolled to. */
+  hash: string,
 ): void {
   useEffect(() => {
     const doc = frameRef.current?.contentDocument;
@@ -23,7 +24,7 @@ export function useFrameHighlight(
       const marks = markMatches(root, highlight);
       if (!marks.length || !win || scrolled) return;
       scrolled = true;
-      const anchor = target.hash ? doc.getElementById(decodeURIComponent(target.hash.slice(1))) : null;
+      const anchor = hash ? doc.getElementById(decodeURIComponent(hash.slice(1))) : null;
       const from = anchor ? anchor.getBoundingClientRect().top + win.scrollY : 0;
       const at = marks.find((m) => m.getBoundingClientRect().top + win.scrollY >= from) ?? marks[0]!;
       at.scrollIntoView({ block: 'center' });
@@ -38,5 +39,5 @@ export function useFrameHighlight(
       const root = doc.querySelector('article');
       if (root) clearMarks(root);
     };
-  }, [frameRef, ready, highlight, target.hash, target.src]);
+  }, [frameRef, ready, highlight, hash, src]);
 }

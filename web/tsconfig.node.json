@@ -14,6 +14,8 @@
   "compilerOptions": {
     "composite": false,
     "noEmit": true,
+    // Vite's native config loader wants the extension on vite.config.ts's src import.
+    "allowImportingTsExtensions": true,
     "allowJs": true,
     "checkJs": true,
     "types": ["node"],

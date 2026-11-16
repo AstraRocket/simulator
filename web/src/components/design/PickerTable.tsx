@@ -4,13 +4,13 @@ import type { Component } from '../../services/parts/componentDb';
 import type { ComponentQuery, Ranked, SortKey } from '../../services/parts/componentFilter';
 import { SortHeader } from '../common/SortHeader';
 
+import { sameName } from '../../services/app/names';
 export interface CurrentPart {
   manufacturer?: string;
   partNo?: string;
 }
 
-const sameText = (a: string | undefined, b: string | undefined): boolean =>
-  a != null && b != null && a.trim().toLowerCase() === b.trim().toLowerCase();
+const sameText = (a: string | undefined, b: string | undefined): boolean => a != null && b != null && sameName(a, b);
 
 /** Part numbers are unique only within a manufacturer, so both must match. */
 function isCurrent(part: Pick<Component, 'mfr' | 'partNo'>, current: CurrentPart | undefined): boolean {

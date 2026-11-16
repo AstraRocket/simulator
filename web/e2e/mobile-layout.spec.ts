@@ -170,5 +170,6 @@ test('starting a new design does not strand you on an empty Results tab', async 
   await page.getByRole('alertdialog').getByRole('button', { name: 'New', exact: true }).click();
 
   await expect(resultsTab).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '2D', exact: true })).toBeVisible();
+  // Every open lands on the design and its stats (`LAND_ON_DESIGN`), the Rocket tab on a phone.
+  await expect(page.getByText('L/D', { exact: true })).toBeVisible();
 });

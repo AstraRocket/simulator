@@ -38,7 +38,9 @@ describe('CI trigger coverage', () => {
   });
 
   it('typechecks the docs site in the gate set', () => {
-    const site = wf('gates.yml').split(/^ {2}website:s*$/m)[1];
+    const site = wf('gates.yml')
+      .split(/^ {2}website:\s*$/m)[1]
+      ?.split(/^ {2}\w[\w-]*:\s*$/m)[0];
     expect(site).toBeDefined();
     expect(site).toMatch(/working-directory: website/);
     expect(site).toMatch(/- run: npm run typecheck/);
@@ -54,10 +56,19 @@ describe('CI trigger coverage', () => {
 describe('the catalog sync trigger', () => {
   const sync = wf('sync-catalogs.yml');
 
-  it('runs on a push to master that changes the scripts, the workflow or the engine', () => {
+  it('runs on a push to master that changes the scripts, the workflow, the engine or the OpenRocket pin', () => {
     expect(sync).toMatch(
-      /^on:\s*\n\s*push:\s*\n\s*branches:\s*\[master\]\s*\n\s*paths:\s*\n\s*- 'web\/scripts\/\*\*'\s*\n\s*- '\.github\/workflows\/sync-catalogs\.yml'\s*\n\s*- 'web\/src\/engine\/vendor\/\*\*'\s*\n/m,
+      /^on:\s*\n\s*push:\s*\n\s*branches:\s*\[master\]\s*\n\s*paths:\s*\n\s*- 'web\/scripts\/\*\*'\s*\n\s*- '\.github\/workflows\/sync-catalogs\.yml'\s*\n\s*- 'web\/src\/engine\/vendor\/\*\*'\s*\n\s*- 'engine-java\/extract\/UPSTREAM'\s*\n/m,
     );
+  });
+
+  it('builds the OpenRocket of the pin before any step that reads digests from it', () => {
+    const runAt = (cmd: string) => sync.search(new RegExp(`^\\s*run: ${cmd}\\s*$`, 'm'));
+    const build = runAt('npm run openrocket:build');
+    expect(build).toBeGreaterThan(-1);
+    for (const step of ['npm run sync:motor-digests', 'npm run sync:components', 'npm run sync:preset-digests']) {
+      expect(runAt(step)).toBeGreaterThan(build);
+    }
   });
 
   it('watches the folder of the engine the volume script loads', () => {

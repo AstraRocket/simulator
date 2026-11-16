@@ -1,17 +1,9 @@
 import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { newFlightConfig, primaryMotor, type FlightConfig } from '../services/flight/flightConfigs';
-import { newSimulation, simConditions } from '../services/flight/simulations';
+import { newSimulation, nextFreeName, simConditions } from '../services/flight/simulations';
 import { simulateInWorker, SimCanceledError } from '../engine/simClient';
-import {
-  guideConfig,
-  guideRow,
-  nearestDelay,
-  probeDelay,
-  type GuideFailure,
-  type GuideRow,
-  type MotorGuide,
-} from '../services/flight/motorGuide';
+import { flyGuideBatch, guideConfig, guideRow, type GuideRow, type MotorGuide } from '../services/flight/motorGuide';
 import { hasLocalCurve, type CatalogMotor } from '../services/motors/motorDb';
 import { catalogMotorSpec } from '../services/motors/motorSpec';
 import { keyOf } from '../services/motors/motorKey';
@@ -22,9 +14,8 @@ import { isComplete } from '../services/flight/requiredLaunch';
 import { errorText } from '../i18n/keyedError';
 import type { WorkspaceState } from './store';
 import { configOf, displayUnits } from './workspaceSelectors';
-import { uniqueSimName } from './simSlice';
 import { insertAfter, type EditSteps } from './sliceShared';
-import { batchBasis, flownStill, launcherT, refusedDesign } from './runBasis';
+import { batchBasis, flownStill, jobSlot, launcherT, refusedDesign } from './runBasis';
 
 export interface MotorGuideSlice {
   motorGuide: MotorGuide | null;
@@ -42,11 +33,10 @@ export const selectMotorGuideFor = (s: WorkspaceState, simId: string): MotorGuid
 export const isMotorGuideStale = (s: WorkspaceState, guide: MotorGuide): boolean =>
   !flownStill(s, guide.simId, { tree: guide.tree, inputs: guide.inputs, key: guide.key });
 
-let guideAbort: AbortController | null = null;
+const guideJob = jobSlot('motorGuideRun');
 
 export function abortMotorGuide(): void {
-  guideAbort?.abort();
-  guideAbort = null;
+  guideJob.abort();
 }
 
 type MotorGuideSliceShared = Pick<EditSteps, 'recordStep'>;
@@ -76,17 +66,12 @@ export const createMotorGuideSlice =
       const massEmpty = s.info?.massEmpty;
       const { ranOn, flownFrom, flownKey, runPrefs, seed } = batchBasis(s, sim, config);
 
-      guideAbort?.abort();
-      const abort = new AbortController();
-      guideAbort = abort;
-      set({ motorGuide: null, motorGuideRun: { simId, done: 0, total: motors.length }, err: null });
+      const job = guideJob.claim(set, simId, motors.length, { motorGuide: null });
 
-      const rows: GuideRow[] = [];
-      const failed: GuideFailure[] = [];
-      const fly = async (motor: CatalogMotor, key: string, delay: number): Promise<GuideRow> => {
+      const fly = async (motor: CatalogMotor, delay: number): Promise<GuideRow> => {
         if (!hasLocalCurve(motor)) throw new Error(i18n.t('guide.noCurve'));
         const spec = await catalogMotorSpec(motor, delay);
-        if (abort.signal.aborted) throw new SimCanceledError();
+        if (job.signal.aborted) throw new SimCanceledError();
         const cfg = guideConfig(config, mountId, spec);
         const refused = unflyable(sim, primaryMotor(ranOn, cfg), configPowerClass(ranOn, cfg, massEmpty));
         if (refused) {
@@ -101,33 +86,21 @@ export const createMotorGuideSlice =
             options: simConditions(launch, { ...runPrefs, randomSeed: seed }),
             lengthUnit: runPrefs.lengthUnit,
           },
-          { signal: abort.signal },
+          { signal: job.signal },
         );
-        return guideRow(motor, key, spec, result);
-      };
-      const flyMotor = async (motor: CatalogMotor) => {
-        const key = keyOf(motor);
-        try {
-          const first = await fly(motor, key, probeDelay(motor));
-          const nearest = nearestDelay(motor, first.optimumDelay);
-          rows.push(nearest == null || nearest === first.delay ? first : await fly(motor, key, nearest));
-        } catch (e) {
-          if (abort.signal.aborted) return;
-          failed.push({ key, motor, reason: errorText(e, i18n.t) });
-        } finally {
-          if (guideAbort === abort) {
-            set((st) =>
-              st.motorGuideRun ? { motorGuideRun: { ...st.motorGuideRun, done: st.motorGuideRun.done + 1 } } : {},
-            );
-          }
-        }
+        return guideRow(motor, keyOf(motor), spec, result);
       };
       try {
-        await Promise.all(motors.map(flyMotor));
-        if (guideAbort !== abort) return;
+        const batch = await flyGuideBatch(motors, {
+          fly,
+          refly: true,
+          row: (_motor, _key, flown) => flown,
+          signal: job.signal,
+          onSettled: () => job.tick(),
+          reason: (e) => errorText(e, i18n.t),
+        });
+        if (!job.mine()) return;
         if (!flownStill(get(), simId, { tree: ranOn, inputs: flownFrom, key: flownKey })) return;
-        const order = new Map(motors.map((m, i) => [keyOf(m), i]));
-        const byAsked = (a: { key: string }, b: { key: string }) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0);
         set({
           motorGuide: {
             simId,
@@ -136,22 +109,15 @@ export const createMotorGuideSlice =
             inputs: flownFrom,
             key: flownKey,
             asked: motors.length,
-            partial: abort.signal.aborted,
-            rows: rows.sort(byAsked),
-            failed: failed.sort(byAsked),
+            ...batch,
           },
         });
       } finally {
-        if (guideAbort === abort) {
-          guideAbort = null;
-          set({ motorGuideRun: null });
-        }
+        job.release();
       }
     },
 
-    cancelMotorGuide: () => {
-      guideAbort?.abort();
-    },
+    cancelMotorGuide: () => guideJob.cancel(),
 
     clearMotorGuide: () => set({ motorGuide: null }),
 
@@ -170,7 +136,10 @@ export const createMotorGuideSlice =
         name: null,
       };
       const label = i18n.t('guide.simName', { name: src.name, motor: motorName(row.motor) });
-      const name = uniqueSimName(s.sims, (n) => (n === 1 ? label : `${label} ${n}`), 1);
+      const name = nextFreeName(
+        label,
+        s.sims.map((x) => x.name),
+      );
       const sim0 = { ...newSimulation(name, made.id, src.launch), prefs: src.prefs };
       set({
         configs: insertAfter(s.configs, from.id, made),

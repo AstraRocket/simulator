@@ -9,6 +9,7 @@ import { PANEL_SCOPE_KEYS } from '../../services/design/componentFields';
 import { PropSection } from './PropSection';
 import type { NodeEditProps } from './DimensionFields';
 import { NumberWithUnit } from '../common/NumberRow';
+import { Check } from '../common/Check';
 
 function OverrideRow({
   label,
@@ -79,19 +80,16 @@ function OverrideRow({
         </p>
       )}
       {showSub && (
-        <label className="flex items-center gap-2 pl-6 text-[11px] text-ink-faint">
-          <input
-            type="checkbox"
-            checked={sub}
-            disabled={locked}
-            onChange={(e) => {
-              onSub(e.target.checked);
-              onCommit?.();
-            }}
-            className="accent-accent-500"
-          />
-          {subLabel}
-        </label>
+        <Check
+          checked={sub}
+          disabled={locked}
+          onChange={(v) => {
+            onSub(v);
+            onCommit?.();
+          }}
+          label={subLabel}
+          className="pl-6 text-[11px] text-ink-faint"
+        />
       )}
     </div>
   );

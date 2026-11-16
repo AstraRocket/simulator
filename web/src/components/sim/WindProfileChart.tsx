@@ -2,6 +2,7 @@ import type { WindLevel } from '../../services/design/orkTree';
 import type { Units } from '../../prefs/useUnits';
 import { fmtNum, shortDigits } from '../../i18n/format';
 import { polylinePath } from '../common/svgPath';
+import { LAxes } from '../common/chartAxes';
 
 export function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; u: Units; showVectors: boolean }) {
   const W = 260;
@@ -30,8 +31,15 @@ export function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; 
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden="true">
-      <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="currentColor" className="text-ink-dim" />
-      <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="currentColor" className="text-ink-dim" />
+      <LAxes
+        frame={{ width: W, height: H, padL, padR, padT, padB }}
+        xLo="0"
+        xHi={fmtNum(sHi, shortDigits(sHi))}
+        xSym={u.sym('windspeed')}
+        yLo={fmtNum(aMin, shortDigits(aMin))}
+        yHi={fmtNum(aHi, shortDigits(aHi))}
+        ySym={u.sym('distance')}
+      />
       {pts.length > 1 && (
         <path
           d={polylinePath(pts.map((p) => [p.x, p.y]))}
@@ -53,18 +61,6 @@ export function ProfileChart({ levels, u, showVectors }: { levels: WindLevel[]; 
           )}
         </g>
       ))}
-      <text x={4} y={padT + 8} className="fill-ink-faint text-[9px]">
-        {u.sym('distance')}
-      </text>
-      <text x={W - padR} y={H - 6} textAnchor="end" className="fill-ink-faint text-[9px]">
-        {u.sym('windspeed')}
-      </text>
-      <text x={padL} y={H - padB + 12} textAnchor="middle" className="fill-ink-faint text-[9px]">
-        0
-      </text>
-      <text x={W - padR} y={H - padB + 12} textAnchor="end" className="fill-ink-faint text-[9px]">
-        {fmtNum(sHi, shortDigits(sHi))}
-      </text>
     </svg>
   );
 }

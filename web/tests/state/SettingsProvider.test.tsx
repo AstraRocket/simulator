@@ -157,6 +157,28 @@ function Grab({ onReady }: { onReady: (api: ReturnType<typeof useSettings>) => v
   return null;
 }
 
+describe('SettingsProvider updateSection', () => {
+  it('keeps both of two patches to one section in the same tick', () => {
+    loadSettings.mockReturnValue({ ...DEFAULT_SETTINGS });
+    saveSettings.mockReturnValue(true);
+    let api!: ReturnType<typeof useSettings>;
+    render(
+      <SettingsProvider>
+        <Grab onReady={(a) => (api = a)} />
+      </SettingsProvider>,
+    );
+    act(() => {
+      api.updateSection('units', { length: 'in' });
+      api.updateSection('units', { mass: 'oz' });
+    });
+    expect(api.settings.units.length).toBe('in');
+    expect(api.settings.units.mass).toBe('oz');
+    expect(api.settings.units.velocity).toBe(DEFAULT_SETTINGS.units.velocity);
+    const written = saveSettings.mock.calls.at(-1)![0] as typeof DEFAULT_SETTINGS;
+    expect(written.units).toMatchObject({ length: 'in', mass: 'oz' });
+  });
+});
+
 describe('SettingsProvider reset', () => {
   it('installs a copy of the defaults, not the shared constant', () => {
     loadSettings.mockReturnValue({ ...DEFAULT_SETTINGS });
@@ -171,5 +193,51 @@ describe('SettingsProvider reset', () => {
     expect(api.settings).toEqual(DEFAULT_SETTINGS);
     expect(api.settings).not.toBe(DEFAULT_SETTINGS);
     expect(api.settings.simulation).not.toBe(DEFAULT_SETTINGS.simulation);
+  });
+
+  const KEY = nsKey('settings:v1');
+  afterEach(() => localStorage.clear());
+
+  const mount = () => {
+    let api!: ReturnType<typeof useSettings>;
+    render(
+      <SettingsProvider>
+        <Grab onReady={(a) => (api = a)} />
+      </SettingsProvider>,
+    );
+    return () => api;
+  };
+  // Neither is the default theme, so a written default can only come from the reset.
+  const stored = { ...DEFAULT_SETTINGS, theme: 'light' as const };
+  const inches = { units: { ...DEFAULT_SETTINGS.units, length: 'in' } };
+  // A save that storage takes is in storage afterward, as the real saveSettings leaves it.
+  const writes = (s: unknown) => {
+    localStorage.setItem(KEY, JSON.stringify(s));
+    return true;
+  };
+
+  it('drops a change storage refused before it, so the next change does not bring it back', () => {
+    loadSettings.mockReturnValue(stored);
+    localStorage.setItem(KEY, JSON.stringify(stored));
+    const api = mount();
+    saveSettings.mockReturnValueOnce(false).mockImplementation(writes);
+    act(() => api().update({ theme: 'daylight' }));
+    act(() => api().reset());
+    act(() => api().update(inches));
+    const written = saveSettings.mock.calls.at(-1)![0] as typeof DEFAULT_SETTINGS;
+    expect(written.theme).toBe(DEFAULT_SETTINGS.theme);
+    expect(written.units.length).toBe('in');
+  });
+
+  it('holds a reset storage refused, so the next change keeps the defaults', () => {
+    loadSettings.mockReturnValue(stored);
+    localStorage.setItem(KEY, JSON.stringify(stored));
+    const api = mount();
+    saveSettings.mockReturnValueOnce(false).mockImplementation(writes);
+    act(() => api().reset());
+    act(() => api().update(inches));
+    const written = saveSettings.mock.calls.at(-1)![0] as typeof DEFAULT_SETTINGS;
+    expect(written.theme).toBe(DEFAULT_SETTINGS.theme);
+    expect(written.units.length).toBe('in');
   });
 });

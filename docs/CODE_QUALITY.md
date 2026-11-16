@@ -31,18 +31,18 @@ The test stays fixed, so a change in grade means the code changed. If the test h
 | B     | A check fails, a rule goes unenforced, or a kind of problem is growing with no reason given  |
 | C     | Real defects keep coming from it                                                             |
 
-### Measured 2026-11-05
+### Measured 2026-11-11
 
 | Check                                           | Result                                                         |
 | ----------------------------------------------- | -------------------------------------------------------------- |
 | Typecheck, lint, Prettier, jscpd, knip          | All pass, 0 clones                                             |
-| Unit tests                                      | 7,969 pass in 642 files, plus 52 repo checks in 8 files        |
-| Coverage                                        | Lines 91.2%, statements 89.7%, functions 86.1%, branches 82.8% |
+| Unit tests                                      | 8,286 pass in 651 files, plus 71 repo checks in 9 files        |
+| Coverage (2026-11-05, not rerun)                | Lines 91.2%, statements 89.7%, functions 86.1%, branches 82.8% |
 | Coverage floors                                 | Lines 89, statements 88, functions 84, branches 80             |
-| Functions over 100 / 200 / 400 lines (of 7,063) | 110 / 4 / 1                                                    |
-| Functions over complexity 15 / 30 / 50          | 121 / 11 / 1                                                   |
-| Catch blocks                                    | 150, of which 15 hold only a comment and none are bare         |
-| Non-null assertions                             | 408, all on an index; lint blocks every other kind             |
+| Functions over 100 / 200 / 400 lines (of 7,169) | 108 / 4 / 1                                                    |
+| Functions over complexity 15 / 30 / 50          | 120 / 11 / 1                                                   |
+| Catch blocks                                    | 152, of which 15 hold only a comment and none are bare         |
+| Non-null assertions                             | 429, all on an index; lint blocks every other kind             |
 | `as unknown as` casts                           | 29                                                             |
 
 The function, assertion and cast figures come from `npm run metrics`, counted as ESLint counts them. Complexity there also counts optional chaining and default values, not counting nested functions. The full unit and e2e suites and coverage were rerun on the final code and passed, with coverage above all four raised floors. The refactoring did not touch the engine. The change audit in `AUDIT_PROMPT_CHANGES.md` has not been run on this work.
@@ -64,7 +64,7 @@ The function, assertion and cast figures come from `npm run metrics`, counted as
   | -------------------------------- | ----- | ---------------------------------------------------------------------------------------------- |
   | `resolveAxial` (`autoRadius.ts`) | 438   | Its helpers share state and must run in the kernel's order, so splitting would hide that order |
   | `defaultNode`                    | 224   | One `switch` that is a table of default values                                                 |
-  | `TreeSchematic`                  | 214   | Layout and shared zoom and hover state; its parts already live elsewhere                       |
+  | `TreeSchematic`                  | 231   | Layout and shared zoom and hover state; its parts already live elsewhere                       |
   | `createPainter`                  | 206   | Small helpers over one config, with no branching to separate                                   |
 
 - The longest component functions were the worst of this. **Resolved 2026-11-05:** each now keeps its layout and hands state and sections to hooks and child components:
@@ -131,7 +131,7 @@ The function, assertion and cast figures come from `npm run metrics`, counted as
 - The comments were sometimes long enough to be hard to read. **Resolved 2026-11-03:** every hand-written source file (web, website and the engine-java bridge, shims and tooling) was trimmed to one-line comments that prevent a bug or a wrong fix: traps, platform quirks, units, desktop parity rules and license and terms-of-use notes. Comment lines went from about 52,000 to 4,850, with a check that nothing but comments changed. The strict pass had no reviewers, and some useful explanations went with it: the `e2e/base.ts` retry reason and the parity limit reasoning have already been restored, so others may turn up.
 - jscpd reported 4 clones against its threshold of 0, so the check failed. **Resolved 2026-11-04:** it now finds none. Shared pieces replaced the copies: `SchematicDefs`, `ReadoutOpener`, `StepperOptions` and a `DeviceSelect` inside `StageRecovery.tsx`.
 - Large import blocks and big files make it slow to get your bearings. This ties back to the structure weaknesses. `MotorGuideDialog.tsx` has the most, at 35 imports.
-- 11 functions are over complexity 30, and each states why it stays. Most are flat lists: `isComponentRow` (55), `paramsOf` (44), `writeCommon` (42), `rowGeometry` (36), the launch defaults cleanup in `settings.ts` (34), `importOrk` (33) and `filterMotors` (31). The others keep related steps or rows together: `loadOrk` (36), `MaterialPicker` (34), `CardBody` (32) and `shoulderSeed` (32). 121 are over complexity 15, which is why Readability stays at A-.
+- 11 functions are over complexity 30, and each states why it stays. Most are flat lists: `isComponentRow` (55), `paramsOf` (44), `writeCommon` (42), `rowGeometry` (36), the launch defaults cleanup in `settings.ts` (34), `importOrk` (33) and `filterMotors` (31). The others keep related steps or rows together: `loadOrk` (36), `MaterialPicker` (34), `CardBody` (32) and `shoulderSeed` (32). 120 are over complexity 15, which is why Readability stays at A-.
 - The one-line comment rule left some stateful code thinly explained. **Resolved 2026-11-04:** every field in `workspaceStore.ts` now says what it guards.
 
 ## Robustness: A
@@ -141,7 +141,7 @@ The function, assertion and cast figures come from `npm run metrics`, counted as
 - TypeScript is in its strictest practical mode: `strict`, `noUncheckedIndexedAccess`, `noUnusedLocals` and `noUnusedParameters`. There is essentially one real `any` (a generic constraint in `ErrorBoundary.tsx`) and zero `@ts-ignore`.
 - ESLint runs type-checked rules (`no-floating-promises`, `no-unsafe-*`) and React-Compiler hook rules with `--max-warnings 0`.
 - Error handling is deliberate:
-  - No bare catch blocks. 15 of the 150 drop the error and hold only a comment.
+  - No bare catch blocks. 15 of the 152 drop the error and hold only a comment.
   - Errors are keyed for i18n through `KeyedError`.
   - Async work checks abort signals and "is this result still mine" guards.
   - Simulations run in a worker with timeout and cancel error types.
@@ -163,8 +163,8 @@ The function, assertion and cast figures come from `npm run metrics`, counted as
     - A throwing helper such as `at(arr, i)`: about 110 files would change and hot loops would get slower, for the same failure with a clearer message.
     - Turning on `no-non-null-assertion` everywhere: 408 sites to rewrite or exempt, for the reasons above.
   - Most of the 29 double casts are harmless (`globalThis`, `self`, i18n's `TFunction`). `ComponentNode` itself allows any string key, so a mistyped node field name is still not a compile error. `TODO.md` lists this under Watch, with what would make it worth fixing.
-- 35 `eslint-disable` comments and 54 TODO/FIXME markers. 15 of the comments are the size and complexity exceptions above, and lint fails on any that stops being needed. **Checked 2026-11-03:**
-  - `eslint --report-unused-disable-directives` finds none unused. Two `react-hooks/exhaustive-deps` disables (`FlightGroundMap.tsx`, `NumberInput.tsx`) were replaced with `useEffectEvent`, leaving 20. All 20 are deliberate and give their reason. 19 are `jsx-a11y` rules: 15 on ARIA patterns the rules do not model (roving tabindex in menus and the tree, focusable chart crosshairs and the site map, the window splitter, dialog backdrop clicks) and 4 where the rule sees only the JSX (link text filled in by `<Trans>`, a scrollable pane that needs a tab stop, an Enter handler catching keys bubbled up from a form). The last is the `any` in `lazyNamed`, which is `React.lazy`'s own constraint.
+- 36 `eslint-disable` comments and 54 TODO/FIXME markers. 15 of the comments are the size and complexity exceptions above, and lint fails on any that stops being needed. **Checked 2026-11-03:**
+  - `eslint --report-unused-disable-directives` finds none unused. Two `react-hooks/exhaustive-deps` disables (`FlightGroundMap.tsx`, `NumberInput.tsx`) were replaced with `useEffectEvent`, leaving 20. All 20 are deliberate and give their reason. 19 are `jsx-a11y` rules: 15 on ARIA patterns the rules do not model (roving tabindex in menus and the tree, focusable chart crosshairs and the site map, the window splitter, dialog backdrop clicks) and 4 where the rule sees only the JSX (link text filled in by `<Trans>`, a scrollable pane that needs a tab stop, an Enter handler catching keys bubbled up from a form). The last is the `any` in `lazyNamed`, which is `React.lazy`'s own constraint. One added since, in `components/common/useFilePick.ts`, states a reason that holds, making 21.
   - `web/src` has no TODO markers. The earlier count matched a reference to `TODO.md` and currency codes in the vendored engine bundle. The 50 in `engine-java/src` are all upstream OpenRocket's own and are left as-is, so the extracted code stays comparable with upstream.
 - `services/storage/workspaceStore.ts` (352 lines) is the likeliest home left for race and ordering bugs. `store.ts` and `fileSlice.ts` have been split (see Structure and Recommendations), and the unload journal moved to `workspaceJournal.ts` on 2026-11-04. The rest is one class whose methods all share the same fields (active id, generation, last-seen stamp), so it stays whole on purpose: splitting it would spread that state across files and make the ordering harder to follow. The generation counters and claim tokens are the guard here.
 - The repo checks in `npm run audit` failed, and knip reported two unused exports. Both ran only by hand, so they could fail unnoticed. **Resolved 2026-11-04,** and both are now CI gates (the `repo` and `housekeeping` jobs in `gates.yml`):
@@ -173,6 +173,35 @@ The function, assertion and cast figures come from `npm run metrics`, counted as
   - knip: the unused `Key` type was deleted, and `DEADLINE_MS` is no longer exported.
 - The desktop checks in `npm run audit` compared against the OpenRocket 24.12 release, far behind the commit the engine runs, so most of their expected differences were version noise. **Resolved 2026-11-04:** they now build and compare against the engine's own commit (`npm run openrocket:build`). The catalog's motor and preset digests are still synced from the 24.12 release, so they differ from what the engine's commit computes. Desktop still resolves the same motors by name.
 - The e2e suite once passed 596 of 597, failing on a preview-server refusal under load. `openApp` now pauses between retries. **Resolved 2026-11-04:** the full suite passed after that change.
+
+## Where the app differs from desktop on purpose
+
+Each of these is a choice, not a gap. A test or script holds each one, so it cannot change without someone noticing.
+
+### The Scale tool scales more than desktop's
+
+Desktop's Scale (`ScaleDialog`'s scaler table) leaves these at their old size. The app scales them too, because a rocket scaled 2x with its old fillets and tube fins is rarely what anyone wants:
+
+- Every fin set: fillet radius, leading-edge radius, and the airfoil's leading and trailing edge sizes.
+- A tube fin set: length, outer radius and wall. Desktop has no scaler for tube fins at all.
+- An inner tube: maximum motor length.
+- A tube coupler: the stored inner radius. The bridge builds a coupler from its wall, so this only keeps the stored bore in step with the scaled wall.
+
+A design scaled in the app and saved as `.ork` therefore differs from the same design scaled in desktop in these values. `tests/tree/scaleRocket.test.ts` ("the Scale tool's keys") holds the app's keys to desktop's table plus this list, part type by part type.
+
+### Catalog parts with no material weight get a stand-in
+
+24 parts in the parts library desktop ships have a material of density 0, so desktop weighs them at 0 g. The catalog gives each the nearest built-in material instead (`web/scripts/lib/nearestMaterial.mjs`), so a chute or streamer picked from the catalog weighs something. The `.ork` writer writes the stand-in after the preset, so desktop opens the file with the stand-in's weight too.
+
+| Library material           | Stand-in            | Parts                                                                                                                                                  |
+| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rip Stop Nylon             | Ripstop nylon       | SEMROC Astronautics parachutes PN-14, PN-18, PN-24, PN-30, PN-36                                                                                       |
+| Polyethylene LDPE          | Polyethylene (thin) | Estes parachutes 302262, 302264, 302267, 302271; SEMROC Astronautics parachutes CP-12, CP-16, CP-20, CP-24, CP-32; Public Missiles streamer PML TBD123 |
+| Paper                      | Paper (office)      | SEMROC Astronautics streamers RS-118, RS-124, RS-136, RS-224, RS-236, RSW-36, SM-1A                                                                    |
+| Light Ply                  | Plywood (birch)     | FlisKits engine block EB-2.5                                                                                                                           |
+| Balsa, bulk, Estes typical | Balsa               | SEMROC nose cone BNC-5NAS                                                                                                                              |
+
+`nearestMaterial` refuses a stand-in that is not a built-in material, so a renamed built-in stops the sync.
 
 ## Recommendations
 

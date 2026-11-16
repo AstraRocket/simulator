@@ -11,6 +11,7 @@ import {
 import { useUnits } from '../../prefs/useUnits';
 import { UnitBound } from '../common/UnitBound';
 import { Check } from '../common/Check';
+import { smallButton } from '../common/smallButton';
 
 export function PickerFilters({
   all,
@@ -127,7 +128,7 @@ export function PickerFilters({
             onClick={() =>
               set({ text: '', mfr: '', material: '', shape: '', odMin: null, odMax: null, fitsOnly: false })
             }
-            className="ml-auto rounded-md bg-raised px-2 py-1.5 text-xs text-ink-soft hover:bg-elevated"
+            className={smallButton('row', 'soft', 'ml-auto')}
           >
             {t('picker.clear')}
           </button>

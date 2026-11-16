@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
+import { fmtDateTime } from '../../i18n/format';
 import { useTabs } from '../common/useTabs';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
 import { fireAction } from '../../state/fireAction';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 import { Dialog } from '../common/Dialog';
 import { DesignPropertiesDialog } from './DesignPropertiesDialog';
 import { ExampleList } from './ExamplesDialog';
 import { LIBRARY_TABS, type LibraryTab } from './dialogKeys';
 
 export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const designs = useWorkspaceStore((s) => s.designs);
   const activeId = useWorkspaceStore((s) => s.activeDesignId);
   const refresh = useWorkspaceStore((s) => s.refreshDesigns);
@@ -27,15 +28,8 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
     fireAction(refresh());
   }, [refresh]);
 
-  // The app's language, not the browser's.
-  const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' });
-
   const askDelete = async (id: string, name: string) => {
-    const ok = await confirm({
-      message: t('library.deleteConfirm', { name }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
+    const ok = await confirmDelete(t('library.deleteConfirm', { name }));
     if (ok) await deleteDesign(id);
   };
 
@@ -84,7 +78,7 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
                       {d.name}
                     </span>
                     <span className="ml-2 text-xs text-ink-faint">
-                      {when.format(new Date(d.updatedAt))}
+                      {fmtDateTime(d.updatedAt)}
                       {d.id === activeId && ` · ${t('library.open')}`}
                     </span>
                   </button>

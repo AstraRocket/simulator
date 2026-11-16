@@ -1,5 +1,5 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
-import { num } from '../../tree/nodeProps';
+import { innerTubeRadius, num } from '../../tree/nodeProps';
 import { degToRad } from '../../prefs/units';
 
 // Clamps mirror the kernel's so an edge-case edit cannot push `Infinity` into the mass, mesh or `.ork`.
@@ -72,10 +72,10 @@ export const DERIVED: Record<DerivedName, Derived> = {
   // Gap between tube walls; negative (overlapping) is legal.
   clusterSeparation: {
     quantity: 'length',
-    min: (node) => -num(node, 'outerRadius') * 2,
-    read: (node) => (num(node, 'clusterScale', 1) - 1) * num(node, 'outerRadius') * 2,
+    min: (node) => -innerTubeRadius(node) * 2,
+    read: (node) => (num(node, 'clusterScale', 1) - 1) * innerTubeRadius(node) * 2,
     write: (node, v) => {
-      const d = num(node, 'outerRadius') * 2;
+      const d = innerTubeRadius(node) * 2;
       if (!(d > 0)) return {};
       // `setClusterScale` floors at 0: concentric rather than inside out.
       return { clusterScale: Math.max(0, v / d + 1) };

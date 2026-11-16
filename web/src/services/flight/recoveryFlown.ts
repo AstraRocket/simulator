@@ -1,19 +1,20 @@
-import type { ComponentNode, FlightEvent, FlightResult } from '../../engine/openRocketEngine';
+import type { ComponentNode, FlightEvent, FlightEventType, FlightResult } from '../../engine/openRocketEngine';
 import { kernelComponentName } from '../app/warningText';
 import { walkNodes } from '../../tree/treeWalk';
-import { seriesAt } from './flightEvents';
+import { isRecoveryDevice } from '../design/treeEdit';
+import { eventTime, seriesAt } from './flightEvents';
 import { flightBranches } from './flightColumns';
 
-const DEPLOYMENT = 'RECOVERY_DEVICE_DEPLOYMENT';
+const DEPLOYMENT: FlightEventType = 'RECOVERY_DEVICE_DEPLOYMENT';
 
-const GROUND_HIT = 'GROUND_HIT';
+const GROUND_HIT: FlightEventType = 'GROUND_HIT';
 
 // Apogee deployments are queued 1 ms after apogee, so near-simultaneous openings count as one step.
 const TOGETHER_S = 0.2;
 
 // A charge fired on the ground still raises its event, but nothing descends under it.
 function airborneDeployments(events: readonly FlightEvent[]) {
-  const landed = events.find((e) => e.type === GROUND_HIT)?.time ?? Infinity;
+  const landed = eventTime(events, GROUND_HIT) ?? Infinity;
   return events.filter((e) => e.type === DEPLOYMENT && e.time < landed);
 }
 
@@ -27,13 +28,11 @@ export interface DeviceDescent {
   rate: number | null;
 }
 
-const RECOVERY_DEVICES = new Set(['parachute', 'streamer']);
-
 export function sharedDeviceNames(nodes: readonly ComponentNode[]): Set<string> {
   const seen = new Set<string>();
   const shared = new Set<string>();
   for (const n of walkNodes(nodes)) {
-    if (!RECOVERY_DEVICES.has(n.type)) continue;
+    if (!isRecoveryDevice(n.type)) continue;
     const name = kernelComponentName(n);
     if (seen.has(name)) shared.add(name);
     seen.add(name);

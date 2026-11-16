@@ -16,31 +16,21 @@ export function overridesStages(tree: RocketTree): boolean {
     .some((s) => numOpt(s, 'overrideMass') !== undefined || numOpt(s, 'overrideCGX') !== undefined);
 }
 
-type StageBuild = Pick<OpenRocketDesign, 'setStageActiveById' | 'staticInfo'>;
+type StageBuild = Pick<OpenRocketDesign, 'setStageActiveById' | 'rockSimStageFigures'>;
 
-/** Borrows the build's stage activeness and restores it, re-grounding `grounded` stages afterward. */
+/** Weighed with every stage on, as desktop opens the file; `grounded` stages are grounded again afterward. */
 export function stageStacks(
   build: StageBuild,
   tree: RocketTree,
   grounded: (id: string) => boolean,
 ): StageFigures[] | undefined {
-  const stages = tree.components.filter((n) => n.type === 'stage');
-  const ids = stages.map((s) => s.id).filter((id): id is string => typeof id === 'string');
-  if (stages.length === 0 || ids.length !== stages.length) return undefined;
-  const only = (active: (i: number) => boolean) => ids.forEach((id, i) => build.setStageActiveById(id, active(i)));
+  const stages = findStages(tree).filter((s): s is typeof s & { id: string } => typeof s.id === 'string');
   try {
-    return stages.slice(0, STAGE_ELEMENTS.length).map((_, i) => {
-      only((j) => j === i);
-      const mass = build.staticInfo().massEmpty;
-      only((j) => j <= i);
-      return { mass, stackCg: build.staticInfo().cgEmpty };
-    });
+    for (const stage of stages) build.setStageActiveById(stage.id, true);
+    return build.rockSimStageFigures();
   } catch {
     return undefined;
   } finally {
-    only(() => true);
-    for (const stage of findStages(tree)) {
-      if (typeof stage.id === 'string' && grounded(stage.id)) build.setStageActiveById(stage.id, false);
-    }
+    for (const stage of stages) if (grounded(stage.id)) build.setStageActiveById(stage.id, false);
   }
 }

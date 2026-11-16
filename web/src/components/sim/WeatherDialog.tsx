@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LaunchConditions, LaunchPatch } from '../../services/design/orkTree';
 import { Dialog } from '../common/Dialog';
-import { fetchWeather, forecastStart, sampleAt, todayYmd, type WeatherAnswer } from '../../services/weather/openMeteo';
+import { fetchWeather, forecastStart, sampleAt, type WeatherAnswer } from '../../services/weather/openMeteo';
 import {
   hasGroup,
   PROPOSAL_GROUPS,
@@ -10,6 +10,7 @@ import {
   proposalPatch,
   type ProposalGroup,
 } from '../../services/weather/weatherProposal';
+import { localToday } from '../../services/app/localDate';
 import { readWeatherKey } from '../../services/weather/weatherKey';
 import { sameSite, sourceFor } from '../../services/weather/weatherSource';
 import { toggled } from '../../services/app/collections';
@@ -65,7 +66,7 @@ export function WeatherDialog({
             longitudeDeg: lon,
             siteM,
             date,
-            today: todayYmd(),
+            today: localToday(),
             apiKey: readWeatherKey(),
           },
           { signal, force },

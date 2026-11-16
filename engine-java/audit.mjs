@@ -21,12 +21,17 @@ const hashes = () =>
       .digest('hex'),
   );
 
+// Taken before any step runs: `parity` builds and vendors first, so a hash taken later compares a build with a build.
+const AS_FOUND = hashes();
+
 function rebuildMatches() {
-  const before = hashes();
   if (!node('build-engine.mjs')) return false;
   const after = hashes();
-  const changed = VENDORED.filter((_, i) => before[i] !== after[i]);
-  for (const f of changed) console.error(`rebuilt differently: ${f}`);
+  const changed = VENDORED.filter((_, i) => AS_FOUND[i] !== after[i]);
+  for (const f of changed) console.error(`rebuilt differently from the vendored copy the audit started with: ${f}`);
+  if (changed.length) {
+    console.error('The vendored engine is not a build of this source. The rebuilt files are now in place; keep them.');
+  }
   return changed.length === 0;
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   filterMotors,
+  sameMaker,
   allClasses,
   allManufacturers,
   matchCatalogMotor,
@@ -484,5 +485,13 @@ describe('filterMotors, desktop filters', () => {
   it('hides the motors named in `hide`, by their key', () => {
     const out = filterMotors(catalog, filter({ hide: new Set(['Estes|C6|18|']) }));
     expect(out.map((m) => `${m.manufacturer} ${m.designation}`)).toEqual(['Quest C6', 'Estes D12', 'Estes B6']);
+  });
+});
+
+describe('sameMaker', () => {
+  it('ignores case and padding in the asked name, and takes either name holding the other', () => {
+    expect(sameMaker('Estes Industries', '  ESTES ')).toBe(true);
+    expect(sameMaker('Estes', 'estes industries')).toBe(true);
+    expect(sameMaker('AeroTech', 'Estes')).toBe(false);
   });
 });

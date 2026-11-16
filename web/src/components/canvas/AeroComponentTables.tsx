@@ -123,7 +123,7 @@ function WholeRocketRow({ children }: { children: React.ReactNode }) {
     <tr className="border-b border-line/10 font-semibold text-ink-strong">
       <td className={NAME_CELL}>{t('aero.wholeRocket')}</td>
       {children}
-      <td className={CELL}>100%</td>
+      <td className={CELL}>{fmtPercent(100)}</td>
     </tr>
   );
 }

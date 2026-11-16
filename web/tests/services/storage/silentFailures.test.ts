@@ -83,7 +83,9 @@ describe('a custom-motor import is ONE write', () => {
     const { kv } = countingKv();
     const refusing: KeyValueStore = { ...kv, update: async () => false };
     const store = new KeyValueMotorStore(refusing);
-    await expect(store.addCustomMotors([motor('A'), motor('B')])).rejects.toThrow(/storage-full/);
+    await expect(store.addCustomMotors([motor('A'), motor('B')])).rejects.toMatchObject({
+      key: 'storage.writeRefused',
+    });
     expect(await store.listCustomMotors()).toEqual([]);
   });
 

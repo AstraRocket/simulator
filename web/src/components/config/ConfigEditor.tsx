@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { findMounts, findRecoveryDevices, findSeparators, findStages } from '../../services/design/treeEdit';
 import { useWorkspaceStore, selectEditedConfig } from '../../state/store';
@@ -8,6 +8,7 @@ import { SeparationSection } from './SeparationSection';
 import { partName } from './partName';
 import { mountFit } from '../../services/motors/motorPicker';
 import { mountIgnition, sameIgnition } from '../../services/flight/flightConfigs';
+import { OtherMountsOffer, type PendingOffer } from './OtherMountsOffer';
 
 export function ConfigEditor() {
   const { t } = useTranslation();
@@ -27,6 +28,8 @@ export function ConfigEditor() {
   const devices = useMemo(() => findRecoveryDevices(tree), [tree]);
   const stages = useMemo(() => findStages(tree), [tree]);
   const separates = useMemo(() => new Set(findSeparators(tree).map((n) => n.id as string)), [tree]);
+  // Keyed by pick, so a fresh pick drops an Undo left over from the last one.
+  const [pending, setPending] = useState<(PendingOffer & { pick: number }) | null>(null);
 
   return (
     <div className="space-y-4 p-3">
@@ -75,24 +78,32 @@ export function ConfigEditor() {
           const ignition = { event: seated?.ignitionEvent ?? 'automatic', delay: seated?.ignitionDelay ?? 0 };
           const target = { ignitionEvent: ignition.event, ignitionDelay: ignition.delay };
           return (
-            <MotorRow
-              // Keyed per configuration: a card's ignition scope belongs to it.
-              key={`${config.id}:${id}`}
-              title={mounts.length > 1 ? `${t('sims.motor')} - ${partName(mt, i, t)}` : undefined}
-              motor={seated?.spec ?? null}
-              onChange={(m) => setMountMotor(config.id, id, m)}
-              liftoff={{ configId: config.id, mountId: id }}
-              onError={onError}
-              mount={mount}
-              ignition={ignition}
-              onIgnitionChange={(e, d, scope) => setMountIgnition(config.id, id, e, d, scope)}
-              ignitionEverywhere={
-                sameIgnition(mountIgnition(mt), target) &&
-                configs.every((c) => !c.motors[id] || sameIgnition(c.motors[id], target))
-              }
-              onCommit={onCommit}
-              used={configs.flatMap((c) => (c.id !== config.id && c.motors[id]?.spec ? [c.motors[id].spec] : []))}
-            />
+            // Keyed per configuration: a card's ignition scope belongs to it.
+            <Fragment key={`${config.id}:${id}`}>
+              <MotorRow
+                title={mounts.length > 1 ? `${t('sims.motor')} - ${partName(mt, i, t)}` : undefined}
+                motor={seated?.spec ?? null}
+                onChange={(m) => {
+                  setMountMotor(config.id, id, m);
+                  if (mounts.length > 1)
+                    setPending({ configId: config.id, fromId: id, spec: m, pick: (pending?.pick ?? 0) + 1 });
+                }}
+                liftoff={{ configId: config.id, mountId: id }}
+                onError={onError}
+                mount={mount}
+                ignition={ignition}
+                onIgnitionChange={(e, d, scope) => setMountIgnition(config.id, id, e, d, scope)}
+                ignitionEverywhere={
+                  sameIgnition(mountIgnition(mt), target) &&
+                  configs.every((c) => !c.motors[id] || sameIgnition(c.motors[id], target))
+                }
+                onCommit={onCommit}
+                used={configs.flatMap((c) => (c.id !== config.id && c.motors[id]?.spec ? [c.motors[id].spec] : []))}
+              />
+              {pending?.fromId === id && (
+                <OtherMountsOffer key={pending.pick} pending={pending} onDone={() => setPending(null)} />
+              )}
+            </Fragment>
           );
         })}
     </div>

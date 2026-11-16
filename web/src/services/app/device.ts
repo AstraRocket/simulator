@@ -45,6 +45,15 @@ export function isApplePhoneOrTablet(): boolean {
   return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1;
 }
 
+/** Macs as well as iPhones and iPads: where the undo shortcut is ⌘Z, not Ctrl+Z. */
+export function isApplePlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const platform = uaHints()?.platform;
+  return platform
+    ? /^(macOS|iOS)$/.test(platform)
+    : /Mac|iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent);
+}
+
 export function isAndroid(): boolean {
   if (typeof navigator === 'undefined') return false;
   const platform = uaHints()?.platform;

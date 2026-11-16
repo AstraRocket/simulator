@@ -2,7 +2,7 @@ import type { RocketTree } from '../../engine/openRocketEngine';
 import type { LaunchConditions } from '../design/orkTree';
 import { asStageNodes } from '../design/orkTree';
 import { escapeXml as esc } from './xmlUtil';
-import { saveBlob, exportFilename } from './saveFile';
+import { saveText, exportFilename } from './saveFile';
 import { createCdx1Writer, fmt } from './rasaero/units';
 import { designSurface } from './rasaero/surface';
 import { CDX1_ENGINE_EXPORT, stageEngineSlots, type Cdx1ExportEngine } from './rasaero/engines';
@@ -81,6 +81,5 @@ export function exportCdx1({
 
 export function downloadCdx1(input: Cdx1ExportInput): void {
   const xml = exportCdx1(input);
-  const blob = new Blob([xml], { type: 'application/xml' });
-  void saveBlob(blob, exportFilename([input.name, 'design'], 'CDX1'));
+  void saveText(xml, exportFilename([input.name, 'design'], 'CDX1'), 'application/xml');
 }

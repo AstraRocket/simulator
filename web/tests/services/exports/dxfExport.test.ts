@@ -200,6 +200,32 @@ describe('the text layer', () => {
     expect(lines[0]).toBe('Centering ring');
     expect(lines.join('\n')).not.toContain('?');
   });
+
+  it('flags a stated ring hole too small for the mount through it', () => {
+    const tight = {
+      name: 'R',
+      components: [
+        {
+          type: 'stage',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'body',
+              length: 0.3,
+              outerRadius: 0.04,
+              thickness: 0.001,
+              children: [
+                { type: 'centeringring', id: 'cr', length: 0.003, innerRadius: 0.0095, innerRadiusAuto: false },
+                { type: 'innertube', id: 'mount', outerRadius: 0.01, thickness: 0.0005, length: 0.07 },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as RocketTree;
+    expect(texts(componentToDxf(tight, 'cr')!)).toContain('CHECK: hole too small, tube needs dia 20.0 mm');
+    expect(texts(componentToDxf(tree, 'cr')!).join('\n')).not.toContain('CHECK');
+  });
 });
 
 describe('a non-finite dimension', () => {

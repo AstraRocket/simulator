@@ -72,6 +72,26 @@ describe('RockSim stage overrides through the kernel', () => {
     expect(after.cgEmpty).toBeCloseTo(before.cgEmpty, 12);
   });
 
+  // An automatic cord is as long as the rocket, so switching the booster off in the build would shorten it.
+  it('weighs an automatic shock cord at the whole rocket, as desktop does', () => {
+    const cord = { type: 'shockcord', id: 'cord', name: 'cord', cordLengthAuto: true } as ComponentNode;
+    const sustainer = design.components[0]!;
+    const withCord: RocketTree = {
+      ...design,
+      components: [
+        { ...sustainer, children: [sustainer.children![0]!, { ...tube('upper', 0.6), children: [cord] }] },
+        design.components[1]!,
+      ],
+    };
+    const short = buildRocketTree({ ...withCord, components: withCord.components.slice(0, 1) });
+    const shortCord = short.componentInfo('cord').mass;
+    const shortStage = short.staticInfo().massEmpty;
+    const built = buildRocketTree(withCord);
+    const fullCord = built.componentInfo('cord').mass;
+    expect(fullCord).toBeGreaterThan(shortCord);
+    expect(stageStacks(built, withCord, () => false)![0]!.mass).toBeCloseTo(shortStage + fullCord - shortCord, 12);
+  });
+
   it('leaves a grounded stage grounded', () => {
     const built = buildRocketTree(design);
     built.setStageActiveById('booster', false);

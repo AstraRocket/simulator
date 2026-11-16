@@ -3,7 +3,7 @@ import type { RequiredLaunchKey } from '../../services/flight/requiredLaunch';
 import type { Units } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
 import { fmtUpTo, ladderDigits, withUnit } from '../../i18n/format';
-import { LAUNCH_SI, type LaunchUnitKind } from '../../prefs/launchUnits';
+import { LAUNCH_SI, SITE_ALTITUDE_FIELD, type LaunchUnitKind } from '../../prefs/launchUnits';
 import type { useLauncherT } from '../common/useLauncher';
 
 export interface LaunchSectionProps {
@@ -14,6 +14,11 @@ export interface LaunchSectionProps {
   u: Units;
   mixed: (k: keyof LaunchConditions) => boolean;
   req: (k: RequiredLaunchKey) => { required: true; missing: boolean };
+}
+
+/** The launch site elevation's own unit, as its field in the Launch panel shows it. */
+export function siteAltitudeUnit(u: Units) {
+  return u.at(unitScope('launch', SITE_ALTITUDE_FIELD), 'distance');
 }
 
 export function capFor(u: Units, kind: LaunchUnitKind, field: string, si: number): string {

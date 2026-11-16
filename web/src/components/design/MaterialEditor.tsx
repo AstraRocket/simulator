@@ -11,11 +11,11 @@ import { NumberInput } from '../common/NumberInput';
 import { UnitChip } from '../common/UnitChip';
 import { DENSITY_LABEL, QUANTITY, groupLabel } from './materialUnits';
 import { Check } from '../common/Check';
+import { ShearModulusInput } from './ShearModulusInput';
 import { fmtList } from '../../i18n/format';
+import { STACKED_INPUT, STACKED_LABEL as labelClass, StackedField } from '../common/StackedField';
 
-const field =
-  'mt-1 w-full rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500';
-const labelClass = 'mt-4 block text-xs font-medium text-ink-muted';
+const field = `mt-1 ${STACKED_INPUT}`;
 
 // Keyed on the selection by the parent, so remounting re-seeds the state.
 export function MaterialEditor({
@@ -48,19 +48,29 @@ export function MaterialEditor({
   const fu = useUnits().at(unitScope('material', type), QUANTITY[type]);
   // In the field's unit; null while empty.
   const [dens, setDens] = useState<number | null>(material ? fu.toUi(material.density) : null);
+  // Pa; null while empty.
+  const [shear, setShear] = useState<number | null>(material?.shearModulus || null);
   const [group, setGroup] = useState(start.group || DEFAULT_CUSTOM_GROUP);
   const [toLibrary, setToLibrary] = useState(start.scope === 'library');
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const si = fu.toSi(dens) ?? NaN;
-  const draft: ScopedMaterial = { name, type, density: si, group, scope: toLibrary ? 'library' : 'design' };
+  const draft: ScopedMaterial = {
+    name,
+    type,
+    density: si,
+    ...(type === 'bulk' && shear ? { shearModulus: shear } : {}),
+    group,
+    scope: toLibrary ? 'library' : 'design',
+  };
   const dirty = material
     ? name !== material.name ||
       !(si === material.density || fu.fmt(si) === fu.fmt(material.density)) ||
+      (draft.shearModulus ?? 0) !== (material.shearModulus ?? 0) ||
       group !== (material.group || DEFAULT_CUSTOM_GROUP) ||
       draft.scope !== material.scope
-    : name.trim() !== '' || dens !== null;
+    : name.trim() !== '' || dens !== null || shear !== null;
 
   useReportDirty(dirty, onDirtyChange);
 
@@ -68,6 +78,7 @@ export function MaterialEditor({
     setName(start.name);
     setType(start.type);
     setDens(material ? fu.toUi(material.density) : null);
+    setShear(material?.shearModulus || null);
     setGroup(start.group || DEFAULT_CUSTOM_GROUP);
     setToLibrary(start.scope === 'library');
     setErr(null);
@@ -91,10 +102,12 @@ export function MaterialEditor({
           title={material ? t(`myMaterials.type.${material.type}`) : t('myMaterials.new')}
         />
 
-        <label htmlFor="mat-name" className={labelClass}>
-          {t('myMaterials.name')}
-        </label>
-        <input id="mat-name" value={name} onChange={(e) => setName(e.target.value)} className={field} />
+        <StackedField
+          id="mat-name"
+          label={t('myMaterials.name')}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
 
         {!material && (
           <>
@@ -107,6 +120,7 @@ export function MaterialEditor({
               onChange={(e) => {
                 setType(e.target.value as MaterialType);
                 setDens(null);
+                setShear(null);
                 setGroup(DEFAULT_CUSTOM_GROUP);
               }}
               className={field}
@@ -135,6 +149,21 @@ export function MaterialEditor({
           />
           <UnitChip quantity={QUANTITY[type]} scope={unitScope('material', type)} />
         </div>
+
+        {type === 'bulk' && (
+          <>
+            <span className={labelClass} aria-hidden="true">
+              {t('material.shearModulus')}
+            </span>
+            <div className="mt-1">
+              <ShearModulusInput
+                value={shear}
+                onChange={setShear}
+                className="w-full rounded-lg bg-raised px-3 py-2 text-sm tabular-nums text-ink-strong ring-1 ring-line/10"
+              />
+            </div>
+          </>
+        )}
 
         <label htmlFor="mat-group" className={labelClass}>
           {t('material.group')}

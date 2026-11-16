@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { JsonListStore, listWriteErrorText, parseJsonList } from '../../../src/services/storage/jsonListStore';
-import { KeyedError } from '../../../src/i18n/keyedError';
+import { JsonListStore, parseJsonList } from '../../../src/services/storage/jsonListStore';
+import { errorText } from '../../../src/i18n/keyedError';
 import i18n from '../../../src/i18n';
 import type { KeyValueStore } from '../../../src/services/storage/keyValueStore';
 import { KeyValueTemplateStore } from '../../../src/services/exports/templateStore';
@@ -123,25 +123,22 @@ describe('JsonListStore', () => {
     expect(await store.list()).toEqual([{ id: 'a', n: 10 }]);
   });
 
-  it('rejects a refused write with storage-full', async () => {
+  it('rejects a refused write with a keyed error', async () => {
     const kv = new FakeKv();
     kv.refuse = true;
     const store = make(kv);
-    await expect(store.upsert([{ id: 'a', n: 1 }])).rejects.toThrow('storage-full');
-    await expect(store.remove('a')).rejects.toThrow('storage-full');
+    await expect(store.upsert([{ id: 'a', n: 1 }])).rejects.toMatchObject({ key: 'storage.writeRefused' });
+    await expect(store.remove('a')).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 
-  it('shows a refused write in words, never as its token', async () => {
+  it('shows a refused write in words wherever errorText shows it', async () => {
     const kv = new FakeKv();
     kv.refuse = true;
     const err = await make(kv)
       .upsert([{ id: 'a', n: 1 }])
       .catch((e: unknown) => e);
     const t = (k: string, v?: Record<string, string | number>) => i18n.t(k, v);
-    expect(listWriteErrorText(err, t)).toBe(i18n.t('storage.writeRefused'));
-    expect(listWriteErrorText(err, t)).not.toContain('storage-full');
-    expect(listWriteErrorText(new KeyedError('storage.full'), t)).toBe(i18n.t('storage.full'));
-    expect(listWriteErrorText(new Error('other'), t)).toBe('other');
+    expect(errorText(err, t)).toBe(i18n.t('storage.writeRefused'));
   });
 
   it('lists as empty when the storage layer rejects the read', async () => {

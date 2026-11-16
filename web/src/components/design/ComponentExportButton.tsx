@@ -4,6 +4,7 @@ import { fireAction } from '../../state/fireAction';
 import { useWorkspaceStore } from '../../state/store';
 import { componentFormats, type ExportFormat } from '../../services/files/componentFormats';
 import { useMenuPopover } from '../common/useMenuPopover';
+import { MenuPanel } from '../common/MenuPanel';
 import { useCapability } from '../common/useMediaQuery';
 import type { Capability } from '../../services/app/capabilities';
 
@@ -52,12 +53,7 @@ export function ComponentExportButton({ node, tabIndex }: { node: ComponentNode;
         ⬇
       </button>
       {open && (
-        <div // eslint-disable-line jsx-a11y-x/interactive-supports-focus -- roving tabindex: focus moves to the items, as in the ARIA menu pattern, so the container is not
-          role="menu"
-          ref={menuRef}
-          onKeyDown={onMenuKeyDown}
-          className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-lg bg-raised py-1 shadow-xl ring-1 ring-line/10"
-        >
+        <MenuPanel menuRef={menuRef} onMenuKeyDown={onMenuKeyDown} className="w-40 py-1">
           {formats.map((f) => (
             <button
               key={f}
@@ -73,7 +69,7 @@ export function ComponentExportButton({ node, tabIndex }: { node: ComponentNode;
               {t(LABEL[f])}
             </button>
           ))}
-        </div>
+        </MenuPanel>
       )}
     </div>
   );

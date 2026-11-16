@@ -47,6 +47,8 @@
       "archiveEmpty": "L'archive .ork est vide.",
       "archiveCorrupt": "L'archive .ork est endommagée ou illisible.",
       "tooManyComponents": "Ce {{format}} déclare trop de composants pour être ouvert (peut-être corrompu).",
+      "tooManyInstances": "Ce {{format}} imbrique pods, grappes et nombres en trop de pièces pour être ouvert (peut-être corrompu).",
+      "autoRadiusRunTooLong": "Ce {{format}} a trop de pièces à rayon automatique à la suite pour être ouvert (peut-être corrompu).",
       "tooManySimulations": "Ce .ork déclare trop de simulations pour être ouvert (peut-être corrompu).",
       "tooManyUnknownElements": "Ce .ork contient trop d'éléments non reconnus pour être ouvert (peut-être corrompu).",
       "tooManyConfigs": "Ce .ork déclare trop de configurations de vol pour être ouvert (peut-être corrompu).",
@@ -83,6 +85,7 @@
       "engHeader": "En-tête .eng mal formé. Attendu : désignation diamètre longueur retards massePropergol masseTotale fabricant.",
       "engHeaderNumbers": "En-tête .eng mal formé : le diamètre, la longueur ou une masse n'est pas un nombre.",
       "engHeaderSize": "En-tête .eng mal formé : le diamètre et la longueur doivent être positifs.",
+      "oversize": "Le moteur {{motor}} est plus grand ou plus lourd que ce que le simulateur peut traiter (plus de 1000 m ou 10¹⁵ kg). Corrigez le fichier moteur ou choisissez un autre moteur.",
       "engHeaderMass": "En-tête .eng mal formé : la masse de propergol doit être comprise entre 0 et la masse totale.",
       "engDataLine": "Données .eng mal formées à la ligne {{line}} : un temps et une poussée étaient attendus, mais la ligne contient « {{text}} ».",
       "engNoCurve": "Le fichier .eng ne contient aucun point de courbe de poussée.",
@@ -119,6 +122,7 @@
       "propOverTotal": "{{motor}} est catalogué avec plus de propergol ({{prop}} g) que de masse chargée ({{total}} g), sa combustion finirait donc à une masse négative. Choisissez un autre moteur.",
       "badWeight": "{{motor}} est catalogué avec une masse de propergol négative ou une masse chargée nulle ou négative ; il ne peut donc pas être simulé. Choisissez un autre moteur.",
       "badSize": "thrustcurve.org donne à {{motor}} une taille incorrecte (diamètre {{diameter}} mm, longueur {{length}} mm), il ne peut donc pas être simulé. Choisissez un autre moteur.",
+      "oversize": "Le moteur {{motor}} est plus grand ou plus lourd que ce que le simulateur peut traiter (plus de 1000 m ou 10¹⁵ kg), il n'a donc pas été monté. Choisissez un autre moteur.",
       "negativeThrust": "Les données de courbe de poussée de {{motor}} contiennent une poussée négative, il ne peut donc pas être simulé. Choisissez un autre moteur.",
       "badCg": "Le centre de gravité indiqué pour {{motor}} se trouve hors du moteur (0 à {{length}} mm), il ne peut donc pas être simulé. Choisissez un autre moteur.",
       "importGone": "Le moteur importé {{motor}} n'est plus enregistré. Importez de nouveau son fichier moteur.",
@@ -158,6 +162,7 @@
       "nothing": "Rien à exporter."
     },
     "engine": {
+      "callFailed": "Le moteur physique OpenRocket a échoué lors de {{operation}} : {{detail}}",
       "notReady": "Le moteur physique OpenRocket n'a pas fini de se charger. Attendez la fin du chargement, puis réessayez.",
       "staleDesign": "Cette conception a été construite avant la réinitialisation du moteur physique. Reconstruisez-la avant de l'utiliser."
     },
@@ -188,6 +193,7 @@
     "openExample": "Impossible d'ouvrir cet exemple : {{reason}}",
     "saveOrk": "Impossible d'enregistrer le .ork : {{reason}}",
     "saveOrkNoDesignInfo": "Le .ork a été enregistré sans les infos de conception : la conception n'a pas pu être construite, il n'y avait donc aucune statistique à inclure.",
+    "saveOrkFairing": "Le .ork a été enregistré, mais OpenRocket de bureau n'a pas de pièce carénage et omet celles-ci, masse comprise, à l'ouverture du fichier : {{parts}}.",
     "exportRasaero": "Impossible d'exporter vers RASAero : {{reason}}",
     "exportRasaeroSurface": "Le fichier RASAero a été enregistré, mais RASAero n'a aucune surface correspondant à la finition de cette conception ; elle a donc été écrite comme lisse (rugosité nulle).",
     "exportRasaeroStageMass": "Le fichier RASAero a été enregistré, mais la masse au lancement et le CG d'un étage n'étaient pas disponibles ; les cellules de masse et de CG de la simulation ont été écrites à 0. Saisissez-les dans RASAero avant de voler.",
@@ -218,6 +224,7 @@
     "length": "Longueur",
     "dimLength": "long. {{value}}",
     "dimWall": "paroi {{value}}",
+    "boreTooSmall": "alésage trop petit, il faut Ø {{value}}",
     "maxDiameter": "Diamètre max.",
     "massEmpty": "Masse (à vide)",
     "massLoaded": "Masse (en charge)",
@@ -281,7 +288,8 @@
       "cutCount": "{{name}} (découper {{qty}})",
       "finDims": "emplanture {{root}} mm | envergure {{span}} mm | épaisseur {{stock}} mm",
       "discDims": "Ø{{diameter}} mm",
-      "discBoreDims": "Ø{{diameter}} mm | alésage Ø{{bore}} mm"
+      "discBoreDims": "Ø{{diameter}} mm | alésage Ø{{bore}} mm",
+      "boreTooSmall": "VÉRIFIER : alésage trop petit, le tube demande Ø{{bore}} mm"
     },
     "title": "Rapport de conception",
     "select": "Sélectionnez les éléments à inclure :",
@@ -476,7 +484,10 @@
   },
   "edit": {
     "undo": "Annuler",
-    "redo": "Rétablir"
+    "redo": "Rétablir",
+    "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
+    "redoKeys": "Ctrl+Maj+Z"
   },
   "scale": {
     "title": "Mettre la fusée à l'échelle",
@@ -535,7 +546,8 @@
       "pressure": "Pression",
       "force": "Poussée / force",
       "impulse": "Impulsion",
-      "rollRate": "Vitesse de roulis"
+      "rollRate": "Vitesse de roulis",
+      "shearModulus": "Module de cisaillement"
     }
   },
   "settings": {
@@ -636,6 +648,11 @@
     "simModel": "Modèle de vol",
     "guideAwareRodClearance": "Sortie selon les guides",
     "guideAwareRodClearanceHint": "OpenRocket guide la fusée sur toute la longueur de la rampe, où que soient ses anneaux ou ses patins. Activé : un anneau guide jusqu'à ce que son extrémité arrière quitte la tige, et un rail jusqu'à ce que son avant-dernier patin le quitte, de sorte qu'un patin seul ne guide pas du tout. Attendez-vous à une sortie plus tôt et à une vitesse de sortie un peu plus faible. Désactivé, les résultats correspondent à OpenRocket.",
+    "rogersKbf": "Interférence des ailerons RASAero (de Kbf)",
+    "rogersKbfHint": "Deux termes du correctif Barrowman modifié de Rogers (Kbf) de mmrocket-sim. La traînée de frottement de chaque jeu d'ailerons augmente de 80 % pour l'interférence aileron-fuselage, comme la compte RASAero II, donc l'apogée est plus bas. Les ailerons que le modèle d'interférence d'OpenRocket ne couvre pas (elliptiques, de forme libre, ou non montés sur un tube) reçoivent aussi la portance que les ailerons reportent sur le fuselage (NACA Report 1307), ce qui recule le CP et augmente la marge ; les ailerons trapézoïdaux sur un tube la reçoivent déjà d'OpenRocket. Le CP et la marge de l'onglet Conception la suivent, comme les vols ; l'Établi non. Désactivé, les résultats correspondent à OpenRocket.",
+    "rogersKbfConfirmTitle": "Activer l'interférence des ailerons RASAero ?",
+    "rogersKbfConfirm": "Les résultats ne correspondront plus à OpenRocket bureau. Chaque jeu d'ailerons reçoit 80 % de traînée de frottement en plus, donc l'apogée est plus bas. Les ailerons elliptiques, de forme libre et les autres hors du modèle d'interférence d'OpenRocket reçoivent aussi une portance de fuselage supplémentaire, qui recule le CP et affiche une marge de stabilité plus élevée. Aucun des deux termes n'a été vérifié pour votre fusée, et un CP placé trop en arrière surestime sa stabilité. Les simulations volées sans l'option sont marquées comme périmées.",
+    "rogersKbfConfirmLabel": "Activer",
     "deploySpeedWarnHint": "Déploiement simple (sans drogue) : au-dessus de cette vitesse, l'ouverture du parachute risque de déchirer le tube (effet zipper) ou la voilure.",
     "mainHighSpeedWarnHint": "Double déploiement : au-dessus, le PRINCIPAL sort trop vite – en général un drogue trop petit pour freiner la fusée, ou un principal réglé pour s'ouvrir trop haut.",
     "mainLowSpeedWarnHint": "Double déploiement : en dessous, le principal s'ouvre alors que la fusée descend à peine, ce qui signifie normalement un déploiement près de l'apogée : une descente lente depuis l'altitude maximale, qui dérive loin.",
@@ -663,8 +680,6 @@
     "removeMembership": "Retirer l’adhésion {{org}}"
   },
   "config": {
-    "title": "Configuration de la fusée",
-    "edit": "Modifier la configuration de la fusée",
     "notes": "Notes de conception",
     "name": "Nom de la conception",
     "designer": "Concepteur",
@@ -682,7 +697,6 @@
     "removeRevision": "Retirer la révision du {{date}}",
     "removeRevisionConfirm": "Retirer cette révision ?",
     "appOnlyNotes": "L’enregistrement en .ork conserve toutes ces notes. Le fabricant du kit, la référence du kit et les révisions datées sont propres à cette application : OpenRocket de bureau les supprime s’il enregistre le fichier. Le format .rkt ne conserve ni ces trois éléments ni le nom du kit.",
-    "save": "OK",
     "type_original": "Conception originale / autre",
     "type_commercial_kit": "Kit du commerce",
     "type_clone_kit": "Réplique d'un kit",
@@ -728,6 +742,17 @@
     "lastFlyingStage": "Au moins un étage doit voler dans chaque configuration.",
     "stageGrounded": "Reste au sol dans :",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Charger aussi {{motor}} dans les autres supports de cet étage ? Chacun garde son propre allumage.",
+    "otherMountsEmpty": "{{mount}}, vide pour l’instant",
+    "otherMountsReplaces": "{{mount}}, remplace {{motor}}",
+    "otherMountsKeptPlugged": "son moteur reste bouché",
+    "otherMountsTooWide": "{{mount}} est laissé de côté : le moteur est trop large pour son alésage.",
+    "otherMountsTooLong": "{{mount}} est laissé de côté : le moteur est trop long pour lui.",
+    "otherMountsLoad": "Les charger",
+    "otherMountsDismiss": "Non merci",
+    "otherMountsLoaded": "{{motor}} chargé dans les autres supports.",
+    "otherMountsUndo": "Annuler",
+    "otherMountsClose": "Fermer",
     "bays": "Baies"
   },
   "tabs": {
@@ -936,6 +961,7 @@
     "stdDev": "Écart-type",
     "stdDevName": "Écart-type du vent",
     "turbulenceIntensity": "Intensité de turbulence",
+    "turbulenceNeedsWind": "Indiquez d'abord un vent moyen : le pourcentage exprime les rafales comme une part de celui-ci.",
     "levelCount_one": "{{count}} couche de vent",
     "levelCount_many": "{{count}} couches de vent",
     "levelCount_other": "{{count}} couches de vent",
@@ -1420,6 +1446,7 @@
     "noEditor": "Cette application n'a pas d'éditeur pour : {{items}}. Ils sont conservés, donc un enregistrement les garde.",
     "docMaterialsSkipped": "Matériaux de la conception ignorés car illisibles : {{count}}.",
     "referenceType": "Ce modèle mesure sa marge de stabilité (cal) par rapport à « {{type}} ». Cette application la mesure par rapport au tube de corps le plus large ; la marge en cal peut donc différer de celle d’OpenRocket de bureau. Le fichier conserve le réglage.",
+    "lookupTables": "Ces simulations volent dans OpenRocket de bureau avec une table de traînée ou de stabilité. Cette application calcule elle-même la traînée et la stabilité : leurs résultats enregistrés sont donc marqués comme périmés, et une nouvelle exécution peut différer. Les tables sont conservées et réenregistrées avec le fichier : {{names}}.",
     "motorPlugged": "Moteur {{motor}} : obturé (sans charge d'éjection). Assurez-vous que la récupération se déclenche à l'apogée ou à une altitude, pas sur la charge d'éjection.",
     "motorPluggedNoDelay": "Moteur {{motor}} : obturé (sans charge d'éjection ; le fichier ne donne aucun retard lisible). Assurez-vous que la récupération se déclenche à l'apogée ou à une altitude, pas sur la charge d'éjection.",
     "finPointsCapped": "Un aileron de forme libre avait plus de {{max}} points ; le reste a été abandonné.",
@@ -1504,6 +1531,7 @@
     "collapseAll": "Tout replier",
     "collapseTree": "Masquer la liste des composants",
     "hidePart": "Masquer dans les vues",
+    "hiddenByParent": "Masqué dans les vues avec la pièce qui le contient",
     "showPart": "Afficher dans les vues",
     "showAll": "Tout afficher",
     "hiddenNote": "Les pièces masquées comptent toujours dans la masse, le CG, l’aérodynamique et toutes les valeurs de vol. Seules les vues 2D et 3D les omettent.",
@@ -1656,6 +1684,7 @@
     "tabOffsetMethod": "Référence de la languette",
     "cluster": "Grappe",
     "tubeFinsCollide": "Ces tubes se chevauchent. À ce diamètre de tube, {{max}} au maximum tiennent ; à ce nombre, le plus grand diamètre possible est {{diameter}} {{unit}}.",
+    "ringBoreTooSmall": "L'alésage de cette bague est plus petit que le tube intérieur qui la traverse. Le tube demande un alésage d'au moins Ø {{diameter}} {{unit}}.",
     "shapeParameter": "Paramètre de forme",
     "stripArea": "Surface de la bande",
     "stripAspect": "Proportions",
@@ -1910,6 +1939,7 @@
     "densityBulk": "Masse volumique",
     "densitySurface": "Masse surfacique",
     "densityLine": "Masse linéique",
+    "shearModulus": "Module de cisaillement",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "addToLibrary": "Ajouter à mes matériaux personnalisés, pour toutes les conceptions",
@@ -2098,7 +2128,6 @@
     "searchCode": "Rechercher par code (p. ex. C6)…",
     "select": "Sélectionner",
     "loading": "Chargement…",
-    "loadingCatalog": "Chargement du catalogue de moteurs…",
     "pickHint": "Sélectionnez un moteur pour voir sa courbe de poussée et ses caractéristiques.",
     "backToList": "Retour à la liste",
     "curve": "Courbe",
@@ -2795,7 +2824,6 @@
     "cgHint": "Le point d’équilibre sans moteur, mesuré depuis la pointe de l’ogive.",
     "cgOutside": "Le CG doit être sur la fusée, entre la pointe de l’ogive et {{length}}.",
     "railStability": "Stabilité en sortie de rampe",
-    "calibers": "{{value}} cal",
     "lowStability": "Moins de {{min}} cal : probablement instable",
     "stabilityNote": "La stabilité vient de votre CG et de vos ailerons avec l’ogive de remplacement ; la vraie ogive la change un peu.",
     "colStability": "Stabilité (cal)",

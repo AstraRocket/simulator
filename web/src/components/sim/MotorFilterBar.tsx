@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fromCatalog } from '../../services/motors/catalogUnits';
 import { useTranslation } from 'react-i18next';
 import { withUnit } from '../../i18n/format';
 import { SPARKY_CHOICES, type SparkyChoice } from '../../services/motors/motorDb';
@@ -121,7 +122,7 @@ export function DiameterRange({ dia, onChange }: { dia: [number, number]; onChan
   const u = useUnits();
   const [lowIdx, highIdx] = dia;
   // Stops are held in mm like the catalog; only the readout uses the user's unit.
-  const stop = (i: number) => u.fmt('motorDimensions', STD_DIAMS[i]! / 1000);
+  const stop = (i: number) => u.fmt('motorDimensions', fromCatalog(STD_DIAMS[i]!));
   return (
     <div className="flex items-center gap-3 text-xs text-ink-soft">
       <span className="shrink-0 text-ink-faint">{t('motorDlg.diameter')}</span>
@@ -325,7 +326,7 @@ export function FitsMount({
   return (
     <FilterCheck
       label={t('motorDlg.fitsMount', {
-        bore: `${u.fmtSym('motorDimensions', mount.bore / 1000)}`,
+        bore: `${u.fmtSym('motorDimensions', fromCatalog(mount.bore))}`,
       })}
       hint={t('motorDlg.fitsMountHint')}
       on={fits}

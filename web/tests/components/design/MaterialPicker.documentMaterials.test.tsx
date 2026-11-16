@@ -60,7 +60,7 @@ describe('the design materials in the list', () => {
       o.textContent?.startsWith('Birch ply · 0.700'),
     )!;
     fireEvent.change(materialSelect(), { target: { value: option.value } });
-    expect(onChange).toHaveBeenCalledWith('Birch ply', 700, 'Woods');
+    expect(onChange).toHaveBeenCalledWith('Birch ply', 700, 'Woods', undefined);
   });
 
   it('does not repeat a design material the catalog holds at the same density', async () => {
@@ -94,7 +94,7 @@ describe('a new custom material', () => {
   const fillForm = (name: string) => {
     fireEvent.change(materialSelect(), { target: { value: '__add__' } });
     fireEvent.change(screen.getByPlaceholderText('Name (e.g. G10 fiberglass)'), { target: { value: name } });
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '0.5' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: /density/i }), { target: { value: '0.5' } });
   };
 
   it('is kept in the design by default, and not added to the custom list', async () => {
@@ -106,7 +106,7 @@ describe('a new custom material', () => {
       false,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Mine', 500, 'Other'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Mine', 500, 'Other', undefined));
     expect(designMaterials()).toEqual([{ name: 'Mine', type: 'bulk', density: 500, group: 'Other' }]);
     expect(library).toEqual([]);
   });
@@ -118,7 +118,7 @@ describe('a new custom material', () => {
     fillForm('Mine');
     fireEvent.click(screen.getByRole('checkbox', { name: /Add to my custom materials/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Mine', 500, 'Other'));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Mine', 500, 'Other', undefined));
     expect(library.map((m) => m.name)).toEqual(['Mine']);
     expect(designMaterials()).toBeUndefined();
   });
@@ -142,6 +142,26 @@ describe('a new custom material', () => {
     await waitFor(() => expect(screen.getByText('A material name is required.')).toBeTruthy());
     expect(onChange).not.toHaveBeenCalled();
     expect(designMaterials()).toBeUndefined();
+  });
+
+  it('carries the shear modulus typed for it to the design and the part', async () => {
+    const onChange = vi.fn();
+    renderWithProviders(<MaterialPicker onChange={onChange} />);
+    await loaded();
+    fillForm('Mine');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Shear modulus (GPa)' }), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Mine', 500, 'Other', 3e9));
+    expect(designMaterials()).toEqual([
+      { name: 'Mine', type: 'bulk', density: 500, shearModulus: 3e9, group: 'Other' },
+    ]);
+  });
+
+  it('has no shear modulus box for a fabric', async () => {
+    renderWithProviders(<MaterialPicker type="surface" onChange={() => {}} />);
+    await waitFor(() => expect(materialSelect().querySelectorAll('optgroup option').length).toBeGreaterThan(0));
+    fireEvent.change(materialSelect(), { target: { value: '__add__' } });
+    expect(screen.queryByRole('spinbutton', { name: /Shear modulus/ })).toBeNull();
   });
 });
 

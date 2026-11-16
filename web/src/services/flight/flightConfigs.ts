@@ -14,6 +14,19 @@ export interface MountMotor {
   ignitionDelay?: number;
 }
 
+/** A catalog pick builds a new object each time, so reference equality is not enough. */
+export function sameMotorSpec(a: MotorSpec, b: MotorSpec): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof MotorSpec)[]);
+  for (const k of keys) {
+    const x = a[k];
+    const y = b[k];
+    if (Array.isArray(x) && Array.isArray(y)) {
+      if (x.length !== y.length || x.some((v, i) => v !== y[i])) return false;
+    } else if (x !== y) return false;
+  }
+  return true;
+}
+
 export interface FlightConfig {
   id: string;
   /** Null means unnamed (desktop shows the motor list); must round-trip. */
@@ -129,9 +142,34 @@ export function liveMotors(tree: RocketTree, config: FlightConfig): [string, Mou
   return out;
 }
 
+/** Matches outside every grounded stage or booster: a grounded stage stays on the pad, motors and all. */
+export function flyingNodes(
+  nodes: readonly ComponentNode[],
+  config: FlightConfig,
+  pred: (n: ComponentNode) => boolean,
+): ComponentNode[] {
+  const grounded = new Set(config.grounded ?? []);
+  const out: ComponentNode[] = [];
+  const walk = (list: readonly ComponentNode[]) => {
+    for (const n of list) {
+      if ((n.type === 'stage' || n.type === 'parallelstage') && typeof n.id === 'string' && grounded.has(n.id))
+        continue;
+      if (typeof n.id === 'string' && pred(n)) out.push(n);
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+function flyingMountIds(tree: RocketTree, config: FlightConfig): Set<string> {
+  return new Set(flyingNodes(tree.components, config, (n) => n.motorMount === true).map((n) => n.id as string));
+}
+
 // The first mount alone would refuse a booster-only `.ork` (curve-less sustainer placeholder) that desktop flies.
 export function primaryMotor(tree: RocketTree, config: FlightConfig): MotorSpec | undefined {
-  const live = liveMotors(tree, config);
+  const flying = flyingMountIds(tree, config);
+  const live = liveMotors(tree, config).filter(([id]) => flying.has(id));
   return (live.find(([, m]) => hasUsableCurve(m.spec)) ?? live[0])?.[1].spec;
 }
 

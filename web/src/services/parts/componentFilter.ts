@@ -2,6 +2,7 @@
 import { lengthOf, outerDiameterOf, type Component, type ComponentType, type PickerType } from './componentDb';
 import { compareSortKeys } from '../app/sortKeys';
 import { distinctSorted } from '../app/collections';
+import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 
 /** Meters under a bore that still fit (a glue gap). */
 const FIT_SLACK = 0.002;
@@ -126,8 +127,6 @@ export function materialFamily(p: Component): string | null {
   return null;
 }
 
-export const DEFAULT_CHUTE_CD = 0.8;
-
 export type SortKey = 'fit' | 'mfr' | 'partNo' | 'od' | 'id' | 'length' | 'shape' | 'cd' | 'fore' | 'width';
 
 export interface ComponentQuery {
@@ -182,7 +181,7 @@ function sortValue(p: Component, key: SortKey): string | number | null {
     case 'shape':
       return 'shape' in p ? p.shape : null;
     case 'cd':
-      return p.type === 'parachute' ? (p.cd ?? DEFAULT_CHUTE_CD) : null;
+      return p.type === 'parachute' ? (p.cd ?? KERNEL_DEFAULTS.parachute.cd) : null;
     case 'fore':
       return p.type === 'transition' ? p.foreOuterDiameter : null;
     case 'width':

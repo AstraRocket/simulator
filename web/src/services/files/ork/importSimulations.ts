@@ -1,4 +1,4 @@
-// cspell:ignore simulationsteppermethod recoveryspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
+// cspell:ignore simulationsteppermethod recoveryspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning draglookup stabilitylookup stabilitylookupcsv -- OpenRocket .ork element names
 import i18n from '../../../i18n';
 import type { FlightSummary } from '../../../engine/openRocketEngine';
 import type { LaunchConditions } from '../../design/orkTree';
@@ -24,7 +24,19 @@ export interface OrkSimulation {
   prefs?: Partial<SimPrefs>;
   /** `<conditions>` children are wrapped by `wrapConditionsChild`. */
   xmlExtra?: string[];
+  /** Desktop flew a drag or stability lookup table, which the kernel does not. */
+  lookupTables?: true;
 }
+
+// SimulationConditionsHandler: desktop flies these in place of Barrowman; the kernel always flies Barrowman
+// (SimulationOptions). The element is carried through, so saving keeps it.
+const LOOKUP_TAGS = new Set(['draglookup', 'stabilitylookup', 'draglookupcsv', 'stabilitylookupcsv']);
+
+const fliesLookupTable = (condEl: Element | null): boolean =>
+  !!condEl &&
+  [...condEl.children].some(
+    (c) => LOOKUP_TAGS.has(c.tagName.toLowerCase()) && (c.children.length > 0 || (c.textContent ?? '').trim() !== ''),
+  );
 
 export function readSimulations(doc: Document): OrkSimulation[] {
   const els = doc.querySelectorAll('openrocket > simulations > simulation');
@@ -38,12 +50,15 @@ export function readSimulations(doc: Document): OrkSimulation[] {
       ...((condEl && readPassthrough(condEl, KNOWN_CONDITIONS_TAGS)) ?? []).map(wrapConditionsChild),
     ];
     const xmlExtra = carried.length ? carried : undefined;
+    const lookup = fliesLookupTable(condEl);
     return {
       name: (text(el, ':scope > name') ?? '').trim() || i18n.t('sims.untitled', { n: i + 1 }),
       configId: (text(el, ':scope > conditions > configid') ?? '').trim() || null,
       ...(launch ? { launch } : {}),
       ...(flight ? { summary: summaryOf(flight) } : {}),
-      outdated: (el.getAttribute('status') ?? '').trim().toLowerCase() === 'outdated',
+      // A summary flown on a lookup table is not what a rerun here gives.
+      outdated: lookup || (el.getAttribute('status') ?? '').trim().toLowerCase() === 'outdated',
+      ...(lookup ? { lookupTables: true as const } : {}),
       ...(xmlExtra ? { xmlExtra } : {}),
       ...simulationPrefs(condEl),
     };

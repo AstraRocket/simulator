@@ -1,6 +1,6 @@
 import type { ComponentNode, FlightSummary, MotorSpec, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
-import { collectNodes, stageNodes } from '../../tree/treeWalk';
-import { effectiveDeployment, type FlightConfig } from './flightConfigs';
+import { stageNodes } from '../../tree/treeWalk';
+import { effectiveDeployment, flyingNodes, type FlightConfig } from './flightConfigs';
 import { seatedMotors } from './powerClass';
 import { chargeRows, deviceRoles, type ChargeRole, type ChargeRow } from './recoveryCharges';
 import { isRecoveryDevice } from '../design/treeEdit';
@@ -8,6 +8,7 @@ import { curveStats, specSamples } from '../motors/motorMath';
 import { impulseClass } from '../motors/motorCombine';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
 import type { LaunchConditions } from '../design/orkTree';
+import { str } from '../../tree/nodeProps';
 
 export interface LaunchMotor {
   stageIndex: number;
@@ -79,22 +80,21 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
     .map((stage, stageIndex) => ({ stage, stageIndex }))
     .filter(({ stage }) => !grounded.has(stage.id as string));
 
-  // Matched by spec object identity.
-  const copies = new Map<MotorSpec, number>();
-  for (const s of seatedMotors(tree, config)) copies.set(s.spec, (copies.get(s.spec) ?? 0) + s.count);
+  // By mount: mounts flying the same motor can share one spec object.
+  const copies = new Map(seatedMotors(tree, config).map((s) => [s.mountId, s.count]));
 
   const motors: LaunchMotor[] = [];
   for (const { stage, stageIndex } of flying) {
-    for (const mount of collectNodes([stage], (n) => n.motorMount === true)) {
+    for (const mount of flyingNodes([stage], config, (n) => n.motorMount === true)) {
       const seated = config.motors[mount.id as string];
       if (!seated) continue;
       const impulseNs = curveStats(specSamples(seated.spec)).impulse;
       motors.push({
         stageIndex,
-        stageName: typeof stage.name === 'string' ? stage.name : '',
-        mount: { name: typeof mount.name === 'string' ? mount.name : '', type: mount.type },
+        stageName: str(stage, 'name'),
+        mount: { name: str(mount, 'name'), type: mount.type },
         spec: seated.spec,
-        count: copies.get(seated.spec) ?? 1,
+        count: copies.get(mount.id as string) ?? 1,
         impulseNs,
         impulseClass: impulseClass(impulseNs),
         delayS: seated.spec.ejectionDelay >= PLUGGED_DELAY ? null : seated.spec.ejectionDelay,
@@ -106,12 +106,12 @@ export function launchDocs(input: LaunchDocsInput): LaunchDocs {
   const roles = deviceRoles(tree);
   const devices: LaunchDevice[] = [];
   for (const { stage, stageIndex } of flying) {
-    for (const node of collectNodes([stage], (n) => isRecoveryDevice(n.type))) {
+    for (const node of flyingNodes([stage], config, (n) => isRecoveryDevice(n.type))) {
       const d = effectiveDeployment(config, node);
       const diameter = node['diameter'];
       devices.push({
         stageIndex,
-        stageName: typeof stage.name === 'string' ? stage.name : '',
+        stageName: str(stage, 'name'),
         node,
         role: roles.get(node.id as string) ?? 'main',
         deployEvent: d.deployEvent,

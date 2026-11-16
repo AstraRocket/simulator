@@ -5,7 +5,7 @@ import { fmtNum } from '../../i18n/format';
 import { FIN_MATERIALS, FLUTTER_MARGIN, type FlutterVerdict } from '../../services/flight/finFlutter';
 import { stockModulus, type FinStock } from '../../state/finFlutterChoices';
 import { QNum } from '../sim/QNum';
-import { FieldLabel } from '../common/FieldMark';
+import { SelectRow } from '../common/SelectRow';
 import { useScopedUnit } from '../common/useScopedUnit';
 
 const FLUTTER_TONE: Record<FlutterVerdict, string> = {
@@ -29,24 +29,19 @@ export function FinStockFields({
   const u = useUnits();
   return (
     <>
-      <label className="flex items-center justify-between gap-3">
-        <FieldLabel text={t('flutterTool.materialKind')} />
-        <select
-          value={stock}
-          onChange={(e) => {
-            const next = e.target.value as FinStock;
-            onChange(next, next === 'custom' ? shearPa : stockModulus(next));
-          }}
-          className="w-40 rounded-md bg-raised px-2 py-1 text-sm text-ink-strong ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-        >
-          {FIN_MATERIALS.map((m) => (
-            <option key={m.key} value={m.key}>
-              {t(`flutterTool.material_${m.key}`)}
-            </option>
-          ))}
-          <option value="custom">{t('flutterTool.material_custom')}</option>
-        </select>
-      </label>
+      <SelectRow<FinStock>
+        label={t('flutterTool.materialKind')}
+        value={stock}
+        onChange={(next) => onChange(next, next === 'custom' ? shearPa : stockModulus(next))}
+        width="w-40"
+      >
+        {FIN_MATERIALS.map((m) => (
+          <option key={m.key} value={m.key}>
+            {t(`flutterTool.material_${m.key}`)}
+          </option>
+        ))}
+        <option value="custom">{t('flutterTool.material_custom')}</option>
+      </SelectRow>
       <QNum
         label={t('flutterTool.shear')}
         hint={hint ?? t('flutterTool.shearHint')}

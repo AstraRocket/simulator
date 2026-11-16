@@ -17,6 +17,7 @@ describe('the side view names a part', () => {
       uid: 't',
       setHoverId: () => {},
       partName: (n) => partLabel(i18n.t, n),
+      typeTag: (type) => type,
     });
     return extents.get('b')!.name;
   };

@@ -47,6 +47,8 @@
       "archiveEmpty": "The .ork archive is empty.",
       "archiveCorrupt": "The .ork archive is damaged or cannot be read.",
       "tooManyComponents": "This {{format}} declares too many components to open (possibly malformed).",
+      "tooManyInstances": "This {{format}} nests pods, clusters and counts into too many parts to open (possibly malformed).",
+      "autoRadiusRunTooLong": "This {{format}} has too many automatic-radius parts in a row to open (possibly malformed).",
       "tooManySimulations": "This .ork declares too many simulations to open (possibly malformed).",
       "tooManyUnknownElements": "This .ork carries too many unrecognized elements to open (possibly malformed).",
       "tooManyConfigs": "This .ork declares too many flight configurations to open (possibly malformed).",
@@ -83,6 +85,7 @@
       "engHeader": "Malformed .eng header. Expected: designation diameter length delays propWeight totalWeight manufacturer.",
       "engHeaderNumbers": "Malformed .eng header: the diameter, the length or a weight is not a number.",
       "engHeaderSize": "Malformed .eng header: diameter and length must be positive.",
+      "oversize": "Motor {{motor}} is larger or heavier than the simulator can handle (over 1000 m or 10¹⁵ kg). Correct the motor file or choose another motor.",
       "engHeaderMass": "Malformed .eng header: propellant mass must be between 0 and the total mass.",
       "engDataLine": "Malformed .eng data on line {{line}}: expected a time and a thrust, got \"{{text}}\".",
       "engNoCurve": "The .eng file has no thrust-curve data points.",
@@ -119,6 +122,7 @@
       "propOverTotal": "{{motor}} is cataloged with more propellant ({{prop}} g) than loaded mass ({{total}} g), so its burn would end at a negative mass. Pick another motor.",
       "badWeight": "{{motor}} is cataloged with a negative propellant mass or a loaded mass of zero or less, so it cannot be simulated. Pick another motor.",
       "badSize": "thrustcurve.org gives {{motor}} a bad size (diameter {{diameter}} mm, length {{length}} mm), so it can't be simulated. Pick another motor.",
+      "oversize": "Motor {{motor}} is larger or heavier than the simulator can handle (over 1000 m or 10¹⁵ kg), so it was left off. Choose another motor.",
       "negativeThrust": "Thrust-curve data for {{motor}} has a negative thrust, so it can't be simulated. Pick another motor.",
       "badCg": "The center of gravity given for {{motor}} lies outside the motor (0 to {{length}} mm), so it can't be simulated. Pick another motor.",
       "importGone": "Imported motor {{motor}} is no longer stored. Import its motor file again.",
@@ -158,6 +162,7 @@
       "nothing": "Nothing to export."
     },
     "engine": {
+      "callFailed": "The OpenRocket engine failed at {{operation}}: {{detail}}",
       "notReady": "The OpenRocket engine has not finished loading. Wait for it to load, then try again.",
       "staleDesign": "This design was built before the engine was reset. Rebuild it before use."
     },
@@ -188,6 +193,7 @@
     "openExample": "Could not open that example: {{reason}}",
     "saveOrk": "Could not save .ork: {{reason}}",
     "saveOrkNoDesignInfo": "Saved the .ork without design info: the design could not be built, so there were no statistics to include.",
+    "saveOrkFairing": "Saved the .ork, but desktop OpenRocket has no fairing part and leaves these out, mass and all, when it opens the file: {{parts}}.",
     "exportRasaero": "Could not export RASAero: {{reason}}",
     "exportRasaeroSurface": "The RASAero file was saved, but RASAero has no surface matching this design's finish, so it was written as smooth (zero roughness).",
     "exportRasaeroStageMass": "The RASAero file was saved, but a stage's launch weight and CG were not available, so the simulation's weight and CG cells were written as 0. Enter them in RASAero before flying.",
@@ -218,6 +224,7 @@
     "length": "Length",
     "dimLength": "L {{value}}",
     "dimWall": "w {{value}}",
+    "boreTooSmall": "hole too small, needs Ø {{value}}",
     "maxDiameter": "Max diameter",
     "massEmpty": "Mass (empty)",
     "massLoaded": "Mass (loaded)",
@@ -281,7 +288,8 @@
       "cutCount": "{{name}} (cut {{qty}})",
       "finDims": "root {{root}} mm | span {{span}} mm | stock {{stock}} mm",
       "discDims": "Ø{{diameter}} mm",
-      "discBoreDims": "Ø{{diameter}} mm | bore Ø{{bore}} mm"
+      "discBoreDims": "Ø{{diameter}} mm | bore Ø{{bore}} mm",
+      "boreTooSmall": "CHECK: hole too small, tube needs Ø{{bore}} mm"
     },
     "title": "Design Report",
     "select": "Select elements to include:",
@@ -476,7 +484,10 @@
   },
   "edit": {
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "Scale rocket",
@@ -535,7 +546,8 @@
       "pressure": "Pressure",
       "force": "Thrust / force",
       "impulse": "Impulse",
-      "rollRate": "Roll rate"
+      "rollRate": "Roll rate",
+      "shearModulus": "Shear modulus"
     }
   },
   "settings": {
@@ -635,6 +647,11 @@
     "simModel": "Flight model",
     "guideAwareRodClearance": "Guide-aware launcher clearance",
     "guideAwareRodClearanceHint": "OpenRocket guides the rocket for the launcher's full length, wherever its lugs or rail buttons sit. When on, a lug guides until its aft end leaves the rod, and a rail until its second-to-last button leaves it, so one button gives no guided travel. Expect an earlier exit and a slightly lower exit velocity. When off, results match OpenRocket.",
+    "rogersKbf": "RASAero fin interference (from Kbf)",
+    "rogersKbfHint": "Two terms from mmrocket-sim's Rogers Modified Barrowman (Kbf) patch. Every fin set's friction drag rises 80% for fin-body interference, as RASAero II counts it, so apogee reads lower. Fins OpenRocket's own fin-body interference model does not cover (elliptical, freeform, or fins not on a body tube) also get the lift the fins carry onto the body (NACA Report 1307), which moves the CP aft and raises the margin; trapezoidal fins on a body tube already get it from OpenRocket. The Design tab's CP and margin follow it, as flights do; the Benchtop does not. When off, results match OpenRocket.",
+    "rogersKbfConfirmTitle": "Turn on RASAero fin interference?",
+    "rogersKbfConfirm": "Results will no longer match desktop OpenRocket. Every fin set gets 80% more friction drag, so apogee reads lower. Elliptical, freeform and other fins outside OpenRocket's interference model also get extra body lift, which moves the CP aft and shows a higher stability margin. Neither term has been checked against your design, and a CP placed too far aft overstates how stable a rocket is. Runs flown without it are marked outdated.",
+    "rogersKbfConfirmLabel": "Turn on",
     "deploySpeedWarnHint": "Single deployment (no drogue): above this speed, opening the parachute risks zippering the airframe or tearing the canopy.",
     "mainHighSpeedWarnHint": "Dual deployment: above this the MAIN is coming out too fast. That usually means a drogue too small to slow the rocket, or a main set to deploy too high.",
     "mainLowSpeedWarnHint": "Dual deployment: below this the main opens while the rocket is barely descending, which normally means it deployed near apogee: a slow descent from full altitude that drifts far.",
@@ -662,8 +679,6 @@
     "removeMembership": "Remove the {{org}} membership"
   },
   "config": {
-    "title": "Rocket configuration",
-    "edit": "Edit rocket configuration",
     "notes": "Design notes",
     "name": "Design name",
     "designer": "Designer",
@@ -681,7 +696,6 @@
     "removeRevision": "Remove the revision from {{date}}",
     "removeRevisionConfirm": "Remove this revision?",
     "appOnlyNotes": "Saving .ork keeps every note here. Kit manufacturer, kit part number and the dated revisions are this app’s own: desktop OpenRocket drops them if it saves the file. .rkt keeps neither these three nor the kit name.",
-    "save": "OK",
     "type_original": "Original design / other",
     "type_commercial_kit": "Commercial kit",
     "type_clone_kit": "Clone of a kit",
@@ -727,6 +741,17 @@
     "lastFlyingStage": "At least one stage has to fly on each configuration.",
     "stageGrounded": "Left on the ground in:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "Load {{motor}} into the other mounts of this stage too? Each keeps its own ignition.",
+    "otherMountsEmpty": "{{mount}}, empty now",
+    "otherMountsReplaces": "{{mount}}, replacing {{motor}}",
+    "otherMountsKeptPlugged": "its motor stays plugged",
+    "otherMountsTooWide": "{{mount}} is left out: the motor is too wide for its bore.",
+    "otherMountsTooLong": "{{mount}} is left out: the motor is too long for it.",
+    "otherMountsLoad": "Load them",
+    "otherMountsDismiss": "No thanks",
+    "otherMountsLoaded": "Loaded {{motor}} into the other mounts.",
+    "otherMountsUndo": "Undo",
+    "otherMountsClose": "Close",
     "bays": "Bays"
   },
   "tabs": {
@@ -934,6 +959,7 @@
     "stdDev": "Standard deviation",
     "stdDevName": "Wind standard deviation",
     "turbulenceIntensity": "Turbulence intensity",
+    "turbulenceNeedsWind": "Set an average wind first: the percentage is the gusts as a share of it.",
     "levelCount_one": "{{count}} wind level",
     "levelCount_other": "{{count}} wind levels",
     "editProfile": "Edit wind profile…",
@@ -1415,6 +1441,7 @@
     "noEditor": "This app has no editor for: {{items}}. They are preserved, so a save keeps them.",
     "docMaterialsSkipped": "Design materials skipped as unreadable: {{count}}.",
     "referenceType": "This design measures its stability in calibers against \"{{type}}\". This app measures them against the widest body tube, so the stability margin in calibers can differ from desktop OpenRocket's; the file keeps the setting.",
+    "lookupTables": "These simulations fly a drag or stability lookup table in desktop OpenRocket. This app works out drag and stability itself, so their saved results are marked outdated and a rerun can differ. The tables are kept, so saving preserves them: {{names}}.",
     "motorPlugged": "Motor {{motor}}: plugged (no ejection charge). Make sure recovery deploys on apogee or altitude, not the ejection charge.",
     "motorPluggedNoDelay": "Motor {{motor}}: plugged (no ejection charge; the file gives no readable delay). Make sure recovery deploys on apogee or altitude, not the ejection charge.",
     "finPointsCapped": "A freeform fin had more than {{max}} points; the rest were dropped.",
@@ -1499,6 +1526,7 @@
     "collapseAll": "Collapse all",
     "collapseTree": "Hide the component list",
     "hidePart": "Hide in the views",
+    "hiddenByParent": "Hidden in the views with the part it is in",
     "showPart": "Show in the views",
     "showAll": "Show all",
     "hiddenNote": "Hidden parts still count in mass, CG, aerodynamics and every flight number. Only the 2D and 3D views leave them out.",
@@ -1651,6 +1679,7 @@
     "tabOffsetMethod": "Fin tab reference",
     "cluster": "Cluster",
     "tubeFinsCollide": "These tubes overlap each other. At this tube diameter at most {{max}} fit; at this count the largest that fits is {{diameter}} {{unit}}.",
+    "ringBoreTooSmall": "This ring's hole is smaller than the inner tube through it. The tube needs a hole of at least Ø {{diameter}} {{unit}}.",
     "shapeParameter": "Shape parameter",
     "stripArea": "Strip area",
     "stripAspect": "Aspect ratio",
@@ -1903,6 +1932,7 @@
     "densityBulk": "Bulk density",
     "densitySurface": "Surface density",
     "densityLine": "Line density",
+    "shearModulus": "Shear modulus",
     "save": "Save",
     "cancel": "Cancel",
     "addToLibrary": "Add to my custom materials, for every design",
@@ -2090,7 +2120,6 @@
     "searchCode": "Search by code (e.g. C6)…",
     "select": "Select",
     "loading": "Loading…",
-    "loadingCatalog": "Loading motor catalog…",
     "pickHint": "Select a motor to see its thrust curve and specifications.",
     "backToList": "Back to list",
     "curve": "Curve",
@@ -2784,7 +2813,6 @@
     "cgHint": "The balance point with no motor in, measured from the nose tip.",
     "cgOutside": "The CG has to be on the rocket, between the nose tip and {{length}}.",
     "railStability": "Stability off the launcher",
-    "calibers": "{{value}} cal",
     "lowStability": "Under {{min}} caliber: likely unstable",
     "stabilityNote": "Stability is from your CG and fins with the stand-in nose; the real nose moves it a little.",
     "colStability": "Stability (cal)",

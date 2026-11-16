@@ -5,6 +5,7 @@ import { useSettings } from '../../state/useSettings';
 import { useIsXl } from '../common/useMediaQuery';
 import { useSimSummary } from './useSimSummary';
 import { useElementResize } from '../common/useElementResize';
+import { RunToggleButton } from '../common/RunToggleButton';
 import type { StaticInfo } from '../../engine/api';
 import type { HeaderSummaryPref } from '../../services/storage/settings';
 
@@ -92,26 +93,16 @@ function SummaryStrip({
       <Cell label={t('sim.apogee')} compact={compact}>
         {flight}
       </Cell>
-      <button
+      <RunToggleButton
+        busy={busy}
+        label={runLabel}
         onClick={onRun}
         disabled={!busy && blocked}
         title={runTitle}
-        aria-label={compact ? runLabel : undefined}
-        className={`m-1 rounded-md text-xs font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50 ${
-          compact ? 'px-2' : 'px-3'
-        } ${busy ? 'bg-prominent hover:bg-prominent-hover' : 'bg-accent-600 hover:bg-accent-700'}`}
-      >
-        {/* U+FE0E forces text glyphs: Windows otherwise draws ▶ and ■ as emoji. */}
-        {compact ? (
-          <span aria-hidden>{busy ? '■︎' : '▶︎'}</span>
-        ) : busy ? (
-          runLabel
-        ) : (
-          <>
-            <span aria-hidden>{'▶︎'}</span> {runLabel}
-          </>
-        )}
-      </button>
+        glyph={compact ? 'only' : 'lead'}
+        size={compact ? 'xs' : 'sm'}
+        className="m-1"
+      />
     </section>
   );
 }

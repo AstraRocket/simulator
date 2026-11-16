@@ -13,13 +13,11 @@ import java.util.List;
  * Dump the built-in materials an OpenRocket build ships: the ones a catalog
  * part falls back to when its own `.orc` file does not define its material.
  *
- * Read from the release jar rather than from `Databases.java` in a source tree,
- * because the two differ: the source tree the engine is extracted from adds
- * materials the release does not have, and a part naming one would weigh
- * something in the catalog and nothing on desktop.
+ * Read from the build of the engine's commit rather than parsed out of
+ * `Databases.java`, so the densities are the ones that build's desktop loads.
  *
  * Under CoreModule the user's own materials are an empty set, so these are the
- * release's alone.
+ * build's alone.
  *
  * Output: one TAB-separated row per material, `TYPE  name  density`, density in
  * the SI unit of its type (kg/m^3, kg/m^2 or kg/m).

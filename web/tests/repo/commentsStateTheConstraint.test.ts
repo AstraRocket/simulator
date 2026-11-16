@@ -30,8 +30,20 @@ const slashed = (url: URL): string => fileURLToPath(url).replace(/\\/g, '/');
 const web = slashed(new URL('../..', import.meta.url));
 const repo = slashed(new URL('../../..', import.meta.url));
 
-const skipped = ['/src/engine/vendor'];
-const isCode = (path: string): boolean => /\.(?:[cm]?[jt]sx?|java|css)$/.test(path);
+// Build output, the extracted upstream source, and `patches/`, which holds upstream files with edits.
+const skipped = [
+  '/src/engine/vendor',
+  '/engine-java/src/java',
+  '/engine-java/.openrocket-src',
+  '/engine-java/.openrocket-build',
+  '/engine-java/build',
+  '/engine-java/reference/build',
+  '/engine-java/.gradle',
+  '/engine-java/bin',
+  '/engine-java/patches',
+];
+// Gradle and FeatureScript comment as JavaScript does.
+const isCode = (path: string): boolean => /\.(?:[cm]?[jt]sx?|java|css|gradle|fs)$/.test(path);
 
 const walk = (dir: string, out: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {
@@ -52,7 +64,13 @@ const files = [
   ...walk(`${web}e2e`),
   ...walk(`${web}scripts`),
   ...walk(`${repo}website/src`),
-  ...walk(`${repo}engine-java/src/api`),
+  ...walk(`${repo}engine-java`),
+  ...walk(`${repo}onshape`),
+  ...walk(`${repo}design`),
+  `${repo}design/onshape-sheet/sheet.html`,
+  `${repo}website/docusaurus.config.ts`,
+  `${repo}website/sidebars.ts`,
+  ...readdirSync(`${repo}.github/ISSUE_TEMPLATE`).map((f) => `${repo}.github/ISSUE_TEMPLATE/${f}`),
   ...readdirSync(web)
     .filter((f) => isCode(f) && statSync(`${web}${f}`).isFile())
     .map((f) => `${web}${f}`),
@@ -224,6 +242,14 @@ describe('comments and test titles state the constraint', () => {
     expect(files.some((f) => f.endsWith('/web/index.html'))).toBe(true);
     expect(files.some((f) => f.endsWith('/.github/workflows/gates.yml'))).toBe(true);
     expect(files.some((f) => f.includes('/website/src/'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/website/docusaurus.config.ts'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/.github/ISSUE_TEMPLATE/bug_report.yml'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/engine-java/build-engine.mjs'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/engine-java/build.gradle'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/design/onshape-sheet/build.mjs'))).toBe(true);
+    expect(files.some((f) => f.endsWith('/onshape/converter/utils.fs'))).toBe(true);
+    expect(files.some((f) => f.includes('/engine-java/src/java/'))).toBe(false);
+    expect(files.some((f) => f.includes('/engine-java/patches/'))).toBe(false);
     expect(files.some((f) => f.includes('/src/engine/vendor/'))).toBe(false);
     expect(files.some((f) => f.endsWith('.md'))).toBe(false);
   });

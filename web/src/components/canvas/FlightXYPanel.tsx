@@ -5,9 +5,9 @@ import { NO_VALUE } from '../../i18n/noValue';
 import { useUnits } from '../../prefs/useUnits';
 import { hoverValue } from './flightChartHoverValue';
 import { PAD_L, PAD_R } from './flightChartAxis';
-import { traceLabel, traceOffset, traceScale, traceUnit, type Branch, type Meta } from './flightChartTraces';
+import { axisRange, traceLabel, traceOffset, traceScale, traceUnit, type Branch, type Meta } from './flightChartTraces';
 import { polylinePath } from '../common/svgPath';
-import { ChartPanelFrame, PanelClip, PanelLines, YEnds } from './ChartPanelFrame';
+import { ChartPanelFrame, PanelClip, PanelLines, PanelReading, YEnds } from './ChartPanelFrame';
 import { peakAcross, xySummary } from './chartSummary';
 
 const SAME_SCALE = new Set(['distance', 'length']);
@@ -47,7 +47,8 @@ export function FlightXYPanel({
   const xUnit = traceUnit(xMeta, u, t);
   const yUnit = traceUnit(yMeta, u, t);
   const clipped = !!xMeta.aero || !!yMeta.aero;
-  const sameScale = !!xMeta.quantity && xMeta.quantity === yMeta.quantity && SAME_SCALE.has(xMeta.quantity);
+  const sameScale =
+    !!xMeta.quantity && xMeta.quantity === yMeta.quantity && SAME_SCALE.has(xMeta.quantity) && xUnit === yUnit;
 
   const { lines, x0, x1, y0, y1 } = useMemo(() => {
     let xMin = Infinity;
@@ -67,7 +68,8 @@ export function FlightXYPanel({
         const ti = ts[i];
         const a = xr[i];
         const v = yr[i];
-        if (ti == null || a == null || v == null || !Number.isFinite(a) || !Number.isFinite(v)) continue;
+        if (ti == null || a == null || v == null || !Number.isFinite(ti) || !Number.isFinite(a) || !Number.isFinite(v))
+          continue;
         if (clipped && ti > clipT) continue;
         const x = a * xs + xo;
         const y = v * ys + yo;
@@ -83,13 +85,8 @@ export function FlightXYPanel({
       out.push({ color: b.color, pts, time, xv, yv });
     }
     if (!(xMin < Infinity)) [xMin, xMax, yMin, yMax] = [0, 1, 0, 1];
-    const span = (lo: number, hi: number) => hi - lo || Math.abs(hi) || 1;
-    let lx = xMeta.level ? xMin - span(xMin, xMax) * 0.05 : Math.min(0, xMin);
-    let hx = xMeta.level ? xMax + span(xMin, xMax) * 0.05 : Math.max(0, xMax);
-    let ly = yMeta.level ? yMin - span(yMin, yMax) * 0.1 : Math.min(0, yMin);
-    let hy = yMeta.level ? yMax + span(yMin, yMax) * 0.1 : Math.max(0, yMax) + span(Math.min(0, yMin), yMax) * 0.08;
-    if (!(hx > lx)) hx = lx + 1;
-    if (!(hy > ly)) hy = ly + 1;
+    let [lx, hx] = axisRange(xMin, xMax, !!xMeta.level, { pad: 0.05, headroom: 0 });
+    let [ly, hy] = axisRange(yMin, yMax, !!yMeta.level);
     if (sameScale) {
       const k = Math.max((hx - lx) / iw, (hy - ly) / ih);
       const cx = (lx + hx) / 2;
@@ -154,13 +151,17 @@ export function FlightXYPanel({
         <>
           {hoverT == null && <span className="text-[10px] text-ink-faint">{t('flight.peakTag')}</span>}
           <span className="text-xs font-semibold tabular-nums text-ink-strong">
-            {hoverT == null
-              ? peak == null
-                ? NO_VALUE
-                : yText(peak)
-              : head && head.v != null && head.a != null
-                ? t('flight.yAtX', { y: yText(head.v), x: xText(head.a) })
-                : NO_VALUE}
+            {hoverT == null ? (
+              peak == null ? (
+                NO_VALUE
+              ) : (
+                <PanelReading text={fmtNum(peak, yDigits)} unit={yUnit} />
+              )
+            ) : head && head.v != null && head.a != null ? (
+              t('flight.yAtX', { y: yText(head.v), x: xText(head.a) })
+            ) : (
+              NO_VALUE
+            )}
           </span>
         </>
       }

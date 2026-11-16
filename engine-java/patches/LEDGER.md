@@ -1459,3 +1459,46 @@ the wrapper task resets it to 0.
   1.1 to 1.2, and it fits worse higher up: ARCAS Short at Mach 1.49 no longer
   passes, and its error at Mach 2.95 goes from +0.170 to +0.212. Fixture
   `_expect.aero` re-recorded for `arcas-short` and `arcas-long`.
+
+## A bless has to be explained here - 2026-11-14
+
+`extract --check` now requires every fingerprint `extract/DIVERGENCE.txt` accepts
+to appear in this file (its first 12 characters): each patch's sha256, `@manifest`
+(the manifest's file list) and `@upstream` (the content of the upstream files the
+manifest names). A bless records them, and the check fails until an entry here
+quotes each one, so blessing alone no longer accepts a change. The `@upstream`
+fingerprint also makes a substitute upstream (`--src`, `OPENROCKET_SRC`, an edited
+cache) fail whatever its commit name says. `SHIMS.txt` is now written only by
+`npm run extract:bless-shims`, so blessing a patch no longer also accepts upstream
+moving under a shim.
+
+`validation/score.mjs` now also hashes, per anchor, the fixture's geometry (not
+its `_expect`) and the sweep settings (`refAreaScale`, `aoaDeg`, `machAlt`,
+`maxMach`), so editing one moves `gateHash` instead of quietly changing a score.
+`floors.json` `gateHash` re-recorded to `911e0d8f5ab2`; the gated set is the
+same 135 points and the scores are unchanged (classic 13, supersonic 61).
+
+The patches are unchanged; their reasons are the entries above. Fingerprints at
+this pin (`2d76b9733`):
+
+- `@manifest` `809561cbc1a2`, 273 files.
+- `@upstream` `c679040d623b`.
+- `aerodynamics/barrowman/FinSetCalc.java` `61fddf1ea45b`
+- `aerodynamics/barrowman/SymmetricComponentCalc.java` `85ba7c8d9f3d`
+- `simulation/SimulationOptions.java` `7e8703697825`
+- `aerodynamics/BarrowmanDragCalculator.java` `afade38ab51b`
+- `rocketcomponent/FinSet.java` `788d5bd5ff37`
+- `rocketcomponent/RingComponent.java` `4be340eb5553`
+- `rocketcomponent/FreeformFinSet.java` `317110dadd20`
+- `aerodynamics/BarrowmanStabilityCalculator.java` `6c6c2e161c86`
+- `masscalc/MassCalculation.java` `6bfd5a2cd70c`
+- `rocketcomponent/FlightConfigurationId.java` `5b45a240fe04`
+- `util/BoundingBox.java` `905d73bbecf5`
+- `util/Mutable.java` `91ab90096882`
+- `rocketcomponent/FlightConfiguration.java` `96d833ce73dd`
+- `rocketcomponent/InstanceMap.java` `cbb1845fbda6`
+- `simulation/BasicEventSimulationEngine.java` `0519b541818f`
+- `motor/MotorConfigurationId.java` `ac95a4105a77`
+- `unit/Unit.java` `9c7c58c2fc57`
+- `util/ArrayList.java` `aaa93107ceac`
+- `rocketcomponent/ComponentAssembly.java` `6877195c95d3`

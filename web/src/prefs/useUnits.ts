@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { useSettings } from '../state/useSettings';
-import { fmtNum, withUnit } from '../i18n/format';
+import { fmtNum, shortDigits, withUnit } from '../i18n/format';
 import { NO_VALUE } from '../i18n/noValue';
 import {
   degToRad,
+  FAR_DISTANCE_UNIT,
+  NEAR_DISTANCE_UNIT,
   ladderDigits,
   niceStep,
   siToUi,
@@ -18,6 +20,20 @@ import { siEntry } from './entryValue';
 function format(v: number, digits?: number): string {
   if (!Number.isFinite(v)) return NO_VALUE;
   return fmtNum(v, digits ?? ladderDigits(v));
+}
+
+/** A map span in the far unit of `distanceSym` (km, mi), or the near one (m, ft) below 1: never "0 km". */
+export function fmtSpan(distanceSym: string, meters: number): string {
+  const far = FAR_DISTANCE_UNIT[distanceSym] ?? distanceSym;
+  const big = siToUi('distance', far, meters);
+  if (big >= 1) return withUnit(fmtNum(big, shortDigits(big)), far);
+  const near = NEAR_DISTANCE_UNIT[distanceSym] ?? distanceSym;
+  return withUnit(fmtNum(siToUi('distance', near, meters), 0), near);
+}
+
+/** Outside React too: text built once, such as a load note, in the units chosen at the time. */
+export function fmtSymIn(q: Quantity, sym: string, si: number, digits?: number): string {
+  return withUnit(Number.isFinite(si) ? format(siToUi(q, sym, si), digits) : NO_VALUE, sym);
 }
 
 export interface FieldUnit {
@@ -62,7 +78,7 @@ export function fmtDegrees(u: Pick<Units, 'fmtSym' | 'sym'>, deg: number, degDig
   return u.fmtSym('angle', degToRad(deg), u.sym('angle') === '°' ? degDigits : degDigits + 2);
 }
 
-/** Uses fmtNum, not units.ts `fmtSi`, because the decimal separator is per language. */
+/** Formats through fmtNum, since the decimal separator is per language. */
 export function useUnits(): Units {
   const { settings } = useSettings();
   const { units, unitOverrides } = settings;
@@ -76,7 +92,7 @@ export function useUnits(): Units {
         fromUi: (ui) => uiToSi(q, sym, ui),
         toSi: (ui, then) => siEntry(q, sym, ui, then),
         fmt,
-        fmtSym: (si, digits) => withUnit(fmt(si, digits), sym),
+        fmtSym: (si, digits) => fmtSymIn(q, sym, si, digits),
         step: (si) => niceStep(siToUiDelta(q, sym, si)),
       };
     };

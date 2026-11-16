@@ -109,6 +109,18 @@ describe('WeatherDialog', () => {
     expect(screen.getByText('Set the launch site’s elevation first.')).toBeTruthy();
   });
 
+  it('shows each proposal in the unit of the Launch field it fills', async () => {
+    seedSettings({ unitOverrides: { 'launch.temperature': 'K', 'launch.speed': 'km/h' } });
+    try {
+      open();
+      await fetchIt();
+      expect(screen.getByText(/^[\d.,]+ K$/)).toBeTruthy();
+      expect(screen.getByText(/^[\d.,]+ km\/h from /)).toBeTruthy();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
   it('fetches from the free service, shows each value with the credit, and changes nothing yet', async () => {
     const { onChange } = open();
     await fetchIt();

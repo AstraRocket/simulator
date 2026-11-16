@@ -1,17 +1,16 @@
+import { isLatLon } from './geodesy';
+
 // Short links are never followed: that would be a third-party request on the user's behalf.
 
 export type CoordinateText = { kind: 'coords'; latitudeDeg: number; longitudeDeg: number } | { kind: 'shortLink' };
 
 const NUM = String.raw`[-+]?\d{1,3}(?:\.\d+)?`;
 
-const inRange = (lat: number, lon: number) =>
-  Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-
 const pair = (lat: string | undefined, lon: string | undefined): CoordinateText | null => {
   if (lat === undefined || lon === undefined) return null;
   const a = Number(lat);
   const b = Number(lon);
-  return inRange(a, b) ? { kind: 'coords', latitudeDeg: a, longitudeDeg: b } : null;
+  return isLatLon(a, b) ? { kind: 'coords', latitudeDeg: a, longitudeDeg: b } : null;
 };
 
 function fromUrl(url: URL): CoordinateText | null {

@@ -1,10 +1,12 @@
+import info.openrocket.core.database.motor.ThrustCurveMotorSQLiteDatabase;
 import info.openrocket.core.motor.Manufacturer;
 import info.openrocket.core.motor.ThrustCurveMotor;
 
-import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,7 +27,7 @@ import java.util.List;
  * is an MD5 over the motor's time, mass, CG and thrust series at fixed
  * precision (`MotorDigest`), so it describes the data in THAT database rather
  * than the motor as a product. Our curves come from thrustcurve.org and theirs
- * from a database serialized at their release; equal motors, not always equal
+ * from the database their build ships; equal motors, not always equal
  * samples. A digest we computed ourselves would therefore name no entry at all,
  * and a digest that matches nothing is worse than none: with one candidate the
  * desktop then reports the motor as CHANGED rather than resolving it.
@@ -33,9 +35,10 @@ import java.util.List;
  * WHY IT READS THE SHIPPED FILE rather than driving `MotorDatabaseLoader`. That
  * loader also sweeps the USER's own motor directory, so what it holds depends on
  * whose machine this runs on, and a digest for somebody's local `.rse` is a
- * digest no other reader's desktop has. `thrustcurves.ser` is the database as
- * the release ships it, and the digest comes off the motor object itself, which
- * is the same object the loader would have deserialized from the same bytes.
+ * digest no other reader's desktop has. `initial_motors.db` is the database as
+ * the build ships it, and `ThrustCurveMotorSQLiteDatabase.readDatabase` is the
+ * reader desktop itself uses on it, so the digest comes off the same motor
+ * object desktop would build from the same rows.
  *
  * Output: one TAB-separated row per motor,
  * `manufacturer  allNames  designation  commonName  diameter(m)  length(m)
@@ -55,29 +58,31 @@ import java.util.List;
  * one ("D24"), and a row synced from thrustcurve.org may be keyed on either.
  */
 public class MotorDump {
-    private static final String DATABASE = "datafiles/thrustcurves/thrustcurves.ser";
+    private static final String DATABASE = "datafiles/thrustcurves/initial_motors.db";
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.err.println("usage: MotorDump <out.tsv>");
             System.exit(2);
         }
-        List<?> motors;
+        List<ThrustCurveMotor> motors;
+        // SQLite reads a file, not a stream, so the resource is copied out first.
+        File db = File.createTempFile("motors", ".db");
         try (InputStream is = MotorDump.class.getClassLoader().getResourceAsStream(DATABASE)) {
             if (is == null) {
                 System.err.println("no " + DATABASE + " on the classpath; is that an OpenRocket build?");
                 System.exit(2);
                 return;
             }
-            try (ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(is))) {
-                motors = (List<?>) in.readObject();
-            }
+            Files.copy(is, db.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            motors = ThrustCurveMotorSQLiteDatabase.readDatabase(db);
+        } finally {
+            db.delete();
         }
 
         int rows = 0;
         try (PrintWriter out = new PrintWriter(args[0], "UTF-8")) {
-            for (Object o : motors) {
-                ThrustCurveMotor m = (ThrustCurveMotor) o;
+            for (ThrustCurveMotor m : motors) {
                 Manufacturer mfr = m.getManufacturer();
                 // Every alias, because our catalog names a manufacturer by
                 // thrustcurve.org's abbreviation ("AT") where the desktop holds

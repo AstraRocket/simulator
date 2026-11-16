@@ -149,3 +149,12 @@ describe('the descent time', () => {
     expect(minutesSeconds(65.2)).toBe('1:05');
   });
 });
+
+it("prints the ground elevation at landing in the site elevation field's unit", async () => {
+  seedSettings({ unitOverrides: { 'launch.altitude': 'ft' } });
+  renderWithProviders(<LandingEstimator />);
+  fireEvent.click(screen.getByRole('button', { name: 'Estimate landing' }));
+  await screen.findByText('Lands at');
+  // The terrain fixture serves 3 m everywhere: 9.8 ft.
+  expect(screen.getByText('Ground at landing').nextElementSibling?.textContent).toMatch(/^9\.8 ft$/);
+});

@@ -183,6 +183,20 @@ describe('exportRkt', () => {
   it('has nothing to skip for a design made only of shared types', () => {
     expect(skipped).toEqual([]);
   });
+
+  it("writes desktop's name for a part the user never named, as the .ork writer does", () => {
+    const { xml: out } = exportRkt('x', {
+      name: 'x',
+      components: [
+        {
+          type: 'stage',
+          id: 's',
+          children: [{ type: 'bodytube', id: 'b', length: 0.3, outerRadius: 0.012 } as ComponentNode],
+        },
+      ] as ComponentNode[],
+    });
+    expect(out).toContain('<Name>Body Tube</Name>');
+  });
 });
 
 describe('exportRkt → importRkt round trip', () => {
@@ -416,7 +430,7 @@ describe('exportRkt: a clustered motor mount', () => {
 
   it('places the members where the desktop places them', () => {
     const xml = clustered('3-ring');
-    // The figure OpenRocket 24.12 writes for a 19 mm tube in a 3-ring.
+    // The figure desktop writes for a 19 mm tube in a 3-ring: its `ClusterConfiguration` puts each member d / sqrt(3) out.
     expect(xml.match(/<RadialLoc>10\.9696/g)).toHaveLength(3);
     for (const a of ['-150', '-30', '90']) {
       expect(xml).toContain(`<RadialAngle>${a}</RadialAngle>`);

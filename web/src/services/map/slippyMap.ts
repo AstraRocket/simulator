@@ -2,6 +2,7 @@ import i18n from '../../i18n';
 import { fmtNum } from '../../i18n/format';
 import { degToRad, radToDeg } from '../../prefs/units';
 import { roundTo } from '../app/numbers';
+import { reduceLonDeg } from './geodesy';
 
 const COORD_PLACES = 4;
 
@@ -75,7 +76,7 @@ export interface MapView {
 export function panView(v: MapView, dx: number, dy: number): MapView {
   const cx = lonToTileX(v.lon, v.zoom) + dx / TILE_SIZE;
   const cy = Math.max(0, Math.min(2 ** v.zoom, latToTileY(v.lat, v.zoom) + dy / TILE_SIZE));
-  return { lat: tileYToLat(cy, v.zoom), lon: normalizeLon(tileXToLon(cx, v.zoom)), zoom: v.zoom };
+  return { lat: tileYToLat(cy, v.zoom), lon: reduceLonDeg(tileXToLon(cx, v.zoom)), zoom: v.zoom };
 }
 
 export function wrapTileX(x: number, zoom: number): number {
@@ -86,10 +87,6 @@ export function wrapTileX(x: number, zoom: number): number {
 export function metersPerPixel(latDeg: number, zoom: number): number {
   const EARTH_CIRCUMFERENCE_M = 40075016.686;
   return (EARTH_CIRCUMFERENCE_M * Math.cos(degToRad(latDeg))) / (TILE_SIZE * 2 ** zoom);
-}
-
-export function normalizeLon(lonDeg: number): number {
-  return ((((lonDeg + 180) % 360) + 360) % 360) - 180;
 }
 
 // A hemisphere letter rather than a sign: a dropped minus is the error the site map exists to catch.
@@ -190,7 +187,7 @@ export function unproject(
   const ty = latToTileY(centerLat, zoom) + (y - height / 2) / TILE_SIZE;
   return {
     latitudeDeg: tileYToLat(ty, zoom),
-    longitudeDeg: normalizeLon(tileXToLon(tx, zoom)),
+    longitudeDeg: reduceLonDeg(tileXToLon(tx, zoom)),
   };
 }
 
@@ -202,3 +199,7 @@ export function zoomForMetersPerPixel(latDeg: number, target: number, maxZoom: n
   const z = Math.round(Math.log2(metersPerPixel(latDeg, 0) / target));
   return Math.max(MIN_ZOOM, Math.min(maxZoom, z));
 }
+
+/** Degrees with the hemisphere letter: a dropped minus is the slip the letter catches. */
+export const latLonUnit = (key: 'latitudeDeg' | 'longitudeDeg', value: number | null | undefined): string =>
+  value == null ? '°' : `° ${key === 'latitudeDeg' ? latHemisphere(value) : lonHemisphere(value)}`;

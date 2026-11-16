@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { APP_VERSION, isPreRelease } from '../../services/app/appInfo';
+import { APP_VERSION, isPreRelease, LOGO_URL } from '../../services/app/appInfo';
 import { useWorkspaceStore } from '../../state/store';
 import { fireAction } from '../../state/fireAction';
 import { useHelpStore } from '../../state/helpStore';
@@ -43,7 +43,7 @@ export function AppHeader() {
         aria-label={t('about.open')}
         className="shrink-0 rounded hover:opacity-80"
       >
-        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" aria-hidden="true" className="h-6 w-6" />
+        <img src={LOGO_URL} alt="" aria-hidden="true" className="h-6 w-6" />
       </button>
       <h1 className="text-base font-semibold tracking-tight">{t('app.title')}</h1>
       <span className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-none ring-1 ring-line/10">

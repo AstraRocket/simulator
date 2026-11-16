@@ -47,6 +47,8 @@
       "archiveEmpty": ".ork アーカイブが空です。",
       "archiveCorrupt": ".ork アーカイブが破損しているか、読み取れません。",
       "tooManyComponents": "この {{format}} は部品数が多すぎるため開けません（壊れている可能性があります）。",
+      "tooManyInstances": "この {{format}} はポッド、クラスター、個数の入れ子で部品数が多くなりすぎるため開けません（壊れている可能性があります）。",
+      "autoRadiusRunTooLong": "この {{format}} は自動半径の部品が続きすぎているため開けません（壊れている可能性があります）。",
       "tooManySimulations": "この .ork はシミュレーション数が多すぎるため開けません（壊れている可能性があります）。",
       "tooManyUnknownElements": "この .ork は認識できない要素が多すぎるため開けません（壊れている可能性があります）。",
       "tooManyConfigs": "この .ork は飛行構成の数が多すぎるため開けません（壊れている可能性があります）。",
@@ -83,6 +85,7 @@
       "engHeader": ".eng のヘッダーが不正です。必要な項目：名称 直径 長さ 遅延 推進剤質量 全質量 メーカー。",
       "engHeaderNumbers": ".eng のヘッダーが不正です：直径、長さ、または質量が数値ではありません。",
       "engHeaderSize": ".eng のヘッダーが不正です：直径と長さは正の値にしてください。",
+      "oversize": "モーター {{motor}} はシミュレーターで扱える大きさまたは重さを超えています（1000 m または 10¹⁵ kg 超）。モーターファイルを修正するか、別のモーターを選んでください。",
       "engHeaderMass": ".eng のヘッダーが不正です：推進剤質量は 0 から全質量までの値にしてください。",
       "engDataLine": ".eng の {{line}} 行目のデータが不正です：時間と推力が必要ですが、「{{text}}」でした。",
       "engNoCurve": ".eng ファイルに推力曲線のデータ点がありません。",
@@ -119,6 +122,7 @@
       "propOverTotal": "{{motor}} はカタログ上、推進剤 ({{prop}} g) が装填質量 ({{total}} g) より多いため、燃焼の終わりに質量が負になります。別のモーターを選んでください。",
       "badWeight": "{{motor}} は推進剤質量が負、または装填質量が 0 以下で登録されているため、シミュレーションできません。別のモーターを選んでください。",
       "badSize": "thrustcurve.org にある {{motor}} の寸法が不正です（直径 {{diameter}} mm、長さ {{length}} mm）。シミュレーションできないので、別のモーターを選んでください。",
+      "oversize": "モーター {{motor}} はシミュレーターで扱える大きさまたは重さを超えているため（1000 m または 10¹⁵ kg 超）、搭載されませんでした。別のモーターを選んでください。",
       "negativeThrust": "{{motor}} の推力曲線データに負の推力があります。シミュレーションできないので、別のモーターを選んでください。",
       "badCg": "{{motor}} の重心がモーターの外にあります（0〜{{length}} mm）。シミュレーションできないので、別のモーターを選んでください。",
       "importGone": "インポートしたモーター {{motor}} はもう保存されていません。モーターファイルをもう一度インポートしてください。",
@@ -158,6 +162,7 @@
       "nothing": "エクスポートするものがありません。"
     },
     "engine": {
+      "callFailed": "OpenRocket の物理エンジンが {{operation}} で失敗しました: {{detail}}",
       "notReady": "OpenRocket の物理エンジンの読み込みがまだ終わっていません。読み込みが終わってから、もう一度お試しください。",
       "staleDesign": "この設計は物理エンジンのリセット前に構築されたものです。使う前に構築し直してください。"
     },
@@ -188,6 +193,7 @@
     "openExample": "そのサンプルを開けませんでした：{{reason}}",
     "saveOrk": ".ork を保存できませんでした：{{reason}}",
     "saveOrkNoDesignInfo": ".ork は設計情報なしで保存されました。設計を構築できなかったため、含める統計がありませんでした。",
+    "saveOrkFairing": ".ork は保存されましたが、デスクトップ版 OpenRocket にはフェアリング部品がないため、ファイルを開くと次の部品が質量ごと省かれます: {{parts}}。",
     "exportRasaero": "RASAero をエクスポートできませんでした：{{reason}}",
     "exportRasaeroSurface": "RASAero ファイルは保存されましたが、RASAero にはこの設計の表面仕上げに対応する表面がないため、平滑（粗さゼロ）として書き出しました。",
     "exportRasaeroStageMass": "RASAero ファイルは保存されましたが、ある段の打ち上げ重量と重心が得られなかったため、シミュレーションの重量と重心の欄は 0 で書き込みました。飛行前に RASAero で入力してください。",
@@ -218,6 +224,7 @@
     "length": "全長",
     "dimLength": "長さ {{value}}",
     "dimWall": "肉厚 {{value}}",
+    "boreTooSmall": "穴が小さすぎます。必要: Ø {{value}}",
     "maxDiameter": "最大直径",
     "massEmpty": "質量（空）",
     "massLoaded": "質量（搭載時）",
@@ -281,7 +288,8 @@
       "cutCount": "{{name}}（{{qty}} 枚切り出し）",
       "finDims": "翼根 {{root}} mm | 翼幅 {{span}} mm | 板厚 {{stock}} mm",
       "discDims": "Ø{{diameter}} mm",
-      "discBoreDims": "Ø{{diameter}} mm | 穴 Ø{{bore}} mm"
+      "discBoreDims": "Ø{{diameter}} mm | 穴 Ø{{bore}} mm",
+      "boreTooSmall": "要確認: 穴が小さすぎます。必要 Ø{{bore}} mm"
     },
     "title": "設計レポート",
     "select": "含める項目を選択：",
@@ -476,7 +484,10 @@
   },
   "edit": {
     "undo": "取り消す",
-    "redo": "やり直す"
+    "redo": "やり直す",
+    "undoKeys": "Ctrl+Z",
+    "ctrlKeys": "Ctrl+{{key}}",
+    "redoKeys": "Ctrl+Shift+Z"
   },
   "scale": {
     "title": "ロケットを拡大縮小",
@@ -535,7 +546,8 @@
       "pressure": "圧力",
       "force": "推力 / 力",
       "impulse": "インパルス",
-      "rollRate": "ロールレート"
+      "rollRate": "ロールレート",
+      "shearModulus": "せん断弾性係数"
     }
   },
   "settings": {
@@ -634,6 +646,11 @@
     "simModel": "飛行モデル",
     "guideAwareRodClearance": "ガイド位置を考慮したランチャー離脱",
     "guideAwareRodClearanceHint": "OpenRocket は、ラグやレールボタンの位置にかかわらず、ランチャーの全長にわたってロケットを誘導します。オンの場合、ラグはその後端がロッドを離れるまで、レールは後ろから 2 番目のボタンが離れるまで誘導するため、ボタンが 1 個だけでは誘導距離はありません。離脱はやや早く、離脱速度はやや低くなります。オフの場合、結果は OpenRocket と同じです。",
+    "rogersKbf": "RASAero フィン干渉（Kbf より）",
+    "rogersKbfHint": "mmrocket-sim の Rogers 修正 Barrowman（Kbf）パッチに含まれる 2 つの項です。RASAero II と同様に、フィンと胴体の干渉として各フィンセットの摩擦抵抗を 80% 増やすため、最高高度は低く出ます。OpenRocket 自身のフィン・胴体干渉モデルが扱わないフィン（楕円、自由形状、胴体チューブ以外に付いたフィン）には、フィンが胴体に及ぼす揚力（NACA Report 1307）も加わり、CP が後方へ移って安定余裕が大きくなります。胴体チューブ上の台形フィンは、すでに OpenRocket がこれを含めています。設計タブの CP と安定余裕もフライトと同様にこの設定に従いますが、ベンチトップは従いません。オフの場合、結果は OpenRocket と同じです。",
+    "rogersKbfConfirmTitle": "RASAero フィン干渉をオンにしますか？",
+    "rogersKbfConfirm": "結果はデスクトップ版 OpenRocket と一致しなくなります。各フィンセットの摩擦抵抗が 80% 増えるため、最高高度は低く出ます。楕円、自由形状など OpenRocket の干渉モデルの対象外のフィンには胴体の揚力も加わり、CP が後方へ移って安定余裕が大きく表示されます。どちらの項もあなたの設計に対して検証されておらず、CP が後方すぎるとロケットの安定性を過大評価します。この設定なしで実行したシミュレーションは「古い」と表示されます。",
+    "rogersKbfConfirmLabel": "オンにする",
     "deploySpeedWarnHint": "単段展開（ドローグなし）：この速度を超えてパラシュートを開くと、機体が縦に裂けたりキャノピーが破れたりする恐れがあります。",
     "mainHighSpeedWarnHint": "二段展開：これを超えるとメインの展開が速すぎます。多くの場合、ドローグが小さすぎて減速できていないか、メインの展開高度が高すぎます。",
     "mainLowSpeedWarnHint": "二段展開：これを下回る場合、メインはロケットがほとんど降下していない状態で開いています。通常はアポジー付近で展開したことを意味し、最高高度からゆっくり降りて遠くまで流されます。",
@@ -661,8 +678,6 @@
     "removeMembership": "{{org}} の会員を削除"
   },
   "config": {
-    "title": "ロケットの構成",
-    "edit": "ロケットの構成を編集",
     "notes": "設計メモ",
     "name": "設計名",
     "designer": "設計者",
@@ -680,7 +695,6 @@
     "removeRevision": "{{date}} の改訂を削除",
     "removeRevisionConfirm": "この改訂を削除しますか?",
     "appOnlyNotes": ".ork で保存するとここのメモはすべて残ります。キットのメーカー、キットの品番、日付付きの改訂はこのアプリ独自の項目で、デスクトップ版 OpenRocket でファイルを保存すると失われます。.rkt にはこの3つもキット名も保存されません。",
-    "save": "OK",
     "type_original": "独自設計 / その他",
     "type_commercial_kit": "市販キット",
     "type_clone_kit": "キットの複製",
@@ -726,6 +740,17 @@
     "lastFlyingStage": "各構成で少なくとも1つの段が飛行する必要があります。",
     "stageGrounded": "地上に残す構成:",
     "partNumbered": "{{part}} {{n}}",
+    "otherMountsOffer": "このステージの他のマウントにも {{motor}} を搭載しますか？ 各マウントの点火設定はそのままです。",
+    "otherMountsEmpty": "{{mount}}（現在は空）",
+    "otherMountsReplaces": "{{mount}}（{{motor}} を置き換え）",
+    "otherMountsKeptPlugged": "モーターはプラグのまま",
+    "otherMountsTooWide": "{{mount}} は対象外です：モーターが内径に対して太すぎます。",
+    "otherMountsTooLong": "{{mount}} は対象外です：モーターが長すぎます。",
+    "otherMountsLoad": "搭載する",
+    "otherMountsDismiss": "しない",
+    "otherMountsLoaded": "{{motor}} を他のマウントに搭載しました。",
+    "otherMountsUndo": "取り消す",
+    "otherMountsClose": "閉じる",
     "bays": "ベイ"
   },
   "tabs": {
@@ -932,6 +957,7 @@
     "stdDev": "標準偏差",
     "stdDevName": "風速の標準偏差",
     "turbulenceIntensity": "乱流強度",
+    "turbulenceNeedsWind": "先に平均風速を設定してください。この割合は平均風速に対する突風の大きさです。",
     "levelCount_other": "{{count}} 層の風",
     "editProfile": "風のプロファイルを編集…",
     "turbulenceLevel": {
@@ -1410,6 +1436,7 @@
     "noEditor": "このアプリには次の編集機能がありません：{{items}}。保持されるので保存しても残ります。",
     "docMaterialsSkipped": "読み取れないため読み込まなかった設計の材料：{{count}}。",
     "referenceType": "この設計は安定性の口径を「{{type}}」を基準に測っています。このアプリは最も太いボディチューブを基準に測るため、口径で表す安定余裕がデスクトップ版 OpenRocket と異なる場合があります。設定はファイルに残ります。",
+    "lookupTables": "これらのシミュレーションは、デスクトップ版 OpenRocket では抗力または安定性のルックアップテーブルで飛行します。このアプリは抗力と安定性を独自に計算するため、保存された結果は古いものとして扱われ、再実行すると結果が異なる場合があります。テーブルは保持され、保存時にもそのまま書き出されます: {{names}}。",
     "motorPlugged": "モーター {{motor}}：プラグド（放出薬なし）。回収装置が放出薬ではなく、頂点または高度で作動するようにしてください。",
     "motorPluggedNoDelay": "モーター {{motor}}：プラグド（放出薬なし。ファイルに読み取れる遅延がありません）。回収装置が放出薬ではなく、頂点または高度で作動するようにしてください。",
     "finPointsCapped": "自由形状フィンの点が {{max}} を超えていたため、残りを破棄しました。",
@@ -1494,6 +1521,7 @@
     "collapseAll": "すべて折りたたむ",
     "collapseTree": "部品一覧を隠す",
     "hidePart": "ビューで隠す",
+    "hiddenByParent": "親の部品とともにビューで隠れています",
     "showPart": "ビューに表示",
     "showAll": "すべて表示",
     "hiddenNote": "隠した部品も質量、CG、空力、すべての飛行値に含まれます。2D と 3D のビューにだけ表示されません。",
@@ -1646,6 +1674,7 @@
     "tabOffsetMethod": "フィンタブの基準",
     "cluster": "クラスター",
     "tubeFinsCollide": "これらのチューブは互いに重なっています。このチューブ直径では最大 {{max}} 本まで入ります。この本数では、入る最大の直径は {{diameter}} {{unit}} です。",
+    "ringBoreTooSmall": "このリングの穴は、通っているインナーチューブより小さいです。チューブには少なくとも Ø {{diameter}} {{unit}} の穴が必要です。",
     "shapeParameter": "形状パラメーター",
     "stripArea": "面積",
     "stripAspect": "アスペクト比",
@@ -1896,6 +1925,7 @@
     "densityBulk": "かさ密度",
     "densitySurface": "面密度",
     "densityLine": "線密度",
+    "shearModulus": "せん断弾性係数",
     "save": "保存",
     "cancel": "キャンセル",
     "addToLibrary": "カスタム材料に追加して、すべての設計で使う",
@@ -2082,7 +2112,6 @@
     "searchCode": "型式で検索（例：C6）…",
     "select": "選択",
     "loading": "読み込み中…",
-    "loadingCatalog": "モーターカタログを読み込み中…",
     "pickHint": "モーターを選ぶと推力曲線と仕様が表示されます。",
     "backToList": "一覧に戻る",
     "curve": "曲線",
@@ -2773,7 +2802,6 @@
     "cgHint": "モーターを入れない状態の重心を、ノーズ先端から測った位置。",
     "cgOutside": "重心はロケット上、ノーズ先端から{{length}}の間にある必要があります。",
     "railStability": "ランチャー離脱時の安定性",
-    "calibers": "{{value}} cal",
     "lowStability": "{{min}}キャリバー未満：不安定の可能性",
     "stabilityNote": "安定性は入力した重心とフィン、代用ノーズから求めています。実際のノーズで少し変わります。",
     "colStability": "安定性 (cal)",

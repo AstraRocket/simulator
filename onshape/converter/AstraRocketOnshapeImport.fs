@@ -62,7 +62,7 @@ export const oroFeature = defineFeature(function(context is Context, id is Id, d
         annotation { "Name" : "ORO json" }
         definition.orkJsonFile is JSONData;
 
-        // Real PARAMETERS, not locals: a precondition is analysed, never executed,
+        // Real PARAMETERS, not locals: a precondition is analyzed, never executed,
         // so an `if` there may only test a parameter id (note 24).
         annotation { "Name" : "Motor mass in file",
                     "UIHint" : UIHint.ALWAYS_HIDDEN }
@@ -114,7 +114,7 @@ export const oroFeature = defineFeature(function(context is Context, id is Id, d
         {
             // @keep: a stale payload is the user's problem to fix, not debug noise.
             println("[schema] payload is " ~ toString(payloadSchema) ~ ", this feature needs "
-                    ~ EXPECTED_SCHEMA_VERSION ~ " — re-export the JSON from the web app"
+                    ~ EXPECTED_SCHEMA_VERSION ~ "; re-export the JSON from the web app"
                     ~ " (an older file has no innerProfile and cannot be drawn).");
         }
 
@@ -340,7 +340,7 @@ function createComponents(context is Context, components is array, parentInfo is
 
         const bodiesCount = bodies == undefined ? 0 : evaluateQueryCount(context, bodies);
 
-        // Mate each component to its neighbour, fore and aft; owner falls back to
+        // Mate each component to its neighbor, fore and aft; owner falls back to
         // the children, which is what a stage needs mated (note 20).
         var mateOwner = bodies;
         if (bodiesCount == 0 && evaluateQueryCount(context, childrenQuery) != 0)
@@ -373,7 +373,7 @@ function createComponents(context is Context, components is array, parentInfo is
             continue;
         }
 
-        // An assembly's bodies are its children; do not rename/recolour them (notes 3).
+        // An assembly's bodies are its children; do not rename/recolor them (notes 3).
         if (!isAssembly(comp['type']))
         {
             setProperty(context, {
@@ -406,7 +406,7 @@ function createComponents(context is Context, components is array, parentInfo is
         }
 
         // The motor is INSIDE `bodies`, so the NAME set just above landed on it too.
-        // Re-assert the motor's own name and colour (note 16).
+        // Re-assert the motor's own name and color (note 16).
         restyleMotor(context, compId + "complete", comp, motorOptions);
 
         componentQueryArray = append(componentQueryArray, bodies);
@@ -974,7 +974,7 @@ function applyFinCant(context is Context, comp is map, id is Id, tform is Transf
     return baseQuery;
 }
 
-/** A fin's solid, honouring its cross-section (note 23, component_sketches.fs). */
+/** A fin's solid, honoring its cross-section (note 23, component_sketches.fs). */
 function buildFinBody(context is Context, comp is map, id is Id, sketchFace, tform is Transform, units is ValueWithUnits, extrudeDirection is Vector) returns Query
 {
     const params = comp.params;
@@ -1118,7 +1118,7 @@ function finSpanExtent(params is map) returns number
     return tallest;
 }
 
-/** The plain symmetric plate, centred on the fin's mid-surface. */
+/** The plain symmetric plate, centered on the fin's mid-surface. */
 function extrudeFinPlate(context is Context, id is Id, sketchFace, extrudeDirection is Vector, thickness) returns Query
 {
     const extrudeId = id + "extrude1";
@@ -1330,7 +1330,7 @@ function formatGrams(massGrams is number) returns string
     return "" ~ rounded;
 }
 
-/** Re-assert the motor's name and colour after the mount's own properties, which
+/** Re-assert the motor's name and color after the mount's own properties, which
  *  are set on every body the mount produced, the motor included (note 28). */
 function restyleMotor(context is Context, completeId is Id, comp is map, motorOptions is map)
 {
@@ -1351,7 +1351,7 @@ function restyleMotor(context is Context, completeId is Id, comp is map, motorOp
     styleMotor(context, motorQuery, params.motorMount, motorOptions);
 }
 
-/** The motor's own name and colour, applied to the body directly rather than
+/** The motor's own name and color, applied to the body directly rather than
  *  looked up (note 28). */
 function styleMotor(context is Context, motorQuery is Query, mount is map, motorOptions is map)
 {
@@ -1362,7 +1362,7 @@ function styleMotor(context is Context, motorQuery is Query, mount is map, motor
             });
 
     // A fixed gunmetal rather than the mount's paint: a motor is a bought-in part,
-    // and it would otherwise be coloured exactly like the tube it sits in.
+    // and it would otherwise be colored exactly like the tube it sits in.
     setProperty(context, {
                 "entities" : motorQuery,
                 "propertyType" : PropertyType.APPEARANCE,
@@ -1378,7 +1378,7 @@ function applyMotorMass(context is Context, motorQuery is Query, comp is map, mo
     if (massGrams <= 0)
     {
         // @keep: tells the user which field to fill in, so it has to reach them.
-        println("  [motor] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no motor mass set — set \"Motor mass (g)\" on the feature to weight it");
+        println("  [motor] " ~ comp.name ~ " (" ~ comp['type'] ~ ") has no motor mass set; set \"Motor mass (g)\" on the feature to weight it");
         return;
     }
 
@@ -1520,7 +1520,7 @@ function resolveTransform(transformData is map, units is ValueWithUnits, tform i
         }
         else if (transformData.radiusMethod == "free" || transformData.radiusMethod == "absolute")
         {
-            // Measured from the parent's centre, i.e. the rocket axis for a pod
+            // Measured from the parent's center, i.e. the rocket axis for a pod
             // set; "absolute" is an accepted alias (note 2).
             newTransform *= (transform(vector(radiusOffset, 0, 0) * units));
         }
@@ -1582,7 +1582,7 @@ function resolveMaterial(componentMaterial)
  *
  *    A fin's root can outrun its direct parent, for instance a fin on a
  *    transition whose root reaches back over the body tube beside it.  The face
- *    can then only close along the real body profile if the neighbouring
+ *    can then only close along the real body profile if the neighboring
  *    outlines are available too.  These sketches also make the second pass over
  *    each level's components possible, since a child is created after its
  *    siblings' transforms are known.
@@ -1598,7 +1598,7 @@ function resolveMaterial(componentMaterial)
  *    from the parent's *surface*, so the parent's radius is added to it -- that is
  *    what RadiusMethod.RELATIVE does in OpenRocket, adding the outer radius of a
  *    BodyTube parent.  Under "free" (spelled "absolute" by some writers) it is
- *    measured from the parent's *centre*, which for a pod set is the rocket axis.
+ *    measured from the parent's *center*, which for a pod set is the rocket axis.
  *
  *    Dropping the free branch collapses a pod onto the core, and because the
  *    pod's children are coaxial with it they inherit the collapsed transform, so
@@ -1615,7 +1615,7 @@ function resolveMaterial(componentMaterial)
  *      - Return only the copies opPattern created.  The original children stay in
  *        the part studio where they were built, and the caller applies NAME,
  *        APPEARANCE and MATERIAL to whatever comes back.  Returning the children
- *        as well therefore renames and recolours every one of them with the
+ *        as well therefore renames and recolors every one of them with the
  *        assembly's own values -- which is why the property block is guarded
  *        with !isAssembly instead.
  *      - A single-instance assembly never reaches the pattern branch at all, so it
@@ -1645,7 +1645,7 @@ function resolveMaterial(componentMaterial)
  *
  *    This is stated for an ASSEMBLY, and it is the whole truth only there.  A fin
  *    set's instances orbit the body it is mounted on, which is the rocket axis
- *    for a fin on the centreline and something else entirely for a fin on a pod.
+ *    for a fin on the centerline and something else entirely for a fin on a pod.
  *    See note 19 for the two cases and how the axis is chosen.
  *
  * 6. Why a tube fin revolves about its own axis
@@ -1653,7 +1653,7 @@ function resolveMaterial(componentMaterial)
  *    A tube fin is a hollow cylinder parallel to the rocket axis but offset so it
  *    touches the parent body.  Its sketch is an annular section in the meridian
  *    plane, so revolving it about the rocket axis would sweep the annulus around
- *    the wrong centre.  The revolve origin is shifted by the fin's touch radius
+ *    the wrong center.  The revolve origin is shifted by the fin's touch radius
  *    plus its outer radius, and the axis is that tube's own line.
  *
  * 7. Why MassObject length falls back to packedLength
@@ -1661,12 +1661,12 @@ function resolveMaterial(componentMaterial)
  *    RecoveryDevice/MassObject components -- including mass components such as
  *    U-bolts -- store their axial length as packedLength, and OpenRocket's
  *    MassObject.getLength() returns exactly that.  AxialMethod.MIDDLE then uses it
- *    to place the component's centre on the parent's centre, so treating the
+ *    to place the component's center on the parent's center, so treating the
  *    length as zero would put the component's *top* there instead.
  *
- * 8. Why the centre-of-pressure marker is transformed
+ * 8. Why the center-of-pressure marker is transformed
  *
- *    OpenRocket measures centre of pressure forward-to-aft from the rocket tip.
+ *    OpenRocket measures center of pressure forward-to-aft from the rocket tip.
  *    The imported rocket shares that origin and extends along world -Z, so the
  *    marker is placed by transforming the CP through the rocket's root coordinate
  *    system rather than assuming a world-space origin.
@@ -1675,12 +1675,12 @@ function resolveMaterial(componentMaterial)
  *    it is `i == 0 && parentInfo.isFirstTopComponent`, and the second half of
  *    that is the whole point:
  *
- *      - `depth == 1 && i == 0`, which is what it used to say, does NOT mean "the
- *        first stage".  `createComponents` recurses once per top-level component,
- *        so each stage opened its own level 1 and each one's first child matched.
- *        A two-stage rocket got two spheres -- one on the sustainer, one on the
- *        booster, the second one at the booster's tip, which is not a CP at all.
- *        CP is a property of the whole vehicle, so the second marker was simply
+ *      - `depth == 1 && i == 0` does NOT mean "the first stage".
+ *        `createComponents` recurses once per top-level component, so each
+ *        stage opens its own level 1 and each one's first child would match.
+ *        A two-stage rocket would get two spheres -- one on the sustainer, one on
+ *        the booster, the second at the booster's tip, which is not a CP at all.
+ *        CP is a property of the whole vehicle, so a second marker is simply
  *        wrong rather than a second reading of the same thing.
  *
  *      - `isFirstTopComponent` is a fact about the TREE, not about the level, so
@@ -1690,7 +1690,7 @@ function resolveMaterial(componentMaterial)
  *
  *        and the `||` is the whole trick.  The first attempt was the obvious
  *        `(depth == 0 && i == 0)`, and it removed the duplicate while deleting
- *        the marker altogether -- no centre of pressure anywhere on a two-stage
+ *        the marker altogether -- no center of pressure anywhere on a two-stage
  *        rocket.
  *
  *        The reason is that this map is rebuilt at EVERY level, and each rebuild
@@ -1735,7 +1735,7 @@ function resolveMaterial(componentMaterial)
  *     that actually needs those properties is the merged one, so
  *     `unionShoulders` returns the UNION result and `completeComponent` passes
  *     that on.  Returning the original revolve would leave the shoulder an
- *     unnamed, uncoloured, unmaterialised body sitting in the part studio.
+ *     body with no name, color or material sitting in the part studio.
  *
  *     Two further details of the union are deliberate:
  *
@@ -1794,7 +1794,7 @@ function resolveMaterial(componentMaterial)
  *     status API is meant to be consulted from inside a feature that WRAPS the
  *     failing call (std's own `boolean.fs` and `revolve.fs` use it that way, via
  *     `processSubfeatureStatus` on a subfeature), not by the caller immediately
- *     afterwards.  A guard that silently never fires is worse than no guard,
+ *     afterward.  A guard that silently never fires is worse than no guard,
  *     because it looks like the code has already ruled the case out.
  *
  *     So the print is unconditional and BEFORE the call.  Unconditional because
@@ -1841,7 +1841,7 @@ function resolveMaterial(componentMaterial)
  *
  *     Two components that look like they need their own branch, and do not.
  *
- *     A streamer is only modelled PACKED.  It is a `RecoveryDevice`, so it has a
+ *     A streamer is only modeled PACKED.  It is a `RecoveryDevice`, so it has a
  *     `packedLength` and a `packedRadius`, and its deployed form is a
  *     `stripLength` x `stripWidth` ribbon with no thickness anywhere in the file
  *     (its mass comes from the surface material's areal density).  So the
@@ -2004,7 +2004,7 @@ function resolveMaterial(componentMaterial)
  *
  *     A fin set is a different case.  Its instances are copies of a fin on a
  *     particular BODY, and they belong at equal angles around THAT body's axis.
- *     For a fin on the rocket's centreline the two axes coincide and the
+ *     For a fin on the rocket's centerline the two axes coincide and the
  *     distinction is invisible -- which is why it survived so long.  For a fin
  *     on a pod's body tube they do not: the engine strakes' fins were patterned
  *     about the world Z_AXIS, which put all four fins of each strake in a ring
@@ -2014,7 +2014,7 @@ function resolveMaterial(componentMaterial)
  *     So the axis is chosen by kind: the PARENT's axis for an assembly, and the
  *     line through the component's own mount point along its own direction --
  *     `line(tform.translation, tform.linear * (0, 0, 1))` -- for everything
- *     else.  On the centreline the parent's axis IS the world Z axis, so the
+ *     else.  On the centerline the parent's axis IS the world Z axis, so the
  *     common case is unchanged and the pod case becomes correct.  See note 35
  *     for why the parent and not `Z_AXIS` unconditionally.
  *
@@ -2072,7 +2072,7 @@ function resolveMaterial(componentMaterial)
  *         on the first stage and a fore connector on the second, which is the
  *         one joint that exists.  The condition is `numComponents`, not a stage
  *         count, and that is correct: a pod set occupying the same level is a
- *         component like any other and is mated to its neighbour the same way.
+ *         component like any other and is mated to its neighbor the same way.
  *
  *     `lastPosition` is the stage's aft end because the web app sets an
  *     assembly's `params.length` to the sum of its `after`-positioned children
@@ -2145,7 +2145,7 @@ function resolveMaterial(componentMaterial)
  *     one.
  *
  *     The mechanism is forced, and not in an obvious way.  A precondition is
- *     ANALYSED, never executed: Onshape builds the dialog from a static read of
+ *     ANALYZED, never executed: Onshape builds the dialog from a static read of
  *     the declaration, so the first attempt -- compute a local, then `if` on it --
  *     is not merely unidiomatic but illegal.  A `var` in a precondition is
  *     "Unexpected statement type (variable declaration)", and an `if` whose
@@ -2209,16 +2209,16 @@ function resolveMaterial(componentMaterial)
  *
  *     `createComponents` hands its caller a query, and the caller uses it for
  *     two things: the assembly's mate owner, and the composite part that wraps a
- *     stage's geometry.  Both want EVERYTHING below the level, but the value
- *     used to be only what that level drew for itself.
+ *     stage's geometry.  Both want EVERYTHING below the level, not only what
+ *     that level draws for itself.
  *
- *     The reason is that `componentQueryArray` collected `bodies`, and `bodies`
- *     is what `completeComponent` returned -- which, for anything that is not an
+ *     The trap is that `componentQueryArray` collects `bodies`, and `bodies`
+ *     is what `completeComponent` returns -- which, for anything that is not an
  *     assembly, is the component's OWN geometry and nothing else (note 3).  A
  *     child is not in its parent's `bodies`; a child is in the parent's
- *     `childrenQuery`, and only there.  So the query that came back up each
- *     level described that level's direct children and stopped, and the recursion
- *     lost a generation on the way up.
+ *     `childrenQuery`, and only there.  So a query of `bodies` alone describes
+ *     that level's direct children and stops, and the recursion loses a
+ *     generation on the way up.
  *
  *     It shows up wherever a component is a wrapper for geometry of its own
  *     rather than a leaf, which in an .ork file is exactly the tube coupler: it
@@ -2243,11 +2243,10 @@ function resolveMaterial(componentMaterial)
  *     the pattern would queue a query of deleted bodies into the composite part.
  *     Read after, a consumed set evaluates to zero and is skipped by the same
  *     test that already covers the empty case.
- *     test that already covers the empty case.
  *
  * 26. Why the editing logic, and not the precondition, reads the JSON
  *
- *     A precondition is ANALYSED, never executed, so its `if` statements may only
+ *     A precondition is ANALYZED, never executed, so its `if` statements may only
  *     test a parameter id (note 24).  Nothing derived from the attached file can
  *     be computed there.  The answer therefore has to travel in the definition as
  *     a parameter, and `oroEditingLogic` is what carries it.
@@ -2271,7 +2270,7 @@ function resolveMaterial(componentMaterial)
  *     failure mode worth avoiding: a silently ignored value is worse than a
  *     missing one.
  *
- * 28. Why the motor's name and colour are applied twice
+ * 28. Why the motor's name and color are applied twice
  *
  *     The mount's NAME, APPEARANCE and MATERIAL are set on every body the mount
  *     produced, and that includes the motor, which therefore inherits the
@@ -2330,7 +2329,7 @@ function resolveMaterial(componentMaterial)
  *     sets, every one with a stored value of 0.0.  Treating `surface` as a plain
  *     alias for `relative` would therefore have thrown every fin in the corpus
  *     clear off the rocket.  The web app is where that distinction is enforced;
- *     here it is only honoured.
+ *     here it is only honored.
  *
  * 31. `angleMethod`: what RELATIVE does and why FIXED is an empty branch
  *
@@ -2344,9 +2343,9 @@ function resolveMaterial(componentMaterial)
  *     the file is IGNORED.  So the FIXED case is the absence of a rotation, which
  *     is what falling through the RELATIVE branch already did.  It is spelled out
  *     as an empty branch anyway, so that it reads as the decision it is rather
- *     than as an oversight, and so that a value the parser did not recognise
+ *     than as an oversight, and so that a value the parser did not recognize
  *     cannot land here by accident and be mistaken for a handled case.  The
- *     parser warns on any method it does not honour and falls back to `relative`.
+ *     parser warns on any method it does not honor and falls back to `relative`.
  *
  * 32. What `radiusoffset method="surface"` means, and why the stored value is
  *     not added
@@ -2420,7 +2419,7 @@ function resolveMaterial(componentMaterial)
  *     anything.  A held array of entity references stays valid across the
  *     pattern: `opPattern` re-parents its source bodies under the new feature
  *     rather than deleting them, which is why std deletes its pattern seeds
- *     with an explicit `opDeleteBodies` afterwards (`sheetMetalPattern.fs`,
+ *     with an explicit `opDeleteBodies` afterward (`sheetMetalPattern.fs`,
  *     `patternSeeds`) -- they are still there and have to be removed on purpose.
  *     So the pre-pattern array is the only handle on the original instance, and
  *     appending it is what puts the first pod into the composite part.
@@ -2477,7 +2476,7 @@ function resolveMaterial(componentMaterial)
  *     the parent's axis is a line parallel to the rocket axis but offset from it
  *     by the outer pod's own radius.  Rotating about the world Z axis instead
  *     swings the inner pods around the ROCKET, at the outer pod's distance from
- *     the centreline, rather than a small circle about the pod they hang off.
+ *     the centerline, rather than a small circle about the pod they hang off.
  *
  *     `PodSet.getInstanceOffsets` returns an offset from the parent's axis, and
  *     the parent's axis is the only thing that agrees with it.  So the axis is

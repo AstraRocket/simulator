@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { gzipSync, zipSync, strToU8 } from 'fflate';
 import { parseDesignFile, sniffDesignFormat } from '../../../src/services/files/designFile';
 import { MAX_IMPORT_FILE_BYTES } from '../../../src/services/files/decodeText';
+import { MAX_AUTO_RADIUS_RUN } from '../../../src/services/files/ork/importLimits';
 
 const RKT = `<?xml version="1.0"?>
 <RockSimDocument><FileVersion>4</FileVersion><DesignInformation><RocketDesign>
@@ -151,5 +152,69 @@ describe('a gzipped .ork', () => {
 
   it('is refused once it inflates past the cap', () => {
     expect(() => parseDesignFile(gz(new Uint8Array(65 * 1024 * 1024)))).toThrow(/too large/);
+  });
+});
+
+// A crafted file of under 1 KB: each count is inside its own cap, but nesting multiplies them.
+describe('a design whose nested counts multiply out too far', () => {
+  const pods = (levels: number) => {
+    const tube = (inner = '') =>
+      `<bodytube><name>Tube</name><length>0.1</length><radius>0.01</radius><subcomponents>${inner}</subcomponents></bodytube>`;
+    // A pod set sits on a tube, so each level is a tube carrying 64 pods.
+    let inner = tube();
+    for (let i = 0; i < levels; i++) {
+      inner = tube(
+        `<podset><name>Pods</name><instancecount>64</instancecount><subcomponents>${inner}</subcomponents></podset>`,
+      );
+    }
+    return ORK.replace(/<bodytube>.*<\/bodytube>/s, inner);
+  };
+
+  it('is refused before the engine builds it', () => {
+    expect(() => parseDesignFile(pods(3))).toThrow(expect.objectContaining({ key: 'errors.file.tooManyInstances' }));
+  });
+
+  it('still opens with two levels of 64 pods', () => {
+    expect(parseDesignFile(pods(2)).tree.components).toHaveLength(1);
+  });
+});
+
+// Each automatic radius walks back to a sized part, so a long run stalls the build.
+describe('a design with a long run of automatic radii', () => {
+  const run = (autos: number) => {
+    const tube = (r: string) => `<bodytube><name>Tube</name><length>0.1</length><radius>${r}</radius></bodytube>`;
+    return ORK.replace(/<bodytube>.*<\/bodytube>/s, tube('0.01') + tube('auto').repeat(autos));
+  };
+
+  it('opens at the cap', () => {
+    expect(parseDesignFile(run(MAX_AUTO_RADIUS_RUN)).tree.components[0]?.children).toHaveLength(
+      MAX_AUTO_RADIUS_RUN + 1,
+    );
+  });
+
+  it('is refused one past it', () => {
+    expect(() => parseDesignFile(run(MAX_AUTO_RADIUS_RUN + 1))).toThrow(
+      expect.objectContaining({ key: 'errors.file.autoRadiusRunTooLong' }),
+    );
+  });
+
+  // The kernel's main line looks past an offset pod (SymmetricComponent.getPreviousSymmetricComponent),
+  // so a sized tube inside one does not end the chain around it.
+  const podded = (segments: number) => {
+    const tube = (r: string, inner = '') =>
+      `<bodytube><name>Tube</name><length>0.1</length><radius>${r}</radius><subcomponents>${inner}</subcomponents></bodytube>`;
+    const pod = `<podset><name>Pods</name><instancecount>2</instancecount><radiusoffset method="free">0.05</radiusoffset><subcomponents>${tube('0.01')}</subcomponents></podset>`;
+    const segment = tube('auto').repeat(MAX_AUTO_RADIUS_RUN - 1) + tube('auto', pod);
+    return ORK.replace(/<bodytube>.*<\/bodytube>/s, tube('0.01') + segment.repeat(segments));
+  };
+
+  it('opens a run at the cap that carries a pod with a sized tube', () => {
+    expect(parseDesignFile(podded(1)).tree.components[0]?.children).toHaveLength(MAX_AUTO_RADIUS_RUN + 1);
+  });
+
+  it('is refused when a pod with a sized tube sits inside a run past the cap', () => {
+    expect(() => parseDesignFile(podded(2))).toThrow(
+      expect.objectContaining({ key: 'errors.file.autoRadiusRunTooLong' }),
+    );
   });
 });

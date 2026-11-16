@@ -3,12 +3,9 @@ import { useWorkspaceStore, selectOutdated, selectShownSim, type WorkspaceState 
 import { simStatus, simStatusLabel, type SimStatus } from '../../services/flight/simulations';
 import { ResultPicker } from '../sim/ResultPicker';
 import { ViewToggle } from './ViewToggle';
-import { JOINED, ToolDivider, ToolGroup, ViewBtn } from './ViewBtn';
-import { Segmented } from '../common/Segmented';
+import { JOINED, SideAftPresets, ToolDivider, ToolGroup, ViewBtn } from './ViewBtn';
 import { ToggleButton } from '../common/ToggleButton';
 import { useViewPrefs } from './useViewPrefs';
-
-const TWO_D_VIEWS = ['side', 'aft'] as const;
 
 // A string, so subscribers re-render only when the status changes.
 const selectShownStatus = (s: WorkspaceState): SimStatus => {
@@ -68,20 +65,7 @@ export function CenterToolbar({
             )}
           </div>
         )}
-        {view === '2d' && (
-          <>
-            <ViewBtn onClick={onResetView}>{t('view.reset')}</ViewBtn>
-            <Segmented
-              size="bar"
-              options={TWO_D_VIEWS}
-              value={twoD}
-              onChange={onTwoD}
-              fmt={(v) => t(`view.${v}`)}
-              title={(v) => t(`view.${v}Title`)}
-            />
-            <ToolDivider />
-          </>
-        )}
+        {view === '2d' && <SideAftPresets value={twoD} onChange={onTwoD} onReset={onResetView} />}
         {view === '3d' && <div ref={onPresetSlot} className="flex items-center gap-1" />}
         {(view === '2d' || view === '3d') && (
           <>

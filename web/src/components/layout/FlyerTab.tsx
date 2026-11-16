@@ -5,6 +5,7 @@ import {
   CERT_LEVELS,
   CERT_ORGS,
   CERT_ORG_NAMES,
+  orgLabel,
   type CertOrg,
   type HeldLevel,
   type Membership,
@@ -16,10 +17,10 @@ const FIELD =
 
 export function FlyerTab() {
   const { t } = useTranslation();
-  const { settings, update } = useSettings();
+  const { settings, updateSection } = useSettings();
   const { flyer } = settings;
   const nameId = useId();
-  const setMemberships = (memberships: Membership[]) => update({ flyer: { ...flyer, memberships } });
+  const setMemberships = (memberships: Membership[]) => updateSection('flyer', { memberships });
   const patch = (i: number, p: Partial<Membership>) =>
     setMemberships(flyer.memberships.map((m, j) => (j === i ? { ...m, ...p } : m)));
 
@@ -33,7 +34,7 @@ export function FlyerTab() {
           type="text"
           value={flyer.name}
           maxLength={80}
-          onChange={(e) => update({ flyer: { ...flyer, name: e.target.value } })}
+          onChange={(e) => updateSection('flyer', { name: e.target.value })}
           className={`w-56 ${FIELD}`}
         />
       </label>
@@ -90,10 +91,8 @@ export function FlyerTab() {
             <button
               type="button"
               onClick={() => setMemberships(flyer.memberships.filter((_, j) => j !== i))}
-              aria-label={t('settings.removeMembership', {
-                org: m.org === 'other' ? m.orgName : CERT_ORG_NAMES[m.org],
-              })}
-              title={t('settings.removeMembership', { org: m.org === 'other' ? m.orgName : CERT_ORG_NAMES[m.org] })}
+              aria-label={t('settings.removeMembership', { org: orgLabel(m) || t('settings.orgOther') })}
+              title={t('settings.removeMembership', { org: orgLabel(m) || t('settings.orgOther') })}
               className={smallButton('xs', 'ink', 'ml-auto')}
             >
               ✕

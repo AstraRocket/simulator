@@ -5,6 +5,7 @@ import {
   plateOuter,
   resolveDisc,
   ringBore,
+  ringBoreNeedIn,
   tubeRadii,
   type Tube,
 } from '../../../src/services/design/discGeometry';
@@ -18,35 +19,50 @@ describe('discDims', () => {
   const tube: Tube = { outerR: 0.012, innerR: 0.011 };
 
   it('gives a coupler its bore', () => {
-    const d = discDims(node({ type: 'tubecoupler', thickness: 0.001, length: 0.05 }), tube, []);
+    const d = discDims(node({ type: 'tubecoupler', thickness: 0.001, length: 0.05 }), tube, null, 0);
     expect(d).not.toBeNull();
     expect(d!.innerR).toBeCloseTo(d!.outerR - 0.001, 12);
     expect(d!.length).toBeCloseTo(0.05, 12);
   });
 
   it('refuses a wall past the radius instead of reporting a solid rod', () => {
-    expect(discDims(node({ type: 'tubecoupler', thickness: 0.02, length: 0.05 }), tube, [])).toBeNull();
-    expect(discDims(node({ type: 'engineblock', thickness: 0.05 }), tube, [])).toBeNull();
+    expect(discDims(node({ type: 'tubecoupler', thickness: 0.02, length: 0.05 }), tube, null, 0)).toBeNull();
+    expect(discDims(node({ type: 'engineblock', thickness: 0.05 }), tube, null, 0)).toBeNull();
   });
 
   it('takes a wall exactly equal to the radius as a solid part', () => {
     // ThicknessRingComponent.loadFromPreset gives a 0-bore catalog part a full-radius wall; it flies solid.
     const r = plateOuter(node({ type: 'tubecoupler' }), tube);
-    const d = discDims(node({ type: 'tubecoupler', thickness: r }), tube, []);
+    const d = discDims(node({ type: 'tubecoupler', thickness: r }), tube, null, 0);
     expect(d).not.toBeNull();
     expect(d!.innerR).toBe(0);
   });
 
   it('still accepts a wall a real coupler uses', () => {
-    expect(discDims(node({ type: 'tubecoupler', thickness: 0.0005 }), tube, [])).not.toBeNull();
+    expect(discDims(node({ type: 'tubecoupler', thickness: 0.0005 }), tube, null, 0)).not.toBeNull();
   });
 
   it('gives a bulkhead no bore, which is what a bulkhead is', () => {
-    expect(discDims(node({ type: 'bulkhead' }), tube, [])?.innerR).toBe(0);
+    expect(discDims(node({ type: 'bulkhead' }), tube, null, 0)?.innerR).toBe(0);
+  });
+
+  it('bores an automatic ring only for a mount that passes through it', () => {
+    const parent = node({
+      type: 'bodytube',
+      length: 0.3,
+      outerRadius: 0.012,
+      children: [
+        { type: 'centeringring', id: 'r', length: 0.002, position: { method: 'top', offset: 0 } },
+        { type: 'innertube', id: 'i', length: 0.05, outerRadius: 0.009, position: { method: 'bottom', offset: 0 } },
+      ],
+    });
+    // The mount sits at the aft end; the ring at the fore end misses it.
+    expect(discDims(parent.children![0]!, tube, parent, 0)?.innerR).toBe(0);
+    expect(discDims(parent.children![0]!, tube, null, 0)?.innerR).toBe(0);
   });
 
   it('returns null for a type it does not size', () => {
-    expect(discDims(node({ type: 'bodytube' }), tube, [])).toBeNull();
+    expect(discDims(node({ type: 'bodytube' }), tube, null, 0)).toBeNull();
   });
 });
 
@@ -121,6 +137,11 @@ describe('ringBore past the parent end', () => {
     const p = parent(0.105, 0.09);
     expect(ringBore(p.children![0]!, p, 0.019, 0)).toBe(0.009);
   });
+  it("takes a keyless mount at InnerTube()'s radius", () => {
+    const p = parent(0.02, 0.01);
+    delete p.children![1]!['outerRadius'];
+    expect(ringBore(p.children![0]!, p, 0.019, 0)).toBe(KERNEL_DEFAULTS.innertube.outerRadius);
+  });
 });
 
 describe('boreAt on a nose cone', () => {
@@ -181,5 +202,67 @@ describe('a centering ring with no bore on record', () => {
 
   it('takes the bore of the mount it actually rings', () => {
     expect(resolveDisc(withKernelEnds(tree), 'ring')!.innerR).toBeCloseTo(0.015, 12);
+  });
+});
+
+describe('ringBoreNeedIn', () => {
+  const tree = (ring: object, mount: object = {}) =>
+    ({
+      name: 'R',
+      components: [
+        {
+          type: 'stage',
+          id: 'st',
+          children: [
+            {
+              type: 'bodytube',
+              id: 'tube',
+              length: 0.3,
+              outerRadius: 0.025,
+              thickness: 0.001,
+              children: [
+                {
+                  type: 'innertube',
+                  id: 'mount',
+                  length: 0.07,
+                  outerRadius: 0.009,
+                  position: { method: 'top', offset: 0 },
+                  ...mount,
+                },
+                {
+                  type: 'centeringring',
+                  id: 'ring',
+                  length: 0.002,
+                  outerRadius: 0.024,
+                  position: { method: 'top', offset: 0.01 },
+                  ...ring,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }) as unknown as RocketTree;
+
+  it('gives the hole a stated bore too small for the mount needs', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.0085 }), 'ring')).toBeCloseTo(0.009, 12);
+  });
+
+  it('passes a stated bore the mount fits, and one off by unit rounding', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.009 }), 'ring')).toBeNull();
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.009 - 1e-6 }), 'ring')).toBeNull();
+  });
+
+  it('leaves an automatic bore alone, since it is sized from the mounts', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.001, innerRadiusAuto: true }), 'ring')).toBeNull();
+  });
+
+  it('adds an off-axis mount its offset, since the stated hole is centered', () => {
+    expect(ringBoreNeedIn(tree({ innerRadius: 0.009 }, { radialPosition: 0.005 }), 'ring')).toBeCloseTo(0.014, 12);
+  });
+
+  it('ignores a mount the ring does not overlap', () => {
+    const t = tree({ innerRadius: 0.001, position: { method: 'top', offset: 0.2 } });
+    expect(ringBoreNeedIn(t, 'ring')).toBeNull();
   });
 });

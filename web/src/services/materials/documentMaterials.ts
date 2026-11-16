@@ -1,6 +1,6 @@
 // Desktop's document material database (`DocumentPreferences.getDatabase(type)`), in `<docprefs><docmaterials>`.
 import type { RocketTree } from '../../engine/openRocketEngine';
-import { isMaterialType, type MaterialType } from './materialTypes';
+import { isMaterialFields, type MaterialType } from './materialTypes';
 import { mathEquals } from '../motors/mathEquals';
 
 export interface DocumentMaterial {
@@ -8,21 +8,13 @@ export interface DocumentMaterial {
   type: MaterialType;
   // SI: bulk kg/m^3, surface kg/m^2, line kg/m.
   density: number;
+  // Pa: desktop's `inPlaneShearModulus`, 0 when unset.
+  shearModulus?: number;
   group?: string;
 }
 
 export function isDocumentMaterial(v: unknown): v is DocumentMaterial {
-  const m = v as DocumentMaterial | null;
-  return (
-    !!m &&
-    typeof m.name === 'string' &&
-    m.name.trim().length > 0 &&
-    isMaterialType(m.type) &&
-    typeof m.density === 'number' &&
-    Number.isFinite(m.density) &&
-    m.density > 0 &&
-    (m.group === undefined || typeof m.group === 'string')
-  );
+  return isMaterialFields(v);
 }
 
 export function documentMaterialsOf(
@@ -35,7 +27,10 @@ export function documentMaterialsOf(
 
 // As `Material.equals`: one name at two densities is two materials, as `Database.add` keeps both.
 const sameDocumentMaterial = (a: DocumentMaterial, b: DocumentMaterial): boolean =>
-  a.type === b.type && a.name === b.name && mathEquals(a.density, b.density);
+  a.type === b.type &&
+  a.name === b.name &&
+  mathEquals(a.density, b.density) &&
+  mathEquals(a.shearModulus ?? 0, b.shearModulus ?? 0);
 
 export function withDocumentMaterial(list: DocumentMaterial[], m: DocumentMaterial): DocumentMaterial[] {
   return list.some((x) => sameDocumentMaterial(x, m)) ? list : [...list, m];

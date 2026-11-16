@@ -4,7 +4,7 @@ import { EXHAUST_LOOKS, exhaustIdFor, type ExhaustId } from '../../services/moto
 import type { CatalogMotor } from '../../services/motors/motorDb';
 import { useCatalog } from './useCatalog';
 import { ExhaustPreview } from './ExhaustPreview';
-import { CatalogError, CatalogLoading } from '../common/CatalogLoading';
+import { MotorCatalogGate } from './MotorCatalogGate';
 
 function propellantsByLook(catalog: readonly CatalogMotor[]): Map<ExhaustId, { names: string[]; sparky: number }> {
   const out = new Map<ExhaustId, { names: Set<string>; sparky: number }>();
@@ -32,8 +32,7 @@ export function ExhaustStylesPane() {
         <h3 className="text-sm font-semibold text-ink">{t('exhaust.title')}</h3>
         <p className="mt-1 text-xs text-ink-muted">{t('exhaust.intro')}</p>
       </div>
-      {error && <CatalogError message={`${t('catalog.failedMotors')} ${error}`} onRetry={retry} />}
-      {loading && <CatalogLoading name="motors" label={t('catalog.loadingMotors')} />}
+      <MotorCatalogGate loading={loading} error={error} onRetry={retry} />
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {EXHAUST_LOOKS.map(({ id, look }) => {
           const entry = byLook.get(id);

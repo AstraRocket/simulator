@@ -1,10 +1,12 @@
 import { zipSync, strToU8 } from 'fflate';
 import { exportOrk, type OrkTreeExportInput } from './orkFile';
-import { saveBlob, exportFilename } from './saveFile';
+import { saveBlob, saveText, exportFilename } from './saveFile';
 import type { RocketTree } from '../../engine/openRocketEngine';
 import type { Keyed } from '../../i18n/keyedError';
 import type { ComponentFigures, StageFigures } from './rktExport';
 import { loadSettings } from '../storage/settings';
+import { collectNodes } from '../../tree/treeWalk';
+import { notePartName } from './importNote';
 
 export function orkArchive(input: OrkTreeExportInput): Uint8Array {
   const xml = exportOrk(input);
@@ -16,6 +18,11 @@ export function orkArchive(input: OrkTreeExportInput): Uint8Array {
     }
   }
   return zipSync(files, { level: 6 });
+}
+
+/** Parts desktop has no element for: its `ComponentHandler` skips them, mass and all, when it opens the file. */
+export function partsDesktopDrops(tree: RocketTree): (string | Keyed)[] {
+  return collectNodes(tree.components, (n) => n.type === 'fairing').map(notePartName);
 }
 
 function orkBlob(input: OrkTreeExportInput): Blob {
@@ -35,6 +42,6 @@ export async function downloadRkt(
 ): Promise<Keyed[]> {
   const { exportRkt } = await import('./rktExport');
   const { xml, skipped } = exportRkt(name, tree, componentInfo, stageFigures);
-  await saveBlob(new Blob([xml], { type: 'application/xml' }), exportFilename([name, 'design'], 'rkt'));
+  await saveText(xml, exportFilename([name, 'design'], 'rkt'), 'application/xml');
   return skipped;
 }

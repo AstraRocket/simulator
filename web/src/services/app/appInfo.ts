@@ -7,6 +7,8 @@ export const HELP_URL: string = __HELP_URL__;
 
 const withTrailingSlash = (url: string): string => url.replace(/\/*$/, '/');
 
+export const LOGO_URL = `${withTrailingSlash(import.meta.env.BASE_URL)}favicon.svg`;
+
 export const DOC_LOCALES = new Set(['es']);
 export function helpUrlFor(language: string): string {
   const lang = baseLanguage(language);

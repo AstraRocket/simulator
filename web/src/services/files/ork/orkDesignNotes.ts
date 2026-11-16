@@ -1,8 +1,8 @@
 import type { RevisionEntry, RocketTree } from '../../../engine/openRocketEngine';
 import { escapeXml } from '../xmlUtil';
+import { NOTES_TAG } from './appTags';
 
 /** Notes desktop has no field for. It ignores this element, and drops it if it saves the file. */
-const NOTES_TAG = 'astrarocketnotes';
 
 type DesignNotes = Pick<RocketTree, 'kitManufacturer' | 'kitPartNumber' | 'revisionLog'>;
 

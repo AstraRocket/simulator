@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore } from '../../state/store';
-import { confirm } from '../../state/confirmStore';
 import { MasterDetail, MasterRow, MasterDetailDialog } from '../common/MasterDetail';
 import { useGuardedSelection } from '../common/useGuardedSelection';
 import { useUnits } from '../../prefs/useUnits';
@@ -26,7 +25,7 @@ export function LocationsDialog({
 
   const { locations, error: listError, write } = useLocationList();
   // `null` = nothing selected. A string = that location. `'new'` = the draft.
-  const { selectedId, select, settle, close, onDirtyChange, err, setErr } = useGuardedSelection(
+  const { selectedId, select, settle, close, onDirtyChange, err, setErr, removeWith } = useGuardedSelection(
     t('location.discardConfirm'),
   );
 
@@ -41,15 +40,10 @@ export function LocationsDialog({
     if (await store(() => getLaunchLocationStore().save(location))) settle(location.id);
   };
 
-  const remove = async (location: LaunchLocation) => {
-    const ok = await confirm({
-      message: t('location.deleteConfirm', { name: location.name }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
-    if (!ok) return;
-    if (await store(() => getLaunchLocationStore().remove(location.id))) settle(null);
-  };
+  const remove = (location: LaunchLocation) =>
+    removeWith(t('location.deleteConfirm', { name: location.name }), () =>
+      store(() => getLaunchLocationStore().remove(location.id)),
+    );
 
   const apply = (location: LaunchLocation) => {
     if (onApply) onApply(location);

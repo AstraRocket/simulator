@@ -5,7 +5,7 @@ import { RevisionLog } from '../../../src/components/design/RevisionLog';
 import { useWorkspaceStore } from '../../../src/state/store';
 import { renderWithProviders } from '../../testing/renderWithProviders';
 
-vi.mock('../../../src/state/confirmStore', () => ({ confirm: vi.fn(async () => true) }));
+vi.mock('../../../src/state/confirmStore', () => ({ confirmDelete: vi.fn(async () => true) }));
 
 describe('RevisionLog', () => {
   const updateDesignMeta = vi.fn();

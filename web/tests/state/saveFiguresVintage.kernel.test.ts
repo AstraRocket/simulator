@@ -6,7 +6,11 @@ import { loadEngine } from '../testing/kernelGeometry';
 
 const downloadOrk = vi.hoisted(() => vi.fn());
 const downloadRkt = vi.hoisted(() => vi.fn());
-vi.mock('../../src/services/files/saveOrk', () => ({ downloadOrk, downloadRkt }));
+vi.mock('../../src/services/files/saveOrk', async (orig) => ({
+  ...(await orig<typeof import('../../src/services/files/saveOrk')>()),
+  downloadOrk,
+  downloadRkt,
+}));
 
 const digests = vi.hoisted(() => ({ hold: false, release: null as null | (() => void) }));
 vi.mock('../../src/services/motors/exportMotors', async (orig) => ({

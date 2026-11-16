@@ -1,13 +1,15 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { profileEnds } from '../../tree/shapeProfile';
 import { countOf, num } from '../../tree/nodeProps';
-import { DISPLAY_NAME } from '../../tree/schema.js';
 import { ringInstanceOffsets } from '../../tree/assembly.js';
 import { token } from '../common/colorTokens';
 import { dashOf } from '../../services/design/figureStyle';
-import { colorOf, profilePath, unionBox, type Ctx, type HoverBox } from '../../tree/schematicGeometry';
+import { colorOf, figureToken, profilePath, unionBox, type Ctx, type HoverBox } from '../../tree/schematicGeometry';
 
 export const fillOf = colorOf;
+
+/** A part's own color, else its kind's figure token. */
+export const figureInk = (n: ComponentNode): string => colorOf(n, token(figureToken(n.type)));
 
 /** `p` = cos(angle): +1 up, 0 edge-on, -1 down. `near` (+z) draws whole; far fins clip at the wall. */
 interface FinInstance {
@@ -32,8 +34,9 @@ export interface SchematicShapesCfg {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   setHoverId: React.Dispatch<React.SetStateAction<string | null>>;
-  partName?: (n: ComponentNode) => string;
-  typeTag?: (type: string) => string;
+  /** Required, with `typeTag`: a drawing without them would label parts in English. */
+  partName: (n: ComponentNode) => string;
+  typeTag: (type: string) => string;
 }
 
 export type HoverExtents = Map<string, { box: HoverBox; name: string }>;
@@ -47,8 +50,7 @@ export type HoverExtents = Map<string, { box: HoverBox; name: string }>;
 // eslint-disable-next-line max-lines-per-function -- small helpers over one config; see the comment above
 export function createPainter(cfg: SchematicShapesCfg) {
   const { ctx, roll, uid, motors, selectedId, onSelect, setHoverId } = cfg;
-  const nameOf = (n: ComponentNode): string =>
-    cfg.partName?.(n) ?? ((typeof n.name === 'string' && n.name.trim()) || DISPLAY_NAME[n.type]);
+  const nameOf = cfg.partName;
 
   const isSel = (n: ComponentNode) => !!selectedId && n.id === selectedId;
   const clickable = (n: ComponentNode) => ({

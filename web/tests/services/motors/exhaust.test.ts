@@ -66,6 +66,14 @@ describe('the looks of a flight', () => {
     const config = { motors: { m1: { spec: spec('Z9') } } } as unknown as FlightConfig;
     expect(burnExhausts(tree, config, catalog, find)).toEqual([DEFAULT_EXHAUST]);
   });
+
+  it('skips a stage the configuration grounds', () => {
+    const config = {
+      motors: { m1: { spec: spec('G64') }, m2: { spec: spec('H128') } },
+      grounded: ['boo'],
+    } as unknown as FlightConfig;
+    expect(burnExhausts(tree, config, catalog, find)).toEqual([look('Blackjack')]);
+  });
 });
 
 describe('the looks by name', () => {

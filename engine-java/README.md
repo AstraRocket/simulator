@@ -38,27 +38,27 @@ OpenRocket's full `core` is ~700 files and pulls in Guice, JAXB, GraalVM-JS, cla
 
 **Extraction** = copying only the 273 files the physics + simulation actually need, leaving the reflection/IO-heavy machinery (file loaders, plugin system, scripting, Swing hooks) behind. These files are **real OpenRocket source**: 255 are byte-for-byte upstream; 18 carry overrides (see `patches/`). By package:
 
-| files | package | what it is |
-|------:|---------|------------|
-| 73 | `rocketcomponent` | rocket model: nose, body, fins, stages, mounts, flight configs |
-| 60 | `util` | math/geometry (Coordinate, quaternions, interpolation) |
-| 1 | `utils` | `MotorCorrelation`: how alike two thrust curves are, for the motor picker |
-| 42 | `simulation` | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data |
-| 19 | `aerodynamics` | Extended Barrowman + RASAero CP / drag / stability (force breakdown) |
-| 16 | `unit` | unit system (internals are pure SI) |
-| 12 | `models` | atmosphere (ISA), gravity models, wind |
-| 10 | `motor` | thrust-curve motor model |
-| 4 | `masscalc` | CG / mass / moment-of-inertia |
-| … | rest | logging, l10n, materials, presets, appearance, startup |
+| files | package           | what it is                                                                     |
+| ----: | ----------------- | ------------------------------------------------------------------------------ |
+|    73 | `rocketcomponent` | rocket model: nose, body, fins, stages, mounts, flight configs                 |
+|    60 | `util`            | math/geometry (Coordinate, quaternions, interpolation)                         |
+|     1 | `utils`           | `MotorCorrelation`: how alike two thrust curves are, for the motor picker      |
+|    42 | `simulation`      | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data |
+|    19 | `aerodynamics`    | Extended Barrowman + RASAero CP / drag / stability (force breakdown)           |
+|    16 | `unit`            | unit system (internals are pure SI)                                            |
+|    12 | `models`          | atmosphere (ISA), gravity models, wind                                         |
+|    10 | `motor`           | thrust-curve motor model                                                       |
+|     4 | `masscalc`        | CG / mass / moment-of-inertia                                                  |
+|     … | rest              | logging, l10n, materials, presets, appearance, startup                         |
 
 ### 2. `patches/`: full-file overrides of extracted sources
 
-**These are not diffs.** Each file under `patches/` is a *complete, hand-edited copy* of the OpenRocket file at the same relative path; extract writes it **instead of** the pristine upstream one. "Applying a patch" is a file-level swap, not a `git apply`. Two kinds:
+**These are not diffs.** Each file under `patches/` is a _complete, hand-edited copy_ of the OpenRocket file at the same relative path; extract writes it **instead of** the pristine upstream one. "Applying a patch" is a file-level swap, not a `git apply`. Two kinds:
 
 - **TeaVM-compat**: e.g. `UUID`→`LongUUID`, `ConcurrentHashMap`/`ConcurrentLinkedQueue`→plain collections, `String.format("%g")`→`%s`, replacing `BarrowmanCalculator`'s reflective `Class.forName(...)` calc lookup with an explicit `instanceof` chain, dropping `java.awt.geom` (`FinSet`/`FreeformFinSet` now use the `Geo2D` shim; `BoundingBox` simply loses its two `Rectangle2D` methods), and a copy-constructor `ArrayList.clone()` (WASM-GC's strict casts reject the JVM's `(ArrayList) super.clone()`).
 - **Opt-in RASAero supersonic-aero extensions**: default-off feature code (`../docs/rasaero/` holds dated physics notes; their diffs predate the current patches, so use the `diff -u` command below to see what a patch changes today).
 
-To change a patch, edit the whole file under `patches/…` (it *is* the patch). To view what a patch changed vs upstream: `diff -u <openrocket-src>/…/X.java patches/…/X.java`.
+To change a patch, edit the whole file under `patches/…` (it _is_ the patch). To view what a patch changed vs upstream: `diff -u <openrocket-src>/…/X.java patches/…/X.java`.
 
 ### 3. `src/shims/`: whole classes we provide instead of OpenRocket's
 
@@ -68,7 +68,7 @@ Where an extracted file is impractical, the upstream class is **not extracted at
 
 Just `java.text.Collator`, the one `java.*` class the extracted physics needs that TeaVM's class library lacks (motor-name sorting). Compiled in a separate source set via `--patch-module` (JPMS forbids `java.*` in the unnamed module, and it can't mix with ordinary sources); on a real JVM the genuine JDK `Collator` wins, so it affects only the TeaVM build. (The kernel uses the `Geo2D` shim above in place of `java.awt.geom`.)
 
-**Rule of thumb:** JDK gap → *jdkstub*; provide a class instead of OpenRocket's → *shim*; edit OpenRocket's class in place → *patch*.
+**Rule of thumb:** JDK gap → _jdkstub_; provide a class instead of OpenRocket's → _shim_; edit OpenRocket's class in place → _patch_.
 
 ### 5. `src/api/`: the @JSExport facade (the browser's entry point)
 
@@ -78,7 +78,7 @@ Just `java.text.Collator`, the one `java.*` class the extracted physics needs th
 
 The facade has two failure contracts, decided by the return type:
 
-- **JSON-returning methods** (`getStaticInfo`, `getComponentInfo`, `getComponentMasses`, `getAeroSweep`, `simulate`, `simulateJson`) never throw for a bad input or a failed computation. They return an `{"error": "<message>"}` envelope and the wrapper reads it.
+- **JSON-returning methods** (`getStaticInfo`, `getRockSimStageFigures`, `getComponentInfo`, `getComponentMasses`, `getAeroSweep`, `simulate`, `simulateJson`) never throw for a bad input or a failed computation. They return an `{"error": "<message>"}` envelope and the wrapper reads it.
 - **Void and primitive-returning methods** cannot carry an envelope (there is nowhere in an `int`, a `double` or a `void` to put a message), so they **throw** instead: `buildRocket`, `newRocket`, `setMotor`, `setMotorById`, `setMotorIgnitionById`, `getWorstThetaDeg`, `getStandardPressure`, `getMotorSimilarity`, the flag setters (`setRogersModifiedBarrowman`, `setStubbyNoseDrag`, `setSupersonicAero`) and the `addX` builders (`addNoseCone`, `addBodyTube`, `addTrapezoidFins`, `addInnerTube`, `addParachute`). A rejected input is an `IllegalArgumentException` with a message that names the field (an unknown handle, a non-mount component id, a non-finite ignition delay, a malformed thrust curve); anything else is whatever `RuntimeException` the kernel raised. On both targets the exception crosses into JavaScript as a throw carrying the Java message. Callers must not inspect the return value of these methods for an `error` key; there is none.
 
 The TypeScript wrapper (`../web/src/engine/openRocketEngine.ts`) runs every one of these through `callEngine`, which rethrows the failure as an `EngineCallError` whose `operation` names the facade method and whose message keeps the kernel text. A design used after `resetEngine()` throws `StaleDesignError` ahead of the call, and `callEngine` lets that one through untouched. The wrapper also validates the motor curve and the ignition delay itself before calling in, so the kernel guards are the second line of defense, not the only one.
@@ -88,7 +88,10 @@ The TypeScript wrapper (`../web/src/engine/openRocketEngine.ts`) runs every one 
 `extract/extract.mjs` regenerates `src/java/` from an OpenRocket source tree. It is manifest-driven and idempotent; for each path in `extract/manifest.txt` it writes the `patches/` file if one exists there, else the verbatim upstream file:
 
 ```js
-const want = readFileSync(patchSet.has(rel) ? join(patchesRoot, rel) : upstream, 'utf8');
+const want = readFileSync(
+  patchSet.has(rel) ? join(patchesRoot, rel) : upstream,
+  "utf8",
+);
 ```
 
 ```bash
@@ -104,17 +107,21 @@ Guardrails: `--check` writes nothing and **exits non-zero** on any of:
 - an extracted file that differs from `upstream(+patch)`;
 - an extracted file not in the manifest (it compiles, but a regeneration would not produce it);
 - an extracted file carrying any `PATCH(...)` marker with **no** `patches/` counterpart (a regeneration would silently revert it);
-- a patch whose divergence from upstream does not match the blessed baseline in `extract/DIVERGENCE.txt`, or that baseline being absent.
+- a patch whose divergence from upstream does not match the blessed baseline in `extract/DIVERGENCE.txt`, or that baseline being absent;
+- the manifest's file list, or the content of the upstream files it names, differing from the `@manifest` and `@upstream` fingerprints in that baseline (so `--src`, `OPENROCKET_SRC` or an edited cache cannot stand in for the pinned commit);
+- a fingerprint in that baseline that `patches/LEDGER.md` does not quote (its first 12 characters);
+- a shadowed upstream class moving since `extract/SHIMS.txt` recorded it, or that file being absent;
+- a class in `src/api/java`, `test/` or `src/jdkstubs` that declares a name upstream has (only the manifest and the shims may provide one).
 
 A `patches/` file whose path isn't in the manifest is a hard error (it would silently never apply).
 
-**`extract/DIVERGENCE.txt` is the load-bearing guardrail**, and it is worth being precise about why. The first four bullets all rest on one invariant, `src/java == upstream + patches`. The patches are an **input** to that equation, so the invariant can never question them: edit a `patches/` file and `src/java` together and the check is green by construction, whatever you put there. `DIVERGENCE.txt` records, per patch, how many lines it differs from upstream by (a real LCS diff), plus a sha256 of the patch and of the upstream file it replaces, and `--check` recomputes all three and fails on any change. Changing a patch therefore means running `--bless` and explaining the new number in review.
+**`extract/DIVERGENCE.txt` is the load-bearing guardrail**, and it is worth being precise about why. The first four bullets all rest on one invariant, `src/java == upstream + patches`. The patches are an **input** to that equation, so the invariant can never question them: edit a `patches/` file and `src/java` together and the check is green by construction, whatever you put there. `DIVERGENCE.txt` records, per patch, how many lines it differs from upstream by (a real LCS diff), plus a sha256 of the patch and of the upstream file it replaces, and `--check` recomputes all three and fails on any change. Changing a patch therefore means running `--bless`, which prints the LEDGER line to write, and quoting the new fingerprint in `patches/LEDGER.md` with the reason; until that entry exists, `--check` fails. A bless alone accepts nothing.
 
 A delta of 0 fails `--check` and `--bless` refuses it; delete the patch.
 
 Comparing `src/java` to the patch also can never see upstream moving underneath; the per-patch numbers and upstream hashes are what surface that on an upgrade.
 
-`--check` is only meaningful against the exact upstream the extraction was made from, pinned in `extract/UPSTREAM`. CI does not run it; `npm run audit` does.
+`--check` is only meaningful against the exact upstream the extraction was made from, pinned in `extract/UPSTREAM`. CI runs it on every pull request (the `engine` job in `gates.yml`), and so does `npm run audit`.
 
 **At build time nothing is applied**: `src/java/` is committed already in its final state, so Gradle just compiles it. Extraction is a deliberate step you run only on an OpenRocket upgrade (then re-audit each `patches/` file against the new upstream).
 
@@ -124,7 +131,7 @@ There is a `package.json` here with no dependencies and nothing to install. It e
 the Node helper scripts named entry points, so `npm run parity` works the way it does in `web/`:
 
 ```bash
-npm run audit          # every engine check CI does not run, in order, stopping at the first failure
+npm run audit          # every engine check, in order, stopping at the first failure (CI runs only extract and the floors)
 npm run build          # both targets, vendored into ../web/   (= node build-engine.mjs)
 npm run build:js       # JS only
 npm run build:wasm     # WASM-GC only
@@ -133,7 +140,8 @@ npm run parity:js      # JS only          npm run parity:wasm   # WASM-GC only
 npm run parity:golden  # rewrite golden.txt (deliberate physics changes only)
 npm run validate       # aero scorecard   npm run validate:supersonic / :strict (fails today by design)
 npm run extract:check    # no arguments: fetches the pinned upstream itself
-npm run extract:bless    # re-record extract/DIVERGENCE.txt + SHIMS.txt
+npm run extract:bless    # re-record extract/DIVERGENCE.txt, then quote what it prints in patches/LEDGER.md
+npm run extract:bless-shims   # re-record extract/SHIMS.txt, after re-reading each flagged upstream class
 ```
 
 **You do not need to clone OpenRocket by hand.** With no `--src` and no
@@ -145,7 +153,7 @@ so bumping the pin re-fetches instead of silently checking against the old
 commit. `--refresh` forces it; `--src <path>` still points at your own checkout,
 which is what you want offline.
 
-`--bless` and `--check` both write nothing to `src/java`. Only a bare
+`--bless`, `--bless-shims` and `--check` write nothing to `src/java`. Only a bare
 `extract --src …` regenerates the tree, and on a CRLF checkout that rewrites all
 273 files to LF, so do not run it casually.
 
@@ -161,7 +169,7 @@ node build-engine.mjs --wasm     # WASM → ../web/public/engine/openrocket-engi
 ./gradlew buildWasmGC            # WASM-GC target (teavm.wasmGC)
 ```
 
-Both targets compile from the same sources and are checked against the JVM (tolerances under Tests below). Change a Java source → rebuild **both** artifacts (`.mjs` + `.wasm`); `npm run audit` rebuilds them and fails if the committed artifacts differ. CI does not, so run it before pushing an engine change.
+Both targets compile from the same sources and are checked against the JVM (tolerances under Tests below). Change a Java source → rebuild **both** artifacts (`.mjs` + `.wasm`); `npm run audit` rebuilds them and fails if the result differs from the vendored artifacts it started with. CI does not, so run it before pushing an engine change.
 
 Non-obvious, load-bearing settings in `build.gradle`:
 

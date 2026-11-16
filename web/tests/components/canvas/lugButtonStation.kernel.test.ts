@@ -9,6 +9,7 @@ import { syncDerived } from '../../../src/services/design/treeEdit';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 import { kernelGeometry, loadEngine, type KernelGeometry } from '../../testing/kernelGeometry';
 import { KERNEL_TEST_TIMEOUT_MS } from '../../testing/kernelTimeout';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 vi.setConfig({ testTimeout: KERNEL_TEST_TIMEOUT_MS, hookTimeout: KERNEL_TEST_TIMEOUT_MS });
 
@@ -97,6 +98,7 @@ const sideCenter = (id: string): number => {
     roll: 0,
     uid: 't',
     setHoverId: () => {},
+    ...ENGLISH_LABELS,
   });
   const box = extents.get(id)!.box;
   return (box.x0 + box.x1) / 2 / S;

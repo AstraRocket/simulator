@@ -1,8 +1,7 @@
 import { getDesignLibrary } from '../services/storage/designLibrary';
-import { getWorkspaceStore } from '../services/storage/workspaceStore';
-import { saveFailure, workspaceSnapshot } from './workspaceSelectors';
+import { saveFailure } from './workspaceSelectors';
 import type { WorkspaceState } from './store';
-import { recordWrite, savesHeld, unchangedSinceWrite, voidPendingAutosave } from './writtenWorkspace';
+import { nothingToWrite, voidPendingAutosave, writeWorkspace } from './writtenWorkspace';
 
 // Every workspace replace bumps this; each continuation re-checks it after every await.
 let workspaceGen = 0;
@@ -20,12 +19,9 @@ export function workspaceHandoff(get: () => WorkspaceState) {
   // False if storage refused it; callers report it, since only the autosave raises the banner.
   const flushActive = async (): Promise<boolean> => {
     const fields = get();
-    if (unchangedSinceWrite(fields)) return true;
-    // The open design is being deleted (see `holdSaves`).
-    if (savesHeld()) return true;
+    if (nothingToWrite(fields)) return true;
     try {
-      await getWorkspaceStore().save(workspaceSnapshot(fields));
-      recordWrite(fields, get());
+      await writeWorkspace(fields, get);
       return true;
     } catch (e) {
       lastFlushFailure = e;

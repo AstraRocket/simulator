@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { latLonUnit } from '../../services/map/slippyMap';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
 import { UnitChip } from '../common/UnitChip';
@@ -12,6 +13,8 @@ import { LAUNCH_SITE_LIMITS as LIMITS, type LaunchLocation } from '../../service
 import { EditorFooter, EditorBack } from '../common/MasterDetail';
 import { useReportDirty } from '../common/useGuardedSelection';
 
+import { nameTaken } from '../../services/app/names';
+import { StackedField } from '../common/StackedField';
 /** The parent keys this on the location, so selecting another re-seeds by remount. */
 export function LocationEditor({
   location,
@@ -33,6 +36,7 @@ export function LocationEditor({
   const { t } = useTranslation();
   const u = useUnits();
   const nameRef = useRef<HTMLInputElement>(null);
+  const nameId = useId();
 
   const [name, setName] = useState(location?.name ?? '');
   const [lat, setLat] = useState<number | null>(location?.latitudeDeg ?? null);
@@ -47,7 +51,7 @@ export function LocationEditor({
   }, [location]);
 
   const trimmed = name.trim();
-  const duplicate = trimmed !== '' && takenNames.some((n) => n.toLowerCase() === trimmed.toLowerCase());
+  const duplicate = nameTaken(trimmed, takenNames);
   // A blank elevation is unknown, never sea level.
   const valid = trimmed !== '' && lat !== null && lon !== null;
 
@@ -95,20 +99,21 @@ export function LocationEditor({
       >
         <EditorBack onBack={onBack} label={t('location.back')} className="-mb-1 self-start" />
 
-        <label className="block text-xs text-ink-muted">
-          {t('location.name')}
-          <input
+        <div>
+          <StackedField
+            id={nameId}
+            label={t('location.name')}
+            labelClassName="block text-xs font-medium text-ink-muted"
             ref={nameRef}
             value={name}
             maxLength={80}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg bg-raised px-3 py-2 text-sm text-ink-strong ring-1 ring-line/10 focus:ring-accent-500"
           />
-        </label>
+        </div>
         {duplicate && <p className="text-[11px] leading-snug text-warn-400">{t('location.duplicateName')}</p>}
 
         <div key={revision} className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
-          <Row label={t('launch.latitude')} unit="°">
+          <Row label={t('launch.latitude')} unit={latLonUnit('latitudeDeg', lat)}>
             <NumberInput
               ariaLabel={t('launch.latitude')}
               value={lat}
@@ -119,7 +124,7 @@ export function LocationEditor({
               className={numberClass}
             />
           </Row>
-          <Row label={t('launch.longitude')} unit="°">
+          <Row label={t('launch.longitude')} unit={latLonUnit('longitudeDeg', lon)}>
             <NumberInput
               ariaLabel={t('launch.longitude')}
               value={lon}
@@ -158,6 +163,8 @@ export function LocationEditor({
           onPick={(la, lo) => {
             setLat(la);
             setLon(lo);
+            // The old elevation belongs to the old spot, as the launch panel's own pick treats it.
+            setAlt(null);
           }}
           className="min-h-[14rem] flex-1"
         />

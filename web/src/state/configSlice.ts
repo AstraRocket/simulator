@@ -10,6 +10,7 @@ import {
   newFlightConfig,
   reconcileConfigs,
   mountIgnition,
+  sameMotorSpec,
   sameIgnition,
   type FlightConfig,
   type MountMotor,
@@ -33,6 +34,8 @@ export interface ConfigSlice {
   setSelectedConfigId: (id: string | null) => void;
   setConfigsTab: (tab: ConfigsTab) => void;
   setMountMotor: (configId: string, mountId: string, m: MotorSpec) => void;
+  /** One undo step for all of them; each mount keeps its ignition. Null empties the mount. */
+  setMountMotors: (configId: string, specs: Record<string, MotorSpec | null>) => void;
   /** `all` matches desktop's IgnitionSelectionDialog "Change all configurations". */
   setMountIgnition: (
     configId: string,
@@ -84,22 +87,11 @@ export function sanitizeConfigs(tree: RocketTree, configs: FlightConfig[]): Flig
   return reconcileConfigs(tree, safe.length ? safe : [defaultConfig(tree)]);
 }
 
-/** A catalog pick builds a new object each time, so reference equality is not enough. */
-function sameMotorSpec(a: MotorSpec, b: MotorSpec): boolean {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof MotorSpec)[]);
-  for (const k of keys) {
-    const x = a[k];
-    const y = b[k];
-    if (Array.isArray(x) && Array.isArray(y)) {
-      if (x.length !== y.length || x.some((v, i) => v !== y[i])) return false;
-    } else if (x !== y) return false;
-  }
-  return true;
-}
-
 interface ConfigSliceShared extends EditSteps {
   seed: FlightConfig;
 }
+
+type NestedOverrides = { deployments: DeployOverride; separations: SepOverride };
 
 export const createConfigSlice =
   ({ seed, beginEdit, commitEdit, recordStep }: ConfigSliceShared): StateCreator<WorkspaceState, [], [], ConfigSlice> =>
@@ -111,6 +103,25 @@ export const createConfigSlice =
         const edited = mutate(current);
         if (edited === current) return {};
         return { configs: replaceById(s.configs, configId, () => edited) };
+      });
+    };
+    // A new config object would read as a changed input and drop a run in flight.
+    const setNested = <F extends keyof NestedOverrides, K extends keyof NestedOverrides[F]>(
+      configId: string,
+      field: F,
+      id: string,
+      key: K,
+      value: NestedOverrides[F][K] | null,
+    ) => {
+      const mapOf = (c: FlightConfig) => c[field] as Record<string, NestedOverrides[F]> | undefined;
+      const config = get().configs.find((c) => c.id === configId);
+      if (!config || holdsKey(mapOf(config)?.[id], key, value)) return;
+      beginEdit();
+      patchConfig(configId, (c) => {
+        const map = mapOf(c);
+        // Removed, not stored as undefined: a key holding `undefined` still counts as an override.
+        const inner = nonEmpty(withKey(map?.[id], key, value));
+        return { ...c, [field]: nonEmpty(withKey(map, id, inner ?? null)) };
       });
     };
 
@@ -128,6 +139,24 @@ export const createConfigSlice =
         if (seated && sameMotorSpec(seated.spec, m)) return;
         recordStep();
         patchConfig(configId, (c) => ({ ...c, motors: { ...c.motors, [mountId]: { ...c.motors[mountId], spec: m } } }));
+      },
+      setMountMotors: (configId, specs) => {
+        const current = get().configs.find((c) => c.id === configId);
+        if (!current) return;
+        const moves = Object.entries(specs).filter(([id, m]) => {
+          const seated = current.motors[id]?.spec;
+          return m ? !seated || !sameMotorSpec(seated, m) : !!seated;
+        });
+        if (!moves.length) return;
+        recordStep();
+        patchConfig(configId, (c) => {
+          const motors = { ...c.motors };
+          for (const [id, m] of moves) {
+            if (m) motors[id] = { ...motors[id], spec: m };
+            else delete motors[id];
+          }
+          return { ...c, motors };
+        });
       },
       setMountIgnition: (configId, mountId, event, delay, scope = 'config') => {
         const target = { ignitionEvent: event, ignitionDelay: delay };
@@ -156,26 +185,8 @@ export const createConfigSlice =
           return { ...c, motors: { ...c.motors, [mountId]: { ...seated, ...target } } };
         });
       },
-      setDeployment: (configId, deviceId, key, value) => {
-        // A new config object would read as a changed input and drop a run in flight.
-        const config = get().configs.find((c) => c.id === configId);
-        if (!config || holdsKey(config.deployments?.[deviceId], key, value)) return;
-        beginEdit();
-        patchConfig(configId, (c) => {
-          // Removed, not stored as undefined: a key holding `undefined` still counts as an override.
-          const device = nonEmpty(withKey(c.deployments?.[deviceId], key, value));
-          return { ...c, deployments: nonEmpty(withKey(c.deployments, deviceId, device ?? null)) };
-        });
-      },
-      setSeparation: (configId, stageId, key, value) => {
-        const config = get().configs.find((c) => c.id === configId);
-        if (!config || holdsKey(config.separations?.[stageId], key, value)) return;
-        beginEdit();
-        patchConfig(configId, (c) => {
-          const stage = nonEmpty(withKey(c.separations?.[stageId], key, value));
-          return { ...c, separations: nonEmpty(withKey(c.separations, stageId, stage ?? null)) };
-        });
-      },
+      setDeployment: (configId, deviceId, key, value) => setNested(configId, 'deployments', deviceId, key, value),
+      setSeparation: (configId, stageId, key, value) => setNested(configId, 'separations', stageId, key, value),
       setStageFlies: (configId, stageId, flies) => {
         const s = get();
         const current = s.configs.find((c) => c.id === configId);

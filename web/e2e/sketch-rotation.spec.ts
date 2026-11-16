@@ -1,24 +1,27 @@
 import { test, expect, type Page, note, ready, box } from './base';
 
+// By its label: the component tree's icons are svgs in main too, and come first.
+const SIDE_VIEW = 'main svg[aria-label^="Rocket side view"]';
+
 test.describe('sketch tab', () => {
   const stage = (page: Page) =>
-    page.evaluate(() => {
+    page.evaluate((sel) => {
       const el = document.querySelector('.sketch-rotate');
-      const svg = document.querySelector('main svg')?.getBoundingClientRect();
+      const svg = document.querySelector(sel)?.getBoundingClientRect();
       return {
         rotated: !!el && getComputedStyle(el).transform !== 'none',
         w: svg ? Math.round(svg.width) : 0,
         h: svg ? Math.round(svg.height) : 0,
       };
-    });
+    }, SIDE_VIEW);
 
   test('turns the drawing a quarter turn on a portrait screen, and back in landscape', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await ready(page);
 
-    await expect(page.locator('main svg').first()).toBeHidden();
+    await expect(page.locator(SIDE_VIEW)).toBeHidden();
     await page.getByRole('button', { name: /Sketch/ }).click();
-    await expect(page.locator('main svg').first()).toBeVisible();
+    await expect(page.locator(SIDE_VIEW)).toBeVisible();
     await expect(page.getByText('L/D', { exact: true })).toBeHidden();
 
     const portrait = await stage(page);

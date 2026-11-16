@@ -2,6 +2,9 @@ import { useRef, useState, type RefObject } from 'react';
 import type { R3fHandles } from './useRocketExport';
 import type { keyLight } from './keyLight';
 
+/** The opening camera too, so Reset lands where the view first opened. */
+export const sideCameraPos = (center: number, camDist: number): [number, number, number] => [center, 0, camDist * 1.05];
+
 export function useCameraViews({
   r3f,
   lamp,
@@ -17,7 +20,7 @@ export function useCameraViews({
 }) {
   const controls = useRef<import('three-stdlib').OrbitControls | null>(null);
   const [preset, setPreset] = useState<'side' | 'aft'>('side');
-  const sidePos: [number, number, number] = [center, 0, camDist * 1.05];
+  const sidePos = sideCameraPos(center, camDist);
   const aftPos: [number, number, number] = [totalLen + camDist * 0.9, 0, 0];
   const moveCam = (pos: [number, number, number]) => {
     const st = r3f.current;

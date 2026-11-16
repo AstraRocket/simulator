@@ -106,9 +106,79 @@ describe('the launch documents', () => {
     expect(over.devices[0]!.deployAltitudeM).toBe(200);
   });
 
+  it('counts each mount once when two mounts share one motor object', () => {
+    // A loaded `.ork` hands one cached spec to every mount flying the same motor.
+    const spec = motor(300, 8);
+    const tube = (id: string) => ({ id, type: 'innertube', name: id, motorMount: true });
+    const twin = {
+      name: 'R',
+      components: [{ id: 'sus', type: 'stage', name: 'Sustainer', children: [tube('a'), tube('b')] }],
+    } as unknown as RocketTree;
+    const docs = launchDocs({
+      designName: 'Rocket',
+      simName: 'Sim 1',
+      configName: 'Twin',
+      outdated: false,
+      tree: twin,
+      config: { id: 'c', motors: { a: { spec }, b: { spec } } } as unknown as FlightConfig,
+      info,
+      flight,
+      launch,
+    });
+    expect(docs.motors.map((m) => m.count)).toEqual([1, 1]);
+    // 300 N·s each: the thrust curve's area.
+    expect(docs.motors[0]!.impulseNs).toBeCloseTo(300, 6);
+    expect(docs.installedImpulseNs).toBeCloseTo(600, 6);
+    expect(docs.installedClass).toBe('I');
+    expect(docs.certLevel).toBe(1);
+  });
+
   it('leaves out a stage the configuration grounds', () => {
     const docs = docsFor(motor(300, 8), { grounded: ['sus'] });
     expect(docs.motors).toEqual([]);
     expect(docs.devices).toEqual([]);
+  });
+
+  it('leaves out a booster the configuration grounds, its motors and its recovery gear', () => {
+    const booster = {
+      id: 'pods',
+      type: 'parallelstage',
+      name: 'Boosters',
+      instanceCount: 2,
+      children: [
+        {
+          id: 'pod',
+          type: 'bodytube',
+          name: 'Pod',
+          motorMount: true,
+          children: [{ id: 'streamer', type: 'streamer', name: 'Pod streamer' }],
+        },
+      ],
+    };
+    const sus = tree.components[0]!;
+    const withBooster = {
+      name: 'R',
+      components: [{ ...sus, children: [...(sus.children ?? []), booster] }],
+    } as unknown as RocketTree;
+    const docs = launchDocs({
+      designName: 'Rocket',
+      simName: 'Sim 1',
+      configName: 'Sustainer only',
+      outdated: false,
+      tree: withBooster,
+      config: {
+        id: 'c',
+        motors: { body: { spec: motor(300, 8) }, pod: { spec: motor(300, 8) } },
+        grounded: ['pods'],
+      } as unknown as FlightConfig,
+      info,
+      flight,
+      launch,
+    });
+    expect(docs.motors.map((m) => m.mount.name)).toEqual(['Body']);
+    // The sustainer's curve alone: 300 N·s.
+    expect(docs.installedImpulseNs).toBeCloseTo(300, 6);
+    expect(docs.certLevel).toBe(1);
+    expect(docs.devices.map((d) => d.node.name)).toEqual(['Main chute']);
   });
 });

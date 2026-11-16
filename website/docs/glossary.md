@@ -137,6 +137,8 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 ## F
 
+**Fin interference**: The extra drag and lift where a fin meets the body. OpenRocket counts the lift fins carry onto the body for trapezoidal fins on a body tube (NACA Report 1307). *In the app:* the opt-in **RASAero fin interference (from Kbf)** setting adds 80% to every fin set's friction drag, and the same carryover lift to fins OpenRocket's model leaves out. See [Settings → Flight model](./settings.md#flight-model).
+
 **Fin set**: A group of identical fins spaced around the body. *In the app:* trapezoidal, elliptical and freeform fin sets, each with a fin count.
 
 **Fin tab (through-the-wall tab)**: The part of a fin that passes through the airframe wall to anchor inside it. *In the app:* **Fin tab length**, **Fin tab height** and **Fin tab offset** on a fin set.

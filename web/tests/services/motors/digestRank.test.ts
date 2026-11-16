@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogDigest, type CatalogMotor } from '../../../src/services/motors/motorDb';
 import { PLUGGED_DELAY } from '../../../src/engine/openRocketEngine';
 
-// Desktop masses are `ThrustCurveMotor.getLaunchMass` from OpenRocket-24.12.jar, keyed by digest.
+// Desktop masses are `ThrustCurveMotor.getLaunchMass` from the engine commit's OpenRocket build (scripts/motor-digests/MotorDump.java), keyed by digest.
 const CATALOG = JSON.parse(
   readFileSync(join(__dirname, '../../../public/data/motors.generated.json'), 'utf8'),
 ) as CatalogMotor[];
@@ -25,15 +25,18 @@ const delaysOf = (r: CatalogMotor) =>
 
 describe('a motor whose desktop entries differ in launch mass', () => {
   it.each([
-    ['AeroTech', 'L339N'],
-    ['Cesaroni', '601I350-16A'],
-  ])('%s %s names the entry desktop loads with the mass the app flies', (manufacturer, code) => {
+    ['AeroTech', 'G80T'],
+    ['Cesaroni', '1750K650-16A'],
+  ])('%s %s names the entry desktop loads with the mass nearest the one the app flies', (manufacturer, code) => {
     const r = row(manufacturer, code);
     expect(r.digests!.length).toBeGreaterThan(1);
     const masses = r.digests!.map((e) => DESKTOP_LAUNCH_MASS_KG[e.digest]!);
     expect(Math.max(...masses) / Math.min(...masses)).toBeGreaterThan(1 + DIFFERENT_MASS);
     for (const delay of delaysOf(r)) {
-      expect(DESKTOP_LAUNCH_MASS_KG[catalogDigest(r, delay)!]).toBeCloseTo(appMassKg(r), 6);
+      const want = delay >= PLUGGED_DELAY ? 'P' : delay;
+      const offering = r.digests!.filter((e) => e.delays.includes(want));
+      const best = Math.min(...offering.map((e) => massError(r, e.digest)));
+      expect(massError(r, catalogDigest(r, delay)!)).toBe(best);
     }
   });
 

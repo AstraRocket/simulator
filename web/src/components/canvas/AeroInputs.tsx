@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NumberInput } from '../common/NumberInput';
 import { smallButton } from '../common/smallButton';
+import { StatusLine } from '../common/StatusLine';
 
 export function Num({
   label,
@@ -67,9 +68,9 @@ export function WorstButton({
       >
         {t('aero.worst')}
       </button>
-      <span role="status" className="text-[10px] text-warn-400">
+      <StatusLine tone="warn" size="micro">
         {failed ? t('aero.worstFailed') : ''}
-      </span>
+      </StatusLine>
     </>
   );
 }

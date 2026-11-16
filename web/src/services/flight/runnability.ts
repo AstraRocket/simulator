@@ -11,6 +11,7 @@ import { hasUsableCurve } from '../motors/motorCurve';
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { fmtList, partLabel } from '../../i18n/format';
 import { keyedText, type Keyed } from '../../i18n/keyedError';
+import { groupBy } from '../app/collections';
 
 // Must match the builder's predicate, or a one-sample motor passes here and builds an empty mount.
 export const hasThrustCurve = (m: MotorSpec | undefined | null): boolean => hasUsableCurve(m);
@@ -86,15 +87,14 @@ export function designBlockerText(
     const parts = b.fins.map((f) => t('sim.finCantPart', { name: partLabel(t, f) })).join(t('sim.badGeometryPartSep'));
     return t('sim.finCant', { parts });
   }
-  const byPart = new Map<string, string[]>();
-  for (const d of b.bad) {
-    const name = partLabel(t, d);
-    const fields = byPart.get(name) ?? [];
-    fields.push(t(`part.field.${d.field}`));
-    byPart.set(name, fields);
-  }
+  const byPart = groupBy(b.bad, (d) => partLabel(t, d));
   const parts = [...byPart]
-    .map(([name, fields]) => t('sim.badGeometryPart', { name, fields: fields.join(t('sim.badGeometryFieldSep')) }))
+    .map(([name, bad]) =>
+      t('sim.badGeometryPart', {
+        name,
+        fields: bad.map((d) => t(`part.field.${d.field}`)).join(t('sim.badGeometryFieldSep')),
+      }),
+    )
     .join(t('sim.badGeometryPartSep'));
   return t('sim.badGeometry', { parts });
 }

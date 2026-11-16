@@ -26,7 +26,7 @@ export function FlightCsvDialog({
   const { t } = useTranslation();
   const u = useUnits();
   const designName = useWorkspaceStore(selectDesignName);
-  const { settings, update } = useSettings();
+  const { settings, updateSection } = useSettings();
   // A stored two-character backslash-t means the tab character.
   const saved =
     settings.flightCsv.separator === '\\t' ? { ...settings.flightCsv, separator: '\t' } : settings.flightCsv;
@@ -40,7 +40,7 @@ export function FlightCsvDialog({
   const available = new Set(columns.map((c) => c.key));
   const chosen = saved.columns.filter((k) => available.has(k));
 
-  const patch = (p: Partial<typeof saved>) => update({ flightCsv: { ...saved, ...p } });
+  const patch = (p: Partial<typeof saved>) => updateSection('flightCsv', p);
   const toggle = (key: string) =>
     patch({ columns: chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key] });
 

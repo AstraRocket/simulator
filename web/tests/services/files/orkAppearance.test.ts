@@ -9,7 +9,7 @@ import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, partLooks } from '../../../src/ser
 import { noteTexts } from '../../testing/importNotes';
 import { DEFAULT_PART_COLORS } from '../../../src/services/design/partColors';
 
-// Expected values are what OpenRocket 24.12 loads from this XML (`GeneralRocketLoader`).
+// Expected values are what desktop OpenRocket loads from this XML (`GeneralRocketLoader`).
 const FIXTURE = `<?xml version='1.0' encoding='utf-8'?>
 <openrocket version="1.9" creator="OpenRocket 24.12">
   <rocket>
@@ -119,7 +119,7 @@ const DESKTOP = {
 };
 
 describe('reading a desktop appearance', () => {
-  it('reads every part as 24.12 does', () => {
+  it('reads every part as desktop does', () => {
     expect(looksByName(importOrk(FIXTURE).tree)).toEqual(DESKTOP);
   });
 
@@ -143,20 +143,20 @@ describe('writing it back', () => {
     expect(looksByName(importOrk(written()).tree)).toEqual(DESKTOP);
   });
 
-  it('writes the blocks as 24.12 does, inside block flags first', () => {
+  it('writes the blocks as RocketComponentSaver does, inside block flags first', () => {
     const out = written().replace(/^\s+/gm, '');
     expect(out).toContain(
       '<appearance>\n<paint red="200" green="30" blue="40" alpha="128"/>\n<shine>0.7</shine>\n' +
         '<opacityaffectstexture>true</opacityaffectstexture>\n</appearance>\n' +
         '<insideappearance>\n<edgessameasinside>true</edgessameasinside>\n' +
         '<insidesameasoutside>true</insidesameasoutside>\n<paint red="5" green="6" blue="7" alpha="255"/>\n' +
-        '<shine>0.2</shine>\n</insideappearance>',
+        '<shine>0.2</shine>\n<opacityaffectstexture>false</opacityaffectstexture>\n</insideappearance>',
     );
   });
 
-  it('writes the newer opacity flag only when it was set, since 24.12 has no such element', () => {
+  it('writes the opacity flag in every appearance block, as RocketComponentSaver does', () => {
     const out = written();
-    expect(out.match(/<opacityaffectstexture>/g)).toHaveLength(1);
+    expect(out.match(/<opacityaffectstexture>/g)).toHaveLength(out.match(/<(inside)?appearance>/g)!.length);
   });
 
   it('writes nothing for a part on the defaults', () => {

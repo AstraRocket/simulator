@@ -203,7 +203,7 @@ const ws = (): Workspace =>
   }) as unknown as Workspace;
 
 describe('custom material and template writes report a refused write', () => {
-  it('throws storage-full instead of resolving cleanly', async () => {
+  it('throws a refused write instead of resolving cleanly', async () => {
     const kv = new FakeLocal();
     const materials = new KeyValueMaterialStore('mat', kv);
     const templates = new KeyValueTemplateStore('tpl', kv);
@@ -215,9 +215,13 @@ describe('custom material and template writes report a refused write', () => {
     expect(await materials.list()).toHaveLength(1);
 
     kv.full = true;
-    await expect(materials.add({ ...(material as object), name: 'Ply' } as never)).rejects.toThrow('storage-full');
-    await expect(materials.remove('Balsa', 'bulk' as never)).rejects.toThrow('storage-full');
-    await expect(templates.add({ ...(template as object), id: 't2' } as never)).rejects.toThrow('storage-full');
-    await expect(templates.remove('t1')).rejects.toThrow('storage-full');
+    await expect(materials.add({ ...(material as object), name: 'Ply' } as never)).rejects.toMatchObject({
+      key: 'storage.writeRefused',
+    });
+    await expect(materials.remove('Balsa', 'bulk' as never)).rejects.toMatchObject({ key: 'storage.writeRefused' });
+    await expect(templates.add({ ...(template as object), id: 't2' } as never)).rejects.toMatchObject({
+      key: 'storage.writeRefused',
+    });
+    await expect(templates.remove('t1')).rejects.toMatchObject({ key: 'storage.writeRefused' });
   });
 });

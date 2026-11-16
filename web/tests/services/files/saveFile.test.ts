@@ -90,7 +90,7 @@ describe('saveBlob', () => {
   it('does NOT re-download when the user cancels the share sheet', async () => {
     const nav = pose({ apple: true, standalone: true });
     nav.share.mockRejectedValueOnce(new DOMException('canceled', 'AbortError'));
-    await saveBlob(blob(), 'rocket.ork');
+    await expect(saveBlob(blob(), 'rocket.ork')).resolves.toBe(false);
     expect(clicks).toHaveLength(0);
   });
 
@@ -106,7 +106,7 @@ describe('saveBlob', () => {
     nav.canShare.mockImplementation(() => {
       throw new Error('canShare exploded');
     });
-    await expect(saveBlob(blob(), 'rocket.ork')).resolves.toBeUndefined();
+    await expect(saveBlob(blob(), 'rocket.ork')).resolves.toBe(true);
   });
 });
 
@@ -224,7 +224,7 @@ describe('saveBlob with the browser save dialog', () => {
   it('writes through the dialog, suggesting the name and a bare MIME type', async () => {
     pose({ apple: false, standalone: false });
     const { fn, written } = picker('save');
-    await saveBlob(new Blob(['a,b'], { type: 'text/csv;charset=utf-8' }), 'run-table.csv');
+    await expect(saveBlob(new Blob(['a,b'], { type: 'text/csv;charset=utf-8' }), 'run-table.csv')).resolves.toBe(true);
     expect(written).toHaveLength(1);
     expect(clicks).toHaveLength(0);
     const opts = fn.mock.calls[0]![0];
@@ -235,7 +235,8 @@ describe('saveBlob with the browser save dialog', () => {
   it('saves nothing when the user closes the dialog', async () => {
     pose({ apple: false, standalone: false });
     picker('cancel');
-    await saveBlob(blob(), 'rocket.ork');
+    // False, so a caller does not say "saved" (BackupDialog).
+    await expect(saveBlob(blob(), 'rocket.ork')).resolves.toBe(false);
     expect(clicks).toHaveLength(0);
   });
 

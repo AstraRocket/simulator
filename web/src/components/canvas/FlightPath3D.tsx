@@ -4,13 +4,14 @@ import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import { useSettings } from '../../state/useSettings';
 import { withFixedUnit } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
+import { unitScope } from '../../prefs/units';
 import { buildFlightScene, indexForProgress } from './flightScene';
 import type { Exhaust } from '../../services/motors/exhaust';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { TILE_SOURCES, type TileSourceId } from '../../services/map/slippyMap';
 import { LAYERS } from '../common/map/mapStyle';
 import { MapCredit, TileLayerButtons } from '../common/map/MapParts';
-import { useGroundLayer } from '../common/map/useTileVerdict';
+import { useSiteGround } from '../common/map/useTileVerdict';
 import { ColorInput } from '../common/ColorInput';
 import { FlightPathScene } from './FlightPathScene';
 import { FlightPlaybackBar } from './FlightPlaybackBar';
@@ -33,12 +34,13 @@ export function FlightPath3D({
 }) {
   const { t } = useTranslation();
   const u = useUnits();
-  const { settings, update } = useSettings();
+  const altitudeUnit = u.at(unitScope('sim', 'apogee'), 'distance');
+  const velocityUnit = u.at(unitScope('sim', 'maxSpeed'), 'velocity');
+  const { settings, updateSection } = useSettings();
   const phase = settings.phaseColors;
   const playback = useFlightPlayback(settings.playbackSpeed);
   const { progress } = playback;
-  const site = latitudeDeg != null && longitudeDeg != null ? { lat: latitudeDeg, lon: longitudeDeg } : null;
-  const ground = useGroundLayer(site !== null);
+  const { site, ground } = useSiteGround(latitudeDeg, longitudeDeg);
 
   const scene = useMemo(() => buildFlightScene(result, phase), [result, phase]);
   const { scenePts, times, alts, vels } = scene;
@@ -48,9 +50,9 @@ export function FlightPath3D({
   const idx = useMemo(() => indexForProgress(times, progress), [times, progress]);
   const nowT = times[idx] ?? 0;
 
-  const setBoost = useCallback((c: string) => update({ phaseColors: { ...phase, boost: c } }), [update, phase]);
-  const setCoast = useCallback((c: string) => update({ phaseColors: { ...phase, coast: c } }), [update, phase]);
-  const setDescent = useCallback((c: string) => update({ phaseColors: { ...phase, descent: c } }), [update, phase]);
+  const setBoost = useCallback((c: string) => updateSection('phaseColors', { boost: c }), [updateSection]);
+  const setCoast = useCallback((c: string) => updateSection('phaseColors', { coast: c }), [updateSection]);
+  const setDescent = useCallback((c: string) => updateSection('phaseColors', { descent: c }), [updateSection]);
 
   const mapSource: TileSourceId | null = ground.imagery === 'unavailable' ? null : ground.source;
 
@@ -73,8 +75,8 @@ export function FlightPath3D({
       />
 
       <div className="pointer-events-none absolute left-3 top-3 flex gap-3 rounded-lg bg-surface/80 px-3 py-2 text-xs ring-1 ring-line/10">
-        <Hud label={t('flight.altitude')} value={`${u.fmtSym('distance', alts[idx] ?? 0)}`} />
-        <Hud label={t('flight.velocity')} value={`${u.fmtSym('velocity', vels[idx] ?? 0)}`} />
+        <Hud label={t('flight.altitude')} value={altitudeUnit.fmtSym(alts[idx] ?? 0)} />
+        <Hud label={t('flight.velocity')} value={velocityUnit.fmtSym(vels[idx] ?? 0)} />
         <Hud label={t('flight.time')} value={withFixedUnit(nowT, t('units.second'))} />
       </div>
       <div className="pointer-events-none absolute right-3 top-3 flex flex-col gap-1 rounded-lg bg-surface/80 px-2 py-1.5 text-[10px] ring-1 ring-line/10">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distinctSorted, groupBy } from '../../../src/services/app/collections';
+import { distinctSorted, groupBy, withMember } from '../../../src/services/app/collections';
 
 describe('distinctSorted', () => {
   it('lists each value once, alphabetically, skipping items with none', () => {
@@ -15,5 +15,15 @@ describe('groupBy', () => {
       ['b', ['b1', 'b2']],
       ['a', ['a1', 'a2']],
     ]);
+  });
+});
+
+describe('withMember', () => {
+  it('adds or removes as asked, leaving the source untouched', () => {
+    const src = new Set(['a']);
+    expect([...withMember(src, 'b', true)]).toEqual(['a', 'b']);
+    expect([...withMember(src, 'a', false)]).toEqual([]);
+    expect([...withMember(src, 'a', true)]).toEqual(['a']);
+    expect([...src]).toEqual(['a']);
   });
 });

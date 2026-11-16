@@ -70,19 +70,19 @@ describe('the disc sketch uses the kernel length for an absent coupler length', 
     ({ type, id: type, outerRadius: 0.012, thickness: 0.0005 }) as unknown as ComponentNode;
 
   it('sizes a tube coupler at the length the kernel builds', () => {
-    const d = discDims(coupler('tubecoupler'), null, []);
+    const d = discDims(coupler('tubecoupler'), null, null, 0);
     expect(d!.length).toBe(KERNEL_DEFAULTS.tubecoupler.length);
     expect(d!.length).not.toBe(0.003);
   });
 
   it('sizes an engine block at its own kernel length, which is different', () => {
-    const d = discDims(coupler('engineblock'), null, []);
+    const d = discDims(coupler('engineblock'), null, null, 0);
     expect(d!.length).toBe(KERNEL_DEFAULTS.engineblock.length);
     expect(d!.length).not.toBe(KERNEL_DEFAULTS.tubecoupler.length);
   });
 
   it('exports that coupler as a solid of the same length', () => {
-    const d = discDims(coupler('tubecoupler'), null, [])!;
+    const d = discDims(coupler('tubecoupler'), null, null, 0)!;
     const geo = discSolidForNode(d.outerR, d.innerR, d.length);
     expect(lengthOf(geo!)).toBeCloseTo(KERNEL_DEFAULTS.tubecoupler.length, 6);
   });

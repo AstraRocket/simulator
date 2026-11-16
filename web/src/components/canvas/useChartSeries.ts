@@ -4,12 +4,17 @@ import { stageLabel } from '../../i18n/format';
 import { useSettings } from '../../state/useSettings';
 import { SERIES, buildTraces, extraSeries, pairSeries, visibleSeries, type ChartFlight } from './flightChartTraces';
 
+/** One trace per stage, labeled in the current language. */
+export function useStageTraces(flight: ChartFlight) {
+  const { t } = useTranslation();
+  return useMemo(() => buildTraces(flight, (i, name) => stageLabel(t, i, name)), [flight, t]);
+}
+
 /** The traces of a flight, and which stages and series are shown. */
 export function useChartSeries(flight: ChartFlight) {
-  const { t } = useTranslation();
   const { settings, update } = useSettings();
 
-  const branches = useMemo(() => buildTraces(flight, (i, name) => stageLabel(t, i, name)), [flight, t]);
+  const branches = useStageTraces(flight);
   // Memoized so each added panel's meta is a stable memo key.
   const extras = useMemo(() => extraSeries(branches), [branches]);
   const plain = useMemo(() => [...SERIES.filter((m) => !m.xy), ...extras], [extras]);

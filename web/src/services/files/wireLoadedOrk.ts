@@ -1,7 +1,7 @@
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { resolveFilePositions } from '../../tree/position';
 import { configLabel, newFlightConfig, reconcileConfig, type FlightConfig } from '../flight/flightConfigs';
-import { newSimulation, resultKey, type Simulation, type SimPrefs } from '../flight/simulations';
+import { newSimulation, nextFreeName, resultKey, type Simulation, type SimPrefs } from '../flight/simulations';
 import type { LoadedOrk } from './loadOrk';
 import { overLaunchDefaults, type LaunchConditions } from '../design/orkTree';
 import type { OrkExportMotor } from './orkFile';
@@ -82,9 +82,7 @@ function ownPrefs(file: Partial<SimPrefs>, globals: SimPrefs | undefined): Parti
 }
 
 function simName(tree: RocketTree, config: FlightConfig, fallback: string, taken: Set<string>): string {
-  const base = configLabel(tree, config) || fallback;
-  let name = base;
-  for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
+  const name = nextFreeName(configLabel(tree, config) || fallback, taken);
   taken.add(name);
   return name;
 }

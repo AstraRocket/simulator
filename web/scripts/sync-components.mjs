@@ -1,19 +1,15 @@
-// Desktop keeps every part, duplicates included (told apart by digest), so this does too.
+// Desktop keeps every part, same-number parts included (told apart by digest), so this does too; only exact duplicates are dropped.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { unzipSync } from 'fflate';
 import { STAGED_COMPONENTS } from './lib/catalogStaging.mjs';
 import { nearestMaterial } from './lib/nearestMaterial.mjs';
-import { arg } from './lib/args.mjs';
 import { builtInMaterials } from './lib/builtInMaterials.mjs';
-import { installedJar } from './lib/openrocketJava.mjs';
-import { checkJar, RELEASE, UNPINNED } from './lib/openrocketRelease.mjs';
+import { ENGINE_COMPONENTS, ENGINE_PARTS_DATABASE, engineBuild } from './lib/openrocketJava.mjs';
 import { byFileName, lenM, num, str, tag, xmlText } from './lib/orcText.mjs';
 import { uniqueRows } from './lib/partRows.mjs';
 
-const DEFAULT_SRC = fileURLToPath(new URL('../openrocket-database/orc', import.meta.url));
-const SRC = arg('src') ?? (process.env.OPENROCKET_PRESETS || DEFAULT_SRC);
+const SRC = ENGINE_PARTS_DATABASE;
 const DATA_DIR = fileURLToPath(new URL('../public/data', import.meta.url));
 const OUT = resolve(DATA_DIR, 'components.generated.json');
 
@@ -40,64 +36,28 @@ const orcFiles = (dir) =>
       .map((f) => ({ name: f, text: readFileSync(join(dir, f), 'utf8') })),
   );
 
-function jarFiles(entries, prefix) {
-  return byFileName(
-    Object.entries(entries)
-      .filter(([name]) => name.startsWith(prefix))
-      .map(([name, bytes]) => ({ name: name.slice(prefix.length), text: new TextDecoder().decode(bytes) })),
-  );
-}
-
-function releaseJar() {
-  const jar = arg('jar') ?? process.env.OPENROCKET_JAR ?? installedJar();
-  if (!jar) {
-    console.error(`No OpenRocket jar. Pass --jar <OpenRocket-${RELEASE}.jar>.`);
-    process.exit(2);
-  }
-  checkJar(jar);
-  return jar;
-}
-
-function shippedFiles() {
-  const dir = arg('internal') ?? process.env.OPENROCKET_INTERNAL_PRESETS;
-  if (dir) return { internal: orcFiles(dir), database: null, jar: null };
-  const jar = releaseJar();
-  const entries = unzipSync(readFileSync(jar), {
-    filter: (f) => f.name.startsWith('datafiles/components/') && f.name.toLowerCase().endsWith('.orc'),
-  });
-  return {
-    internal: jarFiles(entries, 'datafiles/components/internal/'),
-    database: jarFiles(entries, 'datafiles/components/database/'),
-    jar,
-  };
-}
-
+const { cp } = engineBuild();
 const database = orcFiles(SRC);
-const shipped = shippedFiles();
 
-// Line endings differ between the repository and the jar; nothing else may.
-if (shipped.database) {
-  const lf = (s) => s.replace(/\r\n?/g, '\n');
-  const ours = new Map(database.map((f) => [f.name, lf(f.text)]));
-  const theirs = new Map(shipped.database.map((f) => [f.name, lf(f.text)]));
-  const differ = [...new Set([...ours.keys(), ...theirs.keys()])]
-    .filter((name) => ours.get(name) !== theirs.get(name))
-    .sort();
-  if (differ.length) {
-    const msg = `${SRC} is not the parts database OpenRocket ${RELEASE} ships; these files differ: ${differ.join(', ')}`;
-    if (!UNPINNED) {
-      console.error(`${msg}\nRun \`npm run sync:database\` for the pinned commit.`);
-      process.exit(1);
-    }
-    console.warn(`${msg}\nOPENROCKET_UNPINNED=1: using it anyway.`);
-  }
-} else {
-  console.warn('Read the internal files from --internal, so the database is not compared with the release.');
+// The library desktop loads is the copy the build packed, so a stale build would publish other parts.
+const packed = orcFiles(join(ENGINE_COMPONENTS, 'database'));
+const lf = (s) => s.replace(/\r\n?/g, '\n');
+const ours = new Map(database.map((f) => [f.name, lf(f.text)]));
+const theirs = new Map(packed.map((f) => [f.name, lf(f.text)]));
+const differ = [...new Set([...ours.keys(), ...theirs.keys()])]
+  .filter((name) => ours.get(name) !== theirs.get(name))
+  .sort();
+if (differ.length) {
+  console.error(
+    `${SRC} differs from the parts the build packed in ${ENGINE_COMPONENTS}: ${differ.join(', ')}\n` +
+      'Run `npm run openrocket:build`.',
+  );
+  process.exit(1);
 }
 
-const sources = [...database, ...shipped.internal];
+const sources = [...database, ...orcFiles(join(ENGINE_COMPONENTS, 'internal'))];
 
-const builtIn = builtInMaterials(shipped.jar ?? releaseJar());
+const builtIn = builtInMaterials(cp);
 
 // As `BaseComponentDTO.find`: own file first (legacy files reuse database names at other densities), then built-ins.
 const fileMaterials = new Map();

@@ -47,7 +47,8 @@ const enter = (name: string, value: string) => {
   fireEvent.blur(el);
 };
 const button = (name: string) => screen.getByRole<HTMLButtonElement>('button', { name });
-const notice = () => screen.queryByRole('status')?.textContent;
+// Always mounted, so an empty region means no notice.
+const notice = () => screen.queryByRole('status')?.textContent || undefined;
 
 const enterRocket = () => {
   enter('Body diameter', '5');
@@ -104,6 +105,17 @@ describe('the benchtop tool', () => {
     enter('Fin length', '');
     expect(notice()).toBeUndefined();
     expect(button('Choose…').disabled).toBe(false);
+  });
+
+  it('says it in the region that was already there, so a screen reader announces it', () => {
+    renderWithProviders(<SimpleRocketTool />);
+    enterRocket();
+    const region = screen.getByRole('status');
+    enter('Overall length', '10');
+    expect(screen.getByRole('status')).toBe(region);
+    expect(region.textContent).toMatch(/longer than its 4:1 nose/);
+    enter('Overall length', '100');
+    expect(screen.getByRole('status')).toBe(region);
   });
 
   it('flies the rocket, warns on the figures and marks them stale after an edit', async () => {

@@ -1,6 +1,5 @@
 import type { ComponentNode } from '../engine/openRocketEngine';
-import { KERNEL_DEFAULTS } from './kernelDefaults';
-import { num } from './nodeProps';
+import { innerTubeRadius, num } from './nodeProps';
 
 // Exact mirror of kernel ClusterConfiguration; separation is 2 × tubeOuterRadius × clusterScale.
 
@@ -112,7 +111,7 @@ export function clusterOffsets(
  * As InnerTube.getClusterPoints (InnerTube.java:263-273): rotated by
  * `clusterRotation − radialDirection`, then shifted by the mount's radial offset.
  */
-export function clusterPoints(
+function clusterPoints(
   cluster: string | undefined,
   tubeOuterRadius: number,
   clusterScale = 1,
@@ -130,10 +129,13 @@ export function clusterPoints(
 }
 
 /** A mount with no `outerRadius` flies at the kernel's inner tube default. */
-export function clusterPlacesOf(node: ComponentNode): { radialPosition: number; radialDirection: number }[] {
+export function clusterPlacesOf(
+  node: ComponentNode,
+  outerRadius = innerTubeRadius(node),
+): { radialPosition: number; radialDirection: number }[] {
   return clusterPoints(
     typeof node['cluster'] === 'string' ? node['cluster'] : undefined,
-    num(node, 'outerRadius', KERNEL_DEFAULTS.innertube.outerRadius),
+    outerRadius,
     num(node, 'clusterScale', 1),
     num(node, 'clusterRotation', 0),
     num(node, 'radialPosition', 0),

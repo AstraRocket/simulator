@@ -1,6 +1,5 @@
-// Desktop's material manager (`MaterialEditPanel`, `CustomMaterialDialog` in 24.12).
+// Desktop's material manager (`MaterialEditPanel`, `CustomMaterialDialog`).
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
-import { KeyedError } from '../../i18n/keyedError';
 import {
   documentMaterialsOf,
   withDocumentMaterial,
@@ -8,7 +7,7 @@ import {
   withoutDocumentMaterial,
   type DocumentMaterial,
 } from './documentMaterials';
-import { addCustom, checkedMaterialName, listCustom, removeCustom } from './materials';
+import { addCustom, checkedMaterialName, listCustom, refuseTakenName, removeCustom } from './materials';
 import { partsUsing, withMaterialReplaced } from './materialEdits';
 
 export type MaterialScope = 'design' | 'library';
@@ -24,10 +23,11 @@ export interface DesignAccess {
   apply: (change: (tree: RocketTree) => RocketTree) => void;
 }
 
-const asDocument = ({ name, type, density, group }: ScopedMaterial): DocumentMaterial => ({
+const asDocument = ({ name, type, density, shearModulus, group }: ScopedMaterial): DocumentMaterial => ({
   name,
   type,
   density,
+  ...(shearModulus ? { shearModulus } : {}),
   ...(group ? { group } : {}),
 });
 
@@ -35,7 +35,10 @@ const changeList = (tree: RocketTree, fn: (list: DocumentMaterial[]) => Document
   withDocumentMaterials(tree, fn(documentMaterialsOf(tree)));
 
 const sameValues = (a: ScopedMaterial, b: ScopedMaterial): boolean =>
-  a.name === b.name && a.density === b.density && a.group === b.group;
+  a.name === b.name &&
+  a.density === b.density &&
+  (a.shearModulus ?? 0) === (b.shearModulus ?? 0) &&
+  a.group === b.group;
 
 export async function saveMaterial(
   design: DesignAccess,
@@ -44,13 +47,8 @@ export async function saveMaterial(
 ): Promise<void> {
   const next = { ...draft, name: checkedMaterialName(draft.name, draft.density) };
   if (next.scope === 'library') {
-    // One entry per name+type, so a save under another's name would overwrite it.
-    const isOld = (m: { name: string; type: string }) =>
-      old?.scope === 'library' && m.name === old.name && m.type === old.type;
-    if ((await listCustom()).some((m) => m.name === next.name && m.type === next.type && !isOld(m))) {
-      throw new KeyedError('errors.material.nameTaken', { name: next.name });
-    }
-    await addCustom(next.name, next.type, next.density, next.group);
+    await refuseTakenName(next.name, next.type, old?.scope === 'library' ? old : undefined);
+    await addCustom(next.name, next.type, next.density, next.group, next.shearModulus);
     if (old?.scope === 'library' && old.name !== next.name) await removeCustom(old.name, old.type);
   }
 

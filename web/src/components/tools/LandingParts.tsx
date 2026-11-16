@@ -11,6 +11,7 @@ import { fmtSiteTime } from '../../i18n/format';
 import { RadioGroup } from '../common/RadioGroup';
 import type { LandingForm } from './LandingEstimator';
 import { minutesSeconds } from './minutesSeconds';
+import { siteAltitudeUnit } from '../sim/launchSection';
 
 export function LandingFlightCard({ form }: { form: LandingForm }) {
   const { t } = useTranslation();
@@ -125,7 +126,10 @@ export function LandingResult({
         <TermRow label={t('landing.zone')}>
           {e.ellipse ? `${fmtM(2 * e.ellipse.semiMajorM)} × ${fmtM(2 * e.ellipse.semiMinorM)}` : t('landing.noZone')}
         </TermRow>
-        <TermRow label={t('landing.groundAtLanding')}>{fmtM(e.nominal.groundElevationM)}</TermRow>
+        <TermRow label={t('landing.groundAtLanding')}>
+          {/* An elevation, in the unit the site's own elevation field shows. */}
+          {fmtGroundDistance(siteAltitudeUnit(u), e.nominal.groundElevationM)}
+        </TermRow>
         <TermRow label={t('env.when')}>{validTime}</TermRow>
       </dl>
       <p className="text-xs text-ink-muted">

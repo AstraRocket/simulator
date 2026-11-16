@@ -1,10 +1,10 @@
 import i18n from '../../i18n';
+import { uuid } from '../app/uuid';
 import type { ComponentNode, RocketTree } from '../../engine/openRocketEngine';
 
-let counter = 1;
-
+/** Not a counter: imported ids persist in saved workspaces, and a counter restarts on page load. */
 export function freshId(): string {
-  return `c${counter++}`;
+  return uuid();
 }
 
 export function asStageNodes(tree: RocketTree): ComponentNode[] {

@@ -19,7 +19,7 @@ import { surfaceWind } from '../services/flight/windLevels';
 import { flightBranches } from '../services/flight/flightColumns';
 import type { WorkspaceState } from './store';
 import { configOf, displayUnits } from './workspaceSelectors';
-import { batchBasis, flownStill, launcherT, refusedDesign } from './runBasis';
+import { batchBasis, flownStill, jobSlot, launcherT, refusedDesign } from './runBasis';
 
 export interface DriftSweepSlice {
   driftSweep: DriftSweep | null;
@@ -37,11 +37,10 @@ export const isDriftSweepStale = (s: WorkspaceState, sweep: DriftSweep): boolean
   !flownStill(s, sweep.simId, { tree: sweep.tree, inputs: sweep.inputs, key: sweep.key });
 
 /** Separate from `batchAbort`, so canceling a sweep does not kill a batch run beside it. */
-let sweepAbort: AbortController | null = null;
+const sweepJob = jobSlot('driftSweepRun');
 
 export function abortDriftSweep(): void {
-  sweepAbort?.abort();
-  sweepAbort = null;
+  sweepJob.abort();
 }
 
 export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSweepSlice> = (set, get) => ({
@@ -70,10 +69,7 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
 
     const { ranOn, flownFrom, flownKey, runPrefs, seed } = batchBasis(s, sim, config);
 
-    sweepAbort?.abort();
-    const abort = new AbortController();
-    sweepAbort = abort;
-    set({ driftSweep: null, driftSweepRun: { simId, done: 0, total: points.length }, err: null });
+    const job = sweepJob.claim(set, simId, points.length, { driftSweep: null });
 
     const landings: SweepLanding[] = [];
     let flown = 0;
@@ -92,7 +88,7 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
                 },
                 lengthUnit: runPrefs.lengthUnit,
               },
-              { signal: abort.signal },
+              { signal: job.signal },
             );
             const branches = flightBranches(result);
             let landed = false;
@@ -106,17 +102,12 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
           } catch {
             // One refused cell is not a refused sweep.
           } finally {
-            // A replacing sweep's counter must not be ticked by this one's stragglers.
-            if (sweepAbort === abort) {
-              set((st) =>
-                st.driftSweepRun ? { driftSweepRun: { ...st.driftSweepRun, done: st.driftSweepRun.done + 1 } } : {},
-              );
-            }
+            job.tick();
           }
         }),
       );
       // A partial hull would understate the drift: cells finish in arbitrary order.
-      if (abort.signal.aborted) return;
+      if (job.signal.aborted) return;
       if (!flownStill(get(), simId, { tree: ranOn, inputs: flownFrom, key: flownKey })) return;
       if (!landings.length) {
         set({ err: i18n.t('sweep.noLandings') });
@@ -135,16 +126,11 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
         },
       });
     } finally {
-      if (sweepAbort === abort) {
-        sweepAbort = null;
-        set({ driftSweepRun: null });
-      }
+      job.release();
     }
   },
 
-  cancelDriftSweep: () => {
-    sweepAbort?.abort();
-  },
+  cancelDriftSweep: () => sweepJob.cancel(),
 
   clearDriftSweep: () => set({ driftSweep: null }),
 });

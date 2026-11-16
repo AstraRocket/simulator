@@ -6,6 +6,7 @@ import { onSi } from '../../prefs/entryValue';
 import { unitScope } from '../../prefs/units';
 import { useWorkspaceStore, selectDriftSweepFor, isDriftSweepStale } from '../../state/store';
 import { fireAction } from '../../state/fireAction';
+import { smallButton } from '../common/smallButton';
 import { MAX_WIND_SPEED_MS } from '../../services/flight/safetyLimits';
 import {
   defaultSweepSpec,
@@ -18,9 +19,6 @@ import { surfaceWind } from '../../services/flight/windLevels';
 
 /** Degrees. */
 const SPANS = [360, 180, 90, 45] as const;
-
-const btn =
-  'rounded-md px-2 py-1 text-[11px] font-medium ring-1 ring-line/10 disabled:opacity-40 disabled:cursor-not-allowed';
 
 const numCls =
   'w-16 rounded bg-raised px-1 py-0.5 text-right text-[11px] tabular-nums text-ink-strong ring-1 ring-line/10';
@@ -121,7 +119,7 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
       <div className="mt-2 flex items-center gap-1.5">
         {busy ? (
           <>
-            <button onClick={cancelDriftSweep} className={`${btn} bg-raised text-ink hover:bg-elevated`}>
+            <button onClick={cancelDriftSweep} className={smallButton('chip', 'ink')}>
               {t('common.cancel')}
             </button>
             <span className="text-[10px] tabular-nums text-ink-muted">
@@ -132,12 +130,12 @@ export function DriftSweepPanel({ simId, launch }: { simId: string; launch: Laun
           <>
             <button
               onClick={() => fireAction(runDriftSweep(simId, spec))}
-              className={`${btn} bg-accent-600 text-on-accent hover:bg-accent-700`}
+              className="rounded-md bg-accent-600 px-2 py-1 text-[11px] font-medium text-on-accent hover:bg-accent-700"
             >
               {t('sweep.run')}
             </button>
             {mine && (
-              <button onClick={clearDriftSweep} className={`${btn} bg-raised text-ink-soft hover:bg-elevated`}>
+              <button onClick={clearDriftSweep} className={smallButton('chip', 'soft')}>
                 {t('sweep.clear')}
               </button>
             )}

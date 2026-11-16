@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { nsKey } from './storageKeys';
+import { readLocalText } from './localPref';
 
 /** Kept outside settings so no settings copy, saved design or crash file can carry the key. */
 export interface UserKeyStore {
@@ -11,14 +12,7 @@ export interface UserKeyStore {
 export function userKeyStore(suffix: string): UserKeyStore {
   const storageKey = nsKey(suffix);
   const listeners = new Set<() => void>();
-  const read = (): string | undefined => {
-    try {
-      const v = localStorage.getItem(storageKey)?.trim();
-      return v ? v : undefined;
-    } catch {
-      return undefined;
-    }
-  };
+  const read = (): string | undefined => readLocalText(storageKey)?.trim() || undefined;
   const subscribe = (onChange: () => void) => {
     listeners.add(onChange);
     const onStorage = (e: StorageEvent) => {

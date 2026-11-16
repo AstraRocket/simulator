@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkspaceStore, selectActive, selectOutdated } from '../../state/store';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 import { useSettings } from '../../state/useSettings';
 import { SimulationsTable } from './SimulationsTable';
 import { SimEditor } from './SimEditor';
@@ -66,10 +66,7 @@ export function SimulationsPane() {
   };
 
   const onDelete = async () => {
-    if (
-      !settings.simulation.confirmDelete ||
-      (await confirm({ message: t('sims.deleteConfirm'), confirmLabel: t('common.delete'), danger: true }))
-    ) {
+    if (!settings.simulation.confirmDelete || (await confirmDelete(t('sims.deleteConfirm')))) {
       deleteSim(activeId);
     }
   };

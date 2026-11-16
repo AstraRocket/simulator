@@ -1,3 +1,5 @@
+import type { FlightEventType } from '../../engine/openRocketEngine';
+
 export type StabilityState = 'ok' | 'under' | 'over';
 
 export function stabilityState(cal: number | null | undefined): StabilityState | null {
@@ -46,9 +48,15 @@ export const EVENT_LABEL: Record<string, string> = {
   GROUND_HIT: 'flight.landing',
 };
 
-export const EVENT_PRIORITY = ['APOGEE', 'BURNOUT', 'RECOVERY_DEVICE_DEPLOYMENT', 'EJECTION_CHARGE', 'GROUND_HIT'];
+export const EVENT_PRIORITY: readonly string[] = [
+  'APOGEE',
+  'BURNOUT',
+  'RECOVERY_DEVICE_DEPLOYMENT',
+  'EJECTION_CHARGE',
+  'GROUND_HIT',
+] satisfies FlightEventType[];
 
-const DEPLOY = 'RECOVERY_DEVICE_DEPLOYMENT';
+const DEPLOY: FlightEventType = 'RECOVERY_DEVICE_DEPLOYMENT';
 
 // Deployments never merge, or a drogue at apogee would vanish; ties sort non-deploys first.
 export function clusterEventLabels(

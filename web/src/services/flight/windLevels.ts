@@ -1,5 +1,7 @@
 import type { LaunchConditions, WindLevel } from '../design/orkTree';
-import { degToRad, radToDeg } from '../../prefs/units';
+import { degToRad } from '../../prefs/units';
+import { bearingFromPad, distanceFromPad, norm360 } from './groundTrack';
+import { finiteOr } from '../app/numbers';
 
 // Degrees, due east: `SimulationOptions` defaults rod and wind direction to PI/2.
 export const DEFAULT_HEADING_DEG = 90;
@@ -39,6 +41,11 @@ export interface WindVector {
   north: number;
 }
 
+/** A negative speed is wind from the opposite heading; the heading reduced as `PinkNoiseWindModel.setDirection` keeps it. */
+export function windFrom(speed: number, deg: number): { speed: number; directionDeg: number } {
+  return { speed: Math.abs(speed), directionDeg: norm360(speed < 0 ? deg + 180 : deg) };
+}
+
 // Interpolated in components so the angle never wraps. `levels` must be sorted and non-empty.
 export function vectorAt<L extends { altitudeM: number }>(
   levels: readonly L[],
@@ -63,23 +70,20 @@ export function padLevelWind(
   const levels = [...(launch.windLevels ?? [])].sort((a, b) => a.altitudeM - b.altitudeM);
   if (!levels.length) return undefined;
   const h = launch.windAltitudeReference === 'agl' ? 0 : (launch.launchAltitudeM ?? 0);
-  const norm = (deg: number) => ((deg % 360) + 360) % 360;
   const i = levels.findIndex((l) => l.altitudeM >= h);
   const near = i < 0 ? levels[levels.length - 1]! : levels[i]!;
   if (i <= 0 || near.altitudeM === h) {
-    return near.speed < 0
-      ? { speedMs: -near.speed, headingDeg: norm(near.directionDeg + 180) }
-      : { speedMs: near.speed, headingDeg: norm(near.directionDeg) };
+    const w = windFrom(near.speed, near.directionDeg);
+    return { speedMs: w.speed, headingDeg: w.directionDeg };
   }
   const lo = levels[i - 1]!;
-  const { east, north } = vectorAt(levels, h, (l) => {
+  const v = vectorAt(levels, h, (l) => {
     const rad = degToRad(l.directionDeg);
     return { east: l.speed * Math.sin(rad), north: l.speed * Math.cos(rad) };
   });
-  const speedMs = Math.hypot(east, north);
+  const speedMs = distanceFromPad(v);
   // Two winds that cancel leave no heading; the lower level's typed one stands in.
-  const deg = speedMs > 0 ? radToDeg(Math.atan2(east, north)) : lo.directionDeg;
-  return { speedMs, headingDeg: norm(deg) };
+  return { speedMs, headingDeg: speedMs > 0 ? bearingFromPad(v) : norm360(lo.directionDeg) };
 }
 
 // A negative single wind keeps its typed heading: the bridge sets heading after speed, overriding the flip.
@@ -95,11 +99,10 @@ export function levelFromAverage(c: {
   windStdDev?: number | null;
   windDirectionDeg?: number | null;
 }): WindLevel {
-  const orZero = (v: number | null | undefined) => (v != null && Number.isFinite(v) ? v : 0);
   return {
     altitudeM: 0,
-    speed: orZero(c.windAverage),
+    speed: finiteOr(c.windAverage, 0),
     directionDeg: c.windDirectionDeg ?? DEFAULT_HEADING_DEG,
-    stddev: orZero(c.windStdDev),
+    stddev: finiteOr(c.windStdDev, 0),
   };
 }

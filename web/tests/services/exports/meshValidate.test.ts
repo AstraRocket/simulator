@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
-import { meshTolerances, validateSolid } from '../../../src/services/exports/meshValidate';
+import { meshTolerances, triangleArea, validateSolid } from '../../../src/services/exports/meshValidate';
 import {
   countBoundaryEdges,
   isSimplePolygon,
@@ -292,5 +292,13 @@ describe('makeWatertight caps a non-convex hole without overlapping itself', () 
     const open = openPrism();
     const before = open.getAttribute('position').count;
     expect(makeWatertight(openPrism()).getAttribute('position').count).toBe(before);
+  });
+});
+
+describe('triangleArea', () => {
+  it('is half the cross product, and 0 for a collinear triangle', () => {
+    const v = (x: number, y: number) => new THREE.Vector3(x, y, 0);
+    expect(triangleArea(v(0, 0), v(2, 0), v(0, 3))).toBeCloseTo(3);
+    expect(triangleArea(v(0, 0), v(1, 1), v(2, 2))).toBe(0);
   });
 });

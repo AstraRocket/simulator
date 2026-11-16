@@ -6,6 +6,7 @@ import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEn
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import { buildPieces } from '../../../src/components/canvas/rocketPieces';
 import { buildAftScene } from '../../../src/components/canvas/aftScene';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 // With no `height` the kernel keeps 0.0097 m and no screw (RailButton.java:60-66).
 const R = 0.02;
@@ -24,6 +25,7 @@ const side = (children: ComponentNode[], roll = 0) =>
     roll,
     uid: 't',
     setHoverId: () => {},
+    ...ENGLISH_LABELS,
   });
 
 const button = (extra: Record<string, unknown> = {}): ComponentNode =>

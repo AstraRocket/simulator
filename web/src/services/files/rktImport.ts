@@ -12,9 +12,8 @@ import { KeyedError } from '../../i18n/keyedError';
 import { type OrkFlightConfig, type OrkImportResult, defaultOrkConfig } from './orkTypes';
 import { finCant, numOpt } from '../../tree/nodeProps';
 import { bodyRadiusAt, trapezoidPoints } from '../../tree/finPlanform';
-import { isAssembly } from '../../tree/assembly';
-import { isChainType, rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
-import { partLength } from '../../tree/position';
+import { assemblyChainLength, isAssembly } from '../../tree/assembly';
+import { rollAngleKey, rollAngleOf } from '../../tree/componentKinds';
 import { shapeParamMax } from '../../tree/shapeProfile';
 import { partLabel } from '../../i18n/format';
 import { canHost } from '../design/treeEdit';
@@ -236,7 +235,11 @@ const shoulderWall = (el: Element, n: ComponentNode, shoulderRadius: number | un
 const shoulderAtMost = (radius: number | undefined, end: unknown): number | undefined =>
   radius !== undefined && typeof end === 'number' ? Math.min(radius, end) : radius;
 
-// No shoulder cap key: desktop reads a `.rkt` shoulder open.
+// Desktop's shoulder length setter caps a shoulder whose length leaves 0, so every `.rkt` shoulder opens capped.
+const putShoulderLength = (n: ComponentNode, key: string, capKey: string, length: number | undefined): void => {
+  put(n, key, length);
+  if (length !== undefined && length > 0) n[capKey] = true;
+};
 
 const readNoseCone = (ctx: RktContext, el: Element): ComponentNode => {
   const n = base(el, 'nosecone', false);
@@ -247,7 +250,7 @@ const readNoseCone = (ctx: RktContext, el: Element): ComponentNode => {
   const shR = shoulderAtMost(dia(el, 'ShoulderOD'), n['aftRadius']);
   const shL = mmPos(el, 'ShoulderLen');
   put(n, 'shoulderRadius', shR);
-  put(n, 'shoulderLength', shL);
+  putShoulderLength(n, 'shoulderLength', 'shoulderCapped', shL);
   put(n, 'shoulderThickness', shoulderWall(el, n, shR));
   if (n['filled'] === true && (num(el, 'CoreDia') ?? 0) > 0 && (num(el, 'CoreLen') ?? 0) > 0) {
     ctx.notes.push(keyedNote('importNote.rktDrilledCore', { part: notePartName(n) }));
@@ -274,9 +277,10 @@ function baseExtension(el: Element, nose: ComponentNode): ComponentNode | undefi
     if (typeof v === 'number' || typeof v === 'string') put(ext, key, v);
   }
   put(ext, 'aftShoulderRadius', numOpt(nose, 'shoulderRadius'));
-  put(ext, 'aftShoulderLength', numOpt(nose, 'shoulderLength'));
+  putShoulderLength(ext, 'aftShoulderLength', 'aftShoulderCapped', numOpt(nose, 'shoulderLength'));
   put(ext, 'aftShoulderThickness', numOpt(nose, 'shoulderThickness'));
   if (nose['shoulderLength'] !== undefined) nose['shoulderLength'] = 0;
+  delete nose['shoulderCapped'];
   if (nose['overrideMass'] !== undefined) ext['overrideMass'] = 0;
   return ext;
 }
@@ -294,9 +298,9 @@ const readTransition = (ctx: RktContext, el: Element): ComponentNode => {
   const fShL = mmPos(el, 'FrontShoulderLen');
   const aShL = mmPos(el, 'RearShoulderLen');
   put(n, 'foreShoulderRadius', fShR);
-  put(n, 'foreShoulderLength', fShL);
+  putShoulderLength(n, 'foreShoulderLength', 'foreShoulderCapped', fShL);
   put(n, 'aftShoulderRadius', aShR);
-  put(n, 'aftShoulderLength', aShL);
+  putShoulderLength(n, 'aftShoulderLength', 'aftShoulderCapped', aShL);
   put(n, 'foreShoulderThickness', shoulderWall(el, n, fShR));
   put(n, 'aftShoulderThickness', shoulderWall(el, n, aShR));
   return n;
@@ -735,7 +739,7 @@ function applyStageOverrides(design: Element, stages: ComponentNode[]): void {
   let front = 0;
   stages.forEach((stage, i) => {
     const start = front;
-    front += (stage.children ?? []).reduce((sum, n) => sum + (isChainType(n.type) ? partLength(n) : 0), 0);
+    front += assemblyChainLength(stage);
     const mass = (num(design, STAGE_MASS_ELEMENTS[i]!) ?? 0) / MASS;
     if (!(mass > 0)) {
       cgKnown = false;

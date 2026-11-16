@@ -2,6 +2,19 @@ import { fmtNum } from '../../i18n/format';
 import { hoverValue } from './flightChartHoverValue';
 
 // The e2e suite selects on the crosshair's `data-crosshair`.
+export function CrosshairLine({ x, top, bottom }: { x: number; top: number; bottom: number }) {
+  return (
+    <line
+      x1={x}
+      y1={top}
+      x2={x}
+      y2={bottom}
+      data-crosshair
+      className="stroke-ink-soft/40"
+      vectorEffect="non-scaling-stroke"
+    />
+  );
+}
 
 export interface HoverSeries {
   color: string;
@@ -32,15 +45,7 @@ export function PanelHover({
 }) {
   return (
     <g pointerEvents="none">
-      <line
-        x1={X(hoverT)}
-        y1={top}
-        x2={X(hoverT)}
-        y2={bottom}
-        data-crosshair
-        className="stroke-ink-soft/40"
-        vectorEffect="non-scaling-stroke"
-      />
+      <CrosshairLine x={X(hoverT)} top={top} bottom={bottom} />
       {list.map((s, i) => {
         const hv = hoverValue(s, hoverT);
         if (hv == null) return null;

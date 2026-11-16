@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { LAUNCH_SITE_LIMITS } from '../../services/storage/launchLocationStore';
 import { NumberRow } from '../common/NumberRow';
-import { latHemisphere, lonHemisphere } from '../../services/map/slippyMap';
+import { latLonUnit } from '../../services/map/slippyMap';
 
 type LatLonKey = 'latitudeDeg' | 'longitudeDeg';
 
@@ -26,7 +26,7 @@ export function LatLonRows({
   const row = (key: LatLonKey, label: string, value: number | null | undefined) => (
     <NumberRow
       label={label}
-      unit={value == null ? '°' : `° ${key === 'latitudeDeg' ? latHemisphere(value) : lonHemisphere(value)}`}
+      unit={latLonUnit(key, value)}
       step={1}
       min={LAUNCH_SITE_LIMITS[key].min}
       max={LAUNCH_SITE_LIMITS[key].max}

@@ -10,7 +10,7 @@ import {
   newModelPose,
   type PhaseColors,
 } from '../../../src/components/canvas/flightScene';
-import type { FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
+import type { FlightEvent, FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
 import { boostWindows, findRecovery } from '../../../src/components/canvas/flightScene';
 import { mergePalette } from '../../../src/services/design/partColors';
 import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
@@ -389,7 +389,7 @@ describe("the delay grain's smoke", () => {
       [0, 1],
       [3, 4],
     ];
-    const events = [
+    const events: FlightEvent[] = [
       { type: 'EJECTION_CHARGE', time: 1 },
       { type: 'EJECTION_CHARGE', time: 9 },
     ];
@@ -412,5 +412,28 @@ describe("the delay grain's smoke", () => {
       [3, 0, true],
       [4, 0, true],
     ]);
+  });
+});
+
+describe('a sample the run left with no ground position', () => {
+  it('is left out of the 3D path, as the ground track leaves it out, rather than drawn at the pad', () => {
+    const gapped = {
+      summary: { timeToApogee: 2 },
+      events: [],
+      series: {
+        time: [0, 1, 2, 3, 4],
+        altitude: [0, 60, 100, 60, 0],
+        velocity: [0, 40, 0, 20, 10],
+        Px: [0, 50, null, 150, 200],
+        Py: [0, 100, 200, 300, 400],
+      },
+    } as unknown as FlightResult;
+    expect(buildFlightScene(gapped, phase).times).toEqual([0, 1, 3, 4]);
+  });
+
+  it('still flies a run that records no ground position up the axis', () => {
+    const { time, altitude } = arc();
+    const flat = { summary: {}, events: [], series: { time, altitude } } as unknown as FlightResult;
+    expect(buildFlightScene(flat, phase).times).toEqual(time);
   });
 });

@@ -7,10 +7,9 @@ import { parseDelays } from '../../services/motors/motorPicker';
 import { PLUGGED_DELAY, type MotorSpec } from '../../engine/openRocketEngine';
 import { keyOf } from '../../services/motors/motorKey';
 import { errorText } from '../../i18n/keyedError';
-import { listWriteErrorText } from '../../services/storage/jsonListStore';
 import { fmtList } from '../../i18n/format';
 import { useFilePick } from '../common/useFilePick';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 
 const DEFAULT_DELAY = 3;
 
@@ -81,18 +80,14 @@ export function useCatalogEdits(setCatalog: (catalog: CatalogMotor[]) => void, o
       setNote(failed.length ? `${done} ${t('motor.importSkipped', { files: fmtList(failed) })}` : done);
     } catch (err) {
       if (!mine()) return;
-      onError(listWriteErrorText(err, t));
+      onError(errorText(err, t));
     }
   };
   const motorFile = useFilePick({ accept: '.eng,.ENG,.rse,.RSE', onFiles: (f) => void onImport(f) });
 
   const onDelete = async (m: CatalogMotor) => {
     if (!m.id) return;
-    const ok = await confirm({
-      message: t('motor.deleteConfirm', { name: m.designation }),
-      confirmLabel: t('common.delete'),
-      danger: true,
-    });
+    const ok = await confirmDelete(t('motor.deleteConfirm', { name: m.designation }));
     if (!ok) return;
     onError(null);
     const mine = catalogWrite.claim();
@@ -102,7 +97,7 @@ export function useCatalogEdits(setCatalog: (catalog: CatalogMotor[]) => void, o
       setCatalog(catalog);
     } catch (err) {
       if (!mine()) return;
-      onError(listWriteErrorText(err, t));
+      onError(errorText(err, t));
     }
   };
 

@@ -217,7 +217,81 @@
 # the first 256 bytes and nested <openrocket> roots, both crafted-file only.
 #
 # OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-11-09: reviewed 7fe1cf9 through f6a59fae (v0.198, 2026-11-09), 32
+# commits, 216 files. The only engine-java change is a `--source` argument
+# check in their carve script.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND FIXED HERE: an unreadable deployment,
+# separation or ignition number keeps the earlier value (desktop's parseDouble
+# NaN); fin tab positions replayed in file order through `setTabOffsetMethod`,
+# with desktop's case-sensitive method names; a non-bulk fillet material
+# ignored (`MaterialSetter`); CR-only `.eng` line endings
+# (`BufferedReader.readLine`).
+#
+# NOT TAKEN: their rising RSE per-point mass fallback and stored-motor repair
+# (desktop flies the stated masses); RockSim configurations split by burnout
+# time (desktop imports no RockSim simulations); recovery sizing advice,
+# fabrication exports and RASAero changes (features this app does not have);
+# a caution on unknown RockSim shape codes (desktop substitutes silently, as
+# we do).
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-11-13: reviewed f6a59fae through 779a4342 (v0.199 of 2026-11-10, then
+# tooling through 2026-11-13), in two pulls: 78ac8bf1 and 779a4342. No
+# engine-java source changed, only their carve and build scripts.
+#
+# APP-SIDE, FOUND IN THEIR COMMITS AND DONE HERE: a caution when a ring's
+# hand-set bore is smaller than an inner tube through it, in the ring's editor,
+# the PDF design report and the DXF label (discGeometry.ts `ringBoreNeedIn`).
+# Ours warns on any shortfall, with an off-axis tube counting its offset; theirs
+# is scoped to their coupler-held tubes within a 0.25 mm tolerance.
+#
+# TAKEN, AS A CHEAP GUARD: their number limits, where they were not already
+# here. The bridge's 1e6 MAX_MAGNITUDE already bounds every component number
+# (masses, densities, cluster scale), so the gaps were motors and freeform
+# points. A motor over 1000 m or 10^15 kg is refused at import and at install
+# (motorStore.ts `motorHeaderProblem`, 'oversize'), not reduced, as theirs. A
+# freeform point past MAX_MAGNITUDE is refused by the bridge (ComponentFactory),
+# since the kernel snaps only past +2.5 m. Crafted files only.
+#
+# ALREADY COVERED: embedded motors refused one by one (loadOrk.ts reads each
+# embedded .rse on its own); angle displays following the Angle unit.
+#
+# NOT APPLICABLE: RockSim motor evidence across simulations (desktop imports
+# no RockSim simulations); .CDX1 recovery read notes (we only export RASAero);
+# their machine-path, OpenRocket-source and catalog tooling.
+#
+# OPEN: the SEMROC BTC-20BB [R] mass; our semroc.orc still has 0.21 oz.
+#
+# 2026-11-15: reviewed 779a4342 through 5db63e5f (v0.200 of 2026-11-14 and
+# v0.201 of 2026-11-15). No engine-java file changed; every change is under
+# their packages/app.
+#
+# APP-SIDE, DONE HERE: loading the picked motor into the other mounts of the
+# same stage where it fits, offered and never applied by itself, with one Undo
+# (their otherMountLoad.ts; ours is services/flight/otherMounts.ts and
+# components/config/OtherMountsOffer.tsx). Each mount keeps its ignition; a
+# plugged mount stays plugged. Their per-mount delay matching is not taken: our
+# MotorSpec carries the picked delay, so the pick's delay is copied.
+#
+# NOT TAKEN: their unbalanced-thrust warning (asymmetricThrust.ts). OpenRocket
+# core flies all thrust on the centerline and has no thrust moment, so this is
+# advice the kernel cannot back.
+#
+# NOT APPLICABLE: everything batch simulate (matching mounts, mixed batches on
+# rings of separate tubes, batch row loadouts, the two new export columns); this
+# app has no batch simulate. Their fit-length tolerance made consistent: ours is
+# already one check (motorPicker.ts `motorFitsMount`). Their motor data refresh
+# of 2026-11-09 added and changed no motor.
+#
+# CLOSED: the SEMROC BTC-20BB [R] mass. openrocket-database's semroc.orc gives
+# 0.82 oz, our pinned copy carries it, and components.generated.json (regenerated
+# 2026-11-09) ships 0.02325 kg. The "still 0.21 oz" above was carried forward
+# without being re-read; 0.21 oz is the neighboring part it was cloned from. A
+# saved design keeps its stored mass until the part is picked again, as desktop.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 7fe1cf9ffe78cf2d12885377def4f95779d45a10
-version = 0.197
-dated   = 2026-11-03
+ref     = 5db63e5f310d482c953ce7ebbbeeacc662ffcc0c
+version = 0.201
+dated   = 2026-11-15

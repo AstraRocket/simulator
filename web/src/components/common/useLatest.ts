@@ -5,6 +5,8 @@ export interface Latest {
   /** Like `claim` but without superseding a sibling attempt. */
   observe: () => () => boolean;
   claimSignal: () => AbortSignal;
+  /** Aborts the claimed signal without superseding: a `claim` still holds. */
+  cancel: () => void;
 }
 
 export function useLatest(): Latest {
@@ -31,5 +33,9 @@ export function useLatest(): Latest {
     request.current = ctl;
     return ctl.signal;
   }, []);
-  return { claim, observe, claimSignal };
+  const cancel = useCallback(() => {
+    request.current?.abort();
+    request.current = null;
+  }, []);
+  return { claim, observe, claimSignal, cancel };
 }

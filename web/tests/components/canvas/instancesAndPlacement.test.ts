@@ -4,6 +4,7 @@ import { buildPieces } from '../../../src/components/canvas/rocketPieces';
 import { buildSchematicShapes } from '../../../src/components/canvas/schematicShapes';
 import { lineInstances, placementOffsets } from '../../../src/tree/placement';
 import { MAX_INSTANCE_COUNT } from '../../../src/tree/nodeProps';
+import { ENGLISH_LABELS } from '../../testing/schematicLabels';
 
 // Kernel radial placement: y = r cos θ, z = r sin θ (RingComponent, MassObject).
 const tube = (children: ComponentNode[]): ComponentNode =>
@@ -94,6 +95,7 @@ describe('the side view', () => {
       roll: 0,
       uid: 't',
       setHoverId: () => {},
+      ...ENGLISH_LABELS,
     }).extents;
 
   it('draws a part at radial direction 0 above the axis, on the side a lug at angle 0 stands', () => {

@@ -1,5 +1,5 @@
 import type { WindLevel } from '../design/orkTree';
-import { norm360 } from './groundTrack';
+import { windFrom } from './windLevels';
 
 // Mirrors `MultiLevelPinkNoiseWindModel.importLevelsFromCSV`: fixed units (m, m/s, degrees), not display units.
 
@@ -104,8 +104,7 @@ export function parseWindProfileCsv(text: string): WindProfileCsvResult {
     const directionDeg = cell(dirIdx);
     levels.push({
       altitudeM: cell(altIdx),
-      speed: Math.abs(speed),
-      directionDeg: speed < 0 ? norm360(directionDeg + 180) : directionDeg,
+      ...windFrom(speed, directionDeg),
       // As `PinkNoiseWindModel.setStandardDeviation` floors it.
       stddev: sdCell === '' ? 0 : Math.max(cell(sdIdx), 0),
     });

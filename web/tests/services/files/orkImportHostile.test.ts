@@ -2,7 +2,12 @@
 import { describe, it, expect } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
 import { importOrk } from '../../../src/services/files/orkFile';
-import { MAX_MOTOR_CONFIGS, MAX_NESTING_DEPTH, MAX_SIMULATIONS } from '../../../src/services/files/ork/importLimits';
+import {
+  MAX_COMPONENTS,
+  MAX_MOTOR_CONFIGS,
+  MAX_NESTING_DEPTH,
+  MAX_SIMULATIONS,
+} from '../../../src/services/files/ork/importLimits';
 
 const ork = (xml: string): ArrayBuffer => {
   const zipped = zipSync({ 'rocket.ork': strToU8(xml) });
@@ -62,11 +67,10 @@ describe('the hostile-input caps actually fire', () => {
     expect(() => importOrk(ork(xml))).toThrow(/nest|deep/i);
   });
 
-  // Own timeout: parsing ten thousand parts can run ten times slower on a loaded CI runner.
   it('refuses more components than MAX_COMPONENTS with a clear error', () => {
-    const many = '<bodytube><name>b</name><length>0.1</length><radius>0.01</radius></bodytube>'.repeat(10_050);
+    const many = '<bodytube><name>b</name><length>0.1</length><radius>0.01</radius></bodytube>'.repeat(MAX_COMPONENTS);
     expect(() => importOrk(ork(wrap(many)))).toThrow(/too many components/i);
-  }, 60_000);
+  });
 
   const withSims = (n: number) =>
     ork(

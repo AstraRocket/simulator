@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 
-const TONE = { danger: 'text-danger-400', warn: 'text-warn-400', muted: 'text-ink-muted' } as const;
-const SIZE = { xs: 'text-xs', fine: 'text-[11px] leading-snug' } as const;
+const TONE = {
+  danger: 'text-danger-400',
+  warn: 'text-warn-400',
+  muted: 'text-ink-muted',
+  soft: 'text-ink-soft',
+} as const;
+const SIZE = { micro: 'text-[10px]', fine: 'text-[11px] leading-snug', xs: 'text-xs', sm: 'text-sm' } as const;
 
 /** Keep it mounted and empty: most screen readers skip a live region created with its text. */
 export function StatusLine({

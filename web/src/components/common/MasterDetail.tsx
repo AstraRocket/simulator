@@ -105,6 +105,18 @@ export function MasterDetail({
   );
 }
 
+/** A titled group of master rows; the title sticks while the list scrolls. */
+export function MasterSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="sticky top-0 bg-surface px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+        {title}
+      </h3>
+      <ul className="divide-y divide-line/5">{children}</ul>
+    </section>
+  );
+}
+
 export function MasterRow({
   selected,
   onClick,

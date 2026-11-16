@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { finViewport, type Pt } from './finViewport';
+import { outlineCrossesItself } from '../../services/design/finOutline';
 
 const FALLBACK: Pt[] = [
   [0, 0],
@@ -23,6 +24,14 @@ export function useFreeformEditing({
 
   const pts: Pt[] = points.length >= 3 ? points : FALLBACK;
 
+  // As desktop's setPoint: an edit that would cross the outline is refused and the last good one kept,
+  // since the kernel refuses a crossing outline and the whole design stops building.
+  const apply = (next: Pt[]): boolean => {
+    if (outlineCrossesItself(next)) return false;
+    onChange(next);
+    return true;
+  };
+
   const view = finViewport(pts);
 
   const toVB = (e: React.PointerEvent): DOMPoint | null => {
@@ -35,9 +44,9 @@ export function useFreeformEditing({
   // FreeformFinSet.setPoints pins the first, clampLastPoint snaps the last, removePoint refuses both.
   const fixedEnd = (i: number) => i === 0 || i === last;
   // Interior x is unbounded, as in FreeformFinSet.setPoint, for swept-forward leading edges.
-  const setPoint = (i: number, x: number, y: number) => {
-    if (i === 0) return;
-    onChange(
+  const setPoint = (i: number, x: number, y: number): boolean => {
+    if (i === 0) return false;
+    return apply(
       pts.map((p, j) => (j === i ? ([i === last ? Math.max(0, x) : x, i === last ? 0 : Math.max(0, y)] as Pt) : p)),
     );
   };
@@ -70,13 +79,13 @@ export function useFreeformEditing({
     if (i >= last) return;
     const a = pts[i]!,
       b = pts[i + 1]!;
-    onChange([...pts.slice(0, i + 1), [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as Pt, ...pts.slice(i + 1)]);
+    if (!apply([...pts.slice(0, i + 1), [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as Pt, ...pts.slice(i + 1)])) return;
     setSel(i + 1);
     onCommit?.();
   };
   const removeSel = () => {
     if (sel == null || pts.length <= 3 || fixedEnd(sel)) return;
-    onChange(pts.filter((_, j) => j !== sel));
+    if (!apply(pts.filter((_, j) => j !== sel))) return;
     setSel(null);
     onCommit?.();
   };
@@ -88,8 +97,7 @@ export function useFreeformEditing({
     const move = (dx: number, dy: number) => {
       e.preventDefault();
       setSel(i);
-      setPoint(i, p[0] + dx, p[1] + dy);
-      onCommit?.();
+      if (setPoint(i, p[0] + dx, p[1] + dy)) onCommit?.();
     };
     if (e.key === 'ArrowLeft') return move(-step, 0);
     if (e.key === 'ArrowRight') return move(step, 0);
@@ -98,8 +106,7 @@ export function useFreeformEditing({
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       setSel(i);
-      if (pts.length > 3 && !fixedEnd(i)) {
-        onChange(pts.filter((_, j) => j !== i));
+      if (pts.length > 3 && !fixedEnd(i) && apply(pts.filter((_, j) => j !== i))) {
         setSel(null);
         onCommit?.();
       }

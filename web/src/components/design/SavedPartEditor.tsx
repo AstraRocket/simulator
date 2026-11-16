@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { hasMaterial, isRecoveryDevice } from '../../services/design/treeEdit';
-import { updateCustomPart, type PartMeta } from '../../services/parts/customParts';
+import { pinSavedSize, statesRadius, updateCustomPart, type PartMeta } from '../../services/parts/customParts';
 import type { CustomPart } from '../../services/parts/presetStore';
 import { AppearanceSection } from './AppearanceSection';
 import { FieldRow, FieldSection, ShoulderSections } from './DimensionFields';
@@ -33,11 +33,13 @@ export function SavedPartEditor({
   const [saving, setSaving] = useState(false);
 
   // Against the stored part, not a keystroke flag, so typing and deleting a character stays clean.
+  // Both pinned, as the save pins: the flags it adds are not an edit.
+  const pinned = (n: Partial<ComponentNode>) => JSON.stringify(pinSavedSize(n, part.type));
   const dirty =
     meta.mfr !== part.mfr ||
     meta.partNo !== part.partNo ||
     meta.desc !== part.desc ||
-    JSON.stringify(savedShape(node)) !== JSON.stringify(part.node);
+    pinned(savedShape(node)) !== pinned(part.node);
 
   useReportDirty(dirty, onDirtyChange);
 
@@ -78,7 +80,13 @@ export function SavedPartEditor({
 
         <div className="mt-5 space-y-3 border-t border-line/10 pt-4">
           {visibleFields(node, false).map((f) => (
-            <FieldRow key={f.key} node={node} field={f} onChange={change} />
+            // A saved part is the size it states (pinSavedSize), so its radii offer no Auto switch.
+            <FieldRow
+              key={f.key}
+              node={node}
+              field={statesRadius(node.type, f.key) ? { ...f, auto: undefined } : f}
+              onChange={change}
+            />
           ))}
 
           <ShoulderSections node={node} onChange={change} />

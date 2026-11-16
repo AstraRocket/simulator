@@ -6,10 +6,10 @@ import { fmtNum, partLabel } from '../../i18n/format';
 import { stageNodes } from '../../tree/treeWalk';
 import { NO_VALUE } from '../../i18n/noValue';
 import { useWorkspaceStore } from '../../state/store';
-import { confirm } from '../../state/confirmStore';
+import { confirmDelete } from '../../state/confirmStore';
 import { localToday } from '../../services/app/localDate';
 import { uuid } from '../../services/app/uuid';
-import { DEFAULT_BAY_PRESSURE_PA } from '../../services/flight/ejectionCharge';
+import { DEFAULT_BAY_PRESSURE_PA, EJECTION_FIELD_LIMITS } from '../../services/flight/ejectionCharge';
 import { PIN_SIZES, PIN_STRENGTH_N, type PinSize, type ShearPins } from '../../services/flight/ejectionBay';
 import { BACKUP_FACTOR, suggestedBackup, suggestedCharge } from '../../services/flight/recoveryCharges';
 import {
@@ -28,10 +28,17 @@ import {
 import { QNum } from '../sim/QNum';
 import { NumberRow } from '../common/NumberRow';
 import { FieldLabel } from '../common/FieldMark';
+import { SelectRow } from '../common/SelectRow';
 import { CardGroup } from '../common/CardGroup';
+import { Disclosure } from '../common/Disclosure';
 import { smallButton } from '../common/smallButton';
 import { useScopedUnit } from '../common/useScopedUnit';
 import { EjectionFigures } from '../tools/EjectionFigures';
+
+// A rated size reads as its gauge, a measured pin as its force.
+function pinText(pins: Pick<BayPins, 'size' | 'forceN'>, force: (n: number) => string): string {
+  return pins.size ? `#${pins.size}` : force(pins.forceN);
+}
 
 function pinsText(
   pins: ShearPins,
@@ -41,13 +48,16 @@ function pinsText(
 ): string {
   if (source === 'bay') {
     if (pins.count === 0) return t('bays.pinsBayNone');
-    const pin = pins.size ? `#${pins.size}` : force(pins.forceN);
-    return t('bays.pinsBay', { n: pins.count, pin, each: force(pins.forceN) });
+    return t('bays.pinsBay', { n: pins.count, pin: pinText(pins, force), each: force(pins.forceN) });
   }
   if (!pins.from) return t('ejectionBay.pinsDefault');
   if (pins.count === 0) return t('ejectionBay.pinsNone', { name: pins.from });
-  const pin = pins.size ? `#${pins.size}` : force(pins.forceN);
-  return t('ejectionBay.pinsFrom', { n: pins.count, pin, each: force(pins.forceN), name: pins.from });
+  return t('ejectionBay.pinsFrom', {
+    n: pins.count,
+    pin: pinText(pins, force),
+    each: force(pins.forceN),
+    name: pins.from,
+  });
 }
 
 export function RecoveryBaysPane() {
@@ -73,19 +83,16 @@ function StageBays({ title, bays }: { title: string; bays: DesignBay[] }) {
   const id = useId();
   return (
     <section aria-labelledby={id} className="space-y-3">
-      <h3 id={id}>
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="flex w-full items-center gap-1.5 border-b border-line/10 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted hover:text-ink"
-        >
-          <span aria-hidden className={`transition-transform ${open ? 'rotate-90' : ''}`}>
-            ›
-          </span>
-          {title}
-        </button>
-      </h3>
+      <Disclosure
+        as="h3"
+        id={id}
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+        label={title}
+        className="flex w-full items-center gap-1.5 border-b border-line/10 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted hover:text-ink"
+        labelClassName=""
+        glyphClassName="leading-none"
+      />
       {open && bays.map((b) => <BayCard key={`${b.tubeId}:${b.role}`} bay={b} />)}
     </section>
   );
@@ -114,8 +121,6 @@ function BayCard({ bay }: { bay: DesignBay }) {
   const charges = bayCharges(tree, bay);
   const suggestion = suggestedCharge(settings.boreM, settings.lengthM, settings.pressurePa, pins);
   const force = (n: number) => u.fmtSym('force', n);
-  const lengthUnit = u.at(unitScope('launch', 'bayLength'), 'length');
-  const pressureUnit = u.at(unitScope('launch', 'bayPressure'), 'pressure');
   const flownFrom = record.flownTestId ? record.tests.find((x) => x.id === record.flownTestId) : undefined;
 
   /** Starts from the pins in effect, not the record's. */
@@ -142,10 +147,8 @@ function BayCard({ bay }: { bay: DesignBay }) {
             field="bayBore"
             kind="length"
             u={u}
-            stepSi={0.001}
-            minSi={0.005}
-            maxSi={1}
-            placeholder={lengthUnit.fmt(drawn.boreM)}
+            {...EJECTION_FIELD_LIMITS.bore}
+            placeholderSi={drawn.boreM}
             commitOnBlur
             value={record.boreM ?? null}
             onChange={(v) => update({ boreM: v ?? undefined })}
@@ -156,10 +159,8 @@ function BayCard({ bay }: { bay: DesignBay }) {
             field="bayLength"
             kind="length"
             u={u}
-            stepSi={0.001}
-            minSi={0.005}
-            maxSi={5}
-            placeholder={lengthUnit.fmt(drawn.lengthM)}
+            {...EJECTION_FIELD_LIMITS.length}
+            placeholderSi={drawn.lengthM}
             commitOnBlur
             value={record.lengthM ?? null}
             onChange={(v) => update({ lengthM: v ?? undefined })}
@@ -169,47 +170,36 @@ function BayCard({ bay }: { bay: DesignBay }) {
             field="bayPressure"
             kind="pressure"
             u={u}
-            stepSi={1000}
-            minSi={1000}
-            maxSi={1e6}
-            placeholder={pressureUnit.fmt(DEFAULT_BAY_PRESSURE_PA)}
+            {...EJECTION_FIELD_LIMITS.pressure}
+            placeholderSi={DEFAULT_BAY_PRESSURE_PA}
             commitOnBlur
             value={record.pressurePa ?? null}
             onChange={(v) => update({ pressurePa: v ?? undefined })}
           />
           <NumberRow
             label={t('ejectionTool.pinCount')}
-            step={1}
-            min={0}
-            max={24}
+            {...EJECTION_FIELD_LIMITS.pinCount}
             commitOnBlur
             value={pins.count}
             onChange={(v) => setPins({ count: v == null ? 0 : Math.round(v) })}
           />
-          <label className="flex items-center justify-between gap-3">
-            <FieldLabel text={t('bays.pinSize')} />
-            <select
-              value={pins.size ?? 'measured'}
-              onChange={(e) => {
-                const size = e.target.value as PinSize | 'measured';
-                setPins(size === 'measured' ? { size: null } : { size, forceN: PIN_STRENGTH_N[size] });
-              }}
-              className={`w-32 ${SELECT}`}
-            >
-              {PIN_SIZES.map((z) => (
-                <option key={z} value={z}>{`#${z}`}</option>
-              ))}
-              <option value="measured">{t('bays.pinMeasured')}</option>
-            </select>
-          </label>
+          <SelectRow<PinSize | 'measured'>
+            label={t('bays.pinSize')}
+            value={pins.size ?? 'measured'}
+            onChange={(size) => setPins(size === 'measured' ? { size: null } : { size, forceN: PIN_STRENGTH_N[size] })}
+            width="w-32"
+          >
+            {PIN_SIZES.map((z) => (
+              <option key={z} value={z}>{`#${z}`}</option>
+            ))}
+            <option value="measured">{t('bays.pinMeasured')}</option>
+          </SelectRow>
           <QNum
             label={t('ejectionTool.pinForce')}
             field="bayPinForce"
             kind="force"
             u={u}
-            stepSi={1}
-            minSi={1}
-            maxSi={10000}
+            {...EJECTION_FIELD_LIMITS.pinForce}
             commitOnBlur
             value={pins.forceN}
             onChange={(v) => v != null && setPins({ forceN: v, size: null })}
@@ -239,9 +229,7 @@ function BayCard({ bay }: { bay: DesignBay }) {
             field="chargePrimary"
             kind="mass"
             u={u}
-            stepSi={0.0001}
-            minSi={0.0001}
-            maxSi={0.1}
+            {...EJECTION_FIELD_LIMITS.charge}
             commitOnBlur
             value={charges.primaryKg}
             onChange={(v) => update({ primaryKg: v ?? undefined, flownTestId: undefined })}
@@ -252,9 +240,7 @@ function BayCard({ bay }: { bay: DesignBay }) {
             field="chargeBackup"
             kind="mass"
             u={u}
-            stepSi={0.0001}
-            minSi={0.0001}
-            maxSi={0.1}
+            {...EJECTION_FIELD_LIMITS.charge}
             commitOnBlur
             value={charges.backupKg}
             onChange={(v) => update({ backupKg: v ?? undefined })}
@@ -318,11 +304,11 @@ function TestLog({
     setNotes('');
   };
   const remove = async (id: string) => {
-    if (!(await confirm({ message: t('bays.deleteTestConfirm'), danger: true }))) return;
+    if (!(await confirmDelete(t('bays.deleteTestConfirm')))) return;
     update({ tests: tests.filter((x) => x.id !== id), ...(flownTestId === id ? { flownTestId: undefined } : {}) });
   };
   const pinLabel = (p: BayPins | null) =>
-    !p || p.count === 0 ? t('bays.noPins') : `${p.count} × ${p.size ? `#${p.size}` : u.fmtSym('force', p.forceN)}`;
+    !p || p.count === 0 ? t('bays.noPins') : `${p.count} × ${pinText(p, (n) => u.fmtSym('force', n))}`;
 
   return (
     <div className="space-y-2 border-t border-line/5 pt-3">
@@ -408,24 +394,19 @@ function TestLog({
           field="testCharge"
           kind="mass"
           u={u}
-          stepSi={0.0001}
-          minSi={0.0001}
-          maxSi={0.1}
+          {...EJECTION_FIELD_LIMITS.charge}
           required
           missing={chargeKg == null}
           value={chargeKg}
           onChange={setChargeKg}
         />
-        <label className="flex items-center justify-between gap-3">
-          <FieldLabel text={t('bays.result')} />
-          <select value={result} onChange={(e) => setResult(e.target.value as TestResult)} className={`w-48 ${SELECT}`}>
-            {TEST_RESULTS.map((r) => (
-              <option key={r} value={r}>
-                {t(`bays.result_${r}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectRow<TestResult> label={t('bays.result')} value={result} onChange={setResult} width="w-48">
+          {TEST_RESULTS.map((r) => (
+            <option key={r} value={r}>
+              {t(`bays.result_${r}`)}
+            </option>
+          ))}
+        </SelectRow>
         <label className="block">
           <FieldLabel text={t('bays.notes')} />
           <input

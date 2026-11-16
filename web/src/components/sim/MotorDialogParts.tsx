@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
+import { fromCatalog } from '../../services/motors/catalogUnits';
 import { NumberInput } from '../common/NumberInput';
 import { hasCurve, hasLocalCurve, type CatalogMotor } from '../../services/motors/motorDb';
 import { parseDelays } from '../../services/motors/motorPicker';
 import { PLUGGED_DELAY } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
-import { CatalogLoading, CatalogError } from '../common/CatalogLoading';
+import { MotorCatalogGate } from './MotorCatalogGate';
 import { MotorDetail } from './MotorDetail';
 import { keyOf } from '../../services/motors/motorKey';
 import {
@@ -98,20 +99,7 @@ export function MotorList({
   const { t } = useTranslation();
   const u = useUnits();
   const { loadingKey, choose, pick } = choice;
-  if (error) {
-    return (
-      <div className="grid min-h-0 flex-1 place-items-center p-6">
-        <CatalogError message={`${t('catalog.failedMotors')} ${error}`} onRetry={retry} />
-      </div>
-    );
-  }
-  if (loading) {
-    return (
-      <div className="grid min-h-0 flex-1 place-items-center p-6">
-        <CatalogLoading name="motors" label={t('motorDlg.loadingCatalog')} />
-      </div>
-    );
-  }
+  if (error || loading) return <MotorCatalogGate loading={loading} error={error} onRetry={retry} centered />;
   return (
     <ul className="min-h-0 flex-1 divide-y divide-line/5 overflow-y-auto">
       {matches.map((m) => {
@@ -144,7 +132,7 @@ export function MotorList({
               <span className="shrink-0 text-xs tabular-nums text-ink-muted">
                 {isLoading
                   ? t('motorDlg.loading')
-                  : `${u.fmtSym('impulse', m.impulse)} · ${u.fmtSym('motorDimensions', m.diameter / 1000)}`}
+                  : `${u.fmtSym('impulse', m.impulse)} · ${u.fmtSym('motorDimensions', fromCatalog(m.diameter))}`}
               </span>
             </button>
             {m.custom && (

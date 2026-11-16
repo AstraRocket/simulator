@@ -1,6 +1,6 @@
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { isPlanarFinSet } from '../../tree/tubefins';
-import { walkNodes } from '../../tree/treeWalk';
+import { collectNodes } from '../../tree/treeWalk';
 import { parseHexColor, rgbChannels } from '../design/colorHex';
 
 export const hexToRgbTuple = (hex: string): [number, number, number] => {
@@ -11,7 +11,7 @@ export const hexToRgbTuple = (hex: string): [number, number, number] => {
 
 // isPlanarFinSet, not endsWith('finset'): tube fins have no planform (desktop FinSetPrintStrategy skips them).
 export const finSetsOf = (stage: ComponentNode): ComponentNode[] =>
-  [...walkNodes(stage.children ?? [])].filter((n) => isPlanarFinSet(String(n.type)));
+  collectNodes(stage.children ?? [], (n) => isPlanarFinSet(String(n.type)));
 
 /** All mm. */
 export interface PageFrame {

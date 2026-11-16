@@ -29,6 +29,10 @@ export type RunOutcome = 'landed' | 'failed' | 'skipped' | 'canceled' | 'dropped
 
 let batchAbort: AbortController | null = null;
 
+/** Every job `abortRunWork` stops; a new job goes in both. */
+export const jobRunning = (s: Pick<WorkspaceState, 'simBusy' | 'driftSweepRun' | 'motorGuideRun'>): boolean =>
+  s.simBusy || s.driftSweepRun !== null || s.motorGuideRun !== null;
+
 // The caller resets the run state in the same `set` as the workspace swap.
 export function abortRunWork(): void {
   batchAbort?.abort();

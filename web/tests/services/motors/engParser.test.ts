@@ -224,6 +224,14 @@ describe('a .eng header that is finite but impossible', () => {
     expect(() => parseEng(eng('0.5', '1.0', '54', '-10'))).toThrow(/diameter|length/i);
   });
 
+  it('refuses a motor past the size and mass limits, naming it, rather than flying a reduced one', () => {
+    const oversize = expect.objectContaining({ key: 'errors.motorFile.oversize', values: { motor: 'M1500' } });
+    expect(() => parseEng(eng('0.5', '2e15'))).toThrow(oversize);
+    expect(() => parseEng(eng('0.5', '1.0', '2e6'))).toThrow(oversize);
+    expect(() => parseEng(eng('0.5', '1.0', '54', '2e6'))).toThrow(oversize);
+    expect(() => parseEng(eng('0.5', '1e15'))).not.toThrow();
+  });
+
   it('rejects a weight whose grams are not finite, which would vanish from the store on reload', () => {
     expect(() => parseEng(eng('1e306', '1e306'))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.engHeaderNumbers' }),
@@ -256,6 +264,14 @@ describe('parseEng refuses what ThrustCurveMotor.Builder.build() refuses', () =>
     expect(() => parseEng(ENG.replace('\n0 0\n', '\n-0.1 0\n'))).toThrow(
       expect.objectContaining({ key: 'errors.motorFile.engNegativeTime', values: { motor: 'TC10', line: 5 } }),
     );
+  });
+});
+
+describe('parseEng line endings', () => {
+  it('reads CR alone as a line break, as BufferedReader.readLine does', () => {
+    const m = parseEng(ENG.replace(/\n/g, '\r'))[0]!;
+    expect(m.designation).toBe('TC10');
+    expect(totalImpulse(m.samples)).toBeCloseTo(10, 6);
   });
 });
 

@@ -4,6 +4,13 @@ export function toggled<T>(set: ReadonlySet<T>, item: T): Set<T> {
   return next;
 }
 
+export function withMember<T>(set: ReadonlySet<T>, item: T, on: boolean): Set<T> {
+  const next = new Set(set);
+  if (on) next.add(item);
+  else next.delete(item);
+  return next;
+}
+
 export function toggledEntry<K, V>(map: ReadonlyMap<K, V>, key: K, value: V): Map<K, V> {
   const next = new Map(map);
   if (!next.delete(key)) next.set(key, value);

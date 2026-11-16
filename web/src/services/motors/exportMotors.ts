@@ -64,7 +64,7 @@ export async function fillMotorDigests(
     // Diameter: Quest's 13 and 18 mm A3. Full code: AeroTech's F67C and F67W are both F67.
     const sized = catalog.filter((row) => Math.abs(row.diameter - toCatalogMm(m.diameter)) <= DIAMETER_TOLERANCE_MM);
     const match = matchCatalogMotor(sized, m.seated?.code || m.designation, m.manufacturer);
-    const maker = m.manufacturer?.trim().toLowerCase();
+    const maker = m.manufacturer?.trim();
     const row =
       !m.seated?.imported && match && !match.doubt && maker && sameMaker(match.motor.manufacturer, maker)
         ? match.motor

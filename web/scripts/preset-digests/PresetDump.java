@@ -34,7 +34,7 @@ import java.util.List;
  * wrong digest is WORSE than none, because the desktop then reports the part as
  * changed rather than missing.
  *
- * WHY IT RUNS UNDER THE APPLICATION'S MODULE. It reads the release's own `.orc`
+ * WHY IT RUNS UNDER THE APPLICATION'S MODULE. It reads the build's own `.orc`
  * files, the system pass of `ComponentPresetDatabaseLoader`, but with the
  * application's Guice module installed, so the presets are built against the
  * material database and preferences the desktop boots with. A bare file load
@@ -43,10 +43,10 @@ import java.util.List;
  *
  * WHY THE BUILD MATTERS. A part whose `.orc` row states a MASS has its material
  * replaced by one looked up by density, so its digest depends on the material
- * database that build ships: a release and a source checkout give such a part
- * different digests, while parts with no stated mass agree across both. So the
- * digests are only as right as the build this is pointed at, which is why the
- * script that drives this checks that build against the pinned release.
+ * database that build ships: two builds give such a part different digests,
+ * while parts with no stated mass agree across both. So the digests are only as
+ * right as the build this is pointed at, which is why the script that drives
+ * this refuses any build but the engine's own commit.
  *
  * Output: one TAB-separated row per preset,
  *
@@ -86,7 +86,7 @@ public class PresetDump {
             ComponentPreset.WIDTH,
             ComponentPreset.HEIGHT);
 
-    /** Where the release jar keeps its `.orc` files. */
+    /** Where the build's resources keep its `.orc` files. */
     private static final String SYSTEM_PRESET_DIR = "datafiles/components";
 
     public static void main(String[] args) throws Exception {
@@ -96,13 +96,13 @@ public class PresetDump {
         }
         // The application's own module, so the material database and preferences
         // are the ones the app boots with. Under CoreModule the user's own
-        // materials are an empty set, so the material database is the release's.
+        // materials are an empty set, so the material database is the build's.
         CoreModule core = new CoreModule();
         Module plugins = new PluginModule();
         Injector injector = Guice.createInjector(core, plugins);
         Application.setInjector(injector);
 
-        // Only the presets the release ships. `ComponentPresetDatabaseLoader`
+        // Only the presets the build ships. `ComponentPresetDatabaseLoader`
         // also reads the user's own `.orc` files from the desktop's component
         // directory, and a row matched to one of those would carry a digest no
         // other desktop has. This is that loader's system pass, step for step.

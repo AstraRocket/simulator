@@ -9,10 +9,38 @@ import {
   descentMass,
   descentRate,
   DROGUE_BAND,
+  isaAt,
   MAIN_BAND,
   propellantMass,
   siteAirDensity,
 } from '../../../src/services/flight/recoverySizing';
+
+// `new ExtendedISAModel().getConditions(h)` on the engine's commit: [m, K, Pa].
+const KERNEL_ISA: [number, number, number][] = [
+  [0, 288.15, 101325.0],
+  [250, 286.52512780651307, 98393.14403432526],
+  [1234, 280.130620374478, 87388.1091766445],
+  [10999, 216.77999077565795, 22703.63284639596],
+  [11500, 216.65, 20988.09696136],
+  [15000, 216.65, 12113.729256788607],
+  [20000, 216.65, 5530.179819886914],
+  [25750, 222.29610296367295, 2275.7560363680673],
+  [32000, 228.48971865615363, 889.3437925719186],
+  [40000, 250.34964610242113, 287.2770244451429],
+  [47250, 270.1670654268129, 112.41338245375137],
+  [60000, 247.02088477279673, 21.974374916453655],
+  [80000, 198.64088803599, 1.0534013131896012],
+  [85400, 188.1180384146828, 0.41592669900009804],
+  [90000, 187.9233248811066, 0.4083884911216268],
+];
+
+describe('isaAt', () => {
+  it.each(KERNEL_ISA)("reads %s m as the kernel's ExtendedISAModel does", (h, t, p) => {
+    const got = isaAt(h);
+    expect(got.t).toBeCloseTo(t, 9);
+    expect(got.p / p).toBeCloseTo(1, 9);
+  });
+});
 
 describe('recovery sizing physics', () => {
   it('descentRate and canopyDiameter are inverses', () => {

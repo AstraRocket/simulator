@@ -28,4 +28,11 @@ describe('Settings ▸ Flyer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove the NAR membership' }));
     expect(saved().memberships).toEqual([]);
   });
+
+  it('names an Other membership with no name yet as Other on its remove button', () => {
+    renderWithProviders(<FlyerTab />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add membership' }));
+    fireEvent.change(screen.getByLabelText('Organization'), { target: { value: 'other' } });
+    expect(screen.getByRole('button', { name: 'Remove the Other membership' })).toBeTruthy();
+  });
 });

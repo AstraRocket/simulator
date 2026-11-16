@@ -3,7 +3,7 @@ import { REQUIRED_COMPONENT_FIELDS } from './requiredComponent';
 import { CLUSTER_OPTIONS, clusterCount } from '../../tree/cluster';
 import type { DerivedName } from './derivedFields';
 import type { IgnitionEvent } from '../../engine/openRocketEngine';
-import { KERNEL_DEPLOYMENT } from '../../tree/kernelDefaults';
+import { KERNEL_DEPLOYMENT, KERNEL_FINISHES } from '../../tree/kernelDefaults';
 import { RAIL_BUTTON_BOUNDS, RAIL_BUTTON_FALLBACK, RING_BOUNDS, type DimensionBounds } from './linkedDimensions';
 import { num } from '../../tree/nodeProps';
 import { shapeOptions } from '../../tree/shapeProfile';
@@ -106,23 +106,11 @@ const FIN_CROSS_SECTION: Field = {
   optI18n: 'crossSection',
 };
 
-// Names `ComponentFactory.finishOf` accepts, in desktop's `Finish` enum order.
-const FINISHES = [
-  'rough',
-  'roughunfinished',
-  'unfinished',
-  'normal',
-  'smooth',
-  'optimum',
-  'polished',
-  'finishpolished',
-  'mirror',
-];
 const FINISH: Field = {
   key: 'finish',
   label: 'finish',
   kind: 'select',
-  options: FINISHES,
+  options: [...KERNEL_FINISHES],
   optI18n: 'finish',
   fallback: 'normal',
   section: 'material',
