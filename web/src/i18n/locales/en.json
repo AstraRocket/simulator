@@ -2233,7 +2233,9 @@
     "pattern": "{{name}} ({{n}} motors)"
   },
   "design": {
-    "warnings": "Design warnings ({{count}})"
+    "warnings": "Design warnings ({{count}})",
+    "surfaceDensityOutlier": "{{part}}: a fabric density of {{density}} {{unit}} is far outside what real fabrics weigh, likely a unit slip. Pick the part again from the parts list, or set its material.",
+    "lineDensityOutlier": "{{part}}: a cord density of {{density}} {{unit}} is far outside what real cords weigh, likely a unit slip. Pick the part again from the parts list, or set its material."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "The recovery device opened while the rocket was still moving fast. The shock loads the airframe and the canopy at once: it can zipper the body tube, tear the chute or pull the shroud lines out. Deploy nearer apogee, or fly dual-deployment with a drogue and a lower main.",

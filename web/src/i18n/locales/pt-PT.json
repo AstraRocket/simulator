@@ -2242,7 +2242,9 @@
     "pattern": "{{name}} ({{n}} motores)"
   },
   "design": {
-    "warnings": "Avisos do projeto ({{count}})"
+    "warnings": "Avisos do projeto ({{count}})",
+    "surfaceDensityOutlier": "{{part}}: uma densidade de tecido de {{density}} {{unit}} está muito fora do que pesam os tecidos reais, provavelmente um erro de unidade. Escolha novamente a peça na lista de peças ou defina o seu material.",
+    "lineDensityOutlier": "{{part}}: uma densidade de cordão de {{density}} {{unit}} está muito fora do que pesam os cordões reais, provavelmente um erro de unidade. Escolha novamente a peça na lista de peças ou defina o seu material."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "O dispositivo de recuperação abriu com o foguetão ainda a alta velocidade. O choque carrega a fuselagem e o velame ao mesmo tempo: pode rasgar o tubo do corpo a todo o comprimento, romper o paraquedas ou arrancar os tirantes. Abra mais perto do apogeu, ou voe com abertura dupla, um drogue e o principal mais baixo.",

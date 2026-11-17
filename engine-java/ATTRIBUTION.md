@@ -86,6 +86,19 @@ design that names one still reads back the density it was saved with.
 
 `extract/MMROCKET-SIM` records the commit these were last reviewed against.
 
+## Corrected recovery part densities: mmrocket-sim
+
+`web/scripts/lib/presetCorrections.mjs` corrects nine catalog parts whose source density is off
+by a factor of a thousand: three FlisKits paper streamers (STC-2-36, STD-440, STD-660), whose
+`Paper` in OpenRocket's `fliskits-legacy.orc` is 90 kg/m², a g/m² paper weight, now 0.09; and six
+Giant Leap TAC parachutes, whose `Rip stop nylon` in openrocket-database's `giantleaprocketry.orc`
+is labeled g/m² for a kg/m² value, now 0.06685 kg/m². Desktop OpenRocket flies the uncorrected
+values. mmrocket-sim found both (their v0.208) and published the corrections; the ranges of the
+design warning that screens recovery densities (`web/src/services/design/recoveryDensity.ts`) are
+theirs too.
+
+`extract/MMROCKET-SIM` records the commit these were last reviewed against.
+
 ## Report fonts: Noto
 
 `web/public/fonts/` holds the fonts the PDF report draws text outside WinAnsi in (Cyrillic,
