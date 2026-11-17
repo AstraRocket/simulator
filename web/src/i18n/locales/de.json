@@ -2233,7 +2233,9 @@
     "pattern": "{{name}} ({{n}} Motoren)"
   },
   "design": {
-    "warnings": "Entwurfswarnungen ({{count}})"
+    "warnings": "Entwurfswarnungen ({{count}})",
+    "surfaceDensityOutlier": "{{part}}: Eine Stoffdichte von {{density}} {{unit}} liegt weit außerhalb dessen, was echte Stoffe wiegen, vermutlich ein Einheitenfehler. Wählen Sie das Teil erneut aus der Teileliste oder legen Sie sein Material fest.",
+    "lineDensityOutlier": "{{part}}: Eine Schnurdichte von {{density}} {{unit}} liegt weit außerhalb dessen, was echte Schnüre wiegen, vermutlich ein Einheitenfehler. Wählen Sie das Teil erneut aus der Teileliste oder legen Sie sein Material fest."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "Das Bergungssystem öffnete sich, während die Rakete noch schnell unterwegs war. Der Stoß belastet Zelle und Kappe zugleich: Er kann das Rumpfrohr aufschlitzen, den Schirm zerreißen oder die Fangleinen herausreißen. Werfen Sie näher am Apogäum aus oder fliegen Sie mit Doppelauswurf, also Bremsschirm und tiefer gesetztem Hauptschirm.",

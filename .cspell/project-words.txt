@@ -208,6 +208,7 @@ flightcomputer
 flightdata
 flighttime
 Flis
+fliskits
 forecastlevel
 foreradius
 foreshouldercapped
@@ -227,6 +228,7 @@ Geographics
 Geolocator
 GEOMS
 geopotential
+giantleaprocketry
 glenmarc
 GLTF
 Golay

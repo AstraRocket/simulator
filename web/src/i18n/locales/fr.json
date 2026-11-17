@@ -2242,7 +2242,9 @@
     "pattern": "{{name}} ({{n}} moteurs)"
   },
   "design": {
-    "warnings": "Avertissements de conception ({{count}})"
+    "warnings": "Avertissements de conception ({{count}})",
+    "surfaceDensityOutlier": "{{part}} : une densité de tissu de {{density}} {{unit}} est très éloignée du poids des tissus réels, probablement une erreur d’unité. Choisissez à nouveau la pièce dans la liste des pièces, ou définissez son matériau.",
+    "lineDensityOutlier": "{{part}} : une densité de cordon de {{density}} {{unit}} est très éloignée du poids des cordons réels, probablement une erreur d’unité. Choisissez à nouveau la pièce dans la liste des pièces, ou définissez son matériau."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "Le système de récupération s'est ouvert alors que la fusée allait encore vite. Le choc sollicite la structure et la voilure en même temps : il peut déchirer le tube de corps (effet zipper), déchirer le parachute ou arracher les suspentes. Déployez plus près de l'apogée, ou volez en double déploiement, avec un drogue et un principal plus bas.",

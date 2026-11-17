@@ -9,8 +9,13 @@ import type { StaticInfo } from '../../../src/engine/openRocketEngine';
 const setInfo = (warningTexts: string[]) =>
   useWorkspaceStore.setState({ info: { warnings: warningTexts.length, warningTexts } as StaticInfo });
 
+const initialTree = useWorkspaceStore.getState().tree;
+
 describe('DesignWarnings', () => {
-  beforeEach(() => setInfo([]));
+  beforeEach(() => {
+    setInfo([]);
+    useWorkspaceStore.setState({ tree: initialTree });
+  });
 
   it('renders nothing when the design is clean', () => {
     const { container } = renderWithProviders(<DesignWarnings />);
@@ -29,5 +34,23 @@ describe('DesignWarnings', () => {
     renderWithProviders(<DesignWarnings />);
     expect(screen.getByLabelText('Design warnings (2)')).toBeTruthy();
     expect(screen.getByText('Fin has zero area: "Fins"')).toBeTruthy();
+  });
+
+  it('adds a recovery material far outside real densities to the kernel warnings', () => {
+    setInfo(['[Warning.DISCONTINUITY]:  "Nose cone"']);
+    useWorkspaceStore.setState({
+      tree: {
+        components: [
+          {
+            type: 'stage',
+            id: 's',
+            children: [{ type: 'streamer', id: 'st', name: 'STD-660', surfaceDensity: 90 }],
+          },
+        ],
+      },
+    });
+    renderWithProviders(<DesignWarnings />);
+    expect(screen.getByLabelText('Design warnings (2)')).toBeTruthy();
+    expect(screen.getByText(/^STD-660: a fabric density of .+ is far outside what real fabrics weigh/)).toBeTruthy();
   });
 });
