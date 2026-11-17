@@ -1,13 +1,13 @@
 {
   "motors": "6613351a76be",
-  "components": "561acb31a00b",
+  "components": "4ec791605cc2",
   "catalogs": {
     "motors": {
       "updated": "2026-11-13",
       "count": 1156
     },
     "components": {
-      "updated": "2026-11-13",
+      "updated": "2026-11-17",
       "count": 5228
     }
   }
