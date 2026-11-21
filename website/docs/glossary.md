@@ -304,6 +304,8 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 **Roll rate**: How fast the rocket is spinning about its long axis. *In the app:* the `dΦ` column. A cant angle drives it up.
 
+**Roll–pitch resonance**: When the roll rate comes close to the pitch natural frequency (`ωn`), a small asymmetry such as a slightly misaligned fin pushes the pitch swing in step with itself, and the angle of attack can grow. *In the app:* the **Roll rate ÷ pitch frequency** flight chart, with a band from 0.85 to 1.15. The simulation does not model fin misalignment, so a crossing says when a real rocket could couple, not that the simulated one did.
+
 ## S
 
 **Saved run**: A simulation kept in the list with its results, so several can be compared. See **Outdated run**.

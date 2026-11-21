@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "The RASAero file was saved, but RASAero cannot ignite stage \"{{stage}}\" on \"{{event}}\", so it was written to ignite at the burnout of the stage below it.",
     "exportRasaeroSeparationEvent": "The RASAero file was saved, but RASAero cannot separate stage \"{{stage}}\" on \"{{event}}\", so it was written to separate at its burnout.",
     "exportRasaeroIgnitionBeforeSeparation": "The RASAero file was saved, but RASAero cannot ignite stage \"{{stage}}\" before the stage below it separates, so it was written to ignite at separation.",
+    "exportRasaeroLaunchStageDelay": "The RASAero file was saved, but RASAero ignores an ignition delay on the launch stage, so stage \"{{stage}}\" was written to ignite at launch.",
     "exportRasaeroExtraMotors": "The RASAero file was saved, but RASAero flies one motor in stage \"{{stage}}\"; its other motors only count toward the stage's weight and CG.",
     "exportRasaeroFinShape": "The RASAero file was saved, but RASAero fins are trapezoids, so fin set \"{{name}}\" was written as the trapezoid with the same root chord, span, area and area centroid.",
     "exportRasaeroExtraFins": "The RASAero file was saved, but RASAero has one fin set per part, so fin set \"{{name}}\" on \"{{part}}\" was left out.",
@@ -1215,6 +1216,12 @@
     "qAlpha": "q·α",
     "rollRate": "Roll rate",
     "velocityAltitude": "Velocity vs altitude",
+    "rollPitchRatio": "Roll rate ÷ pitch frequency",
+    "resonanceCrossed": "Roll rate crossed the pitch natural frequency at {{times}} s, and was within ±15% of it for {{seconds}} s of forward flight.",
+    "resonanceCrossedMore": "Roll rate crossed the pitch natural frequency at {{times}} s and {{more}} more times, and was within ±15% of it for {{seconds}} s of forward flight.",
+    "resonanceNearOnly": "Roll rate was within ±15% of the pitch natural frequency for {{seconds}} s of forward flight, without crossing it.",
+    "resonanceNever": "Roll rate never came within ±15% of the pitch natural frequency in forward flight.",
+    "resonanceUnderHundredth": "under 0.01",
     "yAtX": "{{y}} at {{x}}",
     "summaryPeak": "peak {{value}} at {{time}} s",
     "summaryRange": "from {{min}} to {{max}}",
@@ -2272,7 +2279,8 @@
   "design": {
     "warnings": "Design warnings ({{count}})",
     "surfaceDensityOutlier": "{{part}}: a fabric density of {{density}} {{unit}} is far outside what real fabrics weigh, likely a unit slip. Pick the part again from the parts list, or set its material.",
-    "lineDensityOutlier": "{{part}}: a cord density of {{density}} {{unit}} is far outside what real cords weigh, likely a unit slip. Pick the part again from the parts list, or set its material."
+    "lineDensityOutlier": "{{part}}: a cord density of {{density}} {{unit}} is far outside what real cords weigh, likely a unit slip. Pick the part again from the parts list, or set its material.",
+    "motorTooWide": "{{part}}: motor \"{{motor}}\" is {{diameter}} mm across and the mount's bore is {{bore}} mm, so the real rocket could not be built this way. The simulation still flies it. Pick a motor that fits, or check the mount's inner diameter."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "The recovery device opened while the rocket was still moving fast. The shock loads the airframe and the canopy at once: it can zipper the body tube, tear the chute or pull the shroud lines out. Deploy nearer apogee, or fly dual-deployment with a drogue and a lower main.",

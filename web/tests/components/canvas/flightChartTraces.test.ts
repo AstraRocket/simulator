@@ -15,6 +15,7 @@ import {
   axisRange,
 } from '../../../src/components/canvas/flightChartTraces';
 import type { FlightResult, FlightSeries } from '../../../src/engine/openRocketEngine';
+import { resonanceNote } from '../../../src/components/canvas/resonanceNote';
 
 const series = (time: number[]) => ({ time, altitude: time.map((t) => t) }) as unknown as FlightSeries;
 
@@ -250,5 +251,54 @@ describe('axisRange', () => {
 
   it('is never empty', () => {
     expect(axisRange(0, 0, false, { headroom: 0 })).toEqual([0, 1]);
+  });
+});
+
+describe('the roll ÷ pitch frequency chart', () => {
+  const meta = SERIES.find((m) => m.key === 'rollPitchRatio')!;
+  const branch = (dΦ: number[], ωn: number[]) => ({
+    key: 'a:0',
+    name: 'Stage 1',
+    color: 'c',
+    events: [],
+    series: { time: dΦ.map((_, i) => i), dΦ, ωn } as unknown as FlightSeries,
+  });
+
+  it('is derived for each branch', () => {
+    const [b] = buildTraces(
+      {
+        id: 'a',
+        name: 'Sim',
+        result: { summary: {}, events: [], series: branch([2, 4], [8, 8]).series } as unknown as FlightResult,
+      },
+      stageLabel,
+    );
+    expect(b!.series['rollPitchRatio']).toEqual([0.25, 0.5]);
+  });
+
+  it('keeps its band on the axis when the rocket hardly rolls', () => {
+    const ratio = { ...branch([0.01, 0.02], [10, 10]) };
+    ratio.series = { ...ratio.series, rollPitchRatio: [0.001, 0.002] } as unknown as FlightSeries;
+    const { hi } = panelSeries([ratio], meta, 1, Infinity);
+    expect(hi).toBeGreaterThan(meta.band!.hi);
+  });
+});
+
+describe('the roll ÷ pitch frequency note', () => {
+  const t = (key: string, v?: Record<string, string>) => `${key}${v ? ` ${JSON.stringify(v)}` : ''}`;
+
+  it('lists the first five crossings, then how many more', () => {
+    expect(resonanceNote(t, { crossings: [1, 2], inBand: 0.5 })).toBe(
+      'flight.resonanceCrossed {"times":"1.00, 2.00","seconds":"0.50"}',
+    );
+    expect(resonanceNote(t, { crossings: [1, 2, 3, 4, 5, 6, 7], inBand: 1 })).toContain('"more":"2"');
+  });
+
+  it('says when the ratio came near without crossing, or never came near, and gives nothing without data', () => {
+    expect(resonanceNote(t, { crossings: [], inBand: 0.001 })).toBe(
+      'flight.resonanceNearOnly {"seconds":"flight.resonanceUnderHundredth"}',
+    );
+    expect(resonanceNote(t, { crossings: [], inBand: 0 })).toBe('flight.resonanceNever');
+    expect(resonanceNote(t, null)).toBeUndefined();
   });
 });

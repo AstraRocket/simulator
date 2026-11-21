@@ -90,6 +90,14 @@ function stagingDelays(
     separation[lower] = separate;
     ignition[lower - 1] = afterSeparation;
   }
+  // With no lower stage written, a stage's delay would time from launch, and RASAero ignores it on the launch stage.
+  for (let i = 0; i < Math.min(2, stagesIn.length); i++) {
+    if (included[i + 1] || !ignition[i]) continue;
+    if (i === 0 || included[i]) {
+      w.warn({ key: 'errors.exportRasaeroLaunchStageDelay', values: { stage: notePartName(stagesIn[i]!) } });
+    }
+    ignition[i] = 0;
+  }
   return { ignition, separation };
 }
 

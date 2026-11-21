@@ -20,6 +20,8 @@ import { polylinePath, areaPath } from '../common/svgPath';
 import { ChartPanelFrame, PanelClip, PanelLines, PanelReading, YEnds } from './ChartPanelFrame';
 import { token } from '../common/colorTokens';
 import { timeSeriesSummary, peakAcross } from './chartSummary';
+import { resonanceFigures } from '../../services/flight/flightEvents';
+import { resonanceNote } from './resonanceNote';
 
 type Pt = readonly [number, number];
 
@@ -96,6 +98,10 @@ export function FlightChartPanel({
   }, [list, mkLine, X, Y, lo]);
 
   const zeroInRange = lo < 0 && hi > 0;
+  const footer = useMemo(
+    () => (meta.band ? resonanceNote(t, resonanceFigures(branches[0]?.series, clipT)) : undefined),
+    [meta.band, t, branches, clipT],
+  );
 
   const summary = useMemo(
     () => timeSeriesSummary(t, title, unit, digits, !!meta.level, list),
@@ -122,6 +128,7 @@ export function FlightChartPanel({
       w={w}
       height={height}
       summary={summary}
+      footer={footer}
     >
       <defs>
         {single && (
@@ -134,6 +141,25 @@ export function FlightChartPanel({
       </defs>
       {zeroInRange && <line x1={PAD_L} y1={Y(0)} x2={w - PAD_R} y2={Y(0)} className="stroke-line/15" />}
       <g clipPath={`url(#${clipId})`}>
+        {meta.band && (
+          <>
+            <rect
+              x={PAD_L}
+              y={Y(meta.band.hi)}
+              width={Math.max(0, w - PAD_L - PAD_R)}
+              height={Math.max(0, Y(meta.band.lo) - Y(meta.band.hi))}
+              className="fill-warn-400/10"
+            />
+            <line
+              x1={PAD_L}
+              y1={Y(meta.band.mark)}
+              x2={w - PAD_R}
+              y2={Y(meta.band.mark)}
+              className="stroke-warn-400/50"
+              vectorEffect="non-scaling-stroke"
+            />
+          </>
+        )}
         {events.map((e, i) => (
           <line
             key={i}

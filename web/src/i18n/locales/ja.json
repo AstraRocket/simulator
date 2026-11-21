@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "RASAero ファイルは保存されましたが、RASAero では段「{{stage}}」を「{{event}}」で点火できないため、下の段の燃焼終了で点火するように書き出しました。",
     "exportRasaeroSeparationEvent": "RASAero ファイルは保存されましたが、RASAero では段「{{stage}}」を「{{event}}」で分離できないため、その燃焼終了で分離するように書き出しました。",
     "exportRasaeroIgnitionBeforeSeparation": "RASAero ファイルは保存されましたが、RASAero では下の段が分離する前に段「{{stage}}」を点火できないため、分離時に点火するように書き出しました。",
+    "exportRasaeroLaunchStageDelay": "RASAero ファイルは保存されましたが、RASAero は打ち上げ段の点火遅延を無視するため、段「{{stage}}」は打ち上げ時に点火するように書き出しました。",
     "exportRasaeroExtraMotors": "RASAero ファイルは保存されましたが、RASAero は段「{{stage}}」でモーターを 1 つだけ飛ばします。他のモーターは段の重量と重心にのみ含まれます。",
     "exportRasaeroFinShape": "RASAero ファイルは保存されましたが、RASAero のフィンは台形のため、フィンセット「{{name}}」はルートコード、スパン、面積、面積重心が同じ台形として書き出しました。",
     "exportRasaeroExtraFins": "RASAero ファイルは保存されましたが、RASAero では部品 1 つにつきフィンセットは 1 つだけのため、「{{part}}」のフィンセット「{{name}}」は省きました。",
@@ -1212,6 +1213,12 @@
     "qAlpha": "q·α",
     "rollRate": "ロールレート",
     "velocityAltitude": "高度に対する速度",
+    "rollPitchRatio": "ロールレート ÷ ピッチ振動数",
+    "resonanceCrossed": "ロールレートは {{times}} 秒にピッチ固有振動数を横切り、前進飛行のうち {{seconds}} 秒間その ±15% 以内にありました。",
+    "resonanceCrossedMore": "ロールレートは {{times}} 秒とさらに {{more}} 回ピッチ固有振動数を横切り、前進飛行のうち {{seconds}} 秒間その ±15% 以内にありました。",
+    "resonanceNearOnly": "ロールレートは前進飛行のうち {{seconds}} 秒間ピッチ固有振動数の ±15% 以内にありましたが、横切りはしませんでした。",
+    "resonanceNever": "前進飛行中、ロールレートがピッチ固有振動数の ±15% 以内に近づくことはありませんでした。",
+    "resonanceUnderHundredth": "0.01 未満",
     "yAtX": "{{x}}で{{y}}",
     "summaryPeak": "{{time}} 秒で最大 {{value}}",
     "summaryRange": "{{min}} から {{max}}",
@@ -2263,7 +2270,8 @@
   "design": {
     "warnings": "設計の警告（{{count}}）",
     "surfaceDensityOutlier": "{{part}}：生地の密度 {{density}} {{unit}} は実在の生地の重さから大きく外れており、単位の誤りと思われます。部品リストから部品を選び直すか、材料を設定してください。",
-    "lineDensityOutlier": "{{part}}：コードの密度 {{density}} {{unit}} は実在のコードの重さから大きく外れており、単位の誤りと思われます。部品リストから部品を選び直すか、材料を設定してください。"
+    "lineDensityOutlier": "{{part}}：コードの密度 {{density}} {{unit}} は実在のコードの重さから大きく外れており、単位の誤りと思われます。部品リストから部品を選び直すか、材料を設定してください。",
+    "motorTooWide": "{{part}}：モーター「{{motor}}」の直径は {{diameter}} mm、マウントの内径は {{bore}} mm のため、実機はこのままでは組めません。シミュレーションはそのまま飛行させます。収まるモーターを選ぶか、マウントの内径を確認してください。"
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "まだ速度が高いうちに回収装置が開きました。その衝撃は機体とキャノピーに同時にかかり、ボディチューブを縦に裂いたり、パラシュートを破ったり、シュラウドラインを引きちぎったりすることがあります。アポジーに近いところで展開するか、ドローグと低高度のメインによる二段展開で飛ばしてください。",

@@ -165,6 +165,73 @@ export function rollRate(series: FlightSeries | undefined): (number | null)[] | 
   return Array.isArray(r) ? r : null;
 }
 
+/** Where roll rate and pitch natural frequency come close enough for roll and pitch to couple. */
+export const RESONANCE_BAND = { lo: 0.85, hi: 1.15, mark: 1 } as const;
+
+/**
+ * |roll rate| ÷ pitch natural frequency, both rad/s, so unitless. Null where the kernel leaves ωn blank
+ * (on the launch guide, and wherever CP is ahead of CG) or either is missing.
+ */
+export function rollPitchRatio(series: FlightSeries | undefined): (number | null)[] | null {
+  const roll = rollRate(series);
+  const wn = series?.['ωn'];
+  if (!roll || !Array.isArray(wn)) return null;
+  return roll.map((r, i) => {
+    const w = wn[i];
+    if (r == null || w == null || !(w > 0)) return null;
+    const v = Math.abs(r) / w;
+    return Number.isFinite(v) ? v : null;
+  });
+}
+
+export interface ResonanceFigures {
+  /** Times the ratio crossed 1, interpolated between recorded points. */
+  crossings: number[];
+  /** Seconds the ratio spent inside the band. */
+  inBand: number;
+}
+
+/**
+ * The ratio's crossings of 1 and its time in the band, up to `untilT`. Interpolates between recorded points,
+ * never across a gap. Null when the ratio has fewer than two points to go on.
+ */
+export function resonanceFigures(series: FlightSeries | undefined, untilT: number): ResonanceFigures | null {
+  const ratio = rollPitchRatio(series);
+  if (!ratio || !series) return null;
+  const { lo, hi, mark } = RESONANCE_BAND;
+  const crossings: number[] = [];
+  let inBand = 0;
+  let segments = 0;
+  for (let i = 1; i < ratio.length; i++) {
+    const r0 = ratio[i - 1];
+    const r1 = ratio[i];
+    const t0 = series.time[i - 1];
+    const t1 = series.time[i];
+    if (r0 == null || r1 == null || t0 == null || t1 == null || !(t1 > t0) || t0 >= untilT) continue;
+    // A segment that runs past the limit is cut there.
+    const end = Math.min(t1, untilT);
+    const rEnd = r0 + ((r1 - r0) * (end - t0)) / (t1 - t0);
+    segments++;
+    if ((r0 - mark) * (rEnd - mark) < 0 || (rEnd === mark && r0 !== mark)) {
+      crossings.push(t0 + ((mark - r0) / (rEnd - r0)) * (end - t0));
+    }
+    // The share of a straight segment between lo and hi.
+    const dr = rEnd - r0;
+    let s0 = 0;
+    let s1 = 1;
+    if (dr === 0) {
+      if (r0 < lo || r0 > hi) continue;
+    } else {
+      const a = (lo - r0) / dr;
+      const b = (hi - r0) / dr;
+      s0 = Math.max(0, Math.min(a, b));
+      s1 = Math.min(1, Math.max(a, b));
+    }
+    if (s1 > s0) inBand += (s1 - s0) * (end - t0);
+  }
+  return segments ? { crossings, inBand } : null;
+}
+
 export function maxRollRate(series: FlightSeries | undefined): number | null {
   const r = rollRate(series);
   if (!r) return null;

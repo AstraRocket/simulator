@@ -38,12 +38,22 @@ describe('corrections to the source parts files', () => {
     expect(() => applyPresetCorrections([streamer('STD-440', 90)], one)).toThrow(/no such part/);
   });
 
+  it('removes a field whose correction is undefined, and leaves it gone on a rerun', () => {
+    const clear = [
+      { type: 'tubecoupler', mfr: 'Quest', partNo: '10100', field: 'mass', from: 0.0283495231, to: undefined },
+    ];
+    const rows: Row[] = [{ type: 'tubecoupler', mfr: 'Quest', partNo: '10100', mass: 0.0283495231 }];
+    expect(applyPresetCorrections(rows, clear)).toBe(1);
+    expect('mass' in rows[0]!).toBe(false);
+    expect(applyPresetCorrections(rows, clear)).toBe(0);
+  });
+
   it('matches every shipped correction to a catalog row holding its corrected value', () => {
     const cat = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/components.generated.json'), 'utf8')) as {
       components: Row[];
     };
     expect(applyPresetCorrections(cat.components)).toBe(0);
-    expect(PRESET_CORRECTIONS.length).toBe(9);
+    expect(PRESET_CORRECTIONS.length).toBe(20);
   });
 
   it('leaves no catalog recovery part outside the design check ranges', () => {

@@ -10,6 +10,8 @@ import {
   maxRollRate,
   MAX_Q,
   qAlpha,
+  resonanceFigures,
+  rollPitchRatio,
   seriesAtEvent,
 } from '../../../src/services/flight/flightEvents';
 
@@ -250,5 +252,36 @@ describe('eventTime', () => {
     expect(eventTime(events, 'APOGEE')).toBe(5);
     expect(eventTime(events, 'GROUND_HIT')).toBeUndefined();
     expect(eventTime(undefined, 'APOGEE')).toBeUndefined();
+  });
+});
+
+describe('roll rate against pitch natural frequency', () => {
+  const ratioSeries = (roll: (number | null)[], wn: (number | null)[], time = roll.map((_, i) => i)) =>
+    ({ time, dΦ: roll, ωn: wn }) as unknown as FlightSeries;
+
+  it('divides the roll rate, either way round, by ωn, and is blank where ωn is', () => {
+    expect(rollPitchRatio(ratioSeries([5, -5, 5, 5], [10, 10, null, 0]))).toEqual([0.5, 0.5, null, null]);
+    expect(rollPitchRatio({ time: [0] } as unknown as FlightSeries)).toBeNull();
+  });
+
+  it('finds the crossings of 1 and the time in the band', () => {
+    // Ratio 0.5, 1.5, 0.5 at 0, 1, 2 s: crosses at 0.5 s and 1.5 s, within 0.85 to 1.15 for 0.3 s each way.
+    const f = resonanceFigures(ratioSeries([5, 15, 5], [10, 10, 10]), Infinity)!;
+    expect(f.crossings[0]).toBeCloseTo(0.5, 9);
+    expect(f.crossings[1]).toBeCloseTo(1.5, 9);
+    expect(f.inBand).toBeCloseTo(0.6, 9);
+  });
+
+  it('stops at the end of forward flight and never bridges a gap', () => {
+    const f = resonanceFigures(ratioSeries([5, 15, 5], [10, 10, 10]), 1)!;
+    expect(f.crossings).toHaveLength(1);
+    expect(f.inBand).toBeCloseTo(0.3, 9);
+    const gap = resonanceFigures(ratioSeries([5, null, 15], [10, 10, 10]), Infinity)!;
+    expect(gap).toBeNull();
+  });
+
+  it('counts a flat stretch inside the band, and reports nothing near for a rocket that hardly rolls', () => {
+    expect(resonanceFigures(ratioSeries([10, 10], [10, 10]), Infinity)).toEqual({ crossings: [], inBand: 1 });
+    expect(resonanceFigures(ratioSeries([0.01, 0.02], [10, 10]), Infinity)).toEqual({ crossings: [], inBand: 0 });
   });
 });

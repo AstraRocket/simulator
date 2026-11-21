@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "Die RASAero-Datei wurde gespeichert, aber RASAero kann Stufe „{{stage}}“ nicht bei „{{event}}“ zünden, daher wurde sie mit Zündung beim Brennschluss der Stufe darunter geschrieben.",
     "exportRasaeroSeparationEvent": "Die RASAero-Datei wurde gespeichert, aber RASAero kann Stufe „{{stage}}“ nicht bei „{{event}}“ abtrennen, daher wurde sie mit Abtrennung bei ihrem Brennschluss geschrieben.",
     "exportRasaeroIgnitionBeforeSeparation": "Die RASAero-Datei wurde gespeichert, aber RASAero kann Stufe „{{stage}}“ nicht zünden, bevor sich die Stufe darunter abtrennt, daher wurde sie mit Zündung bei der Abtrennung geschrieben.",
+    "exportRasaeroLaunchStageDelay": "Die RASAero-Datei wurde gespeichert, aber RASAero ignoriert eine Zündverzögerung der Startstufe, daher wurde Stufe „{{stage}}“ mit Zündung beim Start geschrieben.",
     "exportRasaeroExtraMotors": "Die RASAero-Datei wurde gespeichert, aber RASAero fliegt einen Motor in Stufe „{{stage}}“; ihre übrigen Motoren zählen nur zu Gewicht und Schwerpunkt der Stufe.",
     "exportRasaeroFinShape": "Die RASAero-Datei wurde gespeichert, aber RASAero-Finnen sind Trapeze, daher wurde der Finnensatz „{{name}}“ als Trapez mit gleicher Wurzeltiefe, Spannweite, Fläche und gleichem Flächenschwerpunkt geschrieben.",
     "exportRasaeroExtraFins": "Die RASAero-Datei wurde gespeichert, aber RASAero hat einen Finnensatz pro Teil, daher wurde der Finnensatz „{{name}}“ an „{{part}}“ weggelassen.",
@@ -1215,6 +1216,12 @@
     "qAlpha": "q·α",
     "rollRate": "Rollrate",
     "velocityAltitude": "Geschwindigkeit über Höhe",
+    "rollPitchRatio": "Rollrate ÷ Nickfrequenz",
+    "resonanceCrossed": "Die Rollrate kreuzte die Nick-Eigenfrequenz bei {{times}} s und lag {{seconds}} s des Vorwärtsflugs innerhalb von ±15 % davon.",
+    "resonanceCrossedMore": "Die Rollrate kreuzte die Nick-Eigenfrequenz bei {{times}} s und {{more}} weitere Male und lag {{seconds}} s des Vorwärtsflugs innerhalb von ±15 % davon.",
+    "resonanceNearOnly": "Die Rollrate lag {{seconds}} s des Vorwärtsflugs innerhalb von ±15 % der Nick-Eigenfrequenz, ohne sie zu kreuzen.",
+    "resonanceNever": "Die Rollrate kam im Vorwärtsflug nie auf ±15 % an die Nick-Eigenfrequenz heran.",
+    "resonanceUnderHundredth": "unter 0,01",
     "yAtX": "{{y}} bei {{x}}",
     "summaryPeak": "Spitze {{value}} bei {{time}} s",
     "summaryRange": "von {{min}} bis {{max}}",
@@ -2272,7 +2279,8 @@
   "design": {
     "warnings": "Entwurfswarnungen ({{count}})",
     "surfaceDensityOutlier": "{{part}}: Eine Stoffdichte von {{density}} {{unit}} liegt weit außerhalb dessen, was echte Stoffe wiegen, vermutlich ein Einheitenfehler. Wählen Sie das Teil erneut aus der Teileliste oder legen Sie sein Material fest.",
-    "lineDensityOutlier": "{{part}}: Eine Schnurdichte von {{density}} {{unit}} liegt weit außerhalb dessen, was echte Schnüre wiegen, vermutlich ein Einheitenfehler. Wählen Sie das Teil erneut aus der Teileliste oder legen Sie sein Material fest."
+    "lineDensityOutlier": "{{part}}: Eine Schnurdichte von {{density}} {{unit}} liegt weit außerhalb dessen, was echte Schnüre wiegen, vermutlich ein Einheitenfehler. Wählen Sie das Teil erneut aus der Teileliste oder legen Sie sein Material fest.",
+    "motorTooWide": "{{part}}: Motor „{{motor}}“ hat {{diameter}} mm Durchmesser, die Bohrung der Halterung {{bore}} mm, so lässt sich die echte Rakete nicht bauen. Die Simulation fliegt ihn trotzdem. Wählen Sie einen passenden Motor oder prüfen Sie den Innendurchmesser der Halterung."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "Das Bergungssystem öffnete sich, während die Rakete noch schnell unterwegs war. Der Stoß belastet Zelle und Kappe zugleich: Er kann das Rumpfrohr aufschlitzen, den Schirm zerreißen oder die Fangleinen herausreißen. Werfen Sie näher am Apogäum aus oder fliegen Sie mit Doppelauswurf, also Bremsschirm und tiefer gesetztem Hauptschirm.",
