@@ -355,9 +355,17 @@
 # RockSim staging and serial numbers (our .rkt import reads no motors), .CDX1
 # import, recovery advice, G35 printed delays, their spreadsheet columns.
 #
-# NOT TAKEN: motor length and width fit Cautions (not in desktop; the motor
-# picker's fit filter covers width), the roll rate over pitch frequency chart,
-# and save names that follow the rocket, which are their own UI.
+# TAKEN, APP-SIDE: the roll rate over pitch frequency chart (|dΦ| / ωn, with
+# a band from 0.85 to 1.15 and a footer naming the crossings of 1 and the time
+# in the band; flightEvents.ts `rollPitchRatio` and `resonanceFigures`), and
+# their width fit Caution as a standing design warning across every
+# configuration, by the picker's own `motorFitsMount` rule
+# (services/design/motorWidth.ts). A file's too-wide motor was already an
+# import note (loadOrk.ts `checkFit`); the warning now stays while it is loaded.
+#
+# NOT TAKEN: their length fit Caution (a motor may stand proud of its mount and
+# still be built; the import note already covers a file's long motor), and save
+# names that follow the rocket, which are their own UI.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
 ref     = 3829d7e59360b4d95beec0cfe59f559eb882b304
 version = 0.213
