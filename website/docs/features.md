@@ -3,7 +3,7 @@ title: "Features"
 sidebar_position: 2
 ---
 ## Physics
-- Runs OpenRocket's **physics core**: Extended Barrowman aerodynamics, mass/CG, and RK4 flight.
+- Runs OpenRocket's **physics core**: Extended Barrowman aerodynamics, mass/CG, and RK6 (or RK4) flight.
 - Flight simulations run in a **Web Worker**, off the main thread, so the interface stays responsive during a run.
 
 ## Design & analysis

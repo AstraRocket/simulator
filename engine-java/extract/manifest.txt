@@ -280,4 +280,14 @@ info/openrocket/core/util/MutableCoordinate.java
 # MathUtil, which is already extracted.
 info/openrocket/core/aerodynamics/barrowman/NACA1307FinBodyInterference.java
 
+# Custom aerodynamic data: desktop flies a simulation's drag and stability CSV
+# tables (`<draglookup>`, `<stabilitylookup>`) in place of Barrowman. Verbatim.
+# Their `Path` overloads and `CsvMachAoALookup.fromCsv` are never called (the
+# facade parses the rows with `CsvMachAoALookup.parse`), so TeaVM never reaches
+# java.nio.file.
+info/openrocket/core/aerodynamics/LookupTableDragCalculator.java
+info/openrocket/core/aerodynamics/LookupTableStabilityCalculator.java
+info/openrocket/core/aerodynamics/lookup/CsvMachAoALookup.java
+info/openrocket/core/aerodynamics/lookup/MachAoALookup.java
+
 info/openrocket/core/utils/MotorCorrelation.java
