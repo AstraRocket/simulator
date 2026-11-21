@@ -1219,6 +1219,12 @@
     "qAlpha": "q·α",
     "rollRate": "Taxa de rolamento",
     "velocityAltitude": "Velocidade em função da altitude",
+    "rollPitchRatio": "Rolamento ÷ frequência de arfagem",
+    "resonanceCrossed": "A taxa de rolamento cruzou a frequência natural de arfagem aos {{times}} s e esteve a ±15% dela durante {{seconds}} s do voo para a frente.",
+    "resonanceCrossedMore": "A taxa de rolamento cruzou a frequência natural de arfagem aos {{times}} s e mais {{more}} vezes, e esteve a ±15% dela durante {{seconds}} s do voo para a frente.",
+    "resonanceNearOnly": "A taxa de rolamento esteve a ±15% da frequência natural de arfagem durante {{seconds}} s do voo para a frente, sem a cruzar.",
+    "resonanceNever": "A taxa de rolamento nunca chegou a ±15% da frequência natural de arfagem no voo para a frente.",
+    "resonanceUnderHundredth": "menos de 0,01",
     "yAtX": "{{y}} em {{x}}",
     "summaryPeak": "pico de {{value}} aos {{time}} s",
     "summaryRange": "de {{min}} a {{max}}",
@@ -2282,7 +2288,8 @@
   "design": {
     "warnings": "Avisos do projeto ({{count}})",
     "surfaceDensityOutlier": "{{part}}: uma densidade de tecido de {{density}} {{unit}} está muito fora do que pesam os tecidos reais, provavelmente um erro de unidade. Escolha novamente a peça na lista de peças ou defina o seu material.",
-    "lineDensityOutlier": "{{part}}: uma densidade de cordão de {{density}} {{unit}} está muito fora do que pesam os cordões reais, provavelmente um erro de unidade. Escolha novamente a peça na lista de peças ou defina o seu material."
+    "lineDensityOutlier": "{{part}}: uma densidade de cordão de {{density}} {{unit}} está muito fora do que pesam os cordões reais, provavelmente um erro de unidade. Escolha novamente a peça na lista de peças ou defina o seu material.",
+    "motorTooWide": "{{part}}: o motor \"{{motor}}\" tem {{diameter}} mm de diâmetro e o furo do suporte {{bore}} mm, pelo que o foguete real não poderia ser construído assim. A simulação voa-o na mesma. Escolha um motor que caiba ou verifique o diâmetro interior do suporte."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "O dispositivo de recuperação abriu com o foguetão ainda a alta velocidade. O choque carrega a fuselagem e o velame ao mesmo tempo: pode rasgar o tubo do corpo a todo o comprimento, romper o paraquedas ou arrancar os tirantes. Abra mais perto do apogeu, ou voe com abertura dupla, um drogue e o principal mais baixo.",

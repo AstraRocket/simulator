@@ -1219,6 +1219,12 @@
     "qAlpha": "q·α",
     "rollRate": "Vitesse de roulis",
     "velocityAltitude": "Vitesse selon l’altitude",
+    "rollPitchRatio": "Roulis ÷ fréquence de tangage",
+    "resonanceCrossed": "La vitesse de roulis a croisé la fréquence propre de tangage à {{times}} s et est restée à ±15 % de celle-ci pendant {{seconds}} s du vol vers l’avant.",
+    "resonanceCrossedMore": "La vitesse de roulis a croisé la fréquence propre de tangage à {{times}} s et {{more}} autres fois, et est restée à ±15 % de celle-ci pendant {{seconds}} s du vol vers l’avant.",
+    "resonanceNearOnly": "La vitesse de roulis est restée à ±15 % de la fréquence propre de tangage pendant {{seconds}} s du vol vers l’avant, sans la croiser.",
+    "resonanceNever": "La vitesse de roulis n’est jamais arrivée à ±15 % de la fréquence propre de tangage pendant le vol vers l’avant.",
+    "resonanceUnderHundredth": "moins de 0,01",
     "yAtX": "{{y}} à {{x}}",
     "summaryPeak": "maximum {{value}} à {{time}} s",
     "summaryRange": "de {{min}} à {{max}}",
@@ -2282,7 +2288,8 @@
   "design": {
     "warnings": "Avertissements de conception ({{count}})",
     "surfaceDensityOutlier": "{{part}} : une densité de tissu de {{density}} {{unit}} est très éloignée du poids des tissus réels, probablement une erreur d’unité. Choisissez à nouveau la pièce dans la liste des pièces, ou définissez son matériau.",
-    "lineDensityOutlier": "{{part}} : une densité de cordon de {{density}} {{unit}} est très éloignée du poids des cordons réels, probablement une erreur d’unité. Choisissez à nouveau la pièce dans la liste des pièces, ou définissez son matériau."
+    "lineDensityOutlier": "{{part}} : une densité de cordon de {{density}} {{unit}} est très éloignée du poids des cordons réels, probablement une erreur d’unité. Choisissez à nouveau la pièce dans la liste des pièces, ou définissez son matériau.",
+    "motorTooWide": "{{part}} : le moteur « {{motor}} » fait {{diameter}} mm de diamètre et l’alésage du support {{bore}} mm ; la fusée réelle ne pourrait pas être construite ainsi. La simulation le fait voler quand même. Choisissez un moteur qui rentre, ou vérifiez le diamètre intérieur du support."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "Le système de récupération s'est ouvert alors que la fusée allait encore vite. Le choc sollicite la structure et la voilure en même temps : il peut déchirer le tube de corps (effet zipper), déchirer le parachute ou arracher les suspentes. Déployez plus près de l'apogée, ou volez en double déploiement, avec un drogue et un principal plus bas.",

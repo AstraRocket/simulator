@@ -1219,6 +1219,12 @@
     "qAlpha": "q·α",
     "rollRate": "Velocidad de alabeo",
     "velocityAltitude": "Velocidad frente a altitud",
+    "rollPitchRatio": "Alabeo ÷ frecuencia de cabeceo",
+    "resonanceCrossed": "La velocidad de alabeo cruzó la frecuencia natural de cabeceo a los {{times}} s y estuvo a ±15 % de ella durante {{seconds}} s del vuelo hacia delante.",
+    "resonanceCrossedMore": "La velocidad de alabeo cruzó la frecuencia natural de cabeceo a los {{times}} s y {{more}} veces más, y estuvo a ±15 % de ella durante {{seconds}} s del vuelo hacia delante.",
+    "resonanceNearOnly": "La velocidad de alabeo estuvo a ±15 % de la frecuencia natural de cabeceo durante {{seconds}} s del vuelo hacia delante, sin cruzarla.",
+    "resonanceNever": "La velocidad de alabeo nunca llegó a ±15 % de la frecuencia natural de cabeceo en el vuelo hacia delante.",
+    "resonanceUnderHundredth": "menos de 0,01",
     "yAtX": "{{y}} en {{x}}",
     "summaryPeak": "máximo {{value}} a los {{time}} s",
     "summaryRange": "de {{min}} a {{max}}",
@@ -2282,7 +2288,8 @@
   "design": {
     "warnings": "Advertencias de diseño ({{count}})",
     "surfaceDensityOutlier": "{{part}}: una densidad de tela de {{density}} {{unit}} está muy lejos de lo que pesan las telas reales, probablemente un error de unidades. Vuelva a elegir la pieza en la lista de piezas o defina su material.",
-    "lineDensityOutlier": "{{part}}: una densidad de cordón de {{density}} {{unit}} está muy lejos de lo que pesan los cordones reales, probablemente un error de unidades. Vuelva a elegir la pieza en la lista de piezas o defina su material."
+    "lineDensityOutlier": "{{part}}: una densidad de cordón de {{density}} {{unit}} está muy lejos de lo que pesan los cordones reales, probablemente un error de unidades. Vuelva a elegir la pieza en la lista de piezas o defina su material.",
+    "motorTooWide": "{{part}}: el motor «{{motor}}» mide {{diameter}} mm de diámetro y el alojamiento {{bore}} mm, así que el cohete real no se podría construir así. La simulación lo vuela de todos modos. Elija un motor que quepa o revise el diámetro interior del alojamiento."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "El sistema de recuperación se abrió con el cohete aún a gran velocidad. El tirón carga a la vez el fuselaje y la vela: puede rasgar el tubo, romper el paracaídas o arrancar las cuerdas. Ábralo más cerca del apogeo, o vuele con doble despliegue.",

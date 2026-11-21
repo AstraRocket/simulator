@@ -1216,6 +1216,12 @@
     "qAlpha": "q·α",
     "rollRate": "Rolsnelheid",
     "velocityAltitude": "Snelheid tegen hoogte",
+    "rollPitchRatio": "Rolsnelheid ÷ stampfrequentie",
+    "resonanceCrossed": "De rolsnelheid kruiste de eigenfrequentie in stampen op {{times}} s en lag {{seconds}} s van de voorwaartse vlucht binnen ±15% ervan.",
+    "resonanceCrossedMore": "De rolsnelheid kruiste de eigenfrequentie in stampen op {{times}} s en nog {{more}} keer, en lag {{seconds}} s van de voorwaartse vlucht binnen ±15% ervan.",
+    "resonanceNearOnly": "De rolsnelheid lag {{seconds}} s van de voorwaartse vlucht binnen ±15% van de eigenfrequentie in stampen, zonder die te kruisen.",
+    "resonanceNever": "De rolsnelheid kwam in de voorwaartse vlucht nooit binnen ±15% van de eigenfrequentie in stampen.",
+    "resonanceUnderHundredth": "minder dan 0,01",
     "yAtX": "{{y}} bij {{x}}",
     "summaryPeak": "piek {{value}} op {{time}} s",
     "summaryRange": "van {{min}} tot {{max}}",
@@ -2273,7 +2279,8 @@
   "design": {
     "warnings": "Ontwerpwaarschuwingen ({{count}})",
     "surfaceDensityOutlier": "{{part}}: een stofdichtheid van {{density}} {{unit}} ligt ver buiten wat echte stoffen wegen, waarschijnlijk een eenheidsfout. Kies het onderdeel opnieuw uit de onderdelenlijst of stel het materiaal in.",
-    "lineDensityOutlier": "{{part}}: een koorddichtheid van {{density}} {{unit}} ligt ver buiten wat echte koorden wegen, waarschijnlijk een eenheidsfout. Kies het onderdeel opnieuw uit de onderdelenlijst of stel het materiaal in."
+    "lineDensityOutlier": "{{part}}: een koorddichtheid van {{density}} {{unit}} ligt ver buiten wat echte koorden wegen, waarschijnlijk een eenheidsfout. Kies het onderdeel opnieuw uit de onderdelenlijst of stel het materiaal in.",
+    "motorTooWide": "{{part}}: motor \"{{motor}}\" is {{diameter}} mm breed en de boring van de houder {{bore}} mm, dus de echte raket kan zo niet worden gebouwd. De simulatie vliegt hem toch. Kies een motor die past, of controleer de binnendiameter van de houder."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "Het bergingsmiddel ging open terwijl de raket nog hard ging. De schok belast de romp en de koepel tegelijk: hij kan de rompbuis openscheuren, de parachute verscheuren of de lijnen eruit trekken. Open dichter bij het apogeum, of vlieg met dubbel openen, een drogue en een lagere hoofdparachute.",

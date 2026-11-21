@@ -1222,6 +1222,12 @@
     "qAlpha": "q·α",
     "rollRate": "Prędkość przechylania",
     "velocityAltitude": "Prędkość względem wysokości",
+    "rollPitchRatio": "Prędkość przechylania ÷ częstotliwość pochylania",
+    "resonanceCrossed": "Prędkość przechylania przecięła częstotliwość własną pochylania w {{times}} s i przez {{seconds}} s lotu do przodu była w granicach ±15% od niej.",
+    "resonanceCrossedMore": "Prędkość przechylania przecięła częstotliwość własną pochylania w {{times}} s i jeszcze {{more}} razy, a przez {{seconds}} s lotu do przodu była w granicach ±15% od niej.",
+    "resonanceNearOnly": "Prędkość przechylania była przez {{seconds}} s lotu do przodu w granicach ±15% od częstotliwości własnej pochylania, nie przecinając jej.",
+    "resonanceNever": "Prędkość przechylania w locie do przodu nigdy nie zbliżyła się na ±15% do częstotliwości własnej pochylania.",
+    "resonanceUnderHundredth": "poniżej 0,01",
     "yAtX": "{{y}} przy {{x}}",
     "summaryPeak": "maksimum {{value}} w {{time}} s",
     "summaryRange": "od {{min}} do {{max}}",
@@ -2291,7 +2297,8 @@
   "design": {
     "warnings": "Ostrzeżenia projektu ({{count}})",
     "surfaceDensityOutlier": "{{part}}: gęstość tkaniny {{density}} {{unit}} jest daleko poza tym, ile ważą prawdziwe tkaniny, prawdopodobnie błąd jednostek. Wybierz część ponownie z listy części albo ustaw jej materiał.",
-    "lineDensityOutlier": "{{part}}: gęstość linki {{density}} {{unit}} jest daleko poza tym, ile ważą prawdziwe linki, prawdopodobnie błąd jednostek. Wybierz część ponownie z listy części albo ustaw jej materiał."
+    "lineDensityOutlier": "{{part}}: gęstość linki {{density}} {{unit}} jest daleko poza tym, ile ważą prawdziwe linki, prawdopodobnie błąd jednostek. Wybierz część ponownie z listy części albo ustaw jej materiał.",
+    "motorTooWide": "{{part}}: silnik „{{motor}}” ma {{diameter}} mm średnicy, a otwór mocowania {{bore}} mm, więc prawdziwej rakiety nie da się tak zbudować. Symulacja i tak go leci. Wybierz silnik, który się zmieści, albo sprawdź średnicę wewnętrzną mocowania."
   },
   "warnHelp": {
     "RECOVERY_HIGH_SPEED": "Układ ratunkowy otworzył się, gdy rakieta jeszcze szybko leciała. Szarpnięcie obciąża naraz kadłub i czaszę: może rozerwać rurę korpusu na długości, rozdarć spadochron albo wyrwać linki. Otwieraj bliżej apogeum albo leć z otwarciem dwustopniowym, ze spadochronem hamującym i niżej otwieranym głównym.",
