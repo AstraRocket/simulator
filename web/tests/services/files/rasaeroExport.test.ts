@@ -1081,6 +1081,34 @@ describe('staging, nozzles and the motors RASAero flies', () => {
     expect(cell('Booster1SeparationDelay')).toBe('0');
   });
 
+  it('writes the launch stage to ignite at launch, as RASAero flies it, and says so', () => {
+    const { cell, warnings } = run(
+      staged(),
+      { sm: motor({ ignitionEvent: 'launch', ignitionDelay: 2 }), bm: motor({ delay: 3 }) },
+      { grounded: ['b'] },
+    );
+    expect(cell('IncludeBooster1')).toBe('False');
+    expect(cell('SustainerIgnitionDelay')).toBe('0');
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroLaunchStageDelay', values: { stage: 'Sustainer' } }]);
+  });
+
+  it('treats a written booster with nothing below it as the launch stage', () => {
+    const { cell, warnings } = run(staged(), { sm: motor(), bm: motor({ delay: 3, ignitionDelay: 2 }) });
+    expect(cell('IncludeBooster1')).toBe('True');
+    expect(cell('Booster1IgnitionDelay')).toBe('0');
+    expect(warnings).toEqual([{ key: 'errors.exportRasaeroLaunchStageDelay', values: { stage: 'Booster' } }]);
+  });
+
+  it("drops a grounded booster's own delay without a note", () => {
+    const { cell, warnings } = run(
+      staged(),
+      { sm: motor(), bm: motor({ delay: 3, ignitionDelay: 2 }) },
+      { grounded: ['b'] },
+    );
+    expect(cell('Booster1IgnitionDelay')).toBe('0');
+    expect(warnings).toEqual([]);
+  });
+
   it('writes a cluster as one nozzle of the same exit area, and warns that one motor flies', () => {
     const { xml, cell, warnings } = run(
       staged({ nozzleExitDiameter: 0.0254 }, [{ type: 'innertube', id: 'bm', length: 0.1, cluster: '4-ring' }]),

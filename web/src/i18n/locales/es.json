@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "El archivo de RASAero se guardó, pero RASAero no puede encender la etapa «{{stage}}» en «{{event}}», así que se escribió para encenderse al agotarse la etapa de abajo.",
     "exportRasaeroSeparationEvent": "El archivo de RASAero se guardó, pero RASAero no puede separar la etapa «{{stage}}» en «{{event}}», así que se escribió para separarse al agotarse su motor.",
     "exportRasaeroIgnitionBeforeSeparation": "El archivo de RASAero se guardó, pero RASAero no puede encender la etapa «{{stage}}» antes de que se separe la etapa de abajo, así que se escribió para encenderse en la separación.",
+    "exportRasaeroLaunchStageDelay": "El archivo de RASAero se guardó, pero RASAero ignora el retardo de encendido de la etapa de lanzamiento, así que la etapa «{{stage}}» se escribió para encenderse en el lanzamiento.",
     "exportRasaeroExtraMotors": "El archivo de RASAero se guardó, pero RASAero vuela un solo motor en la etapa «{{stage}}»; sus otros motores solo cuentan para el peso y el CG de la etapa.",
     "exportRasaeroFinShape": "El archivo de RASAero se guardó, pero las aletas de RASAero son trapecios, así que el juego de aletas «{{name}}» se escribió como el trapecio con la misma cuerda de raíz, envergadura, área y centroide de área.",
     "exportRasaeroExtraFins": "El archivo de RASAero se guardó, pero RASAero tiene un solo juego de aletas por pieza, así que el juego de aletas «{{name}}» de «{{part}}» se dejó fuera.",

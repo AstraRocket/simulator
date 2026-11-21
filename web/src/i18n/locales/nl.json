@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "Het RASAero-bestand is opgeslagen, maar RASAero kan trap \"{{stage}}\" niet ontsteken bij \"{{event}}\", dus die is geschreven om te ontsteken bij het brandeinde van de trap eronder.",
     "exportRasaeroSeparationEvent": "Het RASAero-bestand is opgeslagen, maar RASAero kan trap \"{{stage}}\" niet afscheiden bij \"{{event}}\", dus die is geschreven om bij het eigen brandeinde af te scheiden.",
     "exportRasaeroIgnitionBeforeSeparation": "Het RASAero-bestand is opgeslagen, maar RASAero kan trap \"{{stage}}\" niet ontsteken voordat de trap eronder afscheidt, dus die is geschreven om bij de afscheiding te ontsteken.",
+    "exportRasaeroLaunchStageDelay": "Het RASAero-bestand is opgeslagen, maar RASAero negeert een ontstekingsvertraging op de lanceertrap, dus trap \"{{stage}}\" is geschreven om bij de lancering te ontsteken.",
     "exportRasaeroExtraMotors": "Het RASAero-bestand is opgeslagen, maar RASAero vliegt één motor in trap \"{{stage}}\"; de andere motoren tellen alleen mee voor het gewicht en het zwaartepunt van de trap.",
     "exportRasaeroFinShape": "Het RASAero-bestand is opgeslagen, maar RASAero-vinnen zijn trapeziums, dus vinnenset \"{{name}}\" is geschreven als het trapezium met dezelfde wortelkoorde, spanwijdte, oppervlakte en hetzelfde oppervlaktezwaartepunt.",
     "exportRasaeroExtraFins": "Het RASAero-bestand is opgeslagen, maar RASAero heeft één vinnenset per onderdeel, dus vinnenset \"{{name}}\" op \"{{part}}\" is weggelaten.",

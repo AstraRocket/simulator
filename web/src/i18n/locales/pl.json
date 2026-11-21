@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "Plik RASAero został zapisany, ale RASAero nie może zapalić stopnia „{{stage}}” przy „{{event}}”, więc zapisano go z zapłonem po wypaleniu stopnia poniżej.",
     "exportRasaeroSeparationEvent": "Plik RASAero został zapisany, ale RASAero nie może odłączyć stopnia „{{stage}}” przy „{{event}}”, więc zapisano go z odłączeniem po jego wypaleniu.",
     "exportRasaeroIgnitionBeforeSeparation": "Plik RASAero został zapisany, ale RASAero nie może zapalić stopnia „{{stage}}”, zanim odłączy się stopień poniżej, więc zapisano go z zapłonem przy odłączeniu.",
+    "exportRasaeroLaunchStageDelay": "Plik RASAero został zapisany, ale RASAero pomija opóźnienie zapłonu stopnia startowego, więc stopień „{{stage}}” zapisano z zapłonem przy starcie.",
     "exportRasaeroExtraMotors": "Plik RASAero został zapisany, ale RASAero symuluje tylko jeden silnik w stopniu „{{stage}}”; pozostałe silniki liczą się tylko do masy i środka ciężkości stopnia.",
     "exportRasaeroFinShape": "Plik RASAero został zapisany, ale stateczniki RASAero są trapezami, więc zestaw stateczników „{{name}}” zapisano jako trapez o tej samej cięciwie przykadłubowej, rozpiętości, polu i środku pola.",
     "exportRasaeroExtraFins": "Plik RASAero został zapisany, ale RASAero ma jeden zestaw stateczników na część, więc pominięto zestaw stateczników „{{name}}” w części „{{part}}”.",

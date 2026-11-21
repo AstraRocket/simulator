@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "The RASAero file was saved, but RASAero cannot ignite stage \"{{stage}}\" on \"{{event}}\", so it was written to ignite at the burnout of the stage below it.",
     "exportRasaeroSeparationEvent": "The RASAero file was saved, but RASAero cannot separate stage \"{{stage}}\" on \"{{event}}\", so it was written to separate at its burnout.",
     "exportRasaeroIgnitionBeforeSeparation": "The RASAero file was saved, but RASAero cannot ignite stage \"{{stage}}\" before the stage below it separates, so it was written to ignite at separation.",
+    "exportRasaeroLaunchStageDelay": "The RASAero file was saved, but RASAero ignores an ignition delay on the launch stage, so stage \"{{stage}}\" was written to ignite at launch.",
     "exportRasaeroExtraMotors": "The RASAero file was saved, but RASAero flies one motor in stage \"{{stage}}\"; its other motors only count toward the stage's weight and CG.",
     "exportRasaeroFinShape": "The RASAero file was saved, but RASAero fins are trapezoids, so fin set \"{{name}}\" was written as the trapezoid with the same root chord, span, area and area centroid.",
     "exportRasaeroExtraFins": "The RASAero file was saved, but RASAero has one fin set per part, so fin set \"{{name}}\" on \"{{part}}\" was left out.",

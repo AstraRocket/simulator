@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "O ficheiro do RASAero foi guardado, mas o RASAero não consegue acender o andar \"{{stage}}\" em \"{{event}}\", pelo que foi escrito para acender no fim da queima do andar abaixo.",
     "exportRasaeroSeparationEvent": "O ficheiro do RASAero foi guardado, mas o RASAero não consegue separar o andar \"{{stage}}\" em \"{{event}}\", pelo que foi escrito para se separar no fim da sua queima.",
     "exportRasaeroIgnitionBeforeSeparation": "O ficheiro do RASAero foi guardado, mas o RASAero não consegue acender o andar \"{{stage}}\" antes de o andar abaixo se separar, pelo que foi escrito para acender na separação.",
+    "exportRasaeroLaunchStageDelay": "O ficheiro do RASAero foi guardado, mas o RASAero ignora o atraso de ignição do andar de lançamento, pelo que o andar \"{{stage}}\" foi escrito para acender no lançamento.",
     "exportRasaeroExtraMotors": "O ficheiro do RASAero foi guardado, mas o RASAero só simula um motor no andar \"{{stage}}\"; os outros motores só contam para o peso e o CG do andar.",
     "exportRasaeroFinShape": "O ficheiro do RASAero foi guardado, mas as aletas do RASAero são trapézios, pelo que o conjunto de aletas \"{{name}}\" foi escrito como o trapézio com a mesma corda da raiz, envergadura, área e centroide de área.",
     "exportRasaeroExtraFins": "O ficheiro do RASAero foi guardado, mas o RASAero tem um conjunto de aletas por peça, pelo que o conjunto de aletas \"{{name}}\" em \"{{part}}\" foi deixado de fora.",

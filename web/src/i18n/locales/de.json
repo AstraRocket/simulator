@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "Die RASAero-Datei wurde gespeichert, aber RASAero kann Stufe „{{stage}}“ nicht bei „{{event}}“ zünden, daher wurde sie mit Zündung beim Brennschluss der Stufe darunter geschrieben.",
     "exportRasaeroSeparationEvent": "Die RASAero-Datei wurde gespeichert, aber RASAero kann Stufe „{{stage}}“ nicht bei „{{event}}“ abtrennen, daher wurde sie mit Abtrennung bei ihrem Brennschluss geschrieben.",
     "exportRasaeroIgnitionBeforeSeparation": "Die RASAero-Datei wurde gespeichert, aber RASAero kann Stufe „{{stage}}“ nicht zünden, bevor sich die Stufe darunter abtrennt, daher wurde sie mit Zündung bei der Abtrennung geschrieben.",
+    "exportRasaeroLaunchStageDelay": "Die RASAero-Datei wurde gespeichert, aber RASAero ignoriert eine Zündverzögerung der Startstufe, daher wurde Stufe „{{stage}}“ mit Zündung beim Start geschrieben.",
     "exportRasaeroExtraMotors": "Die RASAero-Datei wurde gespeichert, aber RASAero fliegt einen Motor in Stufe „{{stage}}“; ihre übrigen Motoren zählen nur zu Gewicht und Schwerpunkt der Stufe.",
     "exportRasaeroFinShape": "Die RASAero-Datei wurde gespeichert, aber RASAero-Finnen sind Trapeze, daher wurde der Finnensatz „{{name}}“ als Trapez mit gleicher Wurzeltiefe, Spannweite, Fläche und gleichem Flächenschwerpunkt geschrieben.",
     "exportRasaeroExtraFins": "Die RASAero-Datei wurde gespeichert, aber RASAero hat einen Finnensatz pro Teil, daher wurde der Finnensatz „{{name}}“ an „{{part}}“ weggelassen.",

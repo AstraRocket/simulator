@@ -224,7 +224,7 @@ async function main() {
   writeDataManifest(dirname(CATALOG));
   rmSync(STAGED_COMPONENTS, { force: true });
   console.log(
-    `digests: ${hit} of ${catalog.count} catalog rows (was ${before}); stated masses applied: ${masses.massed}; source densities corrected: ${corrected}`,
+    `digests: ${hit} of ${catalog.count} catalog rows (was ${before}); stated masses applied: ${masses.massed}; source values corrected: ${corrected}`,
   );
 }
 

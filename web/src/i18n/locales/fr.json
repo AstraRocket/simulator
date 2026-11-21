@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "Le fichier RASAero a été enregistré, mais RASAero ne peut pas allumer l'étage « {{stage}} » sur « {{event}} » ; il a donc été écrit pour s'allumer à l'extinction de l'étage inférieur.",
     "exportRasaeroSeparationEvent": "Le fichier RASAero a été enregistré, mais RASAero ne peut pas séparer l'étage « {{stage}} » sur « {{event}} » ; il a donc été écrit pour se séparer à son extinction.",
     "exportRasaeroIgnitionBeforeSeparation": "Le fichier RASAero a été enregistré, mais RASAero ne peut pas allumer l'étage « {{stage}} » avant la séparation de l'étage inférieur ; il a donc été écrit pour s'allumer à la séparation.",
+    "exportRasaeroLaunchStageDelay": "Le fichier RASAero a été enregistré, mais RASAero ignore le délai d'allumage de l'étage de lancement ; l'étage « {{stage}} » a donc été écrit pour s'allumer au lancement.",
     "exportRasaeroExtraMotors": "Le fichier RASAero a été enregistré, mais RASAero ne fait voler qu'un moteur dans l'étage « {{stage}} » ; ses autres moteurs ne comptent que pour la masse et le CG de l'étage.",
     "exportRasaeroFinShape": "Le fichier RASAero a été enregistré, mais les ailerons RASAero sont des trapèzes ; le jeu d'ailerons « {{name}} » a donc été écrit comme le trapèze de même corde d'emplanture, envergure, surface et centre de surface.",
     "exportRasaeroExtraFins": "Le fichier RASAero a été enregistré, mais RASAero n'a qu'un jeu d'ailerons par pièce ; le jeu d'ailerons « {{name}} » sur « {{part}} » a donc été omis.",

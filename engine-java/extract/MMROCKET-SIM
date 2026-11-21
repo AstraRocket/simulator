@@ -332,7 +332,33 @@
 # airfoil fin mass Caution (we use RockSim's CalcMass, as desktop does, without
 # a second estimate to compare it to); the sticky summary and tabs layout, and
 # the stability-diagnostics chart preset, which are their own UI.
+#
+# 2026-11-21: reviewed 80e8df45 through 3829d7e5 (v0.209 to v0.213, 2026-11-18
+# to 2026-11-20). Read from the checkout's files and their changelog.ts, not a
+# git diff. No engine-java file changed since the 2026-11-17 review.
+#
+# TAKEN, CATALOG: seven BalsaMachining nose blocks (NB20-2 to NB80-4) whose
+# BMS.ORC diameters are inches labeled mm (an NB80-4 was 2.558 mm across), and
+# the Quest 10100 and 10104 couplers' one-ounce placeholder mass, which folded
+# into densities of about 9,000 kg/m³. Both are in
+# scripts/lib/presetCorrections.mjs; the couplers now take desktop's Kraft
+# phenolic density, 958.7 kg/m³ (about 2.9 g and 3.3 g).
+#
+# TAKEN, EXPORT: RASAero ignores an ignition delay on the launch stage, so the
+# .CDX1 export writes 0 s there and says so (rasaero/simulation.ts).
+#
+# ALREADY COVERED OR NOT AFFECTED: their unweighed plastic chutes (ours carry
+# the source's 0.015 kg/m² polyethylene), the TBD123 streamer, lug and button
+# angles past 180 degrees (the kernel wraps them, as desktop).
+#
+# NOT APPLICABLE: batch simulate in every form, update holds across tabs,
+# RockSim staging and serial numbers (our .rkt import reads no motors), .CDX1
+# import, recovery advice, G35 printed delays, their spreadsheet columns.
+#
+# NOT TAKEN: motor length and width fit Cautions (not in desktop; the motor
+# picker's fit filter covers width), the roll rate over pitch frequency chart,
+# and save names that follow the rocket, which are their own UI.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 80e8df455e447b98fc94acc15dd4c04ffedc3357
-version = 0.208
-dated   = 2026-11-16
+ref     = 3829d7e59360b4d95beec0cfe59f559eb882b304
+version = 0.213
+dated   = 2026-11-20

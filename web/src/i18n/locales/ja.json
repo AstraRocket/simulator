@@ -214,6 +214,7 @@
     "exportRasaeroIgnitionEvent": "RASAero ファイルは保存されましたが、RASAero では段「{{stage}}」を「{{event}}」で点火できないため、下の段の燃焼終了で点火するように書き出しました。",
     "exportRasaeroSeparationEvent": "RASAero ファイルは保存されましたが、RASAero では段「{{stage}}」を「{{event}}」で分離できないため、その燃焼終了で分離するように書き出しました。",
     "exportRasaeroIgnitionBeforeSeparation": "RASAero ファイルは保存されましたが、RASAero では下の段が分離する前に段「{{stage}}」を点火できないため、分離時に点火するように書き出しました。",
+    "exportRasaeroLaunchStageDelay": "RASAero ファイルは保存されましたが、RASAero は打ち上げ段の点火遅延を無視するため、段「{{stage}}」は打ち上げ時に点火するように書き出しました。",
     "exportRasaeroExtraMotors": "RASAero ファイルは保存されましたが、RASAero は段「{{stage}}」でモーターを 1 つだけ飛ばします。他のモーターは段の重量と重心にのみ含まれます。",
     "exportRasaeroFinShape": "RASAero ファイルは保存されましたが、RASAero のフィンは台形のため、フィンセット「{{name}}」はルートコード、スパン、面積、面積重心が同じ台形として書き出しました。",
     "exportRasaeroExtraFins": "RASAero ファイルは保存されましたが、RASAero では部品 1 つにつきフィンセットは 1 つだけのため、「{{part}}」のフィンセット「{{name}}」は省きました。",
