@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+// cspell:ignore draglookup -- an OpenRocket .ork element name
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { SimulationsTable } from '../../../src/components/sim/SimulationsTable';

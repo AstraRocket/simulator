@@ -1,3 +1,4 @@
+// cspell:ignore Zippable -- fflate's type name
 import { zipSync, strToU8, type Zippable } from 'fflate';
 import { exportOrk, type OrkTreeExportInput } from './orkFile';
 import { saveBlob, saveText, exportFilename } from './saveFile';

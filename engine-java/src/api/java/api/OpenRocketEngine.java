@@ -574,6 +574,7 @@ public final class OpenRocketEngine {
         return drag;
     }
 
+    // cspell:ignore draglookup stabilitylookup -- OpenRocket .ork element names
     /**
      * A simulation's drag or stability table replaces that half of the calculator, as upstream
      * SimulationOptions.toSimulationConditions does. The rows are a `<draglookup>` /
