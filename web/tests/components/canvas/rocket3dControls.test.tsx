@@ -27,6 +27,8 @@ vi.mock('../../../src/services/exports/schematicExport.js', async (orig) => ({
 
 const { Rocket3D } = await import('../../../src/components/canvas/Rocket3D');
 const { useRocketExport } = await import('../../../src/components/canvas/useRocketExport');
+const { useCameraViews } = await import('../../../src/components/canvas/useCameraViews');
+const { keyLight } = await import('../../../src/components/canvas/keyLight');
 
 afterEach(cleanup);
 
@@ -42,6 +44,21 @@ describe('3D view presets', () => {
     fireEvent.click(aft);
     expect(side.getAttribute('aria-pressed')).toBe('false');
     expect(aft.getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('3D view drawn on demand', () => {
+  it('asks for a frame on a preset or Reset, which may not move the camera', () => {
+    const invalidate = vi.fn();
+    const r3f = {
+      current: { camera: { position: { set: () => {} } }, invalidate } as unknown as R3fHandles,
+    };
+    const lamp = keyLight();
+    const { result } = renderHook(() => useCameraViews({ r3f, lamp, totalLen: 1, center: 0.5, camDist: 1 }));
+    result.current.controls.current = { target: { set: () => {} }, update: () => false } as never;
+    result.current.showView('side');
+    result.current.resetView();
+    expect(invalidate).toHaveBeenCalledTimes(2);
   });
 });
 

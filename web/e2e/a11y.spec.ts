@@ -868,6 +868,23 @@ async function openDetails(summary: ReturnType<Page['locator']>): Promise<void> 
 }
 
 const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
+  AeroTableRows: [
+    {
+      name: 'Popup / custom aero table shown',
+      open: async (page) => {
+        await openTab(page, 'Simulations');
+        await page.getByLabel('Drag table', { exact: true }).setInputFiles({
+          name: 'drag.csv',
+          mimeType: 'text/csv',
+          buffer: Buffer.from('mach,cd\n0.3,0.35\n0.9,0.5\n'),
+        });
+        // Not `toggle`: the button's name turns to Hide once open.
+        await page.getByRole('button', { name: 'Drag table, Show' }).click();
+        await expect(page.getByRole('button', { name: 'Drag table, Hide' })).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.getByRole('table', { name: 'Drag table' })).toBeVisible();
+      },
+    },
+  ],
   CheckMenu: [
     {
       name: 'Popup / dashboard columns',

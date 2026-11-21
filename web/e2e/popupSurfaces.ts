@@ -1,5 +1,6 @@
 // Held to the source by tests/popupSurfaces.test.ts; a11y.spec.ts scans each surface at least this many times.
 export const POPUP_SURFACES = {
+  AeroTableRows: 1,
   CheckMenu: 1,
   ComponentExportButton: 1,
   ComponentTree: 1,

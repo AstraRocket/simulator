@@ -122,10 +122,18 @@ export function Rocket3D({
         resize={{ offsetSize: true }}
         style={{ flex: '1 1 0%', minHeight: 0 }}
         camera={{ position: sideCameraPos(center, camDist), fov: 40 }}
+        // Nothing here animates on its own: the controls, Bounds and prop changes ask for each frame.
+        frameloop="demand"
         // preserveDrawingBuffer, or the export's live-canvas fallback reads black. ACES turns saturated blue purple.
         gl={{ preserveDrawingBuffer: true, localClippingEnabled: true, toneMapping: THREE.NeutralToneMapping }}
         onCreated={(state) => {
-          r3f.current = { gl: state.gl, scene: state.scene, camera: state.camera, setFrameloop: state.setFrameloop };
+          r3f.current = {
+            gl: state.gl,
+            scene: state.scene,
+            camera: state.camera,
+            setFrameloop: state.setFrameloop,
+            invalidate: state.invalidate,
+          };
         }}
       >
         <ambientLight intensity={0.55} />

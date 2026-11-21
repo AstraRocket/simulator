@@ -74,8 +74,10 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   }
   // The bridge always measures calibers against the widest body tube, so the margin can differ.
   if (referenceType) notes.push(keyedNote('importNote.referenceType', { type: referenceType }));
-  const lookupSims = simulations.filter((s) => s.lookupTables).map((s) => s.name);
+  const lookupSims = simulations.filter((s) => s.unreadableLookup).map((s) => s.name);
   if (lookupSims.length) notes.push(keyedNote('importNote.lookupTables', { names: noteList(lookupSims) }));
+  const tabledSims = simulations.filter((s) => s.aeroTables).map((s) => s.name);
+  if (tabledSims.length) notes.push(keyedNote('importNote.aeroTables', { names: noteList(tabledSims) }));
 
   const launch = readLaunchConditions(doc);
 

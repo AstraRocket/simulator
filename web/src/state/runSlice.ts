@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { effectivePrefs, resultKey, simConditions, simInputs, type SimRun } from '../services/flight/simulations';
+import { aeroTablesOf } from '../services/flight/aeroTables';
 import { simulateInWorker, SimTimeoutError, SimCanceledError } from '../engine/simClient';
 import { designBlockerText } from '../services/flight/runnability';
 import { landingView, planRun, runProblems } from '../services/flight/runPlan';
@@ -97,7 +98,7 @@ export const createRunSlice: StateCreator<WorkspaceState, [], [], RunSlice> = (s
               {
                 tree: ranOn,
                 config,
-                options: simConditions(launch, effectivePrefs(prefs, sim.prefs)),
+                options: simConditions(launch, effectivePrefs(prefs, sim.prefs), aeroTablesOf(sim.xmlExtra)),
                 // Sent per flight: the main-thread build may not have caught up.
                 lengthUnit: effectivePrefs(prefs, sim.prefs).lengthUnit,
               },

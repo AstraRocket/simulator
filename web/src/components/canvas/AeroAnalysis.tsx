@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWorkspaceStore } from '../../state/store';
+import { useWorkspaceStore, selectActive } from '../../state/store';
+import { aeroTablesOf, calcMethodKey, hasAeroTables } from '../../services/flight/aeroTables';
 import { fmtNum } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import type { ComponentMass } from '../../engine/openRocketEngine';
@@ -26,6 +27,13 @@ export function AeroAnalysis() {
   const [thetaDeg, setThetaDeg] = useState(0);
   const [rollRate, setRollRate] = useState(0);
   const [altitudeM, setAltitudeM] = useState(0);
+
+  const activeXml = useWorkspaceStore((s) => selectActive(s).xmlExtra);
+  const activeName = useWorkspaceStore((s) => selectActive(s).name);
+  const activeTables = useMemo(() => {
+    const tables = aeroTablesOf(activeXml);
+    return hasAeroTables(tables) ? { name: activeName, tables } : null;
+  }, [activeXml, activeName]);
 
   const { sweep, pending } = useAeroSweep(rocket, { machMax, aoaDeg, thetaDeg, rollRate, altitudeM });
 
@@ -78,6 +86,11 @@ export function AeroAnalysis() {
         machMax={machMax}
         setMachMax={setMachMax}
       />
+      {activeTables && (
+        <p className="px-3 pb-2 text-[11px] text-ink-faint">
+          {t('aero.tablesNote', { name: activeTables.name, method: t(calcMethodKey(activeTables.tables)) })}
+        </p>
+      )}
       <AeroConditions
         rocket={rocket}
         pick={pick}

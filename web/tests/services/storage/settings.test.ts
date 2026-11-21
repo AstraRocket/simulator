@@ -46,8 +46,9 @@ describe('loadSettings', () => {
     };
     expect(stepper('rk6')).toBe('rk6');
     expect(stepper('RK6')).toBe('rk6');
-    expect(stepper('euler')).toBe('rk4');
-    expect(stepper(6)).toBe('rk4');
+    expect(stepper('rk4')).toBe('rk4');
+    expect(stepper('euler')).toBe('rk6');
+    expect(stepper(6)).toBe('rk6');
   });
 
   it('falls back for a seed or a flag of the wrong type, and keeps a usable one', () => {

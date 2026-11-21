@@ -19,6 +19,8 @@ import { fmtUpTo } from '../../i18n/format';
 import { MIN_SPEED_LIMIT, SPEED_WARNINGS } from './speedWarnings';
 import { SIM_OPTION_FIELDS, STEPPER_LABELS, simOptionUnit } from './simOptionFields';
 import { KernelMethodRows, StepperSelect } from './SimOptionRows';
+import { aeroTablesOf } from '../../services/flight/aeroTables';
+import { AeroTableRows } from './AeroTableRows';
 import { CardGroup } from '../common/CardGroup';
 import { smallButton } from '../common/smallButton';
 
@@ -162,6 +164,9 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
   const { settings, update } = useSettings();
   const u = useUnits();
   const prefs = useWorkspaceStore((s) => selectActive(s).prefs);
+  const activeId = useWorkspaceStore((s) => selectActive(s).id);
+  const xmlExtra = useWorkspaceStore((s) => selectActive(s).xmlExtra);
+  const tables = aeroTablesOf(xmlExtra);
   const setSimPref = useWorkspaceStore((s) => s.setSimPref);
   const clearSimPrefs = useWorkspaceStore((s) => s.clearSimPrefs);
   const onCommit = useWorkspaceStore((s) => s.commitEdit);
@@ -183,7 +188,8 @@ function SimOptions({ diff, targets }: { diff?: ReadonlySet<keyof SimPrefs>; tar
 
   return (
     <CardGroup title={t('sims.options')}>
-      <KernelMethodRows size="xs" className="mb-3 space-y-1" />
+      <KernelMethodRows size="xs" className="mb-3 space-y-1" tables={tables} />
+      <AeroTableRows key={activeId} multi={targets.length > 1} />
 
       <StepperSelect
         defaultLabel={t('sims.stepperDefault', { method: t(STEPPER_LABELS[g.stepper]) })}
