@@ -5,7 +5,7 @@
 const STREAMER_PAPER = 'Paper SURFACE is 90 in fliskits-legacy.orc, a g/m² paper weight (an STD-660 weighs 20.9 kg)';
 const TAC_NYLON = 'Rip stop nylon is labeled g/m² in giantleaprocketry.orc for a kg/m² value (1.9 oz/yd²)';
 const BMS_NOSE_BLOCK =
-  'BMS.ORC gives NB nose block diameters in inches labeled mm (an NB80-4 is 2.558 mm across); balsamachining.com CONES1.asp lists the inches. NB20-2 also repeats NB10’s 0.422 in. for BT-20’s 0.710 in.';
+  'BMS.ORC gives NB nose block diameters in inches labeled mm (an NB80-4 is 2.558 mm across); the BalsaMachining site’s CONES1.asp lists the inches. NB20-2 also repeats NB10’s 0.422 in. for BT-20’s 0.710 in.';
 const QUEST_OUNCE =
   'Quest-legacy.orc gives these paper couplers exactly one ounce, a placeholder: the stated size at desktop’s own Kraft phenolic density weighs about 3 g';
 /** Desktop's catalogs give "Kraft phenolic" this density where they state it; Quest-legacy.orc names the material with no <Material> block. */
