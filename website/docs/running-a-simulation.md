@@ -83,6 +83,28 @@ The Atmosphere card then says where the values came from, such as *Open-Meteo fo
 
 The forecast atmosphere is this app's addition. Desktop OpenRocket uses the ISA standard above the site, and a `.ork` saved here carries the levels as an extension that desktop OpenRocket skips.
 
+## Custom aerodynamic data {#custom-aero}
+
+A simulation can fly drag or stability figures you supply in place of the calculated ones, from CFD, a wind tunnel or another tool, as desktop OpenRocket 26.11 does. Under **Simulation options**, **Custom aerodynamic data** has a **Drag table** and a **Stability table**, each with **Upload CSV**, then **Replace** and **Remove** once one is in. **Show** lays the table out beneath it, and **Download** saves it as a CSV under the name it came with; that works for a table a desktop `.ork` brought in too, so you can take it out, edit it and upload it again. Each table belongs to the simulation it was uploaded to; a duplicate keeps it.
+
+The file is a CSV whose first row names the columns:
+
+- **Drag table**: `mach` and `cd`.
+- **Stability table**: `mach`, `cn`, `cm` and `cp`.
+- Either may add `aoa` (angle of attack, in degrees) when the values change with it.
+
+`cd`, `cn` and `cm` are coefficients; `cp` is the center of pressure in **meters from the nose tip**. A `cp` in calibers or inches is read as meters without complaint and gives a wildly wrong stability, so check it.
+
+Once a table is in, its row shows the span it covers, such as "Mach 0.3 to 2, AoA 0° to 10°". Past the end of a table, the flight keeps the table's last values, as desktop OpenRocket does. A flight that goes faster than the table's top Mach, or past its largest angle of attack before recovery, gets a warning on the Results tab, since the figures beyond that point are a guess. Starting below the table's first Mach is normal (every flight starts at Mach 0) and is not flagged.
+
+A drag table gives one total drag coefficient. The flight counts all of it as friction drag, so in the flight chart the friction drag coefficient equals the total and pressure and base drag read 0; the chart says so when those are shown. The **Aerodynamic analysis** view always works from the design with Extended Barrowman, and says so when the active simulation flies a table.
+
+A table not yet uploaded shows a short example of the format under its row. The picker takes `.csv`, `.txt` and `.dat` files.
+
+Fields are separated by commas, semicolons or tabs, read off the first row; column names ignore case, spaces and underscores, and a line starting with `#` is a comment. Because the separator comes from the first row, a semicolon or tab file that opens with a comment is read as comma-separated, in desktop OpenRocket too; it is refused with that reason, so move the comment below the header. A file that does not fit is refused with the line and column at fault, and the simulation keeps what it had. The rules are desktop OpenRocket's, so a table it accepts is accepted here.
+
+The table is saved inside the `.ork`, in the form desktop OpenRocket writes, so a file opened in either flies the same. A simulation flying a table carries a **Custom aero** tag in the simulations table, and its **Calculation method** names what the table replaces. A desktop file that only names its CSV by a path on that computer, with no copy inside, opens marked outdated with the path shown; upload that CSV to fly it here.
+
 ## Run it
 
 Press **Run flight simulation**. The flight runs in a background **Web Worker**, so the interface stays responsive. While it computes (typically well under a second), the button reads **Cancel run** and the simulation's row shows **Running**. When it finishes, the **Results** tab opens with its **Flight**, **3D path**, **Ground track** and **Environment** views (see [Views & Analysis](./views-and-analysis.md)).

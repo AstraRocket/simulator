@@ -9,8 +9,14 @@ import org.teavm.jso.JSExport;
 
 import info.openrocket.core.aerodynamics.AerodynamicForces;
 import info.openrocket.core.aerodynamics.BarrowmanCalculator;
+import info.openrocket.core.aerodynamics.DragCalculator;
+import info.openrocket.core.aerodynamics.LookupTableDragCalculator;
+import info.openrocket.core.aerodynamics.LookupTableStabilityCalculator;
 import info.openrocket.core.aerodynamics.RASAeroStabilityCalculator;
 import info.openrocket.core.aerodynamics.RASAeroDragCalculator;
+import info.openrocket.core.aerodynamics.StabilityCalculator;
+import info.openrocket.core.aerodynamics.lookup.CsvMachAoALookup;
+import info.openrocket.core.aerodynamics.lookup.MachAoALookup;
 import info.openrocket.core.aerodynamics.FlightConditions;
 import info.openrocket.core.unit.CaliberUnit;
 import info.openrocket.core.unit.PercentageOfLengthUnit;
@@ -550,14 +556,63 @@ public final class OpenRocketEngine {
 
     /** Shared by getStaticInfo, getAeroSweep and simulateJson so they agree. */
     private static BarrowmanCalculator rasAeroCalculator(RocketCtx ctx) {
+        return new BarrowmanCalculator(rasAeroStability(ctx), rasAeroDrag(ctx));
+    }
+
+    private static RASAeroStabilityCalculator rasAeroStability(RocketCtx ctx) {
         RASAeroStabilityCalculator stab = new RASAeroStabilityCalculator();
         stab.setSupersonicAero(ctx.supersonicAero);
         stab.setRogersKbf(ctx.rogersKbf);
+        return stab;
+    }
+
+    private static RASAeroDragCalculator rasAeroDrag(RocketCtx ctx) {
         RASAeroDragCalculator drag = new RASAeroDragCalculator();
         drag.setSupersonicAero(ctx.supersonicAero);
         drag.setRogersKbf(ctx.rogersKbf);
         drag.setStubbyNoseFloor(ctx.stubbyNoseFloor);
+        return drag;
+    }
+
+    // cspell:ignore draglookup stabilitylookup -- OpenRocket .ork element names
+    /**
+     * A simulation's drag or stability table replaces that half of the calculator, as upstream
+     * SimulationOptions.toSimulationConditions does. The rows are a `<draglookup>` /
+     * `<stabilitylookup>` element's `<row>` texts, header first.
+     */
+    private static BarrowmanCalculator flightCalculator(RocketCtx ctx, Map<String, Object> o) {
+        MachAoALookup dragTable = lookupOf(o, "dragLookup", List.of("cd"));
+        MachAoALookup stabilityTable = lookupOf(o, "stabilityLookup", List.of("cn", "cm", "cp"));
+        StabilityCalculator stab = stabilityTable != null
+                ? new LookupTableStabilityCalculator(stabilityTable)
+                : rasAeroStability(ctx);
+        DragCalculator drag = dragTable != null ? new LookupTableDragCalculator(dragTable) : rasAeroDrag(ctx);
         return new BarrowmanCalculator(stab, drag);
+    }
+
+    private static MachAoALookup lookupOf(Map<String, Object> o, String key, List<String> columns) {
+        List<String> rows = JsonLite.strList(o, key);
+        if (rows.isEmpty()) return null;
+        try {
+            return CsvMachAoALookup.parse(rows, columns, lookupSeparator(rows.get(0)));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new IllegalArgumentException(key + ": " + e.getMessage(), e);
+        }
+    }
+
+    /** Upstream CsvLookupHandler.detectSeparator: the most frequent of comma, semicolon, tab. */
+    private static char lookupSeparator(String firstRow) {
+        int commas = 0, semicolons = 0, tabs = 0;
+        for (int i = 0; i < firstRow.length(); i++) {
+            char c = firstRow.charAt(i);
+            if (c == ',') commas++;
+            else if (c == ';') semicolons++;
+            else if (c == '\t') tabs++;
+        }
+        if (commas >= semicolons && commas >= tabs && commas > 0) return ',';
+        if (semicolons >= tabs && semicolons > 0) return ';';
+        if (tabs > 0) return '\t';
+        return ',';
     }
 
     @JSExport
@@ -1411,7 +1466,7 @@ public final class OpenRocketEngine {
         if (!Double.isNaN(maxAngleStep) && maxAngleStep > 0) {
             conditions.setMaximumAngleStep(maxAngleStep);
         }
-        BarrowmanCalculator aeroCalc = rasAeroCalculator(ctx);
+        BarrowmanCalculator aeroCalc = flightCalculator(ctx, o);
         int randomSeed = (int) JsonLite.dbl(o, "randomSeed", 42);
         List<Map<String, Object>> windLevels = JsonLite.objList(o, "windLevels");
         if (windLevels != null && !windLevels.isEmpty()) {

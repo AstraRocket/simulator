@@ -1,6 +1,6 @@
 # Patch ledger: extracted OpenRocket core
 
-<!-- cspell:ignore Monitorable -->
+<!-- cspell:ignore Monitorable draglookup stabilitylookup badheader -->
 
 Every `PATCH(...)` comment in `src/java/` points here. This is that file.
 
@@ -1502,3 +1502,78 @@ this pin (`2d76b9733`):
 - `unit/Unit.java` `9c7c58c2fc57`
 - `util/ArrayList.java` `aaa93107ceac`
 - `rocketcomponent/ComponentAssembly.java` `6877195c95d3`
+
+## Repinned to upstream `319bc7914` - 2026-11-17
+
+From `2d76b9733` (2026-11-04) to `319bc7914` (2026-11-17), the head of canonical
+`unstable` on the day. 72 commits, most of them desktop 3D rendering, the new
+design-file preview and thumbnail images, translations, docs and the installer.
+One extracted file moved:
+
+- **`rocketcomponent/BodyTube.java`** (unpatched). The auto radius only records a
+  neighbor as its reference component when that neighbor actually supplied a
+  radius, and clears it when the tube falls back to `DEFAULT_RADIUS`. It used to
+  keep pointing at a neighbor that returned a negative radius. The radius itself is
+  unchanged; `isForeRadiusAutomatic` / `isAftRadiusAutomatic` read the reference,
+  so only how a chain of auto-diameter parts reports its links can differ. Taken
+  unpatched.
+
+No patched file changed upstream in this range, so every patch fingerprint and
+divergence below the previous entry stands; `@upstream` moved with `BodyTube`.
+
+Shim re-reviewed and blessed in `SHIMS.txt`: upstream's `ApplicationPreferences`
+added `FilePreviewMode` and `SaveFileThumbnail` and dropped `FILE_PREVIEW_VIEW_TYPE`.
+Desktop file-preview settings only; nothing in the kernel or the app reads them,
+so the shim needs no change.
+
+The examples were re-saved upstream as format 1.11 (`OpenRocket 26.11.beta.01`).
+They now carry embedded `thrustcurves/*.rse`, `preview.png` and `thumbnail.png`,
+and `shearModulus` / `opacityaffectstexture` attributes. The importer already
+accepts 1.11 and reads all of these. Re-synced with `sync:examples`.
+`core/build.gradle`, which the reference harness reads, is unchanged.
+
+- **Fingerprints:** `@manifest` `809561cbc1a2` (unchanged, 273 files), `@upstream`
+  `b9ad9c7c3511`.
+- **Golden:** no value moved; all 367 lines bit-identical.
+- **Parity:** JS and WASM agree with the JVM on all 367 lines.
+- **Validation:** classic 13/135 and supersonic 61/135, both at their floors.
+
+## Custom aerodynamic data (lookup tables) - 2026-11-18
+
+Desktop 26.11 flies a simulation's drag and stability CSV tables in place of
+Barrowman (`<draglookup>` and `<stabilitylookup>` in the `.ork`, each `<row>` one
+CSV line, header first). The kernel flies them now too. Four upstream files join
+the manifest, verbatim:
+
+- `aerodynamics/LookupTableDragCalculator.java`
+- `aerodynamics/LookupTableStabilityCalculator.java`
+- `aerodynamics/lookup/CsvMachAoALookup.java`
+- `aerodynamics/lookup/MachAoALookup.java`
+
+They still import `java.nio.file.Path`, which TeaVM's classlib lacks, but only in
+the `Path` constructors and `CsvMachAoALookup.fromCsv`. Nothing calls those, so
+TeaVM never reaches them and both targets build without a patch.
+
+The facade, not `SimulationOptions`, applies a table: `simulateJson` builds its own
+conditions, so `flightCalculator` reads the `dragLookup` / `stabilityLookup` row
+lists, parses them with `CsvMachAoALookup.parse` (the separator detected as
+upstream's `CsvLookupHandler` does) and swaps that half of the calculator, as
+upstream `SimulationOptions.toSimulationConditions` does. Static info and the aero
+sweep stay Barrowman, as desktop's component analysis does. A malformed table
+fails the run with the parser's message, prefixed by its key.
+
+The `SimulationOptions` patch keeps omitting the `Path` plumbing. Only its comments
+changed: they said the browser engine only ever uses Barrowman. Divergence stays
+161, re-blessed.
+
+The app reads the rows from the simulation's carried `<conditions>` elements and
+sends them with every flight of that simulation. A table whose rows the file does
+not carry (a `file` attribute alone, or the older `<draglookupcsv>` path) is still
+filed outdated, with the import note.
+
+- **Fingerprints:** `@manifest` `9169240eef61`, 277 files. `@upstream`
+  `35e6dcf6e909`. `simulation/SimulationOptions.java` `2f43ccc03d7e`.
+- **Golden:** 4 lines added (371): `flight.lookup.drag`, `.both`, `.semicolon` (the
+  same table with `;`, so it matches `.drag` exactly) and `.badheader`. No existing
+  value moved.
+- **Parity:** JS and WASM agree with the JVM on all 371 lines.

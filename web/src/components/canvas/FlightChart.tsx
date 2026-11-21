@@ -16,6 +16,11 @@ import { FlightChartPanel } from './FlightChartPanel';
 import { eventsSummary } from './chartSummary';
 import { FlightXYPanel } from './FlightXYPanel';
 import { useElementResize } from '../common/useElementResize';
+import { useWorkspaceStore } from '../../state/store';
+import { aeroTablesOf } from '../../services/flight/aeroTables';
+
+// `LookupTableDragCalculator` books a table's whole CD as friction: pressure and base read 0.
+const DRAG_SPLIT = new Set(['Cdf', 'Cdp', 'Cdb']);
 
 export type { ChartFlight } from './flightChartTraces';
 
@@ -28,6 +33,9 @@ export function FlightChart({ flight, flow = false }: { flight: ChartFlight; flo
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const series = useChartSeries(flight);
+  const dragTable = useWorkspaceStore(
+    (s) => !!aeroTablesOf(s.sims.find((x) => x.id === flight.id)?.xmlExtra).dragLookup,
+  );
   const { branches, selectedBranches, on, activeMetas } = series;
   const multistage = branches.length >= 2;
 
@@ -122,6 +130,9 @@ export function FlightChart({ flight, flow = false }: { flight: ChartFlight; flo
         ) : (
           <>
             {eventsText && <p className="sr-only">{eventsText}</p>}
+            {dragTable && shownMetas.some((m) => DRAG_SPLIT.has(m.key)) && (
+              <p className="pt-1 text-[11px] text-ink-faint">{t('flight.dragTableSplit')}</p>
+            )}
             {stripH > 0 && <EventLabelStrip labels={eventLabels} w={w} stripH={stripH} t={t} />}
             {shownMetas.map((m) =>
               m.xy ? (

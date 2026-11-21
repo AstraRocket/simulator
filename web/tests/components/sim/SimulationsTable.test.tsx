@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+// cspell:ignore draglookup -- an OpenRocket .ork element name
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { SimulationsTable } from '../../../src/components/sim/SimulationsTable';
@@ -51,6 +52,40 @@ describe('SimulationsTable warning count', () => {
     );
     fireEvent.click(count);
     expect(onOpenResults).toHaveBeenCalledWith(sim.id);
+  });
+});
+
+describe('SimulationsTable custom aerodynamic data', () => {
+  const render = (xmlExtra?: string[]) => {
+    const s = useWorkspaceStore.getState();
+    const sim = s.sims[0]!;
+    renderWithProviders(
+      <SimulationsTable
+        sims={[{ ...sim, ...(xmlExtra ? { xmlExtra } : {}) }]}
+        activeId={sim.id}
+        selectedIds={[]}
+        runs={{}}
+        tree={s.tree}
+        configs={s.configs}
+        simPrefs={s.simPrefs}
+        onSetConfig={() => {}}
+        onSelect={() => {}}
+        onToggle={() => {}}
+        onToggleAll={() => {}}
+        onOpenResults={() => {}}
+      />,
+    );
+  };
+
+  it('tags a simulation that flies a desktop table, saying what it replaces', () => {
+    render(['<conditions><draglookup><row>mach,cd</row><row>0,0.5</row></draglookup></conditions>']);
+    const tag = screen.getByText('Custom aero');
+    expect(tag.getAttribute('title')).toContain('Drag table, Extended Barrowman stability');
+  });
+
+  it('tags nothing else', () => {
+    render();
+    expect(screen.queryByText('Custom aero')).toBeNull();
   });
 });
 

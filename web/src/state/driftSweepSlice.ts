@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { primaryMotor } from '../services/flight/flightConfigs';
 import { simConditions } from '../services/flight/simulations';
+import { aeroTablesOf } from '../services/flight/aeroTables';
 import { simulateInWorker } from '../engine/simClient';
 import { landingPoint } from '../services/flight/groundTrack';
 import {
@@ -82,7 +83,11 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
                 tree: ranOn,
                 config,
                 options: {
-                  ...simConditions(sweepLaunch(launch, point), { ...runPrefs, randomSeed: seed }),
+                  ...simConditions(
+                    sweepLaunch(launch, point),
+                    { ...runPrefs, randomSeed: seed },
+                    aeroTablesOf(sim.xmlExtra),
+                  ),
                   series: 'summary',
                   railExitMinSpeed: undefined,
                 },

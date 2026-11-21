@@ -219,6 +219,9 @@ function unzipFromDirectory(bytes: Uint8Array): Map<string, Uint8Array> {
   return members;
 }
 
+// Desktop's own file-browser images (26.11 writes both); they hold nothing of the design.
+const PREVIEW_IMAGES = new Set(['preview.png', 'thumbnail.png']);
+
 /** Only one gzip layer is unwrapped, as `GeneralRocketLoader.loadStep1` does. */
 export function unpackOrk(data: ArrayBuffer | string, gunzipped = false): OrkArchive {
   if (typeof data === 'string') return { xml: data, motorFiles: [], dropped: [] };
@@ -246,7 +249,7 @@ export function unpackOrk(data: ArrayBuffer | string, gunzipped = false): OrkArc
       if (name === entryName) continue;
       // Any `.rse`: the `thrustcurves/` folder is only a convention.
       if (name.toLowerCase().endsWith('.rse')) motorFiles.push(decodeFileText(data));
-      else if (name !== 'preview.png') dropped.push(name);
+      else if (!PREVIEW_IMAGES.has(name)) dropped.push(name);
     }
     return { xml: decodeFileText(entry), motorFiles, dropped };
   }

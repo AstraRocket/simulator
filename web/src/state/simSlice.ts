@@ -16,6 +16,7 @@ import {
   type SimPrefs,
 } from '../services/flight/simulations';
 import { loadSettings } from '../services/storage/settings';
+import { withAeroTable, type AeroTableKind } from '../services/flight/aeroTables';
 import { holdsKey, nonEmpty, withKey } from '../services/app/objectKeys';
 import type { WorkspaceState } from './store';
 import { configOf, defaultConfig, firstSim, selectActive, simPrefsOf } from './workspaceSelectors';
@@ -39,6 +40,8 @@ export interface SimSlice {
   duplicateSim: (id: string) => void;
   deleteSim: (id: string) => void;
   renameSim: (id: string, name: string) => void;
+  /** The active simulation's drag or stability table, from an uploaded CSV; null removes it. */
+  setAeroTable: (kind: AeroTableKind, table: { file: string; rows: string[] } | null) => void;
   setSimPref: <K extends keyof SimPrefs>(key: K, value: SimPrefs[K] | null) => void;
   clearSimPrefs: () => void;
   setResultSimId: (id: string | null) => void;
@@ -154,7 +157,12 @@ export const createSimSlice =
           s.sims.map((x) => x.name),
         );
         // Shares the configuration, not a clone, so a motor change applies to both.
-        const s0 = { ...newSimulation(name, src.configId, src.launch), prefs: src.prefs };
+        const s0 = {
+          ...newSimulation(name, src.configId, src.launch),
+          prefs: src.prefs,
+          // Carries its custom aerodynamic data, as a desktop copy does.
+          ...(src.xmlExtra ? { xmlExtra: src.xmlExtra } : {}),
+        };
         set({ sims: insertAfter(s.sims, id, s0), activeId: s0.id });
       },
       deleteSim: (id) => {
@@ -175,6 +183,18 @@ export const createSimSlice =
         if (!sim || sim.name === name) return;
         beginEdit();
         set((s) => ({ sims: replaceById(s.sims, id, (x) => ({ ...x, name })) }));
+      },
+      setAeroTable: (kind, table) => {
+        const active = selectActive(get());
+        const xmlExtra = withAeroTable(active.xmlExtra, kind, table);
+        if (!table && (xmlExtra?.length ?? 0) === (active.xmlExtra?.length ?? 0)) return;
+        recordStep();
+        set((s) => ({
+          sims: replaceById(s.sims, active.id, ({ xmlExtra: _, ...x }) => ({
+            ...x,
+            ...(xmlExtra ? { xmlExtra } : {}),
+          })),
+        }));
       },
       setSimPref: (key, value) => {
         const ids = new Set(selectEditIds(get()));

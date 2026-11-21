@@ -12,6 +12,8 @@ import { launcherKind } from '../../services/design/launcher';
 import { useLauncherT } from '../common/useLauncher';
 import { useFlutterFindings } from './useFlutterFindings';
 import { flutterWarningText } from './flutterWarningText';
+import { useTranslation } from 'react-i18next';
+import { aeroTablesOf, calcMethodKey, hasAeroTables } from '../../services/flight/aeroTables';
 
 const TONE: Record<SimStatus, string> = {
   upToDate: 'bg-ok-400',
@@ -56,6 +58,24 @@ function WarningsButton({
         {lines.join('\n')}
       </span>
     </button>
+  );
+}
+
+/** A simulation flying desktop's custom aerodynamic data says so, and what the data replaces. */
+function AeroTablesTag({ sim }: { sim: Simulation }) {
+  const { t } = useTranslation();
+  const tables = aeroTablesOf(sim.xmlExtra);
+  if (!hasAeroTables(tables)) return null;
+  const detail = `${t(calcMethodKey(tables))}. ${t('sims.aeroTablesHint')}`;
+  return (
+    <span
+      title={detail}
+      // Opaque: a tint over the active row's own tint loses contrast in the light theme.
+      className="ml-2 whitespace-nowrap rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-accent-200 ring-1 ring-accent-500/40"
+    >
+      {t('sims.aeroTablesTag')}
+      <span className="sr-only">: {detail}</span>
+    </span>
   );
 }
 
@@ -183,6 +203,7 @@ export function SimulationsTable({
                 >
                   {s.name}
                 </button>
+                <AeroTablesTag sim={s} />
               </Td>
               <Td wide>
                 <select

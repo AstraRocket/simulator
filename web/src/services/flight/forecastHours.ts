@@ -7,6 +7,7 @@ import type { FlightConfig } from './flightConfigs';
 import { landingPoint, type GroundPoint } from './groundTrack';
 import type { CompleteLaunch } from './requiredLaunch';
 import { freshSeed, simConditions, type SimPrefs } from './simulations';
+import type { AeroTables } from './aeroTables';
 import { flightBranches } from './flightColumns';
 import { launchLimitViolations, type LimitViolation } from './safetyLimits';
 import type { PowerClass } from './powerClass';
@@ -30,6 +31,7 @@ export async function flyForecastHours(
     launch: CompleteLaunch;
     source: WeatherSource;
     prefs: SimPrefs;
+    aeroTables?: AeroTables;
     powerClass: PowerClass;
     apiKey?: string;
     onProgress?: (done: number, total: number) => void;
@@ -80,7 +82,7 @@ export async function flyForecastHours(
       {
         tree: q.tree,
         config: q.config,
-        options: { ...simConditions(launch, { ...q.prefs, randomSeed: seed }), series: 'summary' },
+        options: { ...simConditions(launch, { ...q.prefs, randomSeed: seed }, q.aeroTables), series: 'summary' },
         // The worker's unit must not depend on the main-thread build having caught up.
         lengthUnit: q.prefs.lengthUnit,
       },

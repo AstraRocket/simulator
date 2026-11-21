@@ -367,6 +367,10 @@ export interface SimulationOptions {
   railExitMinSpeed?: number;
   /** Omitted follows {@link setKernelRogersKbf}. Off keeps the flight bit-identical to upstream (`FinSetCalc`). */
   rogersKbf?: boolean;
+  /** CSV rows, header first (`mach[,aoa],cd`): flies this drag table in place of Barrowman. */
+  dragLookup?: string[];
+  /** CSV rows, header first (`mach[,aoa],cn,cm,cp`, CP in m): flies this table in place of Barrowman. */
+  stabilityLookup?: string[];
   series?: 'summary' | 'full';
 }
 
@@ -788,6 +792,8 @@ export class OpenRocketDesign {
           drogueLowSpeedWarn: options.drogueLowSpeedWarn,
           guideAwareRodClearance: options.guideAwareRodClearance,
           railExitMinSpeed: options.railExitMinSpeed,
+          dragLookup: options.dragLookup,
+          stabilityLookup: options.stabilityLookup,
           series: options.series,
         }),
       ),

@@ -238,7 +238,8 @@ export const DEFAULT_SETTINGS: Settings = {
     maxTime: 1200,
     // The kernel's own RECOMMENDED_ANGLE_STEP (AbstractRKSimulationStepper).
     maxAngleStep: degToRad(3),
-    stepper: 'rk4',
+    // Desktop defaults to RK4. A `.ork` simulation keeps the method its file names (RK4 when it names none).
+    stepper: 'rk6',
     randomSeed: null,
     confirmDelete: true,
     autoRunOutdated: false,

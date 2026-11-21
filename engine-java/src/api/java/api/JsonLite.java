@@ -295,6 +295,22 @@ public final class JsonLite {
     }
 
     @SuppressWarnings("unchecked")
+    public static List<String> strList(Map<String, Object> m, String key) {
+        Object v = m.get(key);
+        if (v == null) return new ArrayList<>();
+        if (!(v instanceof List)) throw wrongType(key, v, "a list");
+        List<String> out = new ArrayList<>();
+        for (Object o : (List<Object>) v) {
+            if (!(o instanceof String)) {
+                throw new IllegalArgumentException("JSON: every entry of '" + key + "' should be a string, got "
+                        + (o == null ? "null" : o.getClass().getSimpleName()));
+            }
+            out.add((String) o);
+        }
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
     public static Map<String, Object> obj(Map<String, Object> m, String key) {
         Object v = m.get(key);
         return v instanceof Map ? (Map<String, Object>) v : null;

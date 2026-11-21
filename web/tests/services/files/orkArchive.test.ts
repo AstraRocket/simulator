@@ -112,8 +112,8 @@ describe('what the import result carries', () => {
     expect(noteTexts(res.notes).join('\n')).toContain('decals/flames.png');
   });
 
-  it('says nothing about the thumbnail, which is regenerated anyway', () => {
-    const res = importOrk(archive({ 'rocket.ork': XML, 'preview.png': 'x' }));
-    expect(noteTexts(res.notes).join('\n')).not.toContain('preview.png');
+  it.each(['preview.png', 'thumbnail.png'])('says nothing about the %s desktop writes for file browsers', (name) => {
+    const res = importOrk(archive({ 'rocket.ork': XML, [name]: 'x' }));
+    expect(noteTexts(res.notes).join('\n')).not.toContain(name);
   });
 });

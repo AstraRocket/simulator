@@ -11,6 +11,7 @@ import { collectNodes } from '../../tree/treeWalk';
 import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import { BAYS_KEY } from './recoveryBays';
+import { aeroTablesOf, hasAeroTables, type AeroTables } from './aeroTables';
 
 // Radians, as `SimulationOptions.setMaximumStepAngle` clamps; the bridge's `SimulationConditions` has no clamp.
 export const MAX_ANGLE_STEP_RANGE = { min: degToRad(1), max: degToRad(20) } as const;
@@ -96,7 +97,10 @@ function computeResultKey(tree: RocketTree, config: FlightConfig, sim: Simulatio
   const { weatherSource: _source, keptWindLevels: _kept, ...launch } = sim.launch;
   // Off adds nothing, so a run saved before the setting existed keeps its key.
   const keyed = SIM_PREF_KEYS.filter((k) => k !== 'rogersKbf' || prefs.rogersKbf);
-  return stableJson([flightKey(tree), flown, launch, keyed.map((k) => prefs[k] ?? null)]);
+  // Only a tabled simulation adds them, so every other key stays as it was.
+  const tables = aeroTablesOf(sim.xmlExtra);
+  const flownTables = hasAeroTables(tables) ? [tables] : [];
+  return stableJson([flightKey(tree), flown, launch, keyed.map((k) => prefs[k] ?? null), ...flownTables]);
 }
 
 export function isOutdated(sim: Simulation, tree: RocketTree, config: FlightConfig, globals: SimPrefs): boolean {
@@ -240,8 +244,8 @@ export function seedFromInput(v: number | null): number | null {
   return Math.max(-(2 ** 31), Math.min(2 ** 31 - 1, Math.trunc(v)));
 }
 
-// Radians, kelvin, Pa.
-export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
+// Radians, kelvin, Pa. `tables` are the simulation's desktop CSV tables (`aeroTablesOf`).
+export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs, tables: AeroTables = {}) {
   // Into the wind uses the pad-altitude wind, as SimulationOptions.getLaunchRodDirection does.
   const windDirDeg = surfaceWind(launch).headingDeg;
   const rodDirDeg = launch.launchIntoWind ? windDirDeg : (launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG);
@@ -290,6 +294,8 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs) {
     guideAwareRodClearance: prefs?.guideAwareRodClearance,
     railExitMinSpeed: prefs?.railExitVelocityMin,
     rogersKbf: prefs?.rogersKbf,
+    dragLookup: tables.dragLookup,
+    stabilityLookup: tables.stabilityLookup,
     // All series, not `summary`'s 17: the app can only plot or export what it asked for.
     series: 'full' as const,
   };

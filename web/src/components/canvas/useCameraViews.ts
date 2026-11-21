@@ -29,6 +29,8 @@ export function useCameraViews({
     st.camera.position.set(pos[0], pos[1], pos[2]);
     c.target.set(center, 0, 0);
     c.update();
+    // `update` fires no change when the camera is already there, and Reset may have moved only the light.
+    st.invalidate();
   };
   const showView = (which: 'side' | 'aft') => {
     setPreset(which);
