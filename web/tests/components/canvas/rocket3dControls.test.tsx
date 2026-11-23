@@ -51,7 +51,7 @@ describe('3D view drawn on demand', () => {
   it('asks for a frame on a preset or Reset, which may not move the camera', () => {
     const invalidate = vi.fn();
     const r3f = {
-      current: { camera: { position: { set: () => {} } }, invalidate } as unknown as R3fHandles,
+      current: { camera: { position: { set: () => {} }, up: { set: () => {} } }, invalidate } as unknown as R3fHandles,
     };
     const lamp = keyLight();
     const { result } = renderHook(() => useCameraViews({ r3f, lamp, totalLen: 1, center: 0.5, camDist: 1 }));

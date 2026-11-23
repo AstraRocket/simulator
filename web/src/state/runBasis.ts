@@ -1,7 +1,9 @@
 import i18n from '../i18n';
 import { launcherKind, withLauncher } from '../services/design/launcher';
 import type { RocketTree } from '../engine/openRocketEngine';
-import type { FlightConfig } from '../services/flight/flightConfigs';
+import { primaryMotor, type FlightConfig } from '../services/flight/flightConfigs';
+import { configPowerClass } from '../services/flight/powerClass';
+import { isComplete } from '../services/flight/requiredLaunch';
 import {
   effectivePrefs,
   freshSeed,
@@ -11,9 +13,9 @@ import {
   type SimInputs,
   type Simulation,
 } from '../services/flight/simulations';
-import { designBlocker, designBlockerText } from '../services/flight/runnability';
+import { designBlocker, designBlockerText, unflyable, unflyableText } from '../services/flight/runnability';
 import type { WorkspaceState } from './store';
-import { configOf } from './workspaceSelectors';
+import { configOf, displayUnits } from './workspaceSelectors';
 
 // A leaf module: the slices load while store.ts does.
 
@@ -24,6 +26,26 @@ export function refusedDesign(s: WorkspaceState, set: (patch: Partial<WorkspaceS
   const blocker = designBlocker(s.tree);
   if (blocker) set({ err: designBlockerText(blocker, i18n.t) });
   return blocker !== null;
+}
+
+/**
+ * The simulation a batch job flies, with its configuration and complete launch. Null when it cannot fly, with the
+ * reason shown when there is one.
+ */
+export function flyableSim(s: WorkspaceState, set: (patch: Partial<WorkspaceState>) => void, simId: string) {
+  if (refusedDesign(s, set)) return null;
+  const sim = s.sims.find((x) => x.id === simId);
+  if (!sim) return null;
+  const config = configOf(s.configs, sim);
+  const reason = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
+  if (reason) {
+    set({ err: unflyableText({ id: sim.id, name: sim.name, reason }, launcherT(s.tree), displayUnits()) });
+    return null;
+  }
+  // Captured: the `isComplete` narrowing would be lost on `sim.launch` inside a caller's closures.
+  const launch = sim.launch;
+  if (!isComplete(launch)) return null;
+  return { sim, config, launch };
 }
 
 export function flownStill(
@@ -39,7 +61,7 @@ export function flownStill(
   return from.key === undefined || resultKey(s.tree, config, sim, s.simPrefs) === from.key;
 }
 
-type JobRun = 'driftSweepRun' | 'motorGuideRun';
+type JobRun = 'driftSweepRun' | 'motorGuideRun' | 'optimizerRun';
 type SetState = (patch: Partial<WorkspaceState> | ((s: WorkspaceState) => Partial<WorkspaceState>)) => void;
 
 /** One batch job at a time in `run`: a new claim aborts the last, and only the current job moves or clears the counter. */

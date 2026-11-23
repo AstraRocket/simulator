@@ -22,6 +22,8 @@ import { QUANTITIES, UNIT_CHOICES } from '../../src/prefs/units';
 import { COLUMNS } from '../../src/components/sim/motorColumns';
 import { REQUIRED_LAUNCH_KEYS } from '../../src/services/flight/requiredLaunch';
 import { DESIGN_TYPES } from '../../src/engine/openRocketEngine';
+import { EDGE_MODES } from '../../src/services/design/decal';
+import { BACKGROUND_TYPES, SKIES } from '../../src/services/design/photoSettings';
 import { LINE_STYLES } from '../../src/services/design/figureStyle';
 
 // Both suites parse every file under src; a loaded CI runner is ~10x slower.
@@ -245,6 +247,33 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
   { prefix: 'ignition.', values: ['automatic', 'launch', 'ejectioncharge', 'burnout', 'never'] },
   { prefix: 'export.units_', values: UNIT_CHOICES },
   { prefix: 'config.type_', values: DESIGN_TYPES },
+  { prefix: 'prop.decalEdge_', values: EDGE_MODES },
+  { prefix: 'photo.tab_', values: ['orientation', 'environment', 'effects'] },
+  { prefix: 'photo.background_', values: BACKGROUND_TYPES },
+  { prefix: 'photo.sky_', values: SKIES.map((s) => s.id) },
+  {
+    // PhotoFields' `num` rows, labeled by their settings key.
+    prefix: 'photo.',
+    values: [
+      'pitch',
+      'yaw',
+      'roll',
+      'advance',
+      'viewAz',
+      'viewAlt',
+      'viewDistance',
+      'fov',
+      'lightStrength',
+      'ambiance',
+      'lightAz',
+      'lightAlt',
+      'exhaustScale',
+      'flameAspectRatio',
+      'sparkConcentration',
+      'sparkWeight',
+      'motionBlurAmount',
+    ],
+  },
   { prefix: 'warn.', values: KERNEL_WARNINGS },
   { prefix: 'warnHelp.', values: KERNEL_WARNINGS },
   { prefix: 'backup.lib.', values: ['materials', 'parts', 'locations', 'motors', 'templates', 'settings'] },

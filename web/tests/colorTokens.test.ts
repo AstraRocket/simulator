@@ -59,6 +59,7 @@ describe('color tokens', () => {
       'components/canvas/FlightExhaust.tsx': "the motor flame's embers: the rocket's own colors",
       'components/canvas/RocketModel.tsx': 'black emission, which is no glow at all',
       'components/canvas/orkImages.ts': "a saved file's preview lights, fixed so the file does not depend on the theme",
+      'components/canvas/photo/photoRender.ts': "Photo Studio's flame core and spark embers: the rocket's own colors",
       'services/motors/exhaust.ts': "each propellant's flame and smoke: the motor's own colors",
       'components/canvas/sceneColors.ts': 'what a scene token reads as where no stylesheet is loaded',
       'components/canvas/aeroTables.ts': 'text on a cell whose shade is computed from its value',

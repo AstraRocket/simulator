@@ -74,7 +74,7 @@ describe('elements this app has no model for survive a round trip', () => {
   });
 });
 
-describe('a decal, whose image we do not keep', () => {
+describe('a decal whose image the file does not hold (orkDecals.test.ts has the image)', () => {
   const WITH_DECAL = `            <appearance>
               <paint red="9" green="9" blue="9" alpha="255"/>
               <shine>0.5</shine>
@@ -85,10 +85,10 @@ describe('a decal, whose image we do not keep', () => {
               </decal>
             </appearance>`;
 
-  it('drops the reference rather than writing one that points at nothing', () => {
+  it('keeps the reference, as desktop saves a decal it could not find', () => {
     const out = roundTrip(orkWith(WITH_DECAL));
-    expect(out).not.toContain('<decal');
-    expect(out).not.toContain('flames.png');
+    expect(out).toContain('<decal name="decals/flames.png" rotation="0" edgemode="REPEAT">');
+    expect(out.match(/<decal /g)).toHaveLength(1);
   });
 
   it('keeps the rest of the appearance it was inside', () => {
@@ -97,9 +97,9 @@ describe('a decal, whose image we do not keep', () => {
     expect(out).toContain('<shine>0.5</shine>');
   });
 
-  it('says so in the import notes', () => {
+  it('names the missing image in the import notes', () => {
     const notes = noteTexts(importOrk(orkWith(WITH_DECAL)).notes).join('\n');
-    expect(notes).toMatch(/decal/i);
+    expect(notes).toContain('decals/flames.png');
   });
 
   it('says nothing for a design that carries neither', () => {
@@ -214,10 +214,12 @@ describe('the levels above a component', () => {
     expect(out).toContain('<kitname>Estes Alpha III</kitname>');
   });
 
-  it('says in the notes which whole features it has no editor for', () => {
-    const notes = noteTexts(importOrk(docWith('', PHOTO)).notes).join('\n');
+  it('says in the notes which whole features it has no editor for, and not Photo Studio, which has one', () => {
+    const prefs = '  <docprefs>\n    <pref key="x" type="boolean">true</pref>\n  </docprefs>';
+    const notes = noteTexts(importOrk(docWith('', `${PHOTO}\n${prefs}`)).notes).join('\n');
     expect(notes).toMatch(/no editor for/i);
-    expect(notes).toContain('photostudio');
+    expect(notes).toContain('docprefs');
+    expect(notes).not.toContain('photostudio');
   });
 
   it('adds nothing and says nothing for a design carrying none of it', () => {

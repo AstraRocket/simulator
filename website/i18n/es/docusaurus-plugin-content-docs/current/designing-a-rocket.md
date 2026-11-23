@@ -260,7 +260,17 @@ La sección **Apariencia** de cada pieza define cómo se dibuja. Nada de lo que 
 
 Los tubos del cuerpo, los tubos interiores, las ojivas, las transiciones, las guías de lanzamiento, las aletas tubulares y los juegos de aletas también tienen un interior. Marca **Usar apariencia distinta por fuera y por dentro** para dar al interior su propia apariencia en una pestaña **Interior**, y elige con **Apariencia de los bordes** cuál de las dos toman los extremos cortados. En un juego de aletas, las dos son el **Lado izquierdo** y el **Lado derecho**.
 
-No se admiten texturas ni calcomanías. Una calcomanía de un archivo `.ork` abierto se elimina, porque su imagen se guarda aparte dentro del archivo. El resto de la apariencia de la pieza se conserva.
+### Calcomanías {#decals}
+
+Una **Calcomanía** es una imagen puesta sobre la pintura en la vista 3D **Acabado**, en la trayectoria de vuelo 3D y en la vista previa que lleva un `.ork` guardado, como las texturas de OpenRocket de escritorio. **Elegir imagen…** acepta un archivo PNG, JPEG, GIF, BMP o WebP de hasta 32 MB, y la lista de al lado ofrece cada imagen que el diseño ya usa, o **Ninguna**. La calcomanía va con cada apariencia, así que el interior de un tubo o el lado derecho de una aleta pueden llevar la suya. Como el resto de la apariencia 3D, solo se puede cambiar con **Usar predeterminada** desmarcado.
+
+- **Escala** es el tamaño de la imagen respecto a la pieza en cada dirección, alrededor y a lo largo de un tubo, o a lo largo de la cuerda y de la envergadura de una aleta: con 1 la imagen cubre la pieza una vez, y con 0,5 es la mitad de grande y cabe dos veces.
+- **Desplazamiento** corre la imagen alrededor y a lo largo de la pieza, como fracción de la pieza.
+- **Rotación** gira la imagen.
+- **Bordes**: **Repetir** repite la imagen en mosaico por toda la pieza. **Espejo**, **Ajustar** y **Pegatina** la muestran una vez y estiran sus píxeles del borde por el resto, que es como la vista 3D de OpenRocket de escritorio dibuja las tres. Una imagen de pegatina con un borde transparente deja ver la pintura alrededor.
+- **La opacidad afecta a la calcomanía**: desmarcado, la calcomanía queda opaca donde la pintura tiene la **Opacidad** reducida; marcado, la calcomanía se desvanece con la pintura.
+
+Al guardar, cada imagen va dentro del `.ork` en `decals/`, como en el escritorio, así que el archivo se abre en OpenRocket de escritorio con sus calcomanías, y las calcomanías de un archivo de escritorio se abren aquí. Las imágenes se guardan en tu navegador aparte del diseño, y una copia de seguridad de tus piezas guardadas lleva las que esas piezas usan. Si un navegador ya no tiene una imagen (un diseño de otro navegador, o datos del sitio borrados), la pieza muestra solo la pintura, el editor lo indica y al guardar esa imagen queda fuera; vuelve a elegirla para recuperarla.
 
 ## Soporte del motor {#motor-mount}
 

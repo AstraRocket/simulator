@@ -11,6 +11,8 @@ import { getMotorStore, isCustomMotor, type CustomMotor } from '../motors/motorS
 import { getTemplateStore, isUserTemplate, type UserTemplate } from '../exports/templateStore';
 import { settingsFrom, type Settings } from './settings';
 import { isRecord } from '../app/numbers';
+import { readAppearance } from '../design/appearance';
+import { portableDecals, takePortableDecals, type PortableDecal } from './decalStore';
 
 const BACKUP_FORMAT = 'astrarocket-backup';
 const BACKUP_VERSION = 1;
@@ -32,6 +34,8 @@ export type Backup = Partial<BackupLists> & {
   app: string;
   created: string;
   settings?: Settings;
+  /** The decal images the saved parts wear, which live outside the parts themselves. */
+  decals?: PortableDecal[];
 };
 
 /** Entries are raw and unvalidated. */
@@ -39,6 +43,14 @@ export interface ReadBackup {
   created: string;
   app: string;
   entries: Partial<Record<BackupLibrary, unknown[]>>;
+  decals?: unknown[];
+}
+
+/** The image keys of the decals the parts wear. */
+function partDecalHashes(parts: readonly CustomPart[]): string[] {
+  return parts.flatMap((p) =>
+    (['appearance', 'insideAppearance'] as const).flatMap((k) => readAppearance(p.node[k])?.decal?.hash ?? []),
+  );
 }
 
 export interface RestoreCount {
@@ -87,6 +99,10 @@ export async function makeBackup(
     else if (lib === 'materials') backup.materials = lists.materials.map(({ custom: _custom, ...m }) => m);
     else backup[lib] = lists[lib] as never;
   }
+  if (which.has('parts')) {
+    const decals = await portableDecals(partDecalHashes(lists.parts));
+    if (decals.length) backup.decals = decals;
+  }
   return JSON.stringify(backup, null, 2);
 }
 
@@ -118,6 +134,7 @@ export function readBackup(text: string): ReadBackup {
     created: typeof b['created'] === 'string' ? b['created'] : '',
     app: typeof b['app'] === 'string' ? b['app'] : '',
     entries,
+    ...(Array.isArray(b['decals']) ? { decals: b['decals'] as unknown[] } : {}),
   };
 }
 
@@ -157,6 +174,7 @@ export async function restoreBackup(
       out.materials = count(items, refused, (m) => ids.has(materialKey(m)));
       await addCustomMaterials(items);
     } else if (lib === 'parts') {
+      if (backup.decals) await takePortableDecals(backup.decals);
       const { items, refused } = usable(
         raw,
         (v): v is CustomPart => isCustomPart(v) && customPartToRow(v) !== null,

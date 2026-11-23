@@ -475,6 +475,8 @@ export interface RocketTree {
   xmlExtra?: string[];
   docExtra?: string[];
   documentMaterials?: DocumentMaterial[];
+  /** Desktop's Photo Studio settings, as its core keeps them: element name to text (`photoSettings.ts`). */
+  photoStudio?: Record<string, string>;
   components: ComponentNode[];
 }
 

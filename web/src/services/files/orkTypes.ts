@@ -43,6 +43,14 @@ interface OrkTreeImportResult {
   launch?: Partial<LaunchConditions>;
   simulations?: OrkSimulation[];
   embeddedMotors?: string[];
+  /** The archive's images the parts' decals name, for the decal store. */
+  decalImages?: ArchiveDecal[];
+}
+
+export interface ArchiveDecal {
+  hash: string;
+  bytes: Uint8Array;
+  mime: string;
 }
 
 export interface OrkFlightConfig {

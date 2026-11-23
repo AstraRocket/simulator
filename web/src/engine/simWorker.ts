@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { initEngine, resetEngine, setKernelLengthUnit } from './openRocketEngine';
 import { buildConfiguredRocket } from '../services/design/buildRocket';
+import { evaluateOptPoint } from '../services/flight/optimizer/optPoint';
 import type { WorkerReady, WorkerRequest, WorkerResponse } from './simProtocol';
 import { errorMessage } from '../services/app/errorMessage';
 import { errorReason, KeyedError, type Keyed } from '../i18n/keyedError';
@@ -48,6 +49,12 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         const design = buildConfiguredRocket(tree, config);
         const result = design.simulate(options);
         reply({ id, ok: true, result });
+        return;
+      }
+      case 'optimizePoint': {
+        setKernelLengthUnit(req.args.lengthUnit ?? req.lengthUnit);
+        resetEngine();
+        reply({ id, ok: true, result: evaluateOptPoint(req.args) });
         return;
       }
       default:

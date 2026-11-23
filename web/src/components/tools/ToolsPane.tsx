@@ -6,6 +6,7 @@ import { ParachuteTool } from './ParachuteTool';
 import { FlutterTool } from './FlutterTool';
 import { EjectionTool } from './EjectionTool';
 import { MotorsTool } from './MotorsTool';
+import { PhotoTool } from './PhotoTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 import { getRememberedTool, rememberTool } from './toolsPaneMemory';
 
@@ -41,14 +42,17 @@ export function ToolsPane() {
       </div>
       <div
         {...tabs.panel}
-        // The dashboard scrolls its own grid and detail panes, as it does in its dialog.
-        className={tool === 'motors' ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-auto p-3'}
+        // The dashboard and Photo Studio fill the pane and scroll their own parts.
+        className={
+          tool === 'motors' || tool === 'photo' ? 'flex min-h-0 flex-1 flex-col' : 'min-h-0 flex-1 overflow-auto p-3'
+        }
       >
         {tool === 'landing' && <LandingEstimator />}
         {tool === 'chute' && <ParachuteTool />}
         {tool === 'flutter' && <FlutterTool />}
         {tool === 'ejection' && <EjectionTool />}
         {tool === 'motors' && <MotorsTool />}
+        {tool === 'photo' && <PhotoTool />}
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ import { designInfoXml } from './ork/exportDesignInfo';
 import { DOC_EXTRA_KEY, ROCKET_EXTRA_KEY, passthroughOf } from './ork/passthrough';
 import { withDocumentMaterialsXml } from './ork/docMaterials';
 import { documentMaterialsOf } from '../materials/documentMaterials';
+import { decalPaths } from './ork/exportDecals';
+import { photoStudioXml } from './ork/photoStudio';
 
 export function exportOrk({
   name,
@@ -26,7 +28,7 @@ export function exportOrk({
   componentInfo,
 }: OrkTreeExportInput): string {
   const { writeConfigs, defaultId } = resolveWriteConfigs({ configs, activeConfigId });
-  const w = createOrkWriter(writeConfigs, defaultId, componentInfo);
+  const w = createOrkWriter(writeConfigs, defaultId, componentInfo, decalPaths(tree));
   const { emit } = w;
 
   emit(0, "<?xml version='1.0' encoding='utf-8'?>");
@@ -67,6 +69,8 @@ export function exportOrk({
   emit(2, '</subcomponents>');
   emit(1, '</rocket>');
   simulationsXml(w, 1, launch, simulations, simPrefs);
+  // Desktop writes it after the simulations.
+  photoStudioXml(w, 1, tree.photoStudio);
   designInfoXml(w, 1, designInfo);
   for (const raw of withDocumentMaterialsXml(passthroughOf(tree, DOC_EXTRA_KEY), documentMaterialsOf(tree))) {
     emit(1, raw);

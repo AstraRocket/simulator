@@ -1,10 +1,10 @@
 {
   "name": "astrarocket-web",
-  "version": "0.5.35",
+  "version": "0.5.36",
   "version_major": 0,
   "version_minor": 5,
-  "version_patch": 35,
-  "version_date": "11/21/2026",
+  "version_patch": 36,
+  "version_date": "11/22/2026",
   "type": "module",
   "engines": {
     "node": ">=24"

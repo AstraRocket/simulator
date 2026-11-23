@@ -18,6 +18,7 @@ export const DIALOG_SURFACES = {
   MotorGuideDialog: 1,
   MotorSpecDialog: 1,
   MyMaterialsDialog: 1,
+  OptimizerDialog: 1,
   PlaceSearchDialog: 1,
   PrintExportDialog: 1,
   PrivacyDialog: 1,

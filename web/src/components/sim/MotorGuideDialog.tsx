@@ -49,13 +49,11 @@ import {
 } from './GuideResults';
 import { motorCols, sortGuideRows, useGuideCandidates } from './guideRows';
 import { toggled } from '../../services/app/collections';
+import { useSimConfig } from './useSimConfig';
 
 export function MotorGuideDialog({ simId, onClose }: { simId: string; onClose: () => void }) {
   const { t } = useTranslation();
-  const tree = useWorkspaceStore((s) => s.tree);
-  const sim = useWorkspaceStore((s) => s.sims.find((x) => x.id === simId));
-  const configs = useWorkspaceStore((s) => s.configs);
-  const config = sim ? configOf(configs, sim) : null;
+  const { tree, sim, config } = useSimConfig(simId);
 
   const mounts = useMemo(() => findMounts(tree), [tree]);
   const [mountId, setMountId] = useState<string | null>(() => {

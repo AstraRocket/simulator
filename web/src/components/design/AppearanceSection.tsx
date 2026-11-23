@@ -27,6 +27,7 @@ import { roundTo } from '../../services/app/numbers';
 import { tokenValues } from '../common/colorTokens';
 import { useNativeChange } from '../common/useNativeChange';
 import { PanelButton } from './PanelButton';
+import { DecalFields } from './DecalFields';
 
 export function AppearanceSection({ node, onCommitChange }: CommitEditProps) {
   const { t } = useTranslation();
@@ -130,6 +131,8 @@ export function AppearanceSection({ node, onCommitChange }: CommitEditProps) {
         disabled={!own}
         onCommit={(opacity) => set({ alpha: alphaOf(opacity) })}
       />
+      <SubHeading title={t('prop.decal')} hint={t('prop.decalHint')} />
+      <DecalFields type={node.type} shown={shown} disabled={!own} onCommit={set} />
     </PropSection>
   );
 }
