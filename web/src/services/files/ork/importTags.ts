@@ -10,6 +10,7 @@ import { BAYS_KEY, MAIN_DEVICE_KEY, readBays, readMainDevice } from './orkBays';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
+import { DECAL_DEFAULTS, isEdgeMode, type Pair, type PartDecal } from '../../design/decal';
 import { degToRad } from '../../../prefs/units';
 import { KERNEL_FINISHES, KERNEL_SEPARATION } from '../../../tree/kernelDefaults';
 import { DEPLOY_EVENTS, MASS_COMPONENT_TYPES, SEPARATION_EVENTS } from '../../design/componentFields';
@@ -391,7 +392,35 @@ function readAppearanceBlock(el: Element): PartAppearance {
   // The `Appearance` constructor clamps the shine to 0-1.
   if (Number.isFinite(shine)) out.shine = Math.min(1, Math.max(0, shine));
   if (isTrueTag(el, 'opacityaffectstexture')) out.opacityAffectsTexture = true;
+  const decal = readDecalTag(el.querySelector(':scope > decal'));
+  if (decal) out.decal = decal;
   return out;
+}
+
+/**
+ * As `AppearanceHandler`, except that an unreadable number keeps the builder's default where desktop refuses the
+ * file. The image is looked up by name once the archive is read.
+ */
+function readDecalTag(el: Element | null): PartDecal | undefined {
+  const name = el?.getAttribute('name');
+  if (!el || !name) return undefined;
+  const num = (raw: string | null | undefined, fallback: number) => {
+    const v = readDecimal(raw ?? '');
+    return Number.isFinite(v) ? v : fallback;
+  };
+  const pair = (tag: string, fallback: Pair): Pair => {
+    const p = el.querySelector(`:scope > ${tag}`);
+    return [num(p?.getAttribute('x'), fallback[0]), num(p?.getAttribute('y'), fallback[1])];
+  };
+  const mode = el.getAttribute('edgemode');
+  return {
+    name,
+    offset: pair('offset', DECAL_DEFAULTS.offset),
+    center: pair('center', DECAL_DEFAULTS.center),
+    scale: pair('scale', DECAL_DEFAULTS.scale),
+    rotation: num(el.getAttribute('rotation'), DECAL_DEFAULTS.rotation),
+    edgeMode: isEdgeMode(mode) ? mode : DECAL_DEFAULTS.edgeMode,
+  };
 }
 
 /** The inside block only for an `InsideColorComponent`, as `InsideAppearanceHandler` does. */

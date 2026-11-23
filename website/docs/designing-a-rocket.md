@@ -296,7 +296,17 @@ Each part's **Appearance** section sets how the part is drawn. Nothing in it cha
 
 Body tubes, inner tubes, nose cones, transitions, launch lugs, tube fins and fin sets also have an inside. Check **Use separate appearance for outside and inside** to give the inside its own appearance on an **Inside** tab, and use **Appearance for edges** to choose which of the two the cut ends take. On a fin set the two are the **Left side** and the **Right side**.
 
-Textures and decals are not supported. A decal in an opened `.ork` file is removed, because its image is stored separately in the file. The rest of the part's appearance is kept.
+### Decals {#decals}
+
+A **Decal** is an image laid over the paint in the 3D **Finished** view, the 3D flight path and the preview a saved `.ork` carries, as desktop OpenRocket's textures are. **Choose image…** takes a PNG, JPEG, GIF, BMP or WebP file of up to 32 MB, and the list beside it offers every image the design already uses, or **None**. A decal is set per appearance, so the inside of a tube or the right side of a fin can wear its own. Like the rest of the 3D appearance, it can be set only with **Use default** unchecked.
+
+- **Scale** is the image's size against the part in each direction, around and along a tube, or across the chord and the span of a fin: at 1 the image covers the part once, and at 0.5 it is half as big and fits twice.
+- **Offset** slides the image around and along the part, as a fraction of the part.
+- **Rotation** turns the image.
+- **Edges**: **Repeat** tiles the image over the whole part. **Mirror**, **Clamp** and **Sticker** show it once and stretch its edge pixels over the rest, which is how desktop OpenRocket's 3D view draws all three. A sticker image with a transparent border leaves the paint showing around it.
+- **Opacity affects decal**: off, the decal stays solid where the paint has a lowered **Opacity**; on, the decal fades with the paint.
+
+Saving packs each image into the `.ork` under `decals/`, as desktop does, so the file opens in desktop OpenRocket with its decals, and a desktop file's decals open here. The images are kept in your browser apart from the design, and a backup of your saved parts carries the ones those parts wear. When a browser no longer holds an image (a design from another browser, or site data cleared), the part shows bare paint, the editor says so, and a save leaves that image out; choose it again to put it back.
 
 ## Motor mount
 

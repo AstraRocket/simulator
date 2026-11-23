@@ -11,6 +11,7 @@ export const POPUP_SURFACES = {
   ImageExportMenu: 1,
   LoadedBanner: 1,
   MotorFilterBar: 1,
+  OptParamPicker: 1,
   ResultPicker: 1,
   SafetyCard: 1,
   SimpleHelp: 1,

@@ -10,9 +10,8 @@ import { mergePalette } from '../../services/design/partColors';
 import { withFigureDefaults } from '../../services/design/figureStyle';
 import { loadSettings } from '../../services/storage/settings';
 import { selectMotorDims } from '../../state/configSlice';
-import type { Look } from '../../services/design/appearance';
-import { buildPieces, isSurfaced, piecesBounds, type Piece } from './rocketPieces';
-import { surfacesOf } from './lookSurfaces';
+import { buildPieces, piecesBounds, type Piece } from './rocketPieces';
+import { addPieces, decalsFor, finishedMaterial, withDecal, type DecalTextures } from './finishedScene';
 import { exportCamera, isFittableBox } from './rocketExportCamera';
 import { captureSceneOffscreen } from './offscreenCapture';
 import { rocketSpanM } from './aftScene';
@@ -29,7 +28,6 @@ const FILL_LIGHTS = [
   { from: new THREE.Vector3(-0.5, -1.5, -2.5), intensity: 0.35, color: '#ffffff' },
 ];
 const AMBIENT = 0.55;
-const REFLECTIVITY = 0.2;
 const ROOM_FACE_PX = 64;
 
 /**
@@ -50,9 +48,11 @@ export async function renderOrkImages(source: OrkImageSource): Promise<OrkImages
   const motors = selectMotorDims(source.tree, source.config);
   const tree = withFigureDefaults(source.tree, settings.figureStyles);
   const { pieces } = buildPieces(tree, motors, mergePalette(settings.partColors));
+  const textures: THREE.Texture[] = [];
   try {
     const box = piecesBounds(pieces);
     if (!isFittableBox(box)) return {};
+    const decals = await decalsFor(pieces, textures);
     const header: ExportData = {
       name: source.name,
       info: source.info,
@@ -65,18 +65,19 @@ export async function renderOrkImages(source: OrkImageSource): Promise<OrkImages
     const images: OrkImages = {};
     // Apart, so one failing still leaves the other.
     try {
-      images.preview = await previewPng(renderer, pieces, box, header);
+      images.preview = await previewPng(renderer, pieces, box, header, decals);
     } catch (e) {
       console.warn('.ork save: preview.png failed', e);
     }
     try {
-      images.thumbnail = await thumbnailPng(renderer, pieces, box);
+      images.thumbnail = await thumbnailPng(renderer, pieces, box, decals);
     } catch (e) {
       console.warn('.ork save: thumbnail.png failed', e);
     }
     return images;
   } finally {
     for (const p of pieces) p.geometry.dispose();
+    for (const t of textures) t.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
   }
@@ -84,30 +85,13 @@ export async function renderOrkImages(source: OrkImageSource): Promise<OrkImages
 
 const pngBytes = async (blob: Blob): Promise<Uint8Array> => new Uint8Array(await blob.arrayBuffer());
 
-/** The pieces as meshes, `material` giving each surface's material; returns what to dispose. */
-function addPieces(
-  scene: THREE.Scene,
-  pieces: readonly Piece[],
-  material: (p: Piece, index: number, look: Look) => THREE.Material,
-): THREE.Material[] {
-  const made: THREE.Material[] = [];
-  pieces.forEach((p, i) => {
-    const mats = surfacesOf(p, 'finished').map(([, look]) => material(p, i, look));
-    made.push(...mats);
-    const mesh = new THREE.Mesh(p.geometry, isSurfaced(p.geometry) ? mats : mats[0]);
-    if (p.position) mesh.position.set(...p.position);
-    if (p.rotation) mesh.rotation.set(...p.rotation);
-    scene.add(mesh);
-  });
-  return made;
-}
-
 /** The finished rocket from the side, lit as the design view, under the figures our image exports carry. */
 async function previewPng(
   renderer: THREE.WebGLRenderer,
   pieces: readonly Piece[],
   box: THREE.Box3,
   header: ExportData,
+  decals: DecalTextures,
 ): Promise<Uint8Array> {
   renderer.toneMapping = THREE.NeutralToneMapping;
   const aspect = PREVIEW_WIDTH / PREVIEW_HEIGHT;
@@ -134,17 +118,7 @@ async function previewPng(
     scene.add(light);
   }
   const materials = addPieces(scene, pieces, (_p, _i, look) => {
-    const m = new THREE.MeshPhongMaterial({
-      color: look.color,
-      specular: new THREE.Color(look.shine, look.shine, look.shine),
-      shininess: 100 * look.shine,
-      envMap: room.texture,
-      combine: THREE.AddOperation,
-      reflectivity: REFLECTIVITY * look.shine,
-      transparent: look.opacity < 1,
-      opacity: look.opacity,
-      depthWrite: look.opacity >= 1,
-    });
+    const m = finishedMaterial(look, room.texture, decals);
     m.envMapRotation = envRotation;
     return m;
   });
@@ -187,7 +161,12 @@ const raw = (style: string): THREE.Color => new THREE.Color().setStyle(style, TH
  * As desktop's `RocketFigure3d.renderOffscreenFlatLayers` and `RocketThumbnail`: the finished rocket unlit, with an
  * orthographic camera, nose up-left at 45°, outlined and averaged down from twice the size.
  */
-async function thumbnailPng(renderer: THREE.WebGLRenderer, pieces: readonly Piece[], box: THREE.Box3) {
+async function thumbnailPng(
+  renderer: THREE.WebGLRenderer,
+  pieces: readonly Piece[],
+  box: THREE.Box3,
+  decals: DecalTextures,
+) {
   const n = Math.min(THUMBNAIL_SIZE * SUPERSAMPLING, Math.floor(renderer.capabilities.maxTextureSize / 2) * 2);
   const center = box.getCenter(new THREE.Vector3());
   // Image up is the nose's direction (−X) turned 45° toward the view's up, which puts the nose up-left.
@@ -229,14 +208,19 @@ async function thumbnailPng(renderer: THREE.WebGLRenderer, pieces: readonly Piec
   try {
     const color = layer((scene) =>
       addPieces(scene, pieces, (_p, _i, look) =>
-        look.opacity < 1
-          ? new THREE.MeshBasicMaterial({
-              color: raw(look.color),
-              transparent: true,
-              opacity: look.opacity,
-              depthWrite: false,
-            })
-          : new THREE.MeshBasicMaterial({ color: raw(look.color) }),
+        withDecal(
+          look.opacity < 1
+            ? new THREE.MeshBasicMaterial({
+                color: raw(look.color),
+                transparent: true,
+                opacity: look.opacity,
+                depthWrite: false,
+              })
+            : new THREE.MeshBasicMaterial({ color: raw(look.color) }),
+          look,
+          decals,
+          'raw',
+        ),
       ),
     );
     unpremultiply(color);

@@ -13,6 +13,7 @@ import { selectOutdated } from './simSlice';
 import { flownStill, launcherT } from './runBasis';
 import { abortDriftSweep } from './driftSweepSlice';
 import { abortMotorGuide } from './motorGuideSlice';
+import { abortOptimizer } from './optimizerSlice';
 
 export interface RunSlice {
   simBusy: boolean;
@@ -31,8 +32,9 @@ export type RunOutcome = 'landed' | 'failed' | 'skipped' | 'canceled' | 'dropped
 let batchAbort: AbortController | null = null;
 
 /** Every job `abortRunWork` stops; a new job goes in both. */
-export const jobRunning = (s: Pick<WorkspaceState, 'simBusy' | 'driftSweepRun' | 'motorGuideRun'>): boolean =>
-  s.simBusy || s.driftSweepRun !== null || s.motorGuideRun !== null;
+export const jobRunning = (
+  s: Pick<WorkspaceState, 'simBusy' | 'driftSweepRun' | 'motorGuideRun' | 'optimizerRun'>,
+): boolean => s.simBusy || s.driftSweepRun !== null || s.motorGuideRun !== null || s.optimizerRun !== null;
 
 // The caller resets the run state in the same `set` as the workspace swap.
 export function abortRunWork(): void {
@@ -40,6 +42,7 @@ export function abortRunWork(): void {
   batchAbort = null;
   abortDriftSweep();
   abortMotorGuide();
+  abortOptimizer();
 }
 
 export const createRunSlice: StateCreator<WorkspaceState, [], [], RunSlice> = (set, get) => ({

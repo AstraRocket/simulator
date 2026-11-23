@@ -43,6 +43,7 @@ export const TOOL: Record<Tool, string> = {
   flutter: 'Fin flutter',
   ejection: 'Ejection charge',
   motors: 'Motor Dashboard',
+  photo: 'Photo Studio',
 };
 
 export async function press(page: Page, name: string): Promise<void> {

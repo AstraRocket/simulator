@@ -25,6 +25,7 @@ import {
 } from '../../../src/services/motors/motorStore';
 import { KeyValueTemplateStore, setTemplateStore, getTemplateStore } from '../../../src/services/exports/templateStore';
 import { DEFAULT_SETTINGS, type Settings } from '../../../src/services/storage/settings';
+import { __setDecalStoreForTests, getDecalImage, putDecalImage } from '../../../src/services/storage/decalStore';
 import {
   BACKUP_LIBRARIES,
   makeBackup,
@@ -154,6 +155,32 @@ describe('a backup file', () => {
     expect(result.parts).toEqual({ added: 1, replaced: 0, refused: 1 });
     expect(result.locations).toEqual({ added: 0, replaced: 0, refused: 1 });
     expect(await getLaunchLocationStore().list()).toEqual([]);
+  });
+
+  it('carries the decal image a saved part wears, which lives outside the part', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 4, 2]);
+    __setDecalStoreForTests(new LocalStorageKeyValueStore());
+    const { hash } = putDecalImage(png, 'image/png');
+    const decal = {
+      name: 'decals/logo.png',
+      hash,
+      offset: [0, 0],
+      center: [0, 0],
+      scale: [1, 1],
+      rotation: 0,
+      edgeMode: 'REPEAT',
+    };
+    await getPresetStore().add({
+      ...part('BT-1'),
+      node: { ...part('BT-1').node, appearance: { paint: '#ffffff', alpha: 255, shine: 0.3, decal } },
+    });
+    const text = await makeBackup(new Set(['parts']), custom);
+
+    freshStores();
+    __setDecalStoreForTests(new LocalStorageKeyValueStore());
+    expect(await getDecalImage(hash)).toBeNull();
+    await restoreBackup(readBackup(text), new Set(['parts']), () => {});
+    expect((await getDecalImage(hash))?.bytes).toEqual(png);
   });
 
   it('refuses a file that is not a backup of this app, and one from a newer layout', () => {

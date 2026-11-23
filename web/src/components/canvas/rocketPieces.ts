@@ -73,8 +73,37 @@ function surfaced(parts: [THREE.BufferGeometry | null, keyof typeof SURFACE][]):
   return merged;
 }
 
-const lathe = (pts: THREE.Vector2[]): THREE.BufferGeometry | null =>
-  pts.length < 2 ? null : new THREE.LatheGeometry(pts, 48);
+/**
+ * Revolved about +Y from the side that lands on the rocket's +Y once turned onto the axis, so a decal wraps as in
+ * desktop's `TubeGenerator`: u runs once around, v from 1 at the fore end `y0` to 0 at `y0 + len` (the reverse for
+ * `aftUp`, a coaxial tube's inner wall).
+ */
+function lathe(pts: THREE.Vector2[], len: number, aftUp = false, y0 = 0): THREE.BufferGeometry | null {
+  if (pts.length < 2) return null;
+  const g = new THREE.LatheGeometry(pts, 48, -Math.PI / 2);
+  const uv = g.getAttribute('uv');
+  const pos = g.getAttribute('position');
+  for (let i = 0; i < uv.count; i++) {
+    const along = len > 0 ? (pos.getY(i) - y0) / len : 0;
+    uv.setXY(i, 1 - uv.getX(i), aftUp ? along : 1 - along);
+  }
+  return g;
+}
+
+/** An end ring, as `TubeGenerator.getRingCapUV`: v runs across the wall, toward the outside at the fore end. */
+function ringCap(innerR: number, outerR: number, x: number, fore: boolean): THREE.BufferGeometry | null {
+  const v = (r: number) => new THREE.Vector2(r, x);
+  const g = lathe(fore ? [v(innerR), v(outerR)] : [v(outerR), v(innerR)], 1);
+  if (!g) return null;
+  const uv = g.getAttribute('uv');
+  const pos = g.getAttribute('position');
+  const span = Math.max(outerR - innerR, 1e-6);
+  for (let i = 0; i < uv.count; i++) {
+    const across = (outerR - Math.hypot(pos.getX(i), pos.getZ(i))) / span;
+    uv.setY(i, fore ? 1 - across : across);
+  }
+  return g;
+}
 
 const PACKED_TYPES = MASS_OBJECT_TYPES as ReadonlySet<string>;
 
@@ -88,11 +117,12 @@ function annulusGeometry(outerR: number, innerR: number, length: number): THREE.
   // A bore at or past the outer radius draws the tube solid (unlike `discSolid`, which drops the part).
   const bore = innerR > 1e-6 && innerR < outerR - 1e-6 ? innerR : 0;
   const v = (r: number, x: number) => new THREE.Vector2(r, x);
+  // A coaxial part's inner wall runs its image the other way (`TubeGenerator.reverseInnerWallTextureAxis`).
   const geo = surfaced([
-    [lathe([v(bore, 0), v(outerR, 0)]), 'edges'],
-    [lathe([v(outerR, 0), v(outerR, length)]), 'outside'],
-    [lathe([v(outerR, length), v(bore, length)]), 'edges'],
-    [bore ? lathe([v(bore, length), v(bore, 0)]) : null, 'inside'],
+    [ringCap(bore, outerR, 0, true), 'edges'],
+    [lathe([v(outerR, 0), v(outerR, length)], length), 'outside'],
+    [ringCap(bore, outerR, length, false), 'edges'],
+    [bore ? lathe([v(bore, length), v(bore, 0)], length, true) : null, 'inside'],
   ]);
   geo.rotateZ(-Math.PI / 2); // lathe axial (+Y) -> rocket axis (+X)
   return geo;
@@ -143,12 +173,18 @@ function shellGeometry(outer: THREE.Vector2[], thickness: number, filled: boolea
   const inR = (r: number) => (filled ? 0 : Math.max(0.0001, r - thickness));
   const first = outer[0]!;
   const last = outer[outer.length - 1]!;
-  const ring = (from: THREE.Vector2, to: THREE.Vector2) => (Math.abs(from.x - to.x) > 1e-6 ? lathe([from, to]) : null);
+  const len = last.y - first.y;
+  const ring = (p: THREE.Vector2, fore: boolean) =>
+    Math.abs(p.x - inR(p.x)) > 1e-6 ? ringCap(inR(p.x), p.x, p.y, fore) : null;
   const geo = surfaced([
-    [ring(v(inR(first.x), first.y), first), 'edges'],
-    [lathe(outer), 'outside'],
-    [ring(last, v(inR(last.x), last.y)), 'edges'],
-    [filled || thickness <= 0 ? null : lathe(outer.map((p) => v(inR(p.x), p.y)).reverse()), 'inside'],
+    [ring(first, true), 'edges'],
+    [lathe(outer, len, false, first.y), 'outside'],
+    [ring(last, false), 'edges'],
+    // Unlike a tube's, a profiled wall's inside runs as its outside does.
+    [
+      filled || thickness <= 0 ? null : lathe(outer.map((p) => v(inR(p.x), p.y)).reverse(), len, false, first.y),
+      'inside',
+    ],
   ]);
   return geo;
 }
@@ -277,6 +313,7 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
     geo.addGroup(lids.start + half, half, SURFACE.inside);
     geo.addGroup(sides.start, sides.count, SURFACE.edges);
     markSurfaced(geo);
+    finUvs(geo, outline, lids.start + half, lids.start + lids.count);
   }
 
   for (const { angle } of ringInstanceOffsets(count, 0, num(child, 'rotation', 0))) {
@@ -288,6 +325,30 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
     b.pieces.push({ key: `fin${b.k++}`, id: child.id, geometry: g, looks: nodeLooks(child, b.palette) });
   }
   geo.dispose();
+}
+
+/**
+ * As desktop's `FinSetGenerator.createShapeMesh`: the image spans the planform's bounding box, and the right side
+ * (vertices `mirrorFrom` up to `mirrorTo`) shows it mirrored (`RocketMeshBuilder.mirrorFinRightTextureCoordinates`).
+ */
+function finUvs(
+  geo: THREE.BufferGeometry,
+  outline: readonly (readonly number[])[],
+  mirrorFrom: number,
+  mirrorTo: number,
+) {
+  const xs = outline.map((p) => p[0]!);
+  const ys = outline.map((p) => p[1]!);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const spanX = Math.max(...xs) - minX || 1;
+  const spanY = Math.max(...ys) - minY || 1;
+  const pos = geo.getAttribute('position');
+  const uv = geo.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) {
+    const u = (pos.getX(i) - minX) / spanX;
+    uv.setXY(i, i >= mirrorFrom && i < mirrorTo ? 1 - u : u, (pos.getY(i) - minY) / spanY);
+  }
 }
 
 const offsetXform = (off: { y: number; z: number }, xform?: THREE.Matrix4): THREE.Matrix4 | undefined => {

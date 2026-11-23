@@ -758,6 +758,17 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  OptimizerDialog: [
+    {
+      name: 'Rocket optimization',
+      open: async (page) => {
+        await openTab(page, 'Simulations');
+        await page.getByRole('button', { name: 'Optimize', exact: true }).click();
+        const dialog = await dialogOpen(page);
+        await expect(dialog.getByRole('table')).toBeVisible();
+      },
+    },
+  ],
   WeatherDialog: [
     {
       name: 'Weather',
@@ -1031,6 +1042,19 @@ const POPUP_SCANS: Record<PopupSurface, Scan[]> = {
         const more = dialog.getByRole('button', { name: /^More filters/ });
         await more.click();
         await expect(more).toHaveAttribute('aria-expanded', 'true');
+      },
+    },
+  ],
+  OptParamPicker: [
+    {
+      name: 'Popup / optimizer parameter group open',
+      open: async (page) => {
+        await openTab(page, 'Simulations');
+        await page.getByRole('button', { name: 'Optimize', exact: true }).click();
+        const dialog = await dialogOpen(page);
+        const group = dialog.getByRole('button', { name: 'Optimization parameters' }).first();
+        await group.click();
+        await expect(group).toHaveAttribute('aria-expanded', 'true');
       },
     },
   ],

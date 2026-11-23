@@ -39,7 +39,7 @@ export function flownStill(
   return from.key === undefined || resultKey(s.tree, config, sim, s.simPrefs) === from.key;
 }
 
-type JobRun = 'driftSweepRun' | 'motorGuideRun';
+type JobRun = 'driftSweepRun' | 'motorGuideRun' | 'optimizerRun';
 type SetState = (patch: Partial<WorkspaceState> | ((s: WorkspaceState) => Partial<WorkspaceState>)) => void;
 
 /** One batch job at a time in `run`: a new claim aborts the last, and only the current job moves or clears the counter. */

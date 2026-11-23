@@ -17,7 +17,8 @@ import { loadCatalog, matchCatalogMotor, type CatalogMotor, type MotorMatchDoubt
 import { customMotorToSpec, catalogMotorSpec } from '../motors/motorSpec';
 import { parseRseWithDigests, removeDelay } from '../motors/rseParser';
 import type { CustomMotor } from '../motors/motorStore';
-import { type OrkMotorRef, defaultOrkConfig } from './orkTypes';
+import { type ArchiveDecal, type OrkMotorRef, defaultOrkConfig } from './orkTypes';
+import { putDecalImage } from '../storage/decalStore';
 import { findMounts } from '../design/treeEdit';
 import { IGNITION_EVENTS } from '../design/componentFields';
 import { motorFitsMount, mountFit } from '../motors/motorPicker';
@@ -122,6 +123,13 @@ export function buildForImport(tree: RocketTree): { design: OpenRocketDesign; un
   }
 }
 
+/** This tab draws them either way; a refused write means another session will not. */
+async function keepDecalImages(images: ArchiveDecal[] | undefined, notes: ImportNote[]): Promise<void> {
+  if (!images?.length) return;
+  const saved = await Promise.all(images.map((d) => putDecalImage(d.bytes, d.mime).saved));
+  if (saved.includes(false)) notes.push(keyedNote('importNote.decalsNotStored'));
+}
+
 function withoutFreeformOutlines(tree: RocketTree): RocketTree {
   const strip = (nodes: ComponentNode[] | undefined): ComponentNode[] | undefined =>
     nodes?.map((n) => {
@@ -146,6 +154,7 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
 
   const notes: ImportNote[] = [...(res.notes ?? [])];
   if (built?.unbuildable) notes.push(built.unbuildable);
+  await keepDecalImages(res.decalImages, notes);
 
   const catalog = await loadCatalog();
   const embedded = embeddedCurves(res.embeddedMotors, notes);

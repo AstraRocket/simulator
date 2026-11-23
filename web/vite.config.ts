@@ -213,6 +213,17 @@ export default defineConfig({
             },
           },
           {
+            // Photo Studio's skies, about 5 MB, so fetched on first use rather than precached. Never revalidated:
+            // bump the cache name when public/sky changes.
+            urlPattern: /\/sky\/[\w/-]+\.jpg$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'astra-photo-skies-v1',
+              expiration: { maxEntries: 24 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
             // No maxAgeSeconds on purpose (scripts/check-offline-data.mjs).
             urlPattern:
               /^https:\/\/server\.arcgisonline\.com\/ArcGIS\/rest\/services\/(World_Imagery|World_Street_Map)\//,

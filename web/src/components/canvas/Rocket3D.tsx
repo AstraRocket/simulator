@@ -26,6 +26,7 @@ import { LightBall, MovableKeyLight, ViewLight } from './MovableKeyLight';
 import { keyLight } from './keyLight';
 import { Rocket3DToolbar } from './Rocket3DToolbar';
 import { sideCameraPos, useCameraViews } from './useCameraViews';
+import { TumbleRotate } from './TumbleRotate';
 
 // Rocket axis is +X: nose tip at x=0, aft increasing, as in the engine.
 export function Rocket3D({
@@ -174,11 +175,14 @@ export function Rocket3D({
           target={[center, 0, 0]}
           enableDamping
           dampingFactor={0.1}
+          // TumbleRotate turns the view: this one stops at the poles.
+          enableRotate={false}
           // Right button is left free for MovableKeyLight.
           mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY }}
           minDistance={camDist * 0.12}
           maxDistance={camDist * 5}
         />
+        <TumbleRotate controls={controls} />
       </Canvas>
       <LightBall light={lamp} className="absolute bottom-7 right-2" />
       <p style={{ fontSize: 11, color: token('ink-muted'), margin: '4px 0 0', textAlign: 'center' }}>

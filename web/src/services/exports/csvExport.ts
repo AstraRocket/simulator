@@ -390,6 +390,15 @@ export function motorGuideCsv(
   return lines.join(EOL) + EOL;
 }
 
+/** Values already in the columns' units; a blank cell is a figure the design did not reach, as desktop's `N/A`. */
+export function optimizerCsv(
+  heads: readonly { title: string; unit?: string }[],
+  rows: readonly (readonly (number | null)[])[],
+): string {
+  const lines = [row(heads.map((h) => titled(h.title, h.unit))), ...rows.map((r) => row(r.map((v) => cell(v))))];
+  return lines.join(EOL) + EOL;
+}
+
 export const CSV_MIME = 'text/csv;charset=utf-8';
 
 export interface SimpleGuideTableRow {

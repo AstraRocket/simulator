@@ -15,12 +15,15 @@ export interface OrkWriter {
   writeConfigs: OrkWriteConfig[];
   defaultId: string;
   componentInfo?: ComponentFigures;
+  /** Each decal image's archive path, from `decalPaths`. */
+  decalPaths?: ReadonlyMap<string, string>;
 }
 
 export function createOrkWriter(
   writeConfigs: OrkWriteConfig[],
   defaultId: string,
   componentInfo?: ComponentFigures,
+  decalPaths?: ReadonlyMap<string, string>,
 ): OrkWriter & { lines: string[] } {
   const lines: string[] = [];
   return {
@@ -29,5 +32,6 @@ export function createOrkWriter(
     writeConfigs,
     defaultId,
     componentInfo,
+    decalPaths,
   };
 }

@@ -128,8 +128,9 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
             grounded: c.grounded,
           })),
         );
-        const { downloadOrk, partsDesktopDrops } = await import('../services/files/saveOrk');
+        const { downloadOrk, partsDesktopDrops, decalArchiveFiles } = await import('../services/files/saveOrk');
         const images = await drawImages(renderImages, imageSource);
+        const decals = await decalArchiveFiles(tree);
         if (replaced()) return;
         downloadOrk(
           {
@@ -142,12 +143,13 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
             simulations,
             designInfo,
           },
-          images,
+          decals.files.length ? { ...images, decals: decals.files } : images,
         );
         const dropped = partsDesktopDrops(tree).map((p) => (typeof p === 'string' ? p : keyedText(p, i18n.t)));
         const notes = [
           ...(infoLeftOut ? [i18n.t('errors.saveOrkNoDesignInfo')] : []),
           ...(dropped.length ? [i18n.t('errors.saveOrkFairing', { parts: fmtList(dropped) })] : []),
+          ...(decals.missing.length ? [i18n.t('errors.saveOrkDecalsMissing', { files: fmtList(decals.missing) })] : []),
         ];
         if (notes.length) set({ err: notes.join(' ') });
       } catch (e) {

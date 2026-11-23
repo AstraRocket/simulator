@@ -27,9 +27,9 @@ Desktop OpenRocket is a Java program you install. AstraRocket runs in a browser,
 | **Component colors and 3D appearance** | Available. Color, line style, paint, shine and opacity, drawn in the 2D and 3D views. |
 | **Saving your own components** | Partly. **Save as part** keeps a component in your browser and carries it in the backup file, but not as an `.orc` file. |
 | **Printing** | Available, as a PDF design report with 1:1 templates. |
-| **Textures and decals** | Not available. Decals are removed on import. |
-| **Photo Studio** | Not available. |
-| **Rocket optimization** | Not available. |
+| **Textures and decals** | Available. Choose, place and save decals as desktop does, and open a desktop file's decals. Not here: the wood and cardboard textures desktop draws a part on the defaults with, its **Edit** button that opens an outside image editor, and its texture template maker. |
+| **Photo Studio** | Available, on the Tools tab, with desktop's settings, skies and effects, kept in the browser rather than in the design. A `.ork`'s own Photo Studio settings are kept untouched when it is saved again. The shading is this app's own, so pictures match desktop's in framing and setup, not pixel for pixel. |
+| **Rocket optimization** | Available, with desktop's goals, stability limits and search methods. Left out: the values no goal can use, such as fin cant, wall thickness, mass and CG overrides and drag coefficients. See [Rocket Optimization](./optimization.md). |
 | **Custom expressions** | Not available. The flight CSV export has the raw series. |
 | **Simulation extensions and scripting** | Not available. A `.ork` keeps them on save, so desktop still has them. |
 | **Languages** | Partly. OpenRocket ships in more languages. |

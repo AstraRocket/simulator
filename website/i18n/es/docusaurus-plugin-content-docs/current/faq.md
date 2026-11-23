@@ -15,7 +15,7 @@ No. Todo se ejecuta en tu dispositivo. Tus cohetes, tus motores personalizados, 
 No a través de la propia app. Guárdalos en una carpeta que sincronice Google Drive, OneDrive, Dropbox o iCloud Drive, y ábrelos desde ahí en el otro dispositivo. **[Sincronizar tu trabajo](./syncing-your-work.md)** explica cada servicio.
 
 ### ¿Mis archivos `.ork` funcionarán en OpenRocket de escritorio? {#will-my-ork-files-work-in-desktop-openrocket}
-Sí: la importación y la exportación son de ida y vuelta con total fidelidad, y un archivo exportado se vuelve a abrir en OpenRocket de escritorio. Hay dos cosas que no pasan: las calcomanías se eliminan al importar, porque sus imágenes se guardan aparte dentro del archivo, y un componente que esta aplicación no admite se omite. El aviso de importación nombra ambas.
+Sí: la importación y la exportación son de ida y vuelta con total fidelidad, calcomanías incluidas, y un archivo exportado se vuelve a abrir en OpenRocket de escritorio. Un componente que esta aplicación no admite se omite, y el aviso de importación lo nombra.
 
 ### ¿Puedo abrir un archivo de RockSim? {#can-i-open-a-rocksim-file}
 Sí: **menú → Importar → RockSim** lee un `.rkt`, y **Exportar → RockSim** escribe uno. El diseño viaja; los **motores y las condiciones de lanzamiento no**, porque RockSim los guarda con sus simulaciones y no con sus diseños, así que elige un motor después de importar. En [Archivos y exportaciones](./files-and-exports.md#rocksim-rkt) está exactamente qué lleva cada sentido y qué deja atrás.

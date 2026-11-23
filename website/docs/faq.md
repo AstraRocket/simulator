@@ -15,7 +15,7 @@ No. Everything runs on your device. Your rockets, custom motors, saved parts, ma
 Not through the app itself. Save them into a folder Google Drive, OneDrive, Dropbox or iCloud Drive syncs, and open them from there on the other device. **[Syncing your work](./syncing-your-work.md)** walks through each service.
 
 ### Will my `.ork` files work in desktop OpenRocket?
-Yes: open and save are full-fidelity round-trips, and a saved file reopens in desktop OpenRocket. Two things do not come across: decals are removed on import, because their images are stored separately in the file, and a component this app does not support is skipped. The import banner names both.
+Yes: open and save are full-fidelity round-trips, decals included, and a saved file reopens in desktop OpenRocket. A component this app does not support is skipped, and the import banner names it.
 
 ### Can I open a RockSim file?
 Yes: **menu → Import → RockSim** reads a `.rkt`, and **Export → RockSim** writes one. The design comes across; the **motors and launch conditions do not**, because RockSim keeps those with its simulations rather than its designs, so pick a motor after importing. [Files & Exports](./files-and-exports.md#rocksim-rkt) lists exactly what each direction carries and what it leaves behind.
