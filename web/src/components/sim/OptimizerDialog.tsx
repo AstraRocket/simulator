@@ -6,7 +6,7 @@ import { NumberInput } from '../common/NumberInput';
 import { smallButton } from '../common/smallButton';
 import { useUnits, type Units } from '../../prefs/useUnits';
 import type { Quantity } from '../../prefs/units';
-import { useWorkspaceStore, configOf, isOptimizerStale, selectDesignName, selectOptimizerFor } from '../../state/store';
+import { useWorkspaceStore, isOptimizerStale, selectDesignName, selectOptimizerFor } from '../../state/store';
 import { fireAction } from '../../state/fireAction';
 import { MAX_OPT_POINTS, optimumOf, type OptEval, type Optimization } from '../../state/optimizerSlice';
 import { optimizableParams, type OptParam } from '../../services/flight/optimizer/optParams';
@@ -32,6 +32,7 @@ import {
   type FigureUnit,
 } from './optimizerFigures';
 import { OptParamPicker, type ParamPick } from './OptParamPicker';
+import { useSimConfig } from './useSimConfig';
 
 const GOAL_LABEL: Record<OptGoal, string> = {
   apogee: 'optimize.goal.apogee',
@@ -71,10 +72,7 @@ const selectCls = 'rounded-md bg-raised px-2 py-1 text-xs text-ink-strong ring-1
 
 export function OptimizerDialog({ simId, onClose }: { simId: string; onClose: () => void }) {
   const { t } = useTranslation();
-  const tree = useWorkspaceStore((s) => s.tree);
-  const sim = useWorkspaceStore((s) => s.sims.find((x) => x.id === simId));
-  const configs = useWorkspaceStore((s) => s.configs);
-  const config = sim ? configOf(configs, sim) : null;
+  const { tree, sim, config } = useSimConfig(simId);
   const params = useMemo(() => (config ? optimizableParams(tree, config) : []), [tree, config]);
 
   return (

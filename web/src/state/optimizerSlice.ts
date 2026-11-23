@@ -1,12 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { RocketTree } from '../engine/openRocketEngine';
 import { optimizePointInWorker, SimCanceledError } from '../engine/simClient';
-import { primaryMotor, reconcileConfigs } from '../services/flight/flightConfigs';
+import { reconcileConfigs } from '../services/flight/flightConfigs';
 import { simConditions, type SimInputs } from '../services/flight/simulations';
 import { aeroTablesOf } from '../services/flight/aeroTables';
-import { unflyable, unflyableText } from '../services/flight/runnability';
-import { configPowerClass } from '../services/flight/powerClass';
-import { isComplete } from '../services/flight/requiredLaunch';
 import {
   feasible,
   goalFigure,
@@ -21,9 +18,9 @@ import {
 import { applyParams, fromScaled, toScaled, type OptParam } from '../services/flight/optimizer/optParams';
 import { clamp01, search, type Vec } from '../services/flight/optimizer/optSearch';
 import type { WorkspaceState } from './store';
-import { configOf, displayUnits } from './workspaceSelectors';
+import { configOf } from './workspaceSelectors';
 import type { EditSteps } from './sliceShared';
-import { batchBasis, flownStill, jobSlot, launcherT, refusedDesign } from './runBasis';
+import { batchBasis, flownStill, flyableSim, jobSlot } from './runBasis';
 
 /** Desktop has no cap; a search that keeps finding better points could otherwise fly on and on. */
 export const MAX_OPT_POINTS = 500;
@@ -105,18 +102,11 @@ export const createOptimizerSlice =
 
     // One turbulence seed for every point, so the search follows the design, not the gusts.
     runOptimizer: async (simId, setup) => {
+      if (!setup.params.length) return;
       const s = get();
-      if (refusedDesign(s, set)) return;
-      const sim = s.sims.find((x) => x.id === simId);
-      if (!sim || !setup.params.length) return;
-      const config = configOf(s.configs, sim);
-      const reason = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
-      if (reason) {
-        set({ err: unflyableText({ id: sim.id, name: sim.name, reason }, launcherT(get().tree), displayUnits()) });
-        return;
-      }
-      const launch = sim.launch;
-      if (!isComplete(launch)) return;
+      const flyable = flyableSim(s, set, simId);
+      if (!flyable) return;
+      const { sim, config, launch } = flyable;
 
       const { ranOn, flownFrom, flownKey, runPrefs, seed } = batchBasis(s, sim, config);
       const options = {

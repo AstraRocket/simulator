@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
+import { listenPointerDrag } from './pointerListeners';
 
 /** OrbitControls' default: a drag the height of the view turns the camera a full circle. */
 const TURN_PER_HEIGHT = 2 * Math.PI;
@@ -67,16 +68,7 @@ export function TumbleRotate({ controls }: { controls: RefObject<Target | null> 
       last = null;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
     };
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-    return () => {
-      el.removeEventListener('pointerdown', down);
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
-    };
+    return listenPointerDrag(el, { down, move, up });
   }, [gl, camera, controls, invalidate]);
 
   return null;
