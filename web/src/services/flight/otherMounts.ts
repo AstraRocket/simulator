@@ -14,14 +14,10 @@ export interface OtherMountLoad {
   keptPlugged: boolean;
 }
 
-export interface OtherMountSkip {
-  node: ComponentNode;
-  reason: 'tooWide' | 'tooLong';
-}
-
 export interface OtherMountOffer {
   loads: OtherMountLoad[];
-  skipped: OtherMountSkip[];
+  /** Mounts the motor is too wide for. */
+  skipped: ComponentNode[];
 }
 
 /** A booster is a stage of its own, as the kernel numbers it. */
@@ -43,15 +39,14 @@ export function otherMountOffer(
   spec: MotorSpec,
 ): OtherMountOffer {
   const stage = stageOf(tree, fromId);
-  const motor = { diameter: toCatalogMm(spec.diameter), length: spec.length ? toCatalogMm(spec.length) : undefined };
+  const motor = { diameter: toCatalogMm(spec.diameter) };
   const offer: OtherMountOffer = { loads: [], skipped: [] };
   for (const node of findMounts(tree)) {
     const id = node.id as string;
     if (id === fromId || stageOf(tree, id) !== stage) continue;
     const fit = mountFit(node);
     if (fit && !motorFitsMount(motor, fit)) {
-      const tooWide = !motorFitsMount({ diameter: motor.diameter }, { bore: fit.bore });
-      offer.skipped.push({ node, reason: tooWide ? 'tooWide' : 'tooLong' });
+      offer.skipped.push(node);
       continue;
     }
     const seated = config.motors[id]?.spec;

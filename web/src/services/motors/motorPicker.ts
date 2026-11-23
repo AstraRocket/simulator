@@ -1,7 +1,6 @@
 import { tubeRadii } from '../design/discGeometry';
 import type { ComponentNode } from '../../engine/openRocketEngine';
 import { toCatalogMm } from './catalogUnits';
-import { finiteOr } from '../app/numbers';
 
 // mm.
 export const STD_DIAMS = [6, 13, 18, 24, 29, 38, 54, 75, 98, 150];
@@ -17,30 +16,19 @@ export function fitIdx(bore: number): number {
   return i;
 }
 
-/** In millimeters. */
+/** In millimeters. No length: a motor longer than its mount is a normal build. */
 export interface MountFit {
   bore: number;
-  /** Includes motor overhang: the app seats a motor at `aft - motorLength + overhang` (rocketPieces.ts). */
-  maxLength?: number;
 }
 
 /** The bore comes from `tubeRadii`, as the drawings use, so the browser and file reader agree. */
 export function mountFit(node: Record<string, unknown>): MountFit | null {
-  const finite = (k: string): number | null => finiteOr(node[k], null);
   const tube = tubeRadii(node as ComponentNode);
-  if (!tube) return null;
-  const tubeLen = finite('length');
-  const overhang = finite('motorOverhang') ?? 0;
-  return {
-    bore: toCatalogMm(tube.innerR * 2),
-    ...(tubeLen != null ? { maxLength: toCatalogMm(tubeLen + overhang) } : {}),
-  };
+  return tube ? { bore: toCatalogMm(tube.innerR * 2) } : null;
 }
 
-export function motorFitsMount(m: { diameter: number; length?: number }, fit: MountFit): boolean {
-  if (m.diameter > fit.bore + FIT_TOLERANCE_MM) return false;
-  if (fit.maxLength != null && m.length != null && m.length > fit.maxLength + FIT_TOLERANCE_MM) return false;
-  return true;
+export function motorFitsMount(m: { diameter: number }, fit: MountFit): boolean {
+  return m.diameter <= fit.bore + FIT_TOLERANCE_MM;
 }
 
 /** `RASPMotorLoader` drops delays at or over this rather than reading them as plugged. */

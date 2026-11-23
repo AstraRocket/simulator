@@ -20,34 +20,17 @@ describe('fitIdx', () => {
 });
 
 describe('motorFitsMount', () => {
-  // A 24 mm mount tube 70 mm long, with OpenRocket's default 6.35 mm overhang.
-  const mount = { bore: 24, maxLength: 76.35 };
+  const mount = { bore: 24 };
 
   it('keeps a motor that goes in the bore and refuses one that does not', () => {
-    expect(motorFitsMount({ diameter: 24, length: 70 }, mount)).toBe(true);
-    expect(motorFitsMount({ diameter: 18, length: 70 }, mount)).toBe(true);
-    expect(motorFitsMount({ diameter: 29, length: 70 }, mount)).toBe(false);
-  });
-
-  it('allows a motor to reach into the overhang, which is what the overhang is', () => {
-    expect(motorFitsMount({ diameter: 24, length: 75 }, mount)).toBe(true);
-    expect(motorFitsMount({ diameter: 24, length: 90 }, mount)).toBe(false);
-  });
-
-  it('judges a motor of unknown length on its bore alone', () => {
     expect(motorFitsMount({ diameter: 24 }, mount)).toBe(true);
-    expect(motorFitsMount({ diameter: 38 }, mount)).toBe(false);
+    expect(motorFitsMount({ diameter: 18 }, mount)).toBe(true);
+    expect(motorFitsMount({ diameter: 29 }, mount)).toBe(false);
   });
 
-  it('takes the bore alone when the mount has no length either', () => {
-    expect(motorFitsMount({ diameter: 24, length: 500 }, { bore: 24 })).toBe(true);
-  });
-
-  it('carries the rounding slack on both bounds', () => {
-    expect(motorFitsMount({ diameter: 25, length: 70 }, mount)).toBe(true);
-    expect(motorFitsMount({ diameter: 26, length: 70 }, mount)).toBe(false);
-    expect(motorFitsMount({ diameter: 24, length: 77 }, mount)).toBe(true);
-    expect(motorFitsMount({ diameter: 24, length: 78 }, mount)).toBe(false);
+  it('carries the rounding slack', () => {
+    expect(motorFitsMount({ diameter: 25 }, mount)).toBe(true);
+    expect(motorFitsMount({ diameter: 26 }, mount)).toBe(false);
   });
 });
 
@@ -112,7 +95,7 @@ describe('mountFit', () => {
   it('does not let a NaN wall through', () => {
     const fit = mountFit({ type: 'innertube', outerRadius: 0.0095, thickness: Number.NaN, length: 0.07 })!;
     expect(fit.bore).toBeCloseTo(18, 9);
-    expect(motorFitsMount({ diameter: 29, length: 70 }, fit)).toBe(false);
+    expect(motorFitsMount({ diameter: 29 }, fit)).toBe(false);
   });
   it('gives a filled body tube no bore', () => {
     expect(mountFit({ type: 'bodytube', outerRadius: 0.02, thickness: 0.001, filled: true })!.bore).toBe(0);

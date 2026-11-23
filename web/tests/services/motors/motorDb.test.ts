@@ -137,7 +137,7 @@ describe('filterMotors', () => {
     expect(filterMotors(catalog, filter({ minImpulse: 100 }))).toEqual([]);
   });
 
-  it('filters by what goes in the mount, on both bore and length', () => {
+  it('filters by the mount bore, whatever the motor length', () => {
     const row = (designation: string, diameter: number, length?: number): CatalogMotor => ({
       designation,
       manufacturer: 'Estes',
@@ -148,10 +148,9 @@ describe('filterMotors', () => {
       mass: 24,
       length,
     });
-    const mounted = [row('fits', 18, 70), row('tooFat', 24, 70), row('tooLong', 18, 120), row('noLength', 18)];
-    // An 18 mm tube 70 mm long, plus the default 6.35 mm of overhang.
-    const kept = filterMotors(mounted, filter({ fit: { bore: 18, maxLength: 76.35 } }));
-    expect(kept.map((m) => m.designation)).toEqual(['fits', 'noLength']);
+    const mounted = [row('fits', 18, 70), row('tooFat', 24, 70), row('long', 18, 120), row('noLength', 18)];
+    const kept = filterMotors(mounted, filter({ fit: { bore: 18 } }));
+    expect(kept.map((m) => m.designation)).toEqual(['fits', 'long', 'noLength']);
   });
 
   it('filters to the motors sold without an ejection charge', () => {

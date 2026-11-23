@@ -11,7 +11,7 @@ import {
 const node = (o: object) => o as unknown as ComponentNode;
 const spec = (designation: string, ejectionDelay = 7): MotorSpec =>
   ({ designation, diameter: 0.029, length: 0.124, ejectionDelay }) as unknown as MotorSpec;
-// A 30 mm bore, 200 mm long.
+// A 30 mm bore, 200 mm long; `short` is shorter than the motor.
 const tube = (id: string, o: object = {}) =>
   node({ type: 'innertube', id, motorMount: true, outerRadius: 0.0155, thickness: 0.0005, length: 0.2, ...o });
 
@@ -41,13 +41,10 @@ const tree = {
 const ids = (nodes: { node: ComponentNode }[]) => nodes.map((x) => x.node.id);
 
 describe('otherMountOffer', () => {
-  it('offers the other mounts of the same stage only, and names why the rest are left out', () => {
+  it('offers the other mounts of the same stage only, and leaves out a mount the motor is too wide for', () => {
     const offer = otherMountOffer(tree, newFlightConfig({ a: { spec: spec('H128W') } }), 'a', spec('H128W'));
-    expect(ids(offer.loads)).toEqual(['b', 'c']);
-    expect(offer.skipped.map((s) => [s.node.id, s.reason])).toEqual([
-      ['narrow', 'tooWide'],
-      ['short', 'tooLong'],
-    ]);
+    expect(ids(offer.loads)).toEqual(['b', 'c', 'short']);
+    expect(offer.skipped.map((n) => n.id)).toEqual(['narrow']);
   });
 
   it('says what each mount holds now', () => {
@@ -62,6 +59,7 @@ describe('otherMountOffer', () => {
       a: { spec: spec('H128W') },
       b: { spec: spec('G80', PLUGGED_DELAY) },
       c: { spec: spec('H128W') },
+      short: { spec: spec('H128W') },
     });
     const { loads } = otherMountOffer(tree, config, 'a', spec('H128W'));
     expect(ids(loads)).toEqual(['b']);

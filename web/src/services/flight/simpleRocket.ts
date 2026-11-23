@@ -96,9 +96,8 @@ export function simpleBodyLength(i: Pick<SimpleInputs, 'diameterM' | 'lengthM'>)
   return i.lengthM - i.diameterM * SIMPLE_NOSE_CALIBERS;
 }
 
-// Length limit is the body tube, not the mount: a longer motor hangs out the back.
 export function simpleMountFit(i: SimpleInputs): MountFit {
-  return { bore: toCatalogMm(i.mountDiameterM), maxLength: toCatalogMm(simpleBodyLength(i)) };
+  return { bore: toCatalogMm(i.mountDiameterM) };
 }
 
 // 3/32 in, 1/8 in, 3/16 in.
