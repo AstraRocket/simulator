@@ -291,7 +291,82 @@
 # 2026-11-09) ships 0.02325 kg. The "still 0.21 oz" above was carried forward
 # without being re-read; 0.21 oz is the neighboring part it was cloned from. A
 # saved design keeps its stored mass until the part is picked again, as desktop.
+#
+# 2026-11-17: reviewed 5db63e5f through 80e8df45 (v0.202 to v0.208, 2026-11-15
+# to 2026-11-16). Read from the checkout's files, not a git diff: the pull's
+# file times picked out the changed files, and their changelog.ts and
+# patches/LEDGER.md said what each change was.
+#
+# NO ENGINE CHANGE NEEDED: their only engine-java change records a signed
+# corrective moment coefficient (Ccm) and a normal-force slope (CNα) as flight
+# data, their partial port of OpenRocket PR #3002. Our pin carries all of #3002
+# (Ccm, damping ratio, the damping moments, ωn), and flightColumns.ts already
+# offers ωn, Ccm and CNα as chart series.
+#
+# TAKEN, CATALOG: the paper streamer and TAC parachute densities (their v0.208).
+# OpenRocket's fliskits-legacy.orc gives Paper 90 kg/m², so FlisKits STC-2-36,
+# STD-440 and STD-660 weighed kilograms here too (an STD-660 about 20.9 kg); our
+# SEMROC streamers carry 0.08 and were never affected. Six Giant Leap TAC chutes
+# carried 0.00006685 kg/m², with a stated mass, so no flight moved. All nine are
+# corrected by scripts/lib/presetCorrections.mjs, which sync-preset-digests
+# applies and which refuses to run once the source stops holding the old value.
+#
+# TAKEN, APP-SIDE: their recovery density screen, as a design warning
+# (services/design/recoveryDensity.ts, in DesignWarnings.tsx), with their ranges:
+# fabric 0.005 to 1 kg/m², line 0.00001 to 1 kg/m. Theirs is in a pre-flight
+# check; ours lists it with the kernel's design warnings. A density of exactly 0
+# is not flagged: desktop flies it as weightless and 33 catalog chutes carry it.
+#
+# ALREADY COVERED: <maxtime> read from and written to .ork (simulationTags.ts;
+# our limit stops at 2,400 s, theirs 14,400 s); RASAero finish mapping, Optimum
+# to Sheet Metal and Polished to Polished (rasaero/surface.ts).
+#
+# NOT APPLICABLE: RockSim staging timed from separation, and their RockSim
+# recovery-mass Caution on multi-canopy pins (our .rkt import reads no motors or
+# simulations, as desktop imports none); batch simulate in every form; printed
+# average delays (no published-delay column here); their hosting headers and
+# Cloudflare Worker API.
+#
+# NOT TAKEN: blanking Stability margin and CP location after deployment or
+# tumble on the flight charts (desktop plots the recorded values, as we do); the
+# airfoil fin mass Caution (we use RockSim's CalcMass, as desktop does, without
+# a second estimate to compare it to); the sticky summary and tabs layout, and
+# the stability-diagnostics chart preset, which are their own UI.
+#
+# 2026-11-21: reviewed 80e8df45 through 3829d7e5 (v0.209 to v0.213, 2026-11-18
+# to 2026-11-20). Read from the checkout's files and their changelog.ts, not a
+# git diff. No engine-java file changed since the 2026-11-17 review.
+#
+# TAKEN, CATALOG: seven BalsaMachining nose blocks (NB20-2 to NB80-4) whose
+# BMS.ORC diameters are inches labeled mm (an NB80-4 was 2.558 mm across), and
+# the Quest 10100 and 10104 couplers' one-ounce placeholder mass, which folded
+# into densities of about 9,000 kg/m³. Both are in
+# scripts/lib/presetCorrections.mjs; the couplers now take desktop's Kraft
+# phenolic density, 958.7 kg/m³ (about 2.9 g and 3.3 g).
+#
+# TAKEN, EXPORT: RASAero ignores an ignition delay on the launch stage, so the
+# .CDX1 export writes 0 s there and says so (rasaero/simulation.ts).
+#
+# ALREADY COVERED OR NOT AFFECTED: their unweighed plastic chutes (ours carry
+# the source's 0.015 kg/m² polyethylene), the TBD123 streamer, lug and button
+# angles past 180 degrees (the kernel wraps them, as desktop).
+#
+# NOT APPLICABLE: batch simulate in every form, update holds across tabs,
+# RockSim staging and serial numbers (our .rkt import reads no motors), .CDX1
+# import, recovery advice, G35 printed delays, their spreadsheet columns.
+#
+# TAKEN, APP-SIDE: the roll rate over pitch frequency chart (|dΦ| / ωn, with
+# a band from 0.85 to 1.15 and a footer naming the crossings of 1 and the time
+# in the band; flightEvents.ts `rollPitchRatio` and `resonanceFigures`), and
+# their width fit Caution as a standing design warning across every
+# configuration, by the picker's own `motorFitsMount` rule
+# (services/design/motorWidth.ts). A file's too-wide motor was already an
+# import note (loadOrk.ts `checkFit`); the warning now stays while it is loaded.
+#
+# NOT TAKEN: their length fit Caution (a motor may stand proud of its mount and
+# still be built; the import note already covers a file's long motor), and save
+# names that follow the rocket, which are their own UI.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 5db63e5f310d482c953ce7ebbbeeacc662ffcc0c
-version = 0.201
-dated   = 2026-11-15
+ref     = 3829d7e59360b4d95beec0cfe59f559eb882b304
+version = 0.213
+dated   = 2026-11-20

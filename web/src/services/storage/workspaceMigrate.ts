@@ -1,6 +1,7 @@
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import type { Workspace } from './workspaceStore';
 import { isRecord } from '../app/numbers';
+import { upgradeNotes, upgradePhotoStudio } from './photoStudioUpgrade';
 
 /** Elements are checked, not just arrays: a `null` entry later throws in `hydrate`. */
 export function migrateWorkspace(w: unknown): Workspace | null {
@@ -23,8 +24,12 @@ export function migrateWorkspace(w: unknown): Workspace | null {
 }
 
 function settled(w: Workspace): Workspace {
-  const tree = settleLinkedDimensions(w.tree);
-  return tree === w.tree ? w : { ...w, tree };
+  const tree = settleLinkedDimensions(upgradePhotoStudio(w.tree));
+  const notes = w.loadedMeta?.notes;
+  const upgradedNotes = Array.isArray(notes) ? upgradeNotes(notes) : notes;
+  const meta =
+    w.loadedMeta && upgradedNotes && upgradedNotes !== notes ? { ...w.loadedMeta, notes: upgradedNotes } : w.loadedMeta;
+  return tree === w.tree && meta === w.loadedMeta ? w : { ...w, tree, loadedMeta: meta };
 }
 
 const hasStringId = (v: unknown): boolean => isRecord(v) && typeof v.id === 'string';

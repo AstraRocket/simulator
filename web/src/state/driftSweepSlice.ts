@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
-import { primaryMotor } from '../services/flight/flightConfigs';
 import { simConditions } from '../services/flight/simulations';
+import { aeroTablesOf } from '../services/flight/aeroTables';
 import { simulateInWorker } from '../engine/simClient';
 import { landingPoint } from '../services/flight/groundTrack';
 import {
@@ -12,14 +12,10 @@ import {
   type SweepLanding,
   type WindSweepSpec,
 } from '../services/flight/windSweep';
-import { unflyable, unflyableText } from '../services/flight/runnability';
-import { configPowerClass } from '../services/flight/powerClass';
-import { isComplete } from '../services/flight/requiredLaunch';
 import { surfaceWind } from '../services/flight/windLevels';
 import { flightBranches } from '../services/flight/flightColumns';
 import type { WorkspaceState } from './store';
-import { configOf, displayUnits } from './workspaceSelectors';
-import { batchBasis, flownStill, jobSlot, launcherT, refusedDesign } from './runBasis';
+import { batchBasis, flownStill, flyableSim, jobSlot } from './runBasis';
 
 export interface DriftSweepSlice {
   driftSweep: DriftSweep | null;
@@ -50,18 +46,9 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
   // One seed for the whole grid, so turbulence scatter does not mix with the wind scatter.
   runDriftSweep: async (simId, spec) => {
     const s = get();
-    if (refusedDesign(s, set)) return;
-    const sim = s.sims.find((x) => x.id === simId);
-    if (!sim) return;
-    const config = configOf(s.configs, sim);
-    const reason = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
-    if (reason) {
-      set({ err: unflyableText({ id: sim.id, name: sim.name, reason }, launcherT(get().tree), displayUnits()) });
-      return;
-    }
-    // Captured: the `isComplete` narrowing would be lost inside the closures below.
-    const launch = sim.launch;
-    if (!isComplete(launch)) return;
+    const flyable = flyableSim(s, set, simId);
+    if (!flyable) return;
+    const { sim, config, launch } = flyable;
 
     const normalized = normalizeSweepSpec(spec);
     const points = sweepPoints(normalized, surfaceWind(launch).headingDeg);
@@ -82,7 +69,11 @@ export const createDriftSweepSlice: StateCreator<WorkspaceState, [], [], DriftSw
                 tree: ranOn,
                 config,
                 options: {
-                  ...simConditions(sweepLaunch(launch, point), { ...runPrefs, randomSeed: seed }),
+                  ...simConditions(
+                    sweepLaunch(launch, point),
+                    { ...runPrefs, randomSeed: seed },
+                    aeroTablesOf(sim.xmlExtra),
+                  ),
                   series: 'summary',
                   railExitMinSpeed: undefined,
                 },

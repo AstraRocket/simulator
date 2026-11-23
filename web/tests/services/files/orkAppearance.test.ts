@@ -131,7 +131,7 @@ describe('reading a desktop appearance', () => {
     });
   });
 
-  it('notes nothing about the appearance itself, only a decal it cannot keep', () => {
+  it('notes nothing about an appearance with no decal', () => {
     expect(noteTexts(importOrk(FIXTURE).notes).join('\n')).not.toMatch(/appearance|decal/i);
   });
 });

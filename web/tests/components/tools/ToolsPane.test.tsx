@@ -40,9 +40,21 @@ describe('the Tools tab', () => {
       'Landing estimator',
       'Motor Dashboard',
       'Parachute sizing',
+      'Photo Studio',
     ]);
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Landing estimator' }), { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: 'Motor Dashboard' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it("holds Photo Studio, with desktop's three tabs of settings", () => {
+    renderWithProviders(<ToolsPane />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Photo Studio' }));
+    expect(screen.getByRole('heading', { name: 'Photo Studio' })).toBeTruthy();
+    expect(screen.getByLabelText('Pitch')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Environment' }));
+    expect(screen.getByLabelText('Light strength')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Effects' }));
+    expect(screen.getByLabelText('Exhaust scale')).toBeTruthy();
   });
 
   it('holds the motor dashboard, and keeps its filters across a trip to another tab', () => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { LightView } from './keyLight';
+import { listenPointerDrag } from './pointerListeners';
 
 const TURN_PER_PX = 0.01; // radians
 
@@ -61,16 +62,7 @@ export function MovableKeyLight({ light, color, intensity }: { light: KeyLight; 
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       light.changed(false);
     };
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-    return () => {
-      el.removeEventListener('pointerdown', down);
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
-    };
+    return listenPointerDrag(el, { down, move, up });
   }, [gl, light, invalidate]);
 
   return <ViewLight from={light.dir} intensity={intensity} color={color} />;
@@ -87,7 +79,12 @@ export interface KeyLight {
 const BALL_PX = 44;
 
 export function LightBall({ light, className }: { light: KeyLight; className?: string }) {
-  const { x, y, z, dragging } = useSyncExternalStore(light.subscribe, light.view);
+  return <LightBallView view={useSyncExternalStore(light.subscribe, light.view)} className={className} />;
+}
+
+/** A shaded ball lit from the light's view-space direction, shown while it is dragged and fading after. */
+export function LightBallView({ view, className }: { view: LightView; className?: string }) {
+  const { x, y, z, dragging } = view;
   const hx = 50 + 38 * x;
   const hy = 50 - 38 * y;
   const glow = Math.round(255 * (0.45 + 0.55 * Math.max(0, z)));

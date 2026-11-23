@@ -93,6 +93,35 @@ describe('saveOrk with design info', () => {
   });
 });
 
+describe('saveOrk with the file browser images', () => {
+  it('draws them from the design as saved and writes them with it', async () => {
+    const images = { thumbnail: new Uint8Array([1]) };
+    const render = vi.fn(() => Promise.resolve(images));
+    const saving = s().saveOrk(render);
+    await releaseDigests();
+    await saving;
+
+    const [source] = render.mock.calls[0] as unknown as [{ tree: unknown; name: string }];
+    expect(source.tree).toBe((downloadOrk.mock.calls[0]![0] as { tree: unknown }).tree);
+    expect(downloadOrk.mock.calls[0]![1]).toBe(images);
+  });
+
+  it('saves without them when they cannot be drawn, and says nothing', async () => {
+    useWorkspaceStore.setState({ err: null });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const saving = s().saveOrk(() => Promise.reject(new Error('no WebGL')));
+      await releaseDigests();
+      await saving;
+    } finally {
+      warn.mockRestore();
+    }
+    expect(downloadOrk).toHaveBeenCalledTimes(1);
+    expect(downloadOrk.mock.calls[0]![1]).toEqual({});
+    expect(s().err).toBeNull();
+  });
+});
+
 describe('saveOrk with a part desktop has no element for', () => {
   it('writes the file and names each fairing desktop will leave out', async () => {
     const tree = structuredClone(s().tree);

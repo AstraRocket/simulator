@@ -1,6 +1,6 @@
 {
   "motors": "5c09e75f0541",
-  "components": "6cdfe307803a",
+  "components": "8e5cd93aa3f7",
   "materials": "07834818d8a8",
   "contributors": "218475285581",
   "catalogs": {
@@ -9,7 +9,7 @@
       "count": 1156
     },
     "components": {
-      "updated": "2026-11-10",
+      "updated": "2026-11-21",
       "count": 5228
     },
     "materials": {

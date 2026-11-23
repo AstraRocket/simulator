@@ -163,7 +163,7 @@ export const IMAGE_FORMAT_EXT: Record<ImageFormat, string> = { png: 'png', jpeg:
 export const IMAGE_WIDTHS = [1920, 3840, 7680] as const;
 const JPEG_QUALITY = 0.92;
 
-const encodeCanvas = (canvas: HTMLCanvasElement, format: ImageFormat): Promise<Blob> =>
+export const encodeCanvas = (canvas: HTMLCanvasElement, format: ImageFormat): Promise<Blob> =>
   new Promise((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new KeyedError('errors.export.imageEncode'))),

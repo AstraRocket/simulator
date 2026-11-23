@@ -135,6 +135,7 @@ const BASELINE = [
   'src/services/motors/motorStore.ts#setMotorStore',
   'src/services/parts/presetStore.ts#setPresetStore',
   'src/services/storage/bayStore.ts#__setBayStoreForTests',
+  'src/services/storage/decalStore.ts#__setDecalStoreForTests',
   'src/services/storage/designLibrary.ts#setDesignLibrary',
   'src/services/storage/idbKeyValueStore.ts#__resetIdbForTests',
   'src/services/storage/launchLocationStore.ts#setLaunchLocationStore',

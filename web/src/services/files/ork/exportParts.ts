@@ -13,6 +13,8 @@ import { passthroughOf } from './passthrough';
 import { baysXml, mainDeviceXml } from './orkBays';
 import { parseHexColor, rgbChannels } from '../../design/colorHex';
 import { INSIDE_COLOR_TYPES, readAppearance, type PartAppearance } from '../../design/appearance';
+import type { PartDecal } from '../../design/decal';
+import { decalPathOf } from './exportDecals';
 import { designSeparation } from '../../flight/flightConfigs';
 import { FILLET_MATERIAL_KEYS, resolvedMaterial, type ResolvedMaterial } from '../../design/materialSlots';
 import type { MaterialType } from '../../materials/materialTypes';
@@ -124,6 +126,7 @@ function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
     w.emit(depth + 1, `<shine>${a.shine}</shine>`);
     // Written every time, as `RocketComponentSaver` does; absent, desktop reads false.
     w.emit(depth + 1, `<opacityaffectstexture>${a.opacityAffectsTexture === true}</opacityaffectstexture>`);
+    if (a.decal) decalXml(w, depth + 1, a.decal);
   };
   const outside = readAppearance(node['appearance']);
   if (outside) {
@@ -140,6 +143,16 @@ function appearanceXml(w: OrkWriter, depth: number, node: ComponentNode): void {
     body(inside);
     w.emit(depth, '</insideappearance>');
   }
+}
+
+/** As `RocketComponentSaver.buildAppearanceElements`. */
+function decalXml(w: OrkWriter, depth: number, d: PartDecal): void {
+  const name = escapeXml(w.decalPaths ? decalPathOf(w.decalPaths, d) : d.name);
+  w.emit(depth, `<decal name="${name}" rotation="${d.rotation}" edgemode="${d.edgeMode}">`);
+  w.emit(depth + 1, `<center x="${d.center[0]}" y="${d.center[1]}"/>`);
+  w.emit(depth + 1, `<offset x="${d.offset[0]}" y="${d.offset[1]}"/>`);
+  w.emit(depth + 1, `<scale x="${d.scale[0]}" y="${d.scale[1]}"/>`);
+  w.emit(depth, '</decal>');
 }
 
 function colorXml(w: OrkWriter, depth: number, node: ComponentNode): void {

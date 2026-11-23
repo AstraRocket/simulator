@@ -10,6 +10,7 @@ import { MAX_SIMULATIONS } from './importLimits';
 import { finiteNum } from './numbers';
 import { stepperOf, type SimPrefs } from '../../flight/simulations';
 import { SIM_BOUNDS } from '../../storage/settings';
+import { lookupRows } from '../../flight/aeroTables';
 import { FLIGHT_DATA_ATTRS, SIM_PREF_TAGS, OPTIONAL_FLIGHT_DATA } from './simulationTags';
 
 /** A warning threshold is any positive speed (m/s). */
@@ -24,19 +25,29 @@ export interface OrkSimulation {
   prefs?: Partial<SimPrefs>;
   /** `<conditions>` children are wrapped by `wrapConditionsChild`. */
   xmlExtra?: string[];
-  /** Desktop flew a drag or stability lookup table, which the kernel does not. */
-  lookupTables?: true;
+  /** Desktop flew a drag or stability table read from a CSV file on its own disk, which a rerun here cannot. */
+  unreadableLookup?: true;
+  /** The file carries a drag or stability table's rows, which this simulation flies here too. */
+  aeroTables?: true;
 }
 
-// SimulationConditionsHandler: desktop flies these in place of Barrowman; the kernel always flies Barrowman
-// (SimulationOptions). The element is carried through, so saving keeps it.
-const LOOKUP_TAGS = new Set(['draglookup', 'stabilitylookup', 'draglookupcsv', 'stabilitylookupcsv']);
+// SimulationConditionsHandler: desktop flies these in place of Barrowman. The elements are carried through, so
+// saving keeps them. `<row>` data the kernel flies too (`aeroTablesOf`); a `file` attribute with no rows, or the
+// older `*csv` element's path, names a file on the desktop's disk.
+const ROW_TABLE_TAGS = new Set(['draglookup', 'stabilitylookup']);
+const PATH_TABLE_TAGS = new Set(['draglookupcsv', 'stabilitylookupcsv']);
 
-const fliesLookupTable = (condEl: Element | null): boolean =>
-  !!condEl &&
-  [...condEl.children].some(
-    (c) => LOOKUP_TAGS.has(c.tagName.toLowerCase()) && (c.children.length > 0 || (c.textContent ?? '').trim() !== ''),
-  );
+function unreadableTable(c: Element): boolean {
+  const tag = c.tagName.toLowerCase();
+  if (ROW_TABLE_TAGS.has(tag)) return lookupRows(c).length === 0 && (c.getAttribute('file') ?? '').trim() !== '';
+  return PATH_TABLE_TAGS.has(tag) && (c.textContent ?? '').trim() !== '';
+}
+
+const fliesUnreadableTable = (condEl: Element | null): boolean =>
+  !!condEl && [...condEl.children].some(unreadableTable);
+
+const fliesEmbeddedTable = (condEl: Element | null): boolean =>
+  !!condEl && [...condEl.children].some((c) => ROW_TABLE_TAGS.has(c.tagName.toLowerCase()) && lookupRows(c).length > 0);
 
 export function readSimulations(doc: Document): OrkSimulation[] {
   const els = doc.querySelectorAll('openrocket > simulations > simulation');
@@ -50,15 +61,16 @@ export function readSimulations(doc: Document): OrkSimulation[] {
       ...((condEl && readPassthrough(condEl, KNOWN_CONDITIONS_TAGS)) ?? []).map(wrapConditionsChild),
     ];
     const xmlExtra = carried.length ? carried : undefined;
-    const lookup = fliesLookupTable(condEl);
+    const unreadable = fliesUnreadableTable(condEl);
     return {
       name: (text(el, ':scope > name') ?? '').trim() || i18n.t('sims.untitled', { n: i + 1 }),
       configId: (text(el, ':scope > conditions > configid') ?? '').trim() || null,
       ...(launch ? { launch } : {}),
       ...(flight ? { summary: summaryOf(flight) } : {}),
-      // A summary flown on a lookup table is not what a rerun here gives.
-      outdated: lookup || (el.getAttribute('status') ?? '').trim().toLowerCase() === 'outdated',
-      ...(lookup ? { lookupTables: true as const } : {}),
+      // A summary flown on a table this app cannot read is not what a rerun here gives.
+      outdated: unreadable || (el.getAttribute('status') ?? '').trim().toLowerCase() === 'outdated',
+      ...(unreadable ? { unreadableLookup: true as const } : {}),
+      ...(fliesEmbeddedTable(condEl) ? { aeroTables: true as const } : {}),
       ...(xmlExtra ? { xmlExtra } : {}),
       ...simulationPrefs(condEl),
     };
@@ -79,8 +91,8 @@ function simulationPrefs(condEl: Element | null): { prefs?: Partial<SimPrefs> } 
     if (v !== undefined && v >= min && v <= max) numbers[key] = v;
   }
   const prefs = numbers as Partial<SimPrefs>;
-  const stepper = stepperOf(text(condEl, ':scope > simulationsteppermethod')?.trim(), null);
-  if (stepper) prefs.stepper = stepper;
+  // OpenRocketSaver always writes it; a file without it predates RK6, so it was flown on RK4.
+  prefs.stepper = stepperOf(text(condEl, ':scope > simulationsteppermethod')?.trim(), 'rk4');
   return Object.keys(prefs).length ? { prefs } : {};
 }
 

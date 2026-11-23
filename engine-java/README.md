@@ -19,9 +19,9 @@ engine-java/
   package.json            no deps, nothing to install, just named `npm run` entry points
   build-engine.mjs        one-step build + vendor into web/  (both targets; --js / --wasm for one)
   extract/                  extract.mjs + manifest.txt: regenerate src/java/ from OpenRocket
-  patches/                18 full-file OVERRIDES of OpenRocket sources (why each, in the file header)
+  patches/                19 full-file OVERRIDES of OpenRocket sources (why each, in the file header)
   src/
-    java/                 273 OpenRocket source files (the physics), already overridden
+    java/                 277 OpenRocket source files (the physics), already overridden
     shims/java/           our replacements for classes we don't extract (Guice, prefs, LongUUID, Geo2D, RASAero…)
     jdkstubs/             java.text.Collator stand-in, the one java.* class TeaVM's JDK lacks
     api/java/api/         the @JSExport facade the browser calls (OpenRocketEngine, …)
@@ -36,7 +36,7 @@ OpenRocket's full `core` is ~700 files and pulls in Guice, JAXB, GraalVM-JS, cla
 
 ### 1. `src/java/`: the OpenRocket physics, extracted to a subset
 
-**Extraction** = copying only the 273 files the physics + simulation actually need, leaving the reflection/IO-heavy machinery (file loaders, plugin system, scripting, Swing hooks) behind. These files are **real OpenRocket source**: 255 are byte-for-byte upstream; 18 carry overrides (see `patches/`). By package:
+**Extraction** = copying only the 277 files the physics + simulation actually need, leaving the reflection/IO-heavy machinery (file loaders, plugin system, scripting, Swing hooks) behind. These files are **real OpenRocket source**: 258 are byte-for-byte upstream; 19 carry overrides (see `patches/`). By package:
 
 | files | package           | what it is                                                                     |
 | ----: | ----------------- | ------------------------------------------------------------------------------ |
@@ -44,7 +44,7 @@ OpenRocket's full `core` is ~700 files and pulls in Guice, JAXB, GraalVM-JS, cla
 |    60 | `util`            | math/geometry (Coordinate, quaternions, interpolation)                         |
 |     1 | `utils`           | `MotorCorrelation`: how alike two thrust curves are, for the motor picker      |
 |    42 | `simulation`      | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data |
-|    19 | `aerodynamics`    | Extended Barrowman + RASAero CP / drag / stability (force breakdown)           |
+|    23 | `aerodynamics`    | Extended Barrowman + RASAero CP / drag / stability, CSV lookup tables          |
 |    16 | `unit`            | unit system (internals are pure SI)                                            |
 |    12 | `models`          | atmosphere (ISA), gravity models, wind                                         |
 |    10 | `motor`           | thrust-curve motor model                                                       |
@@ -155,7 +155,7 @@ which is what you want offline.
 
 `--bless`, `--bless-shims` and `--check` write nothing to `src/java`. Only a bare
 `extract --src …` regenerates the tree, and on a CRLF checkout that rewrites all
-273 files to LF, so do not run it casually.
+277 files to LF, so do not run it casually.
 
 Or call them directly, which is identical:
 

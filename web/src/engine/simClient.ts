@@ -10,6 +10,7 @@ import type {
   WorkerResponse,
   WorkerResults,
 } from './simProtocol';
+import type { OptPointPayload } from '../services/flight/optimizer/optPoint';
 
 /** Timed from when the worker's engine is ready, not from queueing. */
 const SIM_TIMEOUT_MS = 30_000;
@@ -258,4 +259,11 @@ export function warmSimWorker(): void {
 
 export function simulateInWorker(payload: SimPayload, opts: SimCallOptions = {}): Promise<WorkerResults['simulate']> {
   return call({ method: 'simulate', args: payload }, { timeoutMs: SIM_TIMEOUT_MS, ...opts });
+}
+
+export function optimizePointInWorker(
+  payload: OptPointPayload,
+  opts: SimCallOptions = {},
+): Promise<WorkerResults['optimizePoint']> {
+  return call({ method: 'optimizePoint', args: payload }, { timeoutMs: SIM_TIMEOUT_MS, ...opts });
 }

@@ -10,6 +10,7 @@ import { engineBuild, runDumper } from './lib/openrocketJava.mjs';
 import { presetVolumes } from './lib/presetVolume.mjs';
 import { statedMassTally } from './lib/statedMass.mjs';
 import { nearestMaterial } from './lib/nearestMaterial.mjs';
+import { applyPresetCorrections } from './lib/presetCorrections.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const CATALOG = resolve(HERE, '../public/data/components.generated.json');
@@ -195,6 +196,7 @@ async function main() {
   if (masses.degenerate.length) {
     console.log(`stated masses the desktop gives no volume either, not applied: ${masses.degenerate.join(', ')}`);
   }
+  const corrected = applyPresetCorrections(catalog.components);
   const { lost, gone } = digestChanges(baseline, catalog.components.map(digestState));
   const goneText = goneSection('Parts', gone);
   if (goneText) {
@@ -222,7 +224,7 @@ async function main() {
   writeDataManifest(dirname(CATALOG));
   rmSync(STAGED_COMPONENTS, { force: true });
   console.log(
-    `digests: ${hit} of ${catalog.count} catalog rows (was ${before}); stated masses applied: ${masses.massed}`,
+    `digests: ${hit} of ${catalog.count} catalog rows (was ${before}); stated masses applied: ${masses.massed}; source values corrected: ${corrected}`,
   );
 }
 

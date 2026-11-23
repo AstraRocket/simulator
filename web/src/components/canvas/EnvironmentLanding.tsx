@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { fmtDegrees, fmtGroundDistance, useUnits } from '../../prefs/useUnits';
 import { configOf, selectOutdated, useWorkspaceStore } from '../../state/store';
 import { effectivePrefs, type ResultFlight } from '../../services/flight/simulations';
+import { aeroTablesOf } from '../../services/flight/aeroTables';
 import {
   type GroundPoint,
   bearingFromPad,
@@ -91,6 +92,7 @@ export function EnvironmentLanding({ flight }: { flight: ResultFlight }) {
           launch: sim.launch,
           source,
           prefs: effectivePrefs(simPrefs, sim.prefs),
+          aeroTables: aeroTablesOf(sim.xmlExtra),
           apiKey: readWeatherKey(),
           onProgress: (done, total) => {
             if (!signal.aborted) setRun({ kind: 'running', done, total }, forResult);

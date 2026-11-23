@@ -180,7 +180,7 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 **Instance**: A repeat of a part: a pair of rail buttons, a ring of pods, a cluster of tubes. *In the app:* **Instance count** and **Instance spacing** on a part that can repeat.
 
-**Integration**: Stepping the flight forward in small slices of time, which is how the whole trajectory is computed. The engine uses **RK4**, a fourth-order Runge-Kutta integrator, with an adaptive step, or **RK6** when the simulation method asks for it. See **Time step**.
+**Integration**: Stepping the flight forward in small slices of time, which is how the whole trajectory is computed. The engine uses **RK6**, a sixth-order Runge-Kutta integrator, by default, or **RK4**, the fourth-order one desktop OpenRocket defaults to, when the simulation method asks for it; both adapt their step. See **Time step**.
 
 **ISA**: The International Standard Atmosphere: an agreed model of how temperature, pressure and density change with altitude. *In the app:* what a flight uses when the launch conditions leave temperature and pressure blank.
 
@@ -296,11 +296,15 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 **Reynolds number**: A measure of how a flow behaves at a given size and speed, which is what decides how much of the drag is skin friction. *In the app:* the `R` column of a flight-data export.
 
-**RK4**: Fourth-order Runge-Kutta, the integration scheme the flight simulator steps with. See **Integration**.
+**RK4**: Fourth-order Runge-Kutta, desktop OpenRocket's default integration scheme, and the one a `.ork` saved before desktop had RK6 flies. See **Integration**.
+
+**RK6**: Sixth-order Runge-Kutta, the integration scheme the flight simulator steps with by default here. See **Integration**.
 
 **RockSim**: Another rocket simulator, whose `.rkt` design files the app reads and writes.
 
 **Roll rate**: How fast the rocket is spinning about its long axis. *In the app:* the `dΦ` column. A cant angle drives it up.
+
+**Roll–pitch resonance**: When the roll rate comes close to the pitch natural frequency (`ωn`), a small asymmetry such as a slightly misaligned fin pushes the pitch swing in step with itself, and the angle of attack can grow. *In the app:* the **Roll rate ÷ pitch frequency** flight chart, with a band from 0.85 to 1.15. The simulation does not model fin misalignment, so a crossing says when a real rocket could couple, not that the simulated one did.
 
 ## S
 

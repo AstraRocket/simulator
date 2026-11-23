@@ -1,0 +1,10 @@
+Photo Studio skies, copied from desktop OpenRocket (swing/src/main/resources/datafiles/sky).
+
+box/       Mountains     Rendering by Bill Kuker. CC0 Public Domain.
+Meadow/    Meadow        (c) Emil Persson, aka Humus. CC BY 3.0 (see Meadow/readme.txt).
+cross1.jpg Stormy Days   (c) Jockum Skoglund aka hipshot. CC BY 3.0.
+lake.jpg   Frozen Lake   Sampo Niskanen.
+space.jpg  Orbit         NASA.
+miramar/   Miramar       (c) Jockum Skoglund aka hipshot. CC BY 3.0.
+
+CC BY 3.0: https://creativecommons.org/licenses/by/3.0/

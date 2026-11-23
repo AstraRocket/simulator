@@ -3,7 +3,7 @@ title: "Features"
 sidebar_position: 2
 ---
 ## Physics
-- Runs OpenRocket's **physics core**: Extended Barrowman aerodynamics, mass/CG, and RK4 flight.
+- Runs OpenRocket's **physics core**: Extended Barrowman aerodynamics, mass/CG, and RK6 (or RK4) flight.
 - Flight simulations run in a **Web Worker**, off the main thread, so the interface stays responsive during a run.
 
 ## Design & analysis
@@ -19,6 +19,7 @@ sidebar_position: 2
 - **Aerodynamic analysis view**: a **Charts** pane (Cd vs Mach, the drag breakdown (friction / pressure / base) and CP vs Mach) and a **Per component** pane that tabulates, at one Mach, each part's **drag** split into pressure / base / friction, its **stability contribution** (mass, CNα and its own CP) and every fin set's **roll forcing / damping**: the figures desktop OpenRocket shows in *Component Analysis*. Cells are shaded in proportion to their value. The whole sweep is flown at a chosen **angle of attack, wind direction and roll rate**, and **Worst** sets the wind direction to the angle where the CP sits farthest forward, which is where the rocket is least stable.
 - **Motor Dashboard**: every motor in the catalog in one sortable table, to compare thrust, impulse, burn time and mass before committing to one, filtered by class, maker, diameter, total impulse, and average and max thrust, burn time, weights and length. Select two or more and **Compare** overlays their thrust curves with their specs side by side, or **Combine** sums them into one cluster with a combined thrust curve and total impulse.
 - **Motor guide**: fly a filtered set of candidate motors in one mount of a simulation and compare every flight in one sortable table: apogee, speeds, launcher exit speed, stability margin and thrust to weight at exit, best delay, deployment and landing speeds, and the same warnings the results give. Each motor flies at the delay it offers nearest its best one, and **Use** keeps a motor as a configuration and simulation of its own. See **[Motors](./motors.md#motor-guide)**.
+- **Rocket optimization**: tick the dimensions to vary, give each a range, and the optimizer flies the simulation over and over to find the design that best maximizes, minimizes or hits a target for apogee, a speed, stability, landing distance or flight time, within optional stability limits. It uses desktop OpenRocket's goals and search methods, and **Apply** sets the design to the result as one undo step. See **[Rocket Optimization](./optimization.md)**.
 - **Flight configurations**: several named setups per design, each with its own motors, ignition, recovery deployment and staging, on a **Configurations** tab of their own. Every simulation flies one. See **[Flight Configurations](./flight-configurations.md)**.
 - Multiple named **simulations**, each with a full launch setup (rail or rod, site, atmosphere, multi-level wind, earth model).
 - **One simulation or a batch of them**: run the active simulation on its own, or select several and fly them together; the worker pool flies more than one at a time. Pick which flight to view from the results title, and the choice applies to the charts, the ground track and the 3D path together.

@@ -15,6 +15,11 @@ import { HeaderDialogs } from './HeaderDialogs';
 import { useHeaderDialogs } from './useHeaderDialogs';
 import { useUndoShortcuts } from './useUndoShortcuts';
 import { useFilePick } from '../common/useFilePick';
+import type { OrkImageRenderer } from '../../services/files/saveOrk';
+
+// Lazy: three.js stays out of the first load until a save needs it.
+const renderOrkImages: OrkImageRenderer = async (source) =>
+  (await import('../canvas/orkImages')).renderOrkImages(source);
 
 export function AppHeader() {
   const { t } = useTranslation();
@@ -83,7 +88,7 @@ export function AppHeader() {
             onImportOrk: ork.pick,
             onImportRkt: rkt.pick,
             onImportExamples: () => open('examples'),
-            onExportOrk: () => fireAction(onSave()),
+            onExportOrk: () => fireAction(onSave(renderOrkImages)),
             onExportRkt: () => fireAction(onSaveRkt()),
             onExportPrint: () => open('print'),
             onExportRasaero: () => fireAction(onSaveRasaero()),

@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { newFlightConfig, primaryMotor, type FlightConfig } from '../services/flight/flightConfigs';
 import { newSimulation, nextFreeName, simConditions } from '../services/flight/simulations';
+import { aeroTablesOf } from '../services/flight/aeroTables';
 import { simulateInWorker, SimCanceledError } from '../engine/simClient';
 import { flyGuideBatch, guideConfig, guideRow, type GuideRow, type MotorGuide } from '../services/flight/motorGuide';
 import { hasLocalCurve, type CatalogMotor } from '../services/motors/motorDb';
@@ -83,7 +84,7 @@ export const createMotorGuideSlice =
             tree: ranOn,
             config: cfg,
             // Full series: rail-exit thrust-to-weight is not in the summary set.
-            options: simConditions(launch, { ...runPrefs, randomSeed: seed }),
+            options: simConditions(launch, { ...runPrefs, randomSeed: seed }, aeroTablesOf(sim.xmlExtra)),
             lengthUnit: runPrefs.lengthUnit,
           },
           { signal: job.signal },

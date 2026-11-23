@@ -17,6 +17,7 @@ import { createSimSlice, sanitizeSims, type SimSlice } from './simSlice';
 import { abortRunWork, createRunSlice, type RunSlice } from './runSlice';
 import { createDriftSweepSlice, type DriftSweepSlice } from './driftSweepSlice';
 import { createMotorGuideSlice, type MotorGuideSlice } from './motorGuideSlice';
+import { createOptimizerSlice, type OptimizerSlice } from './optimizerSlice';
 import { markWritten, voidPendingAutosave } from './writtenWorkspace';
 import { forgetFinStockChoices } from './finFlutterChoices';
 import { configOf, freshWorkspace, repairNotes, type StorageWarningKind } from './workspaceSelectors';
@@ -35,6 +36,7 @@ export { selectEditedConfig, selectMotorDims, type IgnitionScope } from './confi
 export { selectOutdated, selectRunFailed, selectRunIds } from './simSlice';
 export { isDriftSweepStale, selectDriftSweepFor } from './driftSweepSlice';
 export { isMotorGuideStale, selectMotorGuideFor } from './motorGuideSlice';
+export { isOptimizerStale, selectOptimizerFor } from './optimizerSlice';
 import type { LoadedMeta as LoadedFileMeta } from '../services/files/wireLoadedOrk';
 
 type Rocket = ReturnType<typeof buildRocketTree>;
@@ -63,7 +65,8 @@ export interface WorkspaceState
     SimSlice,
     RunSlice,
     DriftSweepSlice,
-    MotorGuideSlice {
+    MotorGuideSlice,
+    OptimizerSlice {
   tree: RocketTree;
   info: StaticInfo | null;
   err: string | null;
@@ -102,6 +105,16 @@ export interface WorkspaceState
 }
 
 type StorageNotice = { msg: string; kind: StorageWarningKind | null };
+
+/** Each batch job's result and counter, which a workspace swap clears. */
+const NO_JOB_RESULTS = {
+  driftSweep: null,
+  driftSweepRun: null,
+  motorGuide: null,
+  motorGuideRun: null,
+  optimizer: null,
+  optimizerRun: null,
+} satisfies Partial<WorkspaceState>;
 
 function storageWarningOf(
   notices: WorkspaceState['storageNotices'],
@@ -195,10 +208,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
       resultSimId: null,
       selectedSimIds: [],
       simBusy: false,
-      driftSweep: null,
-      driftSweepRun: null,
-      motorGuide: null,
-      motorGuideRun: null,
+      ...NO_JOB_RESULTS,
       err: null,
       buildErr: null,
       repairNotes: [],
@@ -241,6 +251,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get, api) => {
     ...createRunSlice(set, get, api),
     ...createDriftSweepSlice(set, get, api),
     ...createMotorGuideSlice({ recordStep })(set, get, api),
+    ...createOptimizerSlice({ recordStep })(set, get, api),
 
     ...createEditSlice({ beginEdit, recordStep, commitTree })(set, get, api),
 

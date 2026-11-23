@@ -107,8 +107,8 @@ These are on the **Simulation** tab, and seed each new simulation's run (you can
 - **Max sim time**: a safety cap on simulated flight time, which ends a run that never lands. 1,200 s (20 minutes) by default, as in desktop OpenRocket, and at most 2,400 s (40 minutes).
 - **Max angle step**: the most the rocket may rotate in one integration step. Smaller is more accurate through a fast pitch-over, and slower.
 - **Random seed**: fixes the wind/turbulence randomness so a run is reproducible; leave it unset for varied runs.
-- **Simulation method**: the integrator the flight steps with, **6-DOF Runge-Kutta 4** (the default, as in desktop OpenRocket) or **6-DOF Runge-Kutta 6**. RK6 is a higher-order step and slightly slower; the two usually agree closely. Descent under a parachute and tumbling use their own steppers either way. Saved in the `.ork`; a desktop OpenRocket without RK6 flies RK4.
-- **Calculation method**: shown for reference only, not chosen. Every flight runs Extended Barrowman aerodynamics.
+- **Simulation method**: the integrator the flight steps with, **6-DOF Runge-Kutta 6** (the default) or **6-DOF Runge-Kutta 4** (desktop OpenRocket's default). RK6 is a higher-order step and slightly slower; the two usually agree closely. A simulation opened from a `.ork` keeps the method the file names, and one that names none (saved before desktop had RK6) flies RK4. Descent under a parachute and tumbling use their own steppers either way. Saved in the `.ork`; a desktop OpenRocket without RK6 flies RK4.
+- **Calculation method**: shown for reference only, not chosen. Every flight runs Extended Barrowman aerodynamics, unless a simulation flies [custom aerodynamic data](./running-a-simulation.md#custom-aero) in its place.
 
 Each simulation can override any of these. An override left **empty** is not missing: it means *follow the global*, and the field shows the global value as its placeholder. That is why run options never block a flight: there is always a default underneath. **Reset to default** clears a simulation's overrides; **Save as default** copies the simulation's current values into these global settings.
 

@@ -10,6 +10,19 @@ describe('KernelMethodRows', () => {
     expect(screen.getAllByRole('term').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('definition')[0]!.className).toContain('text-xs');
   });
+
+  it.each([
+    [{}, 'Extended Barrowman'],
+    [{ dragLookup: ['mach,cd', '0,0.5'] }, 'Drag table, Extended Barrowman stability'],
+    [{ stabilityLookup: ['mach,cn,cm,cp', '0,0,0,0.4'] }, 'Extended Barrowman drag, stability table'],
+    [
+      { dragLookup: ['mach,cd', '0,0.5'], stabilityLookup: ['mach,cn,cm,cp', '0,0,0,0.4'] },
+      'Drag and stability tables',
+    ],
+  ])('names what a simulation tables replace (%o)', (tables, method) => {
+    renderWithProviders(<KernelMethodRows size="xs" tables={tables} />);
+    expect(screen.getAllByRole('definition')[0]!.textContent).toBe(method);
+  });
 });
 
 describe('StepperSelect', () => {

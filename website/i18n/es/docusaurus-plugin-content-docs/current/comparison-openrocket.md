@@ -27,8 +27,8 @@ OpenRocket de escritorio es un programa Java que se instala. AstraRocket se ejec
 | **Colores y apariencia 3D de los componentes** | Disponible. Color, estilo de línea, pintura, brillo y opacidad, dibujados en las vistas 2D y 3D. |
 | **Guardar tus propios componentes** | En parte. **Guardar como pieza** guarda un componente en tu navegador y lo incluye en el archivo de copia de seguridad, pero no como archivo `.orc`. |
 | **Impresión** | Disponible, como informe de diseño en PDF con plantillas 1:1. |
-| **Texturas y calcomanías** | No disponible. Las calcomanías se eliminan al importar. |
-| **Photo Studio** | No disponible. |
+| **Texturas y calcomanías** | Disponible. Elige, coloca y guarda calcomanías como en el escritorio, y abre las de un archivo de escritorio. No están: las texturas de madera y cartón con las que el escritorio dibuja una pieza en los valores predeterminados, su botón **Editar** que abre un editor de imágenes externo, ni su creador de plantillas de textura. |
+| **Photo Studio** | Disponible, en la pestaña Herramientas, con los ajustes, cielos y efectos del escritorio, guardados en el navegador y no en el diseño. Los ajustes del Photo Studio que trae un `.ork` se conservan intactos al volver a guardarlo. El sombreado es el de esta aplicación, así que las fotos coinciden con las del escritorio en encuadre y preparación, no píxel a píxel. |
 | **Optimización de cohetes** | No disponible. |
 | **Expresiones personalizadas** | No disponible. La exportación del vuelo a CSV tiene las series en bruto. |
 | **Extensiones de simulación y scripting** | No disponible. Un `.ork` las conserva al guardar, así que el escritorio las sigue teniendo. |

@@ -8,6 +8,7 @@ import { exportOrk, importOrk } from '../../../src/services/files/orkFile';
 import { wireLoadedOrk } from '../../../src/services/files/wireLoadedOrk';
 import { defaultRocketTree } from '../../../src/services/design/defaultRocket';
 import { isOutdated, simStatus, type SimPrefs } from '../../../src/services/flight/simulations';
+import { aeroTablesOf } from '../../../src/services/flight/aeroTables';
 import type { FlightSummary } from '../../../src/engine/openRocketEngine';
 import type { LaunchConditions } from '../../../src/services/design/orkTree';
 import type { LoadedOrk } from '../../../src/services/files/loadOrk';
@@ -295,15 +296,33 @@ describe('simulation options in the conditions', () => {
   });
 
   it("reads the stepper as the simulation's own, not as a carried child", () => {
-    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>RK6<');
+    const file = desktopFile.replace(/<simulationsteppermethod>[^<]*</, '<simulationsteppermethod>RK6<');
     const sim = importOrk(file).simulations![0]!;
     expect(sim.prefs?.stepper).toBe('rk6');
     expect(sim.xmlExtra?.join('') ?? '').not.toMatch(/simulationsteppermethod/);
   });
 
-  it('leaves a stepper this kernel does not have to the global', () => {
-    const file = desktopFile.replace('<simulationsteppermethod>rk4<', '<simulationsteppermethod>euler<');
-    expect(importOrk(file).simulations![0]!.prefs?.stepper).toBeUndefined();
+  it('flies a stepper this kernel does not have on RK4, as desktop does', () => {
+    const file = desktopFile.replace(/<simulationsteppermethod>[^<]*</, '<simulationsteppermethod>euler<');
+    expect(importOrk(file).simulations![0]!.prefs?.stepper).toBe('rk4');
+  });
+
+  it('keeps a file that names no stepper on RK4, the only one desktop had then, whatever the default here', () => {
+    const file = write([{ name: 'Old', configId: 'cfg-c6', launch, summary, status: 'uptodate' }]).replace(
+      /<simulationsteppermethod>[^<]*<\/simulationsteppermethod>/,
+      '',
+    );
+    const loaded = { name: 'Sims', notes: [], tree, motors: {}, configs, chosenConfigId: 'cfg-c6' };
+    const rk6 = { ...prefs, stepper: 'rk6' } as SimPrefs;
+    const w = wireLoadedOrk(
+      { ...loaded, simulations: importOrk(file).simulations } as unknown as LoadedOrk,
+      launch,
+      rk6,
+    );
+    const sim = w.sims[0]!;
+    expect(sim.prefs?.stepper).toBe('rk4');
+    const config = w.configs.find((c) => c.id === sim.configId)!;
+    expect(simStatus(sim, {}, w.tree, isOutdated(sim, w.tree, config, rk6))).toBe('fromFile');
   });
 
   it('writes the stepper once, the one the run used', () => {
@@ -372,37 +391,70 @@ describe("each simulation's own run settings", () => {
 });
 
 describe('a simulation that flies a lookup table on desktop', () => {
-  // SimulationConditionsHandler reads these; the kernel always flies Barrowman (SimulationOptions).
-  const withTable = (tag: string, body: string) =>
+  // SimulationConditionsHandler / CsvLookupHandler read these in place of Barrowman.
+  const withTable = (open: string, body: string, close = open.split(' ')[0]!) =>
     importOrk(
       write([
         { name: 'Tabled', configId: 'cfg-c6', launch, summary, status: 'uptodate' },
         { name: 'Plain', configId: 'cfg-c6', launch, summary, status: 'uptodate' },
-      ]).replace('</conditions>', `<${tag}>${body}</${tag}></conditions>`),
+      ]).replace('</conditions>', `<${open}>${body}</${close}></conditions>`),
     );
+  const lookupNote = (res: ReturnType<typeof importOrk>) =>
+    noteTexts(res.notes).find((n) => /CSV file on its own computer/.test(n));
 
   it.each([
-    ['draglookup', '<point mach="0.5" cd="0.4"/>'],
-    ['stabilitylookup', '<point mach="0.5" cn="2" cm="0" cp="0.3"/>'],
+    [
+      'draglookup file="C:/cfd/drag.csv"',
+      '<row>Mach,CD</row><row> 0.5,0.4 </row><row>  </row>',
+      'dragLookup',
+      ['Mach,CD', '0.5,0.4'],
+    ],
+    [
+      'stabilitylookup',
+      '<row>mach,cn,cm,cp</row><row>0.5,2,0,0.3</row>',
+      'stabilityLookup',
+      ['mach,cn,cm,cp', '0.5,2,0,0.3'],
+    ],
+  ])('flies the rows the file embeds, so its summary stands (%s)', (open, body, key, rows) => {
+    const res = withTable(open, body);
+    const tabled = res.simulations![0]!;
+    expect(tabled.outdated).toBe(false);
+    expect(lookupNote(res)).toBeUndefined();
+    // Said on opening, naming only the simulations that fly a table.
+    const aeroNote = noteTexts(res.notes).find((n) => /custom aerodynamic data/.test(n));
+    expect(aeroNote).toContain('Tabled');
+    expect(aeroNote).not.toContain('Plain');
+    // Trimmed and blank rows dropped, as CsvLookupHandler collects them.
+    expect(aeroTablesOf(tabled.xmlExtra)).toEqual({ [key]: rows });
+  });
+
+  it.each([
+    ['draglookup file="C:/cfd/drag.csv"', ''],
+    ['stabilitylookup file="C:/cfd/stability.csv"', ''],
     ['draglookupcsv', 'drag.csv'],
     ['stabilitylookupcsv', 'stability.csv'],
-  ])('files its desktop summary as outdated, and says why (%s)', (tag, body) => {
-    const res = withTable(tag, body);
+  ])('files a table it cannot read as outdated, and says why (%s)', (open, body) => {
+    const res = withTable(open, body);
     const [tabled, plain] = res.simulations!;
     expect(tabled!.outdated).toBe(true);
     expect(tabled!.summary).toEqual(summary);
     expect(plain!.outdated).toBe(false);
-    const note = noteTexts(res.notes).find((n) => /lookup table/.test(n));
+    const note = lookupNote(res);
     expect(note).toContain('Tabled');
     expect(note).not.toContain('Plain');
   });
 
   it('keeps the table, so saving the design preserves it', () => {
-    const res = withTable('draglookup', '<point mach="0.5" cd="0.4"/>');
+    const res = withTable('draglookup', '<row>mach,cd</row><row>0.5,0.4</row>');
     expect(res.simulations![0]!.xmlExtra?.join('')).toContain('draglookup');
   });
 
-  it('reads an empty element as no table, as desktop does', () => {
-    expect(withTable('draglookupcsv', '  ').simulations![0]!.outdated).toBe(false);
+  it.each([
+    ['draglookupcsv', '  '],
+    ['draglookup', ''],
+  ])('reads an empty element as no table, as desktop does (%s)', (open, body) => {
+    const sim = withTable(open, body).simulations![0]!;
+    expect(sim.outdated).toBe(false);
+    expect(aeroTablesOf(sim.xmlExtra)).toEqual({});
   });
 });

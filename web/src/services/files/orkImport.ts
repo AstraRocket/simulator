@@ -6,6 +6,8 @@ import { syncAutoRadii } from '../design/autoRadius';
 import { findStages } from '../design/treeEdit';
 import type { OrkImportResult } from './orkTypes';
 import { parseOrkXml, unpackOrk } from './ork/importUnpack';
+import { linkDecals } from './ork/importDecals';
+import { readPhotoStudio } from './ork/photoStudio';
 import { readFlightConfigs, readStageActiveness, type OrkImportContext } from './ork/importConfigs';
 import { readStages } from './ork/importReaders';
 import { KNOWN_DOCUMENT_TAGS, KNOWN_ROCKET_TAGS, readPassthrough } from './ork/passthrough';
@@ -38,6 +40,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   // Before passthrough, so materials are not also carried as raw XML.
   const docMaterials = docEl ? takeDocumentMaterials(docEl) : { materials: [], skipped: 0 };
   const docExtra = docEl ? readPassthrough(docEl, KNOWN_DOCUMENT_TAGS) : undefined;
+  const photoStudio = docEl ? readPhotoStudio(docEl) : undefined;
   const stages = Array.from(rocketEl.querySelectorAll(':scope > subcomponents > stage'));
   if (stages.length === 0) throw new KeyedError('errors.file.noStage');
 
@@ -64,18 +67,29 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
     configs,
     findStages({ name, components }).map((n) => n.id as string),
   );
+  const decals = linkDecals(components, archive.others);
+  const dropped = [...archive.others.keys()].filter((n) => !decals.used.has(n));
   const { notes, ignored } = ctx;
   notes.push(...versionNotes(doc));
   notes.push(...ignoredNotes(ignored));
   notes.push(...configNotes(rocketEl, configs));
-  notes.push(...archiveNotes(doc, archive.dropped));
+  if (decals.missing.length) {
+    notes.push(
+      keyedNote('importNote.decalsMissing', {
+        items: noteList(decals.missing.slice(0, 6), { more: decals.missing.length > 6 }),
+      }),
+    );
+  }
+  notes.push(...archiveNotes(doc, dropped));
   if (docMaterials.skipped) {
     notes.push(keyedNote('importNote.docMaterialsSkipped', { count: docMaterials.skipped }));
   }
   // The bridge always measures calibers against the widest body tube, so the margin can differ.
   if (referenceType) notes.push(keyedNote('importNote.referenceType', { type: referenceType }));
-  const lookupSims = simulations.filter((s) => s.lookupTables).map((s) => s.name);
+  const lookupSims = simulations.filter((s) => s.unreadableLookup).map((s) => s.name);
   if (lookupSims.length) notes.push(keyedNote('importNote.lookupTables', { names: noteList(lookupSims) }));
+  const tabledSims = simulations.filter((s) => s.aeroTables).map((s) => s.name);
+  if (tabledSims.length) notes.push(keyedNote('importNote.aeroTables', { names: noteList(tabledSims) }));
 
   const launch = readLaunchConditions(doc);
 
@@ -95,6 +109,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
       ...(rocketExtra ? { xmlExtra: rocketExtra } : {}),
       ...(docExtra ? { docExtra } : {}),
       ...(docMaterials.materials.length ? { documentMaterials: docMaterials.materials } : {}),
+      ...(photoStudio ? { photoStudio } : {}),
     },
     motor: ctx.motor,
     motors: ctx.motors,
@@ -105,6 +120,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
     ...(launch ? { launch } : {}),
     ...(simulations.length ? { simulations } : {}),
     ...(archive.motorFiles.length ? { embeddedMotors: archive.motorFiles } : {}),
+    ...(decals.images.length ? { decalImages: decals.images } : {}),
   };
 }
 
@@ -158,10 +174,6 @@ function extensionName(id: string, el: Element): string | Keyed {
 
 function archiveNotes(doc: Document, dropped: string[]): ImportNote[] {
   const out: ImportNote[] = [];
-  const decals = doc.querySelectorAll('decal').length;
-  if (decals) {
-    out.push(keyedNote('importNote.decals', { total: decals }));
-  }
   const extensions = [
     ...doc.querySelectorAll(
       'openrocket > simulations > simulation > extension, openrocket > simulations > simulation > listener',
@@ -182,7 +194,7 @@ function archiveNotes(doc: Document, dropped: string[]): ImportNote[] {
   if (dropped.length) {
     out.push(keyedNote('importNote.notRead', { items: noteList(dropped.slice(0, 6), { more: dropped.length > 6 }) }));
   }
-  const docLevel = ['photostudio', 'docprefs', 'datatypes'].filter((t) => {
+  const docLevel = ['docprefs', 'datatypes'].filter((t) => {
     const el = doc.querySelector(`openrocket > ${t}`);
     return el && (t !== 'docprefs' || el.children.length > 0);
   });

@@ -246,6 +246,6 @@ describe('.ork archive caps', () => {
     );
     expect(archive.xml).toBe(xml);
     expect(archive.motorFiles).toEqual([curve]);
-    expect(archive.dropped).toEqual(['decals/d.png']);
+    expect([...archive.others.keys()]).toEqual(['decals/d.png']);
   });
 });

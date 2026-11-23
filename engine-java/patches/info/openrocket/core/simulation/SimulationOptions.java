@@ -2,8 +2,8 @@ package info.openrocket.core.simulation;
 
 // PATCH(astrarrocketjs): omits java.nio.file.Path and the aerodynamics.lookup
 // (CSV lookup-table calculator) plumbing below. java.nio.file is absent from
-// TeaVM's classlib and the browser engine only ever uses the analytic Barrowman
-// calculator. See patches/LEDGER.md.
+// TeaVM's classlib, and the facade (OpenRocketEngine.flightCalculator) picks the
+// calculators itself, lookup tables included. See patches/LEDGER.md.
 import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.EventObject;
@@ -493,7 +493,7 @@ public class SimulationOptions implements ChangeSource, Cloneable, SimulationOpt
 	// PATCH(astrarrocketjs): omits upstream's CSV lookup-table getters/setters
 	// (get/set/clear/hasDragLookup, the Stability equivalents, updateDragLookup,
 	// updateStabilityLookup, normalizePath); see the import note. TeaVM lacks
-	// java.nio.file and the browser engine uses only the Barrowman calculator.
+	// java.nio.file; the facade applies a simulation's tables itself.
 
 	public int getRandomSeed() {
 		return randomSeed;

@@ -296,6 +296,8 @@ Usa el buscador de la parte superior de este sitio, o el buscador del diálogo *
 
 **Relación empuje-peso**: El empuje dividido por el peso del cohete al despegar. Por debajo de 5:1 aproximadamente, un cohete sale de la rampa con desgana. *En la aplicación:* la columna **Empuje:peso** de la tabla de motores del informe de diseño, y la columna `Twr`.
 
+**Resonancia alabeo–cabeceo**: Cuando la velocidad de alabeo se acerca a la frecuencia natural de cabeceo (`ωn`), una pequeña asimetría, como una aleta algo desalineada, empuja la oscilación de cabeceo al compás de sí misma, y el ángulo de ataque puede crecer. *En la aplicación:* la gráfica de vuelo **Alabeo ÷ frecuencia de cabeceo**, con una banda de 0,85 a 1,15. La simulación no modela el desalineado de las aletas, así que un cruce indica cuándo un cohete real podría acoplarse, no que el simulado lo hiciera.
+
 **Retardo**: Una pausa entre un evento y lo que desencadena. *En la aplicación:* el **Retardo** de la carga de eyección de un motor, el retardo tras el evento de **Encendido** de un motor, **Retardo de separación** entre etapas y **Retardo de despliegue** en un dispositivo de recuperación.
 
 **Retardo de eyección**: El retardo incorporado del motor entre el fin de combustión y su carga de eyección. *En la aplicación:* el **Retardo** del motor, con **Taponado** para un motor sin carga. Ver **Retardo óptimo**.

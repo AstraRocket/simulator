@@ -2,6 +2,7 @@ import type { ComponentNode, ComponentType } from '../../engine/openRocketEngine
 import { hexOf, packRgb, parseHexColor, rgbChannels } from './colorHex';
 import { colorForType, DEFAULT_PART_COLORS, type PartPalette } from './partColors';
 import { EXTERNAL_COMPONENT_TYPES } from '../../tree/componentKinds';
+import { readDecal, type PartDecal } from './decal';
 
 /** Separate from the figure color (`color`), which the 2D views draw. */
 export interface PartAppearance {
@@ -10,8 +11,17 @@ export interface PartAppearance {
   alpha: number;
   /** 0-1, clamped as the `Appearance` constructor clamps it. */
   shine: number;
-  /** Unused here, kept so a save round-trips it. */
+  /** Off: the decal stays opaque over see-through paint. On: the opacity fades both. */
   opacityAffectsTexture?: boolean;
+  decal?: PartDecal;
+}
+
+/** A decal as one surface draws it. */
+export interface LookDecal {
+  decal: PartDecal;
+  /** False for a fin set, whose image desktop turns half a turn (`AppearanceFactory.captureComponentAppearance`). */
+  fromTop: boolean;
+  opacityAffectsTexture: boolean;
 }
 
 export interface Look {
@@ -19,6 +29,7 @@ export interface Look {
   shine: number;
   /** 0-1. */
   opacity: number;
+  decal?: LookDecal;
 }
 
 /** The parts that implement `InsideColorComponent`. */
@@ -65,11 +76,13 @@ export function readAppearance(v: unknown): PartAppearance | undefined {
   if (rgb === null) return undefined;
   const alpha = typeof o['alpha'] === 'number' && Number.isFinite(o['alpha']) ? o['alpha'] : 255;
   const shine = typeof o['shine'] === 'number' && Number.isFinite(o['shine']) ? o['shine'] : 0;
+  const decal = readDecal(o['decal']);
   return {
     paint: hexOf(rgb),
     alpha: Math.round(Math.min(255, Math.max(0, alpha))),
     shine: clamp01(shine),
     ...(o['opacityAffectsTexture'] === true ? { opacityAffectsTexture: true } : {}),
+    ...(decal ? { decal } : {}),
   };
 }
 
@@ -90,23 +103,29 @@ export const opacityOf = (a: PartAppearance): number => a.alpha / 255;
 /** Truncated, not rounded, as `AppearanceBuilder.setOpacity` does. */
 export const alphaOf = (opacity: number): number => Math.trunc(clamp01(opacity) * 255);
 
-const lookOf = (a: PartAppearance): Look => ({ color: a.paint, shine: a.shine, opacity: opacityOf(a) });
+const lookOf = (a: PartAppearance, fromTop: boolean): Look => ({
+  color: a.paint,
+  shine: a.shine,
+  opacity: opacityOf(a),
+  ...(a.decal ? { decal: { decal: a.decal, fromTop, opacityAffectsTexture: a.opacityAffectsTexture === true } } : {}),
+});
 
 /** As desktop `RealisticRenderer.renderComponent` picks them. */
 export function partLooks(node: ComponentNode, palette?: PartPalette): { outside: Look; inside: Look; edges: Look } {
   const outside = outsideAppearance(node, palette);
+  // Desktop's `FinSet` subclasses, the sided parts; a tube fin set is not one.
+  const fromTop = !SIDED_TYPES.has(node.type);
   if (!INSIDE_COLOR_TYPES.has(node.type)) {
-    const l = lookOf(outside);
+    const l = lookOf(outside, fromTop);
     return { outside: l, inside: l, edges: l };
   }
   const inside = node['separateInsideOutside'] === true ? insideAppearance(node, palette) : outside;
   return {
-    outside: lookOf(outside),
-    inside: lookOf(inside),
-    edges: lookOf(node['edgesSameAsInside'] === true ? inside : outside),
+    outside: lookOf(outside, fromTop),
+    inside: lookOf(inside, fromTop),
+    edges: lookOf(node['edgesSameAsInside'] === true ? inside : outside, fromTop),
   };
 }
-
 const EXTERNAL_TYPES = EXTERNAL_COMPONENT_TYPES;
 
 /** Desktop `FigureRenderer.getShine`, out of OpenGL's 128. */

@@ -7,6 +7,8 @@ import { CardGroup } from '../common/CardGroup';
 import { useWorkspaceStore, selectShownSim } from '../../state/store';
 import { useFlutterFindings } from './useFlutterFindings';
 import { FlutterWarningRows } from './FlutterWarningRows';
+import { useAeroRangeFindings } from './useAeroRangeFindings';
+import { AeroRangeWarningRows } from './AeroRangeWarningRows';
 
 export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
   const t = useLauncherT();
@@ -14,12 +16,15 @@ export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
   const warnings = sim?.warnings ?? [];
   const shown = useWorkspaceStore(selectShownSim);
   const flutter = useFlutterFindings(shown.result === sim ? shown : null);
-  if (!sim || !(warnings.length + flutter.length)) return null;
+  const aeroRange = useAeroRangeFindings(shown.result === sim ? shown : null);
+  const count = warnings.length + flutter.length + aeroRange.length;
+  if (!sim || !count) return null;
 
   return (
-    <CardGroup title={t('sim.warnings', { count: warnings.length + flutter.length })}>
+    <CardGroup title={t('sim.warnings', { count })}>
       <ul className="space-y-1.5">
         <FlutterWarningRows findings={flutter} />
+        <AeroRangeWarningRows findings={aeroRange} />
         {warnings.map((w, i) => {
           const help = warningHelp(w.message, t);
           return (

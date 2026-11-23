@@ -70,6 +70,7 @@ export function RocketModel({
                   key={attach}
                   attach={attach}
                   look={selected ? { ...look, color: scene['scene-selected'] } : look}
+                  fadeDecal={opacity < look.opacity}
                   emissive={selected ? scene['scene-selected-glow'] : '#000000'}
                   emissiveIntensity={selected ? 0.6 : 0}
                   transparent={seeThrough}

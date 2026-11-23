@@ -1,4 +1,4 @@
-# golden v1 sha256=2dda95558d54fb6d4c7a0970d1cfaf307ddec0fd0e9743f406bedd0ad2c890e7 lines=367 generated=2026-11-05T17:51:03.645Z commit=c3fcb1574a4215c4dbb98662c314e1946333285f
+# golden v1 sha256=daebb24bede13c4b28e8efa63fe7676c1856b2675618ca0f922572f98e587a65 lines=371 generated=2026-11-18T20:51:00.001Z commit=bc482ba7cc92b8726cac0240a84ed5caf28ced3e
 # recorded on: win32-x64 openjdk_version_"21.0.12.1"_2026-08-18_LTS
 # The JVM reference output, recorded deliberately with `npm run parity:golden`.
 # parity.mjs re-verifies the sha256 above on every run, so a hand-edited value
@@ -370,3 +370,7 @@ rail.needed.500|NaN|18.535680784362842|328.91813314779193
 flight.stepper.rk4|324.43881356817565|108.95743392920977|7.0951442008651995
 flight.stepper.rk6|324.4542250611168|108.93726163140961|7.095116641801377
 flight.stepper.unknown|1.0
+flight.lookup.drag|453.66585935693496|130.50156389249162|7.453444119276253
+flight.lookup.both|453.2965885472338|130.48160830956974|7.4518323646057345
+flight.lookup.semicolon|453.66585935693496|130.50156389249162|7.453444119276253
+flight.lookup.badheader|1.0

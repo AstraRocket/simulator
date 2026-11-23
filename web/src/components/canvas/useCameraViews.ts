@@ -27,8 +27,12 @@ export function useCameraViews({
     const c = controls.current;
     if (!st || !c) return;
     st.camera.position.set(pos[0], pos[1], pos[2]);
+    // A tumble turns the camera's up with it (TumbleRotate); a preset stands it upright again.
+    st.camera.up.set(0, 1, 0);
     c.target.set(center, 0, 0);
     c.update();
+    // `update` fires no change when the camera is already there, and Reset may have moved only the light.
+    st.invalidate();
   };
   const showView = (which: 'side' | 'aft') => {
     setPreset(which);

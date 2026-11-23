@@ -2,7 +2,7 @@ import type { FlightResult, FlightSeries } from '../../engine/openRocketEngine';
 import { type Quantity, radToDeg, siToUiDelta, unitScope } from '../../prefs/units';
 import type { Units } from '../../prefs/useUnits';
 import { flightBranches, seriesColumn } from '../../services/flight/flightColumns';
-import { dynamicPressure, qAlpha, rollRate } from '../../services/flight/flightEvents';
+import { RESONANCE_BAND, dynamicPressure, qAlpha, rollPitchRatio, rollRate } from '../../services/flight/flightEvents';
 import { token } from '../common/colorTokens';
 import { ladderDigits } from '../../i18n/format';
 
@@ -26,6 +26,8 @@ export interface Meta {
   // Clipped to forward flight: after deployment the rocket tumbles and these are junk.
   aero?: boolean;
   xy?: { x: Meta; y: Meta };
+  // A shaded reference band with a line at `mark`, in display units; the axis always reaches it.
+  band?: { lo: number; hi: number; mark: number };
 }
 
 const ALTITUDE: Meta = {
@@ -86,6 +88,8 @@ export const SERIES: Meta[] = [
     times: 'angle',
   },
   { key: 'rollRate', label: 'flight.rollRate', unit: 'r/s', digits: 2, quantity: 'rollRate' },
+  // Derived in buildTraces: roll rate ÷ pitch natural frequency.
+  { key: 'rollPitchRatio', label: 'flight.rollPitchRatio', unit: '', digits: 2, aero: true, band: RESONANCE_BAND },
   { key: 'velocityAltitude', label: 'flight.velocityAltitude', unit: '', digits: 0, xy: { x: ALTITUDE, y: VELOCITY } },
 ];
 export const traceScale = (m: Meta, u: Pick<Units, 'factor' | 'sym'>): number => {
@@ -173,6 +177,10 @@ export function panelSeries(
   if (!(dMin < Infinity)) {
     dMin = 0;
     dMax = 1;
+  }
+  if (meta.band) {
+    dMin = Math.min(dMin, meta.band.lo);
+    dMax = Math.max(dMax, meta.band.hi);
   }
   const [lo, hi] = axisRange(dMin, dMax, !!meta.level);
   return { list: out, lo, hi };
@@ -272,6 +280,7 @@ export function buildTraces(
       dynamicPressure: dynamicPressure(b.series) ?? undefined,
       qAlpha: qAlpha(b.series) ?? undefined,
       rollRate: rollRate(b.series) ?? undefined,
+      rollPitchRatio: rollPitchRatio(b.series) ?? undefined,
     },
   }));
 }

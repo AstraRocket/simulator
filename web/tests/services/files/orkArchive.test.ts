@@ -61,7 +61,7 @@ describe('unpacking the archive', () => {
     expect(out.xml).toContain('<openrocket');
     expect(out.motorFiles).toHaveLength(1);
     expect(out.motorFiles[0]).toContain('J350');
-    expect(out.dropped).toEqual(['decals/flames.png']);
+    expect([...out.others.keys()]).toEqual(['decals/flames.png']);
   });
 
   it('takes a `.rse` wherever it sits, not only under thrustcurves/', () => {
@@ -90,7 +90,7 @@ describe('unpacking the archive', () => {
     const out = unpackOrk(XML);
     expect(out.xml).toBe(XML);
     expect(out.motorFiles).toEqual([]);
-    expect(out.dropped).toEqual([]);
+    expect([...out.others.keys()]).toEqual([]);
   });
 });
 
@@ -112,8 +112,8 @@ describe('what the import result carries', () => {
     expect(noteTexts(res.notes).join('\n')).toContain('decals/flames.png');
   });
 
-  it('says nothing about the thumbnail, which is regenerated anyway', () => {
-    const res = importOrk(archive({ 'rocket.ork': XML, 'preview.png': 'x' }));
-    expect(noteTexts(res.notes).join('\n')).not.toContain('preview.png');
+  it.each(['preview.png', 'thumbnail.png'])('says nothing about the %s desktop writes for file browsers', (name) => {
+    const res = importOrk(archive({ 'rocket.ork': XML, [name]: 'x' }));
+    expect(noteTexts(res.notes).join('\n')).not.toContain(name);
   });
 });

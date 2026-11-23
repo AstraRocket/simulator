@@ -49,6 +49,7 @@ public final class ParityMain {
         atmosphereProfileScenarios();
         railLengthScenarios();
         stepperScenarios();
+        lookupTableScenarios();
     }
 
     private static void rollScenarios() {
@@ -328,6 +329,43 @@ public final class ParityMain {
         Object error = api.JsonLite.parseObject(
                 api.OpenRocketEngine.simulateJson(r, "{\"rodLength\":1.0,\"stepper\":\"euler\"}")).get("error");
         line("flight.stepper.unknown", error != null ? 1 : 0);
+    }
+
+    private static void lookupTableScenarios() {
+        String json = "{\"name\":\"Lookup\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
+                + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
+                + "{\"type\":\"bodytube\",\"id\":\"body\",\"length\":0.45,\"outerRadius\":0.012,\"thickness\":0.0005,\"density\":950,\"motorMount\":true,\"children\":["
+                + "  {\"type\":\"trapezoidfinset\",\"finCount\":3,\"rootChord\":0.05,\"tipChord\":0.03,\"sweep\":0.02,\"height\":0.025,\"thickness\":0.003},"
+                + "  {\"type\":\"parachute\",\"diameter\":0.30}"
+                + "]}]}]}";
+        int r = api.OpenRocketEngine.buildRocket(json);
+        api.OpenRocketEngine.setMotorById(r, "body", "C6", 0.018, 0.070,
+                new double[] { 0, 0.1, 0.3, 0.5, 1.0, 1.5, 1.85, 2.0 },
+                new double[] { 0, 12.0, 6.0, 5.1, 4.9, 4.8, 4.5, 0 },
+                new double[] { 0.0240, 0.0231, 0.0215, 0.0202, 0.0174, 0.0147, 0.0133, 0.0132 },
+                0.035, 5.0);
+        String drag = "[\"Mach,CD\",\"0.0,0.55\",\"0.3,0.50\",\"0.8,0.58\",\"1.2,0.75\"]";
+        String stability = "[\"# CFD export\",\"mach,aoa,cn,cm,cp\","
+                + "\"0.0,0,0,0,0.42\",\"0.0,5,0.85,14.9,0.42\",\"0.0,10,1.75,30.4,0.417\","
+                + "\"0.5,0,0,0,0.425\",\"0.5,5,0.88,15.6,0.425\",\"0.5,10,1.82,32.0,0.422\","
+                + "\"1.0,0,0,0,0.44\",\"1.0,5,0.95,17.4,0.44\",\"1.0,10,1.96,35.4,0.433\"]";
+        lookupFlight("flight.lookup.drag", r, "{\"rodLength\":1.0,\"windAverage\":4.0,\"dragLookup\":" + drag + "}");
+        lookupFlight("flight.lookup.both", r, "{\"rodLength\":1.0,\"windAverage\":4.0,\"dragLookup\":" + drag
+                + ",\"stabilityLookup\":" + stability + "}");
+        lookupFlight("flight.lookup.semicolon", r, "{\"rodLength\":1.0,\"windAverage\":4.0,\"dragLookup\":"
+                + drag.replace(',', ';').replace("\";\"", "\",\"") + "}");
+        Object error = api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                r, "{\"rodLength\":1.0,\"dragLookup\":[\"mach,cn\",\"0.0,0.5\"]}")).get("error");
+        line("flight.lookup.badheader", error != null ? 1 : 0);
+    }
+
+    private static void lookupFlight(String tag, int rocket, String options) {
+        java.util.Map<String, Object> summary =
+                asMap(api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(rocket, options)).get("summary"));
+        line(tag,
+                api.JsonLite.dbl(summary, "maxAltitude", Double.NaN),
+                api.JsonLite.dbl(summary, "maxVelocity", Double.NaN),
+                api.JsonLite.dbl(summary, "timeToApogee", Double.NaN));
     }
 
     private static void atmosphereProfileScenarios() {

@@ -20,6 +20,7 @@ export interface R3fHandles {
   scene: THREE.Scene;
   camera: THREE.Camera;
   setFrameloop: (mode: 'always' | 'demand' | 'never') => void;
+  invalidate: () => void;
 }
 
 export function useRocketExport(
@@ -71,7 +72,8 @@ export function useRocketExport(
         st.gl.setPixelRatio(pr);
         st.gl.setSize(cssW, cssH, false);
         st.gl.render(st.scene, st.camera);
-        st.setFrameloop('always');
+        // The view draws on demand (Rocket3D).
+        st.setFrameloop('demand');
       }
     }
   };

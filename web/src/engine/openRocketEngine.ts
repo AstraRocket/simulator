@@ -367,6 +367,10 @@ export interface SimulationOptions {
   railExitMinSpeed?: number;
   /** Omitted follows {@link setKernelRogersKbf}. Off keeps the flight bit-identical to upstream (`FinSetCalc`). */
   rogersKbf?: boolean;
+  /** CSV rows, header first (`mach[,aoa],cd`): flies this drag table in place of Barrowman. */
+  dragLookup?: string[];
+  /** CSV rows, header first (`mach[,aoa],cn,cm,cp`, CP in m): flies this table in place of Barrowman. */
+  stabilityLookup?: string[];
   series?: 'summary' | 'full';
 }
 
@@ -471,6 +475,8 @@ export interface RocketTree {
   xmlExtra?: string[];
   docExtra?: string[];
   documentMaterials?: DocumentMaterial[];
+  /** Desktop's Photo Studio settings, as its core keeps them: element name to text (`photoSettings.ts`). */
+  photoStudio?: Record<string, string>;
   components: ComponentNode[];
 }
 
@@ -788,6 +794,8 @@ export class OpenRocketDesign {
           drogueLowSpeedWarn: options.drogueLowSpeedWarn,
           guideAwareRodClearance: options.guideAwareRodClearance,
           railExitMinSpeed: options.railExitMinSpeed,
+          dragLookup: options.dragLookup,
+          stabilityLookup: options.stabilityLookup,
           series: options.series,
         }),
       ),

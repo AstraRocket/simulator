@@ -9,6 +9,7 @@ export function ChartPanelFrame({
   w,
   height,
   summary,
+  footer,
   children,
 }: {
   title: string;
@@ -18,6 +19,8 @@ export function ChartPanelFrame({
   w: number;
   height: number;
   summary: string;
+  /** A line of text under the plot. */
+  footer?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -40,6 +43,7 @@ export function ChartPanelFrame({
       >
         {children}
       </svg>
+      {footer && <p className="px-2 pb-1.5 text-[10px] text-ink-muted">{footer}</p>}
     </div>
   );
 }

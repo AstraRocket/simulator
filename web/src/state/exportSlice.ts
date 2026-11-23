@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { mergePalette } from '../services/design/partColors';
 import type { DesignInfo } from '../services/files/orkTypes';
+import type { OrkImageRenderer, OrkImages, OrkImageSource } from '../services/files/saveOrk';
 import type { buildRocketTree } from '../engine/api';
 import type { ComponentInfo, OpenRocketDesign, RocketTree } from '../engine/openRocketEngine';
 import type { StageLaunch } from '../services/files/rasaero/stageLaunch';
@@ -23,7 +24,8 @@ import { observeWorkspace } from './workspaceHandoff';
 
 // Only types from './store': store.ts calls `createExportSlice` while still loading.
 export interface ExportSlice {
-  saveOrk: () => Promise<void>;
+  /** `renderImages` draws desktop's preview and thumbnail; without it the file is saved without them. */
+  saveOrk: (renderImages?: OrkImageRenderer) => Promise<void>;
   saveRkt: () => Promise<void>;
   exportPrint: (opts: import('../services/exports/rocketPrintExport').PrintExportOptions) => Promise<void>;
   saveRasaero: () => Promise<void>;
@@ -47,6 +49,15 @@ function figuresOf(rocket: ReturnType<typeof buildRocketTree>, tree: RocketTree)
   return (id: string) => figures.get(id);
 }
 
+// A design that cannot be drawn is still saved, without the images, as desktop does.
+const drawImages = (render: OrkImageRenderer | undefined, source: OrkImageSource): Promise<OrkImages> =>
+  render
+    ? render(source).catch((e: unknown) => {
+        console.warn('.ork save: preview images failed, saving without them', e);
+        return {};
+      })
+    : Promise.resolve({});
+
 export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice> = (set, get) => {
   const rebuildNow = (tree: RocketTree, config: FlightConfig): OpenRocketDesign | undefined => {
     const built = computeStaticInfo(tree, config);
@@ -68,7 +79,7 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
   };
 
   return {
-    saveOrk: async () => {
+    saveOrk: async (renderImages) => {
       try {
         const replaced = observeWorkspace();
         // Lazy, to stay out of the first load, and before the snapshot, so the report matches it.
@@ -89,6 +100,9 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
           if (report) designInfo = buildDesignInfo(report);
         }
         const infoLeftOut = reportMods !== null && !designInfo;
+        // After the builds above, so its CG and CP are this tree's.
+        const name = designNameOf(tree, loadedMeta);
+        const imageSource = { tree, config: selectConfig(get()), info: get().info, name };
         const simulations = simSnapshot.map((sim) => {
           const summary = sim.result?.summary ?? sim.fileSummary?.summary;
           const stale = isOutdated(sim, tree, configOf(configSnapshot, sim), prefsSnapshot);
@@ -114,22 +128,28 @@ export const createExportSlice: StateCreator<WorkspaceState, [], [], ExportSlice
             grounded: c.grounded,
           })),
         );
-        const { downloadOrk, partsDesktopDrops } = await import('../services/files/saveOrk');
+        const { downloadOrk, partsDesktopDrops, decalArchiveFiles } = await import('../services/files/saveOrk');
+        const images = await drawImages(renderImages, imageSource);
+        const decals = await decalArchiveFiles(tree);
         if (replaced()) return;
-        downloadOrk({
-          name: designNameOf(tree, loadedMeta),
-          tree,
-          componentInfo,
-          configs,
-          activeConfigId,
-          launch,
-          simulations,
-          designInfo,
-        });
+        downloadOrk(
+          {
+            name,
+            tree,
+            componentInfo,
+            configs,
+            activeConfigId,
+            launch,
+            simulations,
+            designInfo,
+          },
+          decals.files.length ? { ...images, decals: decals.files } : images,
+        );
         const dropped = partsDesktopDrops(tree).map((p) => (typeof p === 'string' ? p : keyedText(p, i18n.t)));
         const notes = [
           ...(infoLeftOut ? [i18n.t('errors.saveOrkNoDesignInfo')] : []),
           ...(dropped.length ? [i18n.t('errors.saveOrkFairing', { parts: fmtList(dropped) })] : []),
+          ...(decals.missing.length ? [i18n.t('errors.saveOrkDecalsMissing', { files: fmtList(decals.missing) })] : []),
         ];
         if (notes.length) set({ err: notes.join(' ') });
       } catch (e) {

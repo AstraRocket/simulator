@@ -16,6 +16,7 @@ import { runTableCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
 import { launcherKind } from '../../services/design/launcher';
 import { MotorGuideDialog } from './MotorGuideDialog';
+import { OptimizerDialog } from './OptimizerDialog';
 
 export function SimulationsPane() {
   const { t } = useTranslation();
@@ -44,6 +45,7 @@ export function SimulationsPane() {
   const designName = useWorkspaceStore(selectDesignName);
   const u = useUnits();
   const [guideOpen, setGuideOpen] = useState(false);
+  const [optimizeOpen, setOptimizeOpen] = useState(false);
 
   const exportRunTable = () => {
     const rows = sims.map((s) => {
@@ -103,6 +105,9 @@ export function SimulationsPane() {
         <ToolBtn onClick={() => setGuideOpen(true)} title={t('guide.openHint')}>
           {t('guide.open')}
         </ToolBtn>
+        <ToolBtn onClick={() => setOptimizeOpen(true)} title={t('optimize.openHint')}>
+          {t('optimize.open')}
+        </ToolBtn>
         {!desktop && <RunButton className="w-full" />}
       </div>
 
@@ -131,6 +136,7 @@ export function SimulationsPane() {
         {!desktop && <SimEditor />}
       </div>
       {guideOpen && <MotorGuideDialog simId={activeId} onClose={() => setGuideOpen(false)} />}
+      {optimizeOpen && <OptimizerDialog simId={activeId} onClose={() => setOptimizeOpen(false)} />}
     </div>
   );
 }
