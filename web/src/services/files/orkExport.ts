@@ -15,6 +15,8 @@ import { withDocumentMaterialsXml } from './ork/docMaterials';
 import { documentMaterialsOf } from '../materials/documentMaterials';
 import { decalPaths } from './ork/exportDecals';
 import { photoStudioXml } from './ork/photoStudio';
+import { customExpressionsXml } from './ork/dataTypes';
+import { customExpressionsOf } from '../flight/customExpressions';
 
 export function exportOrk({
   name,
@@ -68,6 +70,8 @@ export function exportOrk({
   }
   emit(2, '</subcomponents>');
   emit(1, '</rocket>');
+  // Before the simulations, as desktop reads them.
+  customExpressionsXml(w, 1, customExpressionsOf(tree));
   simulationsXml(w, 1, launch, simulations, simPrefs);
   // Desktop writes it after the simulations.
   photoStudioXml(w, 1, tree.photoStudio);

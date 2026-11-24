@@ -1,4 +1,4 @@
-# golden v1 sha256=daebb24bede13c4b28e8efa63fe7676c1856b2675618ca0f922572f98e587a65 lines=371 generated=2026-11-18T20:51:00.001Z commit=bc482ba7cc92b8726cac0240a84ed5caf28ced3e
+# golden v1 sha256=725eba44974ef4a4460f1250d642eacdb49a5e95404b931d3c07de87838b99b1 lines=406 generated=2026-11-23T14:42:16.948Z commit=1f90be3305778d020814582783af6838db13e79f
 # recorded on: win32-x64 openjdk_version_"21.0.12.1"_2026-08-18_LTS
 # The JVM reference output, recorded deliberately with `npm run parity:golden`.
 # parity.mjs re-verifies the sha256 above on every run, so a hand-edited value
@@ -374,3 +374,38 @@ flight.lookup.drag|453.66585935693496|130.50156389249162|7.453444119276253
 flight.lookup.both|453.2965885472338|130.48160830956974|7.4518323646057345
 flight.lookup.semicolon|453.66585935693496|130.50156389249162|7.453444119276253
 flight.lookup.badheader|1.0
+flight.expression.KE|293.6843889447546|19.12920760267984
+flight.expression.EN|359.7202714206995|101.72604242892433
+flight.expression.DH|106.55787912479747|7.892765395488185
+flight.expression.MA|118.72526871184736|18.95378083083689
+flight.expression.MX|109.25557601818673|104.05624077638961
+flight.expression.TZ|10.399999999999999|9.822933158319799
+flight.expression.TN|68.15|16.53206785137313
+flight.expression.BF|0.6666666666666666|0.14305584245510788
+flight.expression.SD|78.8804604075641|4.555464525911086
+flight.expression.CL|328.918133154807|171.79651303725652
+flight.expression.FN|4.920238679915209|3.1964729400979
+flight.expression.GK|2.8688004180396555E-5|2.1886164372656084E-5
+flight.expression.LE|100.97622039561625|-52.210134879102874
+expression.fault.0|0.0|0.0
+expression.fault.1|4.0|0.0
+expression.fault.2|4.0|0.0
+expression.fault.3|3.0|0.0
+expression.fault.4|2.0|0.0
+expression.fault.5|3.0|0.0
+expression.fault.6|1.0|0.0
+expression.fault.7|0.0|1.0
+expression.fault.8|0.0|5.0
+expression.fault.9|0.0|5.0
+expression.fault.10|0.0|5.0
+expression.fault.11|0.0|5.0
+expression.fault.12|0.0|5.0
+expression.fault.13|0.0|2.0
+expression.fault.14|0.0|5.0
+expression.fault.15|0.0|5.0
+expression.fault.16|0.0|0.0
+expression.fault.17|0.0|5.0
+expression.fault.18|0.0|0.0
+expression.fault.19|0.0|0.0
+expression.flown|1.0|0.0|0.0|1.0|1.0
+expression.left|0.0

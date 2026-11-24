@@ -19,9 +19,9 @@ engine-java/
   package.json            no deps, nothing to install, just named `npm run` entry points
   build-engine.mjs        one-step build + vendor into web/  (both targets; --js / --wasm for one)
   extract/                  extract.mjs + manifest.txt: regenerate src/java/ from OpenRocket
-  patches/                19 full-file OVERRIDES of OpenRocket sources (why each, in the file header)
+  patches/                22 full-file OVERRIDES of OpenRocket sources (why each, in the file header)
   src/
-    java/                 277 OpenRocket source files (the physics), already overridden
+    java/                 302 OpenRocket source files (the physics), already overridden
     shims/java/           our replacements for classes we don't extract (Guice, prefs, LongUUID, Geo2D, RASAero…)
     jdkstubs/             java.text.Collator stand-in, the one java.* class TeaVM's JDK lacks
     api/java/api/         the @JSExport facade the browser calls (OpenRocketEngine, …)
@@ -36,15 +36,16 @@ OpenRocket's full `core` is ~700 files and pulls in Guice, JAXB, GraalVM-JS, cla
 
 ### 1. `src/java/`: the OpenRocket physics, extracted to a subset
 
-**Extraction** = copying only the 277 files the physics + simulation actually need, leaving the reflection/IO-heavy machinery (file loaders, plugin system, scripting, Swing hooks) behind. These files are **real OpenRocket source**: 258 are byte-for-byte upstream; 19 carry overrides (see `patches/`). By package:
+**Extraction** = copying only the 302 files the physics + simulation actually need, leaving the reflection/IO-heavy machinery (file loaders, plugin system, scripting, Swing hooks) behind. These files are **real OpenRocket source**: 280 are byte-for-byte upstream; 22 carry overrides (see `patches/`). By package:
 
 | files | package           | what it is                                                                     |
 | ----: | ----------------- | ------------------------------------------------------------------------------ |
 |    73 | `rocketcomponent` | rocket model: nose, body, fins, stages, mounts, flight configs                 |
 |    60 | `util`            | math/geometry (Coordinate, quaternions, interpolation)                         |
 |     1 | `utils`           | `MotorCorrelation`: how alike two thrust curves are, for the motor picker      |
-|    42 | `simulation`      | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data |
+|    47 | `simulation`      | flight simulator: RK4/RK6 integrators, steppers, tumble detection, flight data, custom expressions |
 |    23 | `aerodynamics`    | Extended Barrowman + RASAero CP / drag / stability, CSV lookup tables          |
+|    20 | `exp4j`           | the expression parser OpenRocket ships in its own source (`de/congrace`)       |
 |    16 | `unit`            | unit system (internals are pure SI)                                            |
 |    12 | `models`          | atmosphere (ISA), gravity models, wind                                         |
 |    10 | `motor`           | thrust-curve motor model                                                       |
@@ -62,7 +63,7 @@ To change a patch, edit the whole file under `patches/…` (it _is_ the patch). 
 
 ### 3. `src/shims/`: whole classes we provide instead of OpenRocket's
 
-Where an extracted file is impractical, the upstream class is **not extracted at all** and a lean replacement lives here (it is the only provider of that fully-qualified name). Eleven files: the Guice replacement (`com.google.inject.Injector`, a one-method interface), a Guice-free `Application`, lean `Simulation`/`OpenRocketDocument`, in-memory `ApplicationPreferences`, `Databases`, `ShimRocketDescriptor`, `LongUUID`, `Geo2D` (a small awt-free 2D-geometry helper: `distance`/`segmentsIntersect`; the patched `FinSet`/`FreeformFinSet` use it instead of `java.awt.geom`), and the two RASAero calculators (`RASAeroDragCalculator`/`RASAeroStabilityCalculator`, subclasses of the Barrowman drag/stability calculators that add the opt-in supersonic model). Five of the eleven SHADOW an upstream class of the same name rather than replacing one we never extract; `extract/SHIMS.txt` records what upstream looked like when each was last reviewed.
+Where an extracted file is impractical, the upstream class is **not extracted at all** and a lean replacement lives here (it is the only provider of that fully-qualified name). Thirteen files: the Guice replacement (`com.google.inject.Injector`, a one-method interface), a Guice-free `Application`, lean `Simulation`/`OpenRocketDocument`, in-memory `ApplicationPreferences`, `Databases`, `ShimRocketDescriptor`, `LongUUID`, `Geo2D` (a small awt-free 2D-geometry helper: `distance`/`segmentsIntersect`; the patched `FinSet`/`FreeformFinSet` use it instead of `java.awt.geom`), the custom expression speedups `ExpressionCache` and `BranchSeries`, and the two RASAero calculators (`RASAeroDragCalculator`/`RASAeroStabilityCalculator`, subclasses of the Barrowman drag/stability calculators that add the opt-in supersonic model). Five of the thirteen SHADOW an upstream class of the same name rather than replacing one we never extract; `extract/SHIMS.txt` records what upstream looked like when each was last reviewed.
 
 ### 4. `src/jdkstubs/`: JDK classes TeaVM's class library lacks
 
@@ -155,7 +156,7 @@ which is what you want offline.
 
 `--bless`, `--bless-shims` and `--check` write nothing to `src/java`. Only a bare
 `extract --src …` regenerates the tree, and on a CRLF checkout that rewrites all
-277 files to LF, so do not run it casually.
+302 files to LF, so do not run it casually.
 
 Or call them directly, which is identical:
 

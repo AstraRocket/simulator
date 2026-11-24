@@ -29,7 +29,7 @@ La pestaña conserva sus datos y su último resultado al cambiar de pestaña, ha
 
 Deja la longitud o la anchura en blanco para usar una aleta a la medida del cuerpo: 3 diámetros del cuerpo de largo y 1,5 de ancho. La casilla muestra esa medida en gris, para que veas lo que se vuela.
 
-**Motor.** **Elegir…** abre el selector de motores, filtrado a los motores que caben: no más anchos que el soporte y no más largos que el tubo de cuerpo detrás de la ojiva. La longitud del soporte nunca es un límite, porque un motor más largo que su soporte sobresale por detrás sujeto con un retenedor y vuela sin problema. **[Guía de motores](#motor-guide)** vuela varios motores a la vez.
+**Motor.** **Elegir…** abre el selector de motores, filtrado a los motores que caben: no más anchos que el soporte. La longitud no es un límite. **[Guía de motores](#motor-guide)** vuela varios motores a la vez.
 
 **Paracaídas.** **Volar con paracaídas** está desactivado al empezar, y el vuelo termina en el apogeo. Márcalo para volar también el descenso.
 

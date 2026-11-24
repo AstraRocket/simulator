@@ -291,3 +291,31 @@ info/openrocket/core/aerodynamics/lookup/CsvMachAoALookup.java
 info/openrocket/core/aerodynamics/lookup/MachAoALookup.java
 
 info/openrocket/core/utils/MotorCorrelation.java
+# Custom expressions: desktop's user-defined flight variables (`<datatypes>`), and the
+# exp4j fork that parses them, which ships inside OpenRocket's own source. exp4j's
+# `CommandlineInterpreter` and `Example` are main programs and stay out.
+de/congrace/exp4j/AbstractExpression.java
+de/congrace/exp4j/Calculable.java
+de/congrace/exp4j/CalculationToken.java
+de/congrace/exp4j/CustomFunction.java
+de/congrace/exp4j/ExpressionBuilder.java
+de/congrace/exp4j/FunctionSeparatorToken.java
+de/congrace/exp4j/FunctionToken.java
+de/congrace/exp4j/InfixTranslator.java
+de/congrace/exp4j/InvalidCustomFunctionException.java
+de/congrace/exp4j/NumberToken.java
+de/congrace/exp4j/OperatorToken.java
+de/congrace/exp4j/ParenthesisToken.java
+de/congrace/exp4j/PostfixExpression.java
+de/congrace/exp4j/Token.java
+de/congrace/exp4j/Tokenizer.java
+de/congrace/exp4j/UnknownFunctionException.java
+de/congrace/exp4j/UnparsableExpressionException.java
+de/congrace/exp4j/Variable.java
+de/congrace/exp4j/VariableSet.java
+de/congrace/exp4j/VariableToken.java
+info/openrocket/core/simulation/customexpression/CustomExpression.java
+info/openrocket/core/simulation/customexpression/CustomExpressionSimulationListener.java
+info/openrocket/core/simulation/customexpression/Functions.java
+info/openrocket/core/simulation/customexpression/IndexExpression.java
+info/openrocket/core/simulation/customexpression/RangeExpression.java

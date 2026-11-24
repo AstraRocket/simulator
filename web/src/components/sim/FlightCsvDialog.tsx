@@ -44,7 +44,7 @@ export function FlightCsvDialog({
   const toggle = (key: string) =>
     patch({ columns: chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key] });
 
-  const name = (c: FlightColumn) => (c.labelKey ? t(c.labelKey) : c.key);
+  const name = (c: FlightColumn) => (c.labelKey ? t(c.labelKey) : (c.label ?? c.key));
   const unit = (c: FlightColumn) => (c.quantity ? u.sym(c.quantity) : (c.unit ?? ''));
 
   const onExport = () => {

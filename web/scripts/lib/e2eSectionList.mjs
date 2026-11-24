@@ -45,7 +45,7 @@ export const SECTIONS = {
     'site-map',
     'drift-sweep',
   ],
-  results: ['flight-chart-panels', 'flight-ground-map', 'ground-track-map'],
+  results: ['custom-expressions', 'flight-chart-panels', 'flight-ground-map', 'ground-track-map'],
   tools: ['tools-tab', 'landing-estimator'],
   files: ['image-export', 'print-export', 'report-dialog', 'onshape', 'rocksim', 'ork-images'],
   a11y: ['a11y', 'a11y-phone'],

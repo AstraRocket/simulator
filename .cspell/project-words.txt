@@ -45,6 +45,7 @@ APPNOTE
 ARCAS
 arcgis
 arcgisonline
+asseg
 astrarocket
 astrarocketbays
 astrarocketjs
@@ -66,6 +67,7 @@ basetemperature
 bbody
 benchtop
 bfins
+binf
 blindnesses
 blobless
 bmain
@@ -92,6 +94,7 @@ chuteless
 classgraph
 CLDR
 clen
+clinit
 Clippable
 clonekit
 clusterconfiguration
@@ -333,6 +336,7 @@ launchrodangle
 launchroddirection
 launchrodlength
 launchrodvelocity
+lclip
 LDPE
 lengthless
 lerp
@@ -556,6 +560,7 @@ singlewedge
 sinphi
 sinθ
 sinφ
+siunits
 skidmark
 Skoglund
 SKYR
@@ -607,10 +612,12 @@ Timeto
 timetoapogee
 tipchord
 titebond
+tnear
 Toggleable
 Torczon
 transcendentals
 trapezoidfinset
+trapz
 tras
 tribrid
 tris
@@ -623,6 +630,7 @@ tubefins
 tubefinset
 turb
 txw
+uclip
 UKRA
 unawaited
 unbuildable
@@ -645,6 +653,7 @@ unfloored
 unflyable
 unindexed
 unioned
+unittype
 unixtime
 unlistable
 unmanifested

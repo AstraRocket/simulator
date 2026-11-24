@@ -56,7 +56,7 @@ diffs remain in `docs/rasaero/diffs/`. `extract --check` now prints both lists
 on every run, so the distinction is visible instead of having to be
 reconstructed.
 
-## The 19 patches
+## The 22 patches
 
 | File (under `info/openrocket/core/`) | Why |
 | --- | --- |
@@ -74,6 +74,9 @@ reconstructed.
 | `aerodynamics/BarrowmanDragCalculator.java` | `Reflection.construct` → an `instanceof` chain (no reflection under TeaVM); `buildCalcMap` widened to `protected`; `effectiveBaseCD`/`turbulentCompressibility` seams for the RASAero shims. |
 | `aerodynamics/BarrowmanStabilityCalculator.java` | Same reflection replacement and `protected` widening, for the stability half. |
 | `simulation/SimulationOptions.java` | Dropped the `java.nio.file` lookup-table subsystem, absent from TeaVM's classlib. |
+| `simulation/customexpression/CustomExpression.java` | TWO reasons. (1) slf4j `Markers`: TeaVM's slf4j has no `StaticMarkerBinder`. (2) `PATCH(expression-cache)` and `PATCH(expression-check)`. See "Custom expressions". |
+| `simulation/customexpression/IndexExpression.java` | The same two, without the check. |
+| `simulation/customexpression/RangeExpression.java` | The same two. |
 | `unit/Unit.java` | Dropped `Locale.Category`, absent from TeaVM's classlib. |
 | `util/ArrayList.java` | `clone()` rewritten for WASM-GC (the `ClassCastException` documented beside the `strict` setting in `build.gradle`). |
 | `masscalc/MassCalculation.java` | `PATCH(offaxis-roll-inertia)`: a motor in a single off-axis mount gets its parallel-axis roll inertia. See "Off-axis tubes and motors carry their roll inertia". |
@@ -1577,3 +1580,64 @@ filed outdated, with the import note.
   same table with `;`, so it matches `.drag` exactly) and `.badheader`. No existing
   value moved.
 - **Parity:** JS and WASM agree with the JVM on all 371 lines.
+
+## Custom expressions - 2026-11-23
+
+Desktop's user-defined flight variables (`<datatypes>` in the `.ork`): a symbol and a
+formula, calculated after each step and recorded as one more series. They only read
+the flight. 25 upstream files join the manifest: `simulation/customexpression` (5) and
+the exp4j fork that parses them (20, `de/congrace/exp4j`, inside OpenRocket's own
+source). exp4j and `Functions` are verbatim.
+
+**The marker patch.** `Markers.<clinit>` reaches `org.slf4j.impl.StaticMarkerBinder`,
+which TeaVM's slf4j lacks. The three expression classes log without the marker.
+
+**`PATCH(expression-cache)`.** Upstream parses each formula again at every step, sets
+every variable the branch has (about 70, each a linear search of the last), and for
+`h[t-0.5]` or `mean(a[0:t])` copies the whole series so far into a new `TreeMap`. On a
+two-branch flight of 1,952 points, 13 expressions took 28.5 s on the JS engine, against
+the app's 30 s limit. Two shims take that over: `ExpressionCache` keeps the built
+expression and sets only the variables in it, and `BranchSeries` extends its arrays
+with the new points, reading the last one again because it can be set after it is read.
+The same flight takes 1.6 s (JS) and 0.5 s (WASM), and every value of every series is
+bit-identical to the unpatched classes on the JS engine. One behavior differs: an
+index into a series the branch lacks is unknown, where upstream throws a
+`NullPointerException` and loses the flight.
+
+**`PATCH(expression-check)`.** `checkComputes` evaluates the built formula once with
+nothing set, and the parts in `[]` with it, because `checkExpression` only builds the
+outer formula: `h*` and `h[nope]` pass it and then fly as NaN.
+
+**The facade.** `api.Expressions` builds the list in order, as a `.ork` load does, so a
+formula sees the expressions before it. `simulateJson` takes `expressions`;
+`checkExpressions` reports what is wrong with each. Not left to upstream:
+
+- **Names.** `FlightDataType` is equal by name, ignoring case, so a user's name would
+  merge with another expression's. The kernel name is `$` and the list position. The
+  series key is `$` and the symbol, so a symbol such as `mass` cannot replace the
+  facade's own series.
+- **Symbols.** `checkSymbol` never finds a symbol taken: it looks in `getAllSymbols`,
+  which leaves the symbol itself out. A built-in's symbol would replace that type for
+  every later flight, and `MEAN` or `SIN` breaks every other formula. Both are refused,
+  as is anything exp4j's tokenizer does not read as one name.
+- **Braces.** exp4j reads `{}` as brackets and upstream does not balance them, which
+  ends in a `ClassCastException` at the first step. Refused.
+
+**Kept as upstream has it:** exp4j's `OperatorToken` does not take a custom function off
+the stack before the operator after it, so `lclip(h,5)+1` is `lclip(h,5+1)`. Desktop's
+numbers are the reference, so ours are the same; `flight.expression.CL` and the
+reference fixture hold it.
+
+`Simulation` (shim) now carries the time step, since a range samples at
+`getOptions().getTimeStep()`. `OpenRocketDocument` (shim) holds the expressions.
+
+- **Fingerprints:** `@manifest` `57a6ac369d07`, 302 files. `@upstream` `5be4a457704e`.
+  `CustomExpression.java` `bbc369b3fd88` (59 lines), `IndexExpression.java`
+  `08cd3291a579` (25), `RangeExpression.java` `1cb2b3c40287` (47).
+- **Golden:** 35 lines added (406): 13 expression series, 20 faults, what flies beside
+  refused expressions, and that nothing is left for the next flight. No existing value
+  moved.
+- **Parity:** JS and WASM agree with the JVM on all 406 lines.
+- **Reference:** `fixtures/custom-expressions.json` compares 19 expressions, covering
+  every function but `random`, with pristine upstream on both branches of a staged
+  flight.

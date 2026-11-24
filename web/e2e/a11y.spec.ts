@@ -377,6 +377,7 @@ const HEADER_DIALOGS: Record<Exclude<HeaderDialog, 'settings' | 'library' | 'mot
   locations: fromMenu('Launch Locations'),
   parts: fromMenu('Custom Parts'),
   materials: fromMenu('Custom Materials'),
+  expressions: fromMenu('Custom Expressions'),
   backup: fromMenu('Export backup (.json)', 'Export'),
   restore: fromMenu('Restore backup (.json)', 'Import'),
   saveAs: fromMenu('Save As…'),
@@ -541,6 +542,21 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
     },
   ],
   BackupDialog: [header('backup'), header('restore')],
+  CustomExpressionsDialog: [
+    header('expressions'),
+    {
+      name: 'Custom Expressions / new expression with faults',
+      open: async (page) => {
+        await ready(page);
+        await HEADER_DIALOGS.expressions(page);
+        const dialog = page.getByRole('dialog', { name: 'Custom Expressions' });
+        await dialog.getByRole('button', { name: 'New expression' }).click();
+        await dialog.getByLabel('Symbol').fill('sin');
+        await dialog.getByLabel('Formula').fill('lclip(nope,5)+1');
+        await expect(dialog.getByText('That is the name of a function.')).toBeVisible();
+      },
+    },
+  ],
   MyMaterialsDialog: [
     header('materials'),
     {

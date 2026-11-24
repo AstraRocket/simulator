@@ -111,6 +111,14 @@ const shippedLines = async (fixturePath) => {
     }
     const separation = (b.events ?? []).find((e) => e.type === 'STAGE_SEPARATION');
     lines.push(`staged.b${i}|${maxAltitude}|${separation ? separation.time : NaN}`);
+
+    for (const { symbol } of fixture.options.expressions ?? []) {
+      const finite = (b.series?.[`$${symbol}`] ?? []).filter(Number.isFinite);
+      const sum = finite.reduce((a, v) => a + v, 0);
+      const min = finite.reduce((a, v) => Math.min(a, v), Infinity);
+      const max = finite.reduce((a, v) => Math.max(a, v), -Infinity);
+      lines.push(`staged.b${i}.expression.${symbol}|${finite.length}|${min}|${max}|${sum / finite.length}`);
+    }
   });
   return lines;
 };
@@ -170,6 +178,16 @@ const compareFixture = async (fixturePath) => {
     const shipLine = shipByKey.get(key);
     if (shipLine === undefined) {
       failures.push(`${key}: upstream produced this line and the shipped engine did not`);
+      continue;
+    }
+    if (/^staged\.b\d+\.expression\./.test(key)) {
+      const want = refLine.split('|').slice(1).map(Number);
+      const got = shipLine.split('|').slice(1).map(Number);
+      // Against the series' own size: a difference or a minimum can sit near zero.
+      const scale = Math.max(...want.slice(1).map(Math.abs), Number.MIN_VALUE);
+      const agrees =
+        want[0] === got[0] && want.slice(1).every((v, i) => Math.abs(v - got[i + 1]) / scale <= ALTITUDE_REL_TOL);
+      if (!agrees) failures.push(`${key}: ${refLine} vs ${shipLine}`);
       continue;
     }
     if (!/^staged\.b\d+$/.test(key)) {

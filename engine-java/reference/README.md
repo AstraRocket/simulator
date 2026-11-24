@@ -102,13 +102,14 @@ through.
 ## Current state
 
 Every fixture in `fixtures/` runs by default, so dropping a new one in gates it.
-All three pass, with event sequences identical on every branch:
+All four pass, with event sequences identical on every branch:
 
 | fixture | pattern |
 |---|---|
 | `staged-flight.json` | high-power serial: separation at booster burnout, sustainer lit by electronics 1 s later, booster under its own chute |
 | `staged-flight-auto.json` | low/mid-power gap staging: the booster's ejection charge both separates it and lights the sustainer (default `AUTOMATIC` ignition, no timer), chuteless booster tumbles down |
 | `strap-on-booster.json` | two strap-on `ParallelStage` boosters on the core's body tube, separating at their own burnout; radial placement rather than stacking |
+| `custom-expressions.json` | the staged rocket with every form of custom expression, up to 2.9 s: each expression's least, greatest and mean value, within the apogee tolerance of its size |
 
 The first two mirror `ParityMain.runStagingScenario`'s `"timed"` and `"auto"`
 cases and the third mirrors `podScenarios` case C. All three were already locked

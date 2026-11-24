@@ -13,6 +13,7 @@ export type HeaderDialog =
   | 'locations'
   | 'parts'
   | 'materials'
+  | 'expressions'
   | 'backup'
   | 'restore'
   | 'saveAs';

@@ -8,6 +8,7 @@ import type { OrkImportResult } from './orkTypes';
 import { parseOrkXml, unpackOrk } from './ork/importUnpack';
 import { linkDecals } from './ork/importDecals';
 import { readPhotoStudio } from './ork/photoStudio';
+import { readCustomExpressions } from './ork/dataTypes';
 import { readFlightConfigs, readStageActiveness, type OrkImportContext } from './ork/importConfigs';
 import { readStages } from './ork/importReaders';
 import { KNOWN_DOCUMENT_TAGS, KNOWN_ROCKET_TAGS, readPassthrough } from './ork/passthrough';
@@ -41,6 +42,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
   const docMaterials = docEl ? takeDocumentMaterials(docEl) : { materials: [], skipped: 0 };
   const docExtra = docEl ? readPassthrough(docEl, KNOWN_DOCUMENT_TAGS) : undefined;
   const photoStudio = docEl ? readPhotoStudio(docEl) : undefined;
+  const customExpressions = docEl ? readCustomExpressions(docEl) : [];
   const stages = Array.from(rocketEl.querySelectorAll(':scope > subcomponents > stage'));
   if (stages.length === 0) throw new KeyedError('errors.file.noStage');
 
@@ -110,6 +112,7 @@ export function importOrk(data: ArrayBuffer | string): OrkImportResult {
       ...(docExtra ? { docExtra } : {}),
       ...(docMaterials.materials.length ? { documentMaterials: docMaterials.materials } : {}),
       ...(photoStudio ? { photoStudio } : {}),
+      ...(customExpressions.length ? { customExpressions } : {}),
     },
     motor: ctx.motor,
     motors: ctx.motors,
@@ -194,12 +197,8 @@ function archiveNotes(doc: Document, dropped: string[]): ImportNote[] {
   if (dropped.length) {
     out.push(keyedNote('importNote.notRead', { items: noteList(dropped.slice(0, 6), { more: dropped.length > 6 }) }));
   }
-  const docLevel = ['docprefs', 'datatypes'].filter((t) => {
-    const el = doc.querySelector(`openrocket > ${t}`);
-    return el && (t !== 'docprefs' || el.children.length > 0);
-  });
-  if (docLevel.length) {
-    out.push(keyedNote('importNote.noEditor', { items: noteList(docLevel) }));
+  if (doc.querySelector('openrocket > docprefs > *')) {
+    out.push(keyedNote('importNote.noEditor', { items: noteList(['docprefs']) }));
   }
   return out;
 }

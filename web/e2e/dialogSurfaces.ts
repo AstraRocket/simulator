@@ -4,6 +4,7 @@ export const DIALOG_SURFACES = {
   ComponentDialog: 1,
   ComponentPicker: 1,
   ConfirmDialog: 1,
+  CustomExpressionsDialog: 1,
   DesignLibraryDialog: 1,
   DesignPropertiesDialog: 1,
   ExamplesDialog: 1,
