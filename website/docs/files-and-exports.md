@@ -218,7 +218,7 @@ The design report also writes two CSV files, the summary and the parts list; see
 
 The **CSV** button on the Flight view opens an export dialog rather than downloading right away:
 
-- **Variables to export**: everything the run recorded, each with the unit it will be written in. A simulation records every series the engine computes, so this is the full set rather than a chosen handful; series the app has no name for are listed under their kernel symbol. **Select all** and **Select none** select or clear every series, and a count shows how many are selected.
+- **Variables to export**: everything the run recorded, each with the unit it will be written in. A simulation records every series the engine computes, so this is the full set rather than a chosen handful; [custom expressions](./custom-expressions.md) are listed by name, and series the app has no name for under their kernel symbol. **Select all** and **Select none** select or clear every series, and a count shows how many are selected.
 - **Format settings**: the field separator (comma, semicolon, TAB or SPACE), how many decimal places, and whether to use exponential notation for series that span many magnitudes.
 - **Comments**: whether to head the file with the simulation's name, a line per column describing it, and a line per flight event; plus the character that marks a comment.
 - **Stage to export**: on a staged flight, which branch to write.

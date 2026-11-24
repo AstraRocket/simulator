@@ -1404,6 +1404,11 @@ public final class OpenRocketEngine {
         boolean fullSeries = "full".equals(seriesMode);
 
         SimulationConditions conditions = buildConditions(ctx, o);
+        // Not in buildConditions: the rail probe records nothing.
+        List<Map<String, Object>> expressions = JsonLite.objList(o, "expressions");
+        if (!expressions.isEmpty()) {
+            conditions.getSimulationListenerList().add(new Expressions(expressions).listener());
+        }
 
         // m/s.
         double railExitMinSpeed = JsonLite.dbl(o, "railExitMinSpeed", Double.NaN);
@@ -1422,6 +1427,16 @@ public final class OpenRocketEngine {
         }
     }
 
+    /** Why each custom expression cannot be calculated, as `{"faults":[{"symbol":code|null,"expression":code|null}]}`. */
+    @JSExport
+    public static String checkExpressions(String expressionsJson) {
+        try {
+            return new Expressions(JsonLite.objList(JsonLite.parseObject(expressionsJson), "expressions")).faultsJson();
+        } catch (RuntimeException e) {
+            return errorJson(e);
+        }
+    }
+
     /** The rail-length probe must fly the same conditions. */
     private static SimulationConditions buildConditions(RocketCtx ctx, Map<String, Object> o) {
         double launchAltitude = JsonLite.dbl(o, "launchAltitude", 0);
@@ -1434,6 +1449,8 @@ public final class OpenRocketEngine {
         Simulation simulation = new Simulation(ctx.rocket, ctx.fcid);
         // The engine reads the stepper from the simulation's options, not the conditions.
         simulation.getOptions().setSimulationStepperMethodChoice(stepperOf(JsonLite.str(o, "stepper", "rk4")));
+        // A custom expression's range samples at this step.
+        simulation.getOptions().setTimeStep(timeStep > 0 ? timeStep : 0.05);
         conditions.setSimulation(simulation);
         conditions.setLaunchRodLength(JsonLite.dbl(o, "rodLength", 1.0));
         conditions.setLaunchRodAngle(JsonLite.dbl(o, "rodAngle", 0));
@@ -1791,6 +1808,12 @@ public final class OpenRocketEngine {
         appendSeries(sb, "aoa", branch.get(FlightDataType.TYPE_AOA));
         // TYPE_COMPUTATION_TIME is wall-clock noise that would break parity.
         for (FlightDataType type : branch.getTypes()) {
+            String expressionKey = Expressions.seriesKey(type);
+            if (expressionKey != null) {
+                sb.append(',');
+                appendSeries(sb, expressionKey, branch.get(type));
+                continue;
+            }
             if (fullSeries
                     ? (type.equals(FlightDataType.TYPE_COMPUTATION_TIME)
                             || FRIENDLY_NAMED_TYPES.contains(type))

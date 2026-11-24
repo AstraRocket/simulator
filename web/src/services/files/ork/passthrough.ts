@@ -131,7 +131,13 @@ export const KNOWN_ROCKET_TAGS: ReadonlySet<string> = new Set([
   'position',
 ]);
 
-export const KNOWN_DOCUMENT_TAGS: ReadonlySet<string> = new Set(['rocket', 'simulations', 'designinfo', 'photostudio']);
+export const KNOWN_DOCUMENT_TAGS: ReadonlySet<string> = new Set([
+  'rocket',
+  'datatypes',
+  'simulations',
+  'designinfo',
+  'photostudio',
+]);
 
 export const KNOWN_SIMULATION_TAGS: ReadonlySet<string> = new Set([
   'name',

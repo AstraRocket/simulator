@@ -16,7 +16,6 @@ export interface WideMotor {
 /**
  * Motors loaded in any configuration that are wider than their mount's bore, by the motor picker's own fit rule.
  * The engine flies them anyway, so this is a build check, not a flight one. Each mount and motor is listed once.
- * Length is left out: a motor may stick out past the mount's overhang setting and still be built.
  */
 export function tooWideMotors(tree: RocketTree, configs: readonly FlightConfig[]): WideMotor[] {
   const out: WideMotor[] = [];
@@ -28,7 +27,7 @@ export function tooWideMotors(tree: RocketTree, configs: readonly FlightConfig[]
       const spec = config.motors[node.id as string]?.spec;
       if (!spec?.designation || !(spec.diameter > 0) || seen.has(spec.designation)) continue;
       const diameter = toCatalogMm(spec.diameter);
-      if (motorFitsMount({ diameter }, { bore: fit.bore })) continue;
+      if (motorFitsMount({ diameter }, fit)) continue;
       seen.add(spec.designation);
       out.push({ node, designation: spec.designation, diameter, bore: fit.bore });
     }

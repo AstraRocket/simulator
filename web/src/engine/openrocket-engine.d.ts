@@ -87,6 +87,7 @@ declare module '*openrocket-engine.mjs' {
     timeStep: number,
   ): string;
   export function simulateJson(rocket: number, optionsJson: string): string;
+  export function checkExpressions(expressionsJson: string): string;
   export function getAeroSweep(rocket: number, optionsJson: string): string;
   export function getWorstThetaDeg(rocket: number, mach: number, aoaDeg: number): number;
   export function getStandardPressure(altitude: number): number;

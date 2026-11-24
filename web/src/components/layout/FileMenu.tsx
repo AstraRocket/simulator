@@ -32,6 +32,7 @@ export interface FileMenuActions {
   onLaunchLocations: () => void;
   onSavedParts: () => void;
   onMyMaterials: () => void;
+  onExpressions: () => void;
   onBackup: () => void;
   onRestore: () => void;
   onSettings: () => void;
@@ -195,6 +196,7 @@ function FileMenu({
       <MenuItem onClick={run(actions.onLaunchLocations)}>{t('location.menu')}</MenuItem>
       {canBuild && <MenuItem onClick={run(actions.onSavedParts)}>{t('picker.savedManage')}</MenuItem>}
       {canBuild && <MenuItem onClick={run(actions.onMyMaterials)}>{t('myMaterials.title')}</MenuItem>}
+      <MenuItem onClick={run(actions.onExpressions)}>{t('expressions.title')}</MenuItem>
       {separator}
       <MenuItem onClick={run(actions.onSettings)}>{t('settings.title')}</MenuItem>
       <MenuItem onClick={run(actions.onHelp)}>{t('menu.help')}</MenuItem>

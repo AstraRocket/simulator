@@ -24,7 +24,7 @@ public class Simulation {
         return fcid;
     }
 
-    /** SHIM: not the options that built the conditions; only the stepper is set (by buildConditions), anything else read here is silently default. */
+    /** SHIM: not the options that built the conditions; only the stepper and time step are set (by buildConditions), anything else read here is silently default. */
     public SimulationOptions getOptions() {
         if (options == null) {
             options = new SimulationOptions();

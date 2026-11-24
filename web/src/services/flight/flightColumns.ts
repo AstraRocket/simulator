@@ -1,10 +1,13 @@
 import type { FlightBranch, FlightResult, FlightSeries } from '../../engine/openRocketEngine';
 import type { Quantity } from '../../prefs/units';
 import i18n from '../../i18n';
+import { expressionKey, expressionUnit, isExpressionKey } from './customExpressions';
 
 export interface FlightColumn {
   key: string;
   labelKey: string | null;
+  /** The name itself, when there is no `labelKey`. */
+  label?: string;
   quantity?: Quantity;
   unit?: string;
   unitKey?: string;
@@ -12,7 +15,7 @@ export interface FlightColumn {
   scale?: number;
 }
 
-const KNOWN: FlightColumn[] = [
+export const KNOWN_COLUMNS: FlightColumn[] = [
   { key: 'time', labelKey: 'flight.time', unit: 's' },
   { key: 'altitude', labelKey: 'flight.altitude', quantity: 'distance' },
   { key: 'velocity', labelKey: 'flight.velocity', quantity: 'velocity' },
@@ -30,7 +33,7 @@ const KNOWN: FlightColumn[] = [
 const TRACK_KEYS = ['Px', 'Py', 'Pl', 'θl'];
 
 // From `FlightDataType.java`. Excludes the app's dozen (the bridge renames them: thrust, not Ft) and tc, never sent.
-const KERNEL: FlightColumn[] = [
+export const KERNEL_COLUMNS: FlightColumn[] = [
   { key: 'ha', labelKey: 'flightVar.ha', quantity: 'distance' },
   { key: 'Vz', labelKey: 'flightVar.Vz', quantity: 'velocity' },
   { key: 'Az', labelKey: 'flightVar.Az', quantity: 'acceleration' },
@@ -92,7 +95,7 @@ const KERNEL: FlightColumn[] = [
   { key: 'dt', labelKey: 'flightVar.dt', unit: 's' },
 ];
 
-const ALL: FlightColumn[] = [...KNOWN, ...KERNEL];
+const ALL: FlightColumn[] = [...KNOWN_COLUMNS, ...KERNEL_COLUMNS];
 
 const KNOWN_KEYS = new Set(ALL.map((c) => c.key));
 
@@ -100,6 +103,14 @@ const BY_KEY = new Map(ALL.map((c, order) => [c.key, { ...c, order }]));
 
 export function seriesColumn(key: string): (FlightColumn & { order: number }) | undefined {
   return BY_KEY.get(key);
+}
+
+/** A series the app has no column for: a custom expression by its name and unit, any other by its key. */
+export function otherColumn(key: string, expressions: FlightResult['expressions']): FlightColumn & { order: number } {
+  const at = isExpressionKey(key) ? (expressions ?? []).findIndex((e) => expressionKey(e.symbol) === key) : -1;
+  const e = expressions?.[at];
+  if (e) return { key, labelKey: null, label: e.name, order: ALL.length + at, ...expressionUnit(e.unit) };
+  return { key, labelKey: null, label: isExpressionKey(key) ? key.slice(1) : key, unit: '', order: Infinity };
 }
 
 // `branches[0]` duplicates the top-level data, so use one or the other, never both.
@@ -118,14 +129,14 @@ export function flightColumns(result: FlightResult, branchIndex = 0): FlightColu
   if (!series) return [];
   const has = (k: string) => Array.isArray((series as Record<string, unknown>)[k]);
   const out = ALL.filter((c) => has(c.key)).map((c) => (c.unitKey ? { ...c, unit: i18n.t(c.unitKey) } : c));
-  for (const k of Object.keys(series)) {
-    if (KNOWN_KEYS.has(k) || !has(k)) continue;
-    out.push({ key: k, labelKey: null, unit: '' });
-  }
-  return out;
+  const others = Object.keys(series).filter((k) => !KNOWN_KEYS.has(k) && has(k));
+  const columns = others
+    .map((k) => otherColumn(k, result.expressions))
+    .sort((a, b) => (a.order === b.order ? 0 : a.order - b.order));
+  return [...out, ...columns];
 }
 
-export const DEFAULT_CSV_COLUMNS: readonly string[] = [...KNOWN.map((c) => c.key), ...TRACK_KEYS];
+export const DEFAULT_CSV_COLUMNS: readonly string[] = [...KNOWN_COLUMNS.map((c) => c.key), ...TRACK_KEYS];
 
 export interface CsvFormat {
   columns: string[];

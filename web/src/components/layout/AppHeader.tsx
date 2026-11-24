@@ -98,6 +98,7 @@ export function AppHeader() {
             onLaunchLocations: () => open('locations'),
             onSavedParts: () => open('parts'),
             onMyMaterials: () => open('materials'),
+            onExpressions: () => open('expressions'),
             onBackup: () => open('backup'),
             onRestore: () => open('restore'),
             onSettings: () => open('settings'),

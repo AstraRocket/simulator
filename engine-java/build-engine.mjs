@@ -65,7 +65,7 @@ for (const target of targets) {
 // TeaVM can prune a facade method.
 const EXPECTED_EXPORTS = [
   'buildRocket', 'reset', 'getStaticInfo', 'getComponentInfo', 'getComponentMasses',
-  'getAeroSweep', 'simulateJson', 'setMotorById', 'setMotorIgnitionById',
+  'getAeroSweep', 'simulateJson', 'checkExpressions', 'setMotorById', 'setMotorIgnitionById',
   // Facade names only: the drag calculator's own setters appear in any build.
   'setSupersonicAero', 'setRogersModifiedBarrowman', 'setStubbyNoseDrag',
   'runParity', 'free',

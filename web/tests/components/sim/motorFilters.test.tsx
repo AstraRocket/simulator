@@ -20,10 +20,9 @@ vi.mock('../../../src/services/motors/motorSpec', () => ({ catalogMotorSpec: vi.
 
 const { MotorDialog } = await import('../../../src/components/sim/MotorDialog');
 
-// 70 mm plus the 6.35 mm overhang the app seeds (the kernel default is 0).
-const MOUNT = { bore: 18, maxLength: 76.35 };
+const MOUNT = { bore: 18 };
 
-const open = async (mount: { bore: number; maxLength?: number } | null) => {
+const open = async (mount: { bore: number } | null) => {
   const r = renderWithProviders(
     <MotorDialog onClose={() => {}} onSelect={() => {}} onError={() => {}} mount={mount} />,
   );
@@ -43,7 +42,7 @@ const pluggedBox = () => screen.getByRole('checkbox', { name: 'Plugged' });
 describe('the motor picker filters by what fits the mount', () => {
   it('starts on, and keeps only the motors that go in', async () => {
     await open(MOUNT);
-    expect(listed()).toEqual(['C6']);
+    expect(listed()).toEqual(['C6', 'D21']);
     expect((fitsBox() as HTMLInputElement).checked).toBe(true);
   });
 
@@ -149,7 +148,7 @@ describe('the motor picker filters by whether a motor comes plugged', () => {
   it('narrows alongside the other filters rather than replacing them', async () => {
     await open(MOUNT);
     fireEvent.click(pluggedBox());
-    expect(listed()).toEqual([]);
+    expect(listed()).toEqual(['D21']);
     fireEvent.click(fitsBox());
     expect(listed()).toEqual(['D21', 'D12']);
   });
