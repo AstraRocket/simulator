@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { withFixedUnit } from '../../i18n/format';
 import { minWindow } from './flightChartAxis';
 import { SERIES, pairKey, traceLabel } from './flightChartTraces';
+import { CustomExpressionsDialog } from '../sim/CustomExpressionsDialog';
 import { ToggleButton } from '../common/ToggleButton';
 import { smallButton } from '../common/smallButton';
 import type { ChartSeries } from './useChartSeries';
 
 const PAIR = '__pair';
+const EXPRESSIONS = '__expressions';
 
 export function FlightChartHeader({
   hoverT,
@@ -125,6 +127,7 @@ export function SeriesPicker({ series }: { series: ChartSeries }) {
   const openExtras = extras.filter((m) => on.includes(m.key));
   const addable = extras.filter((m) => !on.includes(m.key));
   const [pairing, setPairing] = useState<{ y: string; x: string } | null>(null);
+  const [editing, setEditing] = useState(false);
   const pairReady = !!pairing?.y && !!pairing.x && pairing.y !== pairing.x;
   const pill =
     'rounded-full bg-raised px-2.5 py-1 text-[11px] font-medium text-ink-muted ring-1 ring-line/10 focus:outline-none focus:ring-accent-500';
@@ -148,6 +151,7 @@ export function SeriesPicker({ series }: { series: ChartSeries }) {
           value=""
           onChange={(e) => {
             if (e.target.value === PAIR) setPairing({ y: '', x: '' });
+            else if (e.target.value === EXPRESSIONS) setEditing(true);
             else if (e.target.value) toggle(e.target.value);
           }}
           aria-label={t('flight.addSeries')}
@@ -155,6 +159,7 @@ export function SeriesPicker({ series }: { series: ChartSeries }) {
         >
           <option value="">{t('flight.addSeries')}</option>
           <option value={PAIR}>{t('flight.addPair')}</option>
+          <option value={EXPRESSIONS}>{`${t('expressions.title')}…`}</option>
           {addable.map((m) => (
             <option key={m.key} value={m.key}>
               {traceLabel(m, t)}
@@ -162,6 +167,7 @@ export function SeriesPicker({ series }: { series: ChartSeries }) {
           ))}
         </select>
       </div>
+      {editing && <CustomExpressionsDialog onClose={() => setEditing(false)} />}
       {pairing && (
         <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
           {(['y', 'x'] as const).map((axis) => (

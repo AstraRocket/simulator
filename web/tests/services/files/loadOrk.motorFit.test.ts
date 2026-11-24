@@ -118,11 +118,10 @@ describe('a motor the file names for a mount it does not go in', () => {
     expect(notes).not.toMatch(/does not fit/i);
   });
 
-  it('judges the length too, against the tube plus its overhang', async () => {
+  it('says nothing about a motor longer than its mount', async () => {
     catalogMotorSpec.mockResolvedValue(spec(0.038, 1.0));
     const notes = noteTexts((await loadOrk(new ArrayBuffer(0))).notes).join(' ');
-    expect(notes).toMatch(/1000 mm long/);
-    expect(notes).toMatch(/300 mm/);
+    expect(notes).not.toMatch(/does not fit/i);
   });
 
   it('complains once per mount and motor, not once per configuration', async () => {

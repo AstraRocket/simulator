@@ -12,6 +12,7 @@ import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import { BAYS_KEY } from './recoveryBays';
 import { aeroTablesOf, hasAeroTables, type AeroTables } from './aeroTables';
+import { customExpressionsOf } from './customExpressions';
 
 // Radians, as `SimulationOptions.setMaximumStepAngle` clamps; the bridge's `SimulationConditions` has no clamp.
 export const MAX_ANGLE_STEP_RANGE = { min: degToRad(1), max: degToRad(20) } as const;
@@ -100,7 +101,17 @@ function computeResultKey(tree: RocketTree, config: FlightConfig, sim: Simulatio
   // Only a tabled simulation adds them, so every other key stays as it was.
   const tables = aeroTablesOf(sim.xmlExtra);
   const flownTables = hasAeroTables(tables) ? [tables] : [];
-  return stableJson([flightKey(tree), flown, launch, keyed.map((k) => prefs[k] ?? null), ...flownTables]);
+  // Likewise. Named in it: a result carries its expressions' names and units.
+  const expressions = customExpressionsOf(tree);
+  const flownExpressions = expressions.length ? [{ expressions }] : [];
+  return stableJson([
+    flightKey(tree),
+    flown,
+    launch,
+    keyed.map((k) => prefs[k] ?? null),
+    ...flownTables,
+    ...flownExpressions,
+  ]);
 }
 
 export function isOutdated(sim: Simulation, tree: RocketTree, config: FlightConfig, globals: SimPrefs): boolean {

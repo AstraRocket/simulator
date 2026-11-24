@@ -16,7 +16,8 @@ export function useChartSeries(flight: ChartFlight) {
 
   const branches = useStageTraces(flight);
   // Memoized so each added panel's meta is a stable memo key.
-  const extras = useMemo(() => extraSeries(branches), [branches]);
+  const { expressions } = flight.result;
+  const extras = useMemo(() => extraSeries(branches, expressions), [branches, expressions]);
   const plain = useMemo(() => [...SERIES.filter((m) => !m.xy), ...extras], [extras]);
   const pairs = useMemo(() => pairSeries(settings.flightSeries, plain), [settings.flightSeries, plain]);
   const available = useMemo(() => [...SERIES, ...extras, ...pairs], [extras, pairs]);

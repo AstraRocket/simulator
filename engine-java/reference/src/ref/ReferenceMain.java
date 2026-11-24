@@ -7,10 +7,13 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import info.openrocket.core.aerodynamics.BarrowmanCalculator;
+import info.openrocket.core.document.OpenRocketDocument;
+import info.openrocket.core.document.OpenRocketDocumentFactory;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.masscalc.MassCalculator;
 import info.openrocket.core.models.atmosphere.ExtendedISAModel;
@@ -23,11 +26,15 @@ import info.openrocket.core.simulation.FlightDataBranch;
 import info.openrocket.core.simulation.FlightDataType;
 import info.openrocket.core.simulation.FlightEvent;
 import info.openrocket.core.simulation.SimulationConditions;
+import info.openrocket.core.simulation.customexpression.CustomExpression;
+import info.openrocket.core.simulation.customexpression.CustomExpressionSimulationListener;
 import info.openrocket.core.util.GeodeticComputationStrategy;
 import info.openrocket.core.util.WorldCoordinate;
 
 /** Only stdout carries results; the Gradle task points Logback at stderr. */
 public final class ReferenceMain {
+
+    private static final String NAME = "expression ";
 
     public static void main(String[] args) throws Exception {
         Locale.setDefault(Locale.US);
@@ -95,6 +102,20 @@ public final class ReferenceMain {
         conditions.setMaxSimulationTime(Fixture.dbl(o, "maxTime", 1200));
         conditions.setRandomSeed(randomSeed);
 
+        if (o.has("expressions")) {
+            OpenRocketDocument document = OpenRocketDocumentFactory.createDocumentFromRocket(built.rocket);
+            for (JsonElement e : o.getAsJsonArray("expressions")) {
+                JsonObject spec = e.getAsJsonObject();
+                String symbol = spec.get("symbol").getAsString();
+                document.addCustomExpression(new CustomExpression(document, NAME + symbol, symbol, "",
+                        spec.get("expression").getAsString()));
+            }
+            // A range samples at the simulation's own step.
+            simulation.getOptions().setTimeStep(Fixture.dbl(o, "timeStep", 0.05));
+            conditions.getSimulationListenerList()
+                    .add(new CustomExpressionSimulationListener(document.getCustomExpressions()));
+        }
+
         BasicEventSimulationEngine engine = new BasicEventSimulationEngine();
         engine.simulate(conditions);
         return engine.getFlightData();
@@ -136,7 +157,31 @@ public final class ReferenceMain {
             }
             // Apogee and separation only: a long chute descent accumulates ULP noise, as in parity.
             out.println("staged.b" + i + "|" + maxAltitude + "|" + separation);
+
+            for (FlightDataType type : branch.getTypes()) {
+                if (type.getName().startsWith(NAME)) {
+                    emitExpression(out, i, type.getSymbol(), branch.get(type));
+                }
+            }
         }
+    }
+
+    private static void emitExpression(PrintStream out, int branch, String symbol, List<Double> values) {
+        double min = Double.POSITIVE_INFINITY;
+        double max = Double.NEGATIVE_INFINITY;
+        double sum = 0;
+        int finite = 0;
+        for (double v : values) {
+            if (Double.isNaN(v) || Double.isInfinite(v)) {
+                continue;
+            }
+            min = Math.min(min, v);
+            max = Math.max(max, v);
+            sum += v;
+            finite++;
+        }
+        out.println("staged.b" + branch + ".expression." + symbol + "|" + finite + "|" + min + "|" + max + "|"
+                + sum / finite);
     }
 
     private static GeodeticComputationStrategy geodetic(String name) {

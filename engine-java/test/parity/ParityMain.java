@@ -50,6 +50,7 @@ public final class ParityMain {
         railLengthScenarios();
         stepperScenarios();
         lookupTableScenarios();
+        expressionScenarios();
     }
 
     private static void rollScenarios() {
@@ -357,6 +358,89 @@ public final class ParityMain {
         Object error = api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
                 r, "{\"rodLength\":1.0,\"dragLookup\":[\"mach,cn\",\"0.0,0.5\"]}")).get("error");
         line("flight.lookup.badheader", error != null ? 1 : 0);
+    }
+
+    private static void expressionScenarios() {
+        String json = "{\"name\":\"Expressions\",\"components\":[{\"type\":\"stage\",\"name\":\"S\",\"children\":["
+                + "{\"type\":\"nosecone\",\"length\":0.10,\"aftRadius\":0.012,\"thickness\":0.002},"
+                + "{\"type\":\"bodytube\",\"id\":\"body\",\"length\":0.45,\"outerRadius\":0.012,\"thickness\":0.0005,\"density\":950,\"motorMount\":true,\"children\":["
+                + "  {\"type\":\"trapezoidfinset\",\"finCount\":3,\"rootChord\":0.05,\"tipChord\":0.03,\"sweep\":0.02,\"height\":0.025,\"thickness\":0.003},"
+                + "  {\"type\":\"parachute\",\"diameter\":0.30}"
+                + "]}]}]}";
+        int r = api.OpenRocketEngine.buildRocket(json);
+        api.OpenRocketEngine.setMotorById(r, "body", "C6", 0.018, 0.070,
+                new double[] { 0, 0.1, 0.3, 0.5, 1.0, 1.5, 1.85, 2.0 },
+                new double[] { 0, 12.0, 6.0, 5.1, 4.9, 4.8, 4.5, 0 },
+                new double[] { 0.0240, 0.0231, 0.0215, 0.0202, 0.0174, 0.0147, 0.0133, 0.0132 },
+                0.035, 5.0);
+        // exp4j applies lclip and its like after the operator that follows them: CL is lclip(h, 5 + 1), as on desktop.
+        String[][] good = {
+                { "KE", "0.5*m*Vt^2" }, { "EN", "KE+m*g*h" }, { "DH", "(h-h[t-0.5])/0.5" },
+                { "MA", "mean(At[0:t])" }, { "MX", "max(Vt[:])" }, { "TZ", "trapz(Ft[0:t])" },
+                { "TN", "tnear(h[:],100)" }, { "BF", "binf(Vt[:],10,50)" }, { "SD", "stdev(At[t-1:t])" },
+                { "CL", "lclip(h,5)+1" }, { "FN", "cbrt(h)-log10(P)%3+expm1(M)" }, { "GK", "cos(\u0398)^2" },
+                { "LE", "KE[t-0.2]-rms(KE[0:t])" } };
+        java.util.Map<String, Object> result = api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                r, "{\"rodLength\":1.0,\"expressions\":" + expressionList(good) + "}"));
+        java.util.Map<String, Object> series = asMap(result.get("series"));
+        for (String[] e : good) {
+            java.util.List<?> values = (java.util.List<?>) series.get("$" + e[0]);
+            if (values == null) {
+                line("flight.expression." + e[0] + ".missing", 1);
+                continue;
+            }
+            double max = Double.NEGATIVE_INFINITY;
+            double sum = 0;
+            int finite = 0;
+            for (Object v : values) {
+                if (v == null) continue;
+                double d = ((Number) v).doubleValue();
+                max = Math.max(max, d);
+                sum += d;
+                finite++;
+            }
+            line("flight.expression." + e[0], max, sum / finite);
+        }
+        String[][] bad = {
+                { "KE", "0.5*m*Vt^2" }, { "KE", "m" }, { "m", "2" }, { "sin", "2" }, { "a b", "2" }, { "MEAN", "2" },
+                { "", "2" }, { "A", "" }, { "B", "nope*2" }, { "C", "(h" }, { "D", "h*" }, { "E", "h[nope]" },
+                { "F", "max(h[0:nope])" }, { "G", "{h" }, { "H", "lclip(h)" }, { "I", "LATER+1" }, { "LATER", "h" },
+                { "J", "1.2.3" }, { "K", "KE*2" }, { "L", "J+1" } };
+        java.util.List<?> faults = (java.util.List<?>) api.JsonLite.parseObject(
+                api.OpenRocketEngine.checkExpressions("{\"expressions\":" + expressionList(bad) + "}")).get("faults");
+        for (int i = 0; i < bad.length; i++) {
+            java.util.Map<String, Object> fault = asMap(faults.get(i));
+            line("expression.fault." + i, faultCode(fault.get("symbol")), faultCode(fault.get("expression")));
+        }
+        // A flight with refused expressions flies, and leaves nothing behind for the next one.
+        java.util.Map<String, Object> flown = asMap(api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                r, "{\"rodLength\":1.0,\"expressions\":" + expressionList(bad) + "}")).get("series"));
+        line("expression.flown", flown.containsKey("$KE") ? 1 : 0, flown.containsKey("$B") ? 1 : 0,
+                flown.containsKey("$m") ? 1 : 0, flown.containsKey("$K") ? 1 : 0, flown.containsKey("$L") ? 1 : 0);
+        java.util.Map<String, Object> plain = asMap(api.JsonLite.parseObject(api.OpenRocketEngine.simulateJson(
+                r, "{\"rodLength\":1.0}")).get("series"));
+        int left = 0;
+        for (String key : plain.keySet()) {
+            if (key.startsWith("$")) left++;
+        }
+        line("expression.left", left);
+    }
+
+    private static String expressionList(String[][] entries) {
+        StringBuilder sb = new StringBuilder("[");
+        for (String[] e : entries) {
+            if (sb.length() > 1) sb.append(',');
+            sb.append("{\"symbol\":\"").append(e[0]).append("\",\"expression\":\"").append(e[1]).append("\"}");
+        }
+        return sb.append(']').toString();
+    }
+
+    private static int faultCode(Object code) {
+        String[] codes = { "empty", "characters", "function", "taken", "formula" };
+        for (int i = 0; i < codes.length; i++) {
+            if (codes[i].equals(code)) return i + 1;
+        }
+        return code == null ? 0 : -1;
     }
 
     private static void lookupFlight(String tag, int rocket, String options) {

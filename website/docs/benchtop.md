@@ -29,7 +29,7 @@ The tab keeps its inputs and its last result while you switch tabs, until the pa
 
 Leave the length or the width blank to use a fin sized for the body: 3 body diameters long and 1.5 wide. The box shows that size in gray, so you can see what is flown.
 
-**Motor.** **Choose…** opens the motor picker, filtered to the motors that fit: no wider than the mount, and no longer than the body tube behind the nose. The mount's length is never a limit, because a motor longer than its mount sticks out the back on a retainer and flies fine. **[Motor guide](#motor-guide)** flies a set of motors at once.
+**Motor.** **Choose…** opens the motor picker, filtered to the motors that fit: no wider than the mount. Length is not a limit. **[Motor guide](#motor-guide)** flies a set of motors at once.
 
 **Parachute.** **Fly with a parachute** is off to start with, and the flight ends at apogee. Tick it to fly the descent too.
 

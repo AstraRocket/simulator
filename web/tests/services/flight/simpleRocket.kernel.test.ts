@@ -165,9 +165,7 @@ describe('the simple rocket inputs', () => {
     expect(simpleProblem({ ...SPORT, mountDiameterM: 0.024 })).toBeNull();
   });
 
-  it('takes motors no wider than the mount and no longer than the body tube', () => {
-    const fit = simpleMountFit(SPORT);
-    expect(fit.bore).toBeCloseTo(18, 6);
-    expect(fit.maxLength).toBeCloseTo((0.45 - 0.0248 * 4) * 1000, 6);
+  it('takes motors no wider than the mount', () => {
+    expect(simpleMountFit(SPORT).bore).toBeCloseTo(18, 6);
   });
 });

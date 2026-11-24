@@ -109,7 +109,7 @@ where a behavior change hides best:
   describes as uncommenting upstream's own check. Confirm that is what it is.
 
 Cross-checks: every `PATCH(...)` marker in `src/java` (there are 36) should
-resolve to an entry in `patches/LEDGER.md`, and every one of the 19 patch files
+resolve to an entry in `patches/LEDGER.md`, and every one of the 22 patch files
 should be **load-bearing** by the ledger's own test (`src/java/X.java` differs
 from upstream `X.java`). A patch identical to upstream is a leftover that does
 nothing until someone runs `extract`, at which point it silently swaps itself
@@ -169,7 +169,7 @@ the browser and the kernel, and the only code here that the app calls directly.
 
 ### 3. `src/shims/java/` and `src/jdkstubs/`
 
-Eleven shims and one JDK stub. Each shim is the **only** provider of a
+Thirteen shims and one JDK stub. Each shim is the **only** provider of a
 fully-qualified name that upstream also defines, so a semantic gap between the
 shim and the real class is invisible at compile time and wrong at runtime.
 

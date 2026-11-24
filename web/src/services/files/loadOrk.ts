@@ -233,27 +233,19 @@ export async function loadOrk(buffer: ArrayBuffer): Promise<LoadedOrk> {
     const node = byId.get(mountId);
     const fit = node ? mountFit(node) : null;
     if (!node || !fit || !spec.designation || !(spec.diameter > 0)) return;
-    const motor = { diameter: toCatalogMm(spec.diameter), length: spec.length ? toCatalogMm(spec.length) : undefined };
-    if (motorFitsMount(motor, fit)) return;
+    const diameter = toCatalogMm(spec.diameter);
+    if (motorFitsMount({ diameter }, fit)) return;
     const key = `${mountId}|${spec.designation}`;
     if (misfits.has(key)) return;
     misfits.add(key);
     const mount = notePartName(node);
-    const tooWide = motor.diameter > fit.bore;
     notes.push(
-      tooWide
-        ? keyedNote('importNote.motorTooWide', {
-            motor: spec.designation,
-            mount,
-            diameter: round1(motor.diameter),
-            bore: round1(fit.bore),
-          })
-        : keyedNote('importNote.motorTooLong', {
-            motor: spec.designation,
-            mount,
-            length: round1(motor.length ?? 0),
-            maxLength: round1(fit.maxLength ?? 0),
-          }),
+      keyedNote('importNote.motorTooWide', {
+        motor: spec.designation,
+        mount,
+        diameter: round1(diameter),
+        bore: round1(fit.bore),
+      }),
     );
   };
 

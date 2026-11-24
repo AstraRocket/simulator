@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { effectivePrefs, resultKey, simConditions, simInputs, type SimRun } from '../services/flight/simulations';
 import { aeroTablesOf } from '../services/flight/aeroTables';
+import { customExpressionsOf } from '../services/flight/customExpressions';
 import { simulateInWorker, SimTimeoutError, SimCanceledError } from '../engine/simClient';
 import { designBlockerText } from '../services/flight/runnability';
 import { landingView, planRun, runProblems } from '../services/flight/runPlan';
@@ -83,6 +84,7 @@ export const createRunSlice: StateCreator<WorkspaceState, [], [], RunSlice> = (s
       return outcomes;
     }
     const failed: { name: string; msg: string }[] = [];
+    const expressions = customExpressionsOf(ranOn);
     const setRun = (simId: string, run: SimRun | null) => set((st) => ({ simRuns: withKey(st.simRuns, simId, run) }));
 
     // New per batch: an AbortController cannot be un-aborted.
@@ -101,7 +103,10 @@ export const createRunSlice: StateCreator<WorkspaceState, [], [], RunSlice> = (s
               {
                 tree: ranOn,
                 config,
-                options: simConditions(launch, effectivePrefs(prefs, sim.prefs), aeroTablesOf(sim.xmlExtra)),
+                options: {
+                  ...simConditions(launch, effectivePrefs(prefs, sim.prefs), aeroTablesOf(sim.xmlExtra)),
+                  ...(expressions.length ? { expressions } : {}),
+                },
                 // Sent per flight: the main-thread build may not have caught up.
                 lengthUnit: effectivePrefs(prefs, sim.prefs).lengthUnit,
               },

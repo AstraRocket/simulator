@@ -83,11 +83,9 @@ export function OtherMountsOffer({ pending, onDone }: { pending: PendingOffer; o
           </li>
         ))}
       </ul>
-      {skipped.map((s) => (
-        <p key={s.node.id as string} className="mt-1 text-ink-faint">
-          {t(s.reason === 'tooWide' ? 'configs.otherMountsTooWide' : 'configs.otherMountsTooLong', {
-            mount: name(s.node),
-          })}
+      {skipped.map((n) => (
+        <p key={n.id as string} className="mt-1 text-ink-faint">
+          {t('configs.otherMountsTooWide', { mount: name(n) })}
         </p>
       ))}
       <div className="mt-2 flex gap-2">

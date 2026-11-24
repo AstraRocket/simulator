@@ -7,6 +7,7 @@ import { readLocalText } from '../services/storage/localPref';
 import { errorMessage } from '../services/app/errorMessage';
 import { KeyedError } from '../i18n/keyedError';
 import type { DocumentMaterial } from '../services/materials/documentMaterials';
+import type { CustomExpression, ExpressionFault } from '../services/flight/customExpressions';
 import { curveProblem } from '../services/motors/motorCurve';
 
 // In web/public/ so Vite serves them verbatim: import-analysis warns on the loader's dynamic imports.
@@ -372,6 +373,8 @@ export interface SimulationOptions {
   /** CSV rows, header first (`mach[,aoa],cn,cm,cp`, CP in m): flies this table in place of Barrowman. */
   stabilityLookup?: string[];
   series?: 'summary' | 'full';
+  /** Recorded as series keyed by `$` and the symbol. One with a fault is left out. */
+  expressions?: CustomExpression[];
 }
 
 export interface StaticInfo {
@@ -475,6 +478,7 @@ export interface RocketTree {
   xmlExtra?: string[];
   docExtra?: string[];
   documentMaterials?: DocumentMaterial[];
+  customExpressions?: CustomExpression[];
   /** Desktop's Photo Studio settings, as its core keeps them: element name to text (`photoSettings.ts`). */
   photoStudio?: Record<string, string>;
   components: ComponentNode[];
@@ -574,6 +578,8 @@ export interface FlightResult {
   branches?: FlightBranch[];
   warnings?: EngineWarning[];
   warningTexts?: string[];
+  /** The custom expressions flown, in their order. */
+  expressions?: Pick<CustomExpression, 'symbol' | 'name' | 'unit'>[];
 }
 
 /** SI. */
@@ -797,6 +803,7 @@ export class OpenRocketDesign {
           dragLookup: options.dragLookup,
           stabilityLookup: options.stabilityLookup,
           series: options.series,
+          expressions: options.expressions?.map(({ symbol, expression }) => ({ symbol, expression })),
         }),
       ),
     );
@@ -805,8 +812,23 @@ export class OpenRocketDesign {
     if (parsed.branches) {
       for (const b of parsed.branches) b.series = sanitizeSeries(b.series);
     }
+    if (options.expressions?.length) {
+      parsed.expressions = options.expressions
+        .filter((e, i, all) => parsed.series[`$${e.symbol}`] && all.findIndex((x) => x.symbol === e.symbol) === i)
+        .map(({ symbol, name, unit }) => ({ symbol, name, unit }));
+    }
     return parsed;
   }
+}
+
+/** What is wrong with each, in list order: one formula can use the expressions before it. */
+export function checkExpressions(list: readonly CustomExpression[]): ExpressionFault[] {
+  const raw = callEngine('checkExpressions', () =>
+    eng().checkExpressions(
+      JSON.stringify({ expressions: list.map(({ symbol, expression }) => ({ symbol, expression })) }),
+    ),
+  );
+  return parseEnvelope<{ faults: ExpressionFault[] }>('checkExpressions', raw).faults;
 }
 
 const NAMED_SERIES = [

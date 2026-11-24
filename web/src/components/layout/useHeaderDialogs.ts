@@ -16,6 +16,7 @@ const NONE_OPEN: OpenFlags = {
   locations: false,
   parts: false,
   materials: false,
+  expressions: false,
   backup: false,
   restore: false,
   saveAs: false,

@@ -31,6 +31,14 @@ for every language this app ships.
 misspelling in the English parabolic-series string is corrected. The `<b>`, `<i>` and `<sup>`
 markup is kept and rendered by `components/design/ShapeDescription.tsx`.
 
+## Expression parser: exp4j
+
+`src/java/de/congrace/exp4j/` is a fork of **exp4j** by Frank Asseg, **Apache License 2.0**, as it
+ships inside OpenRocket's own source (with Richard Graham's changes for arrays and custom
+expressions). It parses custom expressions.
+
+**Modified:** nothing. `CommandlineInterpreter` and `Example` are left out.
+
 ## RASAero-style aerodynamics extensions: mmrocket-sim
 
 Some extracted sources carry **opt-in supersonic-aerodynamics extensions that are NOT part of

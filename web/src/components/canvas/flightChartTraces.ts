@@ -1,7 +1,7 @@
 import type { FlightResult, FlightSeries } from '../../engine/openRocketEngine';
 import { type Quantity, radToDeg, siToUiDelta, unitScope } from '../../prefs/units';
 import type { Units } from '../../prefs/useUnits';
-import { flightBranches, seriesColumn } from '../../services/flight/flightColumns';
+import { flightBranches, otherColumn, seriesColumn } from '../../services/flight/flightColumns';
 import { RESONANCE_BAND, dynamicPressure, qAlpha, rollPitchRatio, rollRate } from '../../services/flight/flightEvents';
 import { token } from '../common/colorTokens';
 import { ladderDigits } from '../../i18n/format';
@@ -192,7 +192,7 @@ export const panelDigits = (meta: Meta, lo: number, hi: number): number =>
 const BUILT_IN = new Set<string>(['time', ...SERIES.map((m) => m.key)]);
 
 // Not clipped after deployment, matching desktop.
-export function extraSeries(branches: readonly Branch[]): Meta[] {
+export function extraSeries(branches: readonly Branch[], expressions?: FlightResult['expressions']): Meta[] {
   const found = new Set<string>();
   for (const b of branches) {
     for (const [k, v] of Object.entries(b.series)) {
@@ -200,23 +200,20 @@ export function extraSeries(branches: readonly Branch[]): Meta[] {
       if (v.some((x) => x != null && Number.isFinite(x))) found.add(k);
     }
   }
-  const order = (k: string) => seriesColumn(k)?.order ?? Infinity;
   return [...found]
-    .sort((a, b) => order(a) - order(b) || a.localeCompare(b))
-    .map((key): Meta => {
-      const c = seriesColumn(key);
-      return {
-        key,
-        label: c?.labelKey ?? key,
-        literal: !c?.labelKey,
-        unit: c?.unit ?? '',
-        digits: 2,
-        ladder: true,
-        level: true,
-        quantity: c?.quantity,
-        scale: c?.scale,
-      };
-    });
+    .map((key) => seriesColumn(key) ?? otherColumn(key, expressions))
+    .sort((a, b) => (a.order === b.order ? a.key.localeCompare(b.key) : a.order - b.order))
+    .map((c): Meta => ({
+      key: c.key,
+      label: c.labelKey ?? c.label ?? c.key,
+      literal: !c.labelKey,
+      unit: c.unit ?? '',
+      digits: 2,
+      ladder: true,
+      level: true,
+      quantity: c.quantity,
+      scale: c.scale,
+    }));
 }
 
 export const pairKey = (y: string, x: string): string =>

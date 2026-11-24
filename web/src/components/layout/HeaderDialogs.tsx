@@ -19,6 +19,7 @@ import { MotorDashboard } from '../sim/MotorDashboard';
 import { LocationsDialog } from '../sim/LocationsDialog';
 import { SavedPartsDialog } from '../design/SavedPartsDialog';
 import { MyMaterialsDialog } from '../design/MyMaterialsDialog';
+import { CustomExpressionsDialog } from '../sim/CustomExpressionsDialog';
 import { BackupDialog } from './BackupDialog';
 import { useHelpStore } from '../../state/helpStore';
 import type { HeaderDialog } from './dialogKeys';
@@ -53,6 +54,7 @@ export function HeaderDialogs({ flags, onClose }: { flags: OpenFlags; onClose: (
       {flags.locations && <LocationsDialog onClose={() => onClose('locations')} />}
       {flags.parts && <SavedPartsDialog onClose={() => onClose('parts')} />}
       {flags.materials && <MyMaterialsDialog onClose={() => onClose('materials')} />}
+      {flags.expressions && <CustomExpressionsDialog onClose={() => onClose('expressions')} />}
       {flags.backup && <BackupDialog mode="backup" onClose={() => onClose('backup')} />}
       {flags.restore && <BackupDialog mode="restore" onClose={() => onClose('restore')} />}
       {flags.saveAs && (
