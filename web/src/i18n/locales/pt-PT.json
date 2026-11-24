@@ -1693,7 +1693,7 @@
     "decalOffset": "Deslocamento",
     "decalRotation": "Rotação",
     "decalEdge": "Margens",
-    "decalEdgeHint": "Repetir dispõe a imagem em mosaico; os outros esticam os píxeis da margem, como a vista 3D do OpenRocket de computador os desenha.",
+    "decalEdgeHint": "Repetir dispõe a imagem em mosaico, Espelhar repete-a invertida de forma alternada, Fixar estica os píxeis da margem e Etiqueta mostra-a uma vez, com a pintura à volta.",
     "decalEdge_REPEAT": "Repetir",
     "decalEdge_MIRROR": "Espelhar",
     "decalEdge_CLAMP": "Fixar",

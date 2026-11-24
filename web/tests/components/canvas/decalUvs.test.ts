@@ -77,6 +77,7 @@ describe('a fin', () => {
   const g = piece('fin').geometry;
   const left = surface(g, SURFACE.outside);
   const right = surface(g, SURFACE.inside);
+  const x0 = Math.min(...left.map((p) => p.x));
 
   it('spans the planform with the image, edge to edge', () => {
     const us = left.map((p) => p.u);
@@ -87,10 +88,18 @@ describe('a fin', () => {
     expect(Math.max(...vs)).toBeCloseTo(1, 6);
   });
 
-  it('mirrors it on the right side', () => {
-    const at = (list: typeof left, y: number) => list.filter((p) => Math.abs(p.y - y) < 1e-9).map((p) => p.u);
-    const y0 = Math.min(...left.map((p) => p.y));
-    // Float32 attributes: equal to about seven digits.
-    expect(Math.min(...at(right, y0))).toBeCloseTo(1 - Math.max(...at(left, y0)), 6);
+  // Seen from +z, +x runs to the right: an image whose u follows x reads the right way round there.
+  it('reads forward on the left side, which faces +z', () => {
+    for (const p of left) {
+      expect(p.z).toBeGreaterThan(0);
+      expect(p.u).toBeCloseTo((p.x - x0) / 0.05, 5);
+    }
+  });
+
+  it('negates u on the right side, which faces -z', () => {
+    for (const p of right) {
+      expect(p.z).toBeLessThan(0);
+      expect(p.u).toBeCloseTo(-(p.x - x0) / 0.05, 5);
+    }
   });
 });

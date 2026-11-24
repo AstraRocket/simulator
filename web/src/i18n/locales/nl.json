@@ -1688,7 +1688,7 @@
     "decalOffset": "Verschuiving",
     "decalRotation": "Rotatie",
     "decalEdge": "Randen",
-    "decalEdgeHint": "Herhalen tegelt de afbeelding; de andere rekken de randpixels uit, zoals de 3D-weergave van desktop-OpenRocket ze tekent.",
+    "decalEdgeHint": "Herhalen tegelt de afbeelding, Spiegelen tegelt haar om en om gespiegeld, Vastzetten rekt de randpixels uit en Plakker toont haar één keer met de verf eromheen.",
     "decalEdge_REPEAT": "Herhalen",
     "decalEdge_MIRROR": "Spiegelen",
     "decalEdge_CLAMP": "Vastzetten",

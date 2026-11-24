@@ -6,6 +6,7 @@ import { FIN_DEFAULTS, KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import {
   FREEFORM_FALLBACK,
   bodyRadiusAt,
+  finOutlinePoints,
   finPlacement,
   finPointsWithRoot,
   finRootChord,
@@ -304,16 +305,16 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
 
   const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
   geo.translate(0, 0, -thickness / 2);
-  // -z face is outside, +z inside (`FinRenderer.renderFinSet`); group 0 is both lids, -z half first.
+  // +z face is the left (outside), -z the right, as `FinSetGenerator`; group 0 is both lids, -z half first.
   const [lids, sides] = geo.groups;
   if (lids && sides) {
     const half = lids.count / 2;
     geo.clearGroups();
-    geo.addGroup(lids.start, half, SURFACE.outside);
-    geo.addGroup(lids.start + half, half, SURFACE.inside);
+    geo.addGroup(lids.start, half, SURFACE.inside);
+    geo.addGroup(lids.start + half, half, SURFACE.outside);
     geo.addGroup(sides.start, sides.count, SURFACE.edges);
     markSurfaced(geo);
-    finUvs(geo, outline, lids.start + half, lids.start + lids.count);
+    finUvs(geo, finOutlinePoints(child, fp) ?? outline, lids.start, lids.start + half);
   }
 
   for (const { angle } of ringInstanceOffsets(count, 0, num(child, 'rotation', 0))) {
@@ -328,8 +329,9 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
 }
 
 /**
- * As desktop's `FinSetGenerator.createShapeMesh`: the image spans the planform's bounding box, and the right side
- * (vertices `mirrorFrom` up to `mirrorTo`) shows it mirrored (`RocketMeshBuilder.mirrorFinRightTextureCoordinates`).
+ * As desktop's `FinSetGenerator.createShapeMesh`: the image spans the box around the fin points
+ * (`FinSet.getInstanceBoundingBox`), without the root curve or the tab. The right side (vertices `mirrorFrom` up to
+ * `mirrorTo`) takes `-u`, not `1 - u` (`RocketMeshBuilder.mirrorFinRightTextureCoordinates`).
  */
 function finUvs(
   geo: THREE.BufferGeometry,
@@ -347,7 +349,7 @@ function finUvs(
   const uv = geo.getAttribute('uv');
   for (let i = 0; i < uv.count; i++) {
     const u = (pos.getX(i) - minX) / spanX;
-    uv.setXY(i, i >= mirrorFrom && i < mirrorTo ? 1 - u : u, (pos.getY(i) - minY) / spanY);
+    uv.setXY(i, i >= mirrorFrom && i < mirrorTo ? -u : u, (pos.getY(i) - minY) / spanY);
   }
 }
 

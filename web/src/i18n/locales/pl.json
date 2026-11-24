@@ -1698,7 +1698,7 @@
     "decalOffset": "Przesunięcie",
     "decalRotation": "Obrót",
     "decalEdge": "Krawędzie",
-    "decalEdgeHint": "Powtarzanie układa obraz kafelkami; pozostałe rozciągają piksele krawędzi, tak jak rysuje je widok 3D OpenRocket na komputer.",
+    "decalEdgeHint": "Powtarzaj układa obraz kafelkami, Lustro układa go na przemian odbity, Przytnij rozciąga piksele krawędzi, a Nalepka pokazuje go raz, z farbą wokół.",
     "decalEdge_REPEAT": "Powtarzaj",
     "decalEdge_MIRROR": "Lustro",
     "decalEdge_CLAMP": "Przytnij",

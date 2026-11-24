@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   DECAL_DEFAULTS,
   decalPath,
-  decalRepeats,
   decalUvMatrix,
   readDecal,
   uniqueDecalPath,
@@ -39,12 +38,6 @@ describe('reading a stored decal', () => {
   it('is no decal without a name, and an unknown edge mode repeats', () => {
     expect(readDecal({ hash: 'k1' })).toBeUndefined();
     expect(readDecal({ name: 'decals/a.png', edgeMode: 'WRAP' })?.edgeMode).toBe('REPEAT');
-  });
-
-  it('repeats past the edge only in REPEAT, as the 3D view wraps it', () => {
-    expect(decalRepeats(decal())).toBe(true);
-    for (const edgeMode of ['MIRROR', 'CLAMP', 'STICKER'] as const)
-      expect(decalRepeats(decal({ edgeMode }))).toBe(false);
   });
 });
 

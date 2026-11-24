@@ -1688,7 +1688,7 @@
     "decalOffset": "Offset",
     "decalRotation": "Rotation",
     "decalEdge": "Edges",
-    "decalEdgeHint": "Repeat tiles the image; the others stretch its edge pixels, as desktop OpenRocket's 3D view draws them.",
+    "decalEdgeHint": "Repeat tiles the image, Mirror tiles it flipped every other time, Clamp stretches its edge pixels, and Sticker shows it once with the paint around it.",
     "decalEdge_REPEAT": "Repeat",
     "decalEdge_MIRROR": "Mirror",
     "decalEdge_CLAMP": "Clamp",

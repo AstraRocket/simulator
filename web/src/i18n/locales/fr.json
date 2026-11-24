@@ -1693,7 +1693,7 @@
     "decalOffset": "Décalage",
     "decalRotation": "Rotation",
     "decalEdge": "Bords",
-    "decalEdgeHint": "Répéter dispose l'image en mosaïque ; les autres étirent ses pixels de bord, comme la vue 3D d'OpenRocket de bureau les dessine.",
+    "decalEdgeHint": "Répéter dispose l'image en mosaïque, Miroir la répète en la retournant une fois sur deux, Bloquer étire ses pixels de bord et Autocollant la montre une seule fois, entourée de la peinture.",
     "decalEdge_REPEAT": "Répéter",
     "decalEdge_MIRROR": "Miroir",
     "decalEdge_CLAMP": "Bloquer",

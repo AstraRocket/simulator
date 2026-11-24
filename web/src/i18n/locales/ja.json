@@ -1683,7 +1683,7 @@
     "decalOffset": "オフセット",
     "decalRotation": "回転",
     "decalEdge": "端",
-    "decalEdgeHint": "繰り返しは画像をタイル状に並べます。それ以外は、デスクトップ版 OpenRocket の 3D 表示と同じく端のピクセルを引き伸ばします。",
+    "decalEdgeHint": "繰り返しは画像をタイル状に並べ、ミラーは一つおきに反転して並べ、クランプは端のピクセルを引き伸ばし、ステッカーは一度だけ表示して周りは塗装のままにします。",
     "decalEdge_REPEAT": "繰り返し",
     "decalEdge_MIRROR": "ミラー",
     "decalEdge_CLAMP": "クランプ",

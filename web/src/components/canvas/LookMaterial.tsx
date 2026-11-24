@@ -26,8 +26,8 @@ export function LookMaterial({
   const withDecal = decalMaterialProps(decal, texture);
   return (
     <meshPhongMaterial
-      // A new material when the decal comes or goes: three picks the program once per material version.
-      key={!withDecal.map ? 'plain' : decal?.opacityAffectsTexture ? 'fades' : 'decal'}
+      // A new material when the decal comes, goes or changes kind: three picks the program once per material version.
+      key={withDecal.map ? ['decal', ...Object.keys(withDecal.defines)].join() : 'plain'}
       ref={(m) => {
         if (m && room) m.envMapRotation = room.rotation;
       }}

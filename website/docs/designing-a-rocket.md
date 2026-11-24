@@ -303,7 +303,7 @@ A **Decal** is an image laid over the paint in the 3D **Finished** view, the 3D 
 - **Scale** is the image's size against the part in each direction, around and along a tube, or across the chord and the span of a fin: at 1 the image covers the part once, and at 0.5 it is half as big and fits twice.
 - **Offset** slides the image around and along the part, as a fraction of the part.
 - **Rotation** turns the image.
-- **Edges**: **Repeat** tiles the image over the whole part. **Mirror**, **Clamp** and **Sticker** show it once and stretch its edge pixels over the rest, which is how desktop OpenRocket's 3D view draws all three. A sticker image with a transparent border leaves the paint showing around it.
+- **Edges**: what shows past the image's edge, as desktop OpenRocket's 3D view draws it. **Repeat** tiles the image over the whole part. **Mirror** tiles it flipped every other time, so the tiles meet edge to edge. **Clamp** shows it once and stretches its edge pixels over the rest. **Sticker** shows it once and leaves the paint showing around it.
 - **Opacity affects decal**: off, the decal stays solid where the paint has a lowered **Opacity**; on, the decal fades with the paint.
 
 Saving packs each image into the `.ork` under `decals/`, as desktop does, so the file opens in desktop OpenRocket with its decals, and a desktop file's decals open here. The images are kept in your browser apart from the design, and a backup of your saved parts carries the ones those parts wear. When a browser no longer holds an image (a design from another browser, or site data cleared), the part shows bare paint, the editor says so, and a save leaves that image out; choose it again to put it back.

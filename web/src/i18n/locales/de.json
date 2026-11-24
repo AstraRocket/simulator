@@ -1688,7 +1688,7 @@
     "decalOffset": "Versatz",
     "decalRotation": "Drehung",
     "decalEdge": "Ränder",
-    "decalEdgeHint": "Wiederholen kachelt das Bild; die anderen dehnen die Randpixel, wie die 3D-Ansicht von Desktop-OpenRocket sie zeichnet.",
+    "decalEdgeHint": "Wiederholen kachelt das Bild, Spiegeln kachelt es abwechselnd gespiegelt, Begrenzen dehnt die Randpixel, und Sticker zeigt es einmal, umgeben von der Farbe.",
     "decalEdge_REPEAT": "Wiederholen",
     "decalEdge_MIRROR": "Spiegeln",
     "decalEdge_CLAMP": "Begrenzen",

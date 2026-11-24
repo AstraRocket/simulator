@@ -1693,7 +1693,7 @@
     "decalOffset": "Desplazamiento",
     "decalRotation": "Rotación",
     "decalEdge": "Bordes",
-    "decalEdgeHint": "Repetir hace mosaico con la imagen; los demás estiran los píxeles del borde, como los dibuja la vista 3D de OpenRocket de escritorio.",
+    "decalEdgeHint": "Repetir hace mosaico con la imagen, Espejo la repite volteándola una vez sí y otra no, Ajustar estira los píxeles del borde y Pegatina la muestra una vez con la pintura alrededor.",
     "decalEdge_REPEAT": "Repetir",
     "decalEdge_MIRROR": "Espejo",
     "decalEdge_CLAMP": "Ajustar",
