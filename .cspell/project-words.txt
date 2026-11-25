@@ -51,6 +51,7 @@ astrarocketbays
 astrarocketjs
 astrarocketmain
 astrarocketnotes
+astrarocketopens
 astrarrocketjs
 atmo
 authorable
@@ -232,6 +233,7 @@ foreshoulderlength
 foreshoulderradius
 foreshoulderthickness
 forgeable
+fract
 frameloop
 Français
 freeformfinset
@@ -352,6 +354,7 @@ linestyle
 Lngs
 loadouts
 logback
+logdepthbuf
 lowerstageseparation
 luma
 Maccoll
@@ -565,6 +568,7 @@ skidmark
 Skoglund
 SKYR
 SKYRIPPER
+slerp
 smoot
 speedms
 Spherachutes
@@ -665,12 +669,14 @@ unparseable
 unpowered
 unproject
 unranked
+unrecovered
 unrenamed
 unreviewed
 Unrotated
 unrun
 unscored
 unscrolled
+unsourced
 unstub
 unsub
 untick
