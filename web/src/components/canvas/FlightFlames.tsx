@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import type { FlightBody } from '../../services/flight/flightBodies';
 import { burnLevel, type MountBurn } from '../../services/flight/flightSources';
 import type { Exhaust } from '../../services/motors/exhaust';
+import { glow } from './glowMaterial';
 import type { Nozzle } from './rocketPieces';
 
 // In motor radii, at average thrust.
@@ -110,20 +111,6 @@ function useFlameParts(look: Exhaust) {
   );
   return parts;
 }
-
-// Between adding and covering: pure addition shows nothing against a pale sky.
-const glow = (vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform>) =>
-  new THREE.ShaderMaterial({
-    vertexShader,
-    fragmentShader,
-    uniforms,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    blending: THREE.CustomBlending,
-    blendSrc: THREE.OneFactor,
-    blendDst: THREE.OneMinusSrcAlphaFactor,
-  });
 
 /** From the nozzle at its origin to a point 1 along +X, 1 in radius at its widest. */
 function plumeGeometry(): THREE.BufferGeometry {

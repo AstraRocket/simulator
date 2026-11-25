@@ -6,6 +6,7 @@ import { seriesAt } from '../../services/flight/flightEvents';
 import { burnLevel, type MountBurn, type Pop } from '../../services/flight/flightSources';
 import { DEFAULT_EXHAUST, type Exhaust } from '../../services/motors/exhaust';
 import type { Extent } from './bodyMotion';
+import { glow } from './glowMaterial';
 import { GROUND_LAYER, GROUND_ROTATION } from './groundMapLayout';
 import type { Nozzle } from './rocketPieces';
 
@@ -15,19 +16,22 @@ interface Timed {
   duration: number;
 }
 
-// Half added, half laid over, as the flames: pure addition shows nothing against a pale sky.
-const glowMaterial = (vertexShader: string, fragmentShader: string, uniforms: Record<string, THREE.IUniform>) =>
-  new THREE.ShaderMaterial({
-    vertexShader,
-    fragmentShader,
-    uniforms,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    blending: THREE.CustomBlending,
-    blendSrc: THREE.OneFactor,
-    blendDst: THREE.OneMinusSrcAlphaFactor,
-  });
+/** A glowing disc, disposed with its component, and a setter for its strength and color. */
+function useDisc(vertexShader: string, color: THREE.Color, depthTest = true) {
+  const disc = useMemo(() => {
+    const uAlpha = { value: 0 };
+    const uColor = { value: color.clone() };
+    const material = glow(vertexShader, DISC_FRAGMENT, { uColor, uAlpha });
+    material.depthTest = depthTest;
+    const dim = (v: number, c?: string): void => {
+      uAlpha.value = v;
+      if (c) uColor.value.set(c);
+    };
+    return { material, dim };
+  }, [vertexShader, color, depthTest]);
+  useEffect(() => () => disc.material.dispose(), [disc]);
+  return disc;
+}
 
 const FLASH_SECONDS = 0.16;
 const FLASH_COLOR = new THREE.Color(1, 0.72, 0.32);
@@ -41,15 +45,7 @@ export function EjectionFlash({
   duration,
 }: Timed & { pop: Pop; at: number; radius: number }) {
   const ref = useRef<THREE.Mesh>(null);
-  const { material, dim } = useMemo(() => {
-    const alpha = { value: 0 };
-    const m = glowMaterial(BILLBOARD_VERTEX, DISC_FRAGMENT, { uColor: { value: FLASH_COLOR }, uAlpha: alpha });
-    const set = (v: number): void => {
-      alpha.value = v;
-    };
-    return { material: m, dim: set };
-  }, []);
-  useEffect(() => () => material.dispose(), [material]);
+  const { material, dim } = useDisc(BILLBOARD_VERTEX, FLASH_COLOR);
   useFrame(() => {
     const mesh = ref.current;
     if (!mesh) return;
@@ -84,7 +80,7 @@ export function VaporCone({
     };
     return {
       geometry: coneGeometry(),
-      material: glowMaterial(CONE_VERTEX, CONE_FRAGMENT, { uAlpha: alpha }),
+      material: glow(CONE_VERTEX, CONE_FRAGMENT, { uAlpha: alpha }),
       dim: set,
     };
   }, []);
@@ -133,6 +129,7 @@ const LIGHT_INTENSITY = 5;
 const LIGHT_RANGE = 16; // airframe radii
 const POOL_RADII = 22; // motor radii
 const POOL_HEIGHT = 24;
+const POOL_COLOR = new THREE.Color();
 
 /** The brightest flame, lighting the tail and the ground under it. */
 export function FlameGlow({
@@ -157,18 +154,7 @@ export function FlameGlow({
   const light = useRef<THREE.PointLight>(null);
   const pool = useRef<THREE.Mesh>(null);
   const at = useMemo(() => new THREE.Vector3(), []);
-  const { material, dim } = useMemo(() => {
-    const alpha = { value: 0 };
-    const color = { value: new THREE.Color() };
-    const m = glowMaterial(FLAT_VERTEX, DISC_FRAGMENT, { uColor: color, uAlpha: alpha });
-    m.depthTest = false;
-    const set = (v: number, c: string): void => {
-      alpha.value = v;
-      color.value.set(c);
-    };
-    return { material: m, dim: set };
-  }, []);
-  useEffect(() => () => material.dispose(), [material]);
+  const { material, dim } = useDisc(FLAT_VERTEX, POOL_COLOR, false);
   useFrame(() => {
     if (!light.current || !pool.current) return;
     const t = progressRef.current * duration;
