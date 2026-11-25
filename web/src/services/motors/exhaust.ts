@@ -1,6 +1,5 @@
 import { must } from '../app/must';
 import type { MotorSpec, RocketTree } from '../../engine/openRocketEngine';
-import { stageNodes } from '../../tree/treeWalk';
 import { flyingNodes, type FlightConfig } from '../flight/flightConfigs';
 import type { CatalogMotor } from './motorDb';
 
@@ -108,21 +107,17 @@ export function exhaustFor(motor: MotorLook | undefined): Exhaust {
   return motor?.sparky && !look.sparks ? { ...look, sparks: true } : look;
 }
 
-/** In burn order, bottom stage first. */
-export function burnExhausts(
+/** By mount id, for the mounts that fly with a motor. */
+export function mountExhausts(
   tree: RocketTree,
   config: FlightConfig,
   catalog: readonly CatalogMotor[],
   find: (catalog: CatalogMotor[], spec: MotorSpec) => CatalogMotor | undefined,
-): Exhaust[] {
-  const out: Exhaust[] = [];
-  for (const stage of [...stageNodes(tree)].reverse()) {
-    const seated = flyingNodes([stage], config, (n) => n.motorMount === true)
-      .map((m) => config.motors[m.id as string])
-      .filter((m) => m != null);
-    if (!seated.length) continue;
-    const rows = seated.map((m) => find(catalog as CatalogMotor[], m.spec));
-    out.push(exhaustFor(rows.find((r) => r != null)));
+): Record<string, Exhaust> {
+  const out: Record<string, Exhaust> = {};
+  for (const mount of flyingNodes(tree.components, config, (n) => n.motorMount === true)) {
+    const seated = config.motors[mount.id as string];
+    if (seated) out[mount.id as string] = exhaustFor(find(catalog as CatalogMotor[], seated.spec));
   }
   return out;
 }

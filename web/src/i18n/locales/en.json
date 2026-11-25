@@ -1249,6 +1249,17 @@
     "ejection": "Ejection",
     "landing": "Landing",
     "follow": "Follow",
+    "tracked": "Part of the rocket to track",
+    "view": "Camera",
+    "viewOverview": "Overview",
+    "viewPad": "Launch pad",
+    "viewChase": "Chase",
+    "viewOnboard": "Onboard",
+    "viewDirector": "Director",
+    "resetView": "Reset the camera",
+    "effects": "Effects",
+    "effectsTitle": "Effects drawn for looks: the nose cone on its shock cord, blast, flash, vapor, glow, dust and tumbling. They change no path or number.",
+    "jumpTo": "Jump to event",
     "reset": "Reset to launch",
     "loop": "Loop playback",
     "playbackSpeed": "Playback speed",
@@ -1698,6 +1709,7 @@
     "deployEvent": "Deploy at",
     "deployAltitude": "Deploy altitude (AGL)",
     "deployDelay": "Deploy delay",
+    "opensAt": "Opens at",
     "lineCount": "Shroud lines",
     "lineLength": "Line length",
     "motorMount": "Motor mount",
@@ -1748,6 +1760,12 @@
     "resetClusterTip": "Reset the spacing and rotation to their defaults",
     "autoFinTab": "Calculate automatically",
     "autoFinTabTip": "Works out the tab's height and length from the inner tubes and centering rings inside the body the fin is on"
+  },
+  "opensAt": {
+    "auto": "Automatic",
+    "front": "The front of its bay",
+    "back": "The back of its bay",
+    "closed": "Nothing (stays closed)"
   },
   "deployEvent": {
     "ejection": "Motor ejection charge",

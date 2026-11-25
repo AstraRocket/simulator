@@ -5,6 +5,8 @@ import { tokenValues } from '../common/colorTokens';
 export const SCENE_TOKENS = [
   'scene-sky',
   'scene-ground',
+  'scene-zenith',
+  'scene-horizon',
   'scene-floor',
   'scene-grid',
   'scene-grid-minor',

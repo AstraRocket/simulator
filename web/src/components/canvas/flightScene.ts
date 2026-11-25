@@ -1,17 +1,8 @@
 import * as THREE from 'three';
-import type { FlightEvent, FlightResult, RocketTree } from '../../engine/openRocketEngine';
+import type { FlightEvent, FlightResult } from '../../engine/openRocketEngine';
+import { flightBranches } from '../../services/flight/flightColumns';
 import { eventTime, forwardFlightEnd } from '../../services/flight/flightEvents';
-import { groundPointAt } from '../../services/flight/groundTrack';
-import { KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
-import { findRecoveryDevices } from '../../services/design/treeEdit';
-import { num } from '../../tree/nodeProps';
-import type { PartPalette } from '../../services/design/partColors';
-import { outsideAppearance } from '../../services/design/appearance';
-
-// Kernel Px is east, Py north; with three.js +y up, north is -z (on +z the scene mirrors).
-export function sceneFromEnu(east: number, up: number, north: number): THREE.Vector3 {
-  return new THREE.Vector3(east, up, -north);
-}
+import { buildTrack, hasAttitude, trackRows, type FlightTrack } from './flightTrack';
 
 // A burnout with no open burn extends the previous window (cluster motors burning out apart).
 export function boostWindows(events: readonly Pick<FlightEvent, 'type' | 'time'>[]): [number, number][] {
@@ -33,239 +24,100 @@ export function boostWindows(events: readonly Pick<FlightEvent, 'type' | 'time'>
 const isBoosting = (t: number, windows: readonly [number, number][]): boolean =>
   windows.some(([a, b]) => t >= a && t < b);
 
-export const burnAt = (t: number, windows: readonly [number, number][]): number =>
-  windows.findIndex(([a, b]) => t >= a && t < b);
-
-export function delayWindows(
-  events: readonly Pick<FlightEvent, 'type' | 'time'>[],
-  burns: readonly [number, number][],
-): [number, number][] {
-  const charges = events.filter((e) => e.type === 'EJECTION_CHARGE').map((e) => e.time);
-  const out: [number, number][] = [];
-  burns.forEach(([, end], i) => {
-    const nextBurn = burns[i + 1]?.[0] ?? Infinity;
-    const charge = charges.filter((t) => t > end && t <= nextBurn).sort((a, b) => a - b)[0];
-    if (charge != null) out.push([end, charge]);
-  });
-  return out;
-}
-
-export interface SmokePuff {
-  pos: THREE.Vector3;
-  time: number;
-  burn: number;
-  delay: boolean;
-}
-
-export function smokePuffs(
-  scene: Pick<FlightScene, 'scenePts' | 'times' | 'boostWindows'> & Partial<Pick<FlightScene, 'delayWindows'>>,
-  max: number,
-  tail = 0,
-  gap = 0,
-): SmokePuff[] {
-  const { scenePts, times, boostWindows: burns, delayWindows: delays = [] } = scene;
-  const smokeAt = (t: number): { burn: number; delay: boolean } | null => {
-    const burn = burnAt(t, burns);
-    if (burn >= 0) return { burn, delay: false };
-    const d = delays.findIndex(([a, b]) => t >= a && t < b);
-    if (d < 0) return null;
-    const opened = burns.findIndex(([, end]) => end === delays[d]![0]);
-    return { burn: Math.max(0, opened), delay: true };
-  };
-  const inBurn: number[] = [];
-  for (let i = 0; i < times.length; i++) if (smokeAt(times[i]!)) inBurn.push(i);
-  const step = Math.max(1, inBurn.length / max);
-  const out: SmokePuff[] = [];
-  const dir = new THREE.Vector3();
-  for (let k = 0; k < inBurn.length && out.length < max; k += step) {
-    const i = inBurn[Math.floor(k)]!;
-    const prev = scenePts[Math.max(0, i - 1)]!;
-    const next = scenePts[Math.min(scenePts.length - 1, i + 1)]!;
-    dir.subVectors(next, prev);
-    if (dir.lengthSq() < 1e-12) dir.set(0, 1, 0);
-    const pos = scenePts[i]!.clone().addScaledVector(dir.normalize(), -tail);
-    pos.y = Math.max(pos.y, 0);
-    const last = out[out.length - 1];
-    if (last && last.pos.distanceTo(pos) < gap) continue;
-    const smoke = smokeAt(times[i]!);
-    if (smoke) out.push({ pos, time: times[i]!, ...smoke });
-  }
-  return out;
-}
-
 export type PhaseColors = { boost: string; coast: string; descent: string };
 
-export interface FlightScene {
+export interface ColoredTrack extends FlightTrack {
   colors: [number, number, number][];
-  scenePts: THREE.Vector3[];
+}
+
+/** The first branch's track, with every branch's in `tracks`, in `flightBranches` order. */
+export interface FlightScene extends ColoredTrack {
+  tracks: ColoredTrack[];
+  /** Seconds, to a moment after the last branch's landing. */
+  duration: number;
   apogeeIdx: number;
-  deployT: number;
-  boostWindows: [number, number][];
-  delayWindows: [number, number][];
-  times: number[];
-  alts: number[];
-  vels: number[];
   callouts: { type: string; pos: THREE.Vector3; time: number }[];
   unitsPerMeter: number;
 }
 
+// For the last part down to settle in.
+export const SETTLE_SECONDS = 2;
+
+const last = <T>(items: readonly T[]): T | undefined => items[items.length - 1];
+
+function nearestIndex(times: readonly number[], t: number): number {
+  let best = 0;
+  let bd = Infinity;
+  times.forEach((at, i) => {
+    const d = Math.abs(at - t);
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
 export function buildFlightScene(result: FlightResult, phase: PhaseColors): FlightScene {
-  const time = result.series.time ?? [];
-  const alt = result.series.altitude ?? [];
-  const vel = result.series.velocity ?? [];
-  // A run that records no ground position flies up the axis; one that does drops a sample missing it,
-  // as the ground track does, rather than drawing it at the pad.
-  const tracked = !!result.series.Px && !!result.series.Py;
-  const rows: { t: number; a: number; v: number; east: number; north: number }[] = [];
-  for (let i = 0; i < time.length; i++) {
-    if (!Number.isFinite(time[i]) || !Number.isFinite(alt[i])) continue;
-    const ground = groundPointAt(result.series, i);
-    if (tracked && !ground) continue;
-    rows.push({
-      t: time[i]!,
-      a: alt[i]!,
-      v: Number.isFinite(vel[i]) ? vel[i]! : 0,
-      east: ground?.east ?? 0,
-      north: ground?.north ?? 0,
-    });
-  }
+  const flown = flightBranches(result).map((b, i) => ({
+    rows: trackRows(b.series),
+    events: b.events ?? [],
+    summary: i === 0 ? result.summary : undefined,
+  }));
+  const main = flown[0]!;
   // Loop, don't spread: Math.max(...bigArray) overflows the argument stack.
   let maxA = 1;
-  for (const r of rows) if (r.a > maxA) maxA = r.a;
+  for (const r of main.rows) if (r.a > maxA) maxA = r.a;
   const s = 24 / maxA;
-  const burns = boostWindows(result.events);
-  const lastBurnout = burns[burns.length - 1]?.[1];
-  // Seconds, not `maxA` (meters).
-  const lastT = rows[rows.length - 1]?.t ?? 0;
-  const apT = eventTime(result.events, 'APOGEE') ?? result.summary.timeToApogee ?? lastT;
-  const deployed = eventTime(result.events, 'RECOVERY_DEVICE_DEPLOYMENT');
-  // Not EJECTION_CHARGE: a booster's charge lands in the sustainer's branch.
-  const end = forwardFlightEnd(result);
-  const dpT = Number.isFinite(end) ? end : lastT;
-  const sp = rows.map((r) => sceneFromEnu(r.east * s, r.a * s, r.north * s));
-  const cols = rows.map((r): [number, number, number] => {
-    const c = new THREE.Color(isBoosting(r.t, burns) ? phase.boost : r.t <= apT ? phase.coast : phase.descent);
-    return [c.r, c.g, c.b];
+
+  const tracks = flown.map(({ rows, events, summary }): ColoredTrack => {
+    const lastT = last(rows)?.t ?? 0;
+    const apT = eventTime(events, 'APOGEE') ?? summary?.timeToApogee ?? lastT;
+    const burns = boostWindows(events);
+    const deployed = eventTime(events, 'RECOVERY_DEVICE_DEPLOYMENT');
+    // Not EJECTION_CHARGE: a booster's charge lands in the sustainer's branch.
+    const end = forwardFlightEnd({ events, summary });
+    // A recorded attitude shows a flight with no recovery coming in as it did.
+    const unrecovered = hasAttitude(rows) ? Infinity : Number.isFinite(end) ? end : lastT;
+    return {
+      ...buildTrack(rows, s, deployed ?? unrecovered),
+      colors: rows.map((r) => {
+        const c = new THREE.Color(isBoosting(r.t, burns) ? phase.boost : r.t <= apT ? phase.coast : phase.descent);
+        return [c.r, c.g, c.b];
+      }),
+    };
   });
-  let ai = 0;
-  rows.forEach((r, i) => {
-    if (r.a > rows[ai]!.a) ai = i;
+
+  const track = tracks[0]!;
+  const burns = boostWindows(main.events);
+  let apogeeIdx = 0;
+  track.alts.forEach((a, i) => {
+    if (a > track.alts[apogeeIdx]!) apogeeIdx = i;
   });
-  const idxAt = (tt: number) => {
-    let bi = 0,
-      bd = Infinity;
-    rows.forEach((r, i) => {
-      const d = Math.abs(r.t - tt);
-      if (d < bd) {
-        bd = d;
-        bi = i;
-      }
-    });
-    return bi;
-  };
   const wanted: [FlightEvent['type'], number | undefined][] = [
-    ['BURNOUT', lastBurnout],
-    ['APOGEE', apT],
-    ['RECOVERY_DEVICE_DEPLOYMENT', deployed],
-    ['GROUND_HIT', eventTime(result.events, 'GROUND_HIT') ?? rows[rows.length - 1]?.t],
+    ['BURNOUT', last(burns)?.[1]],
+    ['APOGEE', eventTime(main.events, 'APOGEE') ?? result.summary.timeToApogee ?? last(track.times) ?? 0],
+    ['RECOVERY_DEVICE_DEPLOYMENT', eventTime(main.events, 'RECOVERY_DEVICE_DEPLOYMENT')],
+    ['GROUND_HIT', eventTime(main.events, 'GROUND_HIT') ?? last(track.times)],
   ];
-  const cos: { type: string; pos: THREE.Vector3; time: number }[] = [];
-  for (const [type, tt] of wanted) {
-    if (tt == null) continue;
-    // `sp` can be empty after a kernel failure; a `!` would throw before the "no path" guard.
-    const pos = sp[idxAt(tt)];
+  const callouts: FlightScene['callouts'] = [];
+  for (const [type, time] of wanted) {
+    if (time == null) continue;
+    // Empty after a kernel failure; a `!` would throw before the "no path" guard.
+    const pos = track.scenePts[nearestIndex(track.times, time)];
     if (!pos) continue;
-    if (cos.some((c) => c.pos.distanceTo(pos) < 1.5)) continue;
-    cos.push({ type, pos, time: tt });
+    if (callouts.some((c) => c.pos.distanceTo(pos) < 1.5)) continue;
+    callouts.push({ type, pos, time });
   }
+  let duration = 0;
+  for (const t of tracks) duration = Math.max(duration, last(t.times) ?? 0);
+  if (duration > 0) duration += SETTLE_SECONDS;
   return {
-    colors: cols,
-    scenePts: sp,
-    apogeeIdx: ai,
-    deployT: dpT,
-    boostWindows: burns,
-    delayWindows: delayWindows(result.events, burns),
-    times: rows.map((r) => r.t),
-    alts: rows.map((r) => r.a),
-    vels: rows.map((r) => r.v),
+    ...track,
+    tracks,
+    duration,
+    apogeeIdx,
     unitsPerMeter: s,
-    callouts: cos,
+    callouts,
   };
-}
-
-// `progress` is a fraction of flight time, not sample count: samples cluster in the boost.
-export function indexForProgress(times: readonly number[], progress: number): number {
-  const n = times.length;
-  if (n === 0) return 0;
-  const totalT = times[n - 1] || 1;
-  const target = progress * totalT;
-  let lo = 0;
-  let hi = n - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (times[mid]! <= target) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
-
-export interface ModelPose {
-  position: THREE.Vector3;
-  quaternion: THREE.Quaternion;
-  nose: THREE.Vector3;
-}
-
-export const newModelPose = (): ModelPose => ({
-  position: new THREE.Vector3(),
-  quaternion: new THREE.Quaternion(),
-  nose: new THREE.Vector3(),
-});
-
-const UP = new THREE.Vector3(0, 1, 0);
-const NOSE_AXIS = new THREE.Vector3(-1, 0, 0);
-const tangent = new THREE.Vector3();
-
-// Nose is local -X. Writes into `out`: called every frame.
-export function modelPoseAt(
-  scenePts: readonly THREE.Vector3[],
-  idx: number,
-  descending: boolean,
-  modelLen: number,
-  out: ModelPose,
-): ModelPose {
-  const n = scenePts.length;
-  const at = scenePts[Math.min(n - 1, Math.max(0, idx))];
-  if (!at) {
-    out.position.set(0, 0, 0);
-    out.quaternion.identity();
-    out.nose.set(-modelLen / 2, 0, 0);
-    return out;
-  }
-  tangent.subVectors(scenePts[Math.min(n - 1, idx + 1)]!, scenePts[Math.max(0, idx - 1)]!);
-  if (tangent.lengthSq() < 1e-8) tangent.set(0, 1, 0);
-  else tangent.normalize();
-  const dir = descending ? UP : tangent;
-  out.quaternion.setFromUnitVectors(NOSE_AXIS, dir);
-  out.position.copy(at);
-  out.position.y += Math.max(0, (modelLen / 2) * Math.abs(dir.y) - at.y);
-  out.nose.copy(out.position).addScaledVector(dir, modelLen / 2);
-  return out;
-}
-
-export type Recovery =
-  | { kind: 'parachute'; diameter: number; color: string }
-  | { kind: 'streamer'; length: number; width: number; color: string }
-  | null;
-export function findRecovery(tree: RocketTree, palette: PartPalette): Recovery {
-  const n = findRecoveryDevices(tree)[0];
-  if (!n) return null;
-  const color = outsideAppearance(n, palette).paint;
-  return n.type === 'parachute'
-    ? { kind: 'parachute', diameter: num(n, 'diameter', KERNEL_DEFAULTS.parachute.diameter), color }
-    : {
-        kind: 'streamer',
-        length: num(n, 'stripLength', KERNEL_DEFAULTS.streamer.stripLength),
-        width: num(n, 'stripWidth', KERNEL_DEFAULTS.streamer.stripWidth),
-        color,
-      };
 }

@@ -1249,6 +1249,17 @@
     "ejection": "Ausstoß",
     "landing": "Landung",
     "follow": "Folgen",
+    "tracked": "Verfolgter Teil",
+    "view": "Kamera",
+    "viewOverview": "Übersicht",
+    "viewPad": "Startplatz",
+    "viewChase": "Verfolger",
+    "viewOnboard": "An Bord",
+    "viewDirector": "Regie",
+    "resetView": "Kamera zurücksetzen",
+    "effects": "Effekte",
+    "effectsTitle": "Nur zur Ansicht gezeichnete Effekte: die Spitze am Fangseil, Startstaub, Blitz, Dampfkegel, Leuchten, Landestaub und Taumeln. Sie ändern weder Flugbahn noch Werte.",
+    "jumpTo": "Zum Ereignis springen",
     "reset": "Zurück zum Start",
     "loop": "Wiedergabe wiederholen",
     "playbackSpeed": "Wiedergabegeschwindigkeit",
@@ -1698,6 +1709,7 @@
     "deployEvent": "Auswurf bei",
     "deployAltitude": "Auswurfhöhe (über Grund)",
     "deployDelay": "Auswurfverzögerung",
+    "opensAt": "Öffnet",
     "lineCount": "Fangleinen",
     "lineLength": "Leinenlänge",
     "motorMount": "Motorhalterung",
@@ -1748,6 +1760,12 @@
     "resetClusterTip": "Abstand und Drehung auf die Standardwerte zurücksetzen",
     "autoFinTab": "Automatisch berechnen",
     "autoFinTabTip": "Ermittelt Höhe und Länge der Lasche aus den Innenrohren und Zentrierringen im Rohr, auf dem die Finne sitzt"
+  },
+  "opensAt": {
+    "auto": "Automatisch",
+    "front": "Vorderes Ende der Kammer",
+    "back": "Hinteres Ende der Kammer",
+    "closed": "Nichts (bleibt geschlossen)"
   },
   "deployEvent": {
     "ejection": "Ausstoßladung des Motors",

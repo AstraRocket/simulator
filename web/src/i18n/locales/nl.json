@@ -1249,6 +1249,17 @@
     "ejection": "Uitstoot",
     "landing": "Landing",
     "follow": "Volgen",
+    "tracked": "Deel van de raket om te volgen",
+    "view": "Camera",
+    "viewOverview": "Overzicht",
+    "viewPad": "Lanceerplaats",
+    "viewChase": "Achtervolging",
+    "viewOnboard": "Aan boord",
+    "viewDirector": "Regie",
+    "resetView": "Camera terugzetten",
+    "effects": "Effecten",
+    "effectsTitle": "Effecten voor het oog: de neuskegel aan zijn schokkoord, stofwolk, flits, damp, gloed, stof en tuimelen. Ze veranderen geen baan of getal.",
+    "jumpTo": "Ga naar gebeurtenis",
     "reset": "Terug naar de lancering",
     "loop": "Weergave herhalen",
     "playbackSpeed": "Afspeelsnelheid",
@@ -1698,6 +1709,7 @@
     "deployEvent": "Openen bij",
     "deployAltitude": "Openingshoogte (AGL)",
     "deployDelay": "Vertraging van het openen",
+    "opensAt": "Opent bij",
     "lineCount": "Parachutelijnen",
     "lineLength": "Lengte van de lijnen",
     "motorMount": "Motorhouder",
@@ -1748,6 +1760,12 @@
     "resetClusterTip": "Afstand en rotatie terugzetten op de standaardwaarden",
     "autoFinTab": "Bereken automatisch",
     "autoFinTabTip": "Berekent de hoogte en lengte van de lip uit de binnenbuizen en centreerringen in de body waarop de vin zit"
+  },
+  "opensAt": {
+    "auto": "Automatisch",
+    "front": "Voorkant van het compartiment",
+    "back": "Achterkant van het compartiment",
+    "closed": "Niets (blijft dicht)"
   },
   "deployEvent": {
     "ejection": "Uitstootlading van de motor",

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CameraChoice } from './flightCamera';
 
-/** Play, seek, loop and the launch countdown; the frame loop advances `progressRef` itself. */
+/** Play, seek, loop, what the view tracks and the launch countdown; the frame loop advances `progressRef` itself. */
 export function useFlightPlayback(initialSpeed: number) {
   // The HUD copy; the frame loop owns the live value (progressRef).
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(initialSpeed);
-  const [follow, setFollow] = useState(false);
+  const [view, setView] = useState<CameraChoice>('overview');
+  const [viewEpoch, setViewEpoch] = useState(0);
+  const [tracked, setTracked] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [loop, setLoop] = useState(false);
   const progressRef = useRef(0);
@@ -32,6 +35,8 @@ export function useFlightPlayback(initialSpeed: number) {
   }, []);
   const onTick = useCallback((p: number) => setProgress(p), []);
   const onEnd = useCallback(() => setPlaying(false), []);
+
+  const resetView = () => setViewEpoch((n) => n + 1);
 
   const handlePlay = () => {
     if (countdown !== null) {
@@ -59,8 +64,12 @@ export function useFlightPlayback(initialSpeed: number) {
     setPlaying,
     speed,
     setSpeed,
-    follow,
-    setFollow,
+    view,
+    setView,
+    viewEpoch,
+    resetView,
+    tracked,
+    setTracked,
     countdown,
     loop,
     setLoop,

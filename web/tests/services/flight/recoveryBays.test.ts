@@ -16,7 +16,8 @@ import { flightKey } from '../../../src/services/flight/simulations';
 import { importOrk } from '../../../src/services/files/orkFile';
 import { exportOrk } from '../../../src/services/files/orkExport';
 import { bayCopyOf, restoreBays } from '../../../src/services/storage/bayStore';
-import { findNode, MAIN_DEVICE_KEY, setStageMain } from '../../../src/services/design/treeEdit';
+import { OPENS_AT_KEY, opensAt } from '../../../src/services/flight/opensAt';
+import { findNode, MAIN_DEVICE_KEY, setStageMain, updateNode } from '../../../src/services/design/treeEdit';
 import { walkNodes } from '../../../src/tree/treeWalk';
 import type { ComponentNode, RocketTree } from '../../../src/engine/openRocketEngine';
 
@@ -168,6 +169,17 @@ describe('the records in a .ork', () => {
     expect(back.find((n) => n.name === 'Main')![MAIN_DEVICE_KEY]).toBe(true);
     expect(back.find((n) => n.name === 'Main')!['xmlExtra']).toBeUndefined();
     expect(back.find((n) => n.name === 'Drogue')![MAIN_DEVICE_KEY]).toBeUndefined();
+  });
+
+  it('carry the joint a device opens, which ages no result, and drop one that is none', () => {
+    const tree = updateNode(rocket(), 'main', { [OPENS_AT_KEY]: 'back' });
+    expect(flightKey(tree)).toBe(flightKey(rocket()));
+    const xml = exportOrk({ name: 'R', tree } as never);
+    expect(xml.match(/<astrarocketopens>/g)).toHaveLength(1);
+    const main = (x: string) => [...walkNodes(importOrk(x).tree.components)].find((n) => n.name === 'Main')!;
+    expect(opensAt(main(xml))).toBe('back');
+    expect(main(xml)['xmlExtra']).toBeUndefined();
+    expect(main(xml.replace('>back<', '>sideways<'))[OPENS_AT_KEY]).toBeUndefined();
   });
 
   it('drops a malformed record rather than loading it', () => {

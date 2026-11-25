@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  burnExhausts,
+  mountExhausts,
   DEFAULT_EXHAUST,
   EXHAUST_IDS,
   EXHAUST_LOOKS,
@@ -57,14 +57,14 @@ describe('the looks of a flight', () => {
   ] as CatalogMotor[];
   const find = (c: CatalogMotor[], s: MotorSpec) => c.find((m) => m.designation === s.designation);
 
-  it('lists the stages in burn order, the booster first', () => {
+  it("gives each mount its motor's", () => {
     const config = { motors: { m1: { spec: spec('G64') }, m2: { spec: spec('H128') } } } as unknown as FlightConfig;
-    expect(burnExhausts(tree, config, catalog, find)).toEqual([look('White Lightning'), look('Blackjack')]);
+    expect(mountExhausts(tree, config, catalog, find)).toEqual({ m1: look('Blackjack'), m2: look('White Lightning') });
   });
 
-  it('skips a stage with nothing seated, and gives an unknown motor the default', () => {
+  it('skips a mount with nothing seated, and gives an unknown motor the default', () => {
     const config = { motors: { m1: { spec: spec('Z9') } } } as unknown as FlightConfig;
-    expect(burnExhausts(tree, config, catalog, find)).toEqual([DEFAULT_EXHAUST]);
+    expect(mountExhausts(tree, config, catalog, find)).toEqual({ m1: DEFAULT_EXHAUST });
   });
 
   it('skips a stage the configuration grounds', () => {
@@ -72,7 +72,7 @@ describe('the looks of a flight', () => {
       motors: { m1: { spec: spec('G64') }, m2: { spec: spec('H128') } },
       grounded: ['boo'],
     } as unknown as FlightConfig;
-    expect(burnExhausts(tree, config, catalog, find)).toEqual([look('Blackjack')]);
+    expect(mountExhausts(tree, config, catalog, find)).toEqual({ m1: look('Blackjack') });
   });
 });
 

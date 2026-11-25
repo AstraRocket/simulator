@@ -1252,6 +1252,17 @@
     "ejection": "Eyección",
     "landing": "Aterrizaje",
     "follow": "Seguir",
+    "tracked": "Parte del cohete que seguir",
+    "view": "Cámara",
+    "viewOverview": "Vista general",
+    "viewPad": "Rampa",
+    "viewChase": "Persecución",
+    "viewOnboard": "A bordo",
+    "viewDirector": "Director",
+    "resetView": "Restablecer la cámara",
+    "effects": "Efectos",
+    "effectsTitle": "Efectos dibujados solo por estética: la ojiva en su cordón de choque, chorro, destello, vapor, resplandor, polvo y volteo. No cambian la trayectoria ni ningún valor.",
+    "jumpTo": "Ir al evento",
     "reset": "Reiniciar al lanzamiento",
     "loop": "Repetir reproducción",
     "playbackSpeed": "Velocidad de reproducción",
@@ -1703,6 +1714,7 @@
     "deployEvent": "Desplegar en",
     "deployAltitude": "Altitud de despliegue (AGL)",
     "deployDelay": "Retardo de despliegue",
+    "opensAt": "Abre por",
     "lineCount": "Cuerdas de suspensión",
     "lineLength": "Longitud de cuerda",
     "motorMount": "Soporte de motor",
@@ -1753,6 +1765,12 @@
     "resetClusterTip": "Devolver la separación y la rotación a sus valores predeterminados",
     "autoFinTab": "Calcular automáticamente",
     "autoFinTabTip": "Calcula la altura y la longitud de la lengüeta a partir de los tubos internos y los anillos centradores del cuerpo en el que va la aleta"
+  },
+  "opensAt": {
+    "auto": "Automático",
+    "front": "La parte delantera del compartimento",
+    "back": "La parte trasera del compartimento",
+    "closed": "Nada (sigue cerrado)"
   },
   "deployEvent": {
     "ejection": "Carga de eyección del motor",

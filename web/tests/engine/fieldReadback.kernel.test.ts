@@ -65,6 +65,8 @@ const SEEDS: Record<string, Record<string, Partial<ComponentNode>>> = {
 };
 
 const NO_KEY = new Set(['text', 'bore', 'derived']);
+// Drawn in the flight view; the kernel has none.
+const APP_ONLY = new Set(['opensAt']);
 
 const NOSE: ComponentNode = {
   type: 'nosecone',
@@ -281,7 +283,9 @@ describe('the panel shows what the kernel flies', () => {
     expect(Object.keys(KNOWN).filter((rule) => !matched.has(rule))).toEqual([]);
     expect(Object.keys(BOUNDED_PAST_KERNEL).filter((rule) => !boundedPastKernel.has(rule))).toEqual([]);
     const never = Object.entries(FIELDS).flatMap(([type, fields]) =>
-      fields.filter((f) => !NO_KEY.has(f.kind) && !compared.has(`${type}.${f.key}`)).map((f) => `${type}.${f.key}`),
+      fields
+        .filter((f) => !NO_KEY.has(f.kind) && !APP_ONLY.has(f.key) && !compared.has(`${type}.${f.key}`))
+        .map((f) => `${type}.${f.key}`),
     );
     expect(never).toEqual([]);
   });

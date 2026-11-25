@@ -1252,6 +1252,17 @@
     "ejection": "Ejeção",
     "landing": "Pouso",
     "follow": "Seguir",
+    "tracked": "Parte do foguete a acompanhar",
+    "view": "Câmera",
+    "viewOverview": "Visão geral",
+    "viewPad": "Plataforma",
+    "viewChase": "Perseguição",
+    "viewOnboard": "A bordo",
+    "viewDirector": "Diretor",
+    "resetView": "Redefinir a câmera",
+    "effects": "Efeitos",
+    "effectsTitle": "Efeitos desenhados só pela aparência: a ogiva no cordão de choque, jato, clarão, vapor, brilho, poeira e giro. Não mudam a trajetória nem os valores.",
+    "jumpTo": "Ir para o evento",
     "reset": "Voltar ao lançamento",
     "loop": "Repetir a reprodução",
     "playbackSpeed": "Velocidade de reprodução",
@@ -1703,6 +1714,7 @@
     "deployEvent": "Abrir em",
     "deployAltitude": "Altitude de abertura (AGL)",
     "deployDelay": "Retardo da abertura",
+    "opensAt": "Abre em",
     "lineCount": "Tirantes",
     "lineLength": "Comprimento dos tirantes",
     "motorMount": "Berço do motor",
@@ -1753,6 +1765,12 @@
     "resetClusterTip": "Voltar o espaçamento e a rotação aos valores padrão",
     "autoFinTab": "Calcular automaticamente",
     "autoFinTabTip": "Calcula a altura e o comprimento da lingueta a partir dos tubos internos e anéis de centragem do corpo onde a aleta está"
+  },
+  "opensAt": {
+    "auto": "Automático",
+    "front": "Frente do compartimento",
+    "back": "Traseira do compartimento",
+    "closed": "Nada (permanece fechado)"
   },
   "deployEvent": {
     "ejection": "Carga de ejeção do motor",

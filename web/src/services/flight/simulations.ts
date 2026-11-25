@@ -11,6 +11,7 @@ import { collectNodes } from '../../tree/treeWalk';
 import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
 import { BAYS_KEY } from './recoveryBays';
+import { OPENS_AT_KEY } from './opensAt';
 import { aeroTablesOf, hasAeroTables, type AeroTables } from './aeroTables';
 import { customExpressionsOf } from './customExpressions';
 
@@ -61,8 +62,8 @@ export function effectivePrefs(globals: SimPrefs, own: Partial<SimPrefs> | undef
   return { ...globals, ...own };
 }
 
-// Bay records fly nothing, and the kernel knows only the drogue, not which device is main.
-const NOT_FLOWN = new Set(['name', BAYS_KEY, MAIN_DEVICE_KEY]);
+// Bay records and opening joints fly nothing, and the kernel knows only the drogue, not which device is main.
+const NOT_FLOWN = new Set(['name', BAYS_KEY, MAIN_DEVICE_KEY, OPENS_AT_KEY]);
 const treeKeys = new WeakMap<RocketTree, string>();
 
 // Recovery device names stay in because a run's deployments name their device.

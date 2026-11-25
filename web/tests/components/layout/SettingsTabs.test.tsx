@@ -9,10 +9,16 @@ beforeEach(() => localStorage.clear());
 
 describe('a Settings tab alone', () => {
   it('writes the playback speed', () => {
-    seedSettings({ playbackSpeed: 1 });
+    seedSettings({ replaySpeed: 1 });
     renderWithProviders(<PlaybackTab />);
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '4' } });
-    expect(readSettings()['playbackSpeed']).toBe(4);
+    expect(readSettings()['replaySpeed']).toBe(4);
+  });
+
+  it('writes the flight path effects', () => {
+    renderWithProviders(<PlaybackTab />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Effects' }));
+    expect(readSettings()['flightEffects']).toBe(false);
   });
 
   it('shows the simulation defaults', () => {

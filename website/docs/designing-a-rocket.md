@@ -50,6 +50,10 @@ It is not only a label. The simulation judges a deployment differently depending
 
 With **Dual deployment**, the **Main device** picks which of the stage's other parachutes and streamers is the main. It starts on the first one that is not the drogue. It decides which bay carries the main charges on [Configurations ▸ Bays](./flight-configurations.md#bays): only the drogue and the main get a bay, so a further device in the stage, such as a nose cone streamer, has no charges of its own. The simulation does not use it; the flight is the same whichever device is picked. Desktop OpenRocket has no such setting, so the `.ork` keeps it in an element of the app's own, which desktop reads past. With **Single deployment** the picker reads **Every device**: each device in the stage is a main.
 
+### Opens at {#opens-at}
+
+A parachute's or streamer's **Opens at** says which end of its bay comes apart in the [3D flight path](./views-and-analysis.md#flight-effects): **Automatic**, the **front**, the **back**, or **nothing**. Automatic works it out from the parts around the device. It changes how the flight is drawn and nothing else, so no result goes out of date. OpenRocket has no such setting, so the `.ork` keeps it in an element of the app's own, which desktop reads past.
+
 ### What goes inside a mass component
 
 A mass component is not only a lump of ballast: it can hold inner structure of its own, so an altimeter bay or a payload sled can be modeled as the sled plus the rings, bulkheads, hardware and recovery gear nested inside it. Add parts to it the same way as to a body tube.

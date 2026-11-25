@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useWorkspaceStore } from '../../state/store';
+import { configOf, selectMotorDims, selectShownSim, useWorkspaceStore } from '../../state/store';
 import type { ResultFlight } from '../../services/flight/simulations';
 import type { FlightResult } from '../../engine/openRocketEngine';
 import { TreeSchematic } from './TreeSchematic';
@@ -16,7 +16,7 @@ import { LazyBoundary } from '../common/ErrorBoundary';
 import { lazyNamed } from '../common/lazyNamed';
 import { useExportData } from './useExportData';
 import { useViewPrefs } from './useViewPrefs';
-import { useBurnExhausts } from './useBurnExhausts';
+import { useMountExhausts } from './useMountExhausts';
 import { degToRad, radToDeg } from '../../prefs/units';
 import { useUnits } from '../../prefs/useUnits';
 import { useDesignFigure } from './useDesignFigure';
@@ -48,7 +48,7 @@ export function CenterCanvas({
   const onRollBy = useWorkspaceStore((s) => s.rollBy);
   const resetKey = useWorkspaceStore((s) => s.resetKey);
   // The flight path draws `design`: figure styles do not reach it.
-  const { design, config, tree, motors } = useDesignFigure();
+  const { design, tree, motors } = useDesignFigure();
   const hiddenParts = useWorkspaceStore((s) => s.hiddenParts);
   // The flight path draws every part too: hiding is for looking at the design.
   const hiddenIds = useMemo(() => hiddenPartIds(design.components, hiddenParts), [design.components, hiddenParts]);
@@ -56,7 +56,10 @@ export function CenterCanvas({
   const selectedId = useWorkspaceStore((s) => s.selectedId);
   const onSelect = useWorkspaceStore((s) => s.setSelectedId);
   const setErr = useWorkspaceStore((s) => s.setErr);
-  const exhausts = useBurnExhausts(design, config, view === 'path');
+  // The shown flight's own: the picker may show one flown on another configuration than the one being edited.
+  const flownConfig = useWorkspaceStore((s) => configOf(s.configs, selectShownSim(s)));
+  const flownMotors = useMemo(() => selectMotorDims(design, flownConfig), [design, flownConfig]);
+  const exhausts = useMountExhausts(design, flownConfig, view === 'path');
   const exportData = useExportData(motors);
   const { showMarkers, showInfoCard, showGrid, rulers } = useViewPrefs();
   const loading = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('view.loading3d')}</div>;
@@ -138,8 +141,9 @@ export function CenterCanvas({
                 <FlightPath3D
                   result={pathResult}
                   tree={design}
-                  motors={motors}
+                  motors={flownMotors}
                   exhausts={exhausts}
+                  rodLengthM={flight?.launch.launchRodLengthM}
                   latitudeDeg={flight?.launch.latitudeDeg}
                   longitudeDeg={flight?.launch.longitudeDeg}
                 />

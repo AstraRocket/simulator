@@ -1252,6 +1252,17 @@
     "ejection": "Éjection",
     "landing": "Atterrissage",
     "follow": "Suivre",
+    "tracked": "Partie de la fusée à suivre",
+    "view": "Caméra",
+    "viewOverview": "Vue d’ensemble",
+    "viewPad": "Pas de tir",
+    "viewChase": "Poursuite",
+    "viewOnboard": "Embarquée",
+    "viewDirector": "Réalisateur",
+    "resetView": "Réinitialiser la caméra",
+    "effects": "Effets",
+    "effectsTitle": "Effets dessinés pour l'apparence : l'ogive sur sa sangle, souffle, éclair, vapeur, lueur, poussière et culbute. Ils ne changent ni la trajectoire ni les valeurs.",
+    "jumpTo": "Aller à l’événement",
     "reset": "Revenir au lancement",
     "loop": "Lecture en boucle",
     "playbackSpeed": "Vitesse de lecture",
@@ -1703,6 +1714,7 @@
     "deployEvent": "Déployer à",
     "deployAltitude": "Altitude de déploiement (au-dessus du sol)",
     "deployDelay": "Délai de déploiement",
+    "opensAt": "Ouvre",
     "lineCount": "Suspentes",
     "lineLength": "Longueur des suspentes",
     "motorMount": "Support moteur",
@@ -1753,6 +1765,12 @@
     "resetClusterTip": "Remettre l'espacement et la rotation aux valeurs par défaut",
     "autoFinTab": "Calculer automatiquement",
     "autoFinTabTip": "Détermine la hauteur et la longueur de la languette d'après les tubes internes et les anneaux de centrage du corps où se trouve l'aileron"
+  },
+  "opensAt": {
+    "auto": "Automatique",
+    "front": "L’avant de son compartiment",
+    "back": "L’arrière de son compartiment",
+    "closed": "Rien (reste fermé)"
   },
   "deployEvent": {
     "ejection": "Charge d'éjection du moteur",

@@ -1,7 +1,7 @@
 import type { FlightResult } from '../../src/engine/openRocketEngine';
 import { loadEngine } from './kernelGeometry';
 
-export async function flyTwoStage(): Promise<FlightResult> {
+export async function flyTwoStage(options: object = {}): Promise<FlightResult> {
   const engine = await loadEngine();
   engine.reset();
   const h = engine.buildRocket(JSON.stringify(TWO_STAGE));
@@ -12,7 +12,7 @@ export async function flyTwoStage(): Promise<FlightResult> {
   engine.setMotorById(h, 'booster-mount', 'C6', 0.018, 0.07, times, thrusts, masses, 0.035, 0);
   engine.setMotorIgnitionById(h, 'sustainer-mount', 'burnout', 1);
   return JSON.parse(
-    engine.simulateJson(h, JSON.stringify({ launchRodLength: 1, randomSeed: 7, recoverySpeedWarn: WARN })),
+    engine.simulateJson(h, JSON.stringify({ launchRodLength: 1, randomSeed: 7, recoverySpeedWarn: WARN, ...options })),
   ) as FlightResult;
 }
 

@@ -1246,6 +1246,17 @@
     "ejection": "放出",
     "landing": "着地",
     "follow": "追従",
+    "tracked": "追跡する機体",
+    "view": "カメラ",
+    "viewOverview": "全体",
+    "viewPad": "発射台",
+    "viewChase": "追跡",
+    "viewOnboard": "機上",
+    "viewDirector": "ディレクター",
+    "resetView": "カメラをリセット",
+    "effects": "エフェクト",
+    "effectsTitle": "見た目のために描くエフェクトです（ショックコードにつながったノーズコーン、噴射の煙、閃光、水蒸気、発光、砂ぼこり、回転）。経路や数値は変わりません。",
+    "jumpTo": "イベントへ移動",
     "reset": "打ち上げに戻す",
     "loop": "繰り返し再生",
     "playbackSpeed": "再生速度",
@@ -1693,6 +1704,7 @@
     "deployEvent": "展開のきっかけ",
     "deployAltitude": "展開高度（対地）",
     "deployDelay": "展開の遅延",
+    "opensAt": "開く位置",
     "lineCount": "シュラウドライン本数",
     "lineLength": "ラインの長さ",
     "motorMount": "モーターマウント",
@@ -1743,6 +1755,12 @@
     "resetClusterTip": "間隔と回転を既定値に戻します",
     "autoFinTab": "自動的に計算",
     "autoFinTabTip": "フィンが付いている本体内のインナーチューブとセンタリングリングからタブの高さと長さを算出します"
+  },
+  "opensAt": {
+    "auto": "自動",
+    "front": "収納部の前端",
+    "back": "収納部の後端",
+    "closed": "開かない（閉じたまま）"
   },
   "deployEvent": {
     "ejection": "モーターの放出薬",
