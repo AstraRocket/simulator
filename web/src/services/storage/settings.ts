@@ -113,7 +113,10 @@ export interface Settings {
   defaultMaterials: Record<string, { name: string; density: number; group?: string; shearModulus?: number }>;
   phaseColors: { boost: string; coast: string; descent: string };
   aeroHeat: 'sky' | 'openrocket';
-  playbackSpeed: number;
+  /** Flight seconds per second. */
+  replaySpeed: number;
+  /** The 3D flight path's drawn extras. */
+  flightEffects: boolean;
   simulation: SimulationSettings;
   launchDefaults: CompleteLaunch;
   headerSummary: HeaderSummaryPref;
@@ -207,12 +210,14 @@ export const DEFAULT_REPORT: ReportSettings = {
   orientation: 'portrait',
 };
 
-export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4] as const;
+export const PLAYBACK_SPEEDS = [0.1, 0.25, 0.5, 1, 2, 4, 8, 16] as const;
 
-export const playbackLabel = (s: number): string => (s === 0.25 ? '¼×' : s === 0.5 ? '½×' : `${s}×`);
+const SLOW_LABELS: Partial<Record<number, string>> = { 0.1: '⅒×', 0.25: '¼×', 0.5: '½×' };
+
+export const playbackLabel = (s: number): string => SLOW_LABELS[s] ?? `${s}×`;
 
 const clampPlayback = (v: unknown): number => {
-  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return DEFAULT_SETTINGS.playbackSpeed;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return DEFAULT_SETTINGS.replaySpeed;
   const gap = (s: number) => Math.abs(Math.log(v / s));
   return PLAYBACK_SPEEDS.reduce((best, s) => (gap(s) < gap(best) ? s : best), PLAYBACK_SPEEDS[0]);
 };
@@ -232,7 +237,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultMaterials: {},
   phaseColors: { boost: '#fb923c', coast: '#38bdf8', descent: '#34d399' },
   aeroHeat: 'sky',
-  playbackSpeed: 0.5,
+  replaySpeed: 1,
+  flightEffects: true,
   simulation: {
     timeStep: 0.05,
     maxTime: 1200,
@@ -392,7 +398,8 @@ export function settingsFrom(value: unknown): Settings {
     statsLayout: STATS_LAYOUTS.includes(s.statsLayout as StatsLayout)
       ? (s.statsLayout as StatsLayout)
       : DEFAULT_SETTINGS.statsLayout,
-    playbackSpeed: clampPlayback(s.playbackSpeed),
+    replaySpeed: clampPlayback(s.replaySpeed),
+    flightEffects: s.flightEffects !== false,
     simulation: (() => {
       const sim = { ...DEFAULT_SETTINGS.simulation, ...(s.simulation ?? {}) };
       const pos = (v: number, d: number) => (Number.isFinite(v) && v > 0 ? v : d);

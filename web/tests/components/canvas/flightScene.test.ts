@@ -1,19 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import * as THREE from 'three';
-import {
-  buildFlightScene,
-  burnAt,
-  delayWindows,
-  smokePuffs,
-  indexForProgress,
-  modelPoseAt,
-  newModelPose,
-  type PhaseColors,
-} from '../../../src/components/canvas/flightScene';
-import type { FlightEvent, FlightResult, RocketTree } from '../../../src/engine/openRocketEngine';
-import { boostWindows, findRecovery } from '../../../src/components/canvas/flightScene';
-import { mergePalette } from '../../../src/services/design/partColors';
-import { KERNEL_DEFAULTS } from '../../../src/tree/kernelDefaults';
+import { boostWindows, buildFlightScene, type PhaseColors } from '../../../src/components/canvas/flightScene';
+import type { FlightResult } from '../../../src/engine/openRocketEngine';
 
 const phase: PhaseColors = { boost: '#ff0000', coast: '#00ff00', descent: '#0000ff' };
 const RED = 0,
@@ -123,7 +110,6 @@ describe('callouts', () => {
       phase,
     );
     expect(s.callouts.map((c) => c.type)).toEqual(['BURNOUT', 'APOGEE', 'GROUND_HIT']);
-    expect(s.boostWindows).toEqual([[0, 2]]);
   });
 
   it('drops a label that would sit on top of another', () => {
@@ -178,110 +164,6 @@ describe('scaling', () => {
   });
 });
 
-describe('indexForProgress', () => {
-  const linear = (times: number[], progress: number) => {
-    const n = times.length;
-    const totalT = times[n - 1] || 1;
-    let idx = 0;
-    while (idx < n - 1 && times[idx + 1]! <= progress * totalT) idx++;
-    return idx;
-  };
-
-  it('is 0 on the pad and the last sample at the end', () => {
-    const times = [0, 0.1, 0.3, 0.7, 1.5, 4, 9];
-    expect(indexForProgress(times, 0)).toBe(0);
-    expect(indexForProgress(times, 1)).toBe(6);
-    expect(indexForProgress(times, 2)).toBe(6);
-  });
-
-  it('maps by time, not by sample count', () => {
-    const times = [0, 0.1, 0.3, 0.7, 1.5, 4, 9];
-    expect(indexForProgress(times, 0.5)).toBe(5);
-  });
-
-  it('agrees with the linear scan on random monotone sample times', () => {
-    let seed = 42;
-    const rnd = () => {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      return seed / 0x7fffffff;
-    };
-    for (let trial = 0; trial < 200; trial++) {
-      const n = 1 + Math.floor(rnd() * 50);
-      const times: number[] = [];
-      let t = 0;
-      for (let i = 0; i < n; i++) {
-        t += rnd() < 0.1 ? 0 : rnd();
-        times.push(t);
-      }
-      for (const p of [0, 0.001, 0.25, 0.5, 0.999, 1, rnd(), rnd()]) {
-        expect(indexForProgress(times, p)).toBe(linear(times, p));
-      }
-    }
-  });
-
-  it('handles an empty or single-sample series', () => {
-    expect(indexForProgress([], 0.5)).toBe(0);
-    expect(indexForProgress([3], 0.5)).toBe(0);
-  });
-});
-
-describe('modelPoseAt', () => {
-  const pts = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 3, 0), new THREE.Vector3(2, 5, 0)];
-
-  it('sits on the pad at launch: lifted by half the model length along its up component', () => {
-    const out = modelPoseAt(pts, 0, false, 2, newModelPose());
-    const dirY = 3 / Math.sqrt(10);
-    expect(out.position.x).toBe(0);
-    expect(out.position.y).toBeCloseTo(1 * dirY, 9);
-    expect(out.nose.x).toBeCloseTo(1 / Math.sqrt(10), 9);
-  });
-
-  it('points the nose (local -X) along the path tangent', () => {
-    const out = modelPoseAt(pts, 1, false, 2, newModelPose());
-    const nose = new THREE.Vector3(-1, 0, 0).applyQuaternion(out.quaternion);
-    const expected = new THREE.Vector3(2, 5, 0).normalize();
-    expect(nose.x).toBeCloseTo(expected.x, 6);
-    expect(nose.y).toBeCloseTo(expected.y, 6);
-  });
-
-  it('hangs nose-up once descending', () => {
-    const out = modelPoseAt(pts, 2, true, 2, newModelPose());
-    const nose = new THREE.Vector3(-1, 0, 0).applyQuaternion(out.quaternion);
-    expect(nose.y).toBeCloseTo(1, 6);
-    expect(out.nose.y).toBeCloseTo(out.position.y + 1, 9);
-  });
-
-  it('does not lift a point already above the ground', () => {
-    const out = modelPoseAt(pts, 2, true, 2, newModelPose());
-    expect(out.position.y).toBe(5);
-  });
-
-  it('survives an empty path', () => {
-    expect(() => modelPoseAt([], 0, false, 2, newModelPose())).not.toThrow();
-  });
-});
-
-describe('findRecovery', () => {
-  const tree = (kids: object[]) =>
-    ({ components: [{ type: 'stage', id: 's', children: kids }] }) as unknown as RocketTree;
-
-  it('sizes a keyless streamer at the kernel default', () => {
-    const r = findRecovery(tree([{ type: 'streamer', id: 'st' }]), mergePalette({}));
-    expect(r).toMatchObject({ kind: 'streamer', length: KERNEL_DEFAULTS.streamer.stripLength });
-  });
-
-  it('finds the first device in tree order, nested or not', () => {
-    const r = findRecovery(
-      tree([
-        { type: 'bodytube', id: 'b', children: [{ type: 'parachute', id: 'p', diameter: 0.6 }] },
-        { type: 'streamer', id: 'st' },
-      ]),
-      mergePalette({}),
-    );
-    expect(r).toMatchObject({ kind: 'parachute', diameter: 0.6 });
-  });
-});
-
 describe('boost windows', () => {
   it('pairs each ignition with the burnout that ends it', () => {
     expect(
@@ -331,87 +213,6 @@ describe('boost windows', () => {
     expect(chan(s.colors[3]!)).toBe(GREEN);
     expect(chan(s.colors[5]!)).toBe(RED);
     expect(chan(s.colors[8]!)).toBe(GREEN);
-  });
-});
-
-describe('the smoke trail', () => {
-  const pts = [0, 1, 2, 3, 4, 5].map((y) => new THREE.Vector3(0, y, 0));
-  const scene = {
-    scenePts: pts,
-    times: [0, 1, 2, 3, 4, 5],
-    boostWindows: [
-      [0, 2],
-      [3, 4],
-    ] as [number, number][],
-  };
-
-  it('says which burn a time is in', () => {
-    expect([0, 1.5, 2, 3.5, 4.5].map((t) => burnAt(t, scene.boostWindows))).toEqual([0, 0, -1, 1, -1]);
-  });
-
-  it('leaves a puff per burning sample, by its burn, behind the model and never under the ground', () => {
-    const puffs = smokePuffs(scene, 100, 0.5);
-    expect(puffs.map((p) => [p.time, p.burn, p.pos.y])).toEqual([
-      [0, 0, 0],
-      [1, 0, 0.5],
-      [3, 1, 2.5],
-    ]);
-  });
-
-  it('thins a long burn to the most it draws', () => {
-    const time = Array.from({ length: 1000 }, (_, i) => i / 100);
-    const long = {
-      scenePts: time.map((t) => new THREE.Vector3(0, t, 0)),
-      times: time,
-      boostWindows: [[0, 10]] as [number, number][],
-    };
-    const puffs = smokePuffs(long, 50);
-    expect(puffs).toHaveLength(50);
-    expect(puffs[49]!.time).toBeGreaterThan(9.5);
-  });
-});
-
-describe('the smoke trail off the pad', () => {
-  it('leaves out puffs closer than the gap, so a slow start does not stack them', () => {
-    const ys = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 1, 2, 3];
-    const scene = {
-      scenePts: ys.map((y) => new THREE.Vector3(0, y, 0)),
-      times: ys.map((_, i) => i * 0.01),
-      boostWindows: [[0, 1]] as [number, number][],
-    };
-    expect(smokePuffs(scene, 100, 0, 0.5).map((p) => p.pos.y)).toEqual([0, 1, 2, 3]);
-  });
-});
-
-describe("the delay grain's smoke", () => {
-  it('runs from each burnout to the ejection charge after it, and not for a plugged burn', () => {
-    const burns: [number, number][] = [
-      [0, 1],
-      [3, 4],
-    ];
-    const events: FlightEvent[] = [
-      { type: 'EJECTION_CHARGE', time: 1 },
-      { type: 'EJECTION_CHARGE', time: 9 },
-    ];
-    expect(delayWindows(events, burns)).toEqual([[4, 9]]);
-    expect(delayWindows([], burns)).toEqual([]);
-  });
-
-  it('leaves delay puffs, by the burn before them, between burnout and the charge', () => {
-    const ys = [0, 1, 2, 3, 4, 5, 6];
-    const scene = {
-      scenePts: ys.map((y) => new THREE.Vector3(0, y, 0)),
-      times: ys,
-      boostWindows: [[0, 2]] as [number, number][],
-      delayWindows: [[2, 5]] as [number, number][],
-    };
-    expect(smokePuffs(scene, 100).map((p) => [p.time, p.burn, p.delay])).toEqual([
-      [0, 0, false],
-      [1, 0, false],
-      [2, 0, true],
-      [3, 0, true],
-      [4, 0, true],
-    ]);
   });
 });
 

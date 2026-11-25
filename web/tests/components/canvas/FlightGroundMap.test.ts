@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { GROUND_ROTATION, configureTileTexture, groundMapLayout } from '../../../src/components/canvas/groundMapLayout';
-import { buildFlightScene, sceneFromEnu } from '../../../src/components/canvas/flightScene';
+import { buildFlightScene } from '../../../src/components/canvas/flightScene';
+import { sceneFromEnu } from '../../../src/components/canvas/flightTrack';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 import { TILE_SIZE } from '../../../src/services/map/slippyMap';
 import { MIN_EXTENT_M } from '../../../src/services/flight/groundTrack';

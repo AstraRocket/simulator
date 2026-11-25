@@ -176,6 +176,7 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
     ],
   },
   { prefix: 'deployEvent.', values: [...FIELD_OPTIONS('deployEvent'), ...DEPLOY_EVENTS] },
+  { prefix: 'opensAt.', values: FIELD_OPTIONS('opensAt') },
   { prefix: 'crossSection.', values: FIELD_OPTIONS('crossSection') },
   { prefix: 'finish.', values: FIELD_OPTIONS('finish') },
   { prefix: 'prop.lineStyle_', values: LINE_STYLES },

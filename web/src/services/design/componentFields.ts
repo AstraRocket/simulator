@@ -5,6 +5,7 @@ import type { DerivedName } from './derivedFields';
 import type { IgnitionEvent } from '../../engine/openRocketEngine';
 import { KERNEL_DEPLOYMENT, KERNEL_FINISHES } from '../../tree/kernelDefaults';
 import { RAIL_BUTTON_BOUNDS, RAIL_BUTTON_FALLBACK, RING_BOUNDS, type DimensionBounds } from './linkedDimensions';
+import { OPENS_AT, OPENS_AT_KEY } from '../flight/opensAt';
 import { num } from '../../tree/nodeProps';
 import { shapeOptions } from '../../tree/shapeProfile';
 
@@ -241,6 +242,7 @@ const DEPLOY_FIELDS: Field[] = [
   },
   { key: 'deployAltitude', label: 'deployAltitude', kind: 'distance', step: 10 },
   { key: 'deployDelay', label: 'deployDelay', kind: 'number', unitKey: 'units.second', step: 0.5 },
+  { key: OPENS_AT_KEY, label: 'opensAt', kind: 'select', options: [...OPENS_AT], optI18n: 'opensAt', fallback: 'auto' },
 ];
 
 /** No FIELDS entry may reuse one of these unit-scope keys. */

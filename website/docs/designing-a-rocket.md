@@ -50,6 +50,10 @@ It is not only a label. The simulation judges a deployment differently depending
 
 With **Dual deployment**, the **Main device** picks which of the stage's other parachutes and streamers is the main. It starts on the first one that is not the drogue. It decides which bay carries the main charges on [Configurations ▸ Bays](./flight-configurations.md#bays): only the drogue and the main get a bay, so a further device in the stage, such as a nose cone streamer, has no charges of its own. The simulation does not use it; the flight is the same whichever device is picked. Desktop OpenRocket has no such setting, so the `.ork` keeps it in an element of the app's own, which desktop reads past. With **Single deployment** the picker reads **Every device**: each device in the stage is a main.
 
+### Opens at {#opens-at}
+
+A parachute's or streamer's **Opens at** says which end of its bay comes apart in the [3D flight path](./views-and-analysis.md#flight-effects): **Automatic**, the **front**, the **back**, or **nothing**. Automatic works it out from the parts around the device. It changes how the flight is drawn and nothing else, so no result goes out of date. OpenRocket has no such setting, so the `.ork` keeps it in an element of the app's own, which desktop reads past.
+
 ### What goes inside a mass component
 
 A mass component is not only a lump of ballast: it can hold inner structure of its own, so an altimeter bay or a payload sled can be modeled as the sled plus the rings, bulkheads, hardware and recovery gear nested inside it. Add parts to it the same way as to a body tube.
@@ -303,7 +307,7 @@ A **Decal** is an image laid over the paint in the 3D **Finished** view, the 3D 
 - **Scale** is the image's size against the part in each direction, around and along a tube, or across the chord and the span of a fin: at 1 the image covers the part once, and at 0.5 it is half as big and fits twice.
 - **Offset** slides the image around and along the part, as a fraction of the part.
 - **Rotation** turns the image.
-- **Edges**: **Repeat** tiles the image over the whole part. **Mirror**, **Clamp** and **Sticker** show it once and stretch its edge pixels over the rest, which is how desktop OpenRocket's 3D view draws all three. A sticker image with a transparent border leaves the paint showing around it.
+- **Edges**: what shows past the image's edge, as desktop OpenRocket's 3D view draws it. **Repeat** tiles the image over the whole part. **Mirror** tiles it flipped every other time, so the tiles meet edge to edge. **Clamp** shows it once and stretches its edge pixels over the rest. **Sticker** shows it once and leaves the paint showing around it.
 - **Opacity affects decal**: off, the decal stays solid where the paint has a lowered **Opacity**; on, the decal fades with the paint.
 
 Saving packs each image into the `.ork` under `decals/`, as desktop does, so the file opens in desktop OpenRocket with its decals, and a desktop file's decals open here. The images are kept in your browser apart from the design, and a backup of your saved parts carries the ones those parts wear. When a browser no longer holds an image (a design from another browser, or site data cleared), the part shows bare paint, the editor says so, and a save leaves that image out; choose it again to put it back.

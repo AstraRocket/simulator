@@ -119,6 +119,8 @@
   /* Scene colors stay hex: three.js parses them. */
   --c-scene-sky: #cfe8ff;
   --c-scene-ground: #0b1220;
+  --c-scene-zenith: #030817;
+  --c-scene-horizon: #2b4560;
   --c-scene-floor: #0b1724;
   --c-scene-grid: #33506a;
   --c-scene-grid-minor: #18293a;
@@ -341,6 +343,8 @@ body {
   --c-thrust-band: #0891b2;
   --c-scene-sky: #ffffff;
   --c-scene-ground: #94a3b8;
+  --c-scene-zenith: #8ebbe8;
+  --c-scene-horizon: #e6eff8;
   --c-scene-floor: #e2e8f0;
   --c-scene-grid: #94a3b8;
   --c-scene-grid-minor: #cbd5e1;

@@ -73,33 +73,33 @@ describe('loadSettings', () => {
     expect(s.phaseColors.coast).toBe(DEFAULT_SETTINGS.phaseColors.coast);
   });
 
-  it('guards playbackSpeed against a non-number', () => {
-    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 'fast' }));
-    expect(loadSettings().playbackSpeed).toBe(DEFAULT_SETTINGS.playbackSpeed);
+  it('guards replaySpeed against a non-number', () => {
+    localStorage.setItem(KEY, JSON.stringify({ replaySpeed: 'fast' }));
+    expect(loadSettings().replaySpeed).toBe(DEFAULT_SETTINGS.replaySpeed);
   });
 
-  it('guards playbackSpeed against the non-numbers that ARE numbers', () => {
-    for (const raw of ['{"playbackSpeed":null}', '{"playbackSpeed":0}', '{"playbackSpeed":-2}']) {
+  it('guards replaySpeed against the non-numbers that ARE numbers', () => {
+    for (const raw of ['{"replaySpeed":null}', '{"replaySpeed":0}', '{"replaySpeed":-2}']) {
       localStorage.setItem(KEY, raw);
-      expect(loadSettings().playbackSpeed, raw).toBe(DEFAULT_SETTINGS.playbackSpeed);
+      expect(loadSettings().replaySpeed, raw).toBe(DEFAULT_SETTINGS.replaySpeed);
     }
     // Infinity stringifies as null, so the largest finite number stands in for it.
-    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: Number.MAX_VALUE }));
-    expect(loadSettings().playbackSpeed).toBe(4);
+    localStorage.setItem(KEY, JSON.stringify({ replaySpeed: Number.MAX_VALUE }));
+    expect(loadSettings().replaySpeed).toBe(16);
   });
 
-  it('snaps playbackSpeed to a speed the pickers offer', () => {
-    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 1000 }));
-    expect(loadSettings().playbackSpeed).toBe(4);
-    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 0.0001 }));
-    expect(loadSettings().playbackSpeed).toBe(0.25);
-    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 3 }));
-    expect(loadSettings().playbackSpeed).toBe(4); // nearer 4 than 2 as a ratio
-    localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: 2 }));
-    expect(loadSettings().playbackSpeed).toBe(2);
+  it('snaps replaySpeed to a speed the pickers offer', () => {
+    localStorage.setItem(KEY, JSON.stringify({ replaySpeed: 1000 }));
+    expect(loadSettings().replaySpeed).toBe(16);
+    localStorage.setItem(KEY, JSON.stringify({ replaySpeed: 0.0001 }));
+    expect(loadSettings().replaySpeed).toBe(0.1);
+    localStorage.setItem(KEY, JSON.stringify({ replaySpeed: 3 }));
+    expect(loadSettings().replaySpeed).toBe(4); // nearer 4 than 2 as a ratio
+    localStorage.setItem(KEY, JSON.stringify({ replaySpeed: 2 }));
+    expect(loadSettings().replaySpeed).toBe(2);
     for (const v of [0.3, 0.7, 1.2, 9]) {
-      localStorage.setItem(KEY, JSON.stringify({ playbackSpeed: v }));
-      expect(PLAYBACK_SPEEDS, String(v)).toContain(loadSettings().playbackSpeed);
+      localStorage.setItem(KEY, JSON.stringify({ replaySpeed: v }));
+      expect(PLAYBACK_SPEEDS, String(v)).toContain(loadSettings().replaySpeed);
     }
   });
 
@@ -210,10 +210,10 @@ describe('loadSettings', () => {
 
 describe('saveSettings', () => {
   it('round-trips through localStorage', () => {
-    const custom = { ...DEFAULT_SETTINGS, playbackSpeed: 2, partColors: { fins: '#123456' } };
+    const custom = { ...DEFAULT_SETTINGS, replaySpeed: 2, partColors: { fins: '#123456' } };
     saveSettings(custom);
     const s = loadSettings();
-    expect(s.playbackSpeed).toBe(2);
+    expect(s.replaySpeed).toBe(2);
     expect(s.partColors.fins).toBe('#123456');
   });
 });

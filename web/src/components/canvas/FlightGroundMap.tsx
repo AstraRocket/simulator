@@ -1,12 +1,9 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { type TileRef, type TileSourceId } from '../../services/map/slippyMap';
-import { sceneFromEnu } from './flightScene';
+import { sceneFromEnu } from './flightTrack';
 import { useEsriKey } from '../../services/map/esriKey';
-import { groundMapLayout, GROUND_ROTATION, configureTileTexture } from './groundMapLayout';
-
-// Just above the ground plane, below the grid.
-const MAP_Y = 0.01;
+import { groundMapLayout, GROUND_LAYER, GROUND_ROTATION, configureTileTexture } from './groundMapLayout';
 
 export interface GroundMapProps {
   latitudeDeg: number;
@@ -91,14 +88,19 @@ export function FlightGroundMap({
   }, [layer]);
 
   return (
-    <group position={[0, MAP_Y, 0]}>
+    <group>
       {layer.refs.map((ref) => {
         const tex = loaded.of === layer ? loaded.texes[ref.key] : undefined;
         if (!tex) return null;
         return (
-          <mesh key={ref.key} position={sceneFromEnu(ref.east, 0, ref.north)} rotation={GROUND_ROTATION}>
+          <mesh
+            key={ref.key}
+            position={sceneFromEnu(ref.east, 0, ref.north)}
+            rotation={GROUND_ROTATION}
+            renderOrder={GROUND_LAYER.map}
+          >
             <planeGeometry args={[layer.quad, layer.quad]} />
-            <meshBasicMaterial map={tex} toneMapped={false} />
+            <meshBasicMaterial map={tex} toneMapped={false} depthTest={false} depthWrite={false} />
           </mesh>
         );
       })}

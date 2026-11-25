@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { useEffect, useMemo, useState } from 'react';
 import type { LookDecal } from '../../services/design/appearance';
-import { decalRepeats, decalUvMatrix } from '../../services/design/decal';
+import { decalUvMatrix, type EdgeMode } from '../../services/design/decal';
 import { getDecalImage, onDecalImage } from '../../services/storage/decalStore';
 
 // One decoded image per stored image, however many parts and surfaces wear it.
@@ -37,14 +37,22 @@ export function decalImage(hash: string): Promise<HTMLImageElement | null> {
   return p;
 }
 
+/** Desktop `DefaultMaterialBinder`; a sticker is also masked past its edge, in the shader. */
+const WRAP: Record<EdgeMode, THREE.Wrapping> = {
+  REPEAT: THREE.RepeatWrapping,
+  MIRROR: THREE.MirroredRepeatWrapping,
+  CLAMP: THREE.ClampToEdgeWrapping,
+  STICKER: THREE.ClampToEdgeWrapping,
+};
+
 /**
- * The image as desktop draws it: flipped on load as `Texture` loads with stb_image (three's `flipY`), wrapped only
- * when it repeats, and placed by `TextureTransform`.
+ * The image as desktop draws it: flipped on load as `Texture` loads with stb_image (three's `flipY`), wrapped by its
+ * edge mode, and placed by `TextureTransform`.
  */
 export function decalTexture(img: HTMLImageElement, look: LookDecal): THREE.Texture {
   const t = new THREE.Texture(img);
   t.colorSpace = THREE.SRGBColorSpace;
-  const wrap = decalRepeats(look.decal) ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  const wrap = WRAP[look.decal.edgeMode];
   t.wrapS = wrap;
   t.wrapT = wrap;
   t.anisotropy = 4;
@@ -88,7 +96,8 @@ export function useDecalTexture(look: LookDecal | undefined): THREE.Texture | nu
 
 /**
  * Lays the image over the paint as desktop's `fragment.glsl` does, rather than tinting it: by its own alpha, and
- * unless the opacity fades the decal too, opaque where the image is over see-through paint.
+ * unless the opacity fades the decal too, opaque where the image is over see-through paint. A sticker shows only the
+ * paint past the image's edge, fading over one pixel.
  */
 function blendDecal(shader: THREE.WebGLProgramParametersWithUniforms): void {
   shader.fragmentShader = shader.fragmentShader.replace(
@@ -96,6 +105,11 @@ function blendDecal(shader: THREE.WebGLProgramParametersWithUniforms): void {
     /* glsl */ `
 #ifdef USE_MAP
   vec4 decalTexel = texture2D( map, vMapUv );
+  #ifdef DECAL_STICKER
+    vec2 decalEdge = max( fwidth( vMapUv ), vec2( 1e-6 ) );
+    vec2 decalInside = clamp( min( vMapUv, 1.0 - vMapUv ) / decalEdge + 0.5, 0.0, 1.0 );
+    decalTexel.a *= decalInside.x * decalInside.y;
+  #endif
   float decalA = clamp( pow( decalTexel.a, 0.82 ), 0.0, 1.0 );
   #ifdef DECAL_OPACITY_FADES
     diffuseColor.rgb = mix( diffuseColor.rgb, decalTexel.rgb, decalA );
@@ -110,12 +124,15 @@ function blendDecal(shader: THREE.WebGLProgramParametersWithUniforms): void {
   );
 }
 
-/** The material settings a surface with a decal takes; `defines` keeps the two blends' programs apart. */
+/** The material settings a surface with a decal takes; `defines` keeps the blends' programs apart. */
 export function decalMaterialProps(look: LookDecal | undefined, texture: THREE.Texture | null) {
   if (!look || !texture) return { map: null };
   return {
     map: texture,
     onBeforeCompile: blendDecal,
-    defines: look.opacityAffectsTexture ? { DECAL_OPACITY_FADES: '' } : {},
+    defines: {
+      ...(look.opacityAffectsTexture ? { DECAL_OPACITY_FADES: '' } : {}),
+      ...(look.decal.edgeMode === 'STICKER' ? { DECAL_STICKER: '' } : {}),
+    },
   };
 }

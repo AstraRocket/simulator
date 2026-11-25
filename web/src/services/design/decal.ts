@@ -1,6 +1,6 @@
 import { isRecord } from '../app/numbers';
 
-/** Desktop `Decal.EdgeMode`. The 3D view wraps only `REPEAT`; the rest clamp to the image edge. */
+/** Desktop `Decal.EdgeMode`. */
 export const EDGE_MODES = ['REPEAT', 'MIRROR', 'CLAMP', 'STICKER'] as const;
 export type EdgeMode = (typeof EDGE_MODES)[number];
 
@@ -49,9 +49,6 @@ export function readDecal(v: unknown): PartDecal | undefined {
     edgeMode: isEdgeMode(v['edgeMode']) ? v['edgeMode'] : 'REPEAT',
   };
 }
-
-/** Whether the 3D view repeats the image past its edge (`AppearanceFactory.updateTexture`). */
-export const decalRepeats = (d: PartDecal): boolean => d.edgeMode === 'REPEAT';
 
 type M3 = [number, number, number, number, number, number];
 

@@ -12,21 +12,21 @@ beforeEach(() => {
 
 describe('Settings reset all', () => {
   it('asks before resetting, and resets nothing when declined', async () => {
-    seedSettings({ playbackSpeed: 4 });
+    seedSettings({ replaySpeed: 4 });
     renderWithProviders(<SettingsDialog onClose={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Reset all' }));
     const ask = useConfirmStore.getState().request;
     expect(ask?.danger).toBe(true);
     await act(async () => useConfirmStore.getState().settle(false));
-    expect(readSettings()['playbackSpeed']).toBe(4);
+    expect(readSettings()['replaySpeed']).toBe(4);
   });
 
   it('resets once confirmed', async () => {
-    seedSettings({ playbackSpeed: 4 });
+    seedSettings({ replaySpeed: 4 });
     renderWithProviders(<SettingsDialog onClose={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Reset all' }));
     await act(async () => useConfirmStore.getState().settle(true));
-    expect(readSettings()['playbackSpeed']).not.toBe(4);
+    expect(readSettings()['replaySpeed']).not.toBe(4);
   });
 });
 
@@ -62,12 +62,12 @@ describe('Settings tab reset', () => {
   });
 
   it('resets a preference tab without asking', () => {
-    seedSettings({ playbackSpeed: 4 });
+    seedSettings({ replaySpeed: 4 });
     renderWithProviders(<SettingsDialog onClose={() => {}} />);
     openTab('Playback');
     fireEvent.click(screen.getByRole('button', { name: 'Reset Playback' }));
     expect(useConfirmStore.getState().request).toBeNull();
-    expect(readSettings()['playbackSpeed']).not.toBe(4);
+    expect(readSettings()['replaySpeed']).not.toBe(4);
   });
 });
 

@@ -6,11 +6,11 @@ import { capabilityAllowed, type Capability, type DeviceClass } from '../../serv
 function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (onChange) => {
-      const mql = window.matchMedia(query);
-      mql.addEventListener('change', onChange);
-      return () => mql.removeEventListener('change', onChange);
+      const mql = window.matchMedia?.(query);
+      mql?.addEventListener('change', onChange);
+      return () => mql?.removeEventListener('change', onChange);
     },
-    () => window.matchMedia(query).matches,
+    () => window.matchMedia?.(query).matches ?? false,
     () => false,
   );
 }
@@ -23,6 +23,8 @@ export const useIsXl = (): boolean => useMediaQuery('(min-width: 1280px)');
 
 /** Keep in step with Tailwind's `2xl:`. */
 export const useIsWide = (): boolean => useMediaQuery('(min-width: 1536px)');
+
+export const useReducedMotion = (): boolean => useMediaQuery('(prefers-reduced-motion: reduce)');
 
 // The width test alone would class a landscape iPad as a desktop.
 const useDeviceClass = (): DeviceClass => {

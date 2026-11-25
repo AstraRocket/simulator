@@ -8,7 +8,7 @@ import { str } from '../../tree/nodeProps';
 
 // Packed recovery gear is not subtracted, matching hobby charge calculators.
 
-const BLOCKING = new Set(['bulkhead', 'centeringring', 'engineblock', 'tubecoupler', 'innertube']);
+export const BLOCKING = new Set(['bulkhead', 'centeringring', 'engineblock', 'tubecoupler', 'innertube']);
 
 export interface EjectionBay {
   tubeId: string;
@@ -119,6 +119,12 @@ function shearPinsIn(tube: ComponentNode): ShearPins {
     if (pins) return pins;
   }
   return { ...DEFAULT_PINS, forceN: PIN_STRENGTH_N[DEFAULT_PINS.size], from: null };
+}
+
+/** Whether a part is a mass object named for shear pins that hold. */
+export function namesShearPins(n: ComponentNode): boolean {
+  const pins = n.type === 'masscomponent' && typeof n.name === 'string' ? parseShearPins(n.name) : null;
+  return pins != null && pins.count > 0;
 }
 
 // Accepts "3x 2-56", "shear pins 4-40 x4", "2 pins #4-40", "4 × 6-32 @ 95 lbf".

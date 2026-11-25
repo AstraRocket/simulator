@@ -6,6 +6,7 @@ import { FIN_DEFAULTS, KERNEL_DEFAULTS } from '../../tree/kernelDefaults';
 import {
   FREEFORM_FALLBACK,
   bodyRadiusAt,
+  finOutlinePoints,
   finPlacement,
   finPointsWithRoot,
   finRootChord,
@@ -189,9 +190,19 @@ function shellGeometry(outer: THREE.Vector2[], thickness: number, filled: boolea
   return geo;
 }
 
+/** One copy of a pod set or strap-on. */
+export interface AssemblyCopy {
+  id: string;
+  index: number;
+  /** From the copy's own axis to the rocket's. */
+  matrix: THREE.Matrix4;
+}
+
 export interface Piece {
   key: string;
   id?: string;
+  /** What it is a copy of, outermost first; none on the rocket's axis. */
+  copies?: AssemblyCopy[];
   geometry: THREE.BufferGeometry;
   looks: PieceViews;
   position?: [number, number, number];
@@ -200,10 +211,19 @@ export interface Piece {
   innerGlass?: boolean;
 }
 
+/** A motor's aft end, whether or not its mount holds one. The exhaust leaves along +X. */
+export interface Nozzle {
+  mountId: string;
+  at: [number, number, number];
+  /** The motor's, or the empty mount's bore. */
+  radius: number;
+}
+
 /** What every part's builder shares during one `buildPieces`; a builder adds its own `Piece`s and grows `maxR`. */
 interface PieceBuild {
   tree: RocketTree;
   pieces: Piece[];
+  nozzles: Nozzle[];
   motors: MotorDims | undefined;
   palette: PartPalette;
   maxR: number;
@@ -271,6 +291,21 @@ function placeMotor(
   );
 }
 
+function addNozzle(
+  b: PieceBuild,
+  mount: ComponentNode,
+  aft: number,
+  bore: number,
+  off: { y: number; z: number },
+  xform?: THREE.Matrix4,
+) {
+  if (mount.motorMount !== true || mount.id == null) return;
+  const at = new THREE.Vector3(aft + num(mount, 'motorOverhang', 0), off.y, off.z);
+  if (xform) at.applyMatrix4(xform);
+  const motor = b.motors?.[mount.id];
+  b.nozzles.push({ mountId: mount.id, at: at.toArray(), radius: motor ? motor.diameter / 2 : bore });
+}
+
 function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pRadius, xform }: PieceParent) {
   const count = countOf(child, 'finCount', 3);
   const thickness = num(child, 'thickness', FIN_DEFAULTS.thickness);
@@ -304,16 +339,16 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
 
   const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
   geo.translate(0, 0, -thickness / 2);
-  // -z face is outside, +z inside (`FinRenderer.renderFinSet`); group 0 is both lids, -z half first.
+  // +z face is the left (outside), -z the right, as `FinSetGenerator`; group 0 is both lids, -z half first.
   const [lids, sides] = geo.groups;
   if (lids && sides) {
     const half = lids.count / 2;
     geo.clearGroups();
-    geo.addGroup(lids.start, half, SURFACE.outside);
-    geo.addGroup(lids.start + half, half, SURFACE.inside);
+    geo.addGroup(lids.start, half, SURFACE.inside);
+    geo.addGroup(lids.start + half, half, SURFACE.outside);
     geo.addGroup(sides.start, sides.count, SURFACE.edges);
     markSurfaced(geo);
-    finUvs(geo, outline, lids.start + half, lids.start + lids.count);
+    finUvs(geo, finOutlinePoints(child, fp) ?? outline, lids.start, lids.start + half);
   }
 
   for (const { angle } of ringInstanceOffsets(count, 0, num(child, 'rotation', 0))) {
@@ -328,8 +363,9 @@ function addFins(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, pR
 }
 
 /**
- * As desktop's `FinSetGenerator.createShapeMesh`: the image spans the planform's bounding box, and the right side
- * (vertices `mirrorFrom` up to `mirrorTo`) shows it mirrored (`RocketMeshBuilder.mirrorFinRightTextureCoordinates`).
+ * As desktop's `FinSetGenerator.createShapeMesh`: the image spans the box around the fin points
+ * (`FinSet.getInstanceBoundingBox`), without the root curve or the tab. The right side (vertices `mirrorFrom` up to
+ * `mirrorTo`) takes `-u`, not `1 - u` (`RocketMeshBuilder.mirrorFinRightTextureCoordinates`).
  */
 function finUvs(
   geo: THREE.BufferGeometry,
@@ -347,7 +383,7 @@ function finUvs(
   const uv = geo.getAttribute('uv');
   for (let i = 0; i < uv.count; i++) {
     const u = (pos.getX(i) - minX) / spanX;
-    uv.setXY(i, i >= mirrorFrom && i < mirrorTo ? 1 - u : u, (pos.getY(i) - minY) / spanY);
+    uv.setXY(i, i >= mirrorFrom && i < mirrorTo ? -u : u, (pos.getY(i) - minY) / spanY);
   }
 }
 
@@ -441,6 +477,7 @@ function addInnerTube(b: PieceBuild, child: ComponentNode, { pStart, pLen, xform
       'glass',
     );
     if (motor) placeMotor(b, motor, child, start, len, off.y, off.z, xform);
+    addNozzle(b, child, start + len, r, off, xform);
   }
   for (const off of placementOffsets(child, r)) {
     addChildren(b, { parent: child, pStart: start, pLen: len, pRadius: r, xform: offsetXform(off, xform) });
@@ -450,12 +487,16 @@ function addInnerTube(b: PieceBuild, child: ComponentNode, { pStart, pLen, xform
 function addAssembly(b: PieceBuild, child: ComponentNode, { parent, pStart, pLen, xform }: PieceParent) {
   const pod = podPlacement(child, parent, pStart, pLen);
   b.maxR = Math.max(b.maxR, pod.radius + assemblyBoundingRadius(child));
-  for (const off of pod.copies) {
+  pod.copies.forEach((off, index) => {
     const m = new THREE.Matrix4()
       .makeRotationX(off.angle)
       .multiply(new THREE.Matrix4().makeTranslation(0, pod.radius, 0));
-    addChain(b, child.children ?? [], xform ? new THREE.Matrix4().copy(xform).multiply(m) : m, pod.start);
-  }
+    const matrix = xform ? new THREE.Matrix4().copy(xform).multiply(m) : m;
+    const before = b.pieces.length;
+    addChain(b, child.children ?? [], matrix, pod.start);
+    const copy = { id: child.id ?? '', index, matrix };
+    for (const p of b.pieces.slice(before)) p.copies = [copy, ...(p.copies ?? [])];
+  });
 }
 
 function addDisc(b: PieceBuild, child: ComponentNode, { pStart, pLen, xform }: PieceParent) {
@@ -584,6 +625,7 @@ function addBodyTube(b: PieceBuild, n: ComponentNode, x: number, len: number, xf
   b.maxR = Math.max(b.maxR, R);
   const tubeMotor = n.id ? b.motors?.[n.id] : undefined;
   if (tubeMotor) placeMotor(b, tubeMotor, n, x, len, 0, 0, xform);
+  addNozzle(b, n, x + len, R, { y: 0, z: 0 }, xform);
   addChildren(b, { parent: n, pStart: x, pLen: len, pRadius: R, xform });
 }
 
@@ -615,11 +657,11 @@ export function buildPieces(
   design: RocketTree,
   motors?: MotorDims,
   palette: PartPalette = DEFAULT_PART_COLORS,
-): { pieces: Piece[]; totalLen: number; maxR: number } {
+): { pieces: Piece[]; nozzles: Nozzle[]; totalLen: number; maxR: number } {
   const tree = withKernelEnds(design);
-  const b: PieceBuild = { tree, pieces: [], motors, palette, maxR: 0.005, k: 0, curId: undefined };
+  const b: PieceBuild = { tree, pieces: [], nozzles: [], motors, palette, maxR: 0.005, k: 0, curId: undefined };
   const totalLen = addChain(b, axialChain(tree));
-  return { pieces: b.pieces, totalLen: Math.max(totalLen, 0.05), maxR: b.maxR };
+  return { pieces: b.pieces, nozzles: b.nozzles, totalLen: Math.max(totalLen, 0.05), maxR: b.maxR };
 }
 
 export const markerRadius = (totalLen: number, maxR: number): number => Math.max(totalLen * 0.015, maxR * 0.35);

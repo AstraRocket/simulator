@@ -1,11 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FlightResult, RocketTree } from '../../engine/openRocketEngine';
+import type { FlightEventType, FlightResult, RocketTree } from '../../engine/openRocketEngine';
 import { useSettings } from '../../state/useSettings';
 import { withFixedUnit } from '../../i18n/format';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
-import { buildFlightScene, indexForProgress } from './flightScene';
+import { carrierAt, flightBodies } from '../../services/flight/flightBodies';
+import { flightBranches } from '../../services/flight/flightColumns';
+import { eventRows, type EventRow } from '../../services/flight/flightEvents';
+import { windAt } from '../../services/flight/flightWind';
+import { lerpAt } from '../../services/flight/interpolate';
+import { buildFlightScene } from './flightScene';
 import type { Exhaust } from '../../services/motors/exhaust';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { TILE_SOURCES, type TileSourceId } from '../../services/map/slippyMap';
@@ -13,22 +18,40 @@ import { LAYERS } from '../common/map/mapStyle';
 import { MapCredit, TileLayerButtons } from '../common/map/MapParts';
 import { useSiteGround } from '../common/map/useTileVerdict';
 import { ColorInput } from '../common/ColorInput';
+import { FlightDial } from './FlightDial';
 import { FlightPathScene } from './FlightPathScene';
-import { FlightPlaybackBar } from './FlightPlaybackBar';
+import { FlightCountdown, FlightPlaybackBar } from './FlightPlaybackBar';
 import { useFlightPlayback } from './useFlightPlayback';
+
+// As the engine's, for a flight whose launch is unknown.
+const DEFAULT_ROD_M = 1;
+
+const MARKED: readonly string[] = [
+  'LIFTOFF',
+  'BURNOUT',
+  'STAGE_SEPARATION',
+  'APOGEE',
+  'RECOVERY_DEVICE_DEPLOYMENT',
+  'GROUND_HIT',
+] satisfies FlightEventType[];
+
+const markedEvents = (result: FlightResult, duration: number): EventRow[] =>
+  eventRows(result).filter((e) => MARKED.includes(e.type) && e.time <= duration);
 
 export function FlightPath3D({
   result,
   tree,
   motors,
   exhausts,
+  rodLengthM,
   latitudeDeg,
   longitudeDeg,
 }: {
   result: FlightResult;
   tree: RocketTree;
   motors?: MotorDims;
-  exhausts?: readonly Exhaust[];
+  exhausts?: Readonly<Record<string, Exhaust>>;
+  rodLengthM?: number | null;
   latitudeDeg?: number | null;
   longitudeDeg?: number | null;
 }) {
@@ -36,27 +59,37 @@ export function FlightPath3D({
   const u = useUnits();
   const altitudeUnit = u.at(unitScope('sim', 'apogee'), 'distance');
   const velocityUnit = u.at(unitScope('sim', 'maxSpeed'), 'velocity');
-  const { settings, updateSection } = useSettings();
+  const { settings, update, updateSection } = useSettings();
   const phase = settings.phaseColors;
-  const playback = useFlightPlayback(settings.playbackSpeed);
-  const { progress } = playback;
+  const controls = useFlightPlayback(settings.replaySpeed);
+  const { progress } = controls;
   const { site, ground } = useSiteGround(latitudeDeg, longitudeDeg);
 
   const scene = useMemo(() => buildFlightScene(result, phase), [result, phase]);
-  const { scenePts, times, alts, vels } = scene;
-  const n = scenePts.length;
+  const bodies = useMemo(() => flightBodies(tree, result), [tree, result]);
+  const names = useMemo(() => {
+    const named = flightBranches(result).map((b, i) => b.name || t('flight.stageN', { n: i + 1 }));
+    // Unnamed stages share the kernel's name.
+    return named.map((name, i) => (named.indexOf(name) < i ? `${name} (${i + 1})` : name));
+  }, [result, t]);
+  // Another flight may have fewer.
+  const playback = { ...controls, tracked: controls.tracked < bodies.length ? controls.tracked : 0 };
+  const { duration } = scene;
+  const events = useMemo(() => markedEvents(result, duration), [result, duration]);
+  const nowT = progress * duration;
+  const track = scene.tracks[playback.tracked] ?? scene;
+  const carrier = bodies[carrierAt(bodies, playback.tracked, nowT)];
+  const wind = carrier ? windAt(carrier.branch.series, nowT) : null;
+  const roseRef = useRef<SVGGElement>(null);
 
   // Every hook sits above the empty-state return so the hook count never changes.
-  const idx = useMemo(() => indexForProgress(times, progress), [times, progress]);
-  const nowT = times[idx] ?? 0;
-
   const setBoost = useCallback((c: string) => updateSection('phaseColors', { boost: c }), [updateSection]);
   const setCoast = useCallback((c: string) => updateSection('phaseColors', { coast: c }), [updateSection]);
   const setDescent = useCallback((c: string) => updateSection('phaseColors', { descent: c }), [updateSection]);
 
   const mapSource: TileSourceId | null = ground.imagery === 'unavailable' ? null : ground.source;
 
-  if (n < 2) {
+  if (scene.scenePts.length < 2) {
     return <div className="grid h-full place-items-center text-sm text-ink-faint">{t('sim.prompt')}</div>;
   }
 
@@ -64,25 +97,32 @@ export function FlightPath3D({
     <div className="relative h-full overflow-hidden rounded-xl bg-canvas ring-1 ring-line/10">
       <FlightPathScene
         scene={scene}
+        bodies={bodies}
         tree={tree}
         motors={motors}
         exhausts={exhausts}
         site={site}
         mapSource={mapSource}
         ground={ground}
-        idx={idx}
+        rodLengthM={rodLengthM ?? DEFAULT_ROD_M}
+        effects={settings.flightEffects}
+        roseRef={roseRef}
+        nowT={nowT}
         playback={playback}
       />
 
       <div className="pointer-events-none absolute left-3 top-3 flex gap-3 rounded-lg bg-surface/80 px-3 py-2 text-xs ring-1 ring-line/10">
-        <Hud label={t('flight.altitude')} value={altitudeUnit.fmtSym(alts[idx] ?? 0)} />
-        <Hud label={t('flight.velocity')} value={velocityUnit.fmtSym(vels[idx] ?? 0)} />
+        <Hud label={t('flight.altitude')} value={altitudeUnit.fmtSym(lerpAt(track.times, track.alts, nowT) ?? 0)} />
+        <Hud label={t('flight.velocity')} value={velocityUnit.fmtSym(lerpAt(track.times, track.vels, nowT) ?? 0)} />
         <Hud label={t('flight.time')} value={withFixedUnit(nowT, t('units.second'))} />
       </div>
-      <div className="pointer-events-none absolute right-3 top-3 flex flex-col gap-1 rounded-lg bg-surface/80 px-2 py-1.5 text-[10px] ring-1 ring-line/10">
-        <Legend color={phase.boost} label={t('flight.boost')} onChange={setBoost} />
-        <Legend color={phase.coast} label={t('flight.coast')} onChange={setCoast} />
-        <Legend color={phase.descent} label={t('flight.descent')} onChange={setDescent} />
+      <div className="pointer-events-none absolute right-3 top-3 flex flex-col items-end gap-2">
+        <div className="flex flex-col gap-1 rounded-lg bg-surface/80 px-2 py-1.5 text-[10px] ring-1 ring-line/10">
+          <Legend color={phase.boost} label={t('flight.boost')} onChange={setBoost} />
+          <Legend color={phase.coast} label={t('flight.coast')} onChange={setCoast} />
+          <Legend color={phase.descent} label={t('flight.descent')} onChange={setDescent} />
+        </div>
+        <FlightDial roseRef={roseRef} wind={wind} />
       </div>
       {site && (
         <TileLayerButtons
@@ -92,14 +132,24 @@ export function FlightPath3D({
           className="absolute left-3 top-16"
         />
       )}
-      {mapSource && <MapCredit className="absolute bottom-16 right-3">{TILE_SOURCES[mapSource].attribution}</MapCredit>}
-      {ground.source && ground.imagery === 'unavailable' && (
-        <MapCredit warn className="absolute bottom-16 right-3">
-          {t('map.offline')}
-        </MapCredit>
-      )}
-
-      <FlightPlaybackBar playback={playback} nowT={nowT} />
+      <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col items-end gap-1">
+        {mapSource && <MapCredit className="">{TILE_SOURCES[mapSource].attribution}</MapCredit>}
+        {ground.source && ground.imagery === 'unavailable' && (
+          <MapCredit warn className="">
+            {t('map.offline')}
+          </MapCredit>
+        )}
+        <FlightPlaybackBar
+          playback={playback}
+          nowT={nowT}
+          duration={duration}
+          bodies={names}
+          events={events}
+          effects={settings.flightEffects}
+          onEffects={(v) => update({ flightEffects: v })}
+        />
+      </div>
+      <FlightCountdown countdown={playback.countdown} />
     </div>
   );
 }

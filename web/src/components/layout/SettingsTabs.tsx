@@ -268,18 +268,26 @@ export function PlaybackTab() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
   return (
-    <SelectRow
-      label={t('settings.defaultSpeed')}
-      value={settings.playbackSpeed}
-      onChange={(v) => update({ playbackSpeed: parseFloat(v) })}
-      labelClassName="text-sm text-ink-soft"
-    >
-      {PLAYBACK_SPEEDS.map((s) => (
-        <option key={s} value={s}>
-          {playbackLabel(s)}
-        </option>
-      ))}
-    </SelectRow>
+    <>
+      <SelectRow
+        label={t('settings.defaultSpeed')}
+        value={settings.replaySpeed}
+        onChange={(v) => update({ replaySpeed: parseFloat(v) })}
+        labelClassName="text-sm text-ink-soft"
+      >
+        {PLAYBACK_SPEEDS.map((s) => (
+          <option key={s} value={s}>
+            {playbackLabel(s)}
+          </option>
+        ))}
+      </SelectRow>
+      <Check
+        label={t('flight.effects')}
+        checked={settings.flightEffects}
+        onChange={(v) => update({ flightEffects: v })}
+      />
+      <p className="text-[11px] leading-snug text-ink-faint">{t('flight.effectsTitle')}</p>
+    </>
   );
 }
 

@@ -131,15 +131,46 @@ A sweep belongs to the flight it was built around, and only one is held at a tim
 
 The flight **trajectory in 3D**: the rocket's path through space, including drift from wind.
 
+The rocket flies it in the **attitude the engine recorded**, so it leans into the wind, shows its angle of attack and rolls as its fins drive it. Each **stage that separates** leaves the stack and flies its own path to the ground. Once a recovery device opens, the part under it swings to hang nose up, which is drawn rather than simulated: the engine stops turning the rocket there. An imported flight with no recorded attitude points along its path instead.
+
+Every **motor** has its own flame, at its own nozzle and in its propellant's [exhaust style](./tools.md#exhaust-styles), longer or shorter as the recorded thrust rises and falls. Every **recovery device** opens at its own deployment and stays out until its stage lands. A parachute has the part's diameter, lines and color, and a streamer its strip; how they fill, lean and sway is drawn rather than simulated.
+
+**Smoke** leaves each nozzle and drifts with the wind the flight recorded, with a puff at each ejection charge and each in-line stage separation. The **pad** has a rod of the launch's length, leaning the way the rocket did at launch. The **compass** at the top right turns with the camera; its arrow points the way the wind is blowing where the tracked part is, over the wind's speed. The **grid** has lines every meter, 10 m, 100 m and so on, the finer ones showing as you move closer.
+
 The **ground plane can carry the same aerial imagery**, laid at the launch site's coordinates so the trajectory arcs over the real field rather than over an empty grid. The same **None · Satellite · Street** buttons sit at the top left, starting on **None** and sharing their choice with the ground track and the launch-site map. The imagery covers a little past the farthest the rocket got from the pad rather than the whole plane, so a three-hundred-meter flight does not fetch a kilometer of scenery on either side; the reference grid continues beyond its edge.
 
 An **⬇ Export** button saves the flight path for mapping tools as **KML (Google Earth)**, **GPX track** or **Waypoint CSV**, with options for which waypoints and lines to include, and support for your own templates. See [Files & Exports](./files-and-exports.md#exporting-the-flight-path-kml--gpx--csv).
 
 ### Playing the flight back
 
-The 3D path replays the flight rather than only drawing it. **▶** (**Play flight**) starts a T-minus countdown (5, 4, 3, 2, 1) and then launches; clicking again during the countdown cancels it, and during the flight pauses. Drag the **timeline** to scrub to any moment, and pick a **speed** from ¼× to 4×. At 1× the whole flight plays in 8 seconds, whatever its length, at an even pace through flight time.
+The 3D path replays the flight rather than only drawing it. **▶** (**Play flight**) starts a T-minus countdown (5, 4, 3, 2, 1) and then launches; clicking again during the countdown cancels it, and during the flight pauses. Drag the **timeline** to scrub to any moment, and pick a **speed** from ⅒× to 16×. 1× is real time.
 
-Beside the play button, **⟲** (**Reset to launch**) stops playback and returns to liftoff, **⟳** (**Loop playback**) starts the flight again each time it ends, and **⊙ Follow** keeps the camera on the rocket as it flies.
+Beside the play button, **⟲** (**Reset to launch**) stops playback and returns to liftoff, and **⟳** (**Loop playback**) starts the flight again each time it ends. The marks over the timeline are the flight's events; **Jump to event** lists them and goes straight to one. The path still to be flown is drawn faintly.
+
+When stages separate, a menu picks **which part to track**: the cameras and the altitude and velocity readouts go with it.
+
+### Effects {#flight-effects}
+
+**✨** (**Effects**) turns on the parts of the view that are drawn for looks. The engine does not work them out, and they change no path, time or number. It starts on, and your choice is kept; it is also under **[Settings ▸ Playback](./settings.md#playback)**.
+
+- A **recovery device opens the airframe** when it deploys, and the sections hang on the design's **shock cord**, at the length the design gives it, or the rocket's length where the design has none. The view works out which joint opens: the one at the front of the device's bay, or at the back where the front is walled off by a bulkhead, ring or inner tube. A coupler across a joint, or a shoulder in it, is what comes apart; tubes that only meet end to end are taken as glued unless nothing else opens. Where either end could open, shear pins named in the tube decide, as in **[Ejection charge](./tools.md#ejection-charge)**, and without any the front opens. With dual deployment the drogue parts the rocket in the middle and the main takes the nose off. Each copy of a strap-on or pod opens on its own. A device's **[Opens at](./designing-a-rocket.md#opens-at)** overrides all this.
+- **Blast** spreads over the pad, an ejection charge **flashes** at the mouth of its bay, and the flame **lights** the tail and the ground.
+- A **vapor cone** forms around Mach 1. Whether a real one does depends on the air.
+- A stage the engine says is **tumbling** turns end over end.
+- What lands **lies down** along the wind, each section on its own, under its spilled canopy, in a puff of **dust**. Strap-ons share one recorded path, so they are drawn apart from each other once their devices open.
+
+With effects off, a recovery device hangs from the nose tip and goes away at landing, and everything stays in the attitude the engine left it in.
+
+### Cameras
+
+- **Overview** frames the whole flight, with the rocket drawn large enough to see. Drag to orbit, scroll to zoom.
+- **Follow** keeps the camera on the rocket. Drag and scroll as in the overview.
+- **Launch pad** watches from head height beside the pad, through a lens that narrows as the rocket climbs to keep it the size it was at launch. Scroll to zoom the lens.
+- **Chase** rides behind the rocket along its direction of travel.
+- **Onboard** looks back down the rocket's side, rolling with it.
+- **Director** picks the camera for you and cuts between them: Launch pad for liftoff, Chase through the burn, then Follow through apogee and down. When the part it tracks lands within 150 m of the pad, the last 4 seconds of the descent are seen from the pad, and the landing itself up close. The cuts come from the flight's recorded events, so they fall at the same moments every time.
+
+Every camera but the overview draws the rocket at its **true size** against its path. When that leaves it too small to see, a ring marks where it is. Follow and Chase back off as a recovery device opens, to keep it in view. **⊙** (**Reset the camera**) returns the current camera to its opening framing. If your system asks for reduced motion, the camera cuts between views instead of moving.
 
 The speed a run starts at comes from **[Settings ▸ Playback](./settings.md#playback)**.
 

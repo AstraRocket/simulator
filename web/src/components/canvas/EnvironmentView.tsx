@@ -12,6 +12,7 @@ import {
   type ProfileLegs,
   type ProfilePoint,
 } from '../../services/flight/environmentProfile';
+import { CALM_MS } from '../../services/flight/flightWind';
 import { formatLat, formatLon } from '../../services/map/slippyMap';
 import { fmtSig, fmtSiteTime, withUnit } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
@@ -32,9 +33,6 @@ const QUANTITY: Record<EnvironmentQuantity, Quantity> = {
   speedOfSound: 'velocity',
 };
 
-/** Below this pad wind (m/s) there is no wind direction to report. */
-const CALM_MS = 0.05;
-
 const CHARTS: EnvironmentQuantity[] = ['windSpeed', 'windDirection', 'temperature', 'pressure'];
 const PAD: EnvironmentQuantity[] = ['temperature', 'pressure', 'density', 'speedOfSound', 'windSpeed', 'windDirection'];
 
@@ -54,7 +52,6 @@ export function EnvironmentView({ flight }: { flight: ResultFlight }) {
   const dist = u.at(unitScope('sim', 'apogee'), 'distance');
   const show = (q: EnvironmentQuantity, si: number) => {
     if (q !== 'windDirection') return sig4(unit(q), si);
-    // Still air has no direction; the recorded angle of a zero vector is not one.
     return env.pad.windSpeed < CALM_MS ? NO_VALUE : fmtDegrees(u, compass(si));
   };
 

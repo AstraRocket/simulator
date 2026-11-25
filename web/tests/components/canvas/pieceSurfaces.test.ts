@@ -83,10 +83,10 @@ describe('a fin set', () => {
     'fins',
   );
 
-  it("paints its -z face with the outside look and its +z face with the inside one, as FinRenderer's left and right sides", () => {
+  it("paints its +z face with the outside look and its -z face with the inside one, as FinSetGenerator's left and right sides", () => {
     expect(isSurfaced(fin.geometry)).toBe(true);
-    for (const v of surfaceVertices(fin, 'outside')) expect(v.z).toBeCloseTo(-0.002, 6);
-    for (const v of surfaceVertices(fin, 'inside')) expect(v.z).toBeCloseTo(0.002, 6);
+    for (const v of surfaceVertices(fin, 'outside')) expect(v.z).toBeCloseTo(0.002, 6);
+    for (const v of surfaceVertices(fin, 'inside')) expect(v.z).toBeCloseTo(-0.002, 6);
     expect(surfaceVertices(fin, 'edges').length).toBeGreaterThan(0);
   });
 });
