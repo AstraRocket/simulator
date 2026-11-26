@@ -36,6 +36,8 @@ export async function downloadReportPdf(
   const { jsPDF } = await import('jspdf');
   const draw = (fonts: ReportFontFiles): PdfPage => {
     const doc = new jsPDF({ unit: 'mm', format: opts.paper, orientation: opts.orientation });
+    const author = tree.designer?.trim();
+    if (author) doc.setProperties({ author });
     const page = createPdfPage(doc, withLauncher(t, launcherKind(tree)), opts, units, registerReportFonts(doc, fonts));
     writeReport(page, model, tree, t, opts);
     return page;

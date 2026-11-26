@@ -140,6 +140,22 @@ Notes on the 3D geometry:
 - A **fin set** exports one fin; a **tube fin set** exports one tube; you print/cut as many as the design has.
 - Filenames are the rocket's name and then the component's (or its type), so the nose cones of two designs do not collide in your downloads folder. See [What a download is called](#what-a-download-is-called).
 
+## The designer in exported files
+
+When the design names a **Designer** (from the `.ork`, or typed in **Design notes** above the component tree), every export whose format has a place for an author carries it:
+
+| Export | Where the designer goes |
+| --- | --- |
+| `.ork`, `.rkt`, Onshape JSON | The format's own designer field |
+| 3MF | `Designer` metadata |
+| PDF report | The document's Author property |
+| SVG (2D and 3D) | `dc:creator` in the file's metadata |
+| KML | `atom:author` on the document |
+| GPX | `author` in the metadata |
+| GLB | `asset.extras.author`, since glTF has no author field (`copyright` is left alone: naming the designer is not a copyright claim) |
+
+STL, OBJ, DXF, PNG/JPG, CSV and RASAero II files have no author field, so they carry no designer. A design with no designer writes none anywhere.
+
 ## Rocket design report (PDF / CSV)
 
 **Menu → Rocket Design Report** opens the **Design Report** dialog to produce a full design report, with the same content as OpenRocket's printout.
@@ -308,7 +324,7 @@ The three built-in formats are **[Mustache](https://mustache.github.io/) templat
 - **Download template**: save the selected format's template as a starting point.
 - **Import template…**: add a `.mustache` file named `<name>.<ext>.mustache` (e.g. `my-track.kml.mustache`, `waypoints.csv.mustache`). The extension becomes the output file type. Your template appears in the format list, renders against the same flight data, and can be deleted. Imported templates are stored in your browser (nothing is uploaded).
 
-Templates see the flight as a model with the same field names as OpenRocket's desktop export (e.g. `{{title}}`, `{{#branches}}`, `{{#waypoints}}`, `{{latitude}}`, `{{longitude}}`, `{{altitudeMslMeters}}`, `{{#path}}`), so templates written for desktop OpenRocket work here too.
+Templates see the flight as a model with the same field names as OpenRocket's desktop export (e.g. `{{title}}`, `{{#branches}}`, `{{#waypoints}}`, `{{latitude}}`, `{{longitude}}`, `{{altitudeMslMeters}}`, `{{#path}}`), so templates written for desktop OpenRocket work here too. `{{designer}}` is the design's author, empty when it names none, so `{{#designer}}…{{/designer}}` writes an author line only when there is one.
 
 `{{labels.*}}` holds the built-in templates' own strings in the export language (`{{labels.maxAltitude}}`, `{{labels.landing}}`, `{{labels.flightPath}}` and the rest), which is how those templates follow the **Language** box. A phrase whose word order changes between languages is not in there: `{{rangeText}}` on a waypoint, and `{{landingText}}` and `{{landingHeading}}` on a stage, arrive as finished strings, because a template gluing translated fragments together in English order produces English word order in every language. The values behind them are all still on the model, so a template that wants to build its own sentence still can.
 

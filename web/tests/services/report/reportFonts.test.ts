@@ -259,3 +259,13 @@ describe('every report string in every locale', () => {
     expect(scriptOf(ru.report.title)).toBe('latin');
   });
 });
+
+describe('report author', () => {
+  it('sets the PDF Author to the design author, and leaves it unset without one', async () => {
+    const authored = { ...tree, designer: ' Ann ' } as RocketTree;
+    await downloadReportPdf(model('Rocket'), authored, tFor(en), opts, METRIC_UNITS, { fetch: serveFonts });
+    expect(await pdfText()).toMatch(/\/Author \(Ann\)/);
+    await downloadReportPdf(model('Rocket'), tree, tFor(en), opts, METRIC_UNITS, { fetch: serveFonts });
+    expect(await pdfText()).not.toMatch(/\/Author/);
+  });
+});

@@ -10,6 +10,7 @@ import {
   hasLaunchPosition,
   renderUserTemplate,
   mimeForExtension,
+  type FlightPathMeta,
   type Translate,
 } from '../../services/exports/flightPathExport';
 import { Dialog } from '../common/Dialog';
@@ -51,6 +52,7 @@ export function FlightPathExport({
     return primaryMotor(s.tree, configOf(s.configs, row));
   });
   const rocketName = useWorkspaceStore(selectDesignName);
+  const designer = useWorkspaceStore((s) => s.tree.designer);
 
   if (!result) return null;
 
@@ -67,7 +69,7 @@ export function FlightPathExport({
       {open && (
         <ExportDialog
           onClose={() => setOpen(false)}
-          meta={{ simName, rocketName, motorName: motor?.designation ?? '' }}
+          meta={{ simName, rocketName, designer, motorName: motor?.designation ?? '' }}
           launch={launch}
           result={result}
         />
@@ -84,7 +86,7 @@ export function ExportDialog({
   result,
 }: {
   onClose: () => void;
-  meta: { simName: string; rocketName: string; motorName: string };
+  meta: FlightPathMeta;
   launch: import('../../services/design/orkTree').LaunchConditions;
   result: import('../../engine/openRocketEngine').FlightResult;
 }) {

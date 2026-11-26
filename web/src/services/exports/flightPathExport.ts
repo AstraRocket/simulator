@@ -15,7 +15,7 @@ export {
   type FlightPathExportOptions,
 } from './flightPath/options';
 export { defaultBranchColor, defaultGroundColor, defaultPinColor, rgbToHex, hexToRgbInt } from './flightPath/colors';
-export type { FlightPathModel } from './flightPath/model';
+export type { FlightPathMeta, FlightPathModel } from './flightPath/model';
 export { exportBranchNames, buildFlightPathModel, hasLaunchPosition } from './flightPath/buildModel';
 export { EXPORT_FORMATS } from './flightPath/formats';
 export { mimeForExtension, renderUserTemplate } from './flightPath/userTemplate';

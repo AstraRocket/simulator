@@ -25,10 +25,13 @@ export interface ExportFormat {
 
 // Balloon HTML is pre-escaped, not CDATA: escapes inside CDATA are not decoded and `]]>` would break it.
 const KML_TEMPLATE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
 	<Document>
 		<name>{{title}}</name>
 		<open>1</open>
+{{#designer}}
+		<atom:author><atom:name>{{designer}}</atom:name></atom:author>
+{{/designer}}
 {{#includeDescriptions}}
 		<description>{{#htmlBalloon}}&lt;b&gt;{{labels.rocket}}:&lt;/b&gt; {{rocketName}}&lt;br/&gt;
 {{#configuration}}&lt;b&gt;{{labels.configuration}}:&lt;/b&gt; {{configuration}}&lt;br/&gt;
@@ -128,6 +131,9 @@ const GPX_TEMPLATE_SOURCE = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="OpenRocket" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>{{title}}</name>
+{{#designer}}
+    <author><name>{{designer}}</name></author>
+{{/designer}}
   </metadata>
 {{#branches}}
 {{#waypoints}}

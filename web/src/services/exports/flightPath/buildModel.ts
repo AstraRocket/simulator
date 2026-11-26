@@ -154,6 +154,7 @@ export function buildFlightPathModel(
   const model: FlightPathModel = {
     title: withMission(mission, meta.simName),
     rocketName: meta.rocketName,
+    designer: meta.designer?.trim() ?? '',
     simulationName: meta.simName,
     motor: meta.motorName,
     configuration: meta.motorName,

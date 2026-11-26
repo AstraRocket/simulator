@@ -93,6 +93,23 @@ TeaVM requires `optimization = NONE` + `fastGlobalAnalysis = true` (see `engine-
 
 The store holds the run preferences as `simPrefs`, copied from Settings, and `runSim` / `runSims` read them from there. Each run resolves with an outcome per simulation (`landed`, `failed`, `skipped`, `canceled`, `dropped` or `busy`), and a second batch while one is flying is refused with `sim.busy`. `hydrate` and `resetWorkspace` bump a `quietReplace` counter so the autosave skips the save that follows a swap, and why the design does not build is `buildErr`, kept apart from `err` (the failure of the last action) so a rebuild cannot clear a message before it is read.
 
+## Startup capability check and the compatibility page
+
+`web/compatibility.html` is a second Vite page (`build.rolldownOptions.input` in `web/vite.config.ts`), outside the React app. It is plain ES5 and plain CSS on purpose: it has to load and report in the browsers the app cannot run in. It uses the app's theme colors as hex values and reads the saved theme the way `index.html` does.
+
+**One set of checks.** `web/public/capability.js` defines `window.AstraCapability`: the requirement checks (ES2022 syntax, the Tailwind v4 CSS floor of `oklch`, `color-mix` and `CSS.registerProperty`, module workers, localStorage), the WASM-GC probe, WebGL details, and the two speed tests (`gpuBench`, a fill-heavy shader read back with `readPixels`; `cpuBench`, an RK4 loop). Both `index.html` and `compatibility.html` load it as a classic script, so the gate and the page cannot disagree. Files in `public/` are not transformed, so the storage prefix is passed in as an argument rather than read from `%STORAGE_PREFIX%`.
+
+**The gate.** An inline script in `index.html` calls `AstraCapability.startup(prefix)` before the app's bundle loads:
+
+- A missing requirement redirects to `compatibility?from=app`. The page's **Try anyway** link opens the app with `?compat=skip`, which the gate lets through.
+- Otherwise it sets `window.__astraGraphics` to `{ enabled, reason, fps }`. `reason` is `'none'` (no WebGL), `'slow'` (under `GPU_MIN_FPS`, 30) or `'off'` (turned off by hand).
+
+`web/src/services/app/graphics.ts` reads that value through `graphics3d()`. An absent value means on, which is what unit tests and any page without the gate get. `ViewToggle` disables the `3d` and `path` views through `Segmented`'s `optionDisabled`, and `CenterCanvas` and the Photo Studio tab in `ToolsPane` render `Graphics3dOffNotice` in their place. The decision is fixed for the life of the page.
+
+**The stored result.** Under `<prefix>:compat-result:v1` the browser keeps `{ sig, at, blocked, webgl, fps, page? }`. `sig` is the user agent plus the WebGL renderer and vendor, so a browser update or a driver change discards it and the check runs again. The gate stores the short form; the compatibility page adds `page`, everything it displayed, and on a later visit shows that with its time instead of rerunning. **Check again** clears the key and reloads. The gate runs the GPU test only when WebGL is present, no speed is stored and the mode is automatic.
+
+**The 3D mode.** `<prefix>:graphics` holds `'on'` or `'off'`, set from the page's **3D views in AstraRocket** setting; absent means automatic. `decide()` applies it over the speed test. `web/e2e/base.ts` sets it to `'on'` in every test, because Playwright's Chromium renders with SwiftShader at about 8 frames a second and the 3D tests would otherwise find the views disabled.
+
 ## Offline & installability (PWA)
 
 Everything the app needs is static (the WASM kernel runs the physics in-browser and there is no backend), so it can work with no connection at all. `vite-plugin-pwa` (configured in `web/vite.config.ts`) emits a service worker that precaches the app shell, the WASM engine, the catalogs (motors, components, materials) and the example rockets (about 12 MB, plus the built docs), plus a web app manifest that makes it installable. Page loads themselves go network-first with the precached shell as the offline fallback, so a plain reload picks up a new deploy as soon as the CDN serves it, without waiting for the update prompt; the GitHub Pages CDN caches every file for ten minutes, so that is the floor on how fast a deploy can reach anyone.

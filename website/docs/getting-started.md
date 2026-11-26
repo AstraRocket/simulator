@@ -12,6 +12,25 @@ After that first visit it keeps working **offline**, so you can design and simul
 
 When you open it, you'll see a brief splash screen while the physics engine loads, then a starter rocket. The header shows a small **`WASM`** or **`JS`** badge indicating which engine backend loaded (WebAssembly is the fast default; JavaScript is the fallback).
 
+### What your browser needs {#browser-requirements}
+
+| Browser | Version |
+| --- | --- |
+| Chrome, Edge | 111 or later; the fast WebAssembly engine from 119 |
+| Firefox | 128 or later |
+| Safari (Mac, iPhone, iPad) | 16.4 or later; the fast WebAssembly engine from 18.2 |
+| Opera, Brave, Samsung Internet, Vivaldi | by the Chrome version they are built on |
+
+On an iPhone or iPad every browser uses Safari's engine, so Chrome, Edge and Firefox there follow the Safari row by the iOS version.
+
+Each time the app starts it checks the browser. If something it needs is missing, it opens the **Browser compatibility** page instead, which says what is missing; **Try anyway** opens the app regardless, though parts of it may not work.
+
+The check also times how fast the device draws 3D. When the browser has no WebGL, or draws under 30 frames a second, the **3D** and **3D path** views and the **Photo Studio** are turned off: their buttons are grayed out, and hovering one says why. Everything else works as usual, including the 2D views and every flight number.
+
+The result is kept in the browser, so the check runs once rather than on every start. It runs again after a browser update or a graphics driver change.
+
+To see the full report, open menu → **Browser compatibility**. It shows a score out of 100, what this browser supports, the graphics card and driver, and how fast the device draws 3D and runs flight math. **Copy report** copies it as text for a bug report, and **Check again** runs the check fresh. Its **3D views in AstraRocket** setting overrides the speed test: **Always on** keeps 3D on a slow device, **Always off** turns it off, and **Automatic** goes by the test. The change applies the next time the app starts.
+
 ## The layout
 
 On a desktop the workbench is five **tabs**, in the top bar beside the app name. Each one lays the window out the way its own job needs, rather than all of them sharing one fixed grid:
@@ -41,7 +60,7 @@ On a **phone** the same areas become tabs along the bottom, because there is no 
 
 The components panel is desktop-only, so a phone cannot add, reorder or delete parts. It can edit the ones a design already has: tap a part in the **Sketch** view and its editor opens as a dialog. Three things belong to the components panel, so they are not offered on a phone: **Custom Parts**, since a saved part is applied through a component, **Custom Materials**, since changing a design material changes its parts, and the **rocket's name and configuration**, since naming a design is part of building it. All three are also hidden while the drawing is maximized, along with the panel.
 
-The top bar has **undo / redo**, a **☀** button that switches to the **Daylight (high contrast)** theme, a language switcher (ten languages), a note of when your rocket was last saved, and the **app menu**: New, Open… and Save As… (the in-app design library), **Import ▸ OpenRocket / RockSim / Examples / Backup** and **Export ▸ OpenRocket / RockSim / 3D print (.3mf) / RASAero II / JSON / Backup** for files on disk, **Rocket Design Report**, **Motor Dashboard**, **Launch Locations**, **Custom Parts**, **Custom Materials**, **Settings**, **Help**, **Safety**, **Privacy**, **Check for updates** and **About**.
+The top bar has **undo / redo**, a **☀** button that switches to the **Daylight (high contrast)** theme, a language switcher (ten languages), a note of when your rocket was last saved, and the **app menu**: New, Open… and Save As… (the in-app design library), **Import ▸ OpenRocket / RockSim / Examples / Backup** and **Export ▸ OpenRocket / RockSim / 3D print (.3mf) / RASAero II / JSON / Backup** for files on disk, **Rocket Design Report**, **Motor Dashboard**, **Launch Locations**, **Custom Parts**, **Custom Materials**, **Settings**, **Help**, **Safety**, **Privacy**, **[Browser compatibility](#browser-requirements)**, **Check for updates** and **About**.
 
 **Help** opens this guide inside the app rather than sending you to a website, and the whole guide ships with the app, so it works at a field with no signal. Its table of contents lists every page and the headings of the one you are on, and the box above that list searches all of them at once: pick a result and the page opens with your words marked.
 

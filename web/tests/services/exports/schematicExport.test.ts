@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { dataHeaderLines, type ExportData } from '../../../src/services/exports/schematicExport';
+import { dataHeaderLines, svgWithHeader, type ExportData } from '../../../src/services/exports/schematicExport';
 import { METRIC_UNITS } from '../../../src/prefs/units';
 import { appName } from '../../../src/services/app/appInfo';
 import type { StaticInfo } from '../../../src/engine/openRocketEngine';
@@ -102,5 +102,20 @@ describe('dataHeaderLines', () => {
   it('adds a span line only when spanM is given', () => {
     expect(dataHeaderLines(data()).some((l) => l.includes('span'))).toBe(false);
     expect(dataHeaderLines(data({ spanM: 0.1 })).some((l) => l.includes('span'))).toBe(true);
+  });
+});
+
+describe('svgWithHeader designer metadata', () => {
+  const svgFor = (designer?: string) => svgWithHeader('<rect/>', 100, 50, data({ designer }), (px) => `${px}`);
+
+  it('names the design author as dc:creator, escaped', () => {
+    const svg = svgFor('Ann & <Bob>');
+    expect(svg).toContain('xmlns:dc="http://purl.org/dc/elements/1.1/"');
+    expect(svg).toContain('<dc:creator>Ann &amp; &lt;Bob&gt;</dc:creator>');
+  });
+
+  it('writes no metadata when the design names no author', () => {
+    expect(svgFor()).not.toContain('<metadata>');
+    expect(svgFor(' ')).not.toContain('<metadata>');
   });
 });

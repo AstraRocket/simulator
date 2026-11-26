@@ -8,6 +8,7 @@ import { rocketSpanM } from './aftScene';
 
 export function useExportData(motors: object): ExportData {
   const name = useWorkspaceStore(selectDesignName);
+  const designer = useWorkspaceStore((s) => s.tree.designer);
   const components = useWorkspaceStore((s) => s.tree.components);
   const spanM = useMemo(() => rocketSpanM(components), [components]);
   const info = useWorkspaceStore((s) => s.info);
@@ -16,6 +17,7 @@ export function useExportData(motors: object): ExportData {
   return useMemo(
     () => ({
       name,
+      designer,
       info,
       spanM,
       units: units.all,
@@ -23,6 +25,6 @@ export function useExportData(motors: object): ExportData {
       appVersion: APP_VERSION,
       t,
     }),
-    [name, info, spanM, units.all, motors, t],
+    [name, designer, info, spanM, units.all, motors, t],
   );
 }
