@@ -35,13 +35,22 @@ cd ../website
 npm install
 ```
 
+**Before you push** (from `web/`), run one command:
+
+```bash
+npm run check
+```
+
+It covers `npm run build`, `npm run test` and `npm run test:e2e`, so there is no need to run those as well, and adds what they leave out and CI does not: format, spell, knip, dupes, the repo checks, the docs typecheck, the desktop comparisons and the engine audit. Every step runs even after one fails, and a pass/fail table comes at the end. The steps are listed below under `npm run test:<step>`.
+
 **Run the app** (from `web/`):
 
 ```bash
 npm run dev          # dev server with hot reload - prints a local URL
-npm run build        # typecheck (tsc) + lint + production build; must pass before a PR
+npm run build        # typecheck (tsc) + lint + production build; part of check
 npm run preview      # serve the production build locally
-npm run test         # Vitest: unit tests (.test.ts) and component tests (.test.tsx)
+npm run test         # Vitest: every test under tests/ but tests/repo (unit, component and
+                     # .kernel.test.ts); the `unit` step of check
 npm run test:watch   # Vitest in watch mode while developing
 npm run gate:e2e     # Playwright end-to-end tests against a fresh production build on port 5180
                      # (run `npx playwright install chromium` once first; nothing installs the browser for you)
@@ -52,10 +61,12 @@ npm run test:e2e:sections # the same suite one section at a time (shell, design,
                      # `-- --skip a11y,update`, `-- --only aero,motors`, `-- --list`; Playwright
                      # options after a second `--`. Sections and steps live in
                      # scripts/lib/e2eSectionList.mjs.
-npm run check        # THE ONE TO RUN BEFORE YOU PUSH: every test and check in the
-                     # project (all unit tests, all e2e, the offline and update checks,
-                     # the desktop comparisons, the engine audit), then one pass/fail
+npm run check        # THE ONE TO RUN BEFORE YOU PUSH, in place of build, test and
+                     # test:e2e: every test and check in the project (all unit tests,
+                     # all e2e, the offline and update checks, format, spell, the
+                     # desktop comparisons, the engine audit), then one pass/fail
                      # table. If OpenRocket needs building, it stops and says how.
+                     # The engine step needs a JDK.
 npm run test:<step>  # one step of check: types, lint, build, docs, format, spell, knip,
                      # dupes, unit, repo, desktop, helpers, e2e, engine
 npm run test:coverage # the unit suite with coverage and its floors; not part of check
