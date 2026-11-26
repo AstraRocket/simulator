@@ -163,13 +163,11 @@ export function UpdateToast() {
   // Always mounted: screen readers skip a live region created with its text.
   return (
     <div role="status" aria-live="polite">
-      {held ? (
-        !heldHidden && <HeldBody onDismiss={() => setHeldHidden(true)} />
-      ) : (
-        show && (
-          <UpdateToastBody onRefresh={() => void apply()} onLater={later} onDismiss={() => setNeedRefresh(false)} />
-        )
-      )}
+      {held
+        ? !heldHidden && <HeldBody onDismiss={() => setHeldHidden(true)} />
+        : show && (
+            <UpdateToastBody onRefresh={() => void apply()} onLater={later} onDismiss={() => setNeedRefresh(false)} />
+          )}
     </div>
   );
 }

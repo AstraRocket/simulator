@@ -40,7 +40,7 @@ async function boot() {
   const { UpdateToast } = await import('../../../src/components/layout/UpdateToast');
   const { useWorkspaceStore } = await import('../../../src/state/store');
   const { markWritten } = await import('../../../src/state/writtenWorkspace');
-  // Boot marks the hydrated design as written; a tab that has done nothing has nothing unstored.
+  // Boot marks the hydrated design as written; a tab that has done nothing has nothing left to store.
   markWritten(useWorkspaceStore.getState());
   render(<UpdateToast />);
   return { useWorkspaceStore };
