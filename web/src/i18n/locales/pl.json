@@ -2352,6 +2352,8 @@
     "later": "Później",
     "laterTitle": "Przypomnij ponownie za około {{hours}} godz.",
     "dismiss": "Ukryj",
+    "otherTab": "Aplikacja została zaktualizowana w innej karcie.",
+    "otherTabHeld": "Ta karta nie została odświeżona, więc praca w niej jest zachowana. Odśwież, gdy będziesz gotowy.",
     "check": "Sprawdź aktualizacje",
     "checking": "Sprawdzanie…",
     "upToDate": "Używasz najnowszej wersji.",

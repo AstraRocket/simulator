@@ -9,7 +9,7 @@ import {
   UPDATE_SNOOZE_MS,
   readyToApplyHidden,
 } from '../../services/app/updateCheck';
-import { workInProgress } from '../../state/workInProgress';
+import { reloadLosesWork, workInProgress } from '../../state/workInProgress';
 import { useUpdateStore } from '../../state/updateStore';
 import { waitingIsNewer } from '../../services/app/swBuild';
 import { Banner } from '../common/Banner';
@@ -23,6 +23,11 @@ export function UpdateToast() {
   const [swReg, setSwReg] = useState<ServiceWorkerRegistration | null>(null);
 
   const [waiting, setWaiting] = useState(false);
+  // Another tab applied the update and this one had work a reload would lose.
+  const [held, setHeld] = useState(false);
+  const heldRef = useRef(false);
+  // As the ✕ on the offer, this only hides it: the hidden-tab reload still comes.
+  const [heldHidden, setHeldHidden] = useState(false);
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -38,8 +43,16 @@ export function UpdateToast() {
         .then(waitingIsNewer)
         .then(setWaiting, () => setWaiting(false));
     },
+    // Every tab the waiting worker was offered to hears its takeover, whichever tab applied it.
     // Through `reloadOnce` so this and the reload `apply` arranges never both run.
-    onNeedReload: reloadOnce,
+    onNeedReload() {
+      if (selfApplied || !reloadLosesWork()) {
+        reloadOnce();
+        return;
+      }
+      heldRef.current = true;
+      setHeld(true);
+    },
   });
 
   // The library reloads only on a controller change, which a first-visit tab
@@ -57,6 +70,7 @@ export function UpdateToast() {
     }
     next?.addEventListener('statechange', () => next.state === 'activated' && reloadOnce());
     if (swReg && next) reloadOnceLeft(swReg, next);
+    selfApplied = true;
     void updateServiceWorker(true);
   }, [swReg, updateServiceWorker]);
 
@@ -105,8 +119,9 @@ export function UpdateToast() {
   }, [swReg, setNeedRefresh]);
 
   // `workInProgress` is read, not subscribed to: re-running this effect would restart the clock.
+  const pending = waiting || held;
   useEffect(() => {
-    if (!waiting) return;
+    if (!pending) return;
     let timer: ReturnType<typeof setInterval> | null = null;
     const stop = () => {
       if (timer !== null) clearInterval(timer);
@@ -117,9 +132,12 @@ export function UpdateToast() {
       if (document.visibilityState !== 'hidden') return;
       const hiddenSince = Date.now();
       timer = setInterval(() => {
-        if (!readyToApplyHidden(true, hiddenSince, workInProgress(), Date.now())) return;
+        // A held tab was not the one that asked, so it stays until nothing would be lost.
+        const busy = heldRef.current ? reloadLosesWork() : workInProgress();
+        if (!readyToApplyHidden(true, hiddenSince, busy, Date.now())) return;
         stop();
-        void apply();
+        if (heldRef.current) reloadOnce();
+        else void apply();
       }, 5_000);
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -128,7 +146,7 @@ export function UpdateToast() {
       stop();
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [waiting, apply]);
+  }, [pending, apply]);
 
   // Snoozing keeps `needRefresh`, so the prompt returns when the snooze ends.
   useEffect(() => {
@@ -145,12 +163,19 @@ export function UpdateToast() {
   // Always mounted: screen readers skip a live region created with its text.
   return (
     <div role="status" aria-live="polite">
-      {show && (
-        <UpdateToastBody onRefresh={() => void apply()} onLater={later} onDismiss={() => setNeedRefresh(false)} />
+      {held ? (
+        !heldHidden && <HeldBody onDismiss={() => setHeldHidden(true)} />
+      ) : (
+        show && (
+          <UpdateToastBody onRefresh={() => void apply()} onLater={later} onDismiss={() => setNeedRefresh(false)} />
+        )
       )}
     </div>
   );
 }
+
+/** Set by this tab's own Reload, so its takeover reloads it whatever it holds. */
+let selfApplied = false;
 
 // Backs up the `activated` listener, which misses a worker that turned redundant instead.
 const APPLY_POLL_MS = 1_000;
@@ -212,6 +237,25 @@ function UpdateToastBody({
           {t('update.later')}
         </button>
       )}
+    </Banner>
+  );
+}
+
+/** The new version already took over from another tab, so Reload only reloads. */
+function HeldBody({ onDismiss }: { onDismiss: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Banner tone="accent" onDismiss={onDismiss} dismissLabel={t('update.dismiss')}>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">{t('update.otherTab')}</p>
+        <p className="text-xs text-accent-200">{t('update.otherTabHeld')}</p>
+      </div>
+      <button
+        onClick={reloadOnce}
+        className="flex shrink-0 items-center gap-2 rounded-lg bg-accent-600 px-3 py-1.5 font-semibold text-on-accent transition-transform hover:bg-accent-700 active:scale-95 active:bg-accent-700"
+      >
+        {t('update.reload')}
+      </button>
     </Banner>
   );
 }

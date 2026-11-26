@@ -2334,6 +2334,8 @@
     "later": "Später",
     "laterTitle": "In etwa {{hours}} Stunden erneut erinnern",
     "dismiss": "Ausblenden",
+    "otherTab": "Die App wurde in einem anderen Tab aktualisiert.",
+    "otherTabHeld": "Dieser Tab wurde nicht neu geladen, damit Ihre Arbeit darin erhalten bleibt. Laden Sie neu, wenn Sie so weit sind.",
     "check": "Nach Updates suchen",
     "checking": "Suche…",
     "upToDate": "Sie verwenden die neueste Version.",

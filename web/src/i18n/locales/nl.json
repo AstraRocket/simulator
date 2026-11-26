@@ -2334,6 +2334,8 @@
     "later": "Later",
     "laterTitle": "Herinner me over ongeveer {{hours}} uur opnieuw",
     "dismiss": "Sluiten",
+    "otherTab": "De app is in een ander tabblad bijgewerkt.",
+    "otherTabHeld": "Dit tabblad is niet herladen, dus je werk hierin blijft bewaard. Herlaad wanneer je klaar bent.",
     "check": "Controleren op updates",
     "checking": "Controleren…",
     "upToDate": "Je gebruikt de nieuwste versie.",

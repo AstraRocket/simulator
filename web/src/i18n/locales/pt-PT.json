@@ -2343,6 +2343,8 @@
     "later": "Mais tarde",
     "laterTitle": "Lembrar novamente dentro de cerca de {{hours}} horas",
     "dismiss": "Dispensar",
+    "otherTab": "A aplicação foi atualizada noutro separador.",
+    "otherTabHeld": "Este separador não foi recarregado, por isso o trabalho nele foi mantido. Recarregue quando quiser.",
     "check": "Procurar atualizações",
     "checking": "A procurar…",
     "upToDate": "Está a usar a versão mais recente.",
