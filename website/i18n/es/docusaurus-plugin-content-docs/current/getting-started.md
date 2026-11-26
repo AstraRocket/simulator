@@ -12,6 +12,25 @@ Tras esa primera visita sigue funcionando **sin conexión**, así que puedes dis
 
 Al abrirla verás una breve pantalla de inicio mientras se carga el motor de física, y después un cohete de ejemplo. La cabecera muestra una pequeña insignia **`WASM`** o **`JS`** que indica qué versión del núcleo de simulación se ha cargado (WebAssembly es la rápida por defecto; JavaScript es la alternativa).
 
+### Qué necesita tu navegador {#browser-requirements}
+
+| Navegador | Versión |
+| --- | --- |
+| Chrome, Edge | 111 o posterior; el motor WebAssembly rápido desde la 119 |
+| Firefox | 128 o posterior |
+| Safari (Mac, iPhone, iPad) | 16.4 o posterior; el motor WebAssembly rápido desde la 18.2 |
+| Opera, Brave, Samsung Internet, Vivaldi | según la versión de Chrome en la que se basan |
+
+En un iPhone o iPad todos los navegadores usan el motor de Safari, así que Chrome, Edge y Firefox siguen allí la fila de Safari según la versión de iOS.
+
+Cada vez que la app arranca, comprueba el navegador. Si falta algo que necesita, abre en su lugar la página **Compatibilidad con navegadores**, que indica qué falta; **Try anyway** abre la app de todos modos, aunque partes de ella pueden no funcionar.
+
+La comprobación también mide lo rápido que el dispositivo dibuja en 3D. Si el navegador no tiene WebGL, o dibuja menos de 30 fotogramas por segundo, se desactivan las vistas **3D** y **Ruta 3D** y el **Estudio fotográfico**: sus botones aparecen en gris y, al pasar el ratón por encima, explican el motivo. Todo lo demás funciona como siempre, incluidas las vistas 2D y todos los datos del vuelo.
+
+El resultado se guarda en el navegador, así que la comprobación se hace una vez y no en cada arranque. Se repite tras una actualización del navegador o un cambio del controlador gráfico.
+
+Para ver el informe completo, abre menú → **Compatibilidad con navegadores**. La página está en inglés. Muestra una puntuación sobre 100, lo que admite este navegador, la tarjeta gráfica y su controlador, y lo rápido que el dispositivo dibuja en 3D y hace los cálculos de vuelo. **Copy report** copia el informe como texto para un aviso de error, y **Check again** repite la comprobación. Su ajuste **3D views in AstraRocket** se impone a la prueba de velocidad: **Always on** mantiene el 3D en un dispositivo lento, **Always off** lo desactiva y **Automatic** sigue la prueba. El cambio se aplica la próxima vez que arranca la app.
+
 ## La disposición {#the-layout}
 
 En un ordenador el banco de trabajo son cinco **pestañas**, en la barra superior junto al nombre de la aplicación. Cada una organiza la ventana como su propia tarea necesita, en vez de compartir todas una única cuadrícula fija:
@@ -41,7 +60,7 @@ En un **teléfono** las mismas áreas pasan a ser pestañas en la parte inferior
 
 El panel de componentes es solo de escritorio, así que un teléfono no puede añadir, reordenar ni borrar piezas. Sí puede editar las que el diseño ya tiene: toca una pieza en la vista **Croquis** y su editor se abre como un diálogo. Tres cosas pertenecen al panel de componentes, así que no se ofrecen en un teléfono: **Piezas personalizadas**, porque una pieza guardada se aplica a través de un componente, **Materiales personalizados**, porque cambiar un material del diseño cambia sus piezas, y el **nombre y la configuración del cohete**, porque poner nombre a un diseño es parte de construirlo. Las tres también se ocultan mientras el dibujo está maximizado, junto con el panel.
 
-La barra superior tiene **deshacer / rehacer**, un botón **☀** que cambia al tema **Luz de día (alto contraste)**, un selector de idioma (diez idiomas), una nota de cuándo se guardó tu cohete por última vez y el **menú de la aplicación**: Nuevo, Abrir… y Guardar como… (la biblioteca de diseños de la app), **Importar ▸ OpenRocket / RockSim / Ejemplos / Copia de seguridad** y **Exportar ▸ OpenRocket / RockSim / Impresión 3D (.3mf) / RASAero II / JSON / Copia de seguridad** para los archivos en disco, **Informe del cohete (PDF)**, **Panel de motores**, **Ubicaciones de lanzamiento**, **Piezas personalizadas**, **Materiales personalizados**, **Ajustes**, **Ayuda**, **Seguridad**, **Privacidad**, **Buscar actualizaciones** y **Acerca de**.
+La barra superior tiene **deshacer / rehacer**, un botón **☀** que cambia al tema **Luz de día (alto contraste)**, un selector de idioma (diez idiomas), una nota de cuándo se guardó tu cohete por última vez y el **menú de la aplicación**: Nuevo, Abrir… y Guardar como… (la biblioteca de diseños de la app), **Importar ▸ OpenRocket / RockSim / Ejemplos / Copia de seguridad** y **Exportar ▸ OpenRocket / RockSim / Impresión 3D (.3mf) / RASAero II / JSON / Copia de seguridad** para los archivos en disco, **Informe del cohete (PDF)**, **Panel de motores**, **Ubicaciones de lanzamiento**, **Piezas personalizadas**, **Materiales personalizados**, **Ajustes**, **Ayuda**, **Seguridad**, **Privacidad**, **[Compatibilidad con navegadores](#browser-requirements)**, **Buscar actualizaciones** y **Acerca de**.
 
 **Ayuda** abre esta guía dentro de la aplicación en lugar de llevarte a un sitio web, y la guía completa se incluye con la aplicación, así que funciona en un campo de vuelo sin cobertura. Su tabla de contenido enumera todas las páginas y los apartados de la que estás leyendo, y el cuadro que hay encima de esa lista las busca todas a la vez: elige un resultado y la página se abre con tus palabras resaltadas.
 

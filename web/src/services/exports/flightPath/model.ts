@@ -70,6 +70,8 @@ export interface FlightPathBranch {
 export interface FlightPathModel {
   title: string;
   rocketName: string;
+  /** The design's author; empty when the design names none. */
+  designer: string;
   simulationName: string;
   motor: string;
   configuration: string;
@@ -109,5 +111,6 @@ export interface FlightPathModel {
 export interface FlightPathMeta {
   simName: string;
   rocketName: string;
+  designer?: string;
   motorName: string;
 }

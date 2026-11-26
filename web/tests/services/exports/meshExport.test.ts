@@ -87,3 +87,26 @@ describe('component mesh export', () => {
     expect((pos.max[0]! - pos.min[0]!) * scale).toBeCloseTo(0.1, 3);
   });
 });
+
+describe('GLB designer', () => {
+  const assetOf = async (designer?: string) => {
+    const dv = new DataView(await solidToGlb(nose, designer));
+    const length = dv.getUint32(12, true);
+    const json = JSON.parse(new TextDecoder().decode(new Uint8Array(dv.buffer, dv.byteOffset + 20, length))) as {
+      asset: { version: string; copyright?: string; extras?: { author?: string } };
+    };
+    return json.asset;
+  };
+
+  it('puts the design author in asset.extras, not copyright', async () => {
+    const asset = await assetOf(' Ann ');
+    expect(asset.version).toBe('2.0');
+    expect(asset.extras?.author).toBe('Ann');
+    expect(asset.copyright).toBeUndefined();
+  });
+
+  it('adds no extras when the design names no author', async () => {
+    expect((await assetOf()).extras).toBeUndefined();
+    expect((await assetOf('  ')).extras).toBeUndefined();
+  });
+});

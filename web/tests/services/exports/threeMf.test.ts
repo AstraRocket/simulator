@@ -124,3 +124,22 @@ describe('printableParts', () => {
     expect(byName['Fins']).toBe(1);
   });
 });
+
+describe('3MF designer metadata', () => {
+  const modelFor = (designer?: string) =>
+    new DOMParser().parseFromString(threeMfModelXml(parts, { designer }), 'text/xml');
+
+  it('writes the design author as Designer metadata, escaped', () => {
+    const d = modelFor('  Ann & <Bob>  ');
+    expect(d.querySelector('parsererror')).toBeNull();
+    const meta = d.querySelector('model > metadata[name="Designer"]');
+    expect(meta?.textContent).toBe('Ann & <Bob>');
+    // The spec puts metadata before resources.
+    expect(d.documentElement.firstElementChild?.tagName).toBe('metadata');
+  });
+
+  it('writes no metadata when the design names no author', () => {
+    expect(modelFor().querySelector('metadata')).toBeNull();
+    expect(modelFor('   ').querySelector('metadata')).toBeNull();
+  });
+});

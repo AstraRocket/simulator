@@ -31,9 +31,23 @@ export function solidToObj(geometry: THREE.BufferGeometry): string {
   return new OBJExporter().parse(meshGroup(geometry));
 }
 
-export function solidToGlb(geometry: THREE.BufferGeometry): Promise<ArrayBuffer> {
+/**
+ * glTF has no author field, so a non-blank `designer` goes in `asset.extras.author`.
+ * `asset.copyright` is left alone: the design's author is not a copyright claim.
+ */
+export function solidToGlb(geometry: THREE.BufferGeometry, designer?: string): Promise<ArrayBuffer> {
+  const author = designer?.trim();
+  const exporter = new GLTFExporter();
+  if (author) {
+    exporter.register((writer) => ({
+      afterParse: () => {
+        const { asset } = (writer as unknown as { json: { asset: { extras?: Record<string, unknown> } } }).json;
+        asset.extras = { ...asset.extras, author };
+      },
+    }));
+  }
   return new Promise((resolve, reject) => {
-    new GLTFExporter().parse(
+    exporter.parse(
       meshGroup(geometry, 1),
       (result) => resolve(result as ArrayBuffer),
       (err) => reject(toError(err)),

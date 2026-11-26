@@ -41,7 +41,7 @@ export async function exportComponent(
   else if (format === '3mf') {
     // The 3MF writer reads indices directly, so it needs welded geometry.
     const parts = [{ name: label, geometry: makeWatertight(geometry), color: colorForType(node.type) }];
-    download(name('3mf'), buildThreeMf(parts) as BlobPart, THREE_MF_MIME);
-  } else download(name('glb'), await solidToGlb(geometry), GLB_MIME);
+    download(name('3mf'), buildThreeMf(parts, { designer: tree.designer }) as BlobPart, THREE_MF_MIME);
+  } else download(name('glb'), await solidToGlb(geometry, tree.designer), GLB_MIME);
   return true;
 }

@@ -11,6 +11,8 @@ import { canvas2d } from './offscreenRaster';
 
 export interface ExportData {
   name: string;
+  /** The design's author, written into an SVG's metadata as `dc:creator`. */
+  designer?: string;
   info: StaticInfo | null;
   units: UnitSelection;
   /** Full span diameter including fins, lugs and pods (m). */
@@ -139,6 +141,11 @@ export function svgWithHeader(
 ): string {
   const { fs, lineH, lines, headerH } = headerBand(viewW, d);
   const totalH = viewH + headerH;
+  const designer = d.designer?.trim();
+  const metadata = designer
+    ? '\n  <metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">' +
+      `<rdf:Description rdf:about=""><dc:creator>${escapeXml(designer)}</dc:creator></rdf:Description></rdf:RDF></metadata>`
+    : '';
 
   const header = lines
     .map(
@@ -151,7 +158,7 @@ export function svgWithHeader(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${totalH}"
   width="${size(viewW)}" height="${size(totalH)}"
-  font-family="Arial, Helvetica, sans-serif" fill="#20242c">
+  font-family="Arial, Helvetica, sans-serif" fill="#20242c">${metadata}
   <rect x="0" y="0" width="${viewW}" height="${totalH}" fill="#ffffff"/>
   <g>${header}</g>
   <g transform="translate(0 ${headerH})">${inner}</g>

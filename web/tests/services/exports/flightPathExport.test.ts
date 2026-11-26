@@ -1083,7 +1083,7 @@ describe('EXPORT_FORMATS built-in template sources', () => {
 
   it('the downloadable KML template re-renders to valid KML', () => {
     const kml = renderUserTemplate(EXPORT_FORMATS[0]!.source, 'kml', model());
-    expect(kml).toContain('<kml xmlns="http://www.opengis.net/kml/2.2">');
+    expect(kml).toContain('<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">');
     expect(kml).toContain('<coordinates>-105,40,1600</coordinates>');
     expect(kml).toContain('#flightPath');
     expect(kml.trimEnd().endsWith('</kml>')).toBe(true);
@@ -1146,5 +1146,34 @@ describe('a sample the run left with no ground position', () => {
 
   it('leaves it out of the path, as the ground track does', () => {
     expect(built().branches[0]!.path.map((p) => p.time)).toEqual([0, 1, 3, 4]);
+  });
+});
+
+describe('designer as author', () => {
+  const withDesigner = (designer?: string) =>
+    buildFlightPathModel(
+      result,
+      launch,
+      { simName: 'Sim 1', rocketName: 'R', motorName: 'C6', designer },
+      defaultExportOptions(),
+      label,
+    );
+
+  it('names the design author in KML and GPX, escaped', () => {
+    const m = withDesigner('Ann & Bob');
+    const kml = renderKml(m);
+    expect(kml).toContain('xmlns:atom="http://www.w3.org/2005/Atom"');
+    expect(kml).toContain('<atom:author><atom:name>Ann &amp; Bob</atom:name></atom:author>');
+    const gpx = renderGpx(m);
+    expect(gpx).toContain('<author><name>Ann &amp; Bob</name></author>');
+  });
+
+  it('leaves the author out when the design names none', () => {
+    for (const d of [undefined, '  ']) {
+      const m = withDesigner(d);
+      expect(m.designer).toBe('');
+      expect(renderKml(m)).not.toContain('atom:author');
+      expect(renderGpx(m)).not.toContain('<author>');
+    }
   });
 });

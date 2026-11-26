@@ -18,6 +18,8 @@ export interface ThreeMfPart {
 
 export interface ThreeMfOptions {
   placeOnPlate?: boolean;
+  /** The design's author, written as the spec's `Designer` metadata; omitted when blank. */
+  designer?: string;
 }
 
 export const THREE_MF_MIME = 'model/3mf';
@@ -85,6 +87,8 @@ const RELS = `<?xml version="1.0" encoding="UTF-8"?>
 
 export function threeMfModelXml(parts: ThreeMfPart[], opts: ThreeMfOptions = {}): string {
   const placeOnPlate = opts.placeOnPlate ?? true;
+  const designer = opts.designer?.trim();
+  const metadata = designer ? `\n  <metadata name="Designer">${escapeXml(designer)}</metadata>` : '';
 
   // The base-materials group takes id 1, so object n is id n+1 and `pindex` n.
   const bases = parts.map(
@@ -105,7 +109,7 @@ export function threeMfModelXml(parts: ThreeMfPart[], opts: ThreeMfOptions = {})
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">${metadata}
   <resources>
     <basematerials id="1">${bases.join('')}</basematerials>
     ${objects.join('\n    ')}

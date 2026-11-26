@@ -79,7 +79,7 @@ export async function downloadRocket3mf(
   if (!separateFiles) {
     const bytes = buildThreeMf(
       built.map((b) => b.part),
-      { placeOnPlate },
+      { placeOnPlate, designer: tree.designer },
     );
     await saveBlob(new Blob([bytes as BlobPart], { type: THREE_MF_MIME }), exportFilename([name, 'print'], '3mf'));
     return { written: built.length, skipped };
@@ -94,7 +94,7 @@ export async function downloadRocket3mf(
     let n = 2;
     while (used.has(entry)) entry = `${safeFilename(b.part.name, 'part')}-${n++}`;
     used.add(entry);
-    files[`${entry}.3mf`] = buildThreeMf([b.part], { placeOnPlate });
+    files[`${entry}.3mf`] = buildThreeMf([b.part], { placeOnPlate, designer: tree.designer });
   }
   await saveBlob(
     new Blob([zipSync(files, { level: 6 })], { type: 'application/zip' }),
