@@ -415,6 +415,7 @@
     "contributorsAll": "Ver todos os colaboradores no GitHub",
     "credits": "Física do OpenRocket (GPL-3.0), compilada para WASM e JavaScript com o TeaVM.",
     "enginePin": "Motor extraído do commit <commitLink>{{ref}}</commitLink> do OpenRocket, de {{date}}.",
+    "compatibility": "Compatibilidade com browsers",
     "privacy": "Privacidade",
     "close": "Fechar"
   },
@@ -780,6 +781,12 @@
     "configsShort": "Config.",
     "tools": "Ferramentas",
     "simple": "Bancada"
+  },
+  "graphics": {
+    "offNone": "3D desligado: este browser não consegue desenhar 3D (sem WebGL).",
+    "offSlow": "3D desligado: os gráficos deste dispositivo são demasiado lentos.",
+    "offByHand": "O 3D foi desligado na página Compatibilidade com browsers.",
+    "change": "Abrir Compatibilidade com browsers"
   },
   "view": {
     "2d": "2D",

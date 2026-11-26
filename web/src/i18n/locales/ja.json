@@ -415,6 +415,7 @@
     "contributorsAll": "GitHub で貢献者をすべて見る",
     "credits": "物理演算は OpenRocket（GPL-3.0）によるもので、TeaVM で WASM と JavaScript にコンパイルしています。",
     "enginePin": "エンジンは OpenRocket のコミット <commitLink>{{ref}}</commitLink>（{{date}}）から取り出したものです。",
+    "compatibility": "ブラウザーの互換性",
     "privacy": "プライバシー",
     "close": "閉じる"
   },
@@ -778,6 +779,12 @@
     "configsShort": "構成",
     "tools": "ツール",
     "simple": "ベンチトップ"
+  },
+  "graphics": {
+    "offNone": "3D はオフです：このブラウザーは 3D を描画できません（WebGL なし）。",
+    "offSlow": "3D はオフです：このデバイスのグラフィックスでは遅すぎます。",
+    "offByHand": "3D は「ブラウザーの互換性」ページでオフにされています。",
+    "change": "「ブラウザーの互換性」を開く"
   },
   "view": {
     "2d": "2D",

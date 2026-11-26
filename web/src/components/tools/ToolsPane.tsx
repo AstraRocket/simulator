@@ -9,6 +9,8 @@ import { MotorsTool } from './MotorsTool';
 import { PhotoTool } from './PhotoTool';
 import { TOOLS, type Tool } from '../../state/tabs';
 import { getRememberedTool, rememberTool } from './toolsPaneMemory';
+import { graphics3d } from '../../services/app/graphics';
+import { Graphics3dOffNotice } from '../common/Graphics3dOff';
 
 /** Only the open tool is mounted, so no two tools put the same field in the document. */
 export function ToolsPane() {
@@ -20,6 +22,7 @@ export function ToolsPane() {
   };
   const tools = [...TOOLS].sort((x, y) => t(`tools.tool_${x}`).localeCompare(t(`tools.tool_${y}`), i18n.language));
   const tabs = useTabs(tools, tool, setTool);
+  const gl = graphics3d();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div
@@ -52,7 +55,7 @@ export function ToolsPane() {
         {tool === 'flutter' && <FlutterTool />}
         {tool === 'ejection' && <EjectionTool />}
         {tool === 'motors' && <MotorsTool />}
-        {tool === 'photo' && <PhotoTool />}
+        {tool === 'photo' && (gl.reason ? <Graphics3dOffNotice reason={gl.reason} /> : <PhotoTool />)}
       </div>
     </div>
   );

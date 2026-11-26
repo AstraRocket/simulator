@@ -35,6 +35,14 @@ export const test = base.extend<{ wip: WipState }>({
         // No usable storage on about:blank.
       }
     }, SETTINGS_KEY);
+    // SwiftShader draws far under the startup check's 3D speed floor (public/capability.js), which would turn the 3D views off.
+    await page.addInitScript((key: string) => {
+      try {
+        localStorage.setItem(key, 'on');
+      } catch {
+        // No usable storage on about:blank.
+      }
+    }, `${STORAGE_PREFIX}:graphics`);
     await page.route(/arcgisonline\.com/, (route) =>
       route.fulfill({ status: 200, contentType: 'image/png', body: PIXEL_PNG }),
     );

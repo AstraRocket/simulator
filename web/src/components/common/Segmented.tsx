@@ -14,6 +14,7 @@ export function Segmented<T extends string | number | boolean>({
   fmt,
   title,
   disabled,
+  optionDisabled,
   size = 'xs',
 }: {
   options: readonly T[];
@@ -22,6 +23,8 @@ export function Segmented<T extends string | number | boolean>({
   fmt: (v: T) => string;
   title?: (v: T) => string;
   disabled?: boolean;
+  /** Disables single options, beside the whole-control `disabled`. */
+  optionDisabled?: (v: T) => boolean;
   size?: keyof typeof SIZE;
 }) {
   return (
@@ -34,7 +37,7 @@ export function Segmented<T extends string | number | boolean>({
           active={value === o}
           onClick={() => onChange(o)}
           title={title?.(o)}
-          disabled={disabled}
+          disabled={disabled || optionDisabled?.(o)}
           className={SIZE[size]}
         >
           {fmt(o)}

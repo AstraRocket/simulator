@@ -22,6 +22,23 @@
         if (pref === 'light' || pref === 'daylight') document.documentElement.setAttribute('data-theme', pref);
       } catch (e) {}
     </script>
+    <script src="%BASE_URL%capability.js"></script>
+    <script>
+      /* The startup gate, before the app's bundle, from the stored check result when there is one
+         (public/capability.js). A browser missing a requirement goes to the compatibility page,
+         which offers `?compat=skip` to try anyway. The 3D decision is read by services/app/graphics.ts. */
+      try {
+        var cap = window.AstraCapability;
+        if (cap) {
+          var gate = cap.startup('%STORAGE_PREFIX%');
+          if (gate.blocked && !/[?&]compat=skip\b/.test(location.search)) {
+            location.replace('%BASE_URL%compatibility?from=app');
+          } else {
+            window.__astraGraphics = gate.graphics;
+          }
+        }
+      } catch (e) {}
+    </script>
     <style>
       /* Instant paint before any JS: dark background (no white flash) plus a
          wordmark, so the first frame is not an empty page while the app's own

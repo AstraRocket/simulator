@@ -415,6 +415,7 @@
     "contributorsAll": "See all contributors on GitHub",
     "credits": "Physics by OpenRocket (GPL-3.0), compiled to WASM and JavaScript with TeaVM.",
     "enginePin": "Engine extracted from OpenRocket commit <commitLink>{{ref}}</commitLink>, dated {{date}}.",
+    "compatibility": "Browser compatibility",
     "privacy": "Privacy",
     "close": "Close"
   },
@@ -779,6 +780,12 @@
     "configsShort": "Config",
     "tools": "Tools",
     "simple": "Benchtop"
+  },
+  "graphics": {
+    "offNone": "3D is off: this browser cannot draw 3D (no WebGL).",
+    "offSlow": "3D is off: this device's graphics are too slow for it.",
+    "offByHand": "3D is turned off on the Browser compatibility page.",
+    "change": "Open Browser compatibility"
   },
   "view": {
     "2d": "2D",

@@ -203,6 +203,9 @@ function FileMenu({
       <MenuItem onClick={run(actions.onSafety)}>{t('menu.safety')}</MenuItem>
       {separator}
       <MenuItem onClick={run(actions.onPrivacy)}>{t('about.privacy')}</MenuItem>
+      <MenuItem onClick={run(() => window.open(`${import.meta.env.BASE_URL}compatibility`, '_blank', 'noopener'))}>
+        {t('about.compatibility')}
+      </MenuItem>
       <MenuItem
         disabled={!updateChecker || !online}
         title={!updateChecker ? t('update.checkUnavailable') : online ? undefined : t('common.needsConnection')}

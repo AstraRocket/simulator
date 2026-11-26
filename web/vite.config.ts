@@ -256,6 +256,15 @@ export default defineConfig({
     __CONTRIBUTORS_URL__: JSON.stringify(contributorsUrl),
     __UPSTREAM__: JSON.stringify(upstream),
   },
+  build: {
+    // compatibility.html is its own page: it must still load in a browser the app cannot run in.
+    rolldownOptions: {
+      input: {
+        main: resolvePath(import.meta.dirname, 'index.html'),
+        compatibility: resolvePath(import.meta.dirname, 'compatibility.html'),
+      },
+    },
+  },
   // The sim worker dynamic-imports the engine; only ES format can code-split.
   worker: { format: 'es' },
 });
