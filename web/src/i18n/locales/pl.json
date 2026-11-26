@@ -415,6 +415,7 @@
     "contributorsAll": "Zobacz wszystkich współtwórców na GitHubie",
     "credits": "Fizykę liczy OpenRocket (GPL-3.0), skompilowany do WASM i JavaScriptu przy użyciu TeaVM.",
     "enginePin": "Silnik pochodzi z commita OpenRocket <commitLink>{{ref}}</commitLink> z dnia {{date}}.",
+    "compatibility": "Zgodność z przeglądarkami",
     "privacy": "Prywatność",
     "close": "Zamknij"
   },
@@ -781,6 +782,12 @@
     "configsShort": "Konfig.",
     "tools": "Narzędzia",
     "simple": "Warsztat"
+  },
+  "graphics": {
+    "offNone": "3D jest wyłączone: ta przeglądarka nie potrafi rysować 3D (brak WebGL).",
+    "offSlow": "3D jest wyłączone: grafika tego urządzenia jest za wolna.",
+    "offByHand": "3D wyłączono na stronie Zgodność z przeglądarkami.",
+    "change": "Otwórz Zgodność z przeglądarkami"
   },
   "view": {
     "2d": "2D",

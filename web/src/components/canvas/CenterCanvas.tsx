@@ -22,6 +22,8 @@ import { useUnits } from '../../prefs/useUnits';
 import { useDesignFigure } from './useDesignFigure';
 import { RULER_H } from '../../tree/schematicGeometry';
 import { hiddenPartIds } from '../../tree/partVisibility';
+import { graphics3d } from '../../services/app/graphics';
+import { Graphics3dOffNotice } from '../common/Graphics3dOff';
 
 const Rocket3D = lazyNamed(() => import('./Rocket3D'), 'Rocket3D');
 const FlightPath3D = lazyNamed(() => import('./FlightPath3D'), 'FlightPath3D');
@@ -63,6 +65,7 @@ export function CenterCanvas({
   const exportData = useExportData(motors);
   const { showMarkers, showInfoCard, showGrid, rulers } = useViewPrefs();
   const loading = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('view.loading3d')}</div>;
+  const gl = graphics3d();
   const prompt = <div className="grid h-full place-items-center text-sm text-ink-faint">{t('sim.prompt')}</div>;
 
   return (
@@ -113,21 +116,25 @@ export function CenterCanvas({
           )}
         </div>
       ) : view === '3d' ? (
-        <LazyBoundary fallback={loading}>
-          <Rocket3D
-            tree={tree}
-            info={info}
-            motors={motors}
-            hiddenIds={hiddenIds}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            showMarkers={showMarkers}
-            exportData={exportData}
-            onError={setErr}
-            ctrlSlot={ctrlSlot}
-            presetSlot={presetSlot}
-          />
-        </LazyBoundary>
+        gl.reason ? (
+          <Graphics3dOffNotice reason={gl.reason} />
+        ) : (
+          <LazyBoundary fallback={loading}>
+            <Rocket3D
+              tree={tree}
+              info={info}
+              motors={motors}
+              hiddenIds={hiddenIds}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              showMarkers={showMarkers}
+              exportData={exportData}
+              onError={setErr}
+              ctrlSlot={ctrlSlot}
+              presetSlot={presetSlot}
+            />
+          </LazyBoundary>
+        )
       ) : view === 'flight' ? (
         // Keyed on the simulation, not reset in an effect: effect-based resets blank the first frame.
         <div className="h-full p-2">
@@ -135,7 +142,9 @@ export function CenterCanvas({
         </div>
       ) : view === 'path' ? (
         <div className="relative h-full p-2">
-          {pathResult ? (
+          {gl.reason ? (
+            <Graphics3dOffNotice reason={gl.reason} />
+          ) : pathResult ? (
             <>
               <LazyBoundary fallback={loading}>
                 <FlightPath3D

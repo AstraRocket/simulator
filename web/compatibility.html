@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1020" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <title>Browser compatibility · %APP_TITLE%</title>
+    <!--
+      Plain CSS and ES5 on purpose: this page has to load in the old browsers it
+      reports on, which is exactly where the app's own bundle fails. No modules,
+      no Tailwind, no let/const, arrows or template literals.
+    -->
+    <script>
+      /* Same saved-theme read as index.html. */
+      try {
+        var pref = JSON.parse(localStorage.getItem('%STORAGE_PREFIX%:settings:v1') || '{}').theme;
+        if (pref === 'system') pref = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        if (pref === 'light' || pref === 'daylight') document.documentElement.setAttribute('data-theme', 'light');
+      } catch (e) {}
+    </script>
+    <style>
+      /* The app's own tokens (src/index.css), as hex: the oklch originals do not parse in the old browsers this page reports on. */
+      :root {
+        --canvas: #020617;
+        --surface: #0f172a;
+        --raised: #1e293b;
+        --elevated: #334155;
+        --ink-strong: #f1f5f9;
+        --ink: #e2e8f0;
+        --ink-soft: #cbd5e1;
+        --ink-muted: #94a3b8;
+        --line: rgba(255, 255, 255, 0.1);
+        --accent: #38bdf8;
+        --accent-strong: #0277b6;
+        --ok: #34d399;
+        --warn: #fbbf24;
+        --danger: #f87171;
+      }
+      html[data-theme='light'] {
+        --canvas: #f1f5f9;
+        --surface: #ffffff;
+        --raised: #f1f5f9;
+        --elevated: #e2e8f0;
+        --ink-strong: #0f172a;
+        --ink: #1e293b;
+        --ink-soft: #334155;
+        --ink-muted: #475569;
+        --line: rgba(15, 23, 42, 0.1);
+        --accent: #0476b3;
+        --accent-strong: #0277b6;
+        --ok: #047857;
+        --warn: #b45309;
+        --danger: #b91c1c;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 16px 12px 48px;
+      }
+      a {
+        color: var(--accent);
+      }
+      .card {
+        background: var(--surface);
+        border-radius: 12px;
+        box-shadow: 0 0 0 1px var(--line);
+        margin-bottom: 12px;
+        overflow: hidden;
+      }
+      .card h2 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        border-bottom: 1px solid var(--line);
+      }
+      .card table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 6px 0;
+      }
+      .card th,
+      .card td {
+        text-align: left;
+        vertical-align: top;
+        padding: 4px 12px;
+      }
+      .card th {
+        width: 34%;
+        font-weight: 400;
+        color: var(--ink-muted);
+      }
+      .card td {
+        color: var(--ink);
+        word-break: break-word;
+      }
+      .card .note {
+        display: block;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+      .mark {
+        display: inline-block;
+        width: 1.6em;
+        font-weight: 700;
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .warn {
+        color: var(--warn);
+      }
+      .fail {
+        color: var(--danger);
+      }
+      .info {
+        color: var(--ink-muted);
+      }
+      .hero {
+        display: flex;
+        align-items: center;
+        padding: 16px;
+      }
+      .ring {
+        position: relative;
+        width: 112px;
+        height: 112px;
+        flex: none;
+        margin-right: 16px;
+      }
+      .ring svg {
+        width: 112px;
+        height: 112px;
+        transform: rotate(-90deg);
+      }
+      .ring .track {
+        stroke: var(--raised);
+      }
+      .ring .bar {
+        stroke: var(--ink-muted);
+        transition: stroke-dashoffset 0.6s ease;
+      }
+      .ring .bar.ok {
+        stroke: var(--ok);
+      }
+      .ring .bar.warn {
+        stroke: var(--warn);
+      }
+      .ring .bar.fail {
+        stroke: var(--danger);
+      }
+      .ring .num {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 112px;
+        height: 112px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .ring .num b {
+        font-size: 30px;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--ink-strong);
+        font-variant-numeric: tabular-nums;
+      }
+      .ring .num small {
+        color: var(--ink-muted);
+        font-size: 11px;
+        margin-top: 2px;
+      }
+      .rating {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 2px;
+      }
+      .summary {
+        margin: 0;
+        color: var(--ink-soft);
+      }
+      .checked {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--ink-muted);
+      }
+      .actions {
+        margin-top: 10px;
+      }
+      .btn {
+        display: inline-block;
+        margin: 0 6px 6px 0;
+        padding: 6px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--raised);
+        box-shadow: 0 0 0 1px var(--line);
+        color: var(--ink);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .btn[hidden] {
+        display: none;
+      }
+      .btn:hover {
+        background: var(--elevated);
+      }
+      .btn.primary {
+        background: var(--accent-strong);
+        box-shadow: none;
+        color: #ffffff;
+      }
+      .meter {
+        position: relative;
+        height: 6px;
+        margin: 6px 12px 12px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--danger), var(--warn) 50%, var(--ok) 85%);
+      }
+      .meter i {
+        position: absolute;
+        top: -4px;
+        width: 3px;
+        height: 14px;
+        margin-left: -1px;
+        background: var(--ink-strong);
+        border-radius: 2px;
+        box-shadow: 0 0 0 1px var(--canvas);
+      }
+      .meter-label {
+        padding: 6px 12px 0;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+      .mode {
+        margin: 0;
+        padding: 4px 12px 12px;
+        color: var(--ink-muted);
+      }
+      .mode select {
+        margin-left: 8px;
+        padding: 4px 8px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--raised);
+        box-shadow: 0 0 0 1px var(--line);
+        color: var(--ink);
+        font: inherit;
+      }
+      .mode .note {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+      }
+      .foot {
+        color: var(--ink-muted);
+        font-size: 12px;
+        padding: 0 12px 10px;
+        margin: 0;
+      }
+      @media (max-width: 560px) {
+        .hero {
+          flex-direction: column;
+          text-align: center;
+        }
+        .ring {
+          margin: 0 0 10px;
+        }
+        .card th {
+          width: 45%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <div class="hero">
+          <div class="ring" aria-hidden="true">
+            <svg viewBox="0 0 112 112">
+              <circle class="track" cx="56" cy="56" r="48" fill="none" stroke-width="9" />
+              <circle
+                id="ring-bar"
+                class="bar"
+                cx="56"
+                cy="56"
+                r="48"
+                fill="none"
+                stroke-width="9"
+                stroke-linecap="round"
+                stroke-dasharray="301.6"
+                stroke-dashoffset="301.6"
+              />
+            </svg>
+            <div class="num"><b id="score">…</b><small>of 100</small></div>
+          </div>
+          <div role="status" aria-live="polite">
+            <p id="rating" class="rating">Checking…</p>
+            <p id="summary" class="summary">Testing this browser. This needs JavaScript turned on.</p>
+            <p id="checked" class="checked"></p>
+            <div class="actions">
+              <a id="open" class="btn primary" href="./">Open AstraRocket</a>
+              <a id="try" class="btn" href="./?compat=skip" hidden>Try anyway</a>
+              <button id="copy" class="btn" type="button">Copy report</button>
+              <button id="recheck" class="btn" type="button" hidden>Check again</button>
+              <span id="copied" class="info" aria-live="polite"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>AstraRocket features <span id="h-features" class="mark"></span></h2>
+        <table>
+          <tbody id="features"></tbody>
+        </table>
+        <p class="mode">
+          <label for="gfx-mode">3D views in AstraRocket</label>
+          <select id="gfx-mode">
+            <option value="auto">Automatic, by the speed test</option>
+            <option value="on">Always on</option>
+            <option value="off">Always off</option>
+          </select>
+          <span id="gfx-mode-note" class="note"></span>
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Browser <span id="h-system" class="mark"></span></h2>
+        <table>
+          <tbody id="system"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>WebGL and extensions <span id="h-graphics" class="mark"></span></h2>
+        <table>
+          <tbody id="graphics"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Renderer</h2>
+        <table>
+          <tbody id="renderer"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Performance check <span id="h-perf" class="mark"></span></h2>
+        <table>
+          <tbody id="perf"></tbody>
+        </table>
+        <div id="meters"></div>
+      </section>
+
+      <section class="card">
+        <h2>Supported browsers</h2>
+        <table>
+          <tbody>
+            <tr>
+              <th scope="row">Chrome, Edge</th>
+              <td>111 or later; the fast engine from 119</td>
+            </tr>
+            <tr>
+              <th scope="row">Firefox</th>
+              <td>128 or later</td>
+            </tr>
+            <tr>
+              <th scope="row">Safari (Mac, iPhone, iPad)</th>
+              <td>16.4 or later; the fast engine from 18.2</td>
+            </tr>
+            <tr>
+              <th scope="row">Opera, Brave, Samsung Internet, Vivaldi</th>
+              <td>by the Chrome version they are built on</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="foot">
+          On an iPhone or iPad every browser uses Safari's engine, so Chrome, Edge and Firefox there follow the Safari
+          row by the iOS version. Without the fast engine, the app runs OpenRocket's engine as JavaScript instead of
+          WebAssembly: slower, with identical results.
+        </p>
+      </section>
+    </main>
+
+    <script src="%BASE_URL%capability.js"></script>
+    <script>
+      (function () {
+        var MIN = { chromium: [111, 119], gecko: [128, 120], webkit: [16.4, 18.2] };
+        var pending = 0;
+        var features = [];
+        var sys = [];
+        var gfx = [];
+        var rend = [];
+        var perf = [];
+        var meters = [];
+        var perfDone = false;
+
+        /* status: 'ok' | 'warn' | 'fail' | 'info' | null (plain value). */
+        function row(list, label, status, value, note, extra) {
+          var r = { label: label, status: status, value: value == null ? '' : String(value), note: note || '' };
+          if (extra) for (var k in extra) r[k] = extra[k];
+          list.push(r);
+          return r;
+        }
+        function yes(v) {
+          return v ? 'ok' : 'fail';
+        }
+
+        function num(v) {
+          var p = String(v).split('.');
+          return parseInt(p[0], 10) + (p[1] ? parseInt(p[1], 10) / 10 : 0);
+        }
+
+        function detect() {
+          var ua = navigator.userAgent;
+          var m;
+          var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+          if (ios) {
+            m = /OS (\d+)_(\d+)/.exec(ua) || /Version\/(\d+)\.(\d+)/.exec(ua);
+            var name = /CriOS/.test(ua)
+              ? 'Chrome on iOS'
+              : /FxiOS/.test(ua)
+                ? 'Firefox on iOS'
+                : /EdgiOS/.test(ua) // cspell:disable-line
+                  ? 'Edge on iOS'
+                  : 'Safari on iOS';
+            return { name: name, engine: 'webkit', version: m ? m[1] + '.' + m[2] : null, platform: 'iOS' };
+          }
+          var chrome = /Chrome\/(\d+)/.exec(ua);
+          if ((m = /Edg\/([\d.]+)/.exec(ua))) return { name: 'Edge', engine: 'chromium', version: m[1] };
+          if ((m = /SamsungBrowser\/([\d.]+)/.exec(ua)) && chrome)
+            return { name: 'Samsung Internet', engine: 'chromium', version: m[1], chromium: chrome[1] };
+          if ((m = /OPR\/([\d.]+)/.exec(ua)) && chrome)
+            return { name: 'Opera', engine: 'chromium', version: m[1], chromium: chrome[1] };
+          if ((m = /Firefox\/([\d.]+)/.exec(ua))) return { name: 'Firefox', engine: 'gecko', version: m[1] };
+          if ((m = /Chrome\/([\d.]+)/.exec(ua))) return { name: 'Chrome', engine: 'chromium', version: m[1] };
+          if ((m = /Version\/([\d.]+).*Safari/.exec(ua))) return { name: 'Safari', engine: 'webkit', version: m[1] };
+          return { name: 'Unrecognized', engine: null, version: null };
+        }
+
+        var cap = window.AstraCapability;
+        var PREFIX = '%STORAGE_PREFIX%';
+        if (!cap) {
+          document.getElementById('summary').textContent = 'The checks could not load. Reload the page.';
+          return;
+        }
+
+        /* A stored result for this browser version and graphics driver is shown instead of rerunning the checks. */
+        var current = cap.signature();
+        var stored = cap.loadResult(PREFIX, current.sig);
+        var hasWebgl = current.webgl;
+        var hardware = false;
+        var fps = null;
+        var checkedAt = null;
+        var fresh = false;
+        var decision = null;
+
+        function later(fn) {
+          pending++;
+          var done = false;
+          var finish = function () {
+            if (done) return;
+            done = true;
+            pending--;
+            render();
+          };
+          try {
+            fn(finish);
+          } catch (e) {
+            setTimeout(finish, 0);
+          }
+          setTimeout(finish, 5000);
+        }
+
+        function runChecks() {
+          fresh = true;
+          /* ---------- AstraRocket features ---------- */
+          var b = detect();
+          var js = cap.modernJs();
+          var css = cap.modernCss();
+          var mw = cap.moduleWorkers();
+          var gc = cap.wasmGc();
+          var ls = cap.localStorageWorks(PREFIX);
+          var glInfo = cap.webglInfo();
+          var webglCtx = glInfo && glInfo.gl;
+          var webgl2 = !!glInfo && glInfo.webgl2;
+          hardware = !!glInfo && glInfo.hardware;
+
+          if (b.engine && b.version) {
+            var v = num(b.chromium || b.version);
+            var min = MIN[b.engine];
+            if (v < min[0])
+              row(
+                features,
+                'Browser version',
+                'fail',
+                'Too old',
+                'Version ' + min[0] + ' or later is needed. Update it.',
+                {
+                  required: true,
+                  weight: 0,
+                },
+              );
+          }
+          row(
+            features,
+            'Modern JavaScript',
+            js ? 'ok' : 'fail',
+            '',
+            js ? 'The app code runs.' : 'The app cannot start. Update the browser.',
+            { required: true, weight: 15 },
+          );
+          row(
+            features,
+            'Modern CSS',
+            css ? 'ok' : 'fail',
+            '',
+            css ? 'The layout and colors draw correctly.' : 'The app would draw wrongly or not at all.',
+            { required: true, weight: 15 },
+          );
+          row(
+            features,
+            'Background simulation',
+            mw ? 'ok' : 'fail',
+            '',
+            mw ? 'Flights run without freezing the page.' : 'Simulations cannot run.',
+            { required: true, weight: 15 },
+          );
+          row(
+            features,
+            'Physics engine',
+            gc ? 'ok' : 'warn',
+            gc ? 'WebAssembly' : 'JavaScript',
+            gc
+              ? 'The fast engine.'
+              : 'The slower fallback, with identical results. Run one simulation online before relying on it offline.',
+            { weight: 15, partial: 5 },
+          );
+          row(
+            features,
+            'Settings',
+            ls ? 'ok' : 'fail',
+            '',
+            ls
+              ? 'Kept between visits.'
+              : 'The browser blocks site storage (often a private window or a privacy setting). Nothing can be saved.',
+            { required: true, weight: 10 },
+          );
+          var idb = row(features, 'Design library', 'info', 'Checking…', '', { weight: 5 });
+          if (!window.indexedDB) {
+            idb.status = 'warn';
+            idb.value = '';
+            idb.note = 'No IndexedDB: saved designs fall back to the smaller settings storage.';
+          } else {
+            later(function (done) {
+              var name = '%STORAGE_PREFIX%-compat-probe';
+              var req = indexedDB.open(name);
+              req.onsuccess = function () {
+                req.result.close();
+                indexedDB.deleteDatabase(name);
+                idb.status = 'ok';
+                idb.value = '';
+                idb.note = 'Saved designs, motors and materials are kept in this browser.';
+                done();
+              };
+              req.onerror = function () {
+                idb.status = 'warn';
+                idb.value = '';
+                idb.note = 'IndexedDB is blocked: saved designs fall back to the smaller settings storage.';
+                done();
+              };
+            });
+          }
+          row(features, GFX_LABEL, 'info', 'Checking…', '', { weight: 10 });
+          var offline = 'serviceWorker' in navigator && window.isSecureContext !== false;
+          row(
+            features,
+            'Offline use',
+            offline ? 'ok' : 'warn',
+            '',
+            offline
+              ? 'Once loaded, the app works with no connection.'
+              : 'Needs a connection every time. Private windows and plain http pages turn this off.',
+            { weight: 5 },
+          );
+          if (navigator.storage && navigator.storage.estimate) {
+            var space = row(features, 'Storage space', 'info', 'Checking…', '', { weight: 2 });
+            later(function (done) {
+              navigator.storage.estimate().then(
+                function (est) {
+                  var mb = Math.round((est.quota || 0) / 1048576);
+                  space.status = mb >= 64 ? 'ok' : 'warn';
+                  space.value = mb.toLocaleString() + ' MB';
+                  space.note = mb >= 64 ? 'The offline copy takes about 16 MB.' : 'The offline copy needs about 16 MB.';
+                  done();
+                },
+                function () {
+                  done();
+                },
+              );
+            });
+          }
+          var picker = typeof window.showSaveFilePicker === 'function';
+          row(
+            features,
+            'Choose where to save',
+            picker ? 'ok' : 'info',
+            '',
+            picker ? 'Exports can open a save dialog.' : 'Exports go straight to the downloads folder.',
+            { weight: 2 },
+          );
+          var geo = 'geolocation' in navigator;
+          row(
+            features,
+            'Location',
+            geo ? 'ok' : 'info',
+            '',
+            geo ? '"Use my location" can fill the launch site.' : 'Type the coordinates or pick the site on the map.',
+            { weight: 1 },
+          );
+
+          /* cspell:disable -- WebGL extension and driver names. */
+
+          /* ---------- Browser ---------- */
+          var uaData = navigator.userAgentData;
+          row(sys, 'User agent', null, navigator.userAgent);
+          var platformRow = row(sys, 'Platform', null, b.platform || (uaData && uaData.platform) || navigator.platform);
+          row(sys, 'Browser', null, b.name + (b.chromium ? ' (Chromium ' + b.chromium + ')' : ''));
+          var versionRow = row(sys, 'Browser version', null, b.version || 'Unknown');
+          if (uaData && uaData.getHighEntropyValues) {
+            later(function (done) {
+              uaData.getHighEntropyValues(['fullVersionList', 'platformVersion', 'architecture', 'bitness']).then(
+                function (h) {
+                  var list = h.fullVersionList || [];
+                  for (var i = 0; i < list.length; i++) {
+                    if (
+                      /Edge|Chrome|Opera|Brave|Samsung|Vivaldi/.test(list[i].brand) &&
+                      !/Chromium/.test(list[i].brand)
+                    ) {
+                      versionRow.value = list[i].version;
+                      break;
+                    }
+                  }
+                  var p = uaData.platform;
+                  if (h.platformVersion) {
+                    /* Windows reports 13+ for Windows 11 and below 13 for Windows 10. */
+                    p +=
+                      ' ' +
+                      (p === 'Windows' ? (parseInt(h.platformVersion, 10) >= 13 ? '11' : '10') : h.platformVersion);
+                  }
+                  if (h.architecture) p += ' (' + h.architecture + (h.bitness ? ' ' + h.bitness + '-bit' : '') + ')';
+                  platformRow.value = p;
+                  done();
+                },
+                function () {
+                  done();
+                },
+              );
+            });
+          }
+          row(
+            sys,
+            'Screen',
+            null,
+            screen.width +
+              ' x ' +
+              screen.height +
+              ' (window ' +
+              window.innerWidth +
+              ' x ' +
+              window.innerHeight +
+              (window.devicePixelRatio && window.devicePixelRatio !== 1
+                ? ', ' + window.devicePixelRatio + 'x pixels'
+                : '') +
+              ')',
+          );
+          row(sys, 'Processor threads', null, navigator.hardwareConcurrency || 'Not reported');
+          row(sys, 'Memory', null, navigator.deviceMemory ? navigator.deviceMemory + ' GB or more' : 'Not reported');
+          row(sys, 'WebAssembly', yes(typeof WebAssembly === 'object'));
+          row(sys, 'WebAssembly GC', yes(gc));
+          row(sys, 'Web workers', yes(typeof Worker !== 'undefined'));
+          row(sys, 'Module workers', yes(mw));
+          row(sys, 'Local storage', yes(ls));
+          row(sys, 'IndexedDB', yes(!!window.indexedDB));
+          row(sys, 'Cache storage', yes('caches' in window));
+          row(sys, 'Service worker', yes('serviceWorker' in navigator));
+          row(sys, 'Sound', yes(!!(window.AudioContext || window.webkitAudioContext)));
+
+          /* ---------- WebGL and extensions, renderer ---------- */
+          (function graphics() {
+            var gl = webglCtx;
+            row(gfx, 'WebGL', yes(!!gl));
+            row(gfx, 'WebGL 2', yes(webgl2));
+            if (!gl) {
+              row(rend, 'GL renderer', null, 'No WebGL');
+              return;
+            }
+            var renderer = glInfo.renderer;
+            var vendor = glInfo.vendor;
+            row(gfx, 'Hardware acceleration', yes(hardware), hardware ? '' : 'Drawing on the processor: 3D is slow');
+
+            var hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+            row(gfx, 'High precision fragment shaders', yes(!!hp && hp.precision > 0));
+            var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+            row(gfx, 'Largest texture', maxTex >= 4096 ? 'ok' : 'warn', maxTex + ' pixels');
+            var half = webgl2
+              ? !!(gl.getExtension('EXT_color_buffer_half_float') || gl.getExtension('EXT_color_buffer_float'))
+              : !!(gl.getExtension('OES_texture_half_float') && gl.getExtension('EXT_color_buffer_half_float'));
+            row(gfx, 'Half float rendering', yes(half));
+            var formats = [
+              ['BC7', 'EXT_texture_compression_bptc'],
+              ['S3TC', 'WEBGL_compressed_texture_s3tc'],
+              ['RGTC', 'EXT_texture_compression_rgtc'],
+              ['ETC2', 'WEBGL_compressed_texture_etc'],
+              ['ETC1', 'WEBGL_compressed_texture_etc1'],
+              ['ASTC', 'WEBGL_compressed_texture_astc'],
+              ['PVRTC', 'WEBGL_compressed_texture_pvrtc'],
+            ];
+            var have = [];
+            for (var i = 0; i < formats.length; i++) if (gl.getExtension(formats[i][1])) have.push(formats[i][0]);
+            row(gfx, 'Compressed textures', have.length ? 'ok' : 'warn', have.length ? have.join(', ') : 'None');
+            var samples = webgl2 ? gl.getParameter(gl.MAX_SAMPLES) : gl.getContextAttributes().antialias ? 4 : 0;
+            row(gfx, 'Antialiasing', samples ? 'ok' : 'warn', samples ? samples + ' samples' : 'None');
+            var aniso =
+              gl.getExtension('EXT_texture_filter_anisotropic') ||
+              gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+            var level = aniso ? gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) : 0;
+            row(gfx, 'Anisotropic texture filtering', level ? 'ok' : 'warn', level ? level + 'x' : 'None');
+
+            row(rend, 'GL renderer', null, renderer || 'Not reported');
+            row(rend, 'GL vendor', null, vendor || 'Not reported');
+          })();
+
+          /* cspell:enable */
+
+          /* ---------- Performance check ---------- */
+          /* Thresholds: frames per second for the 3D test scene, and RK4 steps per second for the flight test
+           (a recent desktop does about 15 million). */
+          /* Position on a log scale between lo (left edge) and hi (right edge). */
+          function logPos(v, lo, hi) {
+            if (!(v > 0)) return 0;
+            var p = (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
+            return Math.max(0, Math.min(1, p));
+          }
+
+          var gpuRow = row(perf, '3D drawing speed', 'info', 'Measuring…', '', { weight: 10 });
+          var frameRow = row(perf, 'Time per frame', null, '…');
+          var cpuRow = row(perf, 'Flight computation speed', 'info', 'Measuring…', '', { weight: 10 });
+          later(function (done) {
+            setTimeout(function () {
+              fps = webglCtx ? cap.gpuBench(600) : null;
+              if (fps == null) {
+                gpuRow.status = 'warn';
+                gpuRow.value = 'No WebGL';
+                gpuRow.earned = 0;
+                frameRow.value = '';
+              } else {
+                gpuRow.status = fps >= 60 ? 'ok' : fps >= cap.GPU_MIN_FPS ? 'warn' : 'fail';
+                gpuRow.value =
+                  Math.round(fps).toLocaleString() +
+                  ' frames per second: ' +
+                  (fps >= 60 ? 'smooth' : fps >= cap.GPU_MIN_FPS ? 'usable' : 'slow');
+                gpuRow.earned = fps >= 60 ? 10 : fps >= cap.GPU_MIN_FPS ? 6 : 2;
+                frameRow.value = (1000 / fps).toFixed(1) + ' ms';
+                meters.push({ label: '3D drawing', pos: logPos(fps, 10, 1000) });
+              }
+              var sps = cap.cpuBench(400);
+              cpuRow.status = sps >= 5e6 ? 'ok' : sps >= 1.5e6 ? 'warn' : 'fail';
+              cpuRow.value =
+                (sps / 1e6).toFixed(1) +
+                ' million steps per second: ' +
+                (sps >= 5e6 ? 'fast' : sps >= 1.5e6 ? 'usable' : 'slow');
+              cpuRow.earned = sps >= 5e6 ? 10 : sps >= 1.5e6 ? 6 : 2;
+              meters.push({ label: 'Flight computation', pos: logPos(sps, 3e5, 3e7) });
+              perfDone = true;
+              decision = cap.decide(PREFIX, { webgl: hasWebgl, fps: fps });
+              describe3d();
+              done();
+            }, 60);
+          });
+        }
+
+        var GFX_LABEL = '3D view and Photo Studio';
+        function describe3d() {
+          var gfxRow = null;
+          for (var i = 0; i < features.length; i++) if (features[i].label === GFX_LABEL) gfxRow = features[i];
+          if (!gfxRow || !decision) return;
+          if (!hasWebgl) {
+            gfxRow.status = 'warn';
+            gfxRow.value = 'Off';
+            gfxRow.note =
+              'No WebGL: no 3D view, 3D path or Photo Studio, and .ork files save without preview pictures. Check that hardware acceleration is on.';
+          } else if (decision.enabled) {
+            gfxRow.status = 'ok';
+            gfxRow.value = 'On';
+            gfxRow.note = decision.mode === 'on' ? 'Always on, by the setting below.' : 'Fast enough for the 3D views.';
+          } else {
+            gfxRow.status = 'warn';
+            gfxRow.value = 'Off';
+            gfxRow.note =
+              decision.reason === 'off'
+                ? 'Turned off by the setting below.'
+                : 'Too slow: ' +
+                  Math.round(decision.fps) +
+                  ' frames per second in the speed test, and 3D needs ' +
+                  decision.minFps +
+                  '. The 3D view, 3D path and Photo Studio are switched off.';
+          }
+        }
+
+        if (stored && stored.page) {
+          features = stored.page.features;
+          sys = stored.page.sys;
+          gfx = stored.page.gfx;
+          rend = stored.page.rend;
+          perf = stored.page.perf;
+          meters = stored.page.meters || [];
+          hardware = !!stored.page.hardware;
+          fps = typeof stored.fps === 'number' ? stored.fps : null;
+          checkedAt = stored.at;
+          perfDone = true;
+          decision = cap.decide(PREFIX, stored);
+          describe3d();
+        } else runChecks();
+
+        var modeSelect = document.getElementById('gfx-mode');
+        modeSelect.value = cap.graphicsMode(PREFIX);
+        modeSelect.disabled = !hasWebgl;
+        modeSelect.onchange = function () {
+          cap.setGraphicsMode(PREFIX, modeSelect.value);
+          if (perfDone) decision = cap.decide(PREFIX, { webgl: hasWebgl, fps: fps });
+          describe3d();
+          document.getElementById('gfx-mode-note').textContent =
+            'Takes effect the next time AstraRocket opens or reloads.';
+          render();
+        };
+
+        document.getElementById('recheck').onclick = function () {
+          cap.clearResult(PREFIX);
+          location.reload();
+        };
+
+        /* A fresh run is stored once every check has finished. */
+        function store() {
+          checkedAt = new Date().getTime();
+          fresh = false;
+          cap.saveResult(PREFIX, {
+            sig: current.sig,
+            at: checkedAt,
+            blocked: score().blocked,
+            webgl: hasWebgl,
+            fps: fps,
+            page: {
+              features: features,
+              sys: sys,
+              gfx: gfx,
+              rend: rend,
+              perf: perf,
+              meters: meters,
+              hardware: hardware,
+            },
+          });
+        }
+
+        /* ---------- Score ---------- */
+        /* 80 points from features, 20 from performance. A missing requirement caps it, since the app cannot start. */
+        function score() {
+          var pts = 0;
+          var total = 0;
+          var blocked = false;
+          for (var i = 0; i < features.length; i++) {
+            var r = features[i];
+            total += r.weight || 0;
+            if (r.status === 'ok') pts += r.weight || 0;
+            else if (r.status === 'warn' && r.partial) pts += r.partial;
+            if (r.status === 'fail' && r.required) blocked = true;
+          }
+          var s = total ? (pts / total) * 80 : 0;
+          for (var p = 0; p < perf.length; p++) s += perf[p].earned || 0;
+          if (!hardware && hasWebgl) s -= 5;
+          s = Math.max(0, Math.round(s));
+          return { value: blocked ? Math.min(s, 25) : s, blocked: blocked };
+        }
+
+        var RATINGS = [
+          [90, 'Excellent', 'ok', "You're good to go. AstraRocket will run smoothly here."],
+          [75, 'Good', 'ok', 'AstraRocket runs well here. The marked rows show what is limited.'],
+          [50, 'Fair', 'warn', 'AstraRocket runs, but some features are missing or slow.'],
+          [0, 'Poor', 'fail', 'AstraRocket will struggle here. Try an updated browser or another device.'],
+        ];
+        var MARK = { ok: '✔', warn: '!', fail: '✘', info: '–' };
+
+        function sectionMark(list) {
+          var worst = 'ok';
+          for (var i = 0; i < list.length; i++) {
+            if (list[i].status === 'fail') return 'fail';
+            if (list[i].status === 'warn') worst = 'warn';
+          }
+          return worst;
+        }
+
+        function renderRows(id, list) {
+          var body = document.getElementById(id);
+          while (body.firstChild) body.removeChild(body.firstChild);
+          for (var i = 0; i < list.length; i++) {
+            var r = list[i];
+            var tr = document.createElement('tr');
+            var th = document.createElement('th');
+            th.scope = 'row';
+            th.textContent = r.label;
+            var td = document.createElement('td');
+            if (r.status) {
+              var m = document.createElement('span');
+              m.className = 'mark ' + r.status;
+              m.textContent = MARK[r.status];
+              td.appendChild(m);
+            }
+            if (r.value) td.appendChild(document.createTextNode(r.value));
+            if (r.note) {
+              var n = document.createElement('span');
+              n.className = 'note';
+              n.textContent = r.note;
+              td.appendChild(n);
+            }
+            tr.appendChild(th);
+            tr.appendChild(td);
+            body.appendChild(tr);
+          }
+        }
+
+        function setMark(id, list) {
+          var el = document.getElementById(id);
+          var s = sectionMark(list);
+          el.className = 'mark ' + s;
+          el.textContent = MARK[s];
+        }
+
+        function render() {
+          renderRows('features', features);
+          renderRows('system', sys);
+          renderRows('graphics', gfx);
+          renderRows('renderer', rend);
+          renderRows('perf', perf);
+          setMark('h-features', features);
+          setMark('h-system', sys);
+          setMark('h-graphics', gfx);
+          if (perfDone) setMark('h-perf', perf);
+
+          var box = document.getElementById('meters');
+          while (box.firstChild) box.removeChild(box.firstChild);
+          for (var i = 0; i < meters.length; i++) {
+            var lab = document.createElement('div');
+            lab.className = 'meter-label';
+            lab.textContent = meters[i].label + ': slow to smooth';
+            var bar = document.createElement('div');
+            bar.className = 'meter';
+            var tick = document.createElement('i');
+            tick.style.left = (meters[i].pos * 100).toFixed(1) + '%';
+            bar.appendChild(tick);
+            box.appendChild(lab);
+            box.appendChild(bar);
+          }
+
+          var sc = score();
+          var ring = document.getElementById('ring-bar');
+          var rating = document.getElementById('rating');
+          var summary = document.getElementById('summary');
+          if (pending > 0) {
+            document.getElementById('score').textContent = '…';
+            rating.textContent = 'Checking…';
+            rating.className = 'rating info';
+            summary.textContent = 'Measuring this browser and device.';
+            return;
+          }
+          if (fresh) store();
+          document.getElementById('checked').textContent = checkedAt
+            ? 'Checked ' +
+              new Date(checkedAt).toLocaleString() +
+              '. Results are kept until the browser or graphics driver changes.'
+            : '';
+          document.getElementById('recheck').hidden = false;
+          var r = RATINGS[RATINGS.length - 1];
+          for (var j = 0; j < RATINGS.length; j++)
+            if (sc.value >= RATINGS[j][0]) {
+              r = RATINGS[j];
+              break;
+            }
+          document.getElementById('open').hidden = sc.blocked;
+          document.getElementById('try').hidden = !sc.blocked;
+          var word = sc.blocked ? 'Not supported' : r[1];
+          var tone = sc.blocked ? 'fail' : r[2];
+          document.getElementById('score').textContent = sc.value;
+          ring.setAttribute('class', 'bar ' + tone);
+          ring.setAttribute('stroke-dashoffset', String(301.6 * (1 - sc.value / 100)));
+          rating.textContent = word;
+          rating.className = 'rating ' + tone;
+          summary.textContent = sc.blocked
+            ? 'AstraRocket cannot start in this browser. Update it, or use one from the list at the bottom.'
+            : r[3];
+        }
+
+        function report() {
+          var sc = score();
+          var lines = [
+            'AstraRocket compatibility: ' + sc.value + ' / 100, ' + document.getElementById('rating').textContent,
+          ];
+          if (checkedAt) lines.push('Checked: ' + new Date(checkedAt).toISOString());
+          var sections = [
+            ['AstraRocket features', features],
+            ['Browser', sys],
+            ['WebGL and extensions', gfx],
+            ['Renderer', rend],
+            ['Performance check', perf],
+          ];
+          var WORD = { ok: 'yes', warn: 'limited', fail: 'no', info: '-' };
+          for (var s = 0; s < sections.length; s++) {
+            lines.push('', sections[s][0]);
+            for (var k = 0; k < sections[s][1].length; k++) {
+              var r = sections[s][1][k];
+              var parts = [];
+              if (r.status) parts.push(WORD[r.status]);
+              if (r.value) parts.push(r.value);
+              if (r.note) parts.push(r.note);
+              lines.push(r.label + ': ' + parts.join(', '));
+            }
+          }
+          return lines.join('\n');
+        }
+
+        document.getElementById('copy').onclick = function () {
+          var note = document.getElementById('copied');
+          var text = report();
+          var fallback = function () {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try {
+              ok = document.execCommand('copy');
+            } catch (e) {}
+            document.body.removeChild(ta);
+            note.textContent = ok ? 'Copied.' : 'Copy failed.';
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              note.textContent = 'Copied.';
+            }, fallback);
+          } else fallback();
+        };
+
+        render();
+      })();
+    </script>
+  </body>
+</html>

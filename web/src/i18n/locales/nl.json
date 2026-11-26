@@ -415,6 +415,7 @@
     "contributorsAll": "Alle bijdragers op GitHub bekijken",
     "credits": "Fysica door OpenRocket (GPL-3.0), met TeaVM gecompileerd naar WASM en JavaScript.",
     "enginePin": "Motor gelicht uit OpenRocket-commit <commitLink>{{ref}}</commitLink> van {{date}}.",
+    "compatibility": "Browsercompatibiliteit",
     "privacy": "Privacy",
     "close": "Sluiten"
   },
@@ -779,6 +780,12 @@
     "configsShort": "Config.",
     "tools": "Hulpmiddelen",
     "simple": "Werkbank"
+  },
+  "graphics": {
+    "offNone": "3D staat uit: deze browser kan geen 3D tekenen (geen WebGL).",
+    "offSlow": "3D staat uit: de graphics van dit apparaat zijn te traag.",
+    "offByHand": "3D is uitgezet op de pagina Browsercompatibiliteit.",
+    "change": "Browsercompatibiliteit openen"
   },
   "view": {
     "2d": "2D",
