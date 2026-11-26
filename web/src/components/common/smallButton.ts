@@ -4,6 +4,7 @@ const SIZE = {
   xs: 'px-2 py-1 text-xs',
   row: 'px-2 py-1.5 text-xs',
   sm: 'px-3 py-1.5 text-xs',
+  bar: 'px-2.5 py-1.5 text-sm',
 } as const;
 
 const TONE = {

@@ -287,6 +287,8 @@ export function PlaybackTab() {
         onChange={(v) => update({ flightEffects: v })}
       />
       <p className="text-[11px] leading-snug text-ink-faint">{t('flight.effectsTitle')}</p>
+      <Check label={t('flight.labels')} checked={settings.flightLabels} onChange={(v) => update({ flightLabels: v })} />
+      <p className="text-[11px] leading-snug text-ink-faint">{t('flight.labelsTitle')}</p>
     </>
   );
 }

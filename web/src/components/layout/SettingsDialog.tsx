@@ -97,7 +97,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       });
     else if (tab === 'materials') update({ defaultMaterials: DEFAULT_SETTINGS.defaultMaterials });
     else if (tab === 'playback')
-      update({ replaySpeed: DEFAULT_SETTINGS.replaySpeed, flightEffects: DEFAULT_SETTINGS.flightEffects });
+      update({
+        replaySpeed: DEFAULT_SETTINGS.replaySpeed,
+        flightEffects: DEFAULT_SETTINGS.flightEffects,
+        flightLabels: DEFAULT_SETTINGS.flightLabels,
+      });
     else if (tab === 'sketch') update({ showMarkers: DEFAULT_SETTINGS.showMarkers, rulers: DEFAULT_SETTINGS.rulers });
     else if (tab === 'sim') update({ simulation: DEFAULT_SETTINGS.simulation });
     else if (tab === 'flyer') update({ flyer: DEFAULT_SETTINGS.flyer });

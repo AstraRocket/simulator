@@ -1,17 +1,13 @@
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDegrees, useUnits } from '../../prefs/useUnits';
-import { radToDeg } from '../../prefs/units';
-import { norm360 } from '../../services/flight/groundTrack';
-import { CALM_MS, type Wind } from '../../services/flight/flightWind';
-
+import type { Wind } from '../../services/flight/flightWind';
+import { windFace } from './flightDialFace';
 /** A compass that turns with the camera, and the wind the tracked part is in, blowing the way the arrow points. */
 export function FlightDial({ roseRef, wind }: { roseRef: RefObject<SVGGElement | null>; wind: Wind | null }) {
   const { t } = useTranslation();
   const u = useUnits();
-  const blowing = wind != null && wind.speed >= CALM_MS;
-  const from = wind ? norm360(radToDeg(wind.from)) : 0;
-  const speed = wind ? u.plain('windspeed').fmtSym(wind.speed) : '';
+  const { blowing, from, speed } = windFace(wind, u);
   const label = wind
     ? `${t('env.q.windSpeed')} ${speed}${blowing ? `, ${t('env.q.windDirection')} ${fmtDegrees(u, from)}` : ''}`
     : undefined;

@@ -1,4 +1,4 @@
-import { useRef, type RefObject } from 'react';
+import { useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -8,13 +8,14 @@ import { useReducedMotion } from '../common/useMediaQuery';
 import { chargeMouth } from '../../services/flight/airframe';
 import type { FlightBody } from '../../services/flight/flightBodies';
 import { BASE_FOV } from './flightCamera';
-import type { FlightScene } from './flightScene';
+import { flightMiddle, type EventPill, type FlightScene } from './flightScene';
 import { FlightStep } from './FlightStep';
 import { FlightTrail } from './FlightTrail';
 import type { Exhaust } from '../../services/motors/exhaust';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { FlightGround } from './FlightGround';
-import { FlightMarks, TargetRing } from './FlightMarks';
+import { FlightMarks } from './FlightMarks';
+import { FlightLabelProjector, FlightRingProjector } from './FlightLabels';
 import { FlightPad } from './FlightPad';
 import { RecoveryDevice } from './FlightRecovery';
 import type { TileSourceId } from '../../services/map/slippyMap';
@@ -32,6 +33,10 @@ import type { FlightPlayback } from './useFlightPlayback';
 
 export function FlightPathScene({
   scene,
+  pills,
+  labelRefs,
+  ringLabelRef,
+  ringPlaceRef,
   bodies,
   tree,
   motors,
@@ -46,6 +51,12 @@ export function FlightPathScene({
   playback,
 }: {
   scene: FlightScene;
+  pills: readonly EventPill[];
+  /** The page elements `FlightLabels` draws, placed each frame here. */
+  labelRefs: RefObject<(HTMLDivElement | null)[]>;
+  /** `TargetRingMark`'s: the ring FlightStep shows, and the box this canvas places. */
+  ringLabelRef: RefObject<HTMLDivElement | null>;
+  ringPlaceRef: RefObject<HTMLDivElement | null>;
   bodies: readonly FlightBody[];
   tree: RocketTree;
   motors?: MotorDims;
@@ -66,7 +77,6 @@ export function FlightPathScene({
   const modelRefs = useRef<(THREE.Group | null)[]>([]);
   const deviceRefs = useRef<(THREE.Group | null)[]>([]);
   const ringRef = useRef<THREE.Group>(null);
-  const ringLabelRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<THREE.Group>(null);
   const scaleRef = useRef(1);
 
@@ -78,6 +88,7 @@ export function FlightPathScene({
   const standing = spans[0]?.[0];
   const clock = { progressRef, duration: scene.duration };
   const shotAt = useFlightShot(scene, bodies, playback, parts);
+  const middle = useMemo(() => flightMiddle(scene), [scene]);
 
   // Neutral tone mapping, as the 3D model: ACES turns a lit saturated blue purple.
   return (
@@ -124,7 +135,9 @@ export function FlightPathScene({
         />
       ))}
       <FlightMarks scene={scene} nowT={nowT} ringScale={modelScale / overviewScale} />
-      <TargetRing groupRef={ringRef} ringRef={ringLabelRef} />
+      <group ref={ringRef} />
+      <FlightRingProjector groupRef={ringRef} placeRef={ringPlaceRef} />
+      <FlightLabelProjector pills={pills} middle={middle} labelRefs={labelRefs} />
       {standing && (
         <FlightPad
           groupRef={padRef}

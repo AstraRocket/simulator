@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { withFixedUnit } from '../../i18n/format';
-import { EVENT_NAME, type EventRow } from '../../services/flight/flightEvents';
+import { eventLabel, type EventRow } from '../../services/flight/flightEvents';
 import { PLAYBACK_SPEEDS, playbackLabel } from '../../services/storage/settings';
 import { ToggleButton } from '../common/ToggleButton';
 import { smallButton } from '../common/smallButton';
 import { CAMERA_CHOICES, type CameraChoice } from './flightCamera';
 import type { FlightPlayback } from './useFlightPlayback';
+import type { FlightRecorder } from './useFlightRecorder';
 
 const VIEW_LABEL = {
   overview: 'flight.viewOverview',
@@ -16,8 +17,8 @@ const VIEW_LABEL = {
   director: 'flight.viewDirector',
 } as const satisfies Record<CameraChoice, string>;
 
-const SELECT = 'shrink-0 rounded-md bg-raised px-1.5 py-1 text-xs text-ink ring-1 ring-line/10';
-const ICON = 'shrink-0 rounded-md px-2 py-1 text-xs ring-1 ring-line/10';
+const SELECT = 'shrink-0 rounded-md bg-raised px-2 py-1.5 text-sm text-ink ring-1 ring-line/10';
+const ICON = 'shrink-0 rounded-md px-2.5 py-1.5 text-sm ring-1 ring-line/10';
 
 export function FlightPlaybackBar({
   playback,
@@ -27,6 +28,9 @@ export function FlightPlaybackBar({
   events,
   effects,
   onEffects,
+  labels,
+  onLabels,
+  recorder,
 }: {
   playback: FlightPlayback;
   nowT: number;
@@ -36,14 +40,15 @@ export function FlightPlaybackBar({
   events: readonly EventRow[];
   effects: boolean;
   onEffects: (on: boolean) => void;
+  labels: boolean;
+  onLabels: (on: boolean) => void;
+  /** Absent where the browser cannot record video. */
+  recorder?: Pick<FlightRecorder, 'recording' | 'toggle'>;
 }) {
   const { t } = useTranslation();
   const { progress, playing, setPlaying, speed, setSpeed, countdown, loop, setLoop } = playback;
   const { seek, handlePlay, handleReset, tracked, setTracked, view, setView, resetView } = playback;
-  const eventName = (e: EventRow) => {
-    const name = t(EVENT_NAME[e.type] ?? e.type);
-    return bodies.length > 1 ? `${name} (${bodies[e.branch] ?? e.branchName})` : name;
-  };
+  const eventName = (e: EventRow) => eventLabel(t, e, bodies);
   return (
     <div className="pointer-events-auto flex w-full flex-col gap-1.5 rounded-lg bg-surface/85 px-3 py-2 ring-1 ring-line/10">
       <div className="relative">
@@ -77,7 +82,7 @@ export function FlightPlaybackBar({
         <button
           onClick={handlePlay}
           aria-label={countdown !== null ? t('flight.cancel') : playing ? t('flight.pause') : t('flight.play')}
-          className={smallButton('xs', 'ink', 'shrink-0')}
+          className={smallButton('bar', 'ink', 'shrink-0')}
         >
           {countdown !== null ? '✕' : playing ? '⏸' : '▶'}
         </button>
@@ -85,7 +90,7 @@ export function FlightPlaybackBar({
           onClick={handleReset}
           title={t('flight.reset')}
           aria-label={t('flight.reset')}
-          className={smallButton('xs', 'ink', 'shrink-0')}
+          className={smallButton('bar', 'ink', 'shrink-0')}
         >
           ⟲
         </button>
@@ -130,15 +135,41 @@ export function FlightPlaybackBar({
             ))}
           </select>
         )}
-        <ToggleButton
-          active={effects}
-          onClick={() => onEffects(!effects)}
-          title={t('flight.effectsTitle')}
-          label={t('flight.effects')}
-          className={ICON}
-        >
-          ✨
-        </ToggleButton>
+        {recorder && (
+          <button
+            type="button"
+            onClick={recorder.toggle}
+            title={recorder.recording ? t('flight.recordStop') : t('flight.recordTitle')}
+            aria-label={t('flight.record')}
+            aria-pressed={recorder.recording}
+            className={`${ICON} ${
+              recorder.recording ? 'bg-danger-600 text-on-accent' : 'bg-raised text-ink-soft hover:bg-elevated'
+            }`}
+          >
+            {recorder.recording ? '⏹' : '⏺'}
+          </button>
+        )}
+        {/* What the view draws, apart from the playback controls before it. */}
+        <span className="ml-2 flex items-center gap-2">
+          <ToggleButton
+            active={labels}
+            onClick={() => onLabels(!labels)}
+            title={t('flight.labelsTitle')}
+            label={t('flight.labels')}
+            className={ICON}
+          >
+            {t('flight.labelsShort')}
+          </ToggleButton>
+          <ToggleButton
+            active={effects}
+            onClick={() => onEffects(!effects)}
+            title={t('flight.effectsTitle')}
+            label={t('flight.effects')}
+            className={ICON}
+          >
+            ✨
+          </ToggleButton>
+        </span>
         <span className="flex-1" />
         {bodies.length > 1 && (
           <select
@@ -172,7 +203,7 @@ export function FlightPlaybackBar({
           onClick={resetView}
           title={t('flight.resetView')}
           aria-label={t('flight.resetView')}
-          className={smallButton('xs', 'ink', 'shrink-0')}
+          className={smallButton('bar', 'ink', 'shrink-0')}
         >
           ⊙
         </button>

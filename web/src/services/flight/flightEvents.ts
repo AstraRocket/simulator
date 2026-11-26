@@ -31,6 +31,12 @@ export const EVENT_EXTRAS: Record<string, readonly ExtraKey[]> = {
   BURNOUT: ['mach'],
 };
 
+/** The event's name, with the part's when the flight splits into more than one. */
+export function eventLabel(t: (key: string) => string, e: EventRow, bodies: readonly string[]): string {
+  const name = t(EVENT_NAME[e.type] ?? e.type);
+  return bodies.length > 1 ? `${name} (${bodies[e.branch] ?? e.branchName})` : name;
+}
+
 export interface EventRow {
   /** Includes the row position: clustered motors burn out at the same instant (BasicEventSimulationEngine:510). */
   key: string;

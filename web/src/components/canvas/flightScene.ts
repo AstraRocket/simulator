@@ -36,7 +36,6 @@ export interface FlightScene extends ColoredTrack {
   /** Seconds, to a moment after the last branch's landing. */
   duration: number;
   apogeeIdx: number;
-  callouts: { type: string; pos: THREE.Vector3; time: number }[];
   unitsPerMeter: number;
 }
 
@@ -89,26 +88,10 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   });
 
   const track = tracks[0]!;
-  const burns = boostWindows(main.events);
   let apogeeIdx = 0;
   track.alts.forEach((a, i) => {
     if (a > track.alts[apogeeIdx]!) apogeeIdx = i;
   });
-  const wanted: [FlightEvent['type'], number | undefined][] = [
-    ['BURNOUT', last(burns)?.[1]],
-    ['APOGEE', eventTime(main.events, 'APOGEE') ?? result.summary.timeToApogee ?? last(track.times) ?? 0],
-    ['RECOVERY_DEVICE_DEPLOYMENT', eventTime(main.events, 'RECOVERY_DEVICE_DEPLOYMENT')],
-    ['GROUND_HIT', eventTime(main.events, 'GROUND_HIT') ?? last(track.times)],
-  ];
-  const callouts: FlightScene['callouts'] = [];
-  for (const [type, time] of wanted) {
-    if (time == null) continue;
-    // Empty after a kernel failure; a `!` would throw before the "no path" guard.
-    const pos = track.scenePts[nearestIndex(track.times, time)];
-    if (!pos) continue;
-    if (callouts.some((c) => c.pos.distanceTo(pos) < 1.5)) continue;
-    callouts.push({ type, pos, time });
-  }
   let duration = 0;
   for (const t of tracks) duration = Math.max(duration, last(t.times) ?? 0);
   if (duration > 0) duration += SETTLE_SECONDS;
@@ -118,6 +101,52 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
     duration,
     apogeeIdx,
     unitsPerMeter: s,
-    callouts,
   };
+}
+
+/** An event to label on the path: `branch` picks the track it sits on. */
+export interface PillEvent {
+  time: number;
+  branch: number;
+  text: string;
+}
+
+/** One label on the path; events close together share it, each shown once reached. */
+export interface EventPill {
+  key: string;
+  pos: THREE.Vector3;
+  /** Which way the path runs through `pos`, unit length; zero where it has one sample. */
+  along: THREE.Vector3;
+  parts: { time: number; text: string }[];
+}
+
+// Scene units: closer than this, two labels would overlap, so they share one.
+const PILL_MERGE = 1.5;
+
+export function eventPills(scene: FlightScene, events: readonly PillEvent[]): EventPill[] {
+  const pills: EventPill[] = [];
+  for (const e of [...events].sort((a, b) => a.time - b.time)) {
+    const track = scene.tracks[e.branch] ?? scene;
+    // Empty after a kernel failure; a `!` would throw before the "no path" guard.
+    const idx = nearestIndex(track.times, e.time);
+    const pos = track.scenePts[idx];
+    if (!pos) continue;
+    const before = track.scenePts[Math.max(0, idx - 1)]!;
+    const after = track.scenePts[Math.min(track.scenePts.length - 1, idx + 1)]!;
+    const along = after.clone().sub(before).normalize();
+    const near = pills.find((p) => p.pos.distanceTo(pos) < PILL_MERGE);
+    if (!near)
+      pills.push({ key: `${e.branch}:${e.time}:${pills.length}`, pos, along, parts: [{ time: e.time, text: e.text }] });
+    // Same name at another time is another event: a booster's landing and the sustainer's, both by the pad.
+    else if (!near.parts.some((part) => part.text === e.text && part.time === e.time))
+      near.parts.push({ time: e.time, text: e.text });
+  }
+  return pills;
+}
+
+/** The middle of every track's span: labels are pushed away from it, to the outside of the flight. */
+export function flightMiddle(scene: FlightScene): THREE.Vector3 {
+  const box = new THREE.Box3();
+  for (const t of scene.tracks) for (const p of t.scenePts) box.expandByPoint(p);
+  return box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
 }
