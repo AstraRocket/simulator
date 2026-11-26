@@ -2343,6 +2343,8 @@
     "later": "Depois",
     "laterTitle": "Lembrar de novo em cerca de {{hours}} horas",
     "dismiss": "Dispensar",
+    "otherTab": "O app foi atualizado em outra aba.",
+    "otherTabHeld": "Esta aba não foi recarregada, então o trabalho nela foi mantido. Recarregue quando quiser.",
     "check": "Verificar atualizações",
     "checking": "Verificando…",
     "upToDate": "Você está usando a versão mais recente.",

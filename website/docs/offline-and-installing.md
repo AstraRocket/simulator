@@ -47,6 +47,8 @@ Installing gives it its own icon and its own window, without browser tabs and ad
 
 When a new version ships, a banner appears under the header offering to **reload**. It never reloads while you are looking at the tab, because that could interrupt a design you're in the middle of, and it is not a dialog for the same reason, so you can finish what you were typing. Once the tab has been in the background for about half a minute, with no flight, wind sweep or dialog in progress, the update is applied there without asking.
 
+With the app open in more than one tab, an update you apply in one reloads the others only where a reload loses nothing: a tab with undo history, an edit not yet stored, a save that is failing, or a flight, sweep or dialog in progress is not reloaded. It says the app was updated in another tab and keeps its own **Reload** button. Once it sits in the background with nothing left to lose, it reloads by itself.
+
 **Later** hides it and shows it again in a couple of hours. The **✕** only hides the banner: the update is still applied the next time the tab sits in the background for that half minute, or when you reload.
 
 **Check for updates** in the app menu (top-right ☰) asks right away and gives one of three answers: that you are on the latest version; that a new one is ready, in which case the banner comes back even if you chose **Later**; or "Could not check for updates. You may be offline."

@@ -2343,6 +2343,8 @@
     "later": "Plus tard",
     "laterTitle": "Me le rappeler dans environ {{hours}} heures",
     "dismiss": "Ignorer",
+    "otherTab": "L’application a été mise à jour dans un autre onglet.",
+    "otherTabHeld": "Cet onglet n’a pas été rechargé, votre travail y est donc conservé. Rechargez quand vous êtes prêt.",
     "check": "Rechercher des mises à jour",
     "checking": "Recherche…",
     "upToDate": "Vous utilisez la dernière version.",

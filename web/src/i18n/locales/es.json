@@ -2343,6 +2343,8 @@
     "later": "Más tarde",
     "laterTitle": "Recordármelo de nuevo en unas {{hours}} horas",
     "dismiss": "Descartar",
+    "otherTab": "La aplicación se actualizó en otra pestaña.",
+    "otherTabHeld": "Esta pestaña no se ha recargado, así que se conserva tu trabajo en ella. Recarga cuando quieras.",
     "check": "Buscar actualizaciones",
     "checking": "Buscando…",
     "upToDate": "Tienes la versión más reciente.",

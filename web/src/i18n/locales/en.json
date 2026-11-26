@@ -2334,6 +2334,8 @@
     "later": "Later",
     "laterTitle": "Remind me again in about {{hours}} hours",
     "dismiss": "Dismiss",
+    "otherTab": "The app was updated in another tab.",
+    "otherTabHeld": "This tab was not reloaded, so the work in it is kept. Reload when you are ready.",
     "check": "Check for updates",
     "checking": "Checking…",
     "upToDate": "You are running the latest version.",

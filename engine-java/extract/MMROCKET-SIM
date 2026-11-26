@@ -366,7 +366,49 @@
 # NOT TAKEN: their length fit Caution (a motor may stand proud of its mount and
 # still be built; the import note already covers a file's long motor), and save
 # names that follow the rocket, which are their own UI.
+#
+# 2026-11-25: reviewed 3829d7e5 through 6d11fc23 (v0.214 to v0.217, 2026-11-24
+# to 2026-11-25). Read from the checkout's files and their changelog.ts, not a
+# git diff. No engine-java file changed; outside packages/app only their
+# check-upstream and catalogue-freshness scripts moved.
+#
+# ALREADY COVERED: OpenRocket 26.11's "auto" shroud-line and shock cord lengths
+# (importReaders.ts `readAutoValue`, kept as auto, not fixed at import as
+# theirs). An unreadable stored design, or one whose tree will not migrate, is
+# never overwritten: readEntry throws `unreadable-design` and the store detaches
+# before the default rocket can autosave, and New writes a new library entry
+# rather than replacing a single slot as theirs does.
+#
+# NOT AFFECTED: their Save .ork writing a lug or rail button at 300 degrees.
+# Here the editor bounds those angles to -180 to 180 (fieldRange.ts), the
+# kernel clamps them as desktop does, .ork import clamps (importTags.ts
+# `readAngleAroundBody`) and .rkt import wraps, so the tree never holds an
+# angle past 180. Their failed "Keep this tab's design" keeping its overwrite
+# permission: our cross-tab conflict has no keep-mine override to leak; a
+# conflicted save refuses until the design is reopened (workspaceStore.ts).
+#
+# NOT APPLICABLE: pass/fail checks on a flight that stopped early, the
+# strap-on lone-burn warning (their unbalanced-thrust warning, not taken on
+# 2026-11-15), batch dialog wording, the all-configurations table while a
+# motor loads, RockSim mount serial numbers (our .rkt import reads no motors),
+# the catalogue's last-checked date, the offline-copy repair, their site band
+# and canonical address.
+#
+# NOT TAKEN: opened files whose save name follows a rocket rename (their own
+# UI, as save names were on 2026-11-21).
+#
+# TAKEN, APP-SIDE, MISSED ON 2026-11-21: their v0.211 rule that an update
+# another tab applies does not reload a tab with work in it. vite-plugin-pwa's
+# prompt mode calls onNeedReload in every tab the waiting worker was offered
+# to, so one tab's Reload, or the 30 s hidden-tab apply, reloaded the others
+# with no check. UpdateToast.tsx now reloads on a takeover only the tab that
+# applied it or one where `reloadLosesWork` (state/workInProgress.ts) is false:
+# no job or dialog, no undo history, nothing unstored, no failing save. A held
+# tab keeps a Reload banner and reloads itself once hidden with nothing to
+# lose. Their v0.209 "Downloading / ready" header button and v0.212 offline
+# repair paths are their own UI; our banner already waits for the download
+# (`waitingIsNewer`) and never reloads the visible tab that applied it unasked.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 3829d7e59360b4d95beec0cfe59f559eb882b304
-version = 0.213
-dated   = 2026-11-20
+ref     = 6d11fc2355ebefb1db907455d00580964690640e
+version = 0.217
+dated   = 2026-11-25
