@@ -289,7 +289,7 @@ function drawCaption(ctx: CanvasRenderingContext2D, caption: Caption, width: num
   ctx.restore();
 }
 
-export function drawOverlay(
+function drawOverlay(
   ctx: CanvasRenderingContext2D,
   overlay: FlightOverlay,
   width: number,

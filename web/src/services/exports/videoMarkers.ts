@@ -86,7 +86,7 @@ const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const rational = (s: number, fps: number) => `${Math.max(0, Math.round(s * fps))}/${fps}s`;
 
 /** Final Cut Pro (and Resolve) project: the video on a timeline with a marker at each event. */
-export function toFcpxml(input: MarkerFileInput, markers: readonly VideoMarker[]): string {
+function toFcpxml(input: MarkerFileInput, markers: readonly VideoMarker[]): string {
   const { fps, width, height, videoName, title, duration } = input;
   const dur = rational(duration, fps);
   const name = xml(title);

@@ -202,6 +202,7 @@ failureaccess
 fairingshape
 fbclid
 fcid
+fcpxml
 FDLIBM
 FFFFL
 ffins
@@ -551,6 +552,7 @@ ServicesForTesting
 shapeclipped
 shapeparameter
 shockcord
+Shotcut
 shouldercapped
 shoulderlength
 shoulderradius
@@ -611,6 +613,7 @@ thrustcurve
 thrustcurve's
 thrustcurves
 thzero
+timecode
 timeformat
 Timeto
 timetoapogee
