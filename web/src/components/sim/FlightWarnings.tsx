@@ -11,7 +11,7 @@ import { useAeroRangeFindings } from './useAeroRangeFindings';
 import { AeroRangeWarningRows } from './AeroRangeWarningRows';
 
 export function FlightWarnings({ sim }: { sim: FlightResult | null }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   const u = useUnits();
   const warnings = sim?.warnings ?? [];
   const shown = useWorkspaceStore(selectShownSim);

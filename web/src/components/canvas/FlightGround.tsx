@@ -26,7 +26,6 @@ export function FlightGround({
   mapSource: TileSourceId | null;
   ground: ReturnType<typeof useGroundLayer>;
 }) {
-  const ink = useSceneColors();
   const { scenePts, unitsPerMeter } = scene;
   const haze = useMemo(() => {
     let far = 0;
@@ -41,6 +40,27 @@ export function FlightGround({
     }
     return Math.max(MIN_EXTENT_M, (far / unitsPerMeter) * GROUND_MARGIN);
   }, [scenePts, unitsPerMeter]);
+  return (
+    <>
+      <GroundFloor haze={haze} unitsPerMeter={unitsPerMeter} />
+      {mapSource && site && (
+        <FlightGroundMap
+          latitudeDeg={site.lat}
+          longitudeDeg={site.lon}
+          radiusM={groundRadiusM}
+          unitsPerMeter={unitsPerMeter}
+          source={mapSource}
+          onTileLoad={ground.onTileLoad}
+          onTileError={ground.onTileError}
+        />
+      )}
+    </>
+  );
+}
+
+/** The floor and its grid under haze; a map, when there is one, draws between the two by render order. */
+export function GroundFloor({ haze, unitsPerMeter }: { haze: number; unitsPerMeter: number }) {
+  const ink = useSceneColors();
   const floor = useMemo(() => new THREE.CircleGeometry(haze * FLOOR_REACH, 96), [haze]);
   useEffect(() => () => floor.dispose(), [floor]);
   const line = ink['scene-grid'];
@@ -56,17 +76,6 @@ export function FlightGround({
       <mesh geometry={floor} rotation={GROUND_ROTATION} renderOrder={GROUND_LAYER.floor}>
         <meshBasicMaterial color={ink['scene-floor']} toneMapped={false} />
       </mesh>
-      {mapSource && site && (
-        <FlightGroundMap
-          latitudeDeg={site.lat}
-          longitudeDeg={site.lon}
-          radiusM={groundRadiusM}
-          unitsPerMeter={unitsPerMeter}
-          source={mapSource}
-          onTileLoad={ground.onTileLoad}
-          onTileError={ground.onTileError}
-        />
-      )}
       <mesh geometry={floor} material={grid} rotation={GROUND_ROTATION} renderOrder={GROUND_LAYER.grid} />
     </>
   );

@@ -27,7 +27,7 @@ const ONBOARD_FOV = 75;
 const UP = new THREE.Vector3(0, 1, 0);
 
 export const newCameraPose = (): CameraPose => ({
-  eye: new THREE.Vector3(34, 22, 34),
+  eye: new THREE.Vector3(0, 22, 48),
   target: new THREE.Vector3(),
   up: UP.clone(),
   fov: BASE_FOV,
@@ -77,7 +77,8 @@ export function blendPose(from: CameraPose, to: CameraPose, u: number, out: Came
   return out;
 }
 
-const OVERVIEW_DIR = new THREE.Vector3(1.15, 0.62, 1.4).normalize();
+// From the south, looking north: north is straight ahead, east to the right, as on a map.
+const OVERVIEW_DIR = new THREE.Vector3(0, 0.62, 1.81).normalize();
 const OVERVIEW_MARGIN = 1.2;
 const corner = new THREE.Vector3();
 const basis = new THREE.Matrix4();
@@ -107,7 +108,8 @@ export function overviewPose(box: THREE.Box3, aspect: number, out: CameraPose): 
   return out;
 }
 
-const FOLLOW_OFFSET = new THREE.Vector3(0.55, 0.32, 1).multiplyScalar(3.4);
+// South of the rocket, facing north, as the overview.
+const FOLLOW_OFFSET = new THREE.Vector3(0, 0.32, 1.14).multiplyScalar(3.4);
 
 /** The starting offset from what it follows, `length` long. */
 export const followOffset = (length: number, out: THREE.Vector3): THREE.Vector3 =>

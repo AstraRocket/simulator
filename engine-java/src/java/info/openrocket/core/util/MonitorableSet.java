@@ -1,15 +1,23 @@
 package info.openrocket.core.util;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 
 /**
  * A Set that additionally implements the Monitorable interface.
- * 
+ *
  * @author Sampo Niskanen <sampo.niskanen@iki.fi>
  */
-public class MonitorableSet<E> extends HashSet<E> implements Monitorable {
+// PATCH(astrarrocketjs): HashSet -> LinkedHashSet. The only user is
+// SimulationStatus.deployedRecoveryDevices, and RecoveryDevice hashes by its id, a
+// UUID.randomUUID() minted per component, so HashSet order is random per load.
+// BasicLandingStepper.computeCD sums each deployed device's CdA over that order, so
+// with three or more devices out at once the descent can move by an ulp from one
+// build of the same design to the next. LinkedHashSet iterates in insertion order,
+// which is deployment-event order. Same reason as the InstanceMap patch and the
+// FlightConfiguration motors map.
+public class MonitorableSet<E> extends LinkedHashSet<E> implements Monitorable {
 
 	private ModID modID;
 

@@ -58,7 +58,9 @@ export const createMotorGuideSlice =
       // Only reasons no motor could cure: a high-power motor tightens the launcher angle per candidate.
       const own = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
       if (own && (own.kind === 'incomplete' || own.kind === 'windProfile')) {
-        set({ err: unflyableText({ id: sim.id, name: sim.name, reason: own }, launcherT(get().tree), displayUnits()) });
+        set({
+          err: unflyableText({ id: sim.id, name: sim.name, reason: own }, launcherT(get().tree, [sim]), displayUnits()),
+        });
         return;
       }
       const launch = sim.launch;
@@ -77,7 +79,7 @@ export const createMotorGuideSlice =
         const refused = unflyable(sim, primaryMotor(ranOn, cfg), configPowerClass(ranOn, cfg, massEmpty));
         if (refused) {
           const named = { id: sim.id, name: motorName(motor), reason: refused };
-          throw new Error(unflyableText(named, launcherT(get().tree), displayUnits()));
+          throw new Error(unflyableText(named, launcherT(get().tree, [sim]), displayUnits()));
         }
         const result = await simulateInWorker(
           {

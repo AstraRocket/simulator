@@ -58,11 +58,16 @@ export const overLaunchDefaults = (
   return out;
 };
 
+export const LAUNCHERS = ['rod', 'rail'] as const;
+export type Launcher = (typeof LAUNCHERS)[number];
+
 export interface LaunchConditions {
   launchRodLengthM: number | null;
   launchRodAngleDeg: number | null;
   launchRodDirectionDeg?: number;
   launchIntoWind?: boolean;
+  /** What the rocket rides off the pad; absent is a rod. Never flown: `resultKey` ignores it, and desktop OpenRocket skips its element. */
+  launcher?: Launcher;
   windAverage: number | null;
   windStdDev: number | null;
   windDirectionDeg?: number;

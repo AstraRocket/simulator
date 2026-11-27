@@ -7,6 +7,7 @@ import type { OrkWriter } from './exportWriter';
 import type { FlightSummary } from '../../../engine/openRocketEngine';
 import type { OrkExportSimulation, OrkSimPrefs } from '../orkTypes';
 import { unwrapConditionsChild } from './passthrough';
+import { LAUNCHER_TAG } from './appTags';
 import { degToRad } from '../../../prefs/units';
 import { LAUNCH_SI } from '../../../prefs/launchUnits';
 import { DEFAULT_HEADING_DEG } from '../../flight/windLevels';
@@ -88,6 +89,8 @@ function conditionsXml(
   emit(depth, `<launchintowind>${launch.launchIntoWind === true}</launchintowind>`);
   emit(depth, `<launchrodangle>${launch.launchRodAngleDeg ?? 0}</launchrodangle>`);
   emit(depth, `<launchroddirection>${launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG}</launchroddirection>`);
+  // Only a rail is written, so a rod's file is as it was.
+  if (launch.launcher === 'rail') emit(depth, `<${LAUNCHER_TAG}>rail</${LAUNCHER_TAG}>`);
   windXml(w, depth, launch);
   emit(depth, `<launchaltitude>${launch.launchAltitudeM ?? 0}</launchaltitude>`);
   // A cleared coordinate is the default site's, as a run of it flies (not 0, a point off Ecuador).

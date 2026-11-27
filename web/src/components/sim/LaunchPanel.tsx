@@ -10,7 +10,9 @@ import { LaunchSiteSection } from './LaunchSiteSection';
 import { AtmosphereSection } from './AtmosphereSection';
 import { WindSection, type SpeedEditBase } from './WindSection';
 import { EarthModelSection } from './EarthModelSection';
-import type { LaunchSectionProps } from './launchSection';
+import { CompassSection } from './CompassSection';
+import { northEntry, type LaunchSectionProps } from './launchSection';
+import { useSettings } from '../../state/useSettings';
 
 export function LaunchPanel({
   launch,
@@ -32,11 +34,14 @@ export function LaunchPanel({
   launcher?: LauncherKind | null;
   powerClass?: PowerClass | null;
 }) {
-  const t = useLauncherT(launcher ?? null);
+  // The simulation's own choice, else the design's; a mixed selection gets the neutral wording.
+  const kind = diff?.has('launcher') ? null : (launch.launcher ?? launcher ?? null);
+  const t = useLauncherT(kind);
   const u = useUnits();
   const blank = useMemo(() => new Set<RequiredLaunchKey>(missingRequired(launch)), [launch]);
   const speedEditBase = useRef<SpeedEditBase | null>(null);
 
+  const { settings, update } = useSettings();
   const section: LaunchSectionProps = {
     launch,
     onChange,
@@ -45,6 +50,7 @@ export function LaunchPanel({
     u,
     mixed: (k) => diff?.has(k) ?? false,
     req: (k) => ({ required: true, missing: blank.has(k) }),
+    north: northEntry(settings.northReference, launch),
   };
 
   return (
@@ -56,7 +62,8 @@ export function LaunchPanel({
         onCommit?.();
       }}
     >
-      <LaunchRodSection {...section} powerClass={powerClass} />
+      <CompassSection {...section} pref={settings.northReference} onPref={(r) => update({ northReference: r })} />
+      <LaunchRodSection {...section} powerClass={powerClass} designLauncher={launcher} />
       <LaunchSiteSection {...section} />
       <AtmosphereSection {...section} diff={diff} weather={weather} weatherKey={weatherKey} />
       <WindSection {...section} diff={diff} speedEditBase={speedEditBase} />

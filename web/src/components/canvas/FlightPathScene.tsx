@@ -17,6 +17,8 @@ import { FlightGround } from './FlightGround';
 import { FlightMarks } from './FlightMarks';
 import { FlightLabelProjector, FlightRingProjector } from './FlightLabels';
 import { FlightPad } from './FlightPad';
+import { padStand } from './launchGuideShape';
+import type { PadSetup } from './usePadRose';
 import { RecoveryDevice } from './FlightRecovery';
 import type { TileSourceId } from '../../services/map/slippyMap';
 import type { useGroundLayer } from '../common/map/useTileVerdict';
@@ -45,6 +47,7 @@ export function FlightPathScene({
   mapSource,
   ground,
   rodLengthM,
+  pad,
   effects,
   roseRef,
   nowT,
@@ -65,6 +68,7 @@ export function FlightPathScene({
   mapSource: TileSourceId | null;
   ground: ReturnType<typeof useGroundLayer>;
   rodLengthM: number;
+  pad: PadSetup;
   effects: boolean;
   /** The compass rose's, turned with the camera. */
   roseRef: RefObject<SVGGElement | null>;
@@ -81,7 +85,7 @@ export function FlightPathScene({
   const scaleRef = useRef(1);
 
   const parts = useFlightParts(scene, bodies, tree, motors, effects);
-  const { pieces, nozzles, maxR, overviewScale, devices, burns, owned, extents, spans, pops } = parts;
+  const { pieces, nozzles, overviewScale, devices, burns, owned, extents, spans, pops } = parts;
   const { radius, frames, rigs, hung, drawn, bounds } = parts;
   const { unitsPerMeter, tracks } = scene;
   const modelScale = view === 'overview' ? overviewScale : unitsPerMeter;
@@ -89,11 +93,20 @@ export function FlightPathScene({
   const clock = { progressRef, duration: scene.duration };
   const shotAt = useFlightShot(scene, bodies, playback, parts);
   const middle = useMemo(() => flightMiddle(scene), [scene]);
+  // On the deflector until well clear of the pad, and never again after apogee.
+  const padLift = useMemo(
+    () => ({
+      heightM: padStand(rodLengthM).top,
+      fadeM: rodLengthM * 2 + 1,
+      untilT: scene.times[scene.apogeeIdx] ?? 0,
+    }),
+    [rodLengthM, scene],
+  );
 
   // Neutral tone mapping, as the 3D model: ACES turns a lit saturated blue purple.
   return (
     <Canvas
-      camera={{ position: [34, 22, 34], fov: BASE_FOV }}
+      camera={{ position: [0, 22, 48], fov: BASE_FOV }}
       // The true-size views see millimeters and kilometers in one frame.
       gl={{ preserveDrawingBuffer: true, toneMapping: THREE.NeutralToneMapping, logarithmicDepthBuffer: true }}
     >
@@ -122,6 +135,7 @@ export function FlightPathScene({
         ringLabelRef={ringLabelRef}
         scaleRef={scaleRef}
         padRef={padRef}
+        padLift={padLift}
         dialRef={roseRef}
         onTick={onTick}
         onEnd={onEnd}
@@ -139,14 +153,7 @@ export function FlightPathScene({
       <FlightRingProjector groupRef={ringRef} placeRef={ringPlaceRef} />
       <FlightLabelProjector pills={pills} middle={middle} labelRefs={labelRefs} />
       {standing && (
-        <FlightPad
-          groupRef={padRef}
-          track={scene}
-          span={standing}
-          pieces={pieces}
-          rodLengthM={rodLengthM}
-          reach={maxR}
-        />
+        <FlightPad groupRef={padRef} track={scene} span={standing} pieces={pieces} rodLengthM={rodLengthM} pad={pad} />
       )}
       <FlightSmoke
         scene={scene}

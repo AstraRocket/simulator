@@ -1306,6 +1306,20 @@ public final class ParityMain {
         im.emplace(finProbe, 2, info.openrocket.core.util.Transformation.IDENTITY);
         line("im.count", im.count(finProbe), im.size());
 
+        // MonitorableSet extends LinkedHashSet where upstream extends HashSet (see patches/LEDGER.md).
+        // A HashSet of these three iterates 17, 2, 30; insertion order is 30, 2, 17.
+        info.openrocket.core.util.MonitorableSet<Integer> ms =
+                new info.openrocket.core.util.MonitorableSet<>();
+        ms.add(30);
+        ms.add(2);
+        ms.add(17);
+        double[] msOrder = new double[ms.size()];
+        int msAt = 0;
+        for (int v : ms) {
+            msOrder[msAt++] = v;
+        }
+        line("monitorableset.order", msOrder);
+
         line("fins.ctx.before", config.getActiveInstances().count(finProbe));
         finProbe.setFinCount(4);
         line("fins.ctx.after4", config.getActiveInstances().count(finProbe));

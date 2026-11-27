@@ -116,3 +116,23 @@ export function placeCarrier(
 export function placedNose(p: Placement, modelScale: number, out: THREE.Vector3): THREE.Vector3 {
   return out.copy(p.position).addScaledVector(p.dir, (extentLength(p.span) / 2) * modelScale);
 }
+
+/** How high the pad's deflector holds the rocket, and how far off the pad it takes to come down to its track. */
+export interface PadLift {
+  /** Meters of rocket. */
+  heightM: number;
+  fadeM: number;
+  /** Seconds: after it, nothing near the pad is on it, so a landing there stays on the ground. */
+  untilT: number;
+}
+
+/**
+ * Lifts what stands on the pad onto its deflector, easing back to the flown track over `fadeM` from the pad. The
+ * track starts on the ground; the drawing only, never the flight.
+ */
+export function liftOnPad(place: Placement, pad: THREE.Vector3, lift: PadLift, t: number, modelScale: number): void {
+  if (t >= lift.untilT || lift.heightM <= 0) return;
+  const away = place.position.distanceTo(pad) / (lift.fadeM * modelScale);
+  if (away >= 1) return;
+  place.position.y += lift.heightM * modelScale * (1 - THREE.MathUtils.smoothstep(away, 0, 1));
+}

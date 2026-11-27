@@ -408,7 +408,34 @@
 # lose. Their v0.209 "Downloading / ready" header button and v0.212 offline
 # repair paths are their own UI; our banner already waits for the download
 # (`waitingIsNewer`) and never reloads the visible tab that applied it unasked.
+#
+# 2026-11-26: reviewed 355b55e4 (v0.220, 2026-11-26), diffing from 6d11fc23
+# (v0.217). Four engine-java files: their KD1 determinism patch
+# (FlightConfiguration, MonitorableSet), a LongUUID comment and the LEDGER.
+#
+# TAKEN: `MonitorableSet extends LinkedHashSet`. The deployed recovery device
+# set hashed by each device's random UUID, so the landing stepper summed CdA
+# in an order that changed with every build; three or more devices out at once
+# could move the descent in its last bits. Ported as a new patch, with a golden
+# line that fails if it is lost; no existing golden value moved. See
+# patches/LEDGER.md, "Deployed recovery devices sum in deployment order".
+#
+# ALREADY COVERED: the other half of KD1, `FlightConfiguration.motors` as a
+# LinkedHashMap, taken here on 2026-10-15.
+#
+# NOT AFFECTED: their RockSim fin sets turned half a fin spacing when two sets
+# share an angle (and "Auto-align fin sets" doing the same). Our .rkt import
+# reads each set's RadialAngle as given and never turns one, and we have no
+# auto-align. Deploy events written with capitals ("Apogee",
+# "LOWERSTAGESEPARATION"): our .ork import already folds case and underscores
+# (importTags.ts `enumToken`).
+#
+# NOT APPLICABLE: Batch "Skip mirror arrangements" and its refusal reasons, the
+# Batch delay-search count, the compact phone summary, the Dark / Light /
+# Daylight header switch and its tour step, the replace-autosave question
+# timing, questions queued behind other dialogs, "was not opened" notices,
+# component-data export deploy events. All are their own UI.
 repo    = https://github.com/mtnmanak/mmrocket-sim.git
-ref     = 6d11fc2355ebefb1db907455d00580964690640e
-version = 0.217
-dated   = 2026-11-25
+ref     = 355b55e48ae6838ae566fb83f7177d7c0f2d5d86
+version = 0.220
+dated   = 2026-11-26

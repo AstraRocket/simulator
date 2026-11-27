@@ -9,6 +9,8 @@ import { carrierAt, flightBodies } from '../../services/flight/flightBodies';
 import { flightBranches } from '../../services/flight/flightColumns';
 import { eventLabel, eventRows, type EventRow } from '../../services/flight/flightEvents';
 import { windAt } from '../../services/flight/flightWind';
+import { usePadRose } from './usePadRose';
+import type { LauncherKind } from '../../services/design/launcher';
 import { lerpAt } from '../../services/flight/interpolate';
 import { buildFlightScene, eventPills } from './flightScene';
 import type { Exhaust } from '../../services/motors/exhaust';
@@ -55,6 +57,7 @@ export function FlightPath3D({
   rodLengthM,
   latitudeDeg,
   longitudeDeg,
+  pad: padIn = { windFromDeg: null, launcher: 'rod' },
 }: {
   result: FlightResult;
   tree: RocketTree;
@@ -63,6 +66,8 @@ export function FlightPath3D({
   rodLengthM?: number | null;
   latitudeDeg?: number | null;
   longitudeDeg?: number | null;
+  /** Where the pad wind comes from (true degrees, null in calm air), and what the rocket rides. */
+  pad?: { windFromDeg: number | null; launcher: LauncherKind };
 }) {
   const { t } = useTranslation();
   const u = useUnits();
@@ -90,6 +95,8 @@ export function FlightPath3D({
   const carrier = bodies[carrierAt(bodies, playback.tracked, nowT)];
   const wind = carrier ? windAt(carrier.branch.series, nowT) : null;
   const roseRef = useRef<SVGGElement>(null);
+  const rose = usePadRose(padIn.windFromDeg, latitudeDeg, longitudeDeg);
+  const pad = useMemo(() => ({ launcher: padIn.launcher, rose }), [padIn.launcher, rose]);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const ringLabelRef = useRef<HTMLDivElement>(null);
   const ringPlaceRef = useRef<HTMLDivElement>(null);
@@ -180,6 +187,7 @@ export function FlightPath3D({
         mapSource={mapSource}
         ground={ground}
         rodLengthM={rodLengthM ?? DEFAULT_ROD_M}
+        pad={pad}
         effects={settings.flightEffects}
         roseRef={roseRef}
         nowT={nowT}

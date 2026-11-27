@@ -318,6 +318,30 @@ describe('the rig', () => {
     frame(shot({ view: 'chase' }), 0.05, true);
     expect(rig.zoomPad(-500)).toBe(false);
   });
+
+  it('walks the pad camera around the pad on a drag, at the same distance, still facing the rocket', () => {
+    const { rig, camera, place, frame } = setup();
+    place.position.set(0, 20, 0);
+    frame(shot({ view: 'pad' }), 0.05, true);
+    const pad = shot().track.scenePts[0]!;
+    const flat = (v: THREE.Vector3) => Math.hypot(v.x - pad.x, v.z - pad.z);
+    const before = camera.position.clone();
+    expect(rig.walkPad(300, 0)).toBe(true);
+    frame(shot({ view: 'pad' }), 0.05, true);
+    expect(camera.position.distanceTo(before)).toBeGreaterThan(0);
+    expect(flat(camera.position)).toBeCloseTo(flat(before), 6);
+    expect(camera.position.y).toBeCloseTo(before.y, 6);
+    const facing = new THREE.Vector3();
+    camera.getWorldDirection(facing);
+    const toRocket = place.position.clone().sub(camera.position).normalize();
+    expect(facing.dot(toRocket)).toBeGreaterThan(0.99);
+    // Never below the ground, however far it is dragged down.
+    rig.walkPad(0, -1e6);
+    frame(shot({ view: 'pad' }), 0.05, true);
+    expect(camera.position.y).toBeGreaterThan(pad.y);
+    frame(shot({ view: 'chase' }), 0.05, true);
+    expect(rig.walkPad(300, 0)).toBe(false);
+  });
 });
 
 describe('the compass heading', () => {

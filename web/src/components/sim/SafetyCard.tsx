@@ -7,7 +7,7 @@ import { WARNING_TONE } from './warningTone';
 const BULLET = 'flex gap-2';
 
 export function SafetyCard() {
-  const t = useLauncherT();
+  const t = useLauncherT('active');
   const openHelp = useHelpStore((s) => s.openHelp);
   const { settings, update } = useSettings();
   const open = settings.showSafetyCard;

@@ -214,6 +214,15 @@ describe('a profile kept under the Average model', () => {
       resultKey(tree, config, sim(base), PREFS),
     );
   });
+
+  it('is aged by neither rod nor rail, which the kernel flies alike', () => {
+    const tree = { components: [{ type: 'nosecone', id: 'n', length: 0.1 }] } as never;
+    const config = newFlightConfig();
+    const sim = (launch: CompleteLaunch) => newSimulation('A', config.id, launch);
+    expect(resultKey(tree, config, sim({ ...base, launcher: 'rail' }), PREFS)).toBe(
+      resultKey(tree, config, sim(base), PREFS),
+    );
+  });
 });
 
 describe('the Rogers Kbf setting', () => {

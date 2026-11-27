@@ -1,3 +1,4 @@
+import { sharedLauncher, type LauncherKind } from '../design/launcher';
 import { chargeRows, type ChargeRow } from '../flight/recoveryCharges';
 import { designBays, type DesignBay } from '../flight/recoveryBays';
 import type { ComponentNode, OpenRocketDesign, RocketTree, StaticInfo } from '../../engine/openRocketEngine';
@@ -112,6 +113,8 @@ export interface ReportModel {
   whole: Summary;
   stageSummaries: Summary[];
   configs: MotorConfig[];
+  /** What the simulations launch from, when they agree; null for the neutral wording. Absent: the design's. */
+  launcher?: LauncherKind | null;
   partsByStage: { stage: string; rows: PartRow[] }[];
   finSetsByStage: { stage: string; sets: FinSetPosition[] }[];
   charges?: ChargeRow[];
@@ -331,6 +334,10 @@ export function assembleReport(s: ReportSource, install?: (built: ReportBuild) =
     partsByStage,
     finSetsByStage,
     charges: chargeRows(tree),
+    launcher: sharedLauncher(
+      s.sims.map((x) => x.launch),
+      tree,
+    ),
     bays: designBays(tree)
       .filter((b) => b.record.tests.length || Object.keys(b.record).length > 1)
       .map(withTestsByDate),

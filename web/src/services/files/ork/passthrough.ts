@@ -2,7 +2,7 @@
 import type { ComponentNode, RocketTree } from '../../../engine/openRocketEngine';
 import { KeyedError } from '../../../i18n/keyedError';
 import { MAX_PASSTHROUGH } from './importLimits';
-import { BAYS_TAG, MAIN_TAG, NOTES_TAG, OPENS_TAG } from './appTags';
+import { BAYS_TAG, LAUNCHER_TAG, MAIN_TAG, NOTES_TAG, OPENS_TAG } from './appTags';
 
 /** A tag we write but leave out here is emitted twice. */
 export const KNOWN_COMPONENT_TAGS: ReadonlySet<string> = new Set([
@@ -171,6 +171,7 @@ export const KNOWN_CONDITIONS_TAGS: ReadonlySet<string> = new Set([
   'gravitymodel',
   'constantgravity',
   'weathersource',
+  LAUNCHER_TAG,
   'forecastlevel',
   'timestep',
   'maxtime',

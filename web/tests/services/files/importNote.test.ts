@@ -13,6 +13,12 @@ import es from '../../../src/i18n/locales/es.json';
 import type { ComponentNode } from '../../../src/engine/openRocketEngine';
 
 describe('importNoteText', () => {
+  it('reads a note whose key this build has no text for as nothing, never the key', () => {
+    const t = i18n.t.bind(i18n) as unknown as Parameters<typeof importNoteText>[1];
+    expect(importNoteText(keyedNote('importNote.motorTooLong'), t)).toBe('');
+    expect(importNoteText(keyedNote('importNote.motorTooLong', { motor: 'H128' }), t)).toBe('');
+  });
+
   it('returns a plain string as stored', () => {
     expect(noteText('Saved as English text.')).toBe('Saved as English text.');
   });

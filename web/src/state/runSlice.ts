@@ -1,6 +1,13 @@
 import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
-import { effectivePrefs, resultKey, simConditions, simInputs, type SimRun } from '../services/flight/simulations';
+import {
+  effectivePrefs,
+  resultKey,
+  simConditions,
+  simInputs,
+  type SimRun,
+  type Simulation,
+} from '../services/flight/simulations';
 import { aeroTablesOf } from '../services/flight/aeroTables';
 import { customExpressionsOf } from '../services/flight/customExpressions';
 import { simulateInWorker, SimTimeoutError, SimCanceledError } from '../engine/simClient';
@@ -15,6 +22,10 @@ import { flownStill, launcherT } from './runBasis';
 import { abortDriftSweep } from './driftSweepSlice';
 import { abortMotorGuide } from './motorGuideSlice';
 import { abortOptimizer } from './optimizerSlice';
+
+/** The simulations a run's problems name, for the launcher their wording uses. */
+const simsOf = (sims: readonly Simulation[], named: readonly { id: string }[]): Simulation[] =>
+  sims.filter((x) => named.some((n) => n.id === x.id));
 
 export interface RunSlice {
   simBusy: boolean;
@@ -80,10 +91,13 @@ export const createRunSlice: StateCreator<WorkspaceState, [], [], RunSlice> = (s
     const { flying, skipped } = plan;
     for (const u of skipped) outcomes[u.id] = 'skipped';
     if (!flying.length) {
-      if (skipped.length) set({ err: runProblems(skipped, [], launcherT(get().tree), displayUnits()).join(' ') });
+      if (skipped.length)
+        set({
+          err: runProblems(skipped, [], launcherT(get().tree, simsOf(get().sims, skipped)), displayUnits()).join(' '),
+        });
       return outcomes;
     }
-    const failed: { name: string; msg: string }[] = [];
+    const failed: { id: string; name: string; msg: string }[] = [];
     const expressions = customExpressionsOf(ranOn);
     const setRun = (simId: string, run: SimRun | null) => set((st) => ({ simRuns: withKey(st.simRuns, simId, run) }));
 
@@ -135,13 +149,18 @@ export const createRunSlice: StateCreator<WorkspaceState, [], [], RunSlice> = (s
             }
             const msg = e instanceof SimTimeoutError ? i18n.t('sim.timeout') : errorText(e, i18n.t);
             setRun(sim.id, { phase: 'failed', tree: ranOn });
-            failed.push({ name: sim.name, msg });
+            failed.push({ id: sim.id, name: sim.name, msg });
             outcomes[sim.id] = 'failed';
           }
         }),
       );
       if (abort.signal.aborted) return outcomes;
-      const problems = runProblems(skipped, failed, launcherT(get().tree), displayUnits());
+      const problems = runProblems(
+        skipped,
+        failed,
+        launcherT(get().tree, simsOf(get().sims, [...skipped, ...failed])),
+        displayUnits(),
+      );
       if (problems.length) set({ err: problems.join(' ') });
       if (get().tree !== ranOn) return outcomes;
       const landed = flying.map((f) => f.sim.id).filter((id) => get().sims.find((x) => x.id === id)?.result);

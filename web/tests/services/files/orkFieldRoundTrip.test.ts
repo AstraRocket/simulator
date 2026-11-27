@@ -81,6 +81,42 @@ describe('launch fields the app edits', () => {
   });
 });
 
+describe('the launcher, rod or rail', () => {
+  it("writes a rail in the app's own element, and reads it back", () => {
+    const xml = exportOrk({ name: 'L', tree: wrap([]), launch: { ...base, launcher: 'rail' } });
+    expect(xml).toContain('<astrarocketlauncher>rail</astrarocketlauncher>');
+    expect(importOrk(xml).launch!.launcher).toBe('rail');
+  });
+
+  it('writes nothing for a rod, so its file is as desktop writes it', () => {
+    for (const launch of [base, { ...base, launcher: 'rod' as const }]) {
+      const xml = exportOrk({ name: 'L', tree: wrap([]), launch });
+      expect(xml).not.toContain('astrarocketlauncher');
+      expect(importOrk(xml).launch!.launcher).toBeUndefined();
+    }
+  });
+
+  it('copies the element once, not again as an unknown one', () => {
+    const once = exportOrk({ name: 'L', tree: wrap([]), launch: { ...base, launcher: 'rail' } });
+    const sim = importOrk(once).simulations![0]!;
+    expect(sim.xmlExtra ?? []).not.toContainEqual(expect.stringContaining('astrarocketlauncher'));
+    const twice = exportOrk({
+      name: 'L',
+      tree: wrap([]),
+      simulations: [
+        {
+          name: sim.name,
+          configId: sim.configId ?? 'c',
+          launch: { ...base, ...sim.launch },
+          status: 'notsimulated',
+          xmlExtra: sim.xmlExtra,
+        },
+      ],
+    });
+    expect(twice.match(/<astrarocketlauncher>/g)).toHaveLength(1);
+  });
+});
+
 describe('recovery packed size', () => {
   const tree = wrap([
     node({ type: 'parachute', id: 'c', diameter: 0.4, length: 0.06, radius: 0.02 }),

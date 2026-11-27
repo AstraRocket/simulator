@@ -16,7 +16,7 @@ import { smallButton } from '../common/smallButton';
 const NUM = 'py-1 pl-2 text-right tabular-nums';
 
 function Extras({ row }: { row: EventRow }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   const u = useUnits();
   const q = u.at(unitScope('sim', 'maxQ'), 'pressure');
   const parts = (EVENT_EXTRAS[row.type] ?? []).flatMap((k: ExtraKey) => {
@@ -48,7 +48,7 @@ export function FlightEventsTable({
   simName?: string;
   designName?: string;
 }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   const u = useUnits();
   const alt = u.at(unitScope('events', 'altitude'), 'distance');
   const spd = u.at(unitScope('events', 'velocity'), 'velocity');

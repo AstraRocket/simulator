@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand';
 import i18n from '../i18n';
 import { confirm } from './confirmStore';
 import { prompt } from './promptStore';
-import { launcherKind } from '../services/design/launcher';
+import { sharedLauncher } from '../services/design/launcher';
 import type { RocketTree } from '../engine/openRocketEngine';
 import type { LaunchConditions } from '../services/design/orkTree';
 import { repairValues } from '../services/design/repairValues';
@@ -146,8 +146,11 @@ export const createFileSlice =
           const home = await enterHome(loadedMeta.name, stale);
           if (!home) return;
           const fixed = repairValues(tree);
-          // From the imported tree: the store still holds the previous design.
-          const launcher = launcherKind(fixed.tree);
+          // From the imported tree and simulations: the store still holds the previous design.
+          const launcher = sharedLauncher(
+            sims.map((x) => x.launch),
+            fixed.tree,
+          );
           const flights = sims.map((sim) => ({
             launch: sim.launch,
             powerClass: configPowerClass(fixed.tree, configFor(configs, sim.configId), null),
