@@ -147,7 +147,27 @@ The 3D path replays the flight rather than only drawing it. **▶** (**Play flig
 
 Beside the play button, **⟲** (**Reset to launch**) stops playback and returns to liftoff, and **⟳** (**Loop playback**) starts the flight again each time it ends. The marks over the timeline are the flight's events; **Jump to event** lists them and goes straight to one. The path still to be flown is drawn faintly.
 
+Each of those events is also labeled on the path where it happened, once the flight reaches it: liftoff, burnout, separation, apogee, each recovery deployment and each landing, on the track of the part it happened to. Events at the same spot, such as a drogue opening at apogee, share one label. Each label sits a little out to the side of the path, on the outside of the flight, so it does not cover the line; it moves to stay there as you turn the camera. **Labels** (**Event labels**) turns the labels on and off; your choice is kept, and it is also under **[Settings ▸ Playback](./settings.md#playback)**.
+
 When stages separate, a menu picks **which part to track**: the cameras and the altitude and velocity readouts go with it.
+
+### Recording a video {#flight-video}
+
+**⏺** (**Record video**) saves the replay as a video file. It goes back to liftoff, plays the flight through without the countdown, and saves the video when the replay ends. The button turns red while it records. Altitude, velocity and time are drawn into the top left, and the phase colors and the wind compass into the top right, the compass turning with the camera as it does on screen. Each event marked on the timeline (liftoff, burnout, separation, apogee, deployment, landing) pops up as a caption at the bottom as it happens, with the height for those off the ground, and a bar along the bottom edge shows the flight's progress with a tick at each event. A caption stays up for the same few seconds of video at any playback speed. Pausing, dragging the timeline, reset or **⏹** ends the recording early and saves what was recorded. Recording turns **Loop playback** off, since a looping flight never ends.
+
+The video is what the 3D view shows at the size it is on screen, so a larger window gives a sharper video. The camera, speed and effects are yours to set before you start, and the camera can be moved while it records. Browsers that can write MP4 save MP4; others save WebM. The button is hidden in a browser that cannot record video.
+
+The recording is saved as a **zip** holding the video and four marker files, all named alike, so a video editor can cue off the flight's events. Each event is timed where it fell in the video, so changing the speed or jumping to an event while recording keeps them right; events jumped over are left out.
+
+| File | What it is for | How to use it |
+| --- | --- | --- |
+| `.mp4` or `.webm` | The video | |
+| `.srt` | Subtitles, one cue per event | Import it into any editor (Premiere, Resolve, Final Cut, Shotcut, CapCut); it lands on its own track at the events. |
+| `.edl` | DaVinci Resolve markers | Put the video on a timeline starting at 01:00:00:00 (Resolve's default), then **Timeline ▸ Import ▸ Timeline Markers from EDL**. |
+| `.fcpxml` | Final Cut Pro project | **File ▸ Import ▸ XML** in Final Cut Pro or Resolve: the video on a timeline with a marker at each event. Keep it beside the video. |
+| `.chapters.txt` | YouTube chapters | Paste it into the video's description. YouTube wants each chapter at least 10 seconds long, so events closer together share one. |
+
+Final Cut Pro cannot open WebM, and Resolve's support for it varies, so record in a browser that writes MP4 (Chrome, Edge or Safari) when the video is going to an editor.
 
 ### Effects {#flight-effects}
 

@@ -149,6 +149,7 @@ When the key expires, create a new one and paste it in, or clear the field to go
 
 - **Default speed**: the speed the 3D flight path starts playing at, from 0.1× to 16×, where 1× is real time. It is a starting point, not a lock: the speed control in the view changes the current playback without touching this.
 - **Effects**: the 3D flight path's [effects](./views-and-analysis.md#flight-effects), the same switch as **✨** in the view.
+- **Event labels**: the flight events labeled along the 3D flight path, the same switch as **Labels** in the view.
 
 ## Sketch
 

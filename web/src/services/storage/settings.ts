@@ -117,6 +117,8 @@ export interface Settings {
   replaySpeed: number;
   /** The 3D flight path's drawn extras. */
   flightEffects: boolean;
+  /** The 3D flight path's event labels along the path. */
+  flightLabels: boolean;
   simulation: SimulationSettings;
   launchDefaults: CompleteLaunch;
   headerSummary: HeaderSummaryPref;
@@ -239,6 +241,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aeroHeat: 'sky',
   replaySpeed: 1,
   flightEffects: true,
+  flightLabels: true,
   simulation: {
     timeStep: 0.05,
     maxTime: 1200,
@@ -400,6 +403,7 @@ export function settingsFrom(value: unknown): Settings {
       : DEFAULT_SETTINGS.statsLayout,
     replaySpeed: clampPlayback(s.replaySpeed),
     flightEffects: s.flightEffects !== false,
+    flightLabels: s.flightLabels !== false,
     simulation: (() => {
       const sim = { ...DEFAULT_SETTINGS.simulation, ...(s.simulation ?? {}) };
       const pos = (v: number, d: number) => (Number.isFinite(v) && v > 0 ? v : d);

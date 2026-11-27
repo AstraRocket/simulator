@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { boostWindows, buildFlightScene, type PhaseColors } from '../../../src/components/canvas/flightScene';
+import {
+  boostWindows,
+  buildFlightScene,
+  eventPills,
+  type PhaseColors,
+} from '../../../src/components/canvas/flightScene';
 import type { FlightResult } from '../../../src/engine/openRocketEngine';
 
 const phase: PhaseColors = { boost: '#ff0000', coast: '#00ff00', descent: '#0000ff' };
@@ -42,7 +47,6 @@ describe('apogee time fallback', () => {
   it('falls back to the last sample time, not the peak altitude', () => {
     const s = buildFlightScene(result({ ...arc() }), phase);
     expect(s.deployT).toBe(10);
-    expect(s.callouts.find((c) => c.type === 'APOGEE')!.time).toBe(10);
   });
 
   it('prefers the summary time to the last sample', () => {
@@ -81,7 +85,7 @@ describe('the empty-path guard', () => {
       phase,
     );
     expect(s.scenePts).toEqual([]);
-    expect(s.callouts).toEqual([]);
+    expect(eventPills(s, [{ time: 2, branch: 0, text: 'Apogee' }])).toEqual([]);
   });
 
   it('survives a result with no samples at all', () => {
@@ -96,35 +100,39 @@ describe('the empty-path guard', () => {
   });
 });
 
-describe('callouts', () => {
+describe('eventPills', () => {
+  const s = buildFlightScene(result({ ...arc(), events: [{ type: 'APOGEE', time: 5 }] }), phase);
+
   it('anchors each event to its nearest sample', () => {
-    const s = buildFlightScene(
-      result({
-        ...arc(),
-        events: [
-          { type: 'BURNOUT', time: 2 },
-          { type: 'APOGEE', time: 5 },
-          { type: 'GROUND_HIT', time: 10 },
-        ],
-      }),
-      phase,
-    );
-    expect(s.callouts.map((c) => c.type)).toEqual(['BURNOUT', 'APOGEE', 'GROUND_HIT']);
+    const pills = eventPills(s, [
+      { time: 2.1, branch: 0, text: 'Burnout' },
+      { time: 5, branch: 0, text: 'Apogee' },
+      { time: 10, branch: 0, text: 'Landing' },
+    ]);
+    expect(pills.map((p) => p.parts.map((part) => part.text))).toEqual([['Burnout'], ['Apogee'], ['Landing']]);
+    expect(pills[1]!.pos).toEqual(s.scenePts[5]);
   });
 
-  it('drops a label that would sit on top of another', () => {
-    const s = buildFlightScene(
-      result({
-        ...arc(),
-        events: [
-          { type: 'APOGEE', time: 5 },
-          { type: 'RECOVERY_DEVICE_DEPLOYMENT', time: 5 },
-        ],
-      }),
-      phase,
-    );
-    expect(s.callouts.filter((c) => c.time === 5)).toHaveLength(1);
-    expect(s.deployT).toBe(5);
+  it('shares a label between events at one place, each named once', () => {
+    const pills = eventPills(s, [
+      { time: 5, branch: 0, text: 'Deploy' },
+      { time: 5, branch: 0, text: 'Apogee' },
+      { time: 5, branch: 0, text: 'Deploy' },
+    ]);
+    expect(pills).toHaveLength(1);
+    expect(pills[0]!.parts.map((p) => p.text)).toEqual(['Deploy', 'Apogee']);
+  });
+
+  it('keeps a second event of one name at the same spot, as two landings by the pad', () => {
+    const pills = eventPills(s, [
+      { time: 0, branch: 0, text: 'Landing' },
+      { time: 0.2, branch: 0, text: 'Landing' },
+    ]);
+    expect(pills[0]!.parts.map((p) => p.time)).toEqual([0, 0.2]);
+  });
+
+  it('falls back to the main track for a branch the scene lacks', () => {
+    expect(eventPills(s, [{ time: 5, branch: 3, text: 'Apogee' }])[0]!.pos).toEqual(s.scenePts[5]);
   });
 });
 
@@ -142,10 +150,6 @@ describe('an ejection charge with no deployment', () => {
 
   it('turns the model over at apogee, not at the charge', () => {
     expect(s.deployT).toBe(5);
-  });
-
-  it('marks no deployment', () => {
-    expect(s.callouts.map((c) => c.type)).not.toContain('RECOVERY_DEVICE_DEPLOYMENT');
   });
 });
 
