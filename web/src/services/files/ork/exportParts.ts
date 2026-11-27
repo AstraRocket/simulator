@@ -99,8 +99,7 @@ export function header(
   appearanceXml(w, depth, node);
   colorXml(w, depth, node);
   overrides(w, depth, node);
-  const bays = baysXml(node);
-  if (bays) w.emit(depth, bays);
+  for (const [d, line] of baysXml(node)) w.emit(depth + d, line);
   const main = mainDeviceXml(node);
   if (main) w.emit(depth, main);
   const opens = opensAtXml(node);

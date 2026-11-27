@@ -84,14 +84,14 @@ describe('launch fields the app edits', () => {
 describe('the launcher, rod or rail', () => {
   it("writes a rail in the app's own element, and reads it back", () => {
     const xml = exportOrk({ name: 'L', tree: wrap([]), launch: { ...base, launcher: 'rail' } });
-    expect(xml).toContain('<astrarocketlauncher>rail</astrarocketlauncher>');
+    expect(xml).toContain('<launchguide>rail</launchguide>');
     expect(importOrk(xml).launch!.launcher).toBe('rail');
   });
 
   it('writes nothing for a rod, so its file is as desktop writes it', () => {
     for (const launch of [base, { ...base, launcher: 'rod' as const }]) {
       const xml = exportOrk({ name: 'L', tree: wrap([]), launch });
-      expect(xml).not.toContain('astrarocketlauncher');
+      expect(xml).not.toContain('launchguide');
       expect(importOrk(xml).launch!.launcher).toBeUndefined();
     }
   });
@@ -99,7 +99,7 @@ describe('the launcher, rod or rail', () => {
   it('copies the element once, not again as an unknown one', () => {
     const once = exportOrk({ name: 'L', tree: wrap([]), launch: { ...base, launcher: 'rail' } });
     const sim = importOrk(once).simulations![0]!;
-    expect(sim.xmlExtra ?? []).not.toContainEqual(expect.stringContaining('astrarocketlauncher'));
+    expect(sim.xmlExtra ?? []).not.toContainEqual(expect.stringContaining('launchguide'));
     const twice = exportOrk({
       name: 'L',
       tree: wrap([]),
@@ -113,7 +113,7 @@ describe('the launcher, rod or rail', () => {
         },
       ],
     });
-    expect(twice.match(/<astrarocketlauncher>/g)).toHaveLength(1);
+    expect(twice.match(/<launchguide>/g)).toHaveLength(1);
   });
 });
 

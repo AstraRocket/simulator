@@ -17,9 +17,12 @@ describe('design notes in a .ork', () => {
       kitPartNumber: 'K-1',
       revisionLog: [{ id: 'a', date: '2026-11-03', note: 'New "fins" & paint' }],
     };
-    const xml = designNotesXml(tree(notes));
-    expect(xml).not.toBeNull();
-    expect(readDesignNotes(rocketWith(xml as string))).toEqual(notes);
+    const xml = designNotesXml(tree(notes))
+      .map(([, line]) => line)
+      .join('');
+    expect(xml).toContain('<kitmanufacturer>A&amp;B &lt;Rockets&gt;</kitmanufacturer>');
+    expect(xml).toContain('<revision id="a"><date>2026-11-03</date><note>New &quot;fins&quot; &amp; paint</note>');
+    expect(readDesignNotes(rocketWith(xml))).toEqual(notes);
   });
 
   it('survives a whole file, and a second save writes it once', () => {
@@ -39,31 +42,28 @@ describe('design notes in a .ork', () => {
     const first = importOrk(exportOrk({ name: 'R', tree: tree({ components, ...notes }) }));
     expect(first.tree).toMatchObject(notes);
     const again = exportOrk({ name: 'R', tree: first.tree });
-    expect(again.match(/<astrarocketnotes>/g)).toHaveLength(1);
+    expect(again.match(/<designnotes>/g)).toHaveLength(1);
   });
 
   it('writes nothing for a design without them', () => {
-    expect(designNotesXml(tree({ designer: 'Ann', revisionLog: [] }))).toBeNull();
+    expect(designNotesXml(tree({ designer: 'Ann', revisionLog: [] }))).toEqual([]);
   });
 
   it('is a known rocket tag, so passthrough does not write it twice', () => {
-    expect(KNOWN_ROCKET_TAGS.has('astrarocketnotes')).toBe(true);
+    expect(KNOWN_ROCKET_TAGS.has('designnotes')).toBe(true);
   });
 
-  it('reads nothing from a missing or malformed element', () => {
+  it('reads nothing from a missing or empty element', () => {
     expect(readDesignNotes(rocketWith(''))).toEqual({});
-    expect(readDesignNotes(rocketWith('<astrarocketnotes>not json</astrarocketnotes>'))).toEqual({});
-    expect(readDesignNotes(rocketWith('<astrarocketnotes>null</astrarocketnotes>'))).toEqual({});
+    expect(readDesignNotes(rocketWith('<designnotes/>'))).toEqual({});
   });
 
   it('keeps the good fields and entries of a damaged element, and only named fields', () => {
-    const body = JSON.stringify({
-      kitManufacturer: 7,
-      kitPartNumber: 'K-1',
-      other: 'x',
-      revisionLog: [{ id: 'a', date: 'yesterday', note: 'n' }, 'junk', { id: 'b', date: '2026-01-02', note: 'ok' }],
-    });
-    expect(readDesignNotes(rocketWith(`<astrarocketnotes>${body}</astrarocketnotes>`))).toEqual({
+    const body =
+      '<kitmanufacturer>  </kitmanufacturer><kitpartnumber>K-1</kitpartnumber><other>x</other>' +
+      '<revisionlog><revision id="a"><date>yesterday</date><note>n</note></revision><junk/>' +
+      '<revision id="b"><date>2026-01-02</date><note>ok</note></revision></revisionlog>';
+    expect(readDesignNotes(rocketWith(`<designnotes>${body}</designnotes>`))).toEqual({
       kitPartNumber: 'K-1',
       revisionLog: [{ id: 'b', date: '2026-01-02', note: 'ok' }],
     });

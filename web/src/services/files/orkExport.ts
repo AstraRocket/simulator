@@ -48,8 +48,7 @@ export function exportOrk({
   metaField('designer');
   if (typeof tree.kitName === 'string' && tree.kitName.trim()) emit(2, `<kitname>${escapeXml(tree.kitName)}</kitname>`);
   metaField('revision');
-  const designNotes = designNotesXml(tree);
-  if (designNotes) emit(2, designNotes);
+  for (const [d, line] of designNotesXml(tree)) emit(2 + d, line);
   emit(2, `<designtype>${escapeXml(tree.designType || 'original')}</designtype>`);
   for (const raw of passthroughOf(tree, ROCKET_EXTRA_KEY)) emit(2, raw);
   const stageNodes = asStageNodes(tree);
