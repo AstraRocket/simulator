@@ -22,6 +22,10 @@ export const SCENE_TOKENS = [
   'scene-stable-ok',
   'scene-stable-over',
   'scene-stable-under',
+  'scene-rose',
+  'scene-north',
+  'scene-wind',
+  'scene-rod',
 ] as const;
 
 export type SceneToken = (typeof SCENE_TOKENS)[number];

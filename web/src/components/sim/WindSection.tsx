@@ -19,7 +19,8 @@ import { DEFAULT_HEADING_DEG, levelFromAverage } from '../../services/flight/win
 import type { LaunchConditions } from '../../services/design/orkTree';
 import { WindProfileDialog } from './WindProfileDialog';
 import { QNum } from './QNum';
-import { capFor, type LaunchSectionProps } from './launchSection';
+import { BearingDial } from './FieldDials';
+import { bearingHint, capFor, type LaunchSectionProps } from './launchSection';
 
 export type SpeedEditBase = Map<string, { avg: number; sd: number }>;
 
@@ -33,6 +34,7 @@ export function WindSection({
   req,
   diff,
   speedEditBase,
+  north,
 }: LaunchSectionProps & {
   diff?: ReadonlySet<keyof LaunchConditions>;
   /** Retuning per keystroke would pass through the "0" of "0.5" and zero the deviation. */
@@ -46,6 +48,7 @@ export function WindSection({
   const windAvg = isFilled(launch.windAverage) ? launch.windAverage : 0;
   const windSd = isFilled(launch.windStdDev) ? launch.windStdDev : 0;
   const intensity = turbulenceIntensity(windAvg, windSd);
+  const windShown = north.show(launch.windDirectionDeg ?? DEFAULT_HEADING_DEG);
 
   /** As SimulationOptions.setWindModelType, turning it off parks the profile in `keptWindLevels`. */
   const setWindModel = (model: 'average' | 'multilevel') => {
@@ -150,9 +153,19 @@ export function WindSection({
             kind="deg"
             u={u}
             stepSi={degToRad(5)}
+            hint={bearingHint(t, north, windShown)}
             mixed={mixed('windDirectionDeg')}
-            value={launch.windDirectionDeg ?? DEFAULT_HEADING_DEG}
-            onChange={(v) => onChange({ windDirectionDeg: v ?? undefined })}
+            value={windShown}
+            aside={
+              <BearingDial
+                kind="wind"
+                deg={mixed('windDirectionDeg') ? null : windShown}
+                points={t('launch.compassPoints').split(' ')}
+              />
+            }
+            onChange={(v) =>
+              onChange(v === null ? { windDirectionDeg: undefined } : (l) => ({ windDirectionDeg: north.store(v, l) }))
+            }
           />
         </>
       ) : (

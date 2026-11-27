@@ -1,13 +1,17 @@
 import { FieldLabel } from '../common/FieldMark';
 import { Check } from '../common/Check';
 import { CardGroup } from '../common/CardGroup';
+import { RadioGroup } from '../common/RadioGroup';
+import { LAUNCHERS } from '../../services/design/orkTree';
+import type { LauncherKind } from '../../services/design/launcher';
 import { degToRad } from '../../prefs/units';
 import { LIMIT_FIELD } from '../../prefs/launchUnits';
 import { MAX_ROD_ANGLE_RAD } from '../../services/flight/safetyLimits';
 import type { PowerClass } from '../../services/flight/powerClass';
 import { DEFAULT_HEADING_DEG } from '../../services/flight/windLevels';
 import { QNum } from './QNum';
-import { capFor, type LaunchSectionProps } from './launchSection';
+import { BearingDial, TiltDial } from './FieldDials';
+import { bearingHint, capFor, type LaunchSectionProps } from './launchSection';
 
 export function LaunchRodSection({
   launch,
@@ -18,11 +22,29 @@ export function LaunchRodSection({
   mixed,
   req,
   powerClass,
+  north,
+  designLauncher = null,
 }: LaunchSectionProps & {
   powerClass: PowerClass | null;
+  /** What the design's lugs or buttons suggest, until the simulation says. */
+  designLauncher?: LauncherKind | null;
 }) {
+  const points = t('launch.compassPoints').split(' ');
+  const shown = north.show(launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG);
   return (
     <CardGroup title={t('launch.launchRod')}>
+      <RadioGroup
+        className="pb-1"
+        legend={t('launch.launcherIs')}
+        label={<FieldLabel text={t('launch.launcherIs')} mixed={mixed('launcher')} />}
+        options={LAUNCHERS}
+        value={launch.launcher ?? designLauncher ?? 'rod'}
+        onChange={(v) => {
+          onChange({ launcher: v });
+          onCommit?.();
+        }}
+        fmt={(v) => t(`launch.launcherOption.${v}`)}
+      />
       <QNum
         label={t('launch.length')}
         chipLabel={t('launch.rodLengthName')}
@@ -59,6 +81,8 @@ export function LaunchRodSection({
         mixed={mixed('launchRodAngleDeg')}
         {...req('launchRodAngleDeg')}
         value={launch.launchRodAngleDeg}
+        // No needle across simulations that differ.
+        aside={<TiltDial deg={mixed('launchRodAngleDeg') ? null : launch.launchRodAngleDeg} />}
         onChange={(v) => onChange({ launchRodAngleDeg: v })}
       />
       <Check
@@ -78,10 +102,16 @@ export function LaunchRodSection({
           kind="deg"
           u={u}
           stepSi={degToRad(5)}
+          hint={bearingHint(t, north, shown)}
           mixed={mixed('launchRodDirectionDeg')}
-          value={launch.launchRodDirectionDeg ?? DEFAULT_HEADING_DEG}
+          value={shown}
+          aside={<BearingDial kind="rod" deg={mixed('launchRodDirectionDeg') ? null : shown} points={points} />}
           // Cleared means unset: writing 0 would turn the default east into north.
-          onChange={(v) => onChange({ launchRodDirectionDeg: v ?? undefined })}
+          onChange={(v) =>
+            onChange(
+              v === null ? { launchRodDirectionDeg: undefined } : (l) => ({ launchRodDirectionDeg: north.store(v, l) }),
+            )
+          }
         />
       )}
     </CardGroup>

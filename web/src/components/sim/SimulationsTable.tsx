@@ -8,7 +8,7 @@ import { NO_VALUE } from '../../i18n/noValue';
 import { warningText } from '../../services/app/warningText';
 import { configLabel, type FlightConfig } from '../../services/flight/flightConfigs';
 import { configOf } from '../../state/store';
-import { launcherKind } from '../../services/design/launcher';
+import { sharedLauncher } from '../../services/design/launcher';
 import { useLauncherT } from '../common/useLauncher';
 import { useFlutterFindings } from './useFlutterFindings';
 import { flutterWarningText } from './flutterWarningText';
@@ -107,7 +107,13 @@ export function SimulationsTable({
   onToggleAll: (all: boolean) => void;
   onOpenResults: (id: string) => void;
 }) {
-  const t = useLauncherT(launcherKind(tree));
+  // Their headings cover every row: worded for the launcher they share, else neutral.
+  const t = useLauncherT(
+    sharedLauncher(
+      sims.map((x) => x.launch),
+      tree,
+    ),
+  );
   const u = useUnits();
   const apogee = u.at(unitScope('sim', 'apogee'), 'distance');
   const rodExit = u.at(unitScope('sim', 'rodExit'), 'velocity');

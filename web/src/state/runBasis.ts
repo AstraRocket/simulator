@@ -1,5 +1,5 @@
 import i18n from '../i18n';
-import { launcherKind, withLauncher } from '../services/design/launcher';
+import { sharedLauncher, withLauncher } from '../services/design/launcher';
 import type { RocketTree } from '../engine/openRocketEngine';
 import { primaryMotor, type FlightConfig } from '../services/flight/flightConfigs';
 import { configPowerClass } from '../services/flight/powerClass';
@@ -19,8 +19,15 @@ import { configOf, displayUnits } from './workspaceSelectors';
 
 // A leaf module: the slices load while store.ts does.
 
-export const launcherT = (tree: RocketTree) =>
-  withLauncher(i18n.t as unknown as (key: string, options?: Record<string, unknown>) => string, launcherKind(tree));
+/** Worded for the launcher these simulations fly from; with none given, the design's. */
+export const launcherT = (tree: RocketTree, sims: readonly Pick<Simulation, 'launch'>[] = []) =>
+  withLauncher(
+    i18n.t as unknown as (key: string, options?: Record<string, unknown>) => string,
+    sharedLauncher(
+      sims.map((x) => x.launch),
+      tree,
+    ),
+  );
 
 export function refusedDesign(s: WorkspaceState, set: (patch: Partial<WorkspaceState>) => void): boolean {
   const blocker = designBlocker(s.tree);
@@ -39,7 +46,7 @@ export function flyableSim(s: WorkspaceState, set: (patch: Partial<WorkspaceStat
   const config = configOf(s.configs, sim);
   const reason = unflyable(sim, primaryMotor(s.tree, config), configPowerClass(s.tree, config, s.info?.massEmpty));
   if (reason) {
-    set({ err: unflyableText({ id: sim.id, name: sim.name, reason }, launcherT(s.tree), displayUnits()) });
+    set({ err: unflyableText({ id: sim.id, name: sim.name, reason }, launcherT(s.tree, [sim]), displayUnits()) });
     return null;
   }
   // Captured: the `isComplete` narrowing would be lost on `sim.launch` inside a caller's closures.

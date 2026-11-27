@@ -14,7 +14,7 @@ import { configOf, selectDesignName } from '../../state/store';
 import { useUnits } from '../../prefs/useUnits';
 import { runTableCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
-import { launcherKind } from '../../services/design/launcher';
+import { sharedLauncher } from '../../services/design/launcher';
 import { MotorGuideDialog } from './MotorGuideDialog';
 import { OptimizerDialog } from './OptimizerDialog';
 
@@ -62,7 +62,15 @@ export function SimulationsPane() {
     });
     download(
       exportFilename([designName, 'run-table'], 'csv'),
-      runTableCsv(rows, u.all, t, launcherKind(tree)),
+      runTableCsv(
+        rows,
+        u.all,
+        t,
+        sharedLauncher(
+          sims.map((x) => x.launch),
+          tree,
+        ),
+      ),
       CSV_MIME,
     );
   };

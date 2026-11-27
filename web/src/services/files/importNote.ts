@@ -49,11 +49,13 @@ function valueText(v: NoteValue, t: Translate): string | number {
   return typeof v === 'string' || typeof v === 'number' ? v : '';
 }
 
+/** '' for a note with no text in this build, which a caller drops rather than show its key. */
 export function importNoteText(note: ImportNote, t: Translate): string {
   if (typeof note === 'string') return note;
   if (!note || typeof note !== 'object' || typeof note.key !== 'string') return '';
-  if (!note.values) return t(note.key);
   const flat: Record<string, string | number> = {};
-  for (const [name, v] of Object.entries(note.values)) flat[name] = valueText(v, t);
-  return t(note.key, flat);
+  for (const [name, v] of Object.entries(note.values ?? {})) flat[name] = valueText(v, t);
+  const text = note.values ? t(note.key, flat) : t(note.key);
+  // i18next hands back the key it has no text for: a note saved by an older build, whose key has since gone.
+  return text === note.key ? '' : text;
 }

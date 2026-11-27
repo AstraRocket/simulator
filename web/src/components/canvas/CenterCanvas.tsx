@@ -9,7 +9,7 @@ import { FlightChart } from './FlightChart';
 import { GroundTrack } from './GroundTrack';
 import { EnvironmentView } from './EnvironmentView';
 import { FlightCard } from '../sim/FlightCard';
-import { FlightPathExport } from './FlightPathExport';
+import { FlightPathPane } from './FlightPathPane';
 import { InfoOverlay } from './InfoOverlay';
 import { AeroAnalysis } from './AeroAnalysis';
 import { LazyBoundary } from '../common/ErrorBoundary';
@@ -26,7 +26,6 @@ import { graphics3d } from '../../services/app/graphics';
 import { Graphics3dOffNotice } from '../common/Graphics3dOff';
 
 const Rocket3D = lazyNamed(() => import('./Rocket3D'), 'Rocket3D');
-const FlightPath3D = lazyNamed(() => import('./FlightPath3D'), 'FlightPath3D');
 
 const ROLL_GUTTER = 30;
 
@@ -144,27 +143,15 @@ export function CenterCanvas({
         <div className="relative h-full p-2">
           {gl.reason ? (
             <Graphics3dOffNotice reason={gl.reason} />
-          ) : pathResult ? (
-            <>
-              <LazyBoundary fallback={loading}>
-                <FlightPath3D
-                  result={pathResult}
-                  tree={design}
-                  motors={flownMotors}
-                  exhausts={exhausts}
-                  rodLengthM={flight?.launch.launchRodLengthM}
-                  latitudeDeg={flight?.launch.latitudeDeg}
-                  longitudeDeg={flight?.launch.longitudeDeg}
-                />
-              </LazyBoundary>
-              <div className="pointer-events-none absolute inset-x-0 top-5 z-10 flex justify-center">
-                <div className="pointer-events-auto">
-                  <FlightPathExport variant="overlay" flight={flight} />
-                </div>
-              </div>
-            </>
           ) : (
-            prompt
+            <FlightPathPane
+              flight={flight}
+              pathResult={pathResult}
+              design={design}
+              motors={flownMotors}
+              exhausts={exhausts}
+              loading={loading}
+            />
           )}
         </div>
       ) : view === 'ground' ? (

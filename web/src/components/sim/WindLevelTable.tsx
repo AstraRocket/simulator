@@ -56,7 +56,7 @@ function WindLevelRow({
       />
       <NumberInput
         step={u.step('angle', degToRad(5))}
-        ariaLabel={t('windProfile.levelField', { field: t('launch.direction'), n: i + 1 })}
+        ariaLabel={t('windProfile.levelField', { field: t('windProfile.fromTrue'), n: i + 1 })}
         value={u.toUi('angle', degToRad(l.directionDeg))}
         onChange={onSi(
           u.plain('angle'),
@@ -125,7 +125,7 @@ export function WindLevelTable({
           {t('launch.speed')} ({u.sym('windspeed')})
         </span>
         <span className="w-14">
-          {t('launch.direction')} ({u.sym('angle')})
+          {t('windProfile.fromTrue')} ({u.sym('angle')})
         </span>
         <span className="w-16">
           {t('windProfile.deviation')} ({u.sym('windspeed')})

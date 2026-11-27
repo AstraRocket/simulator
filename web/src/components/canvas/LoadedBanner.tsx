@@ -21,8 +21,9 @@ export function LoadedBanner({
   const { settings, update } = useSettings();
   const open = settings.showImportNotes;
   const repaired = useWorkspaceStore((s) => s.repairNotes);
-  const notes: ImportNote[] = [...(loaded?.notes ?? []), ...repaired];
-  const count = notes.length;
+  // A note an older build saved, under a key this one has no text for, reads as nothing: dropped, not shown raw.
+  const texts = [...(loaded?.notes ?? []), ...repaired].map((n) => importNoteText(n, t)).filter(Boolean);
+  const count = texts.length;
   const importSeq = useWorkspaceStore((s) => s.importSeq);
   useEffect(() => {
     if (importSeq <= notesOpenedForImport || count === 0) return;
@@ -77,8 +78,8 @@ export function LoadedBanner({
       </div>
       {count > 0 && open && (
         <ul className="mt-2 space-y-1 text-xs text-warn-300">
-          {notes.map((n, i) => (
-            <li key={i}>⚠ {importNoteText(n, t)}</li>
+          {texts.map((text, i) => (
+            <li key={i}>⚠ {text}</li>
           ))}
         </ul>
       )}

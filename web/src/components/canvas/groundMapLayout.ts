@@ -41,7 +41,7 @@ export function groundMapLayout(
  * Render orders. The ground's layers share one plane, each drawn over the last without testing depth: a gap
  * between them that shows from far off is taller than the rocket up close.
  */
-export const GROUND_LAYER = { sky: -5, floor: -4, map: -3, grid: -2, pad: -1.5, ring: -1 } as const;
+export const GROUND_LAYER = { sky: -5, floor: -4, map: -3, grid: -2, pad: -1.5, rose: -1.25, ring: -1 } as const;
 
 // Lays a quad flat: its +y becomes -z (north).
 export const GROUND_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0];

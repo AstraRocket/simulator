@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import i18n from '../../../src/i18n';
-import { launcherKind, withLauncher } from '../../../src/services/design/launcher';
+import { launcherKind, sharedLauncher, simLauncher, withLauncher } from '../../../src/services/design/launcher';
 import type { RocketTree } from '../../../src/engine/openRocketEngine';
 
 const design = (...guides: string[]): RocketTree =>
@@ -39,5 +39,27 @@ describe("withLauncher, through the app's own i18next", () => {
       'Launch rail angle is 25° from vertical, above the 20° the NAR and Tripoli safety codes allow a high power rocket.',
     );
     expect(withLauncher(t, 'rail')('sim.apogee')).toBe(t('sim.apogee'));
+  });
+});
+
+describe("a simulation's launcher", () => {
+  const lugs = design('launchlug');
+
+  it("is its own choice, else the design's", () => {
+    expect(simLauncher({ launcher: 'rail' }, lugs)).toBe('rail');
+    expect(simLauncher({}, lugs)).toBe('rod');
+    expect(simLauncher(undefined, design())).toBeNull();
+  });
+
+  it('words a set of them by the one they share, neutral when they differ', () => {
+    expect(sharedLauncher([{ launcher: 'rail' }, { launcher: 'rail' }], lugs)).toBe('rail');
+    expect(sharedLauncher([{ launcher: 'rail' }, {}], lugs)).toBeNull();
+    expect(sharedLauncher([{}, { launcher: 'rod' }], lugs)).toBe('rod');
+    expect(sharedLauncher([], lugs)).toBe('rod');
+  });
+
+  it('turns the launcher text with it', () => {
+    const t = withLauncher(i18n.t as unknown as (key: string) => string, sharedLauncher([{ launcher: 'rail' }], lugs));
+    expect(t('launch.launchRod')).toBe('Launch rail');
   });
 });

@@ -752,6 +752,16 @@ const DIALOG_SCANS: Record<DialogSurface, Scan[]> = {
       },
     },
   ],
+  PadDialog: [
+    {
+      name: 'Pad setup',
+      open: async (page) => {
+        await openTab(page, 'Simulations');
+        await page.getByRole('button', { name: 'View the pad in 3D' }).click();
+        await dialogOpen(page, 'Pad setup');
+      },
+    },
+  ],
   SimpleMotorGuide: [
     {
       name: 'Benchtop motor guide',

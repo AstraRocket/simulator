@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { UnitChip } from '../common/UnitChip';
 import type { Units } from '../../prefs/useUnits';
 import { unitScope } from '../../prefs/units';
@@ -25,6 +26,7 @@ export function QNum({
   missing,
   commitOnBlur,
   onChange,
+  aside,
 }: {
   label: string;
   chipLabel?: string;
@@ -36,6 +38,7 @@ export function QNum({
   minSi?: number;
   maxSi?: number;
   commitOnBlur?: boolean;
+  aside?: ReactNode;
   /** A placeholder figure, shown in this field's own unit. */
   placeholderSi?: number;
 } & NumberRowMarks) {
@@ -56,6 +59,7 @@ export function QNum({
       required={required}
       missing={missing}
       commitOnBlur={commitOnBlur}
+      aside={aside}
       value={value === null ? null : fu.toUi(c.toSi(value))}
       onChange={onSi(fu, onChange, c.fromSi)}
     />

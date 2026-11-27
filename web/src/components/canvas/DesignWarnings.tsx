@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../../state/store';
 import { componentName, kernelComponentName, warningText } from '../../services/app/warningText';
 import { treeRecoveryDensityOutliers } from '../../services/design/recoveryDensity';
 import { tooWideMotors } from '../../services/design/motorWidth';
+import { blockedMotors } from '../../services/design/motorBlocked';
 import { fmtNum } from '../../i18n/format';
 
 export function DesignWarnings() {
@@ -15,6 +16,7 @@ export function DesignWarnings() {
   const configs = useWorkspaceStore((s) => s.configs);
   const outliers = useMemo(() => treeRecoveryDensityOutliers(tree), [tree]);
   const wide = useMemo(() => tooWideMotors(tree, configs), [tree, configs]);
+  const blocked = useMemo(() => blockedMotors(tree, configs), [tree, configs]);
   const texts = [
     ...(kernel ?? []).map((text) => warningText(text, t, (q, si) => u.fmtSym(q, si))),
     ...outliers.map(({ node, material, density }) => {
@@ -31,6 +33,14 @@ export function DesignWarnings() {
         motor: designation,
         diameter: fmtNum(diameter, 1),
         bore: fmtNum(bore, 1),
+      }),
+    ),
+    ...blocked.map(({ node, designation, blocker, overlapM }) =>
+      t('design.motorBlocked', {
+        part: componentName(kernelComponentName(node), t),
+        motor: designation,
+        blocker: componentName(kernelComponentName(blocker), t),
+        overlap: u.fmtSym('length', overlapM),
       }),
     ),
   ];

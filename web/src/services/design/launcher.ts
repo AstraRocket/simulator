@@ -14,6 +14,21 @@ export function launcherKind(tree: RocketTree): LauncherKind | null {
   return lug === button ? null : button ? 'rail' : 'rod';
 }
 
+/** A simulation's own choice, saved on its launch conditions, else what the design's lugs or buttons suggest. */
+export function simLauncher(launch: { launcher?: LauncherKind } | undefined, tree: RocketTree): LauncherKind | null {
+  return launch?.launcher ?? launcherKind(tree);
+}
+
+/** The kind every one of them flies from, for wording that covers them all; null, the neutral wording, when they differ. With none, the design's. */
+export function sharedLauncher(
+  launches: readonly ({ launcher?: LauncherKind } | undefined)[],
+  tree: RocketTree,
+): LauncherKind | null {
+  if (!launches.length) return launcherKind(tree);
+  const kinds = new Set(launches.map((l) => simLauncher(l, tree)));
+  return kinds.size === 1 ? [...kinds][0]! : null;
+}
+
 export function withLauncher<T extends (key: string, options?: Record<string, unknown>) => string>(
   t: T,
   kind: LauncherKind | null,

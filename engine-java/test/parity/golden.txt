@@ -1,4 +1,4 @@
-# golden v1 sha256=725eba44974ef4a4460f1250d642eacdb49a5e95404b931d3c07de87838b99b1 lines=406 generated=2026-11-23T14:42:16.948Z commit=1f90be3305778d020814582783af6838db13e79f
+# golden v1 sha256=a466e71913db84a9962a801e6b193ddb5f4ddcedbcdf3a8ac9bfab6fa614b0c6 lines=407 generated=2026-11-27T01:45:36.899Z commit=9c9b8a5b5556441120f77a2cc604a9abe5b79813
 # recorded on: win32-x64 openjdk_version_"21.0.12.1"_2026-08-18_LTS
 # The JVM reference output, recorded deliberately with `npm run parity:golden`.
 # parity.mjs re-verifies the sha256 above on every run, so a hand-edited value
@@ -72,6 +72,7 @@ tree.ctx.sorted|1.0|1.0|1.0|1.0|1.0|1.0|3.0
 fins.instances|3.0|3.0|3.0|3.0
 fins.virtual|3.0|3.0
 im.count|3.0|1.0
+monitorableset.order|30.0|2.0|17.0
 fins.ctx.before|3.0
 fins.ctx.after4|4.0
 fins.ctx.after3|3.0

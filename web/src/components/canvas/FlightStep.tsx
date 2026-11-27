@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { carrierAt, type FlightBody } from '../../services/flight/flightBodies';
-import { extentCenter, extentLength, newPlacement, placeCarrier, placedNose, type BodySpan } from './bodyMotion';
+import {
+  extentCenter,
+  extentLength,
+  liftOnPad,
+  newPlacement,
+  placeCarrier,
+  placedNose,
+  type BodySpan,
+  type PadLift,
+} from './bodyMotion';
 import type { AirframeRig } from './airframeRig';
 import { applyDrawn, worldOf, type DrawnMotion } from './drawnMotion';
 import type { FlightScene } from './flightScene';
@@ -38,6 +47,7 @@ export function FlightStep({
   ringLabelRef,
   scaleRef,
   padRef,
+  padLift,
   dialRef,
   onTick,
   onEnd,
@@ -67,6 +77,8 @@ export function FlightStep({
   /** Told each frame's scene units per meter of rocket. */
   scaleRef: RefObject<number>;
   padRef: RefObject<THREE.Group | null>;
+  /** How the pad's deflector holds the rocket up, as FlightPad draws it. */
+  padLift: PadLift;
   /** The compass rose. */
   dialRef: RefObject<SVGGElement | null>;
   onTick: (progress: number) => void;
@@ -75,6 +87,7 @@ export function FlightStep({
   const orbit = useThree((s) => s.controls) as Orbit | null;
   const canvas = useThree((s) => s.gl.domElement);
   const places = useMemo(() => bodies.map(newPlacement), [bodies]);
+  const padAt = scene.scenePts[0];
   const rig = useMemo(() => new FlightCameraRig(), []);
   const ahead = useMemo(() => new THREE.Vector3(), []);
   const hudAt = useRef(0);
@@ -84,7 +97,30 @@ export function FlightStep({
       if (rig.zoomPad(e.deltaY)) e.preventDefault();
     };
     canvas.addEventListener('wheel', zoom, { passive: false });
-    return () => canvas.removeEventListener('wheel', zoom);
+    // The pad camera's drag: OrbitControls is off in it, so the two never both take a drag.
+    let last: { x: number; y: number } | null = null;
+    const down = (e: PointerEvent) => {
+      if (e.button === 0) last = { x: e.clientX, y: e.clientY };
+    };
+    const move = (e: PointerEvent) => {
+      if (!last) return;
+      if (rig.walkPad(e.clientX - last.x, e.clientY - last.y)) e.preventDefault();
+      last = { x: e.clientX, y: e.clientY };
+    };
+    const up = () => {
+      last = null;
+    };
+    canvas.addEventListener('pointerdown', down);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      canvas.removeEventListener('wheel', zoom);
+      canvas.removeEventListener('pointerdown', down);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
   }, [canvas, rig]);
 
   useFrame(({ camera }, dt) => {
@@ -121,6 +157,7 @@ export function FlightStep({
       const place = places[i];
       if (!track || !place) return;
       placeCarrier(track, spans[carrier] ?? [], nowT, scale, place);
+      if (padAt) liftOnPad(place, padAt, padLift, nowT, scale);
       const motion = drawn[carrier];
       if (motion) applyDrawn(place, motion, track, nowT, scale, radius, reaching(carrier, 'below'));
       const model = modelRefs.current[i];

@@ -20,6 +20,10 @@ import {
 import type { FlightTrack } from './flightTrack';
 
 const MOVE_SECONDS = 0.6;
+const UP = new THREE.Vector3(0, 1, 0);
+// A drag across the view turns the pad camera about half way round the pad.
+const WALK_RAD_PER_PX = 0.005;
+const WALK_RISE_PER_PX = 0.004;
 // Enough for a canopy to clear the top of the view.
 const ROOM_ABOVE = 0.65;
 
@@ -76,11 +80,26 @@ export class FlightCameraRig {
   private readonly travel = new THREE.Vector3();
   private eye = new THREE.Vector3();
   private padZoom = 1;
+  private readonly walk = new THREE.Vector3();
 
   /** Whether it did: only the pad camera has a lens to zoom. */
   zoomPad(wheel: number): boolean {
     if (this.shot?.view !== 'pad') return false;
     this.padZoom = THREE.MathUtils.clamp(this.padZoom * Math.exp(wheel * 0.001), 0.1, 8);
+    return true;
+  }
+
+  /**
+   * Whether it did: a drag walks the pad camera around the pad, and up or down, still turning to follow the rocket.
+   * The pad camera keeps no orbit of its own, since it stands still on the ground and turns.
+   */
+  walkPad(dxPx: number, dyPx: number): boolean {
+    const pad = this.shot?.view === 'pad' ? this.shot.track.scenePts[0] : undefined;
+    if (!pad) return false;
+    const off = this.walk.subVectors(this.eye, pad).applyAxisAngle(UP, -dxPx * WALK_RAD_PER_PX);
+    const away = Math.max(Math.hypot(off.x, off.z), 1e-6);
+    off.y = THREE.MathUtils.clamp(off.y + dyPx * away * WALK_RISE_PER_PX, away * 0.01, away * 3);
+    this.eye.copy(pad).add(off);
     return true;
   }
 

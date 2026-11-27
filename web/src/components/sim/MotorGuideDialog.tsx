@@ -8,7 +8,7 @@ import { useCatalog } from './useCatalog';
 import { useMotorFilter } from './useMotorFilter';
 import { useUnits } from '../../prefs/useUnits';
 import { unitScope, type Quantity } from '../../prefs/units';
-import { useLauncherT } from '../common/useLauncher';
+import { useLauncherKind, useLauncherT } from '../common/useLauncher';
 import { useSettings } from '../../state/useSettings';
 import {
   useWorkspaceStore,
@@ -37,7 +37,6 @@ import { colWithUnit, fmtNum } from '../../i18n/format';
 import { NO_VALUE } from '../../i18n/noValue';
 import { motorGuideCsv, CSV_MIME } from '../../services/exports/csvExport';
 import { download, exportFilename } from '../../services/files/saveFile';
-import { launcherKind } from '../../services/design/launcher';
 import { useIsDesktop } from '../common/useMediaQuery';
 import {
   GuideFilterPanel,
@@ -372,7 +371,8 @@ function GuideTable({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const lt = useLauncherT();
+  const lt = useLauncherT({ simId });
+  const launcher = useLauncherKind({ simId });
   const u = useUnits();
   const { settings } = useSettings();
   const tree = useWorkspaceStore((s) => s.tree);
@@ -443,7 +443,7 @@ function GuideTable({
         })),
         u.all,
         t,
-        launcherKind(tree),
+        launcher,
       ),
       CSV_MIME,
     );

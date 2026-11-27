@@ -9,7 +9,7 @@ import { designBlocker, designBlockerText, unflyableSims, unflyableText } from '
 import { configPowerClass } from '../../services/flight/powerClass';
 
 export function RunButton({ className = '' }: { className?: string }) {
-  const t = useLauncherT();
+  const t = useLauncherT('active');
   const units = useUnits();
   // Not `selectRunIds` directly: a fresh array per call re-renders forever under zustand.
   const selectedIds = useWorkspaceStore((s) => s.selectedSimIds);

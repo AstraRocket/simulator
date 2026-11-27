@@ -56,7 +56,7 @@ diffs remain in `docs/rasaero/diffs/`. `extract --check` now prints both lists
 on every run, so the distinction is visible instead of having to be
 reconstructed.
 
-## The 22 patches
+## The 23 patches
 
 | File (under `info/openrocket/core/`) | Why |
 | --- | --- |
@@ -68,6 +68,7 @@ reconstructed.
 | `rocketcomponent/FlightConfiguration.java` | `ConcurrentLinkedQueue` → `LinkedList` (TeaVM classlib gap). Plus `motors` `HashMap` → `LinkedHashMap`: its key hashes the mount's random UUID, and a `HashMap` orders by that hash, so same-time IGNITION/BURNOUT/EJECTION_CHARGE events from mounts in one stage change order from build to build, and so does the order thrust and motor mass are summed in. Same reason as `InstanceMap`. |
 | `rocketcomponent/FlightConfigurationId.java` | `java.util.UUID` → `core.util.LongUUID` (TeaVM's UUID has no `(long, long)` constructor, `getMostSignificantBits` or `compareTo`). |
 | `rocketcomponent/InstanceMap.java` | `ConcurrentHashMap` → `LinkedHashMap`; also makes iteration order stable. |
+| `util/MonitorableSet.java` | `HashSet` → `LinkedHashSet`. Its one user is the deployed recovery device set, whose order sets the order the landing stepper sums CdA in. Same reason as `InstanceMap`. See "Deployed recovery devices sum in deployment order". |
 | `motor/MotorConfigurationId.java` | Same `LongUUID` swap, same TeaVM gap. |
 | `simulation/BasicEventSimulationEngine.java` | `PATCH(teavm-format-g)`: `"%g"` → `"%s"` (TeaVM's `Formatter` lacks `%g`). Plus `PATCH(drogue-low-speed)`: upstream's own drogue-low-speed check, uncommented (see below). |
 | `util/BoundingBox.java` | Dropped `java.awt.geom.Rectangle2D`, and with it the public `update(Rectangle2D)` and `toRectangle()` (it does not use `Geo2D`). `PATCH(teavm-format-g)`: `toString()` built by concatenation, since TeaVM's `Formatter` has no `%g`. |
@@ -1641,3 +1642,30 @@ reference fixture hold it.
 - **Reference:** `fixtures/custom-expressions.json` compares 19 expressions, covering
   every function but `random`, with pristine upstream on both branches of a staged
   flight.
+
+## Deployed recovery devices sum in deployment order - 2026-11-26
+
+`util/MonitorableSet.java`, a new patch. Found by mmrocket-sim (their KD1, v0.218,
+see `extract/MMROCKET-SIM`), ported onto our upstream file.
+
+- **Why:** `SimulationStatus.deployedRecoveryDevices` is a `MonitorableSet`, which
+  extends `HashSet`, and `RecoveryDevice` hashes by its id, a random UUID minted per
+  component. `BasicLandingStepper.computeCD` sums `count * CD * area / refArea` over
+  that set, so the order of the sum changed with every build of the same design. With
+  three or more devices out at once whose terms round differently by order, the
+  descent moved in its last bits from one load to the next (mmrocket-sim measured the
+  ground-hit time moving in its 14th significant digit). One or two devices cannot
+  move: a two-term sum is commutative.
+- **Change:** `extends HashSet` → `extends LinkedHashSet`. Iteration is insertion
+  order, which is deployment-event order. `SimulationStatus`'s copy constructor
+  keeps it (`clear()` then `addAll()` of the original). Plain classlib, so TeaVM is
+  unaffected.
+- **Their other half is already here:** `FlightConfiguration.motors` as a
+  `LinkedHashMap`, taken 2026-10-15 (table above).
+- **Fingerprint:** `MonitorableSet.java` `2126713a6451` (14 lines). `@manifest`
+  `57a6ac369d07` and `@upstream` `5be4a457704e` unchanged.
+- **Golden:** no existing value moved. Checked by building with upstream's `HashSet`
+  against the new golden: only the new line failed. One line added, the set's
+  iteration order after inserting 30, 2 and 17 (a `HashSet` iterates 17, 2, 30), so
+  losing the patch fails the golden. `audit.mjs` now expects 407 lines.
+- **Parity:** JS and WASM agree with the JVM on all 407 lines.

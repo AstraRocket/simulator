@@ -49,6 +49,7 @@ asseg
 astrarocket
 astrarocketbays
 astrarocketjs
+astrarocketlauncher
 astrarocketmain
 astrarocketnotes
 astrarocketopens
@@ -414,9 +415,11 @@ multisampled
 multiset
 myfinset
 navigations
+NCEI
 Nederlands
 Niskanen
 nnum
+NOAA
 Nonaxial
 noninteractive
 nosetorootbottom

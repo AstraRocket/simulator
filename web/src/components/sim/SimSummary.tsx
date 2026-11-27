@@ -29,7 +29,7 @@ const goodTone = 'text-ok-400';
 const warnTone = 'text-warn-400';
 
 function RailExitStats({ sim }: { sim: FlightResult }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   const u = useUnits();
   const rodExit = useScopedUnit(unitScope('sim', 'rodExit'), 'velocity');
   const railCpUnit = useScopedUnit(unitScope('sim', 'railCp'), 'length');
@@ -126,7 +126,7 @@ function RailExitStats({ sim }: { sim: FlightResult }) {
 }
 
 function FlightStats({ sim }: { sim: FlightResult }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   const apogee = useScopedUnit(unitScope('sim', 'apogee'), 'distance');
   const deployVel = useScopedUnit(unitScope('sim', 'deployVelocity'), 'velocity');
   const landingVel = useScopedUnit(unitScope('sim', 'landing'), 'velocity');
@@ -203,7 +203,7 @@ function FlightStats({ sim }: { sim: FlightResult }) {
 }
 
 function PeakStats({ sim }: { sim: FlightResult }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   const u = useUnits();
   const maxAccel = useScopedUnit(unitScope('sim', 'maxAccel'), 'acceleration');
   const maxQUnit = useScopedUnit(unitScope('sim', 'maxQ'), 'pressure');
@@ -247,7 +247,7 @@ function PeakStats({ sim }: { sim: FlightResult }) {
 }
 
 export function SimSummary({ sim }: { sim: FlightResult | null }) {
-  const t = useLauncherT();
+  const t = useLauncherT('shown');
   if (!sim?.summary) return null;
   return (
     <div className="space-y-3">

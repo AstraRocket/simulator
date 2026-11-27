@@ -4,9 +4,11 @@ import { readLocalText, writeLocalJson } from './localPref';
 import type { PartKey } from '../design/partColors';
 import { readFigureStyles, type FigureStyles } from '../design/figureStyle';
 import type { CompleteLaunch } from '../flight/requiredLaunch';
+import { LAUNCHERS } from '../design/orkTree';
 import { MAX_ANGLE_STEP_RANGE, seedFromInput, stepperOf } from '../flight/simulations';
 import type { SimStepper } from '../../engine/openRocketEngine';
 import { DEFAULT_HEADING_DEG } from '../flight/windLevels';
+import { NORTH_REFERENCES, type NorthReference } from '../flight/bearing';
 import { defaultCsvFormat, type CsvFormat } from '../flight/flightColumns';
 import { usableWindLevels } from '../flight/windLevels';
 import { usableAtmosphereLevels } from '../flight/atmosphereLevels';
@@ -121,6 +123,8 @@ export interface Settings {
   flightLabels: boolean;
   simulation: SimulationSettings;
   launchDefaults: CompleteLaunch;
+  /** Entry only: the launch panel converts magnetic bearings and stores them true. */
+  northReference: NorthReference;
   headerSummary: HeaderSummaryPref;
   statsLayout: StatsLayout;
   showMarkers: boolean;
@@ -261,6 +265,7 @@ export const DEFAULT_SETTINGS: Settings = {
     rogersKbf: false,
   },
   launchDefaults: DEFAULT_LAUNCH,
+  northReference: 'true',
   headerSummary: 'full',
   statsLayout: 'compact',
   showMarkers: true,
@@ -453,6 +458,7 @@ export function settingsFrom(value: unknown): Settings {
       if (typeof l.launchIntoWind !== 'boolean' && l.launchIntoWind !== undefined) {
         l.launchIntoWind = DEFAULT_SETTINGS.launchDefaults.launchIntoWind;
       }
+      if (l.launcher !== undefined && !LAUNCHERS.includes(l.launcher)) delete l.launcher;
       if (l.geodetic !== undefined && !['flat', 'spherical', 'wgs84'].includes(l.geodetic)) {
         l.geodetic = DEFAULT_SETTINGS.launchDefaults.geodetic;
       }
@@ -490,6 +496,9 @@ export function settingsFrom(value: unknown): Settings {
       delete l.weatherSource;
       return l;
     })(),
+    northReference: NORTH_REFERENCES.includes(s.northReference as NorthReference)
+      ? (s.northReference as NorthReference)
+      : DEFAULT_SETTINGS.northReference,
     showMarkers: flag(s.showMarkers, DEFAULT_SETTINGS.showMarkers),
     showInfoCard: flag(s.showInfoCard, DEFAULT_SETTINGS.showInfoCard),
     showGrid: flag(s.showGrid, DEFAULT_SETTINGS.showGrid),

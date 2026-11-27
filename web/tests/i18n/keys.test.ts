@@ -1,3 +1,5 @@
+import { NORTH_REFERENCES } from '../../src/services/flight/bearing';
+import { LAUNCHERS } from '../../src/services/design/orkTree';
 import { describe, it, expect, vi } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -242,6 +244,9 @@ const DYNAMIC_FAMILIES: { prefix: string; values: readonly string[] }[] = [
     values: ['none', 'veryLow', 'low', 'medium', 'high', 'veryHigh', 'extreme'],
   },
   { prefix: 'launch.windModel_', values: ['average', 'multilevel'] },
+  { prefix: 'launch.north_', values: NORTH_REFERENCES },
+  { prefix: 'launch.bearingHint_', values: NORTH_REFERENCES },
+  { prefix: 'launch.launcherOption.', values: LAUNCHERS },
   { prefix: 'launch.field.', values: REQUIRED_LAUNCH_KEYS },
   { prefix: 'recovery.verdict.', values: ['slow', 'main', 'between', 'drogue', 'fast'] },
   { prefix: 'motorDlg.', values: ['typeSU', 'typeReload', 'typeHybrid'] },

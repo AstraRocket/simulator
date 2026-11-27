@@ -95,8 +95,8 @@ export function resultKey(tree: RocketTree, config: FlightConfig, sim: Simulatio
 function computeResultKey(tree: RocketTree, config: FlightConfig, sim: Simulation, globals: SimPrefs): string {
   const { id: _id, name: _name, ...flown } = config;
   const prefs = effectivePrefs(globals, sim.prefs);
-  // Neither is flown.
-  const { weatherSource: _source, keptWindLevels: _kept, ...launch } = sim.launch;
+  // None is flown.
+  const { weatherSource: _source, keptWindLevels: _kept, launcher: _launcher, ...launch } = sim.launch;
   // Off adds nothing, so a run saved before the setting existed keeps its key.
   const keyed = SIM_PREF_KEYS.filter((k) => k !== 'rogersKbf' || prefs.rogersKbf);
   // Only a tabled simulation adds them, so every other key stays as it was.

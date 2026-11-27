@@ -7,6 +7,7 @@ import { usableAtmosphereLevels } from '../../flight/atmosphereLevels';
 import { isWeatherSource, restoredSource } from '../../weather/weatherSource';
 import { finiteNum } from './numbers';
 import { numTag } from './importTags';
+import { LAUNCHER_TAG } from './appTags';
 import { radToDeg } from '../../../prefs/units';
 import { LAUNCH_SI } from '../../../prefs/launchUnits';
 
@@ -29,6 +30,8 @@ export function readSimulationLaunch(simEl: Element | null): Partial<LaunchCondi
   if (!Number.isNaN(rodDir)) launch.launchRodDirectionDeg = rodDir;
   const intoWind = (text(condEl, ':scope > launchintowind') ?? '').trim().toLowerCase();
   if (intoWind === 'true' || intoWind === 'false') launch.launchIntoWind = intoWind === 'true';
+  // The app's own: anything but rail reads as the rod desktop assumes.
+  if ((text(condEl, `:scope > ${LAUNCHER_TAG}`) ?? '').trim().toLowerCase() === 'rail') launch.launcher = 'rail';
 
   readWind(condEl, launch);
 

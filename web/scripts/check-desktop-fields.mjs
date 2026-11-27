@@ -12,11 +12,6 @@ const SOURCES = [
   resolve(HERE, 'ork-check/OrkFields.java'),
   resolve(HERE, '../../engine-java/src/api/java/api/ComponentFields.java'),
 ];
-const CATALOG_DIGESTS = new Set(
-  JSON.parse(readFileSync(resolve(HERE, '../public/data/motors.generated.json'), 'utf8')).flatMap((m) =>
-    (m.digests ?? []).map((e) => e.digest),
-  ),
-);
 
 // `when(app, desktop, appFields, desktopFields)` must confirm this is the difference the entry names.
 const KNOWN = [
@@ -201,11 +196,6 @@ const KNOWN = [
     rule: 'ork:shockcord.materialName',
     why: "a RockSim cord's line has no name (MassObjectHandler), and desktop refuses a .ork material without one, so the writer names it custom",
     when: (a, d) => a === '' && d === 'custom',
-  },
-  {
-    rule: 'ork:config.motor.digest',
-    why: 'a file keeps the digest it was saved with on a motor the app did not change, and the bundled examples were saved against an older motor database; desktop finds the motor by name, since ork:config.motor agrees',
-    when: (a) => !CATALOG_DIGESTS.has(a),
   },
   {
     rule: 'rkt:nosecone.shoulderThickness',

@@ -3,10 +3,14 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
 import { screen, fireEvent } from '@testing-library/react';
 import { LaunchPanel } from '../../../src/components/sim/LaunchPanel';
-import { renderWithProviders } from '../../testing/renderWithProviders';
-import { launchPatchFor, type LaunchConditions } from '../../../src/services/design/orkTree';
+import { readSettings, renderWithProviders, seedSettings } from '../../testing/renderWithProviders';
+import { launchPatchFor, type LaunchConditions, type LaunchPatch } from '../../../src/services/design/orkTree';
+import { siteDeclination } from '../../../src/services/flight/bearing';
 import { __setEngineForTests } from '../../../src/engine/openRocketEngine';
 import { useEngineStore } from '../../../src/state/engineStore';
+
+// WebGL does not run under jsdom.
+vi.mock('../../../src/components/canvas/PadPreview3D', () => ({ PadPreview3D: () => <div>pad view</div> }));
 
 const LAUNCH: LaunchConditions = {
   launchRodLengthM: 1,
@@ -195,9 +199,151 @@ describe('direction fields', () => {
   it('clear to unset rather than to 0', () => {
     const onChange = vi.fn();
     renderWithProviders(<LaunchPanel launch={{ ...LAUNCH, windDirectionDeg: 45 }} onChange={onChange} />);
-    fireEvent.change(screen.getAllByRole('spinbutton', { name: 'Direction' }).at(-1)!, { target: { value: '' } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'From' }), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith({ windDirectionDeg: undefined });
     expect(onChange).not.toHaveBeenCalledWith({ windDirectionDeg: 0 });
+  });
+
+  it('name the compass point and the north they count from', () => {
+    renderWithProviders(
+      <LaunchPanel launch={{ ...LAUNCH, windDirectionDeg: 270, launchRodDirectionDeg: 45 }} onChange={() => {}} />,
+    );
+    expect(screen.getByText('W, clockwise from true north')).toBeTruthy();
+    expect(screen.getByText('NE, clockwise from true north')).toBeTruthy();
+  });
+});
+
+describe('the compass drawing', () => {
+  it('says how the rod sits against the pad wind', () => {
+    renderWithProviders(
+      <LaunchPanel
+        launch={{ ...LAUNCH, windAverage: 4, windDirectionDeg: 270, launchRodDirectionDeg: 270, launchRodAngleDeg: 5 }}
+        onChange={() => {}}
+      />,
+    );
+    expect(document.querySelector('figcaption')?.textContent).toBe('Leans 5° into the wind.');
+  });
+
+  it('keeps the side view wind on the left, and tips the rod toward or away from it at the typed angle', () => {
+    const tipAt = (rodDeg: number, angleDeg: number) => {
+      const { unmount } = renderWithProviders(
+        <LaunchPanel
+          launch={{
+            ...LAUNCH,
+            windAverage: 4,
+            windDirectionDeg: 270,
+            launchRodDirectionDeg: rodDeg,
+            launchRodAngleDeg: angleDeg,
+          }}
+          onChange={() => {}}
+        />,
+      );
+      expect(document.querySelector('[data-side-wind]')).not.toBeNull();
+      const d = document.querySelector('[data-side-rod]')?.getAttribute('d') ?? '';
+      unmount();
+      return Number(/L(-?[\d.]+) /.exec(d)?.[1]);
+    };
+    const into = tipAt(270, 9);
+    expect(into).toBeLessThan(0);
+    // Off the wind, only the side changes, not the drawn angle.
+    expect(tipAt(300, 9)).toBeCloseTo(into, 9);
+    expect(tipAt(90, 9)).toBeCloseTo(-into, 9);
+    expect(tipAt(270, 0)).toBeCloseTo(0, 9);
+  });
+
+  it('says so when there is no wind to lean against', () => {
+    renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} />);
+    expect(document.querySelector('figcaption')?.textContent).toBe('No wind. Vertical.');
+  });
+
+  it('saves rod or rail on the simulation, and words the card for it', () => {
+    const onChange = vi.fn();
+    const { unmount } = renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={onChange} />);
+    expect((screen.getByRole('radio', { name: 'Rod' }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('radio', { name: 'Rail' }));
+    expect(onChange).toHaveBeenCalledWith({ launcher: 'rail' });
+    unmount();
+    renderWithProviders(<LaunchPanel launch={{ ...LAUNCH, launcher: 'rail' }} onChange={() => {}} />);
+    expect((screen.getByRole('radio', { name: 'Rail' }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText('Launch rail')).toBeTruthy();
+  });
+
+  it("takes the design's word until the simulation says", () => {
+    renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} launcher="rail" />);
+    expect((screen.getByRole('radio', { name: 'Rail' }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('draws a dial beside the angle and each bearing, turned to the value', () => {
+    renderWithProviders(
+      <LaunchPanel
+        launch={{ ...LAUNCH, windAverage: 4, windDirectionDeg: 270, launchRodDirectionDeg: 45, launchRodAngleDeg: 5 }}
+        onChange={() => {}}
+      />,
+    );
+    expect(document.querySelector('[data-dial="tilt"]')).not.toBeNull();
+    expect(document.querySelector('[data-dial="rod"] g')?.getAttribute('transform')).toBe('rotate(45)');
+    expect(document.querySelector('[data-dial="wind"] g')?.getAttribute('transform')).toBe('rotate(270)');
+  });
+
+  it('opens the pad in 3D from the compass card', async () => {
+    renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'View the pad in 3D' }));
+    expect(screen.getByRole('dialog', { name: 'Pad setup' })).toBeTruthy();
+    expect(await screen.findByText('pad view')).toBeTruthy();
+    // Shapes named, not colors alone; no magnetic mark in true mode.
+    for (const name of ['True north', 'Wind', 'Rod']) expect(screen.getAllByText(name).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Magnetic north')).toBeNull();
+  });
+
+  it('marks magnetic north only while bearings read magnetic', () => {
+    const { unmount } = renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} />);
+    expect(document.querySelector('[data-magnetic-north]')).toBeNull();
+    unmount();
+    seedSettings({ northReference: 'magnetic' });
+    renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} />);
+    expect(document.querySelector('[data-magnetic-north]')).not.toBeNull();
+    localStorage.clear();
+  });
+});
+
+describe('magnetic bearings', () => {
+  afterEach(() => localStorage.clear());
+
+  const declination = siteDeclination(LAUNCH)!;
+  const typed = (onChange: ReturnType<typeof vi.fn>) =>
+    launchPatchFor(onChange.mock.lastCall![0] as LaunchPatch, LAUNCH, 'row');
+
+  it('show a true bearing as magnetic, and store what is typed as true', () => {
+    seedSettings({ northReference: 'magnetic' });
+    const onChange = vi.fn();
+    renderWithProviders(
+      <LaunchPanel launch={{ ...LAUNCH, windDirectionDeg: 270, launchRodDirectionDeg: 90 }} onChange={onChange} />,
+    );
+    const from = screen.getByRole('spinbutton', { name: 'From' }) as HTMLInputElement;
+    expect(Number(from.value)).toBe(Math.round((270 - declination) * 10) / 10);
+    expect(screen.getByText(/^Magnetic north is .* west of true north here/)).toBeTruthy();
+
+    fireEvent.change(from, { target: { value: '270' } });
+    // Loose: the declination drifts with the clock between the two reads.
+    expect(typed(onChange).windDirectionDeg).toBeCloseTo(270 + declination, 5);
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Leans toward' }), { target: { value: '0' } });
+    expect(typed(onChange).launchRodDirectionDeg).toBeCloseTo((360 + declination) % 360, 5);
+  });
+
+  it('fall back to true, and say why, with no site position', () => {
+    seedSettings({ northReference: 'magnetic' });
+    renderWithProviders(
+      <LaunchPanel launch={{ ...LAUNCH, latitudeDeg: null, windDirectionDeg: 270 }} onChange={() => {}} />,
+    );
+    expect(Number((screen.getByRole('spinbutton', { name: 'From' }) as HTMLInputElement).value)).toBe(270);
+    expect(screen.getByText(/to enter magnetic bearings/)).toBeTruthy();
+  });
+
+  it('switch with the North choice, which is kept as a preference', () => {
+    renderWithProviders(<LaunchPanel launch={LAUNCH} onChange={() => {}} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Magnetic' }));
+    expect(readSettings().northReference).toBe('magnetic');
   });
 });
 
