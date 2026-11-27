@@ -154,17 +154,36 @@ describe('the records in a .ork', () => {
   it('round-trip inside the tube they belong to', () => {
     const tree = updateBay(rocket(), 'lower', 'drogue', { primaryKg: 0.0012, tests: [test1] });
     const xml = exportOrk({ name: 'R', tree } as never);
-    expect(xml).toContain('<astrarocketbays>');
+    expect(xml).toContain('<ejectionbays>');
     const back = importOrk(xml).tree;
     const lower = [...walkNodes(back.components)].find((n) => n.type === 'bodytube' && n.name === 'Lower')!;
     expect(lower[BAYS_KEY]).toEqual({ drogue: { primaryKg: 0.0012, tests: [test1] } });
     expect(lower['xmlExtra']).toBeUndefined();
   });
 
+  it('are written as elements, every field, and read back the same', () => {
+    const record = {
+      boreM: 0.0536,
+      lengthM: 0.3,
+      pressurePa: 103421,
+      pins: { count: 4, size: null, forceN: 40 },
+      primaryKg: 0.0012,
+      backupKg: 0.0018,
+      flownTestId: 't1',
+      tests: [test1, { ...test1, id: 't2', pins: null, result: 'pinsHeld' as const, notes: 'A & <b>' }],
+    };
+    const tree = updateBay(updateBay(rocket(), 'lower', 'drogue', record), 'lower', 'main', { tests: [] });
+    const xml = exportOrk({ name: 'R', tree } as never);
+    expect(xml).toContain('<ejectionbay role="drogue">');
+    expect(xml).toContain('<groundtest id="t1">');
+    const lower = [...walkNodes(importOrk(xml).tree.components)].find((n) => n.name === 'Lower')!;
+    expect(lower[BAYS_KEY]).toEqual({ drogue: record, main: { tests: [] } });
+  });
+
   it("carry a stage's picked main inside the device", () => {
     const tree = setStageMain(rocket(), 'st', 'main');
     const xml = exportOrk({ name: 'R', tree } as never);
-    expect(xml).toContain('<astrarocketmain>true</astrarocketmain>');
+    expect(xml).toContain('<ismain>true</ismain>');
     const back = [...walkNodes(importOrk(xml).tree.components)];
     expect(back.find((n) => n.name === 'Main')![MAIN_DEVICE_KEY]).toBe(true);
     expect(back.find((n) => n.name === 'Main')!['xmlExtra']).toBeUndefined();
@@ -175,7 +194,7 @@ describe('the records in a .ork', () => {
     const tree = updateNode(rocket(), 'main', { [OPENS_AT_KEY]: 'back' });
     expect(flightKey(tree)).toBe(flightKey(rocket()));
     const xml = exportOrk({ name: 'R', tree } as never);
-    expect(xml.match(/<astrarocketopens>/g)).toHaveLength(1);
+    expect(xml.match(/<deployjoint>/g)).toHaveLength(1);
     const main = (x: string) => [...walkNodes(importOrk(x).tree.components)].find((n) => n.name === 'Main')!;
     expect(opensAt(main(xml))).toBe('back');
     expect(main(xml)['xmlExtra']).toBeUndefined();
@@ -185,7 +204,9 @@ describe('the records in a .ork', () => {
   it('drops a malformed record rather than loading it', () => {
     const xml = exportOrk({ name: 'R', tree: rocket() } as never).replace(
       '<name>Lower</name>',
-      '<name>Lower</name><astrarocketbays>{"drogue":{"tests":"no"}}</astrarocketbays>',
+      '<name>Lower</name><ejectionbays><ejectionbay role="drogue"><primarycharge>0.001</primarycharge>' +
+        '<groundtest id="t"><date>2026-01-02</date><charge>lots</charge><result>clean</result></groundtest>' +
+        '</ejectionbay></ejectionbays>',
     );
     const lower = [...walkNodes(importOrk(xml).tree.components)].find((n) => n.name === 'Lower')!;
     expect(lower[BAYS_KEY]).toBeUndefined();

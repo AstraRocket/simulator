@@ -8,8 +8,8 @@ absarc
 absb
 ACADVER
 ADOPTIUM
-Aero's
 aeroelastic
+Aero's
 Aeroscience
 AEROTECH
 aftersibling
@@ -47,17 +47,13 @@ arcgis
 arcgisonline
 asseg
 astrarocket
-astrarocketbays
 astrarocketjs
-astrarocketlauncher
-astrarocketmain
-astrarocketnotes
-astrarocketopens
 astrarrocketjs
 atmo
 authorable
 axialoffset
 AZERTY
+backupcharge
 barrowman
 Barrowman's
 baseheight
@@ -147,6 +143,7 @@ Delrin
 deployaltitude
 deploydelay
 deployevent
+deployjoint
 deploymentcharge
 deploymentconfiguration
 deploymentvelocity
@@ -154,6 +151,7 @@ Depron
 Derivs
 desig
 designinfo
+designnotes
 designtype
 desync
 desynced
@@ -181,6 +179,8 @@ easyops
 edgessameasinside
 efins
 Eggtimer
+ejectionbay
+ejectionbays
 ejectioncharge
 elevationapplied
 ellipticalfinset
@@ -228,6 +228,7 @@ flightdata
 flighttime
 Flis
 fliskits
+flowntest
 forecastlevel
 foreradius
 foreshouldercapped
@@ -258,6 +259,7 @@ gradlew
 gravitymodel
 gridlines
 groundhitvelocity
+groundtest
 Guardado
 Guice
 haack
@@ -303,6 +305,7 @@ INSUNITS
 interp
 isdrogue
 isflipped
+ismain
 istack
 Itot
 jakarta
@@ -323,13 +326,16 @@ Kevlars
 killable
 kitbash
 kitchensink
+kitmanufacturer
 kitname
+kitpartnumber
 KOSDON
 Kuker
 Kutta
 landingdispersion
 languagedetector
 launchaltitude
+launchguide
 launchintowind
 launchlatitude
 launchlongitude
@@ -443,8 +449,8 @@ openstreetmap
 openxmlformats
 optimumdelay
 orc
-Ork's
 orkengine
+Ork's
 outerdiameter
 outerradius
 overclaims
@@ -490,6 +496,7 @@ precaching
 prefs
 premultiplies
 PresetDump
+primarycharge
 println
 pushversion
 putchar
@@ -525,6 +532,7 @@ repointed
 reprojection
 requestfailed
 reselecting
+revisionlog
 rightline
 rint
 rocketcomponent
@@ -554,6 +562,7 @@ SERIESLENS
 ServicesForTesting
 shapeclipped
 shapeparameter
+shearpins
 shockcord
 Shotcut
 shouldercapped
@@ -595,8 +604,8 @@ strmr
 subclassing
 subcomponent
 subcomponents
-subfeature
 Subfeature
+subfeature
 subresource
 Substitutor
 Surfacedensity
@@ -613,8 +622,8 @@ tfins
 tform
 Tform
 thrustcurve
-thrustcurve's
 thrustcurves
+thrustcurve's
 thzero
 timecode
 timeformat
