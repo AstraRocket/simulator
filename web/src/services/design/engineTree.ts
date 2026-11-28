@@ -10,7 +10,7 @@ export const BASE_DRAG_HACK_ID = 'base-drag-hack';
 export const BASE_DRAG_HACK_ENGINE_NAME = '__base_drag_hack__';
 
 /** Calibers: openrocket.info's "Implementing Base Drag CP Correction" makes the cone π diameters long. */
-export const BASE_DRAG_HACK_CALIBERS = Math.PI;
+const BASE_DRAG_HACK_CALIBERS = Math.PI;
 
 export const isIgnored = (n: ComponentNode): boolean => n[IGNORED_KEY] === true;
 
@@ -41,10 +41,6 @@ export function withoutIgnored(nodes: ComponentNode[]): ComponentNode[] {
   return result;
 }
 
-export function hasIgnored(nodes: readonly ComponentNode[]): boolean {
-  return nodes.some((n) => (canIgnore(n) && isIgnored(n)) || hasIgnored(n.children ?? []));
-}
-
 /** The aft end's radius: the last body part of the last stage. */
 function aftBodyRadius(parts: readonly ComponentNode[]): number {
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -69,9 +65,9 @@ function aftParts(tree: RocketTree): ComponentNode[] {
  * Null when the aft end has no width.
  *
  * `rocksim` writes it as a transition from a point: RockSim puts a nose cone only at the front, and it has no drag
- * override, so the cone is massless there but not dragless.
+ * override, so the cone has no mass there but does have drag.
  */
-export function baseDragHackCone(
+function baseDragHackCone(
   tree: RocketTree,
   name: string,
   comment?: string,
@@ -147,7 +143,7 @@ const endRadii = (n: ComponentNode): [number, number] | null => {
  * of `bodyRadius` in front of it, and π diameters long. Mass, wall, drag and name are not asked about. No tag marks
  * it, so a file from this app, desktop or RockSim reads the same.
  */
-export function isBaseDragHackCone(n: ComponentNode, bodyRadius: number): boolean {
+function isBaseDragHackCone(n: ComponentNode, bodyRadius: number): boolean {
   const ends = endRadii(n);
   if (!ends || !(bodyRadius > 0)) return false;
   const [small, wide] = [Math.min(...ends), Math.max(...ends)];

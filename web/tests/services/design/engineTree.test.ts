@@ -50,7 +50,7 @@ describe('ignored parts', () => {
 });
 
 describe('the base drag hack', () => {
-  it('adds a massless, dragless cone, tip forward and π calibers long, behind the last stage only for static builds', () => {
+  it('adds a cone with no mass or drag, tip forward and π calibers long, behind the last stage only for static builds', () => {
     const t = design([tube()], { baseDragHack: true });
     const cone = aftParts(engineTree(t, 'static')).at(-1)!;
     expect(cone).toMatchObject({

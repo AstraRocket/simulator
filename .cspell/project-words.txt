@@ -305,6 +305,7 @@ INSUNITS
 interp
 isdrogue
 isflipped
+isignored
 ismain
 istack
 Itot

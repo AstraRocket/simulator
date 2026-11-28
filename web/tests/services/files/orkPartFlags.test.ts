@@ -34,7 +34,7 @@ describe('part flags in a .ork', () => {
 
   it('writes the base drag hack as a plain cone, no tag, and loads it back as the flag alone', () => {
     const xml = exportOrk({ name: 'R', tree: tree({ baseDragHack: true }) });
-    expect(xml).not.toContain('draghack');
+    expect(xml).not.toContain('hack</');
     expect(xml).toContain('<overridecd>0</overridecd>');
     const back = parseDesignFile(xml).tree;
     expect(back.baseDragHack).toBe(true);

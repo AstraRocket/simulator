@@ -52,7 +52,7 @@ function assemble(tree: RocketTree, config: FlightConfig, sent: RocketTree): Ope
 
 /**
  * The cone moves the CP and nothing a person sees. Lengths and warnings come from the build without it: a motor
- * sticking out of the tail sits inside the cone, so subtracting its length would undercount, and its join with the
+ * sticking out of the tail sits inside the cone, so subtracting its length would come up short, and its join with the
  * tail reads as a diameter discontinuity, which is the hack, not a fault in the design. Per-part rows drop it.
  */
 function hideHackCone(r: OpenRocketDesign, drawn: StaticInfo): void {
