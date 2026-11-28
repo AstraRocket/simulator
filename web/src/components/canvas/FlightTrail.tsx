@@ -55,7 +55,7 @@ export function FlightTrails({
 }
 
 /** The path flown so far, from the first sample at `from`, over a faint one of the whole flight. */
-export function FlightTrail({
+function FlightTrail({
   track,
   from,
   to = Infinity,

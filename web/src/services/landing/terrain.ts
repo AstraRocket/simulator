@@ -1,5 +1,6 @@
 import { fetchElevations, type FetchOpts } from '../weather/openMeteo';
 import { offsetToLatLon, reduceLonDeg } from '../map/geodesy';
+import { gridLerp } from '../map/terrainTiles';
 
 export interface TerrainGrid {
   south: number;
@@ -35,20 +36,11 @@ export function terrainPoints(b: ReturnType<typeof terrainBounds>, n = TERRAIN_P
 
 export function groundAt(grid: TerrainGrid): (latDeg: number, lonDeg: number) => number {
   const { south, west, north, east, n, heights } = grid;
-  const at = (i: number, j: number) => heights[i * n + j]!;
   // The grid's east edge may lie past 180, so move by whole turns to the nearest.
   const mid = (west + east) / 2;
   return (lat, lonDeg) => {
     const lon = mid + reduceLonDeg(lonDeg - mid);
-    const fi = Math.min(n - 1, Math.max(0, ((lat - south) / (north - south)) * (n - 1)));
-    const fj = Math.min(n - 1, Math.max(0, ((lon - west) / (east - west)) * (n - 1)));
-    const i0 = Math.min(n - 2, Math.floor(fi));
-    const j0 = Math.min(n - 2, Math.floor(fj));
-    const ti = fi - i0;
-    const tj = fj - j0;
-    const south0 = at(i0, j0) * (1 - tj) + at(i0, j0 + 1) * tj;
-    const north0 = at(i0 + 1, j0) * (1 - tj) + at(i0 + 1, j0 + 1) * tj;
-    return south0 * (1 - ti) + north0 * ti;
+    return gridLerp(heights, n, ((lat - south) / (north - south)) * (n - 1), ((lon - west) / (east - west)) * (n - 1));
   };
 }
 

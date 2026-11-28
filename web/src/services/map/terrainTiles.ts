@@ -1,16 +1,15 @@
 import { TILE_SIZE, metersPerPixel, visibleTiles, zoomForMetersPerPixel, type TileRef } from './slippyMap';
 
 // Mapzen's Terrarium tiles on AWS Open Data: no key, CORS open, on the imagery's z/x/y grid.
-export const TERRAIN_MAX_ZOOM = 15;
+const TERRAIN_MAX_ZOOM = 15;
 
-export const terrainTileUrl = (z: number, x: number, y: number): string =>
+const terrainTileUrl = (z: number, x: number, y: number): string =>
   `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 
-// cspell:ignore Terrarium Mapzen GMTED
 export const TERRAIN_ATTRIBUTION = 'Elevation: Mapzen Terrain Tiles on AWS (SRTM, USGS 3DEP, GMTED and others)';
 
 // Grid points a side: 96 cells, finer than the source over any flight's ground.
-export const TERRAIN_SAMPLES = 97;
+const TERRAIN_SAMPLES = 97;
 
 // Pixels across the ground the tiles are picked for: a few tiles, never hundreds.
 const TERRAIN_SIDE_PX = 512;
@@ -103,14 +102,22 @@ export const scaleTerrain = (field: TerrainField, scale: number): TerrainField =
 /** Meters above the pad at a point east and north of it, bilinear, held at the edge past it. */
 export function terrainHeightAt(field: TerrainField, east: number, north: number): number {
   const { halfWidthM: w, n, heights } = field;
-  const fj = Math.min(n - 1, Math.max(0, ((east + w) / (2 * w)) * (n - 1)));
-  const fi = Math.min(n - 1, Math.max(0, ((north + w) / (2 * w)) * (n - 1)));
-  const i0 = Math.min(n - 2, Math.floor(fi));
-  const j0 = Math.min(n - 2, Math.floor(fj));
-  const ti = fi - i0;
-  const tj = fj - j0;
-  const h = (i: number, j: number) => heights[i * n + j]!;
-  const south = h(i0, j0) * (1 - tj) + h(i0, j0 + 1) * tj;
-  const north0 = h(i0 + 1, j0) * (1 - tj) + h(i0 + 1, j0 + 1) * tj;
-  return south * (1 - ti) + north0 * ti;
+  return gridLerp(heights, n, ((north + w) / (2 * w)) * (n - 1), ((east + w) / (2 * w)) * (n - 1));
+}
+
+/**
+ * Bilinear in an n by n grid stored row by row, at fractional row `fi` and column `fj`, each held to the grid.
+ * Shared with the landing estimator's terrain.
+ */
+export function gridLerp(heights: ArrayLike<number>, n: number, fi: number, fj: number): number {
+  const i = Math.min(n - 1, Math.max(0, fi));
+  const j = Math.min(n - 1, Math.max(0, fj));
+  const i0 = Math.min(n - 2, Math.floor(i));
+  const j0 = Math.min(n - 2, Math.floor(j));
+  const ti = i - i0;
+  const tj = j - j0;
+  const h = (r: number, c: number) => heights[r * n + c] ?? 0;
+  const lower = h(i0, j0) * (1 - tj) + h(i0, j0 + 1) * tj;
+  const upper = h(i0 + 1, j0) * (1 - tj) + h(i0 + 1, j0 + 1) * tj;
+  return lower * (1 - ti) + upper * ti;
 }
