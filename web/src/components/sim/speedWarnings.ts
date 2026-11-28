@@ -8,7 +8,6 @@ export const SPEED_WARNINGS = [
   { key: 'deploymentSpeedWarn', label: 'settings.deploySpeedWarn', hint: 'settings.deploySpeedWarnHint' },
   { key: 'mainHighSpeedWarn', label: 'settings.mainHighSpeedWarn', hint: 'settings.mainHighSpeedWarnHint' },
   { key: 'mainLowSpeedWarn', label: 'settings.mainLowSpeedWarn', hint: 'settings.mainLowSpeedWarnHint' },
-  { key: 'drogueLowSpeedWarn', label: 'settings.drogueLowSpeedWarn', hint: 'settings.drogueLowSpeedWarnHint' },
 ] as const;
 
 const TOO_FAST = new Set(['HighSpeedDeployment', 'RECOVERY_MAIN_HIGH_SPEED']);

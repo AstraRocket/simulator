@@ -37,7 +37,6 @@ const PREFS: SimPrefs = {
   deploymentSpeedWarn: 20,
   mainHighSpeedWarn: 30.48,
   mainLowSpeedWarn: 15.24,
-  drogueLowSpeedWarn: 3.048,
   guideAwareRodClearance: false,
   railExitVelocityMin: 15,
   rogersKbf: false,
@@ -116,13 +115,10 @@ describe('simConditions', () => {
       deploymentSpeedWarn: 25,
       mainHighSpeedWarn: 40,
       mainLowSpeedWarn: 10,
-      drogueLowSpeedWarn: 4,
     });
     expect(c.recoverySpeedWarn).toBe(25);
     expect(c.mainHighSpeedWarn).toBe(40);
     expect(c.mainLowSpeedWarn).toBe(10);
-    // Upstream comments out the reader; PATCH(drogue-low-speed) enables it.
-    expect(c.drogueLowSpeedWarn).toBe(4);
   });
 
   it('honors a pinned seed, so a run can be reproduced exactly', () => {

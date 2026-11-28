@@ -212,7 +212,6 @@ export interface SimPrefs {
   deploymentSpeedWarn: number;
   mainHighSpeedWarn: number;
   mainLowSpeedWarn: number;
-  drogueLowSpeedWarn: number;
   guideAwareRodClearance: boolean;
   // m/s.
   railExitVelocityMin: number;
@@ -231,7 +230,6 @@ export const SIM_PREF_KEYS = [
   'deploymentSpeedWarn',
   'mainHighSpeedWarn',
   'mainLowSpeedWarn',
-  'drogueLowSpeedWarn',
   'guideAwareRodClearance',
   'railExitVelocityMin',
   'rogersKbf',
@@ -305,7 +303,6 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs, tables: 
     recoverySpeedWarn: prefs?.deploymentSpeedWarn,
     mainHighSpeedWarn: prefs?.mainHighSpeedWarn,
     mainLowSpeedWarn: prefs?.mainLowSpeedWarn,
-    drogueLowSpeedWarn: prefs?.drogueLowSpeedWarn,
     guideAwareRodClearance: prefs?.guideAwareRodClearance,
     railExitMinSpeed: prefs?.railExitVelocityMin,
     rogersKbf: prefs?.rogersKbf,

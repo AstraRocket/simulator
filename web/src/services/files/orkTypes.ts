@@ -17,7 +17,6 @@ export type OrkSimPrefs = Pick<
   | 'deploymentSpeedWarn'
   | 'mainHighSpeedWarn'
   | 'mainLowSpeedWarn'
-  | 'drogueLowSpeedWarn'
 >;
 
 export interface OrkMotorRef {

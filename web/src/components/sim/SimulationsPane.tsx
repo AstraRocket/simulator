@@ -29,7 +29,6 @@ export function SimulationsPane() {
   const tree = useWorkspaceStore((s) => s.tree);
   const configs = useWorkspaceStore((s) => s.configs);
   const simPrefs = useWorkspaceStore((s) => s.simPrefs);
-  const setSimConfig = useWorkspaceStore((s) => s.setSimConfig);
   const simRuns = useWorkspaceStore((s) => s.simRuns);
   const selectedIds = useWorkspaceStore((s) => s.selectedSimIds);
 
@@ -163,7 +162,6 @@ export function SimulationsPane() {
             tree={tree}
             configs={configs}
             simPrefs={simPrefs}
-            onSetConfig={setSimConfig}
             onSelect={onSelect}
             onToggle={onToggle}
             onToggleAll={(all) => setSelected(all ? sims.map((x) => x.id) : [])}

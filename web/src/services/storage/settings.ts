@@ -79,8 +79,6 @@ export interface SimulationSettings {
   /** m/s. */
   mainHighSpeedWarn: number;
   mainLowSpeedWarn: number;
-  /** m/s; enforced by PATCH(drogue-low-speed) in `BasicEventSimulationEngine`. */
-  drogueLowSpeedWarn: number;
   /** m/s. */
   railExitVelocityMin: number;
   /** Changes the flight itself; false matches OpenRocket (full rod length, buttons ignored). */
@@ -259,7 +257,6 @@ export const DEFAULT_SETTINGS: Settings = {
     deploymentSpeedWarn: 20,
     mainHighSpeedWarn: 30.48,
     mainLowSpeedWarn: 15.24,
-    drogueLowSpeedWarn: 3.048,
     railExitVelocityMin: 15,
     guideAwareRodClearance: false,
     rogersKbf: false,
@@ -421,7 +418,6 @@ export function settingsFrom(value: unknown): Settings {
       sim.deploymentSpeedWarn = pos(sim.deploymentSpeedWarn, DEFAULT_SETTINGS.simulation.deploymentSpeedWarn);
       sim.mainHighSpeedWarn = pos(sim.mainHighSpeedWarn, DEFAULT_SETTINGS.simulation.mainHighSpeedWarn);
       sim.mainLowSpeedWarn = pos(sim.mainLowSpeedWarn, DEFAULT_SETTINGS.simulation.mainLowSpeedWarn);
-      sim.drogueLowSpeedWarn = pos(sim.drogueLowSpeedWarn, DEFAULT_SETTINGS.simulation.drogueLowSpeedWarn);
       sim.railExitVelocityMin = pos(sim.railExitVelocityMin, DEFAULT_SETTINGS.simulation.railExitVelocityMin);
       // The bridge fails the whole run on a wrong type here.
       sim.guideAwareRodClearance = sim.guideAwareRodClearance === true;

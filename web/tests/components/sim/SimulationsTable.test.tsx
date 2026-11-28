@@ -38,7 +38,6 @@ describe('SimulationsTable warning count', () => {
         tree={s.tree}
         configs={s.configs}
         simPrefs={s.simPrefs}
-        onSetConfig={() => {}}
         onSelect={() => {}}
         onToggle={() => {}}
         onToggleAll={() => {}}
@@ -68,7 +67,6 @@ describe('SimulationsTable custom aerodynamic data', () => {
         tree={s.tree}
         configs={s.configs}
         simPrefs={s.simPrefs}
-        onSetConfig={() => {}}
         onSelect={() => {}}
         onToggle={() => {}}
         onToggleAll={() => {}}
@@ -123,7 +121,6 @@ describe('SimulationsTable time columns', () => {
           tree={s.tree}
           configs={s.configs}
           simPrefs={s.simPrefs}
-          onSetConfig={() => {}}
           onSelect={() => {}}
           onToggle={() => {}}
           onToggleAll={() => {}}

@@ -672,15 +672,14 @@ public class BasicEventSimulationEngine implements SimulationEngine {
 					if (stageHasDrogue) {
 						// Dual-deployment: warn on both high and low speed for the main chute
 						if (deployingDevice.isDrogue()) {
-							// PATCH(drogue-low-speed): upstream ships this block commented out, which
-							// leaves SimulationConditions.drogueLowSpeedWarning unread. The bridge sets it
-							// (options key `drogueLowSpeedWarn`) and the app has a setting for it, so the
-							// check is enabled here. The code is upstream's, without the comment markers.
+							// DrogueLowSpeedWarning — commented out for now
+							/*
 							DeploymentConfiguration dc = deployingDevice.getDeploymentConfigurations().get(this.fcid);
 							if (dc.getDeployEvent() == DeploymentConfiguration.DeployEvent.APOGEE
 									&& deploySpeed < conds.getDrogueLowSpeedWarning()) {
 								currentStatus.addWarning(new Warning.LowSpeedDrogueDeployment(deploySpeed, c));
 							}
+							*/
 						} 
 						else {
 							if (deploySpeed > conds.getRecoveryDrogueMainHighSpeedWarning()) {

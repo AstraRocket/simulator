@@ -16,7 +16,7 @@ The checkboxes choose which rows **Run** flies, and also which rows the editor c
 
 ## Pick what it flies
 
-The **Configuration** column in the table, and the picker at the top of the editor, choose which [flight configuration](./flight-configurations.md) the row flies; the motors it seats are spelled out underneath. **Edit motors…** opens the Configurations tab on that one.
+The picker at the top of the editor chooses which [flight configuration](./flight-configurations.md) the row flies; the motors it seats are spelled out underneath. The **Configuration** column in the table shows it but does not change it. **Edit motors…** opens the Configurations tab on that one.
 
 Several rows can fly the same configuration, which is the point of having them: change a motor once and every flight that uses it is flagged for a re-run. Two rows that should fly different motors need two configurations, one for each.
 

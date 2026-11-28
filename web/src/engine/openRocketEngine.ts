@@ -357,11 +357,10 @@ export interface SimulationOptions {
   timeStep?: number;
   maxTime?: number;
   randomSeed?: number;
-  /** m/s. `drogueLowSpeedWarn` relies on PATCH(drogue-low-speed). */
+  /** m/s. */
   recoverySpeedWarn?: number;
   mainHighSpeedWarn?: number;
   mainLowSpeedWarn?: number;
-  drogueLowSpeedWarn?: number;
   /** Off keeps the flight bit-identical to upstream (`api/GuideClearanceListener.java`). */
   guideAwareRodClearance?: boolean;
   /** m/s. */
@@ -799,7 +798,6 @@ export class OpenRocketDesign {
           recoverySpeedWarn: options.recoverySpeedWarn,
           mainHighSpeedWarn: options.mainHighSpeedWarn,
           mainLowSpeedWarn: options.mainLowSpeedWarn,
-          drogueLowSpeedWarn: options.drogueLowSpeedWarn,
           guideAwareRodClearance: options.guideAwareRodClearance,
           railExitMinSpeed: options.railExitMinSpeed,
           dragLookup: options.dragLookup,

@@ -92,7 +92,6 @@ export function SimulationsTable({
   tree,
   configs,
   simPrefs,
-  onSetConfig,
   onSelect,
   onToggle,
   onToggleAll,
@@ -108,7 +107,6 @@ export function SimulationsTable({
   tree: RocketTree;
   configs: FlightConfig[];
   simPrefs: SimPrefs;
-  onSetConfig: (simId: string, configId: string) => void;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onToggleAll: (all: boolean) => void;
@@ -211,7 +209,6 @@ export function SimulationsTable({
                       tree={tree}
                       configs={configs}
                       onSelect={onSelect}
-                      onSetConfig={onSetConfig}
                       onOpenResults={onOpenResults}
                     />
                   </Td>
@@ -250,7 +247,6 @@ function InfoCell({
   tree,
   configs,
   onSelect,
-  onSetConfig,
   onOpenResults,
 }: {
   id: string;
@@ -261,7 +257,6 @@ function InfoCell({
   tree: RocketTree;
   configs: FlightConfig[];
   onSelect: (id: string) => void;
-  onSetConfig: (simId: string, configId: string) => void;
   onOpenResults: (id: string) => void;
 }) {
   if (id === 'status') {
@@ -273,25 +268,9 @@ function InfoCell({
       </span>
     );
   }
+  // Read only: the editor beside the table picks it, so a row has one place to change it.
   if (id === 'config') {
-    return (
-      <select
-        value={configOf(configs, s).id}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => {
-          e.stopPropagation();
-          onSetConfig(s.id, e.target.value);
-        }}
-        aria-label={t('configs.pickFor', { name: s.name })}
-        className="w-full max-w-56 rounded-md bg-raised px-1.5 py-1 text-xs text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-      >
-        {configs.map((c) => (
-          <option key={c.id} value={c.id}>
-            {configLabel(tree, c) || t('configs.noMotors')}
-          </option>
-        ))}
-      </select>
-    );
+    return <span className="text-xs text-ink">{configLabel(tree, configOf(configs, s)) || t('configs.noMotors')}</span>;
   }
   return (
     <>

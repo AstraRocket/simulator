@@ -31,7 +31,6 @@ const PREFS = {
   deploymentSpeedWarn: 20,
   mainHighSpeedWarn: 30.48,
   mainLowSpeedWarn: 15.24,
-  drogueLowSpeedWarn: 3.048,
 } as SimPrefs;
 
 beforeEach(() => st().setSimPrefs(PREFS));
