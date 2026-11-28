@@ -1643,7 +1643,8 @@
     "selectFirst": "Seleciona primeiro uma peça",
     "pasteEmpty": "Nada para colar: corta ou copia primeiro uma peça",
     "pasteNowhere": "{{part}} não pode ir para dentro nem depois de {{target}}",
-    "theDesign": "o projeto"
+    "theDesign": "o projeto",
+    "ignoredTag": "ignorada"
   },
   "prop": {
     "selectHint": "Selecione um componente na árvore ou no desenho para editar as propriedades dele.",
@@ -1813,7 +1814,9 @@
     "splitClusterTip": "Separar o conjunto em tubos individuais. Tudo o que estiver ligado a este tubo também é duplicado.",
     "resetClusterTip": "Repor o espaçamento e a rotação nos valores predefinidos",
     "autoFinTab": "Calcular automaticamente",
-    "autoFinTabTip": "Calcula a altura e o comprimento da lingueta a partir dos tubos internos e anéis de centragem do corpo onde a aleta está"
+    "autoFinTabTip": "Calcula a altura e o comprimento da lingueta a partir dos tubos internos e anéis de centragem do corpo onde a aleta está",
+    "ignore": "Ignorar esta peça",
+    "ignoreHint": "Mantida no projeto e no ficheiro .ork, mas deixada de fora de tudo o que a aplicação calcula: massa, CG, CP, arrasto e cada simulação. As peças dentro dela também ficam de fora. O OpenRocket para computador continua a incluí-la."
   },
   "opensAt": {
     "auto": "Automático",
@@ -2275,7 +2278,10 @@
     "selectOne": "Selecionar {{name}}",
     "viewResults": "Ver os resultados",
     "viewResultsFor": "Ver os resultados de {{name}}",
-    "summary": "Resultados da simulação"
+    "summary": "Resultados da simulação",
+    "dragColumn": "Arraste um cabeçalho sobre outro para mover a coluna",
+    "moveColumnLeft": "Mover {{name}} para a esquerda",
+    "moveColumnRight": "Mover {{name}} para a direita"
   },
   "ignition": {
     "automatic": "Automática",
@@ -3280,5 +3286,13 @@
       "deployDelay": "Atraso da abertura",
       "deployAltitude": "Altitude de abertura"
     }
+  },
+  "baseDragHack": {
+    "label": "Truque do arrasto de base (apenas leituras de estabilidade)",
+    "hint": "Um cone invisível atrás da cauda, sem massa nem arrasto, que desloca o CP para trás para considerar o arrasto de base em foguetões curtos e largos, que Barrowman ignora (a “Base Drag CP Correction” do OpenRocket). Afeta apenas a estabilidade, o CP e o Cd, nunca as simulações.",
+    "partName": "Truque do arrasto de base (apenas estabilidade)",
+    "partComment": "Truque do arrasto de base: um cone sem massa e sem arrasto que corrige o CP pelo arrasto de base. Não é uma peça real.",
+    "statsTag": "Truque do arrasto de base",
+    "statsTagHint": "A estabilidade, o CP e o Cd incluem o cone de cauda do truque do arrasto de base. As simulações não."
   }
 }

@@ -1638,7 +1638,8 @@
     "selectFirst": "Select a part first",
     "pasteEmpty": "Nothing to paste: cut or copy a part first",
     "pasteNowhere": "A {{part}} can't go in or after {{target}}",
-    "theDesign": "the design"
+    "theDesign": "the design",
+    "ignoredTag": "ignored"
   },
   "prop": {
     "selectHint": "Select a component in the tree or drawing to edit its properties.",
@@ -1808,7 +1809,9 @@
     "splitClusterTip": "Split the cluster into separate tubes. Anything attached to this tube is duplicated too.",
     "resetClusterTip": "Reset the spacing and rotation to their defaults",
     "autoFinTab": "Calculate automatically",
-    "autoFinTabTip": "Works out the tab's height and length from the inner tubes and centering rings inside the body the fin is on"
+    "autoFinTabTip": "Works out the tab's height and length from the inner tubes and centering rings inside the body the fin is on",
+    "ignore": "Ignore this part",
+    "ignoreHint": "Kept in the design and the .ork file, but left out of everything the app calculates: mass, CG, CP, drag and every simulation. Parts inside it are left out too. Desktop OpenRocket still includes it."
   },
   "opensAt": {
     "auto": "Automatic",
@@ -2267,7 +2270,10 @@
     "selectOne": "Select {{name}}",
     "viewResults": "View results",
     "viewResultsFor": "View results for {{name}}",
-    "summary": "Simulation results"
+    "summary": "Simulation results",
+    "dragColumn": "Drag a heading onto another to move its column",
+    "moveColumnLeft": "Move {{name}} left",
+    "moveColumnRight": "Move {{name}} right"
   },
   "ignition": {
     "automatic": "Automatic",
@@ -3261,5 +3267,13 @@
       "deployDelay": "Deployment delay",
       "deployAltitude": "Deployment altitude"
     }
+  },
+  "baseDragHack": {
+    "label": "Base drag hack (stability readouts only)",
+    "hint": "An invisible cone behind the tail, with no mass or drag, that moves the CP aft to account for base drag on short, wide rockets, which Barrowman ignores (OpenRocket’s “Base Drag CP Correction”). Affects stability, CP and Cd only, never simulations.",
+    "partName": "Base drag hack (stability only)",
+    "partComment": "Base drag hack: a massless, dragless cone that corrects the CP for base drag. Not a real part.",
+    "statsTag": "Base drag hack",
+    "statsTagHint": "Stability, CP and Cd include the base drag hack tail cone. Simulations do not."
   }
 }

@@ -481,6 +481,8 @@ export interface RocketTree {
   customExpressions?: CustomExpression[];
   /** Desktop's Photo Studio settings, as its core keeps them: element name to text (`photoSettings.ts`). */
   photoStudio?: Record<string, string>;
+  /** Static readouts add a massless tail cone; flights never do (`engineTree.ts`). Saved as that cone in an .ork. */
+  baseDragHack?: boolean;
   components: ComponentNode[];
 }
 

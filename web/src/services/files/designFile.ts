@@ -1,4 +1,5 @@
 import type { OrkImportResult } from './orkTypes';
+import { liftBaseDragHack } from '../design/engineTree';
 import { importOrk } from './orkFile';
 import { importRkt } from './rktImport';
 import { assertImportSize, decodeFileText } from './decodeText';
@@ -35,7 +36,9 @@ export function parseDesignFile(data: ArrayBuffer | string): OrkImportResult {
   if (typeof data === 'string') assertImportSize(data.length);
   const format = sniffDesignFormat(data);
   if (!format) throw new KeyedError('errors.file.notDesign');
-  const res = format === 'rkt' ? importRkt(data) : importOrk(data);
+  const read = format === 'rkt' ? importRkt(data) : importOrk(data);
+  // A base drag hack cone, written by this app or made by hand, is the design's flag, never a part.
+  const res = { ...read, tree: liftBaseDragHack(read.tree) };
   checkBuildSize(res.tree.components, `.${format}`);
   return { ...res, format };
 }

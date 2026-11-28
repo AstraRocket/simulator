@@ -57,3 +57,5 @@ Desktop OpenRocket is a Java program you install. AstraRocket runs in a browser,
 | **NAR / Tripoli limits, enforced** | A run past the rail angle or surface wind limits is refused rather than flown. See [Safety](./safety.md). |
 | **A shoulder that follows the tube it plugs into** | A switch keeps a shoulder at the bore of the adjoining part. See [Designing a Rocket](./designing-a-rocket.md). |
 | **Grounding a stage per configuration** | A checkbox on each configuration's Staging card. See [Flight Configurations](./flight-configurations.md#staging). |
+| **Ignoring a part** | Leaves a part and its contents out of the readouts and simulations while it stays in the design and the `.ork`. Desktop flies everything in the tree. See [Designing a Rocket](./designing-a-rocket.md#ignoring-a-part). |
+| **The base drag hack as a setting** | On desktop, the "Base Drag CP Correction" tutorial has you build the cone by hand, and it flies in every simulation. Here it is one checkbox that changes the stability readouts only, and a desktop file with that cone opens with it turned on. See [Designing a Rocket](./designing-a-rocket.md#base-drag-hack). |

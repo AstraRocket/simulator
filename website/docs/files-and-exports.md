@@ -36,6 +36,12 @@ AstraRocket reads and writes standard **OpenRocket `.ork`** files, so designs mo
 
 A round-trip through export and import is verified to preserve the physics (mass, CG, CP, stability), and the files re-open in desktop OpenRocket.
 
+**An [ignored part](./designing-a-rocket.md#ignoring-a-part)** is written with an `<isignored>` tag that desktop skips, so desktop flies it and a re-import keeps it ignored.
+
+### The base drag hack cone {#base-drag-hack-cone}
+
+With the [base drag hack](./designing-a-rocket.md#base-drag-hack) on, the `.ork` gets the cone as a real part behind the tail: a nose cone, tip forward, as wide as the tail and π diameters long, with its mass and drag overridden to 0, and named and commented so a desktop user sees what it is. Desktop then reads the same corrected CP, and flies the cone too. No tag marks it. On import, a cone behind the tail with a point at one end, the body tube's width at the other and a length of π diameters (within 2%) is taken off and the hack turned on, so a cone made by hand in desktop works the same way.
+
 ## RockSim (`.rkt`)
 
 RockSim designs open and save too, from **menu → Import → RockSim** and **menu → Export → RockSim**. The reader also works off the file's contents rather than its name, so a `.rkt` picked in the OpenRocket dialog still opens. Both are offered on a desktop computer only (see [On a phone or tablet](#on-a-phone-or-tablet)).
@@ -48,7 +54,7 @@ What does not:
 - **Ring tails** as a shape. Each one comes in as a mass object with RockSim's computed mass and CG, so its weight is kept but its drag is not simulated.
 - **Subassemblies**, whose contents are merged into the design rather than kept as a group.
 
-Going the other way, RockSim has no element for **rail buttons**. They are left out of the file, and the app tells you which parts were dropped. A strap-on booster goes out as a pod that separates, which is how RockSim and desktop OpenRocket write one, and a set of pods or boosters goes out as one pod per copy.
+Going the other way, RockSim has no element for **rail buttons**. They are left out of the file, and the app tells you which parts were dropped. The [base drag hack cone](#base-drag-hack-cone) goes out as a massless transition from a point, since RockSim puts a nose cone only at the front; RockSim cannot set a part's drag to 0, so there it adds a little drag. It is recognized on import the same way. A strap-on booster goes out as a pod that separates, which is how RockSim and desktop OpenRocket write one, and a set of pods or boosters goes out as one pod per copy.
 
 Where this differs from desktop OpenRocket, or is easy to miss:
 

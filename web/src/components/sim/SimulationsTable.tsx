@@ -1,9 +1,9 @@
+import { useState, type DragEvent } from 'react';
 import type { Simulation, SimPrefs, SimStatus, SimRun } from '../../services/flight/simulations';
 import { isOutdated, simStatus, simStatusLabel } from '../../services/flight/simulations';
 import type { RocketTree } from '../../engine/openRocketEngine';
 import { useUnits } from '../../prefs/useUnits';
-import { unitScope } from '../../prefs/units';
-import { fmtNum } from '../../i18n/format';
+import { DEFAULT_SIM_COLS, resultCell, simColumnLabel } from './simColumns';
 import { NO_VALUE } from '../../i18n/noValue';
 import { warningText } from '../../services/app/warningText';
 import { configLabel, type FlightConfig } from '../../services/flight/flightConfigs';
@@ -79,6 +79,11 @@ function AeroTablesTag({ sim }: { sim: Simulation }) {
   );
 }
 
+type Translate = ReturnType<typeof useLauncherT>;
+
+/** A dragged heading's id travels under this type, so a drop of anything else is ignored. */
+const DRAG_TYPE = 'application/x-sim-column';
+
 export function SimulationsTable({
   sims,
   activeId,
@@ -92,6 +97,8 @@ export function SimulationsTable({
   onToggle,
   onToggleAll,
   onOpenResults,
+  order = DEFAULT_SIM_COLS,
+  onMoveColumn,
 }: {
   sims: Simulation[];
   activeId: string;
@@ -106,6 +113,10 @@ export function SimulationsTable({
   onToggle: (id: string) => void;
   onToggleAll: (all: boolean) => void;
   onOpenResults: (id: string) => void;
+  /** Shown column ids in order, from `useSimColumns`. */
+  order?: readonly string[];
+  /** Given, the headings drag: `id` dropped on `target`'s heading moves there. */
+  onMoveColumn?: (id: string, target: string) => void;
 }) {
   // Their headings cover every row: worded for the launcher they share, else neutral.
   const t = useLauncherT(
@@ -115,17 +126,14 @@ export function SimulationsTable({
     ),
   );
   const u = useUnits();
-  const apogee = u.at(unitScope('sim', 'apogee'), 'distance');
-  const rodExit = u.at(unitScope('sim', 'rodExit'), 'velocity');
-  const maxSpeed = u.at(unitScope('sim', 'maxSpeed'), 'velocity');
-  const maxAccel = u.at(unitScope('sim', 'maxAccel'), 'acceleration');
-  const landing = u.at(unitScope('sim', 'landing'), 'velocity');
+  const cells = new Map(order.map((id) => [id, resultCell(id, u, t)]));
 
   const allTicked = sims.length > 0 && selectedIds.length === sims.length;
   const someTicked = selectedIds.length > 0 && !allTicked;
 
   return (
-    <table className="w-full border-collapse text-sm">
+    // `min-w-full`, not `w-full`: with many columns the table grows and its container scrolls sideways.
+    <table className="min-w-full border-collapse whitespace-nowrap text-sm">
       <thead>
         <tr className="border-b border-line/10 text-[11px] uppercase tracking-wide text-ink-muted">
           <th scope="col" className="w-8 px-2 py-2">
@@ -140,30 +148,20 @@ export function SimulationsTable({
               className="accent-accent-500"
             />
           </th>
-          <Th>{t('sims.status')}</Th>
-          <Th>{t('sims.name')}</Th>
-          <Th wide>{t('configs.name')}</Th>
-          <Th num>
-            {t('sim.apogee')} <Unit>{apogee.sym}</Unit>
-          </Th>
-          <Th num wide>
-            {t('sim.maxSpeed')} <Unit>{maxSpeed.sym}</Unit>
-          </Th>
-          <Th num wide>
-            {t('sim.maxAccel')} <Unit>{maxAccel.sym}</Unit>
-          </Th>
-          <Th num wide>
-            {t('sim.rodExit')} <Unit>{rodExit.sym}</Unit>
-          </Th>
-          <Th num wide>
-            {t('sim.toApogee')} <Unit>{t('units.second')}</Unit>
-          </Th>
-          <Th num wide>
-            {t('sim.flightTime')} <Unit>{t('units.second')}</Unit>
-          </Th>
-          <Th num wide>
-            {t('sim.landing')} <Unit>{landing.sym}</Unit>
-          </Th>
+          {order.map((id) => {
+            const cell = cells.get(id) ?? null;
+            return (
+              <Th key={id} id={id} num={!!cell} onMove={onMoveColumn} hint={t('sims.dragColumn')}>
+                {cell ? (
+                  <>
+                    {t(cell.col.label, cell.col.labelValues?.(u))} {cell.sym && <Unit>{cell.sym}</Unit>}
+                  </>
+                ) : (
+                  simColumnLabel(id, t, u)
+                )}
+              </Th>
+            );
+          })}
           <th scope="col" className="w-10 px-2 py-2" />
         </tr>
       </thead>
@@ -192,62 +190,33 @@ export function SimulationsTable({
                   className="accent-accent-500"
                 />
               </td>
-              <Td>
-                <span className="flex items-center gap-1.5">
-                  <span className={`size-2 shrink-0 rounded-full ${TONE[status]}`} aria-hidden />
-                  <span className="text-[11px] text-ink-muted">{simStatusLabel(status, t)}</span>
-                  <WarningsButton sim={s} t={t} onOpen={() => onOpenResults(s.id)} />
-                </span>
-              </Td>
-              <Td>
-                <button
-                  onClick={() => onSelect(s.id)}
-                  aria-current={isActive ? 'true' : undefined}
-                  className={`rounded text-left font-medium focus:outline-none focus:ring-1 focus:ring-accent-500 ${
-                    isActive ? 'text-accent-100' : 'text-ink-strong'
-                  }`}
-                >
-                  {s.name}
-                </button>
-                <AeroTablesTag sim={s} />
-              </Td>
-              <Td wide>
-                <select
-                  value={configOf(configs, s).id}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onSetConfig(s.id, e.target.value);
-                  }}
-                  aria-label={t('configs.pickFor', { name: s.name })}
-                  className="w-full max-w-56 rounded-md bg-raised px-1.5 py-1 text-xs text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
-                >
-                  {configs.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {configLabel(tree, c) || t('configs.noMotors')}
-                    </option>
-                  ))}
-                </select>
-              </Td>
-              <Num className={dim}>{r ? apogee.fmt(r.maxAltitude) : null}</Num>
-              <Num wide className={dim}>
-                {r ? maxSpeed.fmt(r.maxVelocity) : null}
-              </Num>
-              <Num wide className={dim}>
-                {r ? maxAccel.fmt(r.maxAcceleration) : null}
-              </Num>
-              <Num wide className={dim}>
-                {r ? rodExit.fmt(r.launchRodVelocity) : null}
-              </Num>
-              <Num wide className={dim}>
-                {r ? fmtNum(r.timeToApogee, 1) : null}
-              </Num>
-              <Num wide className={dim}>
-                {r ? fmtNum(r.flightTime, 1) : null}
-              </Num>
-              <Num wide className={dim}>
-                {r ? landing.fmt(r.groundHitVelocity) : null}
-              </Num>
+              {order.map((id) => {
+                const cell = cells.get(id);
+                if (cell) {
+                  const v = r ? cell.col.value(r, s.result) : null;
+                  return (
+                    <Num key={id} className={dim}>
+                      {v != null && Number.isFinite(v) ? cell.fmt(v) : null}
+                    </Num>
+                  );
+                }
+                return (
+                  <Td key={id}>
+                    <InfoCell
+                      id={id}
+                      sim={s}
+                      status={status}
+                      isActive={isActive}
+                      t={t}
+                      tree={tree}
+                      configs={configs}
+                      onSelect={onSelect}
+                      onSetConfig={onSetConfig}
+                      onOpenResults={onOpenResults}
+                    />
+                  </Td>
+                );
+              })}
               <td className="w-10 px-2 py-2 text-right">
                 {!!s.result && (
                   <button
@@ -271,24 +240,133 @@ export function SimulationsTable({
   );
 }
 
-function Th({ children, num, wide }: { children: React.ReactNode; num?: boolean; wide?: boolean }) {
+/** Status, name or configuration: the columns that are not figures. */
+function InfoCell({
+  id,
+  sim: s,
+  status,
+  isActive,
+  t,
+  tree,
+  configs,
+  onSelect,
+  onSetConfig,
+  onOpenResults,
+}: {
+  id: string;
+  sim: Simulation;
+  status: SimStatus;
+  isActive: boolean;
+  t: Translate;
+  tree: RocketTree;
+  configs: FlightConfig[];
+  onSelect: (id: string) => void;
+  onSetConfig: (simId: string, configId: string) => void;
+  onOpenResults: (id: string) => void;
+}) {
+  if (id === 'status') {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className={`size-2 shrink-0 rounded-full ${TONE[status]}`} aria-hidden />
+        <span className="text-[11px] text-ink-muted">{simStatusLabel(status, t)}</span>
+        <WarningsButton sim={s} t={t} onOpen={() => onOpenResults(s.id)} />
+      </span>
+    );
+  }
+  if (id === 'config') {
+    return (
+      <select
+        value={configOf(configs, s).id}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => {
+          e.stopPropagation();
+          onSetConfig(s.id, e.target.value);
+        }}
+        aria-label={t('configs.pickFor', { name: s.name })}
+        className="w-full max-w-56 rounded-md bg-raised px-1.5 py-1 text-xs text-ink ring-1 ring-line/10 focus:outline-none focus:ring-accent-500"
+      >
+        {configs.map((c) => (
+          <option key={c.id} value={c.id}>
+            {configLabel(tree, c) || t('configs.noMotors')}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <>
+      <button
+        onClick={() => onSelect(s.id)}
+        aria-current={isActive ? 'true' : undefined}
+        className={`rounded text-left font-medium focus:outline-none focus:ring-1 focus:ring-accent-500 ${
+          isActive ? 'text-accent-100' : 'text-ink-strong'
+        }`}
+      >
+        {s.name}
+      </button>
+      <AeroTablesTag sim={s} />
+    </>
+  );
+}
+
+function Th({
+  children,
+  id,
+  num,
+  onMove,
+  hint,
+}: {
+  children: React.ReactNode;
+  id: string;
+  num?: boolean;
+  onMove?: (id: string, target: string) => void;
+  hint: string;
+}) {
+  const [over, setOver] = useState(false);
+  const drag = onMove
+    ? {
+        draggable: true,
+        title: hint,
+        onDragStart: (e: DragEvent<HTMLTableCellElement>) => {
+          e.dataTransfer.setData(DRAG_TYPE, id);
+          e.dataTransfer.effectAllowed = 'move';
+        },
+        onDragOver: (e: DragEvent<HTMLTableCellElement>) => {
+          if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          setOver(true);
+        },
+        onDragLeave: () => setOver(false),
+        onDrop: (e: DragEvent<HTMLTableCellElement>) => {
+          setOver(false);
+          const dragged = e.dataTransfer.getData(DRAG_TYPE);
+          if (!dragged) return;
+          e.preventDefault();
+          onMove(dragged, id);
+        },
+      }
+    : {};
   return (
     <th
       scope="col"
-      className={`${wide ? 'hidden lg:table-cell' : ''} px-2 py-2 font-semibold ${num ? 'text-right' : 'text-left'}`}
+      {...drag}
+      className={`px-2 py-2 font-semibold ${num ? 'text-right' : 'text-left'} ${onMove ? 'cursor-grab' : ''} ${
+        over ? 'bg-accent-500/20' : ''
+      }`}
     >
       {children}
     </th>
   );
 }
 
-function Td({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
-  return <td className={`${wide ? 'hidden lg:table-cell' : ''} px-2 py-2`}>{children}</td>;
+function Td({ children }: { children: React.ReactNode }) {
+  return <td className="px-2 py-2">{children}</td>;
 }
 
-function Num({ children, wide, className }: { children: React.ReactNode; wide?: boolean; className?: string }) {
+function Num({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <td className={`${wide ? 'hidden lg:table-cell' : ''} px-2 py-2 text-right tabular-nums ${className ?? ''}`}>
+    <td className={`px-2 py-2 text-right tabular-nums ${className ?? ''}`}>
       {children ?? <span className="text-ink-dim">{NO_VALUE}</span>}
     </td>
   );

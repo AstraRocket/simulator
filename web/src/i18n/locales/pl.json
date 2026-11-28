@@ -1648,7 +1648,8 @@
     "selectFirst": "Najpierw wybierz część",
     "pasteEmpty": "Nie ma czego wkleić: najpierw wytnij lub skopiuj część",
     "pasteNowhere": "{{part}} nie może trafić do ani za {{target}}",
-    "theDesign": "projekt"
+    "theDesign": "projekt",
+    "ignoredTag": "ignorowana"
   },
   "prop": {
     "selectHint": "Wybierz część w drzewie albo na rysunku, aby zmienić jej właściwości.",
@@ -1818,7 +1819,9 @@
     "splitClusterTip": "Rozdziel grupę na osobne rury. Wszystko, co jest przyłączone do tej rury, także zostanie skopiowane.",
     "resetClusterTip": "Przywróć domyślny odstęp i obrót",
     "autoFinTab": "Oblicz automatycznie",
-    "autoFinTabTip": "Wyznacza wysokość i długość wypustu na podstawie rur wewnętrznych i pierścieni centrujących w rurze, na której osadzony jest statecznik"
+    "autoFinTabTip": "Wyznacza wysokość i długość wypustu na podstawie rur wewnętrznych i pierścieni centrujących w rurze, na której osadzony jest statecznik",
+    "ignore": "Ignoruj tę część",
+    "ignoreHint": "Zostaje w projekcie i w pliku .ork, ale jest pomijana we wszystkim, co oblicza aplikacja: masie, środku ciężkości, środku ciśnienia, oporze i każdej symulacji. Części w niej zawarte także są pomijane. Desktopowy OpenRocket nadal ją uwzględnia."
   },
   "opensAt": {
     "auto": "Automatycznie",
@@ -2283,7 +2286,10 @@
     "selectOne": "Zaznacz {{name}}",
     "viewResults": "Zobacz wyniki",
     "viewResultsFor": "Zobacz wyniki „{{name}}”",
-    "summary": "Wyniki symulacji"
+    "summary": "Wyniki symulacji",
+    "dragColumn": "Przeciągnij nagłówek na inny, aby przenieść jego kolumnę",
+    "moveColumnLeft": "Przesuń {{name}} w lewo",
+    "moveColumnRight": "Przesuń {{name}} w prawo"
   },
   "ignition": {
     "automatic": "Automatycznie",
@@ -3299,5 +3305,13 @@
       "deployDelay": "Opóźnienie otwarcia",
       "deployAltitude": "Wysokość otwarcia"
     }
+  },
+  "baseDragHack": {
+    "label": "Trik z oporem dna (tylko odczyty stateczności)",
+    "hint": "Niewidoczny stożek za ogonem, bez masy i oporu, który przesuwa środek ciśnienia do tyłu, uwzględniając opór dna krótkich, szerokich rakiet, pomijany przez Barrowmana („Base Drag CP Correction” z OpenRocket). Wpływa tylko na stateczność, środek ciśnienia i Cd, nigdy na symulacje.",
+    "partName": "Trik z oporem dna (tylko stateczność)",
+    "partComment": "Trik z oporem dna: stożek bez masy i oporu, który koryguje środek ciśnienia o opór dna. To nie jest prawdziwa część.",
+    "statsTag": "Trik z oporem dna",
+    "statsTagHint": "Stateczność, środek ciśnienia i Cd uwzględniają stożek ogonowy triku z oporem dna. Symulacje nie."
   }
 }

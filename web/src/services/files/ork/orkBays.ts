@@ -3,7 +3,8 @@ import { BAYS_KEY, baysOf, isTubeBays, type BayPins, type BayRecord, type TubeBa
 import { MAIN_DEVICE_KEY } from '../../design/treeEdit';
 import { isOpensAt, opensAt, OPENS_AT_KEY, type OpensAt } from '../../flight/opensAt';
 import { escapeXml } from '../xmlUtil';
-import { BAYS_TAG, MAIN_TAG, OPENS_TAG } from './appTags';
+import { BAYS_TAG, IGNORED_TAG, MAIN_TAG, OPENS_TAG } from './appTags';
+import { IGNORED_KEY } from '../../design/engineTree';
 import { childEl, childNum, childrenEl, childText, leaf, type XmlLine } from './xmlLines';
 
 /**
@@ -134,3 +135,16 @@ export function opensAtXml(node: ComponentNode): string | null {
 }
 
 export { OPENS_AT_KEY };
+
+export function flagXml(node: ComponentNode): string[] {
+  const out: string[] = [];
+  if (node[IGNORED_KEY] === true) out.push(`<${IGNORED_TAG}>true</${IGNORED_TAG}>`);
+  return out;
+}
+
+const isTrue = (el: Element, tag: string): boolean =>
+  (childEl(el, tag)?.textContent ?? '').trim().toLowerCase() === 'true';
+
+export function readFlags(el: Element, node: ComponentNode): void {
+  if (isTrue(el, IGNORED_TAG) && node.type !== 'stage') node[IGNORED_KEY] = true;
+}

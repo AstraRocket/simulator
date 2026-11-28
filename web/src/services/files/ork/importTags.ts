@@ -6,7 +6,7 @@ import { clampCount, finiteNum } from './numbers';
 import { readDecimal } from '../numberText';
 import { MAX_ASSEMBLY_INSTANCES, MAX_FIN_COUNT } from './importLimits';
 import { EXTRA_KEY, readPassthrough } from './passthrough';
-import { BAYS_KEY, MAIN_DEVICE_KEY, OPENS_AT_KEY, readBays, readMainDevice, readOpensAt } from './orkBays';
+import { BAYS_KEY, MAIN_DEVICE_KEY, OPENS_AT_KEY, readBays, readFlags, readMainDevice, readOpensAt } from './orkBays';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import { hexOf, packRgb } from '../../design/colorHex';
 import { BUILDER_DEFAULT, INSIDE_COLOR_TYPES, type PartAppearance } from '../../design/appearance';
@@ -340,6 +340,7 @@ export function readCommon(el: Element, node: ComponentNode, withPosition: boole
   if (readMainDevice(el)) node[MAIN_DEVICE_KEY] = true;
   const opens = readOpensAt(el);
   if (opens) node[OPENS_AT_KEY] = opens;
+  readFlags(el, node);
   const nm = text(el, ':scope > name');
   if (nm) node.name = nm;
   const cmt = text(el, ':scope > comment');

@@ -1643,7 +1643,8 @@
     "selectFirst": "Sélectionne d’abord une pièce",
     "pasteEmpty": "Rien à coller : coupe ou copie d’abord une pièce",
     "pasteNowhere": "{{part}} ne peut aller ni dans ni après {{target}}",
-    "theDesign": "le modèle"
+    "theDesign": "le modèle",
+    "ignoredTag": "ignorée"
   },
   "prop": {
     "selectHint": "Sélectionnez un composant dans l'arborescence ou le dessin pour modifier ses propriétés.",
@@ -1813,7 +1814,9 @@
     "splitClusterTip": "Séparer le cluster en tubes individuels. Tout ce qui est fixé à ce tube est également dupliqué.",
     "resetClusterTip": "Remettre l'espacement et la rotation aux valeurs par défaut",
     "autoFinTab": "Calculer automatiquement",
-    "autoFinTabTip": "Détermine la hauteur et la longueur de la languette d'après les tubes internes et les anneaux de centrage du corps où se trouve l'aileron"
+    "autoFinTabTip": "Détermine la hauteur et la longueur de la languette d'après les tubes internes et les anneaux de centrage du corps où se trouve l'aileron",
+    "ignore": "Ignorer cette pièce",
+    "ignoreHint": "Conservée dans la conception et le fichier .ork, mais exclue de tout ce que l’application calcule : masse, CG, CP, traînée et chaque simulation. Les pièces qu’elle contient sont aussi exclues. OpenRocket bureau l’inclut toujours."
   },
   "opensAt": {
     "auto": "Automatique",
@@ -2275,7 +2278,10 @@
     "selectOne": "Sélectionner {{name}}",
     "viewResults": "Voir les résultats",
     "viewResultsFor": "Voir les résultats de {{name}}",
-    "summary": "Résultats de simulation"
+    "summary": "Résultats de simulation",
+    "dragColumn": "Faites glisser un en-tête sur un autre pour déplacer sa colonne",
+    "moveColumnLeft": "Déplacer {{name}} vers la gauche",
+    "moveColumnRight": "Déplacer {{name}} vers la droite"
   },
   "ignition": {
     "automatic": "Automatique",
@@ -3280,5 +3286,13 @@
       "deployDelay": "Délai de déploiement",
       "deployAltitude": "Altitude de déploiement"
     }
+  },
+  "baseDragHack": {
+    "label": "Astuce de traînée de culot (lectures de stabilité seulement)",
+    "hint": "Un cône invisible derrière la queue, sans masse ni traînée, qui recule le CP pour tenir compte de la traînée de culot des fusées courtes et larges, que Barrowman ignore (la « Base Drag CP Correction » d’OpenRocket). N’affecte que la stabilité, le CP et le Cd, jamais les simulations.",
+    "partName": "Astuce de traînée de culot (stabilité seulement)",
+    "partComment": "Astuce de traînée de culot : un cône sans masse ni traînée qui corrige le CP pour la traînée de culot. Ce n’est pas une vraie pièce.",
+    "statsTag": "Astuce de traînée de culot",
+    "statsTagHint": "La stabilité, le CP et le Cd incluent le cône de queue de l’astuce de traînée de culot. Les simulations non."
   }
 }

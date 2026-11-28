@@ -13,6 +13,7 @@ import { FieldRow, FieldSection, ShoulderSections } from './DimensionFields';
 import { commitWith, sectionFields, visibleFields } from './fieldHelpers';
 import { CordMaterialSection, MaterialSection, RecoveryMaterialSection } from './MaterialSection';
 import { StageRecovery } from './StageRecovery';
+import { BaseDragHackToggle } from './BaseDragHackToggle';
 import { ComponentActions } from './ComponentActions';
 import { AutoFinTabButton } from './AutoFinTabButton';
 import { FreeformFinActions } from './FreeformFinActions';
@@ -20,6 +21,8 @@ import { OverridesSection } from './OverridesSection';
 import { ShapeDescription } from './ShapeDescription';
 import { PlacementSection } from './PlacementSection';
 import { FilletSection, PanelHeader, PartSection, RingBoreTooSmall, TubeFinCollision } from './PropertyPanelParts';
+import { Check } from '../common/Check';
+import { canIgnore, IGNORED_KEY, isIgnored } from '../../services/design/engineTree';
 
 // Emits shallow patches; the tree is always SI and each field converts at the edge.
 
@@ -77,6 +80,16 @@ export function PropertyPanel({
         canMoveDown={canMoveDown}
         canRemove={canRemove}
       />
+
+      {canIgnore(node) && (
+        <Check
+          checked={isIgnored(node)}
+          onChange={(on) => commitChange({ [IGNORED_KEY]: on ? true : undefined })}
+          label={t('prop.ignore')}
+          hint={t('prop.ignoreHint')}
+          align="start"
+        />
+      )}
 
       <PartSection
         node={node}
@@ -147,6 +160,8 @@ export function PropertyPanel({
       {(node.type === 'stage' || node.type === 'parallelstage') && <ConfigOverrideNote node={node} />}
 
       {(node.type === 'stage' || node.type === 'parallelstage') && <StageRecovery node={node} />}
+
+      {node.type === 'stage' && <BaseDragHackToggle stage={node} />}
 
       {node.type === 'parachute' && <RecoverySizingReadout node={node} onChange={onChange} onCommit={onCommit} />}
 

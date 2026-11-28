@@ -10,7 +10,7 @@ import { KERNEL_MATERIALS } from '../../../tree/kernelDefaults';
 import type { OrkDeployOverride, OrkSepOverride } from '../orkTypes';
 import type { OrkWriter } from './exportWriter';
 import { passthroughOf } from './passthrough';
-import { baysXml, mainDeviceXml, opensAtXml } from './orkBays';
+import { baysXml, flagXml, mainDeviceXml, opensAtXml } from './orkBays';
 import { parseHexColor, rgbChannels } from '../../design/colorHex';
 import { INSIDE_COLOR_TYPES, readAppearance, type PartAppearance } from '../../design/appearance';
 import type { PartDecal } from '../../design/decal';
@@ -104,6 +104,7 @@ export function header(
   if (main) w.emit(depth, main);
   const opens = opensAtXml(node);
   if (opens) w.emit(depth, opens);
+  for (const flag of flagXml(node)) w.emit(depth, flag);
   // Passthrough goes last so it cannot split elements the desktop reader expects in order.
   for (const raw of passthroughOf(node)) w.emit(depth, raw);
 }

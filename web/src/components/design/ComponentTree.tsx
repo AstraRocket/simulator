@@ -15,6 +15,7 @@ import { collectNodes } from '../../tree/treeWalk';
 import { useTreeNavigation, type TreeEdit } from './useTreeNavigation';
 import { HiddenPartsNote, PartVisibilityToggle, type PartVisibility } from './PartVisibilityToggle';
 import { isPartHidden } from './isPartHidden';
+import { canIgnore, isIgnored } from '../../services/design/engineTree';
 
 const ADD_GROUPS: { group: string; items: ComponentType[] }[] = [
   { group: 'groupBody', items: ['nosecone', 'bodytube', 'transition'] },
@@ -92,6 +93,7 @@ function Row({
   collapsed,
   onToggleCollapse,
   visibility,
+  ignoredAbove = false,
 }: {
   node: ComponentNode;
   depth: number;
@@ -101,9 +103,13 @@ function Row({
   collapsed: ReadonlySet<string>;
   onToggleCollapse: (id: string) => void;
   visibility?: PartVisibility;
+  /** Inside an ignored part, so left out of every build with it. */
+  ignoredAbove?: boolean;
 }) {
   const { t } = useTranslation();
   const u = useUnits();
+  const ownIgnored = canIgnore(node) && isIgnored(node);
+  const ignored = ignoredAbove || ownIgnored;
   const { symbol, color } = partGlyph(node.type);
   const label = typeLabel(node.type, t);
   const name = partLabel(t, node);
@@ -160,12 +166,13 @@ function Row({
         <span className="w-4 shrink-0 text-center text-xs leading-none" style={{ color }} aria-hidden>
           {symbol}
         </span>
-        <span
-          className={`truncate text-sm ${selected ? 'text-accent-200' : 'text-ink'}`}
-          style={isPartHidden(visibility, id) ? { opacity: 0.5 } : undefined}
-        >
-          {name}
-        </span>
+        <RowName
+          name={name}
+          selected={selected}
+          dim={isPartHidden(visibility, id)}
+          ignored={ignored}
+          ownIgnored={ownIgnored}
+        />
         {isMount && (
           <span className="shrink-0 rounded bg-accent-500/15 px-1 text-[10px] font-medium text-accent-200">
             {t('tree.motorTag')}
@@ -191,8 +198,44 @@ function Row({
             collapsed={collapsed}
             onToggleCollapse={onToggleCollapse}
             visibility={visibility}
+            ignoredAbove={ignored}
           />
         ))}
+    </>
+  );
+}
+
+/** Struck through inside an ignored part; the tag marks only the part that was ignored. */
+function RowName({
+  name,
+  selected,
+  dim,
+  ignored,
+  ownIgnored,
+}: {
+  name: string;
+  selected: boolean;
+  dim: boolean;
+  ignored: boolean;
+  ownIgnored: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <span
+        className={`truncate text-sm ${selected ? 'text-accent-200' : 'text-ink'} ${ignored ? 'line-through' : ''}`}
+        style={dim || ignored ? { opacity: 0.5 } : undefined}
+      >
+        {name}
+      </span>
+      {ownIgnored && (
+        <span
+          title={t('prop.ignoreHint')}
+          className="shrink-0 rounded bg-warn-500/15 px-1 text-[10px] font-medium text-warn-300"
+        >
+          {t('tree.ignoredTag')}
+        </span>
+      )}
     </>
   );
 }

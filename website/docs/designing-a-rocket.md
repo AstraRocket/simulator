@@ -18,6 +18,12 @@ To add a part, select the part it goes in and pick it from the **＋ Add** list 
 
 Branches with children **fold** at their **▾ / ▸** chevrons (or fold/unfold everything from the header), and you can **collapse the whole component list** (its header keeps the selected part in view) to give the property editor more room on a tall design. Deleting a part (the **Delete** button in its properties) asks you to confirm first.
 
+### Ignoring a part {#ignoring-a-part}
+
+**Ignore this part**, at the top of any part's properties except a stage's, leaves that part and everything inside it out of the engine: the Information strip, the Aero view, simulations and the optimizer all work as if it were not there. The part stays in the design. The tree strikes it through with an **ignored** tag and dims its contents, and unchecking the box brings it back. A motor in an ignored mount is not flown. Ignoring or restoring a part marks the simulations it changes **Outdated**.
+
+The `.ork` keeps the flag in a tag of its own, which desktop OpenRocket skips, so desktop flies the part.
+
 ### Cut, copy, paste and duplicate
 
 The ✂ ⧉ ⎘ ❐ buttons at the right of the tree's header cut, copy, paste and duplicate the selected part, with everything inside it. With a row focused, **Ctrl+X**, **Ctrl+C**, **Ctrl+V** and **Ctrl+D** act on that row and select it (**⌘** on a Mac). They work as desktop OpenRocket's Edit menu does:
@@ -321,3 +327,11 @@ Mounts and motors stay in sync automatically: add a mount and it comes pre-loade
 ## Stability at a glance
 
 The bottom **Information** strip shows the current design's length, max diameter, fineness ratio, empty/loaded mass and CG, CP, recovery weight (descent mass), stability (in calibers on the pad and as % of length), the Mach-0.3 drag coefficient and normal-force slope, and the loaded roll/pitch moments of inertia. Click its title to collapse it to the length and the on-pad stability, and again to expand it. More detail is in **[Views & Analysis](./views-and-analysis.md)**.
+
+### Base drag hack {#base-drag-hack}
+
+The Barrowman method ignores base drag, which pulls the CP aft on short, wide rockets, so it can read such a rocket as less stable than it flies. **Base drag hack (stability readouts only)**, in the aft-most stage's properties, applies OpenRocket's "Base Drag CP Correction": an invisible cone behind the tail, tip forward, as wide as the tail and π diameters long, with no mass and no drag.
+
+Only stability, CP and Cd include the cone. Simulations and the optimizer never fly it, so turning it on does not mark them outdated. No view draws or lists it, and the length and warnings are the design's own. The stability readout in the rocket view notes when the hack is on.
+
+Desktop OpenRocket and RockSim have no such setting, so an exported file carries the cone itself (see [Files & Exports](./files-and-exports.md#base-drag-hack-cone)). Opening a file with that cone behind the tail, whether this app wrote it or you made it by hand, removes the cone and turns the hack on instead.

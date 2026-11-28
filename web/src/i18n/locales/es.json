@@ -1643,7 +1643,8 @@
     "selectFirst": "Selecciona primero una pieza",
     "pasteEmpty": "Nada que pegar: corta o copia primero una pieza",
     "pasteNowhere": "{{part}} no puede ir dentro ni después de {{target}}",
-    "theDesign": "el diseño"
+    "theDesign": "el diseño",
+    "ignoredTag": "ignorada"
   },
   "prop": {
     "selectHint": "Selecciona un componente en el árbol o el dibujo para editar sus propiedades.",
@@ -1813,7 +1814,9 @@
     "splitClusterTip": "Separar el grupo en tubos individuales. También se duplica todo lo que va unido a este tubo.",
     "resetClusterTip": "Devolver la separación y la rotación a sus valores predeterminados",
     "autoFinTab": "Calcular automáticamente",
-    "autoFinTabTip": "Calcula la altura y la longitud de la lengüeta a partir de los tubos internos y los anillos centradores del cuerpo en el que va la aleta"
+    "autoFinTabTip": "Calcula la altura y la longitud de la lengüeta a partir de los tubos internos y los anillos centradores del cuerpo en el que va la aleta",
+    "ignore": "Ignorar esta pieza",
+    "ignoreHint": "Se conserva en el diseño y en el archivo .ork, pero queda fuera de todo lo que calcula la aplicación: masa, CG, CP, resistencia y cada simulación. Las piezas que contiene también quedan fuera. OpenRocket de escritorio la sigue incluyendo."
   },
   "opensAt": {
     "auto": "Automático",
@@ -2275,7 +2278,10 @@
     "selectOne": "Seleccionar {{name}}",
     "viewResults": "Ver resultados",
     "viewResultsFor": "Ver resultados de {{name}}",
-    "summary": "Resultados de la simulación"
+    "summary": "Resultados de la simulación",
+    "dragColumn": "Arrastre un encabezado sobre otro para mover su columna",
+    "moveColumnLeft": "Mover {{name}} a la izquierda",
+    "moveColumnRight": "Mover {{name}} a la derecha"
   },
   "ignition": {
     "automatic": "Automático",
@@ -3280,5 +3286,13 @@
       "deployDelay": "Retardo de despliegue",
       "deployAltitude": "Altitud de despliegue"
     }
+  },
+  "baseDragHack": {
+    "label": "Truco de resistencia de base (solo lecturas de estabilidad)",
+    "hint": "Un cono invisible tras la cola, sin masa ni resistencia, que desplaza el CP hacia atrás para tener en cuenta la resistencia de base en cohetes cortos y anchos, que Barrowman ignora (la «Base Drag CP Correction» de OpenRocket). Solo afecta a la estabilidad, el CP y el Cd, nunca a las simulaciones.",
+    "partName": "Truco de resistencia de base (solo estabilidad)",
+    "partComment": "Truco de resistencia de base: un cono sin masa ni resistencia que corrige el CP por la resistencia de base. No es una pieza real.",
+    "statsTag": "Truco de resistencia de base",
+    "statsTagHint": "La estabilidad, el CP y el Cd incluyen el cono de cola del truco de resistencia de base. Las simulaciones no."
   }
 }

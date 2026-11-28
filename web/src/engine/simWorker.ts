@@ -46,7 +46,7 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         const { tree, config, options, lengthUnit } = req.args;
         setKernelLengthUnit(lengthUnit ?? req.lengthUnit);
         resetEngine();
-        const design = buildConfiguredRocket(tree, config);
+        const design = buildConfiguredRocket(tree, config, 'flight');
         const result = design.simulate(options);
         reply({ id, ok: true, result });
         return;

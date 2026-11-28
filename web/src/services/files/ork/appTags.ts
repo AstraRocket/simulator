@@ -10,3 +10,5 @@ export const OPENS_TAG = 'deployjoint';
 export const NOTES_TAG = 'designnotes';
 /** In <conditions>: `rail` for a launch rail; absent is a rod, as desktop flies either. */
 export const LAUNCHER_TAG = 'launchguide';
+/** In any part but a stage: `true` when the app leaves the part out of every engine build. Desktop flies it. */
+export const IGNORED_TAG = 'isignored';
