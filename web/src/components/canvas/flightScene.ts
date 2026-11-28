@@ -3,6 +3,7 @@ import type { FlightEvent, FlightResult } from '../../engine/openRocketEngine';
 import { flightBranches } from '../../services/flight/flightColumns';
 import { eventTime, forwardFlightEnd } from '../../services/flight/flightEvents';
 import { buildTrack, hasAttitude, trackRows, type FlightTrack } from './flightTrack';
+import { rowsOnTerrain, type HeightAt } from './terrainTrack';
 
 // A burnout with no open burn extends the previous window (cluster motors burning out apart).
 export function boostWindows(events: readonly Pick<FlightEvent, 'type' | 'time'>[]): [number, number][] {
@@ -28,6 +29,8 @@ export type PhaseColors = { boost: string; coast: string; descent: string };
 
 export interface ColoredTrack extends FlightTrack {
   colors: [number, number, number][];
+  /** From here on the path is carried past the engine's last sample to the ground: an estimate. */
+  estimatedFromT: number;
 }
 
 /** The first branch's track, with every branch's in `tracks`, in `flightBranches` order. */
@@ -57,7 +60,8 @@ function nearestIndex(times: readonly number[], t: number): number {
   return best;
 }
 
-export function buildFlightScene(result: FlightResult, phase: PhaseColors): FlightScene {
+/** `heightAt` lands the flight on real ground; without it, on level ground at the pad's height, as the engine flies. */
+export function buildFlightScene(result: FlightResult, phase: PhaseColors, heightAt?: HeightAt): FlightScene {
   const flown = flightBranches(result).map((b, i) => ({
     rows: trackRows(b.series),
     events: b.events ?? [],
@@ -69,7 +73,11 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
   for (const r of main.rows) if (r.a > maxA) maxA = r.a;
   const s = 24 / maxA;
 
-  const tracks = flown.map(({ rows, events, summary }): ColoredTrack => {
+  const tracks = flown.map(({ rows: engineRows, events, summary }): ColoredTrack => {
+    const landed = eventTime(events, 'GROUND_HIT') != null;
+    const { rows, estimatedFromT } = heightAt
+      ? rowsOnTerrain(engineRows, heightAt, landed)
+      : { rows: engineRows, estimatedFromT: Infinity };
     const lastT = last(rows)?.t ?? 0;
     const apT = eventTime(events, 'APOGEE') ?? summary?.timeToApogee ?? lastT;
     const burns = boostWindows(events);
@@ -78,8 +86,16 @@ export function buildFlightScene(result: FlightResult, phase: PhaseColors): Flig
     const end = forwardFlightEnd({ events, summary });
     // A recorded attitude shows a flight with no recovery coming in as it did.
     const unrecovered = hasAttitude(rows) ? Infinity : Number.isFinite(end) ? end : lastT;
+    let top = 0;
+    rows.forEach((r, k) => {
+      if (r.a > rows[top]!.a) top = k;
+    });
     return {
       ...buildTrack(rows, s, deployed ?? unrecovered),
+      // Level ground stays at 0 exactly: the engine's last sample can sit a hair below it.
+      landY: heightAt ? (last(rows)?.a ?? 0) * s : 0,
+      apexT: rows[top]?.t ?? 0,
+      estimatedFromT,
       colors: rows.map((r) => {
         const c = new THREE.Color(isBoosting(r.t, burns) ? phase.boost : r.t <= apT ? phase.coast : phase.descent);
         return [c.r, c.g, c.b];

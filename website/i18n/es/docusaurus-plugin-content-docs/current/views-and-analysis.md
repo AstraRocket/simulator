@@ -132,6 +132,21 @@ La **trayectoria del vuelo en 3D**: el recorrido del cohete por el espacio, incl
 
 El **plano del suelo puede llevar las mismas imágenes aéreas**, colocadas en las coordenadas del campo de lanzamiento, de modo que la trayectoria se arquea sobre el campo real y no sobre una rejilla vacía. Los mismos botones **Ninguno · Satélite · Callejero** están arriba a la izquierda, empiezan en **Ninguno** y comparten su elección con la traza en tierra y con el mapa del campo de lanzamiento. La imagen cubre algo más allá de lo más lejos que llegó el cohete desde la rampa, no el plano entero, para que un vuelo de trescientos metros no descargue un kilómetro de paisaje a cada lado; la rejilla de referencia continúa más allá de su borde.
 
+### Terreno {#terrain}
+
+El motor de simulación vuela cada vuelo sobre un suelo llano a la altura de la rampa. **Terreno**, bajo los botones de capa, da al suelo su forma real y hace aterrizar el vuelo dibujado sobre él. Empieza desactivado, y no se descarga nada hasta que lo activas.
+
+- **El suelo**: la imagen se extiende sobre colinas y valles, con las laderas que no miran a la luz más oscuras; con la capa en **Ninguno** se dibuja el suelo desnudo. Las colinas ocultan la trayectoria que queda detrás. El suelo cubre la misma zona que la imagen.
+- **Aterrizaje en terreno más alto**: el descenso termina donde toca el terreno por primera vez. Todo lo dibujado es el vuelo del motor, solo que más corto.
+- **Aterrizaje en terreno más bajo**: el motor se detiene a la altura de la rampa, así que el descenso continúa desde ahí con su última velocidad de descenso y deriva hasta llegar al suelo. Ese tramo es una estimación, no un resultado del motor, y se dibuja **discontinuo**.
+- **El aterrizaje**: el anillo, el cohete en el suelo, la etiqueta de aterrizaje, su rótulo y su marca en la línea de tiempo pasan a donde termina la trayectoria dibujada.
+
+Un panel bajo el botón da el aterrizaje de cada parte **en el terreno**, como distancia y rumbo desde la rampa, junto al aterrizaje propio de la **simulación** sobre suelo llano, y cuánto de la caída se estimó. Las tarjetas de resultados, la traza en tierra y las exportaciones mantienen los números de la simulación.
+
+**1× · 2× · 5× · 10×** junto al botón dibuja el suelo esas veces más alto, para que se vean las pendientes suaves. La trayectoria dibujada aterriza sobre el suelo tal como se dibuja, así que termina antes sobre una colina exagerada y más tarde en un valle exagerado; los números del panel siempre vienen de las alturas reales, y el panel avisa cuando las alturas están exageradas.
+
+Las alturas vienen de las [teselas de terreno de Mapzen en AWS Open Data](https://registry.opendata.aws/terrain-tiles/), hechas a partir de SRTM, USGS 3DEP, GMTED y otras fuentes, con unos 30 m entre puntos en Estados Unidos y unos 90 m en otros lugares. Un vuelo solo necesita unas pocas teselas; las solicitudes llevan las coordenadas de mapa de las teselas, que nombran la zona de lanzamiento, y nada más. Las teselas se conservan durante la sesión pero no para usarlas sin conexión, así que el terreno necesita conexión. Si no se pueden cargar, una nota abajo a la derecha dice por qué.
+
 Un botón **⬇ Exportar** guarda la trayectoria para herramientas cartográficas como **KML (Google Earth)**, **Traza GPX** o **CSV de puntos**, con opciones sobre qué puntos y líneas incluir, y soporte para tus propias plantillas. Consulta [Archivos y exportaciones](./files-and-exports.md#exporting-the-flight-path-kml--gpx--csv).
 
 ### Reproducir el vuelo {#playing-the-flight-back}

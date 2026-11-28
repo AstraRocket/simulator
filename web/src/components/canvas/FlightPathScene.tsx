@@ -10,7 +10,7 @@ import type { FlightBody } from '../../services/flight/flightBodies';
 import { BASE_FOV } from './flightCamera';
 import { flightMiddle, type EventPill, type FlightScene } from './flightScene';
 import { FlightStep } from './FlightStep';
-import { FlightTrail } from './FlightTrail';
+import { FlightTrails } from './FlightTrail';
 import type { Exhaust } from '../../services/motors/exhaust';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { FlightGround } from './FlightGround';
@@ -21,6 +21,7 @@ import { padStand } from './launchGuideShape';
 import type { PadSetup } from './usePadRose';
 import { RecoveryDevice } from './FlightRecovery';
 import type { TileSourceId } from '../../services/map/slippyMap';
+import type { TerrainField } from '../../services/map/terrainTiles';
 import type { useGroundLayer } from '../common/map/useTileVerdict';
 import { useSceneColors } from './sceneColors';
 import { FlameGlow } from './FlightEffects';
@@ -46,6 +47,7 @@ export function FlightPathScene({
   site,
   mapSource,
   ground,
+  land,
   rodLengthM,
   pad,
   effects,
@@ -67,6 +69,8 @@ export function FlightPathScene({
   site: { lat: number; lon: number } | null;
   mapSource: TileSourceId | null;
   ground: ReturnType<typeof useGroundLayer>;
+  /** Half the side of the ground drawn, from the pad, and its terrain once loaded. */
+  land: { radiusM: number; terrain: TerrainField | null };
   rodLengthM: number;
   pad: PadSetup;
   effects: boolean;
@@ -113,7 +117,7 @@ export function FlightPathScene({
       <hemisphereLight args={[sceneInk['scene-sky'], sceneInk['scene-ground'], 1.5]} />
       <directionalLight position={[14, 26, 16]} intensity={1.7} />
       <FlightSky />
-      <FlightGround scene={scene} bounds={bounds} site={site} mapSource={mapSource} ground={ground} />
+      <FlightGround scene={scene} bounds={bounds} site={site} mapSource={mapSource} ground={ground} {...land} />
       {/* First: the trails and smoke read the moment this frame's step reaches. */}
       <FlightStep
         scene={scene}
@@ -140,14 +144,7 @@ export function FlightPathScene({
         onTick={onTick}
         onEnd={onEnd}
       />
-      {tracks.map((track, i) => (
-        <FlightTrail
-          key={i}
-          track={track}
-          from={i === 0 ? -Infinity : (bodies[i]?.separatedAt ?? -Infinity)}
-          {...clock}
-        />
-      ))}
+      <FlightTrails tracks={tracks} bodies={bodies} {...clock} />
       <FlightMarks scene={scene} nowT={nowT} ringScale={modelScale / overviewScale} />
       <group ref={ringRef} />
       <FlightRingProjector groupRef={ringRef} placeRef={ringPlaceRef} />

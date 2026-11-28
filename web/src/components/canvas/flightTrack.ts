@@ -20,7 +20,14 @@ export interface FlightTrack {
   rolls: number[];
   /** When it starts to hang nose up under its recovery device; Infinity for a flight that never does. */
   deployT: number;
+  /** Scene height of the ground it lands on, met after `apexT`; before it, the pad's, 0. */
+  landY?: number;
+  apexT?: number;
 }
+
+/** The ground under a body at `t`, in scene units: the pad's on the way up, where it lands on the way down. */
+export const floorY = (track: FlightTrack, t: number): number =>
+  t > (track.apexT ?? Infinity) ? (track.landY ?? 0) : 0;
 
 const UP = new THREE.Vector3(0, 1, 0);
 const NOSE_AXIS = new THREE.Vector3(-1, 0, 0);
@@ -29,7 +36,7 @@ const STAND_UPRIGHT = new THREE.Quaternion().setFromUnitVectors(NOSE_AXIS, UP);
 // Not from the kernel, which holds the attitude a rocket deploys in all the way to the ground.
 const HANG_SECONDS = 1.5;
 
-interface TrackRow {
+export interface TrackRow {
   t: number;
   a: number;
   v: number;

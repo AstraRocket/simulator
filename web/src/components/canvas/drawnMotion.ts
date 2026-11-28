@@ -3,7 +3,7 @@ import type { FlightBody } from '../../services/flight/flightBodies';
 import { eventTime } from '../../services/flight/flightEvents';
 import { windAt } from '../../services/flight/flightWind';
 import { extentCenter, extentLength, type BodySpan, type Placement } from './bodyMotion';
-import { newTrackPose, sceneFromEnu, trackPoseAt, type FlightTrack } from './flightTrack';
+import { floorY, newTrackPose, sceneFromEnu, trackPoseAt, type FlightTrack } from './flightTrack';
 
 // Motion the engine does not record, drawn on top of what it does. Every one is a function of flight time alone.
 
@@ -90,7 +90,8 @@ export function applyDrawn(
   if (!turned) return;
   const half = extentLength(place.span) / 2 + below;
   const least = half * Math.abs(place.dir.y) + radius * Math.sqrt(Math.max(0, 1 - place.dir.y ** 2));
-  place.position.y = t > d.landsAt ? least * modelScale : Math.max(place.position.y, least * modelScale);
+  const floor = floorY(track, t) + least * modelScale;
+  place.position.y = t > d.landsAt ? floor : Math.max(place.position.y, floor);
 }
 
 function rotate(place: Placement, by: THREE.Quaternion): void {

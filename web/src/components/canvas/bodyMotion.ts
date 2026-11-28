@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { carrierAt, type FlightBody } from '../../services/flight/flightBodies';
-import { newTrackPose, trackPoseAt, type FlightTrack, type TrackPose } from './flightTrack';
+import { floorY, newTrackPose, trackPoseAt, type FlightTrack, type TrackPose } from './flightTrack';
 import { piecesBounds, type Piece } from './rocketPieces';
 
 /** Along the rocket's axis, in meters aft of the nose tip. */
@@ -108,7 +108,7 @@ export function placeCarrier(
   out.span = spanAt(spans, t);
   out.position.addScaledVector(out.span.offset, modelScale);
   const reach = (extentLength(out.span) / 2) * modelScale;
-  out.position.y = Math.max(out.position.y, reach * Math.abs(out.dir.y));
+  out.position.y = Math.max(out.position.y, floorY(track, t) + reach * Math.abs(out.dir.y));
   return out;
 }
 

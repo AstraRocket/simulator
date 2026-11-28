@@ -4,6 +4,8 @@ import { type TileRef, type TileSourceId } from '../../services/map/slippyMap';
 import { sceneFromEnu } from './flightTrack';
 import { useEsriKey } from '../../services/map/esriKey';
 import { groundMapLayout, GROUND_LAYER, GROUND_ROTATION, configureTileTexture } from './groundMapLayout';
+import type { TerrainField } from '../../services/map/terrainTiles';
+import { TILE_SEGMENTS, terrainPlane } from './terrainMesh';
 
 export interface GroundMapProps {
   latitudeDeg: number;
@@ -12,6 +14,8 @@ export interface GroundMapProps {
   radiusM: number;
   unitsPerMeter: number;
   source: TileSourceId;
+  /** Drapes the tiles over it, drawn with depth so hills hide what is behind them. */
+  terrain?: TerrainField | null;
   onTileLoad?: () => void;
   onTileError?: () => void;
 }
@@ -29,6 +33,7 @@ export function FlightGroundMap({
   radiusM,
   unitsPerMeter,
   source,
+  terrain,
   onTileLoad,
   onTileError,
 }: GroundMapProps) {
@@ -43,6 +48,16 @@ export function FlightGroundMap({
     of: layer,
     texes: {},
   });
+
+  const draped = useMemo(() => {
+    if (!terrain) return null;
+    const out = new Map<string, THREE.PlaneGeometry>();
+    for (const ref of layer.refs) {
+      out.set(ref.key, terrainPlane(terrain, layer.quad, TILE_SEGMENTS, ref.east, ref.north, unitsPerMeter));
+    }
+    return out;
+  }, [terrain, layer, unitsPerMeter]);
+  useEffect(() => () => draped?.forEach((g) => g.dispose()), [draped]);
 
   // Effect Events, so an unmemoized parent callback does not re-fetch every tile per HUD tick.
   const reportTileLoad = useEffectEvent(() => onTileLoad?.());
@@ -92,6 +107,19 @@ export function FlightGroundMap({
       {layer.refs.map((ref) => {
         const tex = loaded.of === layer ? loaded.texes[ref.key] : undefined;
         if (!tex) return null;
+        const geometry = draped?.get(ref.key);
+        if (geometry) {
+          return (
+            <mesh
+              key={ref.key}
+              geometry={geometry}
+              position={sceneFromEnu(ref.east, 0, ref.north)}
+              rotation={GROUND_ROTATION}
+            >
+              <meshBasicMaterial map={tex} vertexColors toneMapped={false} />
+            </mesh>
+          );
+        }
         return (
           <mesh
             key={ref.key}
