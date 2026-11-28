@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import type { ColoredTrack } from './flightScene';
+import type { FlightBody } from '../../services/flight/flightBodies';
 import { indexAtTime, trackPositionAt } from './flightTrack';
 
 type TrailLine = ComponentRef<typeof Line>;
@@ -22,15 +23,52 @@ const hide = (line: TrailLine | null) => {
 
 const AHEAD_OPACITY = 0.22;
 
+// Scene units, in which the apogee stands 24 high.
+const DASH = { dashed: true, dashSize: 0.35, gapSize: 0.25 } as const;
+
+/** Each branch's path from where it parts from the stack; dashed past the engine's last sample, as estimated. */
+export function FlightTrails({
+  tracks,
+  bodies,
+  duration,
+  progressRef,
+}: {
+  tracks: readonly ColoredTrack[];
+  bodies: readonly FlightBody[];
+  duration: number;
+  progressRef: RefObject<number>;
+}) {
+  const clock = { duration, progressRef };
+  return tracks.map((track, i) => (
+    <group key={i}>
+      <FlightTrail
+        track={track}
+        from={i === 0 ? -Infinity : (bodies[i]?.separatedAt ?? -Infinity)}
+        to={track.estimatedFromT}
+        {...clock}
+      />
+      {Number.isFinite(track.estimatedFromT) && (
+        <FlightTrail track={track} from={track.estimatedFromT} dashed {...clock} />
+      )}
+    </group>
+  ));
+}
+
 /** The path flown so far, from the first sample at `from`, over a faint one of the whole flight. */
-export function FlightTrail({
+function FlightTrail({
   track,
   from,
+  to = Infinity,
+  dashed = false,
   duration,
   progressRef,
 }: {
   track: ColoredTrack;
   from: number;
+  /** The last sample drawn is the last at or before it. */
+  to?: number;
+  /** For a stretch that is estimated, not flown by the engine. */
+  dashed?: boolean;
   duration: number;
   progressRef: RefObject<number>;
 }) {
@@ -42,8 +80,13 @@ export function FlightTrail({
       ),
     [track, from],
   );
-  const points = useMemo(() => track.scenePts.slice(first), [track, first]);
-  const colors = useMemo(() => track.colors.slice(first), [track, first]);
+  const end = useMemo(() => {
+    let i = track.times.length;
+    while (i > 0 && track.times[i - 1]! > to) i--;
+    return i;
+  }, [track, to]);
+  const points = useMemo(() => track.scenePts.slice(first, end), [track, first, end]);
+  const colors = useMemo(() => track.colors.slice(first, end), [track, first, end]);
   const flownRef = useRef<TrailLine>(null);
   const headRef = useRef<TrailLine>(null);
   const tip = useMemo(() => new THREE.Vector3(), []);
@@ -77,6 +120,7 @@ export function FlightTrail({
   });
 
   if (points.length < 2) return null;
+  const dash = dashed ? DASH : {};
   return (
     <>
       <Line
@@ -86,8 +130,9 @@ export function FlightTrail({
         transparent
         opacity={AHEAD_OPACITY}
         depthWrite={false}
+        {...dash}
       />
-      <Line ref={attachFlown} points={points} vertexColors={colors} lineWidth={3} />
+      <Line ref={attachFlown} points={points} vertexColors={colors} lineWidth={3} {...dash} />
       <Line ref={attachHead} points={HEAD} lineWidth={3} />
     </>
   );

@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { TileSourceId } from '../../services/map/slippyMap';
-import { MIN_EXTENT_M } from '../../services/flight/groundTrack';
+import type { TerrainField } from '../../services/map/terrainTiles';
+import { terrainPlane } from './terrainMesh';
 import type { useGroundLayer } from '../common/map/useTileVerdict';
 import { FlightGroundMap } from './FlightGroundMap';
 import type { FlightScene } from './flightScene';
@@ -9,7 +10,6 @@ import { GROUND_LAYER, GROUND_ROTATION } from './groundMapLayout';
 import { useSceneColors } from './sceneColors';
 
 const MIN_HAZE = 220;
-const GROUND_MARGIN = 1.2;
 // The floor's edge, in haze lengths: past this it is all haze.
 const FLOOR_REACH = 3;
 
@@ -19,47 +19,72 @@ export function FlightGround({
   site,
   mapSource,
   ground,
+  radiusM,
+  terrain,
 }: {
   scene: FlightScene;
   bounds: THREE.Box3;
   site: { lat: number; lon: number } | null;
   mapSource: TileSourceId | null;
   ground: ReturnType<typeof useGroundLayer>;
+  radiusM: number;
+  terrain: TerrainField | null;
 }) {
-  const { scenePts, unitsPerMeter } = scene;
+  const { unitsPerMeter } = scene;
   const haze = useMemo(() => {
     let far = 0;
     for (const v of [bounds.min.x, bounds.max.x, bounds.min.z, bounds.max.z]) far = Math.max(far, Math.abs(v));
     return Math.max(MIN_HAZE, far * 6);
   }, [bounds]);
-  const groundRadiusM = useMemo(() => {
-    let far = 0;
-    for (const p of scenePts) {
-      const d = Math.max(Math.abs(p.x), Math.abs(p.z));
-      if (d > far) far = d;
-    }
-    return Math.max(MIN_EXTENT_M, (far / unitsPerMeter) * GROUND_MARGIN);
-  }, [scenePts, unitsPerMeter]);
   return (
     <>
-      <GroundFloor haze={haze} unitsPerMeter={unitsPerMeter} />
-      {mapSource && site && (
+      <GroundFloor haze={haze} unitsPerMeter={unitsPerMeter} under={terrain != null} />
+      {mapSource && site ? (
         <FlightGroundMap
           latitudeDeg={site.lat}
           longitudeDeg={site.lon}
-          radiusM={groundRadiusM}
+          radiusM={radiusM}
           unitsPerMeter={unitsPerMeter}
           source={mapSource}
+          terrain={terrain}
           onTileLoad={ground.onTileLoad}
           onTileError={ground.onTileError}
         />
+      ) : (
+        terrain && <TerrainSurface field={terrain} unitsPerMeter={unitsPerMeter} />
       )}
     </>
   );
 }
 
-/** The floor and its grid under haze; a map, when there is one, draws between the two by render order. */
-export function GroundFloor({ haze, unitsPerMeter }: { haze: number; unitsPerMeter: number }) {
+// The bare ground, with no map over it: a cell between each pair of height samples.
+function TerrainSurface({ field, unitsPerMeter }: { field: TerrainField; unitsPerMeter: number }) {
+  const ink = useSceneColors();
+  const geometry = useMemo(
+    () => terrainPlane(field, field.halfWidthM * 2 * unitsPerMeter, field.n - 1, 0, 0, unitsPerMeter),
+    [field, unitsPerMeter],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh geometry={geometry} rotation={GROUND_ROTATION}>
+      <meshBasicMaterial color={ink['scene-floor']} vertexColors toneMapped={false} />
+    </mesh>
+  );
+}
+
+/**
+ * The floor and its grid under haze; a map, when there is one, draws between the two by render order. `under`
+ * keeps the floor out of the depth buffer, so terrain lower than the pad is not hidden behind it.
+ */
+export function GroundFloor({
+  haze,
+  unitsPerMeter,
+  under = false,
+}: {
+  haze: number;
+  unitsPerMeter: number;
+  under?: boolean;
+}) {
   const ink = useSceneColors();
   const floor = useMemo(() => new THREE.CircleGeometry(haze * FLOOR_REACH, 96), [haze]);
   useEffect(() => () => floor.dispose(), [floor]);
@@ -74,7 +99,7 @@ export function GroundFloor({ haze, unitsPerMeter }: { haze: number; unitsPerMet
   return (
     <>
       <mesh geometry={floor} rotation={GROUND_ROTATION} renderOrder={GROUND_LAYER.floor}>
-        <meshBasicMaterial color={ink['scene-floor']} toneMapped={false} />
+        <meshBasicMaterial color={ink['scene-floor']} toneMapped={false} depthWrite={!under} />
       </mesh>
       <mesh geometry={floor} material={grid} rotation={GROUND_ROTATION} renderOrder={GROUND_LAYER.grid} />
     </>

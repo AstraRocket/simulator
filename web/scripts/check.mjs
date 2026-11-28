@@ -63,4 +63,7 @@ for (const { name, passed, seconds } of results) {
 }
 const failed = results.filter((r) => !r.passed);
 console.log(failed.length ? `\n${failed.length} of ${results.length} FAILED` : `\nall ${results.length} passed`);
+// The failures' own output has usually scrolled away behind the long steps: this reruns only them.
+if (failed.length)
+  console.log(`\nTo see their output again:\n  npm run check -- ${failed.map((r) => r.name).join(' ')}`);
 process.exit(failed.length ? 1 : 0);

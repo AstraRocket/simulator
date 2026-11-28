@@ -139,6 +139,21 @@ Every **motor** has its own flame, at its own nozzle and in its propellant's [ex
 
 The **ground plane can carry the same aerial imagery**, laid at the launch site's coordinates so the trajectory arcs over the real field rather than over an empty grid. The same **None · Satellite · Street** buttons sit at the top left, starting on **None** and sharing their choice with the ground track and the launch-site map. The imagery covers a little past the farthest the rocket got from the pad rather than the whole plane, so a three-hundred-meter flight does not fetch a kilometer of scenery on either side; the reference grid continues beyond its edge.
 
+### Terrain {#terrain}
+
+The engine flies every flight over level ground at the pad's height. **Terrain**, under the layer buttons, raises the ground to its real shape instead, and lands the drawn flight on it. It starts off, and nothing is fetched until you turn it on.
+
+- **The ground**: the imagery is draped over the hills and valleys, with slopes facing away from the light shaded darker; with the layer on **None** the bare ground is drawn. Hills hide the path behind them. The ground covers the same area as the imagery.
+- **Landing on higher ground**: the descent ends where it first meets the terrain. Everything drawn is the engine's flight, only shorter.
+- **Landing on lower ground**: the engine stops at the pad's height, so the descent is carried on from there at its last descent rate and drift until it meets the ground. That stretch is an estimate, not engine output, and is drawn **dashed**.
+- **The landing** ring, the landed rocket, the landing label, its caption and its mark on the timeline all move to where the drawn path ends.
+
+A panel under the button gives each part's landing **on terrain**, as distance and bearing from the pad, beside the **simulation**'s own landing on level ground, and how much of the drop was estimated. The results cards, the ground track and the exports keep the simulation's numbers.
+
+**1× · 2× · 5× · 10×** beside the button draws the ground that many times taller, so gentle slopes show. The drawn path lands on the ground as drawn, so it ends sooner over an exaggerated hill and later in an exaggerated valley; the panel's numbers always come from the real heights, and it says when the heights are exaggerated.
+
+Heights come from the [Mapzen terrain tiles on AWS Open Data](https://registry.opendata.aws/terrain-tiles/), built from SRTM, USGS 3DEP, GMTED and other sources, about 30 m apart in the United States and about 90 m elsewhere. A flight needs only a few tiles; the requests carry the tiles' map coordinates, which name the launch area, and nothing else. Tiles are kept for the session but not for offline use, so terrain needs a connection. If they cannot be loaded, a note at the bottom right says why.
+
 An **⬇ Export** button saves the flight path for mapping tools as **KML (Google Earth)**, **GPX track** or **Waypoint CSV**, with options for which waypoints and lines to include, and support for your own templates. See [Files & Exports](./files-and-exports.md#exporting-the-flight-path-kml--gpx--csv).
 
 ### Playing the flight back

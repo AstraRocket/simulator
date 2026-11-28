@@ -22,7 +22,7 @@ About 16 MB in total. You don't need to do anything to trigger it: just let the 
 
 The motor catalog carries each motor's **thrust curve** with it, so simulating offline works for motors you've never opened before: 1,063 of the 1,156 motors. The remaining 93 have no published curve to bundle. The picker lists them with their specs, but they can't be flown unless you import an `.eng` or `.rse` file for them.
 
-**Map imagery is the exception.** It is fetched as you look at it rather than downloaded up front, and the tiles you have viewed are kept, so a field you checked at home still shows at the launch with no signal. Ground you have never viewed cannot be drawn offline: the launch-site map falls back to a coordinate grid, and the ground track and 3D path to their plain plots, which carry the measurements anyway.
+**Map imagery is the exception.** It is fetched as you look at it rather than downloaded up front, and the tiles you have viewed are kept, so a field you checked at home still shows at the launch with no signal. Ground you have never viewed cannot be drawn offline: the launch-site map falls back to a coordinate grid, and the ground track and 3D path to their plain plots, which carry the measurements anyway. The 3D path's [terrain](./views-and-analysis.md#terrain) is kept only for the session, so it needs a connection.
 
 **Weather needs a connection.** [Weather from Open-Meteo](./running-a-simulation.md#weather) is fetched when you ask for it and is not stored offline. What you applied stays in the simulation.
 

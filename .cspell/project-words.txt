@@ -253,6 +253,7 @@ geopotential
 giantleaprocketry
 glenmarc
 GLTF
+GMTED
 Golay
 goldens
 gradlew
@@ -369,6 +370,7 @@ luma
 Maccoll
 macrotask
 mapfiles
+Mapzen
 massc
 masscalc
 masscomponent
@@ -589,6 +591,7 @@ speedms
 Spherachutes
 spillholediameter
 splittable
+SRTM
 ssaero
 sscale
 stageless
@@ -619,6 +622,7 @@ tablength
 tabposition
 teavm
 Temurin
+Terrarium
 tfins
 tform
 Tform

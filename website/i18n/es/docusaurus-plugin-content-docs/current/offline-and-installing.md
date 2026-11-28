@@ -22,7 +22,7 @@ Unos 16 MB en total. No tienes que hacer nada para activarlo: basta con dejar qu
 
 El catálogo de motores lleva consigo la **curva de empuje** de cada motor, así que simular sin conexión funciona incluso con motores que nunca has abierto: 1.063 de los 1.156. Los 93 restantes no tienen curva publicada que incluir. El selector los muestra con sus datos, pero no se pueden volar salvo que importes un archivo `.eng` o `.rse` para ellos.
 
-**Las imágenes de mapa son la excepción.** Se descargan según las miras, no de antemano, y las teselas que ya has visto se conservan, así que un campo que consultaste en casa sigue mostrándose en el lanzamiento sin cobertura. Un terreno que no has visto nunca no se puede dibujar sin conexión: el mapa del lugar de lanzamiento recurre a una retícula de coordenadas, y la traza en tierra y la trayectoria 3D a sus gráficos simples, que de todos modos llevan la medida.
+**Las imágenes de mapa son la excepción.** Se descargan según las miras, no de antemano, y las teselas que ya has visto se conservan, así que un campo que consultaste en casa sigue mostrándose en el lanzamiento sin cobertura. Un terreno que no has visto nunca no se puede dibujar sin conexión: el mapa del lugar de lanzamiento recurre a una retícula de coordenadas, y la traza en tierra y la trayectoria 3D a sus gráficos simples, que de todos modos llevan la medida. El [terreno](./views-and-analysis.md#terrain) de la trayectoria 3D solo se conserva durante la sesión, así que necesita conexión.
 
 **El tiempo necesita conexión.** [El tiempo de Open-Meteo](./running-a-simulation.md#weather) se consulta cuando lo pides y no se guarda para usarlo sin conexión. Lo que hayas aplicado se queda en la simulación.
 

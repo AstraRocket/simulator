@@ -23,12 +23,15 @@ export function FlightMarks({
   return (
     <>
       {/* At true size the pad marks itself, and a ball at the apogee would hide the rocket. */}
-      {overview && <GroundRing pos={scenePts[0]!} color={sceneInk['scene-marker']} scale={1} />}
+      {overview && <GroundRing pos={scenePts[0]!} y={0} color={sceneInk['scene-marker']} scale={1} />}
       {overview && nowT >= (times[apogeeIdx] ?? Infinity) && <Marker pos={scenePts[apogeeIdx]!} color={phase.coast} />}
       {tracks.map(({ times: at, scenePts: pts }, i) => {
         const end = pts.length - 1;
         return (
-          end > 0 && nowT >= at[end]! && <GroundRing key={i} pos={pts[end]!} color={phase.descent} scale={ringScale} />
+          end > 0 &&
+          nowT >= at[end]! && (
+            <GroundRing key={i} pos={pts[end]!} y={tracks[i]!.landY ?? 0} color={phase.descent} scale={ringScale} />
+          )
         );
       })}
     </>
@@ -41,9 +44,9 @@ interface MarkProps {
   scale: number;
 }
 
-function GroundRing({ pos, color, scale }: MarkProps) {
+function GroundRing({ pos, y, color, scale }: MarkProps & { y: number }) {
   return (
-    <mesh position={[pos.x, 0, pos.z]} rotation={[-Math.PI / 2, 0, 0]} scale={scale} renderOrder={GROUND_LAYER.ring}>
+    <mesh position={[pos.x, y, pos.z]} rotation={[-Math.PI / 2, 0, 0]} scale={scale} renderOrder={GROUND_LAYER.ring}>
       <ringGeometry args={[0.32, 0.42, 48]} />
       <meshBasicMaterial color={color} depthTest={false} depthWrite={false} />
     </mesh>

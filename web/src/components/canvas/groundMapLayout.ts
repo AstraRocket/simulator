@@ -8,6 +8,20 @@ import {
   type TileSourceId,
 } from '../../services/map/slippyMap';
 import type { GroundQuad } from './FlightGroundMap';
+import { MIN_EXTENT_M } from '../../services/flight/groundTrack';
+import type { FlightScene } from './flightScene';
+
+const GROUND_MARGIN = 1.2;
+
+/** Half the side of the ground drawn under a flight, in meters from the pad. */
+export function groundRadiusM(scene: FlightScene): number {
+  let far = 0;
+  for (const p of scene.scenePts) {
+    const d = Math.max(Math.abs(p.x), Math.abs(p.z));
+    if (d > far) far = d;
+  }
+  return Math.max(MIN_EXTENT_M, (far / scene.unitsPerMeter) * GROUND_MARGIN);
+}
 
 const GROUND_TEX_PX = 512;
 

@@ -63,8 +63,10 @@ export function useFlightParts(
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
     for (const track of tracks) for (const p of track.scenePts) box.expandByPoint(p);
+    // Down to the ground, the pad's or a lower landing's, never past it.
+    const lowest = Math.min(0, box.min.y);
     box.expandByScalar((totalLen * overviewScale) / 2);
-    box.min.y = 0;
+    box.min.y = lowest;
     return box;
   }, [tracks, totalLen, overviewScale]);
   return {

@@ -12,7 +12,7 @@ import { windAt } from '../../services/flight/flightWind';
 import { usePadRose } from './usePadRose';
 import type { LauncherKind } from '../../services/design/launcher';
 import { lerpAt } from '../../services/flight/interpolate';
-import { buildFlightScene, eventPills } from './flightScene';
+import { eventPills } from './flightScene';
 import type { Exhaust } from '../../services/motors/exhaust';
 import type { MotorDims } from '../../tree/schematicGeometry';
 import { TILE_SOURCES, type TileSourceId } from '../../services/map/slippyMap';
@@ -29,6 +29,8 @@ import { useFlightPlayback } from './useFlightPlayback';
 import { useFlightRecorder } from './useFlightRecorder';
 import { canRecordVideo, captionAt } from '../../services/exports/flightVideo';
 import { exportFilename } from '../../services/files/saveFile';
+import { landedOnTerrain, useTerrainScene } from './useFlightTerrain';
+import { TerrainCredits, TerrainPanel } from './FlightTerrainParts';
 
 // Seconds of video each event's caption stays up.
 const CALLOUT_HOLD_S = 2.5;
@@ -79,7 +81,7 @@ export function FlightPath3D({
   const { progress } = controls;
   const { site, ground } = useSiteGround(latitudeDeg, longitudeDeg);
 
-  const scene = useMemo(() => buildFlightScene(result, phase), [result, phase]);
+  const { scene, trueScene, terrain, land } = useTerrainScene(result, phase, site);
   const bodies = useMemo(() => flightBodies(tree, result), [tree, result]);
   const names = useMemo(() => {
     const named = flightBranches(result).map((b, i) => b.name || t('flight.stageN', { n: i + 1 }));
@@ -89,7 +91,10 @@ export function FlightPath3D({
   // Another flight may have fewer.
   const playback = { ...controls, tracked: controls.tracked < bodies.length ? controls.tracked : 0 };
   const { duration } = scene;
-  const events = useMemo(() => markedEvents(result, duration), [result, duration]);
+  const events = useMemo(
+    () => landedOnTerrain(markedEvents(result, Infinity), land.terrain && scene).filter((e) => e.time <= duration),
+    [result, duration, land.terrain, scene],
+  );
   const nowT = progress * duration;
   const track = scene.tracks[playback.tracked] ?? scene;
   const carrier = bodies[carrierAt(bodies, playback.tracked, nowT)];
@@ -186,6 +191,7 @@ export function FlightPath3D({
         site={site}
         mapSource={mapSource}
         ground={ground}
+        land={land}
         rodLengthM={rodLengthM ?? DEFAULT_ROD_M}
         pad={pad}
         effects={settings.flightEffects}
@@ -210,15 +216,14 @@ export function FlightPath3D({
         <FlightDial roseRef={roseRef} wind={wind} />
       </div>
       {site && (
-        <TileLayerButtons
-          layers={LAYERS}
-          value={ground.layer}
-          onPick={ground.pick}
-          className="absolute left-3 top-16"
-        />
+        <div className="absolute left-3 top-16 flex flex-col items-start gap-1">
+          <TileLayerButtons layers={LAYERS} value={ground.layer} onPick={ground.pick} className="" />
+          <TerrainPanel terrain={terrain} result={result} scene={trueScene} names={names} />
+        </div>
       )}
       <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col items-end gap-1">
         {mapSource && <MapCredit className="">{TILE_SOURCES[mapSource].attribution}</MapCredit>}
+        <TerrainCredits terrain={terrain} />
         {recorder.error && (
           <MapCredit warn className="">
             {t('flight.recordFailed', { message: recorder.error })}
