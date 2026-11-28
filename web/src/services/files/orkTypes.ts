@@ -10,13 +10,7 @@ import { uuid } from '../app/uuid';
 
 export type OrkSimPrefs = Pick<
   SimPrefs,
-  | 'timeStep'
-  | 'maxTime'
-  | 'stepper'
-  | 'randomSeed'
-  | 'deploymentSpeedWarn'
-  | 'mainHighSpeedWarn'
-  | 'mainLowSpeedWarn'
+  'timeStep' | 'maxTime' | 'stepper' | 'randomSeed' | 'deploymentSpeedWarn' | 'mainHighSpeedWarn' | 'mainLowSpeedWarn'
 >;
 
 export interface OrkMotorRef {

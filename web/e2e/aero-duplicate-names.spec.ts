@@ -6,7 +6,8 @@ test('two parts sharing a name are two rows, not one merged one', async ({ page 
   // Both renamed: an untouched part reports "[BodyTube.BodyTube]", not "Body tube".
   for (const part of ['Nose cone', 'Body tube']) {
     await page.locator(`div[title="${part}"]`).first().click();
-    const name = page.getByLabel('Name', { exact: true });
+    // By role, which skips hidden elements: a closed Columns menu still holds a "Name" checkbox.
+    const name = page.getByRole('textbox', { name: 'Name', exact: true });
     await name.fill('Twin');
     await name.blur();
   }

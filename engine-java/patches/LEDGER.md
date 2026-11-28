@@ -1,6 +1,6 @@
 # Patch ledger: extracted OpenRocket core
 
-<!-- cspell:ignore Monitorable draglookup stabilitylookup badheader -->
+<!-- cspell:ignore Monitorable draglookup stabilitylookup badheader Lowspeedwarning -->
 
 Every `PATCH(...)` comment in `src/java/` points here. This is that file.
 
