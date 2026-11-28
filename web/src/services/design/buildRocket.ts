@@ -5,18 +5,39 @@ import { findStages } from './treeEdit';
 import { badDimensions, overturnedFins, type BadDimension, type NamedPart } from './requiredComponent';
 import { hasUsableCurve } from '../motors/motorCurve';
 import { errorReason, type Keyed } from '../../i18n/keyedError';
+import { BASE_DRAG_HACK_ENGINE_NAME, engineTree, withBaseDragHack, type BuildPurpose } from './engineTree';
+import { walkNodes } from '../../tree/treeWalk';
 
 // Ignition/deployment overrides are left out on purpose: they move no static figure.
 export function buildKey(tree: RocketTree, config: FlightConfig): string {
   const grounded = [...(config.grounded ?? [])].sort().join(',');
-  return `${seatedMotorsKey(tree, config)}#${grounded}`;
+  return `${seatedMotorsKey(tree, config)}#${grounded}${tree.baseDragHack === true ? '#hack' : ''}`;
 }
 
-export function buildConfiguredRocket(tree: RocketTree, config: FlightConfig): OpenRocketDesign {
-  const r = buildRocketTree(configuredTree(tree, config));
+/** `flight` for anything that flies: the base drag hack cone is for static readouts only. */
+export function buildConfiguredRocket(
+  tree: RocketTree,
+  config: FlightConfig,
+  purpose: BuildPurpose = 'static',
+): OpenRocketDesign {
+  const flown = engineTree(configuredTree(tree, config), 'flight');
+  const sent = purpose === 'static' ? withBaseDragHack(flown, BASE_DRAG_HACK_ENGINE_NAME) : flown;
+  // First, and read at once: the next build resets the engine and voids this handle.
+  const drawn = sent !== flown ? assemble(tree, config, flown).staticInfo() : null;
+  const r = assemble(tree, config, sent);
+  if (drawn) hideHackCone(r, drawn);
+  sources.set(r, tree.components);
+  return r;
+}
+
+function assemble(tree: RocketTree, config: FlightConfig, sent: RocketTree): OpenRocketDesign {
+  const r = buildRocketTree(sent);
+  // An ignored mount or booster is not in the build, so its motor and activeness have nowhere to go.
+  const present = new Set<string>();
+  for (const n of walkNodes(sent.components)) if (typeof n.id === 'string') present.add(n.id);
   for (const [id, m] of liveMotors(tree, config)) {
     // Skipped rather than letting the engine throw "Too short thrust-curve".
-    if (!hasUsableCurve(m.spec)) continue;
+    if (!present.has(id) || !hasUsableCurve(m.spec)) continue;
     r.setMotorById(id, m.spec);
     if (m.ignitionEvent || m.ignitionDelay)
       r.setMotorIgnitionById(id, m.ignitionEvent ?? 'automatic', m.ignitionDelay ?? 0);
@@ -24,10 +45,32 @@ export function buildConfiguredRocket(tree: RocketTree, config: FlightConfig): O
   // After the motors: a motor seated later would put a grounded stage's engine back.
   for (const stage of findStages(tree)) {
     const id = stage.id as string;
-    if (!stageFlies(config, id)) r.setStageActiveById(id, false);
+    if (present.has(id) && !stageFlies(config, id)) r.setStageActiveById(id, false);
   }
-  sources.set(r, tree.components);
   return r;
+}
+
+/**
+ * The cone moves the CP and nothing a person sees. Lengths and warnings come from the build without it: a motor
+ * sticking out of the tail sits inside the cone, so subtracting its length would come up short, and its join with the
+ * tail reads as a diameter discontinuity, which is the hack, not a fault in the design. Per-part rows drop it.
+ */
+function hideHackCone(r: OpenRocketDesign, drawn: StaticInfo): void {
+  const staticInfo = r.staticInfo.bind(r);
+  r.staticInfo = () => ({
+    ...staticInfo(),
+    length: drawn.length,
+    lengthAerodynamic: drawn.lengthAerodynamic,
+    warnings: drawn.warnings,
+    warningTexts: drawn.warningTexts,
+  });
+  const componentMasses = r.componentMasses.bind(r);
+  r.componentMasses = () => componentMasses().filter((m) => m.name !== BASE_DRAG_HACK_ENGINE_NAME);
+  const aeroSweep = r.aeroSweep.bind(r);
+  r.aeroSweep = (options) => {
+    const sweep = aeroSweep(options);
+    return { ...sweep, components: sweep.components.filter((c) => c.name !== BASE_DRAG_HACK_ENGINE_NAME) };
+  };
 }
 
 const sources = new WeakMap<OpenRocketDesign, RocketTree['components']>();

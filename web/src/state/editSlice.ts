@@ -56,6 +56,7 @@ export interface EditSlice {
         | 'kitManufacturer'
         | 'kitPartNumber'
         | 'revisionLog'
+        | 'baseDragHack'
       >
     >,
   ) => void;

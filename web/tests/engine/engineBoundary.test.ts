@@ -765,7 +765,6 @@ describe('a grounded stage leaves the flight', () => {
   });
 });
 
-// The drogue-low-speed check is enabled by PATCH(drogue-low-speed) in BasicEventSimulationEngine.
 describe('dual deployment reaches the kernel', () => {
   const dualTree = (drogue: boolean) =>
     ({
@@ -829,13 +828,8 @@ describe('dual deployment reaches the kernel', () => {
     return (r.warnings ?? []).map((w) => w.key);
   };
 
-  it('warns about a slow drogue at apogee once the threshold is high enough', () => {
-    expect(keys(dualTree(true), { drogueLowSpeedWarn: 50 })).toContain('RECOVERY_DROGUE_LOW_SPEED');
-    expect(keys(dualTree(true), { drogueLowSpeedWarn: 0 })).not.toContain('RECOVERY_DROGUE_LOW_SPEED');
-  });
-
-  it('stays silent when the same chute is not marked as a drogue', () => {
-    expect(keys(dualTree(false), { drogueLowSpeedWarn: 50 })).not.toContain('RECOVERY_DROGUE_LOW_SPEED');
+  it('never flags a drogue for being slow at apogee, where slow is expected', () => {
+    expect(keys(dualTree(true), {})).not.toContain('RECOVERY_DROGUE_LOW_SPEED');
   });
 
   it('judges the main against the dual-deployment thresholds, not the single one', () => {

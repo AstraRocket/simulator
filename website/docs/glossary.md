@@ -45,6 +45,8 @@ Use the search box at the top of this site, or the search in the app's **Help** 
 
 **Barrowman method**: The original analytical method for finding a rocket's center of pressure from its component shapes. The engine uses the extended form. See **Extended Barrowman**.
 
+**Base drag hack**: OpenRocket's "Base Drag CP Correction": a cone with no mass or drag behind the tail, π diameters long, that moves the CP aft the way base drag does on short, wide rockets, which the Barrowman method leaves out. *In the app:* **Base drag hack** in the aft-most stage's properties; it changes the stability readouts only, never a simulation. See [Base drag hack](./designing-a-rocket.md#base-drag-hack).
+
 **Boattail**: A transition at the tail that narrows toward the rear, reducing base drag. *In the app:* a **Transition** whose **Aft diameter** is smaller than its **Fore diameter**.
 
 **Body tube**: A straight tube of constant diameter: the main airframe section. *In the app:* **Body tube** in the component tree.

@@ -17,6 +17,8 @@ import { download, exportFilename } from '../../services/files/saveFile';
 import { sharedLauncher } from '../../services/design/launcher';
 import { MotorGuideDialog } from './MotorGuideDialog';
 import { OptimizerDialog } from './OptimizerDialog';
+import { CheckMenu } from '../common/CheckMenu';
+import { NAME_COL, SIM_COLUMN_IDS, simColumnLabel, useSimColumns } from './simColumns';
 
 export function SimulationsPane() {
   const { t } = useTranslation();
@@ -27,7 +29,6 @@ export function SimulationsPane() {
   const tree = useWorkspaceStore((s) => s.tree);
   const configs = useWorkspaceStore((s) => s.configs);
   const simPrefs = useWorkspaceStore((s) => s.simPrefs);
-  const setSimConfig = useWorkspaceStore((s) => s.setSimConfig);
   const simRuns = useWorkspaceStore((s) => s.simRuns);
   const selectedIds = useWorkspaceStore((s) => s.selectedSimIds);
 
@@ -46,6 +47,7 @@ export function SimulationsPane() {
   const u = useUnits();
   const [guideOpen, setGuideOpen] = useState(false);
   const [optimizeOpen, setOptimizeOpen] = useState(false);
+  const { order, toggleCol, moveCol, moveColTo } = useSimColumns();
 
   const exportRunTable = () => {
     const rows = sims.map((s) => {
@@ -116,35 +118,104 @@ export function SimulationsPane() {
         <ToolBtn onClick={() => setOptimizeOpen(true)} title={t('optimize.openHint')}>
           {t('optimize.open')}
         </ToolBtn>
+        <CheckMenu
+          summary={t('dash.columns')}
+          // Shown columns first, in table order, each with move buttons; hidden ones after.
+          items={[...order, ...SIM_COLUMN_IDS.filter((id) => !order.includes(id))].map((id) => {
+            const label = simColumnLabel(id, t, u);
+            const at = order.indexOf(id);
+            return {
+              key: id,
+              label,
+              checked: at >= 0,
+              disabled: id === NAME_COL,
+              extra:
+                at >= 0 ? (
+                  <MoveButtons
+                    label={label}
+                    first={at === 0}
+                    last={at === order.length - 1}
+                    onMove={(dir) => moveCol(id, dir)}
+                  />
+                ) : null,
+            };
+          })}
+          onToggle={toggleCol}
+          width="w-72"
+          align="right"
+          className="ml-auto"
+        />
         {!desktop && <RunButton className="w-full" />}
       </div>
 
       {/* `relative` contains the rows' absolute `sr-only` text, which would otherwise scroll the app. */}
       <div className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-2">
-        <SimulationsTable
-          sims={sims}
-          activeId={activeId}
-          selectedIds={selectedIds}
-          runs={simRuns}
-          tree={tree}
-          configs={configs}
-          simPrefs={simPrefs}
-          onSetConfig={setSimConfig}
-          onSelect={onSelect}
-          onToggle={onToggle}
-          onToggleAll={(all) => setSelected(all ? sims.map((x) => x.id) : [])}
-          onOpenResults={(id) => {
-            // Both: the results views follow their own picker, not the active sim.
-            onSelect(id);
-            setResultSimId(id);
-            setTab('results');
-          }}
-        />
+        {/* Its own sideways scroll, so the editor below stays put while a wide table pans. */}
+        <div className="overflow-x-auto">
+          <SimulationsTable
+            order={order}
+            onMoveColumn={moveColTo}
+            sims={sims}
+            activeId={activeId}
+            selectedIds={selectedIds}
+            runs={simRuns}
+            tree={tree}
+            configs={configs}
+            simPrefs={simPrefs}
+            onSelect={onSelect}
+            onToggle={onToggle}
+            onToggleAll={(all) => setSelected(all ? sims.map((x) => x.id) : [])}
+            onOpenResults={(id) => {
+              // Both: the results views follow their own picker, not the active sim.
+              onSelect(id);
+              setResultSimId(id);
+              setTab('results');
+            }}
+          />
+        </div>
 
         {!desktop && <SimEditor />}
       </div>
       {guideOpen && <MotorGuideDialog simId={activeId} onClose={() => setGuideOpen(false)} />}
       {optimizeOpen && <OptimizerDialog simId={activeId} onClose={() => setOptimizeOpen(false)} />}
     </div>
+  );
+}
+
+function MoveButtons({
+  label,
+  first,
+  last,
+  onMove,
+}: {
+  label: string;
+  first: boolean;
+  last: boolean;
+  onMove: (dir: -1 | 1) => void;
+}) {
+  const { t } = useTranslation();
+  const btn =
+    'rounded px-1.5 py-0.5 text-xs text-ink-soft hover:bg-elevated disabled:opacity-30 focus:outline-none focus:ring-1 focus:ring-accent-500';
+  return (
+    <span className="flex shrink-0 pr-1">
+      <button
+        type="button"
+        className={btn}
+        disabled={first}
+        onClick={() => onMove(-1)}
+        aria-label={t('sims.moveColumnLeft', { name: label })}
+      >
+        <span aria-hidden>◀</span>
+      </button>
+      <button
+        type="button"
+        className={btn}
+        disabled={last}
+        onClick={() => onMove(1)}
+        aria-label={t('sims.moveColumnRight', { name: label })}
+      >
+        <span aria-hidden>▶</span>
+      </button>
+    </span>
   );
 }

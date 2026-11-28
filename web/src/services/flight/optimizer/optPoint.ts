@@ -10,7 +10,7 @@ export interface OptPointPayload extends SimPayload {
 
 /** Desktop checks the limits before flying, so a point outside them costs no flight. */
 export function evaluateOptPoint(p: OptPointPayload): OptPoint {
-  const design = buildConfiguredRocket(p.tree, p.config);
+  const design = buildConfiguredRocket(p.tree, p.config, 'flight');
   const info = design.staticInfo();
   const st = { cp: info.cp, cg: info.cg, calibers: info.stabilityCalibers };
   const distance = domainDistance(p.limits, st);

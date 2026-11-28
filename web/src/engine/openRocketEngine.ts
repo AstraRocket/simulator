@@ -357,11 +357,10 @@ export interface SimulationOptions {
   timeStep?: number;
   maxTime?: number;
   randomSeed?: number;
-  /** m/s. `drogueLowSpeedWarn` relies on PATCH(drogue-low-speed). */
+  /** m/s. */
   recoverySpeedWarn?: number;
   mainHighSpeedWarn?: number;
   mainLowSpeedWarn?: number;
-  drogueLowSpeedWarn?: number;
   /** Off keeps the flight bit-identical to upstream (`api/GuideClearanceListener.java`). */
   guideAwareRodClearance?: boolean;
   /** m/s. */
@@ -481,6 +480,8 @@ export interface RocketTree {
   customExpressions?: CustomExpression[];
   /** Desktop's Photo Studio settings, as its core keeps them: element name to text (`photoSettings.ts`). */
   photoStudio?: Record<string, string>;
+  /** Static readouts add a massless tail cone; flights never do (`engineTree.ts`). Saved as that cone in an .ork. */
+  baseDragHack?: boolean;
   components: ComponentNode[];
 }
 
@@ -797,7 +798,6 @@ export class OpenRocketDesign {
           recoverySpeedWarn: options.recoverySpeedWarn,
           mainHighSpeedWarn: options.mainHighSpeedWarn,
           mainLowSpeedWarn: options.mainLowSpeedWarn,
-          drogueLowSpeedWarn: options.drogueLowSpeedWarn,
           guideAwareRodClearance: options.guideAwareRodClearance,
           railExitMinSpeed: options.railExitMinSpeed,
           dragLookup: options.dragLookup,

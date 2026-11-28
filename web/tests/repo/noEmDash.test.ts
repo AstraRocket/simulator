@@ -23,6 +23,8 @@ const skipped = [
   '/website/build',
   '/website/.docusaurus',
   '/engine-java/src/java',
+  // Patched copies of upstream OpenRocket sources: their comments are upstream's text, kept as written.
+  '/engine-java/patches/info',
   '/engine-java/.openrocket-src',
   '/engine-java/.openrocket-build',
   '/engine-java/build',

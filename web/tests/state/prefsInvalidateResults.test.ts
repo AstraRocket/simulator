@@ -40,7 +40,6 @@ describe('changedPrefKeys', () => {
     expect([...SIM_PREF_KEYS].sort()).toEqual(
       [
         'deploymentSpeedWarn',
-        'drogueLowSpeedWarn',
         'guideAwareRodClearance',
         'lengthUnit',
         'mainHighSpeedWarn',

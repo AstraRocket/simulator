@@ -17,10 +17,12 @@ import { decalPaths } from './ork/exportDecals';
 import { photoStudioXml } from './ork/photoStudio';
 import { customExpressionsXml } from './ork/dataTypes';
 import { customExpressionsOf } from '../flight/customExpressions';
+import { withBaseDragHack } from '../design/engineTree';
+import i18n from '../../i18n';
 
 export function exportOrk({
   name,
-  tree,
+  tree: designTree,
   launch,
   simulations,
   simPrefs,
@@ -29,6 +31,8 @@ export function exportOrk({
   designInfo,
   componentInfo,
 }: OrkTreeExportInput): string {
+  // Desktop has no such flag, so the file carries the cone itself, named and commented so a desktop user sees why.
+  const tree = withBaseDragHack(designTree, i18n.t('baseDragHack.partName'), i18n.t('baseDragHack.partComment'));
   const { writeConfigs, defaultId } = resolveWriteConfigs({ configs, activeConfigId });
   const w = createOrkWriter(writeConfigs, defaultId, componentInfo, decalPaths(tree));
   const { emit } = w;

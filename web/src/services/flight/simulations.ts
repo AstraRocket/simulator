@@ -10,6 +10,7 @@ import { DEFAULT_HEADING_DEG, surfaceWind } from './windLevels';
 import { collectNodes } from '../../tree/treeWalk';
 import { isRecoveryDevice, MAIN_DEVICE_KEY } from '../design/treeEdit';
 import { settleLinkedDimensions } from '../design/linkedDimensions';
+import { withoutIgnored } from '../design/engineTree';
 import { BAYS_KEY } from './recoveryBays';
 import { OPENS_AT_KEY } from './opensAt';
 import { aeroTablesOf, hasAeroTables, type AeroTables } from './aeroTables';
@@ -70,9 +71,11 @@ const treeKeys = new WeakMap<RocketTree, string>();
 export function flightKey(tree: RocketTree): string {
   let key = treeKeys.get(tree);
   if (key === undefined) {
-    const deviceNames = collectNodes(tree.components, (n) => isRecoveryDevice(n.type)).map((n) => n.name);
+    // Ignored parts are not flown, so ignoring one changes the key and nothing else about it does.
+    const flown = withoutIgnored(settleLinkedDimensions(tree).components);
+    const deviceNames = collectNodes(flown, (n) => isRecoveryDevice(n.type)).map((n) => n.name);
     // Settled as the kernel builds them, so a settled and unsettled link key the same.
-    key = stableJson([settleLinkedDimensions(tree).components, deviceNames], NOT_FLOWN);
+    key = stableJson([flown, deviceNames], NOT_FLOWN);
     treeKeys.set(tree, key);
   }
   return key;
@@ -209,7 +212,6 @@ export interface SimPrefs {
   deploymentSpeedWarn: number;
   mainHighSpeedWarn: number;
   mainLowSpeedWarn: number;
-  drogueLowSpeedWarn: number;
   guideAwareRodClearance: boolean;
   // m/s.
   railExitVelocityMin: number;
@@ -228,7 +230,6 @@ export const SIM_PREF_KEYS = [
   'deploymentSpeedWarn',
   'mainHighSpeedWarn',
   'mainLowSpeedWarn',
-  'drogueLowSpeedWarn',
   'guideAwareRodClearance',
   'railExitVelocityMin',
   'rogersKbf',
@@ -302,7 +303,6 @@ export function simConditions(launch: CompleteLaunch, prefs?: SimPrefs, tables: 
     recoverySpeedWarn: prefs?.deploymentSpeedWarn,
     mainHighSpeedWarn: prefs?.mainHighSpeedWarn,
     mainLowSpeedWarn: prefs?.mainLowSpeedWarn,
-    drogueLowSpeedWarn: prefs?.drogueLowSpeedWarn,
     guideAwareRodClearance: prefs?.guideAwareRodClearance,
     railExitMinSpeed: prefs?.railExitVelocityMin,
     rogersKbf: prefs?.rogersKbf,

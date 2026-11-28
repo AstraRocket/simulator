@@ -657,7 +657,6 @@
     },
     "mainHighSpeedWarn": "Auswurfgeschwindigkeit Hauptschirm (max.)",
     "mainLowSpeedWarn": "Auswurfgeschwindigkeit Hauptschirm (min.)",
-    "drogueLowSpeedWarn": "Auswurfgeschwindigkeit Bremsschirm (min.)",
     "railExitMinHint": "Darunter haben die Finnen zu wenig Anströmung zum Steuern, die Rakete kann also in den Wind drehen (Windfahneneffekt) oder beim Verlassen der Startvorrichtung instabil werden.",
     "simModel": "Flugmodell",
     "guideAwareRodClearance": "Startführung berücksichtigen",
@@ -670,7 +669,6 @@
     "deploySpeedWarnHint": "Einfachauswurf (ohne Bremsschirm): Oberhalb dieser Geschwindigkeit droht beim Öffnen des Fallschirms ein Aufschlitzen der Zelle (Zippering) oder ein Reißen der Kappe.",
     "mainHighSpeedWarnHint": "Doppelauswurf: Oberhalb davon kommt der HAUPTSCHIRM zu schnell heraus – meist ein zu kleiner Bremsschirm, der die Rakete nicht genug verzögert, oder ein zu hoch eingestellter Auswurf des Hauptschirms.",
     "mainLowSpeedWarnHint": "Doppelauswurf: Unterhalb davon öffnet der Hauptschirm, während die Rakete kaum sinkt, was in der Regel einen Auswurf nahe dem Apogäum bedeutet: ein langsamer Abstieg aus voller Höhe mit weiter Abdrift.",
-    "drogueLowSpeedWarnHint": "Doppelauswurf: Unterhalb davon kommt der Bremsschirm am Apogäum zu langsam heraus, um sich richtig zu füllen. Gilt nur für eine Stufe mit einem Schirm oder Flatterband, das als Bremsschirm gekennzeichnet ist.",
     "materialsNote": "Woraus ein neu hinzugefügtes Bauteil besteht. Das Material wird dem Bauteil beim Hinzufügen zugewiesen, erscheint also im Panel und bleibt beim Entwurf. Bereits vorhandene Bauteile werden nicht geändert.",
     "materialSlot": {
       "parachute_surface": "Fallschirmkappe",
@@ -963,7 +961,6 @@
     "RECOVERY_HIGH_SPEED": "Bergungssystem bei hoher Geschwindigkeit ausgelöst",
     "RECOVERY_MAIN_HIGH_SPEED": "Hauptschirm bei hoher Geschwindigkeit ausgelöst",
     "RECOVERY_MAIN_LOW_SPEED": "Hauptschirm bei niedriger Geschwindigkeit ausgelöst",
-    "RECOVERY_DROGUE_LOW_SPEED": "Bremsschirm bei niedriger Geschwindigkeit ausgelöst",
     "RECOVERY_DROGUE_NO_MAIN": "Bremsschirm ausgelöst, ohne dass ein Hauptschirm vorhanden ist",
     "EVENT_AFTER_LANDING": "Ein Ereignis trat nach der Landung ein",
     "FILE_INVALID_PARAMETER": "Ungültiger Parameter in der Datei",
@@ -1638,7 +1635,8 @@
     "selectFirst": "Wähle zuerst ein Bauteil",
     "pasteEmpty": "Nichts einzufügen: schneide zuerst ein Bauteil aus oder kopiere es",
     "pasteNowhere": "{{part}} kann nicht in oder nach {{target}}",
-    "theDesign": "das Design"
+    "theDesign": "das Design",
+    "ignoredTag": "ignoriert"
   },
   "prop": {
     "selectHint": "Wählen Sie ein Bauteil im Baum oder in der Zeichnung, um seine Eigenschaften zu bearbeiten.",
@@ -1808,7 +1806,9 @@
     "splitClusterTip": "Den Cluster in einzelne Rohre aufteilen. Alles, was an diesem Rohr hängt, wird ebenfalls kopiert.",
     "resetClusterTip": "Abstand und Drehung auf die Standardwerte zurücksetzen",
     "autoFinTab": "Automatisch berechnen",
-    "autoFinTabTip": "Ermittelt Höhe und Länge der Lasche aus den Innenrohren und Zentrierringen im Rohr, auf dem die Finne sitzt"
+    "autoFinTabTip": "Ermittelt Höhe und Länge der Lasche aus den Innenrohren und Zentrierringen im Rohr, auf dem die Finne sitzt",
+    "ignore": "Dieses Bauteil ignorieren",
+    "ignoreHint": "Bleibt im Entwurf und in der .ork-Datei, wird aber bei allen Berechnungen der App weggelassen: Masse, Schwerpunkt, Druckpunkt, Widerstand und jede Simulation. Enthaltene Bauteile werden ebenfalls weggelassen. Desktop-OpenRocket bezieht es weiterhin ein."
   },
   "opensAt": {
     "auto": "Automatisch",
@@ -2267,7 +2267,10 @@
     "selectOne": "{{name}} auswählen",
     "viewResults": "Ergebnisse ansehen",
     "viewResultsFor": "Ergebnisse für {{name}} ansehen",
-    "summary": "Simulationsergebnisse"
+    "summary": "Simulationsergebnisse",
+    "dragColumn": "Eine Überschrift auf eine andere ziehen, um ihre Spalte zu verschieben",
+    "moveColumnLeft": "{{name}} nach links verschieben",
+    "moveColumnRight": "{{name}} nach rechts verschieben"
   },
   "ignition": {
     "automatic": "Automatisch",
@@ -2430,7 +2433,6 @@
     "RECOVERY_HIGH_SPEED": "Das Bergungssystem öffnete sich, während die Rakete noch schnell unterwegs war. Der Stoß belastet Zelle und Kappe zugleich: Er kann das Rumpfrohr aufschlitzen, den Schirm zerreißen oder die Fangleinen herausreißen. Werfen Sie näher am Apogäum aus oder fliegen Sie mit Doppelauswurf, also Bremsschirm und tiefer gesetztem Hauptschirm.",
     "RECOVERY_MAIN_HIGH_SPEED": "Bei einem Flug mit Doppelauswurf sollte sich der Hauptschirm langsam öffnen, während die Rakete bereits am Bremsschirm hängt. Dieser öffnete sich schnell genug, um dasselbe Aufschlitzen und dieselben Kappenschäden zu riskieren – meist ein zu kleiner Bremsschirm, der die Rakete nicht verzögert, oder ein zu hoch eingestellter Auswurf des Hauptschirms.",
     "RECOVERY_MAIN_LOW_SPEED": "Der Hauptschirm öffnete sich, während die Rakete kaum sank, was in der Regel einen Auswurf am oder nahe dem Apogäum bedeutet. Es geht nichts kaputt, aber der Zweck des Doppelauswurfs ist verfehlt: Die Rakete schwebt aus voller Höhe herab und treibt weit mit dem Wind ab.",
-    "RECOVERY_DROGUE_LOW_SPEED": "Der Bremsschirm öffnete sich, während sich die Rakete kaum bewegte, und trägt daher wenig zur Stabilisierung des Abstiegs bei. Meist ein Bremsschirm, der deutlich vor dem Apogäum ausgeworfen wurde.",
     "RECOVERY_LAUNCH_ROD": "Ein Bergungssystem löste aus, während die Rakete noch auf der Startvorrichtung war. Prüfen Sie die Ausstoßverzögerung und die Auswurfeinstellungen: So simuliert endet der Flug am Startplatz.",
     "RECOVERY_LAUNCH_ROD_rail": "Ein Bergungssystem löste aus, während die Rakete noch auf der Schiene war. Prüfen Sie die Ausstoßverzögerung und die Auswurfeinstellungen: So simuliert endet der Flug am Startplatz.",
     "RECOVERY_LAUNCH_ROD_rod": "Ein Bergungssystem löste aus, während die Rakete noch auf dem Stab war. Prüfen Sie die Ausstoßverzögerung und die Auswurfeinstellungen: So simuliert endet der Flug am Startplatz.",
@@ -3261,5 +3263,13 @@
       "deployDelay": "Auswurfverzögerung",
       "deployAltitude": "Auswurfhöhe"
     }
+  },
+  "baseDragHack": {
+    "label": "Heckwiderstand-Trick (nur Stabilitätswerte)",
+    "hint": "Ein unsichtbarer Konus hinter dem Heck, ohne Masse und Widerstand, der den Druckpunkt nach hinten verschiebt, um den Heckwiderstand kurzer, dicker Raketen zu berücksichtigen, den Barrowman ignoriert („Base Drag CP Correction“ von OpenRocket). Wirkt nur auf Stabilität, Druckpunkt und Cd, nie auf Simulationen.",
+    "partName": "Heckwiderstand-Trick (nur Stabilität)",
+    "partComment": "Heckwiderstand-Trick: ein Konus ohne Masse und Widerstand, der den Druckpunkt um den Heckwiderstand korrigiert. Kein echtes Bauteil.",
+    "statsTag": "Heckwiderstand-Trick",
+    "statsTagHint": "Stabilität, Druckpunkt und Cd enthalten den Heckkonus des Heckwiderstand-Tricks. Simulationen nicht."
   }
 }

@@ -9,6 +9,7 @@ import { useScopedUnit } from '../common/useScopedUnit';
 import { unitScope } from '../../prefs/units';
 import { useSettings } from '../../state/useSettings';
 import { stabilityReadout } from '../layout/simSummaryReadouts';
+import { useWorkspaceStore } from '../../state/store';
 
 export function StabilityBadge({
   info,
@@ -32,6 +33,7 @@ export function StabilityBadge({
   const recoveryTile = useScopedUnit(unitScope('stats', 'recoveryWeight'), 'mass');
   const cgTile = useScopedUnit(unitScope('stats', 'cg'), 'length');
   const cpTile = useScopedUnit(unitScope('stats', 'cp'), 'length');
+  const hack = useWorkspaceStore((s) => s.tree.baseDragHack === true);
   if (!info) return null;
   const cal = info.stabilityCalibers;
   // An uncomputable margin has no band: neutral, not a false "Unstable".
@@ -59,6 +61,11 @@ export function StabilityBadge({
           )
         }
       />
+      {hack && (
+        <p className="mt-1 px-1 text-[11px] leading-snug text-warn-300">
+          <span className="font-semibold">{t('baseDragHack.statsTag')}:</span> {t('baseDragHack.statsTagHint')}
+        </p>
+      )}
       {expanded && (
         <div
           className={`mt-2 grid grid-cols-2 gap-1.5 ${

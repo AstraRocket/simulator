@@ -1528,9 +1528,7 @@ public final class OpenRocketEngine {
         conditions.setTimeStep(timeStep > 0 ? timeStep : 0.05);
         conditions.setMaxSimulationTime(JsonLite.dbl(o, "maxTime", 1200));
         conditions.setRandomSeed(randomSeed);
-        // drogueLowSpeed is read via PATCH(drogue-low-speed) in BasicEventSimulationEngine.
         conditions.setRecoverySpeedWarning(JsonLite.dbl(o, "recoverySpeedWarn", 20.0));
-        conditions.setDrogueLowSpeedWarning(JsonLite.dbl(o, "drogueLowSpeedWarn", 3.048));
         conditions.setRecoveryDrogueMainHighSpeedWarning(JsonLite.dbl(o, "mainHighSpeedWarn", 30.48));
         conditions.setRecoveryDrogueMainLowSpeedWarning(JsonLite.dbl(o, "mainLowSpeedWarn", 15.24));
 

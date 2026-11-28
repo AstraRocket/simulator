@@ -657,7 +657,6 @@
     },
     "mainHighSpeedWarn": "Openingssnelheid hoofdparachute (max.)",
     "mainLowSpeedWarn": "Openingssnelheid hoofdparachute (min.)",
-    "drogueLowSpeedWarn": "Openingssnelheid drogue (min.)",
     "railExitMinHint": "Daaronder hebben de vinnen te weinig luchtstroom om te sturen, dus kan de raket de wind in draaien of instabiel worden zodra hij de lanceerinrichting verlaat.",
     "simModel": "Vluchtmodel",
     "guideAwareRodClearance": "Verlaten volgens de geleiders",
@@ -670,7 +669,6 @@
     "deploySpeedWarnHint": "Enkelvoudig openen (zonder drogue): boven deze snelheid loop je het risico dat het openen van de parachute de romp openscheurt of de koepel verscheurt.",
     "mainHighSpeedWarnHint": "Dubbel openen: daarboven komt de HOOFDPARACHUTE er te snel uit, meestal door een drogue die te klein is om de raket af te remmen of door een hoofdparachute die te hoog is ingesteld.",
     "mainLowSpeedWarnHint": "Dubbel openen: daaronder gaat de hoofdparachute open terwijl de raket nauwelijks daalt, wat normaal betekent dat hij rond het apogeum is opengegaan: een langzame daling vanaf de volle hoogte met veel drift.",
-    "drogueLowSpeedWarnHint": "Dubbel openen: daaronder komt de drogue in het apogeum te langzaam uit om goed te vullen. Geldt alleen voor een trap met een parachute of wimpel die als drogue is aangemerkt.",
     "materialsNote": "Waar een nieuw toegevoegd onderdeel van gemaakt is. Het materiaal wordt aan het onderdeel toegewezen zodra je het toevoegt, dus het staat in het paneel en gaat mee met het ontwerp. Onderdelen die al in de raket zitten veranderen niet.",
     "materialSlot": {
       "parachute_surface": "Parachutekoepel",
@@ -963,7 +961,6 @@
     "RECOVERY_HIGH_SPEED": "Bergingsmiddel geopend bij hoge snelheid",
     "RECOVERY_MAIN_HIGH_SPEED": "Hoofdparachute geopend bij hoge snelheid",
     "RECOVERY_MAIN_LOW_SPEED": "Hoofdparachute geopend bij lage snelheid",
-    "RECOVERY_DROGUE_LOW_SPEED": "Drogue geopend bij lage snelheid",
     "RECOVERY_DROGUE_NO_MAIN": "Drogue geopend zonder hoofdparachute",
     "EVENT_AFTER_LANDING": "Er trad een gebeurtenis op na de landing",
     "FILE_INVALID_PARAMETER": "Ongeldige parameter in het bestand",
@@ -1638,7 +1635,8 @@
     "selectFirst": "Selecteer eerst een onderdeel",
     "pasteEmpty": "Niets om te plakken: knip of kopieer eerst een onderdeel",
     "pasteNowhere": "{{part}} kan niet in of na {{target}}",
-    "theDesign": "het ontwerp"
+    "theDesign": "het ontwerp",
+    "ignoredTag": "genegeerd"
   },
   "prop": {
     "selectHint": "Kies een onderdeel in de boom of de tekening om de eigenschappen ervan te bewerken.",
@@ -1808,7 +1806,9 @@
     "splitClusterTip": "Het cluster in afzonderlijke buizen splitsen. Alles wat aan deze buis vastzit wordt ook gedupliceerd.",
     "resetClusterTip": "Afstand en rotatie terugzetten op de standaardwaarden",
     "autoFinTab": "Bereken automatisch",
-    "autoFinTabTip": "Berekent de hoogte en lengte van de lip uit de binnenbuizen en centreerringen in de body waarop de vin zit"
+    "autoFinTabTip": "Berekent de hoogte en lengte van de lip uit de binnenbuizen en centreerringen in de body waarop de vin zit",
+    "ignore": "Dit onderdeel negeren",
+    "ignoreHint": "Blijft in het ontwerp en het .ork-bestand, maar wordt weggelaten uit alles wat de app berekent: massa, zwaartepunt, drukpunt, weerstand en elke simulatie. Onderdelen erin worden ook weggelaten. Desktop-OpenRocket neemt het nog wel mee."
   },
   "opensAt": {
     "auto": "Automatisch",
@@ -2267,7 +2267,10 @@
     "selectOne": "{{name}} selecteren",
     "viewResults": "Resultaten bekijken",
     "viewResultsFor": "Resultaten van {{name}} bekijken",
-    "summary": "Simulatieresultaten"
+    "summary": "Simulatieresultaten",
+    "dragColumn": "Sleep een kop naar een andere om de kolom te verplaatsen",
+    "moveColumnLeft": "{{name}} naar links verplaatsen",
+    "moveColumnRight": "{{name}} naar rechts verplaatsen"
   },
   "ignition": {
     "automatic": "Automatisch",
@@ -2430,7 +2433,6 @@
     "RECOVERY_HIGH_SPEED": "Het bergingsmiddel ging open terwijl de raket nog hard ging. De schok belast de romp en de koepel tegelijk: hij kan de rompbuis openscheuren, de parachute verscheuren of de lijnen eruit trekken. Open dichter bij het apogeum, of vlieg met dubbel openen, een drogue en een lagere hoofdparachute.",
     "RECOVERY_MAIN_HIGH_SPEED": "Bij een vlucht met dubbel openen hoort de hoofdparachute langzaam open te gaan, al aan de drogue. Deze ging zo snel open dat dezelfde scheur en schade aan de koepel dreigen, meestal door een drogue die te klein is om de raket af te remmen of door een hoofdparachute die te hoog is ingesteld.",
     "RECOVERY_MAIN_LOW_SPEED": "De hoofdparachute ging open terwijl de raket nauwelijks daalde, wat normaal betekent dat hij in of dicht bij het apogeum is opengegaan. Er breekt niets, maar het doel van dubbel openen is weg: de raket zweeft vanaf de volle hoogte naar beneden en drijft een heel eind met de wind mee.",
-    "RECOVERY_DROGUE_LOW_SPEED": "De drogue ging open terwijl de raket bijna stil hing, dus doet hij weinig om de daling te stabiliseren. Meestal een drogue die ruim voor het apogeum is opengegaan.",
     "RECOVERY_LAUNCH_ROD": "Een bergingsmiddel ging open terwijl de raket nog op de lanceerinrichting zat. Kijk de uitstootvertraging en de openingsinstellingen na: zoals gesimuleerd eindigt de vlucht op het platform.",
     "RECOVERY_LAUNCH_ROD_rail": "Een bergingsmiddel ging open terwijl de raket nog op de rail zat. Kijk de uitstootvertraging en de openingsinstellingen na: zoals gesimuleerd eindigt de vlucht op het platform.",
     "RECOVERY_LAUNCH_ROD_rod": "Een bergingsmiddel ging open terwijl de raket nog op de stang zat. Kijk de uitstootvertraging en de openingsinstellingen na: zoals gesimuleerd eindigt de vlucht op het platform.",
@@ -3261,5 +3263,13 @@
       "deployDelay": "Vertraging van het openen",
       "deployAltitude": "Openingshoogte"
     }
+  },
+  "baseDragHack": {
+    "label": "Bodemweerstand-truc (alleen stabiliteitswaarden)",
+    "hint": "Een onzichtbare kegel achter de staart, zonder massa of weerstand, die het drukpunt naar achteren verschuift om rekening te houden met bodemweerstand bij korte, brede raketten, die Barrowman negeert (de „Base Drag CP Correction” van OpenRocket). Werkt alleen op stabiliteit, drukpunt en Cd, nooit op simulaties.",
+    "partName": "Bodemweerstand-truc (alleen stabiliteit)",
+    "partComment": "Bodemweerstand-truc: een kegel zonder massa en weerstand die het drukpunt corrigeert voor bodemweerstand. Geen echt onderdeel.",
+    "statsTag": "Bodemweerstand-truc",
+    "statsTagHint": "Stabiliteit, drukpunt en Cd bevatten de staartkegel van de bodemweerstand-truc. Simulaties niet."
   }
 }

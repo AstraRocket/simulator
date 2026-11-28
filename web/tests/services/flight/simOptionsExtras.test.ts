@@ -29,7 +29,6 @@ const prefs: SimPrefs = {
   deploymentSpeedWarn: 20,
   mainHighSpeedWarn: 30.48,
   mainLowSpeedWarn: 15.24,
-  drogueLowSpeedWarn: 3.048,
   guideAwareRodClearance: false,
   railExitVelocityMin: 15,
   rogersKbf: false,

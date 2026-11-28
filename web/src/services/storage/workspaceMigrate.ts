@@ -1,4 +1,5 @@
 import { settleLinkedDimensions } from '../design/linkedDimensions';
+import { liftBaseDragHack } from '../design/engineTree';
 import type { Workspace } from './workspaceStore';
 import { isRecord } from '../app/numbers';
 import { upgradeDocExtra, upgradeNotes } from './docExtraUpgrade';
@@ -24,7 +25,8 @@ export function migrateWorkspace(w: unknown): Workspace | null {
 }
 
 function settled(w: Workspace): Workspace {
-  const tree = settleLinkedDimensions(upgradeDocExtra(w.tree));
+  // Lifted here too, so a design saved with a hand-made hack cone in it drops the cone and sets the flag on load.
+  const tree = liftBaseDragHack(settleLinkedDimensions(upgradeDocExtra(w.tree)));
   const notes = w.loadedMeta?.notes;
   const upgradedNotes = Array.isArray(notes) ? upgradeNotes(notes) : notes;
   const meta =

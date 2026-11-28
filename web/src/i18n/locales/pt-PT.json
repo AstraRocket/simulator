@@ -658,7 +658,6 @@
     },
     "mainHighSpeedWarn": "Velocidade de abertura do principal (máx.)",
     "mainLowSpeedWarn": "Velocidade de abertura do principal (mín.)",
-    "drogueLowSpeedWarn": "Velocidade de abertura do drogue (mín.)",
     "railExitMinHint": "Abaixo disto as aletas têm demasiado pouco fluxo de ar para dirigir, pelo que o foguetão pode virar-se para o vento ou ficar instável ao deixar a guia.",
     "simModel": "Modelo de voo",
     "guideAwareRodClearance": "Saída conforme as guias",
@@ -671,7 +670,6 @@
     "deploySpeedWarnHint": "Abertura única (sem drogue): acima desta velocidade, abrir o paraquedas arrisca rasgar a fuselagem a todo o comprimento ou romper o velame.",
     "mainHighSpeedWarnHint": "Abertura dupla: acima disto o PRINCIPAL está a sair demasiado depressa, normalmente por um drogue demasiado pequeno para travar o foguetão ou por um principal configurado para abrir demasiado alto.",
     "mainLowSpeedWarnHint": "Abertura dupla: abaixo disto o principal abre com o foguetão quase sem descer, o que em geral significa que abriu perto do apogeu: uma descida lenta desde a altitude máxima, com muita deriva.",
-    "drogueLowSpeedWarnHint": "Abertura dupla: abaixo disto o drogue sai demasiado devagar no apogeu para insuflar como deve ser. Aplica-se apenas a um andar que leve um paraquedas ou fita marcado como drogue.",
     "materialsNote": "De que é feita uma peça recém-acrescentada. O material é atribuído à peça quando a acrescenta, pelo que aparece no painel e viaja com o projeto. As peças que já estão no foguetão não são alteradas.",
     "materialSlot": {
       "parachute_surface": "Velame do paraquedas",
@@ -965,7 +963,6 @@
     "RECOVERY_HIGH_SPEED": "Dispositivo de recuperação aberto a alta velocidade",
     "RECOVERY_MAIN_HIGH_SPEED": "Principal aberto a alta velocidade",
     "RECOVERY_MAIN_LOW_SPEED": "Principal aberto a baixa velocidade",
-    "RECOVERY_DROGUE_LOW_SPEED": "Drogue aberto a baixa velocidade",
     "RECOVERY_DROGUE_NO_MAIN": "Drogue aberto sem paraquedas principal",
     "EVENT_AFTER_LANDING": "Um evento ocorreu depois da aterragem",
     "FILE_INVALID_PARAMETER": "Parâmetro inválido no ficheiro",
@@ -1643,7 +1640,8 @@
     "selectFirst": "Seleciona primeiro uma peça",
     "pasteEmpty": "Nada para colar: corta ou copia primeiro uma peça",
     "pasteNowhere": "{{part}} não pode ir para dentro nem depois de {{target}}",
-    "theDesign": "o projeto"
+    "theDesign": "o projeto",
+    "ignoredTag": "ignorada"
   },
   "prop": {
     "selectHint": "Selecione um componente na árvore ou no desenho para editar as propriedades dele.",
@@ -1813,7 +1811,9 @@
     "splitClusterTip": "Separar o conjunto em tubos individuais. Tudo o que estiver ligado a este tubo também é duplicado.",
     "resetClusterTip": "Repor o espaçamento e a rotação nos valores predefinidos",
     "autoFinTab": "Calcular automaticamente",
-    "autoFinTabTip": "Calcula a altura e o comprimento da lingueta a partir dos tubos internos e anéis de centragem do corpo onde a aleta está"
+    "autoFinTabTip": "Calcula a altura e o comprimento da lingueta a partir dos tubos internos e anéis de centragem do corpo onde a aleta está",
+    "ignore": "Ignorar esta peça",
+    "ignoreHint": "Mantida no projeto e no ficheiro .ork, mas deixada de fora de tudo o que a aplicação calcula: massa, CG, CP, arrasto e cada simulação. As peças dentro dela também ficam de fora. O OpenRocket para computador continua a incluí-la."
   },
   "opensAt": {
     "auto": "Automático",
@@ -2275,7 +2275,10 @@
     "selectOne": "Selecionar {{name}}",
     "viewResults": "Ver os resultados",
     "viewResultsFor": "Ver os resultados de {{name}}",
-    "summary": "Resultados da simulação"
+    "summary": "Resultados da simulação",
+    "dragColumn": "Arraste um cabeçalho sobre outro para mover a coluna",
+    "moveColumnLeft": "Mover {{name}} para a esquerda",
+    "moveColumnRight": "Mover {{name}} para a direita"
   },
   "ignition": {
     "automatic": "Automática",
@@ -2439,7 +2442,6 @@
     "RECOVERY_HIGH_SPEED": "O dispositivo de recuperação abriu com o foguetão ainda a alta velocidade. O choque carrega a fuselagem e o velame ao mesmo tempo: pode rasgar o tubo do corpo a todo o comprimento, romper o paraquedas ou arrancar os tirantes. Abra mais perto do apogeu, ou voe com abertura dupla, um drogue e o principal mais baixo.",
     "RECOVERY_MAIN_HIGH_SPEED": "Num voo de abertura dupla o principal deve abrir devagar, já sob o drogue. Este abriu depressa o suficiente para arriscar o mesmo rasgo e dano no velame, normalmente por um drogue demasiado pequeno para travar o foguetão ou por um principal configurado para abrir demasiado alto.",
     "RECOVERY_MAIN_LOW_SPEED": "O principal abriu com o foguetão quase sem descer, o que em geral significa que abriu no apogeu ou perto dele. Nada se quebra, mas a razão de ser da abertura dupla perde-se: o foguetão desce a flutuar desde a altitude máxima e deriva muito a favor do vento.",
-    "RECOVERY_DROGUE_LOW_SPEED": "O drogue abriu com o foguetão quase parado, pelo que pouco faz para estabilizar a descida. Em geral é um drogue aberto bem antes do apogeu.",
     "RECOVERY_LAUNCH_ROD": "Um dispositivo de recuperação abriu com o foguetão ainda na guia. Verifique o atraso de ejeção e as definições de abertura: tal como foi simulado, o voo acaba na rampa.",
     "RECOVERY_LAUNCH_ROD_rail": "Um dispositivo de recuperação abriu com o foguetão ainda na calha. Verifique o atraso de ejeção e as definições de abertura: tal como foi simulado, o voo acaba na rampa.",
     "RECOVERY_LAUNCH_ROD_rod": "Um dispositivo de recuperação abriu com o foguetão ainda na haste. Verifique o atraso de ejeção e as definições de abertura: tal como foi simulado, o voo acaba na rampa.",
@@ -3280,5 +3282,13 @@
       "deployDelay": "Atraso da abertura",
       "deployAltitude": "Altitude de abertura"
     }
+  },
+  "baseDragHack": {
+    "label": "Truque do arrasto de base (apenas leituras de estabilidade)",
+    "hint": "Um cone invisível atrás da cauda, sem massa nem arrasto, que desloca o CP para trás para considerar o arrasto de base em foguetões curtos e largos, que Barrowman ignora (a “Base Drag CP Correction” do OpenRocket). Afeta apenas a estabilidade, o CP e o Cd, nunca as simulações.",
+    "partName": "Truque do arrasto de base (apenas estabilidade)",
+    "partComment": "Truque do arrasto de base: um cone sem massa e sem arrasto que corrige o CP pelo arrasto de base. Não é uma peça real.",
+    "statsTag": "Truque do arrasto de base",
+    "statsTagHint": "A estabilidade, o CP e o Cd incluem o cone de cauda do truque do arrasto de base. As simulações não."
   }
 }

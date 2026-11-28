@@ -1,6 +1,6 @@
 # Patch ledger: extracted OpenRocket core
 
-<!-- cspell:ignore Monitorable draglookup stabilitylookup badheader -->
+<!-- cspell:ignore Monitorable draglookup stabilitylookup badheader Lowspeedwarning -->
 
 Every `PATCH(...)` comment in `src/java/` points here. This is that file.
 
@@ -70,7 +70,7 @@ reconstructed.
 | `rocketcomponent/InstanceMap.java` | `ConcurrentHashMap` → `LinkedHashMap`; also makes iteration order stable. |
 | `util/MonitorableSet.java` | `HashSet` → `LinkedHashSet`. Its one user is the deployed recovery device set, whose order sets the order the landing stepper sums CdA in. Same reason as `InstanceMap`. See "Deployed recovery devices sum in deployment order". |
 | `motor/MotorConfigurationId.java` | Same `LongUUID` swap, same TeaVM gap. |
-| `simulation/BasicEventSimulationEngine.java` | `PATCH(teavm-format-g)`: `"%g"` → `"%s"` (TeaVM's `Formatter` lacks `%g`). Plus `PATCH(drogue-low-speed)`: upstream's own drogue-low-speed check, uncommented (see below). |
+| `simulation/BasicEventSimulationEngine.java` | `PATCH(teavm-format-g)`: `"%g"` → `"%s"` (TeaVM's `Formatter` lacks `%g`). |
 | `util/BoundingBox.java` | Dropped `java.awt.geom.Rectangle2D`, and with it the public `update(Rectangle2D)` and `toRectangle()` (it does not use `Geo2D`). `PATCH(teavm-format-g)`: `toString()` built by concatenation, since TeaVM's `Formatter` has no `%g`. |
 | `aerodynamics/BarrowmanDragCalculator.java` | `Reflection.construct` → an `instanceof` chain (no reflection under TeaVM); `buildCalcMap` widened to `protected`; `effectiveBaseCD`/`turbulentCompressibility` seams for the RASAero shims. |
 | `aerodynamics/BarrowmanStabilityCalculator.java` | Same reflection replacement and `protected` widening, for the stability half. |
@@ -294,6 +294,8 @@ real dual-deployment rocket for each branch, since a warning nothing can raise
 looks exactly like one that never fires.
 
 Retire this patch if upstream ever enables the block itself.
+
+**Retired 2026-11-28.** See the entry of that date.
 
 
 ---
@@ -1669,3 +1671,17 @@ see `extract/MMROCKET-SIM`), ported onto our upstream file.
   iteration order after inserting 30, 2 and 17 (a `HashSet` iterates 17, 2, 30), so
   losing the patch fails the golden. `audit.mjs` now expects 407 lines.
 - **Parity:** JS and WASM agree with the JVM on all 407 lines.
+
+## `PATCH(drogue-low-speed)` retired - 2026-11-28
+
+- **Why:** the check judges a drogue set to deploy at apogee against a minimum
+  speed. At apogee the rocket is by definition near its slowest, so a clean,
+  near-vertical flight raised `RECOVERY_DROGUE_LOW_SPEED` on a textbook dual
+  deployment. Upstream ships the block commented out, and we now do the same. The
+  `setDrogue` fix in `ComponentFactory` from the 2026-09-18 entry stays; the main
+  chute thresholds and `RECOVERY_DROGUE_NO_MAIN` still depend on it.
+- **Change:** the block is back to upstream's text, comment markers included. The
+  bridge no longer reads `drogueLowSpeedWarn`, and the web app drops the setting,
+  its translations and the `.ork` `drogueLowspeedwarning` round trip.
+- **Fingerprint:** `BasicEventSimulationEngine.java` `a95d7a9feffe`: 13 -> 6 lines,
+  only `PATCH(teavm-format-g)` left. `@manifest` and `@upstream` unchanged.

@@ -5,6 +5,10 @@ export interface CheckMenuItem {
   key: string;
   label: ReactNode;
   checked: boolean;
+  /** Shown checked but not changeable. */
+  disabled?: boolean;
+  /** After the label, outside it, so its buttons do not toggle the box. */
+  extra?: ReactNode;
 }
 
 export function CheckMenu({
@@ -50,15 +54,19 @@ export function CheckMenu({
       >
         {children}
         {items.map((it) => (
-          <label key={it.key} className="flex items-center gap-2 rounded px-2 py-1 text-sm text-ink hover:bg-raised">
-            <input
-              type="checkbox"
-              checked={it.checked}
-              className="accent-accent-500"
-              onChange={() => onToggle(it.key)}
-            />
-            {it.label}
-          </label>
+          <div key={it.key} className="flex items-center gap-1 rounded hover:bg-raised">
+            <label className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={it.checked}
+                disabled={it.disabled}
+                className="accent-accent-500"
+                onChange={() => onToggle(it.key)}
+              />
+              {it.label}
+            </label>
+            {it.extra}
+          </div>
         ))}
       </div>
     </details>

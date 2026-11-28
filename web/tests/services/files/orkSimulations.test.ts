@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// cspell:ignore randomseed recoveryspeedwarning droguelowspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning draglookup stabilitylookup stabilitylookupcsv Allumage -- OpenRocket .ork element names, and a French extension name
+// cspell:ignore randomseed recoveryspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning draglookup stabilitylookup stabilitylookupcsv Allumage -- OpenRocket .ork element names, and a French extension name
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -229,7 +229,6 @@ describe('simulation options in the conditions', () => {
     deploymentSpeedWarn: 18,
     mainHighSpeedWarn: 25,
     mainLowSpeedWarn: 12,
-    drogueLowSpeedWarn: 2.5,
   };
   const cond = (xml: string, tag: string) =>
     new DOMParser().parseFromString(xml, 'application/xml').querySelector(`simulation > conditions > ${tag}`)
@@ -250,7 +249,6 @@ describe('simulation options in the conditions', () => {
     expect(cond(xml, 'simulationsteppermethod')).toBe('rk6');
     expect(cond(xml, 'randomseed')).toBe('42');
     expect(cond(xml, 'recoveryspeedwarning')).toBe('18');
-    expect(cond(xml, 'drogueLowspeedwarning')).toBe('2.5');
     expect(cond(xml, 'recoverydroguemainhighspeedwarning')).toBe('25');
     expect(cond(xml, 'recoverydroguemainlowspeedwarning')).toBe('12');
   });
@@ -352,7 +350,6 @@ describe("each simulation's own run settings", () => {
     deploymentSpeedWarn: 20,
     mainHighSpeedWarn: 30.48,
     mainLowSpeedWarn: 15.24,
-    drogueLowSpeedWarn: 3.048,
   } as SimPrefs;
   const fine = { ...globals, timeStep: 0.01, stepper: 'rk6' as const };
   const xml = write([

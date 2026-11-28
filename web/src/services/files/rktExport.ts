@@ -37,6 +37,7 @@ import {
 } from './rocksim/schema';
 import { overridesStages, type StageFigures } from './rocksim/stageStacks';
 import { DESKTOP_PART_NAMES } from './desktopPartNames';
+import { withBaseDragHack } from '../design/engineTree';
 
 export type { StageFigures } from './rocksim/stageStacks';
 
@@ -626,10 +627,17 @@ export interface RktExportResult {
 
 export function exportRkt(
   name: string,
-  tree: RocketTree,
+  designTree: RocketTree,
   componentInfo?: ComponentFigures,
   stageFigures?: readonly StageFigures[],
 ): RktExportResult {
+  // RockSim has no such flag either, so the file carries the cone, as the .ork does.
+  const tree = withBaseDragHack(
+    designTree,
+    i18n.t('baseDragHack.partName'),
+    i18n.t('baseDragHack.partComment'),
+    'rocksim',
+  );
   const lines: string[] = [];
   const w: Writer = {
     emit: (depth, s) => lines.push('  '.repeat(depth) + s),

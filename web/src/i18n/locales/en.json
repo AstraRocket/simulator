@@ -657,7 +657,6 @@
     },
     "mainHighSpeedWarn": "Main deploy speed (max)",
     "mainLowSpeedWarn": "Main deploy speed (min)",
-    "drogueLowSpeedWarn": "Drogue deploy speed (min)",
     "railExitMinHint": "Below this the fins have too little airflow to steer, so the rocket can weathercock into the wind or go unstable as it leaves the launcher.",
     "simModel": "Flight model",
     "guideAwareRodClearance": "Guide-aware launcher clearance",
@@ -670,7 +669,6 @@
     "deploySpeedWarnHint": "Single deployment (no drogue): above this speed, opening the parachute risks zippering the airframe or tearing the canopy.",
     "mainHighSpeedWarnHint": "Dual deployment: above this the MAIN is coming out too fast. That usually means a drogue too small to slow the rocket, or a main set to deploy too high.",
     "mainLowSpeedWarnHint": "Dual deployment: below this the main opens while the rocket is barely descending, which normally means it deployed near apogee: a slow descent from full altitude that drifts far.",
-    "drogueLowSpeedWarnHint": "Dual deployment: below this the drogue comes out too slowly at apogee to inflate properly. Applies only to a stage carrying a chute or streamer marked as a drogue.",
     "materialsNote": "What a newly added part is made of. The material is assigned to the part when you add it, so it shows in the panel and travels with the design. Parts already in the rocket are not changed.",
     "materialSlot": {
       "parachute_surface": "Parachute canopy",
@@ -963,7 +961,6 @@
     "RECOVERY_HIGH_SPEED": "Recovery device deployed at high speed",
     "RECOVERY_MAIN_HIGH_SPEED": "Main deployed at high speed",
     "RECOVERY_MAIN_LOW_SPEED": "Main deployed at low speed",
-    "RECOVERY_DROGUE_LOW_SPEED": "Drogue deployed at low speed",
     "RECOVERY_DROGUE_NO_MAIN": "Drogue deployed with no main chute",
     "EVENT_AFTER_LANDING": "An event fired after landing",
     "FILE_INVALID_PARAMETER": "Invalid parameter in the file",
@@ -1638,7 +1635,8 @@
     "selectFirst": "Select a part first",
     "pasteEmpty": "Nothing to paste: cut or copy a part first",
     "pasteNowhere": "A {{part}} can't go in or after {{target}}",
-    "theDesign": "the design"
+    "theDesign": "the design",
+    "ignoredTag": "ignored"
   },
   "prop": {
     "selectHint": "Select a component in the tree or drawing to edit its properties.",
@@ -1808,7 +1806,9 @@
     "splitClusterTip": "Split the cluster into separate tubes. Anything attached to this tube is duplicated too.",
     "resetClusterTip": "Reset the spacing and rotation to their defaults",
     "autoFinTab": "Calculate automatically",
-    "autoFinTabTip": "Works out the tab's height and length from the inner tubes and centering rings inside the body the fin is on"
+    "autoFinTabTip": "Works out the tab's height and length from the inner tubes and centering rings inside the body the fin is on",
+    "ignore": "Ignore this part",
+    "ignoreHint": "Kept in the design and the .ork file, but left out of everything the app calculates: mass, CG, CP, drag and every simulation. Parts inside it are left out too. Desktop OpenRocket still includes it."
   },
   "opensAt": {
     "auto": "Automatic",
@@ -2267,7 +2267,10 @@
     "selectOne": "Select {{name}}",
     "viewResults": "View results",
     "viewResultsFor": "View results for {{name}}",
-    "summary": "Simulation results"
+    "summary": "Simulation results",
+    "dragColumn": "Drag a heading onto another to move its column",
+    "moveColumnLeft": "Move {{name}} left",
+    "moveColumnRight": "Move {{name}} right"
   },
   "ignition": {
     "automatic": "Automatic",
@@ -2430,7 +2433,6 @@
     "RECOVERY_HIGH_SPEED": "The recovery device opened while the rocket was still moving fast. The shock loads the airframe and the canopy at once: it can zipper the body tube, tear the chute or pull the shroud lines out. Deploy nearer apogee, or fly dual-deployment with a drogue and a lower main.",
     "RECOVERY_MAIN_HIGH_SPEED": "On a dual-deployment flight the main should open slowly, already under drogue. This one opened fast enough to risk the same zippering and canopy damage. The usual cause is a drogue that is too small to slow the rocket, or a main set to deploy too high.",
     "RECOVERY_MAIN_LOW_SPEED": "The main opened while the rocket was barely descending, which normally means it deployed at or close to apogee. Nothing breaks, but the point of dual deployment is lost: the rocket floats down from full altitude and drifts a long way downwind.",
-    "RECOVERY_DROGUE_LOW_SPEED": "The drogue opened while the rocket was barely moving, so it does little to stabilize the descent. Usually a drogue deployed well before apogee.",
     "RECOVERY_LAUNCH_ROD": "A recovery device deployed while the rocket was still on the launcher. Check the ejection delay and the deployment settings: as simulated, the flight ends at the pad.",
     "RECOVERY_LAUNCH_ROD_rail": "A recovery device deployed while the rocket was still on the rail. Check the ejection delay and the deployment settings: as simulated, the flight ends at the pad.",
     "RECOVERY_LAUNCH_ROD_rod": "A recovery device deployed while the rocket was still on the rod. Check the ejection delay and the deployment settings: as simulated, the flight ends at the pad.",
@@ -3261,5 +3263,13 @@
       "deployDelay": "Deployment delay",
       "deployAltitude": "Deployment altitude"
     }
+  },
+  "baseDragHack": {
+    "label": "Base drag hack (stability readouts only)",
+    "hint": "An invisible cone behind the tail, with no mass or drag, that moves the CP aft to account for base drag on short, wide rockets, which Barrowman ignores (OpenRocket’s “Base Drag CP Correction”). Affects stability, CP and Cd only, never simulations.",
+    "partName": "Base drag hack (stability only)",
+    "partComment": "Base drag hack: a cone with no mass or drag that corrects the CP for base drag. Not a real part.",
+    "statsTag": "Base drag hack",
+    "statsTagHint": "Stability, CP and Cd include the base drag hack tail cone. Simulations do not."
   }
 }

@@ -168,13 +168,12 @@ The other four are deployment thresholds. They color the result tiles *and* reac
 
 - **Deploy-speed warning above**: single deployment (no drogue): above this speed, opening the parachute risks zippering the airframe or tearing the canopy.
 
-The last three apply only to **dual deployment** (a stage carrying a drogue), where the main and the drogue are judged instead of the single threshold above:
+The last two apply only to **dual deployment** (a stage carrying a drogue), where the main is judged instead of the single threshold above. The drogue has no speed check: it opens at apogee, where the rocket is meant to be at its slowest.
 
 - **Main deploy speed (max)**: above this the main is coming out too fast, usually a drogue too small to slow the rocket, or a main set to deploy too high.
 - **Main deploy speed (min)**: below this the main opens while the rocket is barely descending, which normally means it deployed near apogee: a slow descent from full altitude that can drift a long way.
-- **Drogue deploy speed (min)**: below this the drogue comes out too slowly at apogee to inflate properly.
 
-All three depend on the rocket saying which chute is which. That is set on the stage: choose **Dual deployment** under **Recovery deployment type** and pick the parachute or streamer that opens at apogee as the **Drogue device**, and the flight is judged as dual deployment. With **Single deployment** the whole stage is judged against **Deploy-speed warning above** alone.
+Both depend on the rocket saying which chute is which. That is set on the stage: choose **Dual deployment** under **Recovery deployment type** and pick the parachute or streamer that opens at apogee as the **Drogue device**, and the flight is judged as dual deployment. With **Single deployment** the whole stage is judged against **Deploy-speed warning above** alone.
 
 Each of the four deployment thresholds can also be overridden per simulation, in the simulation's own options.
 

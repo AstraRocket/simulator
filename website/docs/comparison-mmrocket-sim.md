@@ -68,3 +68,6 @@ Both are browser apps from independent authors, with no install, an installable 
 | **A unit picker on every value** | Theirs sets units per quantity. |
 | **Random seed and gravity model settings** | Theirs fixes the seed and the gravity model. |
 | **Backup file** | Materials, parts, locations, motors, templates and settings in one file. |
+| **Ignoring a part** | Leaves a part and its contents out of the readouts and simulations while it stays in the design. Theirs hides a part from the views only; it still counts in every number. See [Designing a Rocket](./designing-a-rocket.md#ignoring-a-part). |
+| **The base drag hack as a setting** | One checkbox that changes the stability readouts only, never a simulation. Theirs deliberately leaves the hack out and warns when a design models it with a cone. See [Designing a Rocket](./designing-a-rocket.md#base-drag-hack). |
+| **Reorderable simulation columns** | Drag a heading or use the move buttons. Theirs chooses columns but adds each at the end. |

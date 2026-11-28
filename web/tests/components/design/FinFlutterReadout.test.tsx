@@ -157,7 +157,6 @@ describe('the flutter flight warning', () => {
         tree={s.tree}
         configs={s.configs}
         simPrefs={s.simPrefs}
-        onSetConfig={() => {}}
         onSelect={() => {}}
         onToggle={() => {}}
         onToggleAll={() => {}}

@@ -1,4 +1,4 @@
-// cspell:ignore recoveryspeedwarning Lowspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
+// cspell:ignore recoveryspeedwarning recoverydroguemainhighspeedwarning recoverydroguemainlowspeedwarning -- OpenRocket .ork element names
 import type { FlightSummary } from '../../../engine/openRocketEngine';
 import type { SimPrefs } from '../../flight/simulations';
 import type { OrkSimPrefs } from '../orkTypes';
@@ -19,12 +19,10 @@ export const FLIGHT_DATA_ATTRS: readonly (readonly [keyof FlightSummary, string]
 
 export const OPTIONAL_FLIGHT_DATA: ReadonlySet<keyof FlightSummary> = new Set(['deploymentVelocity', 'optimumDelay']);
 
-/** The capital L in `drogueLowspeedwarning` is upstream's exact spelling. */
 export const SIM_PREF_TAGS: readonly (readonly [keyof OrkSimPrefs & keyof SimPrefs, string])[] = [
   ['timeStep', 'timestep'],
   ['maxTime', 'maxtime'],
   ['deploymentSpeedWarn', 'recoveryspeedwarning'],
-  ['drogueLowSpeedWarn', 'drogueLowspeedwarning'],
   ['mainHighSpeedWarn', 'recoverydroguemainhighspeedwarning'],
   ['mainLowSpeedWarn', 'recoverydroguemainlowspeedwarning'],
 ];

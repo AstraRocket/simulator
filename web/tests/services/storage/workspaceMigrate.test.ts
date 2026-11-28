@@ -116,4 +116,16 @@ describe('migrateWorkspace linked dimensions', () => {
     expect(settled.tree).not.toBe(w.tree);
     expect(flightKey(settled.tree)).toBe(flightKey(w.tree));
   });
+
+  it('takes a hand-made base drag hack cone off a saved design and sets the flag instead', () => {
+    const cone = node({ type: 'nosecone', id: 'hack', flipped: true, aftRadius: 0.05, length: Math.PI * 0.1 });
+    const saved = {
+      components: [
+        node({ type: 'stage', id: 's', children: [node({ type: 'bodytube', id: 'b', outerRadius: 0.05 }), cone] }),
+      ],
+    } as unknown as RocketTree;
+    const loaded = migrateWorkspace(v3({ tree: saved }))!;
+    expect(loaded.tree.baseDragHack).toBe(true);
+    expect(loaded.tree.components[0]!.children!.map((n) => n.id)).toEqual(['b']);
+  });
 });
